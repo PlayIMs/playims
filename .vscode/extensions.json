@@ -1,0 +1,7 @@
+{
+	"recommendations": [
+		"svelte.svelte-vscode",
+		"andrewmcodes.tailwindcss-extension-pack",
+		"jgclark.vscode-todo-highlight"
+	]
+}
