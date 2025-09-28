@@ -1,9 +1,9 @@
 {
-	"name": "Svelte Tailwind Template",
-	"short_name": "Svelte Tailwind Template",
+	"name": "PlayIMs - Intramural Sports League Manager",
+	"short_name": "PlayIMs",
 	"start_url": "/",
 	"display": "standalone",
 	"background_color": "#ffffff",
-	"theme_color": "#000000",
+	"theme_color": "#2563eb",
 	"icons": []
 }

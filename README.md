@@ -1,18 +1,20 @@
-# sv
+# PlayIMs
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+The ultimate platform for managing intramural sports leagues. Built with SvelteKit and powered by Cloudflare D1 database.
 
-## Creating a project
+## Features
 
-If you're seeing this, you've probably already done this step. Congrats!
+- **Team Management**: Easy team registration, player rosters, and captain management tools
+- **Smart Scheduling**: Automated game scheduling with conflict resolution and venue management
+- **Live Standings**: Real-time standings, statistics, and league performance tracking
+- **Database Integration**: Cloudflare D1 database for reliable data storage and management
 
-```bash
-# create a new project in the current directory
-npx sv create
+## Tech Stack
 
-# create a new project in my-app
-npx sv create my-app
-```
+- **Frontend**: SvelteKit with TailwindCSS
+- **Database**: Cloudflare D1
+- **Deployment**: Vercel
+- **Package Manager**: pnpm
 
 ## Developing
 

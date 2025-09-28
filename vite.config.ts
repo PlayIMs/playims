@@ -10,9 +10,9 @@ export default defineConfig({
 		SvelteKitPWA({
 			injectRegister: 'inline',
 			manifest: {
-				name: 'Svelte Tailwind Template',
-				short_name: 'Svelte Tailwind Template',
-				theme_color: '#ffffff',
+				name: 'PlayIMs - Intramural Sports League Manager',
+				short_name: 'PlayIMs',
+				theme_color: '#2563eb',
 				background_color: '#ffffff',
 				display: 'standalone',
 				scope: '/',
