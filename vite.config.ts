@@ -1,3 +1,4 @@
+import devtoolsJson from 'vite-plugin-devtools-json';
 import tailwindcss from '@tailwindcss/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { SvelteKitPWA } from '@vite-pwa/sveltekit';
@@ -18,10 +19,9 @@ export default defineConfig({
 				scope: '/',
 				start_url: '/'
 			},
-			pwaAssets: {
-				// we will configure the PWA asset generation next
-				config: true
-			}
-		})
+			pwaAssets: { // we will configure the PWA asset generation next
+			config: true }
+		}),
+		devtoolsJson()
 	]
 });
