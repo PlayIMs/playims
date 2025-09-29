@@ -12,7 +12,7 @@ export default defineConfig({
 			manifest: {
 				name: 'PlayIMs - Intramural Sports League Manager',
 				short_name: 'PlayIMs',
-				theme_color: '#2563eb',
+				theme_color: '#7c3aed',
 				background_color: '#ffffff',
 				display: 'standalone',
 				scope: '/',
