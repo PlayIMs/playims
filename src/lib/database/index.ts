@@ -1,34 +1,53 @@
-// Database library exports
-export { createDatabaseConnection } from './connection.js';
-export type { Client, User, DatabaseConnection, QueryResult } from './types.js';
+// Database library exports - Drizzle ORM
+export { DatabaseOperations } from './operations/index.js';
+export { createDrizzleClient } from './drizzle.js';
+export * as schema from './schema.js';
+
+// Export all types from schema
+export type {
+	Client,
+	NewClient,
+	User,
+	NewUser,
+	Sport,
+	NewSport,
+	League,
+	NewLeague,
+	Division,
+	NewDivision,
+	Team,
+	NewTeam,
+	Roster,
+	NewRoster
+} from './schema.js';
 
 /**
  * Database usage example:
  *
- * In a server-side load function or API route:
+ * In a server-side load function:
  *
- * import { createDatabaseConnection } from '$lib/database';
+ * import { DatabaseOperations } from '$lib/database';
+ * import type { PageServerLoad } from './$types';
  *
- * export async function load({ platform }) {
- *   const db = createDatabaseConnection(platform);
+ * export const load: PageServerLoad = async ({ platform }) => {
+ *   const dbOps = new DatabaseOperations(platform);
  *
- *   const clients = await db.clients.getAll();
- *   const users = await db.users.getAll();
+ *   const clients = await dbOps.clients.getAll();
+ *   const users = await dbOps.users.getAll();
+ *   const leagues = await dbOps.leagues.getActive();
  *
- *   return {
- *     clients,
- *     users
- *   };
- * }
+ *   return { clients, users, leagues };
+ * };
  *
  * In an API endpoint:
  *
- * import { createDatabaseConnection } from '$lib/database';
+ * import { DatabaseOperations } from '$lib/database';
  * import { json } from '@sveltejs/kit';
+ * import type { RequestHandler } from './$types';
  *
- * export async function GET({ platform }) {
- *   const db = createDatabaseConnection(platform);
- *   const clients = await db.clients.getAll();
- *   return json(clients);
- * }
+ * export const GET: RequestHandler = async ({ platform }) => {
+ *   const dbOps = new DatabaseOperations(platform);
+ *   const teams = await dbOps.teams.getAll();
+ *   return json({ success: true, data: teams });
+ * };
  */

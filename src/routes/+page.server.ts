@@ -1,19 +1,19 @@
-import { createDatabaseConnection } from '$lib/database';
+import { DatabaseOperations } from '$lib/database/operations/index.js';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ platform }) => {
 	try {
-		// Create database connection (works for both local wrangler and production REST API)
-		const db = createDatabaseConnection(platform);
+		// Create Drizzle database operations instance
+		const dbOps = new DatabaseOperations(platform);
 
 		// Determine environment
 		const isLocalDevelopment = platform?.env?.DB;
-		const environment = isLocalDevelopment ? 'local (wrangler)' : 'production (REST API)';
+		const environment = isLocalDevelopment ? 'local (wrangler + drizzle)' : 'production (REST API)';
 
-		// Fetch data from both tables
-		const [clients, users] = await Promise.all([db.clients.getAll(), db.users.getAll()]);
+		// Fetch data from both tables using Drizzle operations
+		const [clients, users] = await Promise.all([dbOps.clients.getAll(), dbOps.users.getAll()]);
 
-		console.log(`Database query results (${environment}):`, {
+		console.log(`Drizzle database query results (${environment}):`, {
 			environment,
 			clientsCount: clients.length,
 			usersCount: users.length,
@@ -28,7 +28,7 @@ export const load: PageServerLoad = async ({ platform }) => {
 			isDevelopment: isLocalDevelopment
 		};
 	} catch (error) {
-		console.error('Database query error:', error);
+		console.error('Drizzle database query error:', error);
 
 		// Return empty arrays if there's an error
 		return {

@@ -1,15 +1,25 @@
-import { createDatabaseConnection } from '$lib/database';
+import { DatabaseOperations } from '$lib/database/operations/index.js';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ platform }) => {
 	try {
-		const db = createDatabaseConnection(platform);
-		const clients = await db.clients.getAll();
-		return json(clients);
+		const dbOps = new DatabaseOperations(platform);
+		const clients = await dbOps.clients.getAll();
+		return json({
+			success: true,
+			data: clients,
+			count: clients.length
+		});
 	} catch (error) {
 		console.error('API Error fetching clients:', error);
-		return json({ error: 'Failed to fetch clients' }, { status: 500 });
+		return json(
+			{
+				success: false,
+				error: error instanceof Error ? error.message : 'Failed to fetch clients'
+			},
+			{ status: 500 }
+		);
 	}
 };
 
@@ -18,19 +28,38 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		const data = await request.json();
 
 		// Basic validation
-		if (!data.name || !data.email) {
-			return json({ error: 'Name and email are required' }, { status: 400 });
+		if (!data.name || !data.slug) {
+			return json(
+				{
+					success: false,
+					error: 'Name and slug are required'
+				},
+				{ status: 400 }
+			);
 		}
 
-		const db = createDatabaseConnection(platform);
-		const client = await db.clients.create({
+		const dbOps = new DatabaseOperations(platform);
+		const client = await dbOps.clients.create({
 			name: data.name,
-			email: data.email
+			slug: data.slug,
+			metadata: data.metadata
 		});
 
-		return json(client, { status: 201 });
+		return json(
+			{
+				success: true,
+				data: client
+			},
+			{ status: 201 }
+		);
 	} catch (error) {
 		console.error('API Error creating client:', error);
-		return json({ error: 'Failed to create client' }, { status: 500 });
+		return json(
+			{
+				success: false,
+				error: error instanceof Error ? error.message : 'Failed to create client'
+			},
+			{ status: 500 }
+		);
 	}
 };
