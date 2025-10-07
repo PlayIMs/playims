@@ -6,12 +6,10 @@ compatibility_flags = ["nodejs_compat"]
 # D1 Database binding
 [[d1_databases]]
 binding = "DB"
-database_name = "playims-central-db-dev"n
+database_name = "playims-central-db-dev"
 database_id = "66dc8c86-b1da-4882-b259-f7847ecf5350"
+migrations_dir = "src/lib/database/migrations"
 
 # Pages deployment configuration
 [build]
 command = "pnpm run build"
-
-[build.environment_variables]
-NODE_VERSION = "20"

@@ -213,10 +213,10 @@
 								{#each data.users.slice(0, 10) as user}
 									<div class="data-item">
 										<div class="avatar crimson-avatar">
-											{(user.username || 'U').charAt(0).toUpperCase()}
+											{(user.first_name || 'U').charAt(0).toUpperCase()}
 										</div>
 										<div class="data-info">
-											<h4 class="data-name">{user.username || 'Unknown'}</h4>
+											<h4 class="data-name">{user.first_name || 'Unknown'}</h4>
 											<p class="data-email">{user.email || 'No email'}</p>
 										</div>
 									</div>

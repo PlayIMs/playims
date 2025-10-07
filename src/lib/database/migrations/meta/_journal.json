@@ -1,0 +1,13 @@
+{
+	"version": "7",
+	"dialect": "sqlite",
+	"entries": [
+		{
+			"idx": 0,
+			"version": "6",
+			"when": 1759794754709,
+			"tag": "0000_windy_skrulls",
+			"breakpoints": true
+		}
+	]
+}
