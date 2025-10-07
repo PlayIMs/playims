@@ -216,7 +216,7 @@
 											{(user.firstName || 'U').charAt(0).toUpperCase()}
 										</div>
 										<div class="data-info">
-											<h4 class="data-name">{user.firstName || 'Unknown'}</h4>
+											<h4 class="data-name">{user.first_name || 'Unknown'}</h4>
 											<p class="data-email">{user.email || 'No email'}</p>
 										</div>
 									</div>
