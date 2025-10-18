@@ -7,6 +7,23 @@ import {
 	CLOUDFLARE_API_TOKEN
 } from '$env/static/private';
 
+/**
+ * Transform snake_case database fields to camelCase to match Drizzle schema
+ */
+function transformToCamelCase(obj: any): any {
+	if (obj === null || obj === undefined) return obj;
+	if (Array.isArray(obj)) return obj.map(transformToCamelCase);
+	if (typeof obj !== 'object') return obj;
+
+	const transformed: any = {};
+	for (const [key, value] of Object.entries(obj)) {
+		// Convert snake_case to camelCase
+		const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+		transformed[camelKey] = transformToCamelCase(value);
+	}
+	return transformed;
+}
+
 export class D1RestClient {
 	private baseUrl: string;
 	private headers: Record<string, string>;

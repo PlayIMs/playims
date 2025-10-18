@@ -7,7 +7,7 @@ export const load: PageServerLoad = async ({ platform }) => {
 		const dbOps = new DatabaseOperations(platform);
 
 		// Determine environment
-		const isLocalDevelopment = platform?.env?.DB;
+		const isLocalDevelopment = (platform as any)?.env?.DB;
 		const environment = isLocalDevelopment ? 'local (wrangler + drizzle)' : 'production (REST API)';
 
 		// Fetch data from both tables using Drizzle operations

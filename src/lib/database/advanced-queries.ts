@@ -17,7 +17,7 @@ export class AdvancedQueries {
 		this.db = createDrizzleClient(platform);
 	}
 
-	// Search clients by name or email
+	// Search clients by name or slug
 	async searchClients(searchTerm: string) {
 		return await this.db
 			.select()
@@ -25,7 +25,7 @@ export class AdvancedQueries {
 			.where(
 				or(
 					like(schema.clients.name, `%${searchTerm}%`),
-					like(schema.clients.email, `%${searchTerm}%`)
+					like(schema.clients.slug, `%${searchTerm}%`)
 				)
 			)
 			.orderBy(desc(schema.clients.createdAt));
@@ -58,21 +58,22 @@ export class AdvancedQueries {
 	// Complex join query (if you add relationships later)
 	async getClientsWithUsers() {
 		// This is an example for when you might have relationships
+		// Join clients with users based on client_id
 		return await this.db
 			.select({
 				client: schema.clients,
 				user: schema.users
 			})
 			.from(schema.clients)
-			.leftJoin(schema.users, eq(schema.clients.email, schema.users.email));
+			.leftJoin(schema.users, eq(schema.clients.id, schema.users.clientId));
 	}
 
-	// Get clients by email domain
+	// Get clients by name containing domain-like string
 	async getClientsByDomain(domain: string) {
 		return await this.db
 			.select()
 			.from(schema.clients)
-			.where(like(schema.clients.email, `%@${domain}`))
+			.where(like(schema.clients.name, `%${domain}%`))
 			.orderBy(asc(schema.clients.name));
 	}
 
