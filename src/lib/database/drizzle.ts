@@ -1,4 +1,5 @@
 // Drizzle database client for Cloudflare D1
+// Creates a Drizzle database client that works in both local development (with wrangler) and production (with D1 REST API)
 import { drizzle } from 'drizzle-orm/d1';
 import type { D1Database } from '@cloudflare/workers-types';
 import * as schema from './schema.js';

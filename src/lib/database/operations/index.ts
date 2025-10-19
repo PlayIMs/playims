@@ -1,9 +1,6 @@
-// Database operations - Main entry point
-// Exports all table-specific operations and a unified DatabaseOperations class
-// Automatically uses Drizzle (local) or REST API (production) based on environment
+// Database operations - REST API only (raw SQL)
+// Simplified to use only D1 REST API for maximum efficiency
 
-import type { D1Database } from '@cloudflare/workers-types';
-import { createDrizzleClient } from '../drizzle.js';
 import { D1RestClient } from '../d1-client.js';
 import { ClientOperations } from './clients.js';
 import { UserOperations } from './users.js';
@@ -13,20 +10,10 @@ import { DivisionOperations } from './divisions.js';
 import { TeamOperations } from './teams.js';
 import { RosterOperations } from './rosters.js';
 
-// Platform interface for local development with wrangler
-interface Platform {
-	env?: {
-		DB?: D1Database;
-	};
-}
-
 /**
  * Unified database operations class
- * Automatically detects environment and uses:
- * - Drizzle ORM with D1 binding (local development with wrangler)
- * - D1 REST API (production on Vercel)
- *
- * All operation classes support both Drizzle and REST API in a single file!
+ * Uses only D1 REST API (raw SQL) for maximum simplicity and efficiency
+ * No more dual code paths - just clean, simple SQL operations
  */
 export class DatabaseOperations {
 	public clients: ClientOperations;
@@ -37,13 +24,11 @@ export class DatabaseOperations {
 	public teams: TeamOperations;
 	public rosters: RosterOperations;
 
-	constructor(platform?: Platform) {
-		const isLocalDevelopment = platform?.env?.DB;
+	constructor() {
+		// Always use REST API client
+		const db = new D1RestClient();
 
-		// Create the appropriate database client
-		const db = isLocalDevelopment ? createDrizzleClient(platform) : new D1RestClient();
-
-		// Each operation class automatically adapts to the client type
+		// All operation classes use only raw SQL
 		this.clients = new ClientOperations(db);
 		this.users = new UserOperations(db);
 		this.sports = new SportOperations(db);

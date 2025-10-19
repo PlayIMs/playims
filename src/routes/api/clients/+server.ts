@@ -2,9 +2,9 @@ import { DatabaseOperations } from '$lib/database/operations/index.js';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async ({ platform }) => {
+export const GET: RequestHandler = async () => {
 	try {
-		const dbOps = new DatabaseOperations(platform);
+		const dbOps = new DatabaseOperations();
 		const clients = await dbOps.clients.getAll();
 		return json({
 			success: true,
@@ -23,7 +23,7 @@ export const GET: RequestHandler = async ({ platform }) => {
 	}
 };
 
-export const POST: RequestHandler = async ({ request, platform }) => {
+export const POST: RequestHandler = async ({ request }) => {
 	try {
 		const data = await request.json();
 
@@ -38,7 +38,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			);
 		}
 
-		const dbOps = new DatabaseOperations(platform);
+		const dbOps = new DatabaseOperations();
 		const client = await dbOps.clients.create({
 			name: data.name,
 			slug: data.slug,
