@@ -1,7 +1,7 @@
 // Division operations - Drizzle ORM
 import { eq, asc } from 'drizzle-orm';
 import type { DrizzleClient } from '../drizzle.js';
-import { divisions, type Division } from '../schema.js';
+import { divisions, type Division } from '../schema/index.js';
 
 export class DivisionOperations {
 	constructor(private db: DrizzleClient) {}

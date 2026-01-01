@@ -1,7 +1,7 @@
 // Sport operations - Drizzle ORM
 import { eq, desc, asc } from 'drizzle-orm';
 import type { DrizzleClient } from '../drizzle.js';
-import { sports, type Sport } from '../schema.js';
+import { sports, type Sport } from '../schema/index.js';
 
 export class SportOperations {
 	constructor(private db: DrizzleClient) {}

@@ -53,7 +53,7 @@ export class ClientOperations {
 		data: Partial<{ name: string; slug: string; status: string; metadata: string }>
 	): Promise<Client | null> {
 		const now = new Date().toISOString();
-		
+
 		const result = await this.db
 			.update(clients)
 			.set({
@@ -75,12 +75,7 @@ export class ClientOperations {
 		return await this.db
 			.select()
 			.from(clients)
-			.where(
-				or(
-					like(clients.name, `%${term}%`),
-					like(clients.slug, `%${term}%`)
-				)
-			)
+			.where(or(like(clients.name, `%${term}%`), like(clients.slug, `%${term}%`)))
 			.orderBy(desc(clients.createdAt));
 	}
 

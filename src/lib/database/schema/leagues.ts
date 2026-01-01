@@ -1,0 +1,33 @@
+// Leagues schema
+import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
+
+export const leagues = sqliteTable('leagues', {
+	id: text().primaryKey(),
+	clientId: text('client_id'),
+	sportId: text('sport_id'),
+	name: text(),
+	slug: text(),
+	description: text(),
+	year: integer(),
+	season: text(),
+	gender: text(),
+	skillLevel: text('skill_level'),
+	regStartDate: text('reg_start_date'),
+	regEndDate: text('reg_end_date'),
+	seasonStartDate: text('season_start_date'),
+	seasonEndDate: text('season_end_date'),
+	hasPostseason: integer('has_postseason'),
+	postseasonStartDate: text('postseason_start_date'),
+	postseasonEndDate: text('postseason_end_date'),
+	hasPreseason: integer('has_preseason'),
+	preseasonStartDate: text('preseason_start_date'),
+	preseasonEndDate: text('preseason_end_date'),
+	isActive: integer('is_active'),
+	isLocked: integer('is_locked'),
+	imageUrl: integer('image_url'),
+	createdAt: text('created_at'),
+	updatedAt: text('updated_at')
+});
+
+export type League = typeof leagues.$inferSelect;
+export type NewLeague = typeof leagues.$inferInsert;

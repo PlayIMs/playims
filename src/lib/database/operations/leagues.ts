@@ -1,7 +1,7 @@
 // League operations - Drizzle ORM
 import { eq, desc, and } from 'drizzle-orm';
 import type { DrizzleClient } from '../drizzle.js';
-import { leagues, type League } from '../schema.js';
+import { leagues, type League } from '../schema/index.js';
 
 export class LeagueOperations {
 	constructor(private db: DrizzleClient) {}

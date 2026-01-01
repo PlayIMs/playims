@@ -1,7 +1,7 @@
 // Database library exports - Drizzle ORM
 export { DatabaseOperations } from './operations/index.js';
 export { createDrizzleClient } from './drizzle.js';
-export * as schema from './schema.js';
+export * as schema from './schema/index.js';
 
 // Export all types from schema
 export type {
@@ -19,7 +19,7 @@ export type {
 	NewTeam,
 	Roster,
 	NewRoster
-} from './schema.js';
+} from './schema/index.js';
 
 /**
  * Database usage example:

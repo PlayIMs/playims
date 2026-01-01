@@ -1,7 +1,7 @@
 // Team operations - Drizzle ORM
 import { eq, desc, asc } from 'drizzle-orm';
 import type { DrizzleClient } from '../drizzle.js';
-import { teams, type Team } from '../schema.js';
+import { teams, type Team } from '../schema/index.js';
 
 export class TeamOperations {
 	constructor(private db: DrizzleClient) {}

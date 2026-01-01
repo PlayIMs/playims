@@ -1,7 +1,7 @@
 // Roster operations - Drizzle ORM
 import { eq, desc, asc, and } from 'drizzle-orm';
 import type { DrizzleClient } from '../drizzle.js';
-import { rosters, type Roster } from '../schema.js';
+import { rosters, type Roster } from '../schema/index.js';
 
 export class RosterOperations {
 	constructor(private db: DrizzleClient) {}
