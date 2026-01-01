@@ -1,4 +1,4 @@
-import { DatabaseOperations } from '$lib/database/operations/index.js';
+import { DatabaseOperations } from '$lib/database';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ platform }) => {

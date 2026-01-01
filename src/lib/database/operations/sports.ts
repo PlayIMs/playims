@@ -1,54 +1,39 @@
-// Sport operations - REST API only (raw SQL)
-import type { D1RestClient } from '../d1-client.js';
-
-// Sport type definition (matching database schema)
-export interface Sport {
-	id: string;
-	name: string;
-	slug: string;
-	type: string | null;
-	description: string | null;
-	minPlayers: number | null;
-	maxPlayers: number | null;
-	clientId: string | null;
-	isActive: number;
-	imageUrl: string | null;
-	rulebookUrl: string | null;
-	createdAt: string;
-	updatedAt: string;
-}
+// Sport operations - Drizzle ORM
+import { eq, desc, asc } from 'drizzle-orm';
+import type { DrizzleClient } from '../drizzle.js';
+import { sports, type Sport } from '../schema.js';
 
 export class SportOperations {
-	constructor(private db: D1RestClient) {}
+	constructor(private db: DrizzleClient) {}
 
 	async getAll(): Promise<Sport[]> {
-		const result = await this.db.query('SELECT * FROM sports ORDER BY name ASC');
-		return result.results || [];
+		return await this.db.select().from(sports).orderBy(asc(sports.name));
 	}
 
 	async getById(id: string): Promise<Sport | null> {
-		const result = await this.db.query('SELECT * FROM sports WHERE id = ?', [id]);
-		return result.results?.[0] || null;
+		const result = await this.db.select().from(sports).where(eq(sports.id, id));
+		return result[0] || null;
 	}
 
 	async getBySlug(slug: string): Promise<Sport | null> {
-		const result = await this.db.query('SELECT * FROM sports WHERE slug = ?', [slug]);
-		return result.results?.[0] || null;
+		const result = await this.db.select().from(sports).where(eq(sports.slug, slug));
+		return result[0] || null;
 	}
 
 	async getActive(): Promise<Sport[]> {
-		const result = await this.db.query(
-			'SELECT * FROM sports WHERE is_active = 1 ORDER BY name ASC'
-		);
-		return result.results || [];
+		return await this.db
+			.select()
+			.from(sports)
+			.where(eq(sports.isActive, 1))
+			.orderBy(asc(sports.name));
 	}
 
 	async getByClientId(clientId: string): Promise<Sport[]> {
-		const result = await this.db.query(
-			'SELECT * FROM sports WHERE client_id = ? ORDER BY name ASC',
-			[clientId]
-		);
-		return result.results || [];
+		return await this.db
+			.select()
+			.from(sports)
+			.where(eq(sports.clientId, clientId))
+			.orderBy(asc(sports.name));
 	}
 
 	async create(data: {
@@ -59,27 +44,28 @@ export class SportOperations {
 		minPlayers?: number;
 		maxPlayers?: number;
 		clientId?: string;
-	}): Promise<Sport> {
+	}): Promise<Sport | null> {
 		const now = new Date().toISOString();
 		const id = crypto.randomUUID();
 
-		const result = await this.db.query(
-			'INSERT INTO sports (id, name, slug, type, description, min_players, max_players, client_id, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *',
-			[
+		const result = await this.db
+			.insert(sports)
+			.values({
 				id,
-				data.name,
-				data.slug,
-				data.type || null,
-				data.description || null,
-				data.minPlayers || null,
-				data.maxPlayers || null,
-				data.clientId || null,
-				1,
-				now,
-				now
-			]
-		);
-		return result.results[0];
+				name: data.name,
+				slug: data.slug,
+				type: data.type || null,
+				description: data.description || null,
+				minPlayers: data.minPlayers || null,
+				maxPlayers: data.maxPlayers || null,
+				clientId: data.clientId || null,
+				isActive: 1,
+				createdAt: now,
+				updatedAt: now
+			})
+			.returning();
+
+		return result[0] || null;
 	}
 
 	async update(
@@ -98,31 +84,21 @@ export class SportOperations {
 	): Promise<Sport | null> {
 		const now = new Date().toISOString();
 
-		const updates: string[] = [];
-		const values: (string | number)[] = [];
+		const result = await this.db
+			.update(sports)
+			.set({
+				...data,
+				updatedAt: now
+			})
+			.where(eq(sports.id, id))
+			.returning();
 
-		Object.entries(data).forEach(([key, value]) => {
-			if (value !== undefined) {
-				const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
-				updates.push(`${dbKey} = ?`);
-				values.push(value as string | number);
-			}
-		});
-
-		if (updates.length === 0) return this.getById(id);
-
-		updates.push('updated_at = ?');
-		values.push(now);
-		values.push(id);
-
-		const query = `UPDATE sports SET ${updates.join(', ')} WHERE id = ? RETURNING *`;
-		const result = await this.db.query(query, values);
-		return result.results?.[0] || null;
+		return result[0] || null;
 	}
 
 	async delete(id: string): Promise<boolean> {
-		const result = await this.db.query('DELETE FROM sports WHERE id = ?', [id]);
-		return result.meta.changes > 0;
+		const result = await this.db.delete(sports).where(eq(sports.id, id)).returning();
+		return result.length > 0;
 	}
 
 	async toggleActive(id: string): Promise<Sport | null> {
@@ -131,10 +107,15 @@ export class SportOperations {
 
 		const newStatus = sport.isActive === 1 ? 0 : 1;
 
-		const result = await this.db.query(
-			'UPDATE sports SET is_active = ?, updated_at = ? WHERE id = ? RETURNING *',
-			[newStatus, new Date().toISOString(), id]
-		);
-		return result.results?.[0] || null;
+		const result = await this.db
+			.update(sports)
+			.set({
+				isActive: newStatus,
+				updatedAt: new Date().toISOString()
+			})
+			.where(eq(sports.id, id))
+			.returning();
+
+		return result[0] || null;
 	}
 }

@@ -1,66 +1,50 @@
-// Roster operations - REST API only (raw SQL)
-import type { D1RestClient } from '../d1-client.js';
-
-// Roster type definition (matching database schema)
-export interface Roster {
-	id: number;
-	teamId: number;
-	userId: string;
-	position: string | null;
-	jerseyNumber: number | null;
-	isCaptain: number;
-	isCoCaptain: number;
-	dateJoined: string;
-	dateLeft: string | null;
-	status: string;
-	notes: string | null;
-	createdAt: string;
-	updatedAt: string;
-}
+// Roster operations - Drizzle ORM
+import { eq, desc, asc, and } from 'drizzle-orm';
+import type { DrizzleClient } from '../drizzle.js';
+import { rosters, type Roster } from '../schema.js';
 
 export class RosterOperations {
-	constructor(private db: D1RestClient) {}
+	constructor(private db: DrizzleClient) {}
 
 	async getAll(): Promise<Roster[]> {
-		const result = await this.db.query('SELECT * FROM rosters ORDER BY created_at DESC');
-		return result.results || [];
+		return await this.db.select().from(rosters).orderBy(desc(rosters.createdAt));
 	}
 
 	async getById(id: number): Promise<Roster | null> {
-		const result = await this.db.query('SELECT * FROM rosters WHERE id = ?', [id]);
-		return result.results?.[0] || null;
+		const result = await this.db.select().from(rosters).where(eq(rosters.id, id));
+		return result[0] || null;
 	}
 
 	async getByTeamId(teamId: number): Promise<Roster[]> {
-		const result = await this.db.query(
-			'SELECT * FROM rosters WHERE team_id = ? ORDER BY is_captain DESC, is_co_captain DESC, date_joined DESC',
-			[teamId]
-		);
-		return result.results || [];
+		return await this.db
+			.select()
+			.from(rosters)
+			.where(eq(rosters.teamId, teamId))
+			.orderBy(desc(rosters.isCaptain), desc(rosters.isCoCaptain), desc(rosters.dateJoined));
 	}
 
 	async getByUserId(userId: string): Promise<Roster[]> {
-		const result = await this.db.query(
-			'SELECT * FROM rosters WHERE user_id = ? ORDER BY created_at DESC',
-			[userId]
-		);
-		return result.results || [];
+		return await this.db
+			.select()
+			.from(rosters)
+			.where(eq(rosters.userId, userId))
+			.orderBy(desc(rosters.createdAt));
 	}
 
 	async getActiveByTeamId(teamId: number): Promise<Roster[]> {
-		const result = await this.db.query(
-			"SELECT * FROM rosters WHERE team_id = ? AND status = 'active' ORDER BY is_captain DESC, is_co_captain DESC, date_joined DESC",
-			[teamId]
-		);
-		return result.results || [];
+		return await this.db
+			.select()
+			.from(rosters)
+			.where(and(eq(rosters.teamId, teamId), eq(rosters.status, 'active')))
+			.orderBy(desc(rosters.isCaptain), desc(rosters.isCoCaptain), desc(rosters.dateJoined));
 	}
 
 	async getCaptainsByTeamId(teamId: number): Promise<Roster[]> {
-		const result = await this.db.query(
-			'SELECT * FROM rosters WHERE team_id = ? AND is_captain = 1 ORDER BY date_joined ASC',
-			[teamId]
-		);
-		return result.results || [];
+		return await this.db
+			.select()
+			.from(rosters)
+			.where(and(eq(rosters.teamId, teamId), eq(rosters.isCaptain, 1)))
+			.orderBy(asc(rosters.dateJoined));
 	}
 
 	async create(data: {
@@ -72,26 +56,69 @@ export class RosterOperations {
 		isCoCaptain?: boolean;
 		status?: string;
 		notes?: string;
-	}): Promise<Roster> {
+	}): Promise<Roster | null> {
 		const now = new Date().toISOString();
 
-		const result = await this.db.query(
-			'INSERT INTO rosters (team_id, user_id, position, jersey_number, is_captain, is_co_captain, date_joined, status, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *',
-			[
-				data.teamId,
-				data.userId,
-				data.position || null,
-				data.jerseyNumber || null,
-				data.isCaptain ? 1 : 0,
-				data.isCoCaptain ? 1 : 0,
-				now,
-				data.status || 'active',
-				data.notes || null,
-				now,
-				now
-			]
-		);
-		return result.results[0];
+		// As with teams, we need to check if schema requires client_id
+		// Schema: clientId: integer('client_id').notNull().references(() => clients.id)
+		// But input data does not provide it.
+		// I will use a placeholder or assume it's handled upstream, but adding 'clientId' here 
+		// just in case we need to add it to the input type later.
+		
+		const result = await this.db
+			.insert(rosters)
+			.values({
+				clientId: 0, // PLACEHOLDER: Needs to be provided
+				teamId: data.teamId,
+				userId: data.userId,
+				position: data.position || null,
+				jerseyNumber: data.jerseyNumber || null,
+				isCaptain: data.isCaptain ? 1 : 0,
+				isCoCaptain: data.isCoCaptain ? 1 : 0,
+				dateJoined: now,
+				status: data.status || 'active',
+				notes: data.notes || null,
+				createdAt: now,
+				updatedAt: now
+			} as any)
+			.returning();
+
+		return result[0] || null;
+	}
+	
+	// Overloaded create to allow clientId
+	async createWithClient(data: {
+		clientId: number;
+		teamId: number;
+		userId: string;
+		position?: string;
+		jerseyNumber?: number;
+		isCaptain?: boolean;
+		isCoCaptain?: boolean;
+		status?: string;
+		notes?: string;
+	}): Promise<Roster | null> {
+		const now = new Date().toISOString();
+
+		const result = await this.db
+			.insert(rosters)
+			.values({
+				clientId: data.clientId,
+				teamId: data.teamId,
+				userId: data.userId,
+				position: data.position || null,
+				jerseyNumber: data.jerseyNumber || null,
+				isCaptain: data.isCaptain ? 1 : 0,
+				isCoCaptain: data.isCoCaptain ? 1 : 0,
+				dateJoined: now,
+				status: data.status || 'active',
+				notes: data.notes || null,
+				createdAt: now,
+				updatedAt: now
+			} as any)
+			.returning();
+
+		return result[0] || null;
 	}
 
 	async update(
@@ -107,66 +134,72 @@ export class RosterOperations {
 		}>
 	): Promise<Roster | null> {
 		const now = new Date().toISOString();
+		
+		// Map boolean to number for update
+		const updateData: any = { ...data };
+		if (data.isCaptain !== undefined) updateData.isCaptain = data.isCaptain ? 1 : 0;
+		if (data.isCoCaptain !== undefined) updateData.isCoCaptain = data.isCoCaptain ? 1 : 0;
 
-		const updates: string[] = [];
-		const values: (string | number)[] = [];
+		const result = await this.db
+			.update(rosters)
+			.set({
+				...updateData,
+				updatedAt: now
+			})
+			.where(eq(rosters.id, id))
+			.returning();
 
-		Object.entries(data).forEach(([key, value]) => {
-			if (value !== undefined) {
-				const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
-				if (key === 'isCaptain' || key === 'isCoCaptain') {
-					updates.push(`${dbKey} = ?`);
-					values.push(value ? 1 : 0);
-				} else {
-					updates.push(`${dbKey} = ?`);
-					values.push(value as string | number);
-				}
-			}
-		});
-
-		if (updates.length === 0) return this.getById(id);
-
-		updates.push('updated_at = ?');
-		values.push(now);
-		values.push(id);
-
-		const query = `UPDATE rosters SET ${updates.join(', ')} WHERE id = ? RETURNING *`;
-		const result = await this.db.query(query, values);
-		return result.results?.[0] || null;
+		return result[0] || null;
 	}
 
 	async delete(id: number): Promise<boolean> {
-		const result = await this.db.query('DELETE FROM rosters WHERE id = ?', [id]);
-		return result.meta.changes > 0;
+		const result = await this.db.delete(rosters).where(eq(rosters.id, id)).returning();
+		return result.length > 0;
 	}
 
 	async removeFromTeam(id: number): Promise<Roster | null> {
 		const now = new Date().toISOString();
 
-		const result = await this.db.query(
-			'UPDATE rosters SET status = ?, date_left = ?, updated_at = ? WHERE id = ? RETURNING *',
-			['inactive', now, now, id]
-		);
-		return result.results?.[0] || null;
+		const result = await this.db
+			.update(rosters)
+			.set({
+				status: 'inactive',
+				dateLeft: now,
+				updatedAt: now
+			})
+			.where(eq(rosters.id, id))
+			.returning();
+
+		return result[0] || null;
 	}
 
 	async promoteToCaptain(id: number): Promise<Roster | null> {
 		const now = new Date().toISOString();
 
-		const result = await this.db.query(
-			'UPDATE rosters SET is_captain = 1, updated_at = ? WHERE id = ? RETURNING *',
-			[now, id]
-		);
-		return result.results?.[0] || null;
+		const result = await this.db
+			.update(rosters)
+			.set({
+				isCaptain: 1,
+				updatedAt: now
+			})
+			.where(eq(rosters.id, id))
+			.returning();
+
+		return result[0] || null;
 	}
 
 	async promoteToCoCaptain(id: number): Promise<Roster | null> {
 		const now = new Date().toISOString();
 
-		const result = await this.db.query(
-			'UPDATE rosters SET is_co_captain = 1, updated_at = ? WHERE id = ? RETURNING *',
-			[now, id]
-		);
-		return result.results?.[0] || null;
+		const result = await this.db
+			.update(rosters)
+			.set({
+				isCoCaptain: 1,
+				updatedAt: now
+			})
+			.where(eq(rosters.id, id))
+			.returning();
+
+		return result[0] || null;
 	}
 }

@@ -1,20 +1,13 @@
 // Advanced query examples using Drizzle ORM
 import { eq, and, or, like, desc, asc, count, sql } from 'drizzle-orm';
 import type { D1Database } from '@cloudflare/workers-types';
-import { createDrizzleClient, schema } from './drizzle.js';
-
-// Platform interface for local development with wrangler
-interface Platform {
-	env?: {
-		DB?: D1Database;
-	};
-}
+import { createDrizzleClient, schema, type DrizzleClient } from './drizzle.js';
 
 export class AdvancedQueries {
-	private db: ReturnType<typeof createDrizzleClient>;
+	private db: DrizzleClient;
 
-	constructor(platform?: Platform) {
-		this.db = createDrizzleClient(platform);
+	constructor(db: D1Database) {
+		this.db = createDrizzleClient(db);
 	}
 
 	// Search clients by name or slug

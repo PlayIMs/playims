@@ -1,10 +1,10 @@
-import { DatabaseOperations } from '$lib/database/operations/index.js';
+import { DatabaseOperations } from '$lib/database';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = async ({ url, platform }) => {
 	try {
-		const dbOps = new DatabaseOperations();
+		const dbOps = new DatabaseOperations(platform as App.Platform);
 
 		// Support filtering by clientId
 		const clientId = url.searchParams.get('clientId');
@@ -28,7 +28,7 @@ export const GET: RequestHandler = async ({ url }) => {
 	}
 };
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, platform }) => {
 	try {
 		const data = await request.json();
 
@@ -43,7 +43,7 @@ export const POST: RequestHandler = async ({ request }) => {
 			);
 		}
 
-		const dbOps = new DatabaseOperations();
+		const dbOps = new DatabaseOperations(platform as App.Platform);
 		const user = await dbOps.users.create({
 			clientId: data.clientId,
 			email: data.email,

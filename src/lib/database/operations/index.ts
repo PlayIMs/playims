@@ -1,7 +1,8 @@
-// Database operations - REST API only (raw SQL)
-// Simplified to use only D1 REST API for maximum efficiency
+// Database operations - Drizzle ORM
+// Fully typed database operations using Cloudflare D1
 
-import { D1RestClient } from '../d1-client.js';
+import { createDrizzleClient, type DrizzleClient } from '../drizzle.js';
+import type { D1Database } from '@cloudflare/workers-types';
 import { ClientOperations } from './clients.js';
 import { UserOperations } from './users.js';
 import { SportOperations } from './sports.js';
@@ -12,8 +13,7 @@ import { RosterOperations } from './rosters.js';
 
 /**
  * Unified database operations class
- * Uses only D1 REST API (raw SQL) for maximum simplicity and efficiency
- * No more dual code paths - just clean, simple SQL operations
+ * Uses Drizzle ORM for type safety and Cloudflare D1 binding
  */
 export class DatabaseOperations {
 	public clients: ClientOperations;
@@ -24,19 +24,27 @@ export class DatabaseOperations {
 	public teams: TeamOperations;
 	public rosters: RosterOperations;
 
-	constructor(platform?: any) {
-		// Use D1 binding from platform if available, otherwise try REST API
-		const dbBinding = platform?.env?.DB;
-		const db = new D1RestClient(dbBinding);
+	constructor(platformOrDb: { env: { DB: D1Database } } | D1Database) {
+		let db: D1Database;
+		
+		// Handle both platform object and direct DB binding
+		if ('env' in platformOrDb && platformOrDb.env && platformOrDb.env.DB) {
+			db = platformOrDb.env.DB;
+		} else if (platformOrDb && typeof (platformOrDb as any).prepare === 'function') {
+			db = platformOrDb as D1Database;
+		} else {
+			throw new Error('DatabaseOperations requires a D1Database binding or Platform object');
+		}
 
-		// All operation classes use only raw SQL
-		this.clients = new ClientOperations(db);
-		this.users = new UserOperations(db);
-		this.sports = new SportOperations(db);
-		this.leagues = new LeagueOperations(db);
-		this.divisions = new DivisionOperations(db);
-		this.teams = new TeamOperations(db);
-		this.rosters = new RosterOperations(db);
+		const drizzleDb = createDrizzleClient(db);
+
+		this.clients = new ClientOperations(drizzleDb);
+		this.users = new UserOperations(drizzleDb);
+		this.sports = new SportOperations(drizzleDb);
+		this.leagues = new LeagueOperations(drizzleDb);
+		this.divisions = new DivisionOperations(drizzleDb);
+		this.teams = new TeamOperations(drizzleDb);
+		this.rosters = new RosterOperations(drizzleDb);
 	}
 }
 
