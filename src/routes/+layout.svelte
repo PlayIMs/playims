@@ -1,11 +1,11 @@
 <script lang="ts">
 	import 'virtual:pwa-assets/head';
-	import { injectSpeedInsights } from '@vercel/speed-insights/sveltekit';
+	// import { injectSpeedInsights } from '@vercel/speed-insights/sveltekit';
 
 	import '../app.css';
 
 	let { children } = $props();
-	injectSpeedInsights();
+	// injectSpeedInsights();
 </script>
 
 <div class="app">
