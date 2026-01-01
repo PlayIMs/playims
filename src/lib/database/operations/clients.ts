@@ -1,7 +1,7 @@
 // Client operations - Drizzle ORM
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, like, or, count } from 'drizzle-orm';
 import type { DrizzleClient } from '../drizzle.js';
-import { clients, type Client } from '../schema.js';
+import { clients, type Client } from '../schema/index.js';
 
 export class ClientOperations {
 	constructor(private db: DrizzleClient) {}
@@ -69,5 +69,23 @@ export class ClientOperations {
 	async delete(id: string): Promise<boolean> {
 		const result = await this.db.delete(clients).where(eq(clients.id, id)).returning();
 		return result.length > 0;
+	}
+
+	async search(term: string): Promise<Client[]> {
+		return await this.db
+			.select()
+			.from(clients)
+			.where(
+				or(
+					like(clients.name, `%${term}%`),
+					like(clients.slug, `%${term}%`)
+				)
+			)
+			.orderBy(desc(clients.createdAt));
+	}
+
+	async count(): Promise<number> {
+		const result = await this.db.select({ count: count() }).from(clients);
+		return result[0]?.count || 0;
 	}
 }

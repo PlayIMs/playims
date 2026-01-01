@@ -1,7 +1,7 @@
 // User operations - Drizzle ORM
-import { eq, desc, like } from 'drizzle-orm';
+import { eq, desc, like, count } from 'drizzle-orm';
 import type { DrizzleClient } from '../drizzle.js';
-import { users, clients, type User, type Client } from '../schema.js';
+import { users, clients, type User, type Client } from '../schema/index.js';
 
 export class UserOperations {
 	constructor(private db: DrizzleClient) {}
@@ -155,5 +155,10 @@ export class UserOperations {
 			.orderBy(desc(users.createdAt));
 			
 		return result.map(this.mapResult);
+	}
+
+	async count(): Promise<number> {
+		const result = await this.db.select({ count: count() }).from(users);
+		return result[0]?.count || 0;
 	}
 }
