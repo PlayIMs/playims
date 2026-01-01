@@ -1,7 +1,8 @@
 // Teams schema
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
-import { clients } from './clients.js';
-import { divisions } from './divisions.js';
+import { clients } from './clients';
+import { divisions } from './divisions';
+
 
 export const teams = sqliteTable('teams', {
 	id: integer().primaryKey(),
