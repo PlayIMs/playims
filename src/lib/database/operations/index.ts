@@ -24,9 +24,10 @@ export class DatabaseOperations {
 	public teams: TeamOperations;
 	public rosters: RosterOperations;
 
-	constructor() {
-		// Always use REST API client
-		const db = new D1RestClient();
+	constructor(platform?: any) {
+		// Use D1 binding from platform if available, otherwise try REST API
+		const dbBinding = platform?.env?.DB;
+		const db = new D1RestClient(dbBinding);
 
 		// All operation classes use only raw SQL
 		this.clients = new ClientOperations(db);
