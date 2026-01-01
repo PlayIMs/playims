@@ -1,5 +1,6 @@
 // User operations - REST API only (raw SQL)
 import type { D1RestClient } from '../d1-client.js';
+import { mapUserRow } from './mappers.js';
 
 // User type definition (matching database schema)
 export interface User {
@@ -23,27 +24,90 @@ export interface User {
 export class UserOperations {
 	constructor(private db: D1RestClient) {}
 
-	async getAll(): Promise<User[]> {
-		const result = await this.db.query('SELECT * FROM users ORDER BY created_at DESC');
-		return result.results || [];
-	}
-
-	async getById(id: string): Promise<User | null> {
-		const result = await this.db.query('SELECT * FROM users WHERE id = ?', [id]);
-		return result.results?.[0] || null;
-	}
-
-	async getByEmail(email: string): Promise<User | null> {
-		const result = await this.db.query('SELECT * FROM users WHERE email = ?', [email]);
-		return result.results?.[0] || null;
-	}
-
-	async getByClientId(clientId: string): Promise<User[]> {
+	async getAll(): Promise<any[]> {
 		const result = await this.db.query(
-			'SELECT * FROM users WHERE client_id = ? ORDER BY created_at DESC',
+			[
+				'SELECT',
+				'  u.*,',
+				'  c.id AS c_id,',
+				'  c.name AS c_name,',
+				'  c.slug AS c_slug,',
+				'  c.status AS c_status,',
+				'  c.metadata AS c_metadata,',
+				'  c.created_at AS c_created_at,',
+				'  c.updated_at AS c_updated_at',
+				'FROM users u',
+				'LEFT JOIN clients c ON u.client_id = c.id',
+				'ORDER BY u.created_at DESC'
+			].join(' ')
+		);
+		return (result.results || []).map((row: Record<string, unknown>) => mapUserRow(row));
+	}
+
+	async getById(id: string): Promise<any | null> {
+		const result = await this.db.query(
+			[
+				'SELECT',
+				'  u.*,',
+				'  c.id AS c_id,',
+				'  c.name AS c_name,',
+				'  c.slug AS c_slug,',
+				'  c.status AS c_status,',
+				'  c.metadata AS c_metadata,',
+				'  c.created_at AS c_created_at,',
+				'  c.updated_at AS c_updated_at',
+				'FROM users u',
+				'LEFT JOIN clients c ON u.client_id = c.id',
+				'WHERE u.id = ?'
+			].join(' '),
+			[id]
+		);
+		const row = result.results?.[0];
+		return row ? mapUserRow(row as Record<string, unknown>) : null;
+	}
+
+	async getByEmail(email: string): Promise<any | null> {
+		const result = await this.db.query(
+			[
+				'SELECT',
+				'  u.*,',
+				'  c.id AS c_id,',
+				'  c.name AS c_name,',
+				'  c.slug AS c_slug,',
+				'  c.status AS c_status,',
+				'  c.metadata AS c_metadata,',
+				'  c.created_at AS c_created_at,',
+				'  c.updated_at AS c_updated_at',
+				'FROM users u',
+				'LEFT JOIN clients c ON u.client_id = c.id',
+				'WHERE u.email = ?'
+			].join(' '),
+			[email]
+		);
+		const row = result.results?.[0];
+		return row ? mapUserRow(row as Record<string, unknown>) : null;
+	}
+
+	async getByClientId(clientId: string): Promise<any[]> {
+		const result = await this.db.query(
+			[
+				'SELECT',
+				'  u.*,',
+				'  c.id AS c_id,',
+				'  c.name AS c_name,',
+				'  c.slug AS c_slug,',
+				'  c.status AS c_status,',
+				'  c.metadata AS c_metadata,',
+				'  c.created_at AS c_created_at,',
+				'  c.updated_at AS c_updated_at',
+				'FROM users u',
+				'LEFT JOIN clients c ON u.client_id = c.id',
+				'WHERE u.client_id = ?',
+				'ORDER BY u.created_at DESC'
+			].join(' '),
 			[clientId]
 		);
-		return result.results || [];
+		return (result.results || []).map((row: Record<string, unknown>) => mapUserRow(row));
 	}
 
 	async create(data: {
@@ -52,11 +116,11 @@ export class UserOperations {
 		firstName?: string;
 		lastName?: string;
 		role?: string;
-	}): Promise<User> {
+	}): Promise<any> {
 		const now = new Date().toISOString();
 		const id = crypto.randomUUID();
 
-		const result = await this.db.query(
+		await this.db.query(
 			'INSERT INTO users (id, client_id, email, first_name, last_name, role, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *',
 			[
 				id,
@@ -70,7 +134,7 @@ export class UserOperations {
 				now
 			]
 		);
-		return result.results[0];
+		return this.getById(id);
 	}
 
 	async update(
@@ -86,7 +150,7 @@ export class UserOperations {
 			preferences: string;
 			notes: string;
 		}>
-	): Promise<User | null> {
+	): Promise<any | null> {
 		const now = new Date().toISOString();
 
 		const updates: string[] = [];
@@ -109,8 +173,8 @@ export class UserOperations {
 		values.push(id);
 
 		const query = `UPDATE users SET ${updates.join(', ')} WHERE id = ? RETURNING *`;
-		const result = await this.db.query(query, values);
-		return result.results?.[0] || null;
+		await this.db.query(query, values);
+		return this.getById(id);
 	}
 
 	async delete(id: string): Promise<boolean> {
@@ -118,21 +182,35 @@ export class UserOperations {
 		return result.meta.changes > 0;
 	}
 
-	async updateLastLogin(id: string): Promise<User | null> {
+	async updateLastLogin(id: string): Promise<any | null> {
 		const now = new Date().toISOString();
 
-		const result = await this.db.query(
+		await this.db.query(
 			'UPDATE users SET last_login_at = ?, last_active_at = ?, updated_at = ? WHERE id = ? RETURNING *',
 			[now, now, now, id]
 		);
-		return result.results?.[0] || null;
+		return this.getById(id);
 	}
 
-	async search(searchTerm: string): Promise<User[]> {
+	async search(searchTerm: string): Promise<any[]> {
 		const result = await this.db.query(
-			'SELECT * FROM users WHERE email LIKE ? ORDER BY created_at DESC',
+			[
+				'SELECT',
+				'  u.*,',
+				'  c.id AS c_id,',
+				'  c.name AS c_name,',
+				'  c.slug AS c_slug,',
+				'  c.status AS c_status,',
+				'  c.metadata AS c_metadata,',
+				'  c.created_at AS c_created_at,',
+				'  c.updated_at AS c_updated_at',
+				'FROM users u',
+				'LEFT JOIN clients c ON u.client_id = c.id',
+				'WHERE u.email LIKE ?',
+				'ORDER BY u.created_at DESC'
+			].join(' '),
 			[`%${searchTerm}%`]
 		);
-		return result.results || [];
+		return (result.results || []).map((row: Record<string, unknown>) => mapUserRow(row));
 	}
 }
