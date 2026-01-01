@@ -21,6 +21,15 @@ export default defineConfig({
 			pwaAssets: {
 				// we will configure the PWA asset generation next
 				config: true
+			},
+			kit: {
+				includeVersionFile: true
+			},
+			workbox: {
+				globPatterns: [
+					'client/**/*.{js,css,ico,png,svg,webp,webmanifest}',
+					'prerendered/**/*.{html,json}'
+				]
 			}
 		})
 	]

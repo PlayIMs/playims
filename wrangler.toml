@@ -2,6 +2,7 @@
 name = "playims"
 compatibility_date = "2024-09-25"
 compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = ".svelte-kit/cloudflare"
 
 # D1 Database binding
 [[d1_databases]]
@@ -10,6 +11,3 @@ database_name = "playims-central-db-dev"
 database_id = "66dc8c86-b1da-4882-b259-f7847ecf5350"
 migrations_dir = "src/lib/database/migrations"
 
-# Pages deployment configuration
-[build]
-command = "pnpm run build"
