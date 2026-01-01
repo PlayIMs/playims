@@ -85,6 +85,8 @@ export class D1RestClient {
 			return result.result[0];
 		}
 
-		throw new Error('No database connection available (neither D1 binding nor REST API credentials)');
+		throw new Error(
+			'No database connection available (neither D1 binding nor REST API credentials)'
+		);
 	}
 }
