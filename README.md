@@ -1,6 +1,11 @@
 # PlayIMs
 
-The ultimate platform for managing intramural sports leagues. Built with SvelteKit and powered by Cloudflare D1 database.
+The ultimate platform for managing intramural sports leagues. Built with **SvelteKit** and powered by **Cloudflare D1** database.
+
+## Documentation
+
+*   [Development Guide](docs/DEVELOPMENT.md): How to start the app and environment setup.
+*   [Database Guide](docs/DATABASE.md): Schema, migrations, and Drizzle ORM usage.
 
 ## Features
 
@@ -12,29 +17,6 @@ The ultimate platform for managing intramural sports leagues. Built with SvelteK
 ## Tech Stack
 
 - **Frontend**: SvelteKit with TailwindCSS
-- **Database**: Cloudflare D1
-- **Deployment**: Vercel
+- **Database**: Cloudflare D1 (with Drizzle ORM)
+- **Deployment**: Cloudflare Pages
 - **Package Manager**: pnpm
-
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```bash
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
-
-## Building
-
-To create a production version of your app:
-
-```bash
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
