@@ -54,21 +54,21 @@ pnpm db:generate
 #### 2. Apply Migrations (Production)
 
 ```bash
-pnpm db:migrate
+pnpm db:migrate:prod
 ```
 
-- **What it does**: Applies pending migrations to your **REMOTE** Cloudflare D1 database.
+- **What it does**: Applies pending migrations to your **REMOTE** Cloudflare D1 database (`playims-central-db-prod`).
 - **Target**: **Production Database** (Cloudflare).
-- **Command**: Runs `wrangler d1 migrations apply ... --remote`.
-- **When to use**: Before or after deployment, depending on the change type (see [DEVELOPMENT.md](./DEVELOPMENT.md)).
+- **Command**: Runs `wrangler d1 migrations apply playims-central-db-prod --remote`.
+- **When to use**: Before or after deployment, depending on the change type.
 
 #### 3. Apply Migrations (Local)
 
 ```bash
-pnpm db:migrate:local
+pnpm db:migrate:dev:local
 ```
 
-- **What it does**: Applies pending migrations to your **LOCAL** development database.
+- **What it does**: Applies pending migrations to your **LOCAL** development database (`playims-central-db-dev` simulated).
 - **Target**: **Local Database** (`.wrangler/`).
 - **When to use**: After generating migrations, so your local dev environment (`pnpm dev`) reflects the changes.
 
@@ -100,7 +100,7 @@ To ensure your application types match your database:
 
 1.  **Define**: Update schema in `src/lib/database/schema/*.ts`.
 2.  **Generate**: Run `pnpm db:generate` to create the SQL.
-3.  **Migrate**: Run `pnpm db:migrate:local` (for dev) and `pnpm db:migrate` (for prod).
+3.  **Migrate**: Run `pnpm db:migrate:dev:local` (for dev) and `pnpm db:migrate:prod` (for prod).
 
 **Note**: The source of truth is always your TypeScript schema files.
 

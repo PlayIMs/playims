@@ -23,7 +23,12 @@
 
 ## Database Management
 
-We use Drizzle ORM with Cloudflare D1. See [DATABASE.md](./DATABASE.md) for schema details.
+We use Drizzle ORM with Cloudflare D1. We have two environments:
+
+- **Dev**: `playims-central-db-dev` (default for local work)
+- **Prod**: `playims-central-db-prod` (live site)
+
+See [DATABASE.md](./DATABASE.md) for schema details.
 
 ### Schema Change Workflows
 
@@ -41,22 +46,22 @@ This ensures the database has the new elements before the new code tries to acce
     ```bash
     pnpm db:generate
     ```
-3.  **Test Locally**:
+3.  **Test Locally (Dev)**:
     ```bash
-    pnpm db:migrate:local
+    pnpm db:migrate:dev:local
     ```
-4.  **Apply to Remote (Before Deploy)**:
+4.  **Test Remote Dev (Optional)**:
+    If you want to verify against the real Dev D1 database:
     ```bash
-    pnpm db:migrate
+    pnpm db:migrate:dev:remote
     ```
-    _Note: This runs `wrangler d1 migrations apply --remote`._
 5.  **Commit & Push**:
     ```bash
     git add .
     git commit -m "feat: add users table"
     git push
     ```
-    _GitHub Actions will deploy the new code._
+    _GitHub Actions will automatically apply migrations to the **Production** database (`playims-central-db-prod`) before deploying the new code._
 
 #### 2. Destructive Changes (Breaking)
 
@@ -73,19 +78,19 @@ The code must stop using the field _before_ it is removed from the database.
     ```
 4.  **Test Locally**:
     ```bash
-    pnpm db:migrate:local
+    pnpm db:migrate:dev:local
     ```
 5.  **Commit & Push (Deploy Code First)**:
-    _Important_: In GitHub Actions, you may need to manually skip the migration step if it's set to run automatically, or rely on the workflow configuration.
+    _Important_: In GitHub Actions, you may need to manually skip the migration step if it's set to run automatically (by setting `apply_migrations` to `false` in the manual trigger), or rely on the workflow configuration.
     ```bash
     git add .
     git commit -m "refactor: remove legacy column"
     git push
     ```
 6.  **Apply to Remote (After Deploy)**:
-    Once the deployment is complete and confirmed stable:
+    Once the deployment is complete and confirmed stable, manually apply the migration to production:
     ```bash
-    pnpm db:migrate
+    pnpm db:migrate:prod
     ```
 
 #### 3. Zero-Downtime "Expand-Contract" (Complex)
@@ -111,18 +116,18 @@ _Examples: Renaming a column while maintaining data, changing column type._
 
 We use GitHub Actions to automate migrations for additive changes.
 
-- **On Push to Main**: The workflow attempts to apply migrations (`pnpm db:migrate`) _before_ deploying.
+- **On Push to Main**: The workflow attempts to apply migrations to `playims-central-db-prod` _before_ deploying.
 - **Destructive Changes**: You can manually trigger the workflow with `apply_migrations: false` or let the code deploy first and run migrations manually later.
 
 ### Important Notes
 
 - **Backups**: Always backup your production D1 database before running destructive migrations:
   ```bash
-  npx wrangler d1 backup create playims-central-db-dev
+  npx wrangler d1 backup create playims-central-db-prod
   ```
 - **Verification**: Check migration status:
   ```bash
-  npx wrangler d1 migrations list playims-central-db-dev --remote
+  npx wrangler d1 migrations list playims-central-db-prod --remote
   ```
 - **D1 Limitations**: D1 does not support runtime schema changes outside of the migrations system.
 
