@@ -10,6 +10,7 @@ import { LeagueOperations } from './leagues.js';
 import { DivisionOperations } from './divisions.js';
 import { TeamOperations } from './teams.js';
 import { RosterOperations } from './rosters.js';
+import { EventOperations } from './events.js';
 
 /**
  * Unified database operations class
@@ -23,6 +24,7 @@ export class DatabaseOperations {
 	public divisions: DivisionOperations;
 	public teams: TeamOperations;
 	public rosters: RosterOperations;
+	public events: EventOperations;
 
 	constructor(platformOrDb: { env: { DB: D1Database } } | D1Database) {
 		let db: D1Database;
@@ -45,6 +47,7 @@ export class DatabaseOperations {
 		this.divisions = new DivisionOperations(drizzleDb);
 		this.teams = new TeamOperations(drizzleDb);
 		this.rosters = new RosterOperations(drizzleDb);
+		this.events = new EventOperations(drizzleDb);
 	}
 }
 
@@ -56,3 +59,4 @@ export { LeagueOperations } from './leagues.js';
 export { DivisionOperations } from './divisions.js';
 export { TeamOperations } from './teams.js';
 export { RosterOperations } from './rosters.js';
+export { EventOperations } from './events.js';

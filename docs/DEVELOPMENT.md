@@ -21,18 +21,110 @@
     ```
     _Note: This runs `vite dev`. To test with Cloudflare platform features closer to production, use `pnpm build && wrangler pages dev .svelte-kit/cloudflare`._
 
-## Database
+## Database Management
 
-See [DATABASE.md](./DATABASE.md) for detailed instructions and best practices.
+We use Drizzle ORM with Cloudflare D1. See [DATABASE.md](./DATABASE.md) for schema details.
 
-- **View Data (Remote)**: `pnpm db:studio` (Connects to Production D1)
-- **Update Schema**:
-  1.  Modify `src/lib/database/schema/*.ts`.
-  2.  `pnpm db:generate` (Create migration file).
-  3.  `pnpm db:migrate --local` (Apply to Local D1 for testing).
-  4.  **Commit & Push**: Commit your changes and push to GitHub. This triggers a deployment.
-  5.  **Wait for Deployment**: Ensure the new code is live on Cloudflare Pages.
-  6.  `pnpm db:migrate` (Apply to Remote D1 - **only after deploying code**).
+### Schema Change Workflows
+
+To avoid downtime and application crashes, we follow strict workflows for schema changes.
+
+#### 1. Additive Changes (Safe)
+
+_Examples: Adding a new table, adding a nullable column, adding a column with a default value._
+
+**Workflow:** Migrate DB -> Deploy Code.
+This ensures the database has the new elements before the new code tries to access them. Old code simply ignores the new fields.
+
+1.  **Modify Schema**: Update `src/lib/database/schema/*.ts`.
+2.  **Generate Migration**:
+    ```bash
+    pnpm db:generate
+    ```
+3.  **Test Locally**:
+    ```bash
+    pnpm db:migrate:local
+    ```
+4.  **Apply to Remote (Before Deploy)**:
+    ```bash
+    pnpm db:migrate
+    ```
+    _Note: This runs `wrangler d1 migrations apply --remote`._
+5.  **Commit & Push**:
+    ```bash
+    git add .
+    git commit -m "feat: add users table"
+    git push
+    ```
+    _GitHub Actions will deploy the new code._
+
+#### 2. Destructive Changes (Breaking)
+
+_Examples: Dropping a table, removing a column, renaming a column._
+
+**Workflow:** Deploy Code -> Migrate DB.
+The code must stop using the field _before_ it is removed from the database.
+
+1.  **Update Code**: Remove all references to the column/table in your application code.
+2.  **Modify Schema**: Remove the column/table from `src/lib/database/schema/*.ts`.
+3.  **Generate Migration**:
+    ```bash
+    pnpm db:generate
+    ```
+4.  **Test Locally**:
+    ```bash
+    pnpm db:migrate:local
+    ```
+5.  **Commit & Push (Deploy Code First)**:
+    _Important_: In GitHub Actions, you may need to manually skip the migration step if it's set to run automatically, or rely on the workflow configuration.
+    ```bash
+    git add .
+    git commit -m "refactor: remove legacy column"
+    git push
+    ```
+6.  **Apply to Remote (After Deploy)**:
+    Once the deployment is complete and confirmed stable:
+    ```bash
+    pnpm db:migrate
+    ```
+
+#### 3. Zero-Downtime "Expand-Contract" (Complex)
+
+_Examples: Renaming a column while maintaining data, changing column type._
+
+**Phase 1: Expand (Additive)**
+
+1.  Add the new column (e.g., `new_email`).
+2.  Deploy code that writes to **both** `old_email` and `new_email`, but reads from `old_email`.
+3.  Backfill `new_email` from `old_email` (via script or migration).
+
+**Phase 2: Migrate Reads**
+
+1.  Deploy code that reads from `new_email`.
+
+**Phase 3: Contract (Destructive)**
+
+1.  Deploy code that stops writing to `old_email`.
+2.  Drop `old_email` column in the database.
+
+### Automation
+
+We use GitHub Actions to automate migrations for additive changes.
+
+- **On Push to Main**: The workflow attempts to apply migrations (`pnpm db:migrate`) _before_ deploying.
+- **Destructive Changes**: You can manually trigger the workflow with `apply_migrations: false` or let the code deploy first and run migrations manually later.
+
+### Important Notes
+
+- **Backups**: Always backup your production D1 database before running destructive migrations:
+  ```bash
+  npx wrangler d1 backup create playims-central-db-dev
+  ```
+- **Verification**: Check migration status:
+  ```bash
+  npx wrangler d1 migrations list playims-central-db-dev --remote
+  ```
+- **D1 Limitations**: D1 does not support runtime schema changes outside of the migrations system.
 
 ## Deployment
 
@@ -40,20 +132,20 @@ The project is configured for **Cloudflare Pages**.
 
 ### Automatic Deployment (Recommended)
 
-Deployments are typically handled via Git integration with Cloudflare Pages. Pushing to your `main` (or production) branch will trigger a build.
+Pushing to `main` triggers the GitHub Actions workflow defined in `.github/workflows/deploy.yml`, which handles:
+
+1.  Installation
+2.  Database Migrations (Remote)
+3.  Pages Deployment
 
 ### Manual Deployment
 
 If you need to deploy manually from your machine:
 
 1.  **Build**:
-
     ```bash
     pnpm build
     ```
-
-    This builds your app to `.svelte-kit/cloudflare`.
-
 2.  **Deploy**:
     ```bash
     npx wrangler pages deploy .svelte-kit/cloudflare

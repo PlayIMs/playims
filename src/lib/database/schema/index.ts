@@ -6,4 +6,4 @@ export * from './leagues';
 export * from './divisions';
 export * from './teams';
 export * from './rosters';
-
+export * from './events';
