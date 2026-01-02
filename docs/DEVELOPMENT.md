@@ -27,10 +27,12 @@ See [DATABASE.md](./DATABASE.md) for detailed instructions and best practices.
 
 - **View Data (Remote)**: `pnpm db:studio` (Connects to Production D1)
 - **Update Schema**:
-  1.  Modify `src/lib/database/schema/*.ts`
-  2.  `pnpm db:generate` (Create migration)
-  3.  `pnpm db:migrate --local` (Apply to Local D1)
-  4.  `pnpm db:migrate` (Apply to Remote D1 - only when deploying)
+  1.  Modify `src/lib/database/schema/*.ts`.
+  2.  `pnpm db:generate` (Create migration file).
+  3.  `pnpm db:migrate --local` (Apply to Local D1 for testing).
+  4.  **Commit & Push**: Commit your changes and push to GitHub. This triggers a deployment.
+  5.  **Wait for Deployment**: Ensure the new code is live on Cloudflare Pages.
+  6.  `pnpm db:migrate` (Apply to Remote D1 - **only after deploying code**).
 
 ## Deployment
 
