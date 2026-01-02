@@ -7,6 +7,7 @@
 		users: User[];
 		isDevelopment: boolean;
 		environment: string;
+		dbName?: string;
 		error?: string;
 	};
 
@@ -15,6 +16,7 @@
 	onMount(() => {
 		console.log('=== D1 Database Query Results ===');
 		console.log('Environment:', data.environment);
+		if (data.dbName) console.log('Target Database:', data.dbName);
 		console.log('Development mode:', data.isDevelopment);
 
 		if (data.error) {
@@ -24,6 +26,16 @@
 			console.log('Users:', data.users);
 			console.log('Total clients:', data.clients.length);
 			console.log('Total users:', data.users.length);
+
+			// Helpful tip for debugging empty results
+			if (data.clients.length === 0 && data.users.length === 0) {
+				console.warn(
+					'⚠️ No data found. If you expect data, ensure you have seeded the correct database.'
+				);
+				console.warn(
+					`Run "pnpm db:studio" to inspect the ${data.isDevelopment ? 'DEV' : 'PROD'} database content.`
+				);
+			}
 		}
 
 		console.log('===================================');

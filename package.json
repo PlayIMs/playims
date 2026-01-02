@@ -17,7 +17,7 @@
 		"db:migrate:prod": "wrangler d1 migrations apply playims-central-db-prod --remote --env production",
 		"db:studio": "drizzle-kit studio --config=drizzle.config.ts",
 		"db:push": "drizzle-kit push --config=drizzle.config.ts",
-		"db:drop": "drizzle-kit drop --config=drizzle.config.ts"
+		"db:seed:local": "wrangler d1 execute playims-central-db-dev --local --file=src/lib/database/seed.sql"
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^4.20251011.0",

@@ -4,7 +4,7 @@ import type { D1Database } from '@cloudflare/workers-types';
 import * as schema from './schema/index.js';
 
 export function createDrizzleClient(db: D1Database) {
-	return drizzle(db, { schema });
+	return drizzle(db, { schema, logger: true });
 }
 
 export type DrizzleClient = ReturnType<typeof createDrizzleClient>;

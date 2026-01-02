@@ -1,0 +1,13 @@
+import { DatabaseOperations } from '../index.js';
+import { seed } from '../seed.js';
+
+// Minimal mock platform for local seeding script
+// We can use wrangler's getPlatformProxy or direct D1 binding if running inside wrangler
+// But for a simple script, we often need to run it via `wrangler d1 execute` for local DBs.
+
+console.log('To seed your local database, run the following SQL commands:');
+console.log(`
+INSERT INTO clients (id, name, slug, created_at, updated_at, status, metadata) VALUES ('6eb657af-4ab8-4a13-980a-add993f78d65', 'PlayIMs Dev1', 'playims-dev1', '2025-10-18 18:17:41', '2025-10-18 18:17:41', 'active', NULL);
+INSERT INTO users (id, client_id, email, email_verified_at, password_hash, sso_user_id, first_name, last_name, avatar_url, created_at, updated_at, first_login_at, last_login_at, status, role, timezone, last_active_at, session_count, preferences, notes) VALUES ('f5d5c301-9ad3-4cb4-9cfd-a6b78e67734a', '6eb657af-4ab8-4a13-980a-add993f78d65', 'jake@playims.com', '', '', '', 'Jake', 'Harvanchik', '', NULL, NULL, NULL, NULL, NULL, 'player', NULL, NULL, NULL, NULL, 'ceo');
+INSERT INTO users (id, client_id, email, email_verified_at, password_hash, sso_user_id, first_name, last_name, avatar_url, created_at, updated_at, first_login_at, last_login_at, status, role, timezone, last_active_at, session_count, preferences, notes) VALUES ('a4613d93-f591-4e0b-b9f5-2f43e4e08639', '6eb657af-4ab8-4a13-980a-add993f78d65', 'test@playims.com', NULL, NULL, NULL, 'John', 'Harvanchik', NULL, 'CURRENT_TIMESTAMP', 'CURRENT_TIMESTAMP', NULL, NULL, NULL, 'player', NULL, NULL, NULL, NULL, 'second test account');
+`);

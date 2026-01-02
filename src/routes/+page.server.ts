@@ -4,7 +4,7 @@ import type { PageServerLoad } from './$types';
 export const load: PageServerLoad = async ({ platform }) => {
 	try {
 		// Create Drizzle database operations instance
-		const dbOps = new DatabaseOperations(platform || { env: {} } as any);
+		const dbOps = new DatabaseOperations(platform || ({ env: {} } as any));
 
 		// Determine environment
 		// In Cloudflare Pages, platform.env.DB exists in both local (wrangler pages dev) and production.
@@ -12,19 +12,41 @@ export const load: PageServerLoad = async ({ platform }) => {
 		// For now, if we have platform.env.DB, we are likely in a Cloudflare environment (local or prod).
 		// The previous logic was inverted.
 		const isCloudflareEnv = !!platform?.env?.DB;
-		
+
 		// To truly detect local dev vs prod in Pages, we often check specific vars or the absence of CF properties.
 		// But for the purpose of "is this the fallback mode?", the logic below is safer:
-		const environment = isCloudflareEnv ? 'cloudflare (local or prod)' : 'local (vite only)';
+		let environment = isCloudflareEnv ? 'cloudflare (local or prod)' : 'local (vite only)';
 		const isDevelopment = process.env.NODE_ENV === 'development';
+
+		if (isCloudflareEnv) {
+			// try to detect specific database if possible, or just refine the label
+			// The binding itself doesn't always expose the name directly in code,
+			// but we can infer from the process or hostname if needed.
+			// For now, let's trust the logic: if isDevelopment is true + CF env, it's "Wrangler Local".
+			// If isDevelopment is false + CF env, it's "Cloudflare Production".
+			if (isDevelopment) {
+				environment = 'Cloudflare Local (Wrangler)';
+			} else {
+				environment = 'Cloudflare Production';
+			}
+		} else {
+			environment = 'Localhost (Vite - No DB Binding)';
+		}
 
 		// Fetch data from both tables using Drizzle operations
 		const [clients, users] = await Promise.all([dbOps.clients.getAll(), dbOps.users.getAll()]);
 
 		console.log(`Drizzle database query results (${environment}):`, {
 			environment,
+			isDevelopment,
 			clientsCount: clients.length,
 			usersCount: users.length,
+			// Log queries isn't directly supported by Drizzle's D1 adapter in the return values of queries
+			// but we can log that we attempted them.
+			queries: [
+				'SELECT * FROM clients ORDER BY created_at DESC',
+				'SELECT * FROM users ORDER BY created_at DESC'
+			],
 			clients: clients.slice(0, 3), // Log first 3 clients for debugging
 			users: users.slice(0, 3) // Log first 3 users for debugging
 		});
@@ -33,6 +55,7 @@ export const load: PageServerLoad = async ({ platform }) => {
 			clients,
 			users,
 			environment,
+			dbName: isDevelopment ? 'playims-central-db-dev' : 'playims-central-db-prod',
 			isDevelopment
 		};
 	} catch (error) {
