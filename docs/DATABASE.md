@@ -25,7 +25,7 @@ This project uses Cloudflare D1. It is important to understand the difference be
 The standard development workflow is:
 
 1.  **Develop Locally**: Write code, update schemas, and test features on your machine using `pnpm dev`.
-    *   *Note*: The data in your local database is completely separate from production.
+    - _Note_: The data in your local database is completely separate from production.
 2.  **Generate Migration**: If you changed the database schema, run `pnpm db:generate`.
 3.  **Update Local DB**: Run `pnpm db:migrate --local` to apply changes to your local database so you can keep testing.
 4.  **Commit & Push**: Commit your code (including the new migration files in `migrations/`) to Git.
