@@ -1,8 +1,9 @@
 // Rosters schema
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
-import { clients } from './clients.js';
-import { teams } from './teams.js';
-import { users } from './users.js';
+import { clients } from './clients';
+import { teams } from './teams';
+import { users } from './users';
+
 
 export const rosters = sqliteTable('rosters', {
 	id: integer().primaryKey(),
