@@ -56,11 +56,11 @@
 					Play<span class="text-red-200">IMs</span>
 				</h1>
 				<p class="text-xl sm:text-2xl mb-4 text-red-100 font-medium">
-					The ultimate platform for managing intramural sports leagues
+					The next-generation platform for managing intramural sports leagues
 				</p>
 				<p class="text-lg sm:text-xl mb-8 text-red-200 max-w-3xl mx-auto">
-					Streamline your league management with easy team registration, automated scheduling,
-					real-time standings, and comprehensive statistics tracking.
+					Built from the ground up to be more intuitive, easier to use, and more powerful than
+					existing solutions. Designed for both administrators and players who deserve better.
 				</p>
 				<div class="flex flex-col sm:flex-row gap-4 justify-center">
 					<button
@@ -85,10 +85,12 @@
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 			<div class="text-center mb-12">
 				<h2 class="text-3xl sm:text-4xl font-bold text-red-900 mb-4">
-					Everything you need to run successful leagues
+					Everything you need, designed the right way
 				</h2>
 				<p class="text-lg text-beige-700 max-w-2xl mx-auto">
-					Powerful features for administrators, teams, and players
+					All the features you expect, reimagined for simplicity and ease of use. Built for
+					administrators who want control without complexity, and players who want clarity without
+					confusion.
 				</p>
 			</div>
 
@@ -105,9 +107,10 @@
 							></path>
 						</svg>
 					</div>
-					<h3 class="text-xl font-bold text-red-900 mb-2">Team Management</h3>
+					<h3 class="text-xl font-bold text-red-900 mb-2">Intuitive Team Management</h3>
 					<p class="text-beige-700">
-						Easy team registration, player rosters, and captain management tools all in one place.
+						Streamlined team registration and roster management that actually makes sense. No more
+						confusing workflows—just simple, clear processes that work the way you think.
 					</p>
 				</div>
 
@@ -127,7 +130,8 @@
 					</div>
 					<h3 class="text-xl font-bold text-red-900 mb-2">Smart Scheduling</h3>
 					<p class="text-beige-700">
-						Automated game scheduling with conflict resolution and intelligent venue management.
+						Automated scheduling that handles conflicts intelligently, so you don't have to. Venue
+						management that's straightforward and visual, not buried in menus.
 					</p>
 				</div>
 
@@ -145,146 +149,92 @@
 							></path>
 						</svg>
 					</div>
-					<h3 class="text-xl font-bold text-navy-900 mb-2">Live Standings</h3>
+					<h3 class="text-xl font-bold text-navy-900 mb-2">Clear Standings & Stats</h3>
 					<p class="text-beige-700">
-						Real-time standings, statistics, and comprehensive league performance tracking.
+						Real-time standings and statistics presented in a way that's easy to understand at a
+						glance. No more hunting through confusing interfaces to find what you need.
 					</p>
 				</div>
 			</div>
 		</div>
 	</section>
 
-	<!-- Community Stats Section -->
+	<!-- What We're Building Section -->
 	<section class="bg-navy-800 py-16 sm:py-24">
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 			<div class="text-center mb-12">
-				<h2 class="text-3xl sm:text-4xl font-bold text-white mb-4">Our Growing Community</h2>
-				<p class="text-lg text-navy-200">Join thousands already using PlayIMs</p>
+				<h2 class="text-3xl sm:text-4xl font-bold text-white mb-4">Built for Everyone</h2>
+				<p class="text-lg text-navy-200">
+					Designed with both administrators and players in mind—because great software shouldn't
+					require a manual
+				</p>
 			</div>
 
-			<!-- Stats Overview -->
+			<!-- Key Benefits -->
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-				<div class="bg-navy-900 border-2 border-navy-700 p-6 flex items-center gap-6">
-					<div class="bg-red-600 w-16 h-16 flex items-center justify-center flex-shrink-0">
+				<div class="bg-navy-900 border-2 border-navy-700 p-6">
+					<div class="bg-red-600 w-16 h-16 flex items-center justify-center mb-4">
 						<svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
 								stroke-linecap="round"
 								stroke-linejoin="round"
 								stroke-width="2"
-								d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+								d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
 							></path>
 						</svg>
 					</div>
-					<div>
-						<h3 class="text-sm font-bold text-navy-200 mb-1">Total Users</h3>
-						<p class="text-4xl font-bold text-white mb-1">{data.users.length}</p>
-						<p class="text-sm text-navy-300">Active platform users</p>
-					</div>
+					<h3 class="text-xl font-bold text-white mb-2">Admin-Friendly</h3>
+					<p class="text-navy-300">
+						Powerful administrative tools that don't require a computer science degree. Manage
+						leagues, divisions, teams, and schedules with an interface that makes sense from day
+						one.
+					</p>
 				</div>
 
-				<div class="bg-navy-900 border-2 border-navy-700 p-6 flex items-center gap-6">
-					<div class="bg-powder-600 w-16 h-16 flex items-center justify-center flex-shrink-0">
+				<div class="bg-navy-900 border-2 border-navy-700 p-6">
+					<div class="bg-powder-600 w-16 h-16 flex items-center justify-center mb-4">
 						<svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
 								stroke-linecap="round"
 								stroke-linejoin="round"
 								stroke-width="2"
-								d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+								d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
 							></path>
 						</svg>
 					</div>
-					<div>
-						<h3 class="text-sm font-bold text-navy-200 mb-1">Total Clients</h3>
-						<p class="text-4xl font-bold text-white mb-1">{data.clients.length}</p>
-						<p class="text-sm text-navy-300">Organizations using PlayIMs</p>
-					</div>
+					<h3 class="text-xl font-bold text-white mb-2">Player-Friendly</h3>
+					<p class="text-navy-300">
+						Clear schedules, easy registration, and straightforward team management. Find your
+						games, check standings, and manage your participation without getting lost in the
+						interface.
+					</p>
 				</div>
 			</div>
 
-			<!-- Data Lists -->
-			{#if data.error}
-				<div class="bg-navy-900 border-2 border-navy-600 p-6 text-center">
-					<p class="text-navy-200">{data.error}</p>
+			<!-- Additional Features -->
+			<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+				<div class="bg-navy-900 border-2 border-navy-700 p-6">
+					<h3 class="text-lg font-bold text-white mb-2">Division & League Management</h3>
+					<p class="text-sm text-navy-300">
+						Organize multiple leagues and divisions with clear hierarchies. Set up seasons, manage
+						rosters, and handle registrations all in one intuitive system.
+					</p>
 				</div>
-			{:else}
-				<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-					<!-- Users List -->
-					<div class="bg-navy-900 border-2 border-navy-700">
-						<div class="bg-red-700 border-b-2 border-red-600 p-4 flex items-center gap-3">
-							<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
-								></path>
-							</svg>
-							<h3 class="text-xl font-bold text-white">Recent Users</h3>
-						</div>
-						<div class="max-h-96 overflow-y-auto">
-							{#if data.users.length > 0}
-								{#each data.users.slice(0, 10) as user}
-									<div
-										class="border-b-2 border-navy-800 p-4 flex items-center gap-4 hover:bg-navy-800 transition-colors"
-									>
-										<div
-											class="bg-red-600 w-12 h-12 flex items-center justify-center text-white font-bold text-lg flex-shrink-0"
-										>
-											{(user.firstName || 'U').charAt(0).toUpperCase()}
-										</div>
-										<div class="min-w-0 flex-1">
-											<h4 class="text-base font-bold text-white mb-1 truncate">
-												{user.firstName || 'Unknown'}
-											</h4>
-											<p class="text-sm text-navy-300 truncate">{user.email || 'No email'}</p>
-										</div>
-									</div>
-								{/each}
-							{:else}
-								<div class="p-8 text-center text-navy-300">No users found</div>
-							{/if}
-						</div>
-					</div>
-
-					<!-- Clients List -->
-					<div class="bg-navy-900 border-2 border-navy-700">
-						<div class="bg-navy-700 border-b-2 border-navy-600 p-4 flex items-center gap-3">
-							<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-								></path>
-							</svg>
-							<h3 class="text-xl font-bold text-white">Recent Clients</h3>
-						</div>
-						<div class="max-h-96 overflow-y-auto">
-							{#if data.clients.length > 0}
-								{#each data.clients.slice(0, 10) as client}
-									<div
-										class="border-b-2 border-navy-800 p-4 flex items-center gap-4 hover:bg-navy-800 transition-colors"
-									>
-										<div
-											class="bg-powder-600 w-12 h-12 flex items-center justify-center text-white font-bold text-lg flex-shrink-0"
-										>
-											{(client.name || 'C').charAt(0).toUpperCase()}
-										</div>
-										<div class="min-w-0 flex-1">
-											<h4 class="text-base font-bold text-white mb-1 truncate">
-												{client.name || 'Unknown'}
-											</h4>
-											<p class="text-sm text-navy-300 truncate">{client.slug || 'No slug'}</p>
-										</div>
-									</div>
-								{/each}
-							{:else}
-								<div class="p-8 text-center text-navy-300">No clients found</div>
-							{/if}
-						</div>
-					</div>
+				<div class="bg-navy-900 border-2 border-navy-700 p-6">
+					<h3 class="text-lg font-bold text-white mb-2">Event & Game Management</h3>
+					<p class="text-sm text-navy-300">
+						Schedule games, track results, and manage events with tools that make sense. View
+						everything in a calendar format that's actually usable.
+					</p>
 				</div>
-			{/if}
+				<div class="bg-navy-900 border-2 border-navy-700 p-6">
+					<h3 class="text-lg font-bold text-white mb-2">Comprehensive Statistics</h3>
+					<p class="text-sm text-navy-300">
+						Track team and player performance with detailed statistics. View standings, game
+						history, and performance metrics in formats that are easy to understand.
+					</p>
+				</div>
+			</div>
 		</div>
 	</section>
 
@@ -292,11 +242,12 @@
 	<section class="bg-red-600 py-16 sm:py-24">
 		<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
 			<h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4">
-				Ready to Transform Your League?
+				Ready for Something Better?
 			</h2>
 			<p class="text-lg sm:text-xl text-red-100 mb-8 max-w-2xl mx-auto">
-				Join the future of intramural sports management. We're launching in the coming years with
-				features that will revolutionize how you run your leagues.
+				We're building the intramural sports management platform you've been waiting for. One that's
+				actually intuitive, genuinely easy to use, and designed for real people—not just feature
+				checklists.
 			</p>
 			<div class="flex flex-col sm:flex-row gap-4 justify-center mb-6">
 				<button
@@ -312,7 +263,7 @@
 					Contact Sales
 				</button>
 			</div>
-			<p class="text-base text-red-200">Building the future of league management</p>
+			<p class="text-base text-red-200">Currently in development. Coming soon.</p>
 		</div>
 	</section>
 
