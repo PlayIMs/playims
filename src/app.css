@@ -1,3 +1,57 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
+
+@theme {
+	/* Red - Primary Color (replaces default red) */
+	--color-red-50: oklch(0.9465 0.024 8.17);
+	--color-red-100: oklch(0.8957 0.049 10.22);
+	--color-red-200: oklch(0.7968 0.103 12.06);
+	--color-red-300: oklch(0.7085 0.161 14.6);
+	--color-red-400: oklch(0.6396 0.209 19);
+	--color-red-500: oklch(0.5987 0.236 24.88);
+	--color-red-600: oklch(0.5078 0.199 24.3);
+	--color-red-700: oklch(0.4127 0.16 23.69);
+	--color-red-800: oklch(0.3105 0.116 22.58);
+	--color-red-900: oklch(0.201 0.07 18.79);
+	--color-red-950: oklch(0.1658 0.055 17.41);
+
+	/* Beige - Secondary Color */
+	--color-beige-50: oklch(0.9632 0.013 60.57);
+	--color-beige-100: oklch(0.9254 0.028 55.32);
+	--color-beige-200: oklch(0.8527 0.056 56.23);
+	--color-beige-300: oklch(0.7799 0.086 54.99);
+	--color-beige-400: oklch(0.7086 0.115 53.32);
+	--color-beige-500: oklch(0.6424 0.144 50.51);
+	--color-beige-600: oklch(0.5462 0.119 50.9);
+	--color-beige-700: oklch(0.4471 0.095 51.53);
+	--color-beige-800: oklch(0.3407 0.068 52.66);
+	--color-beige-900: oklch(0.2246 0.04 52.49);
+	--color-beige-950: oklch(0.1884 0.028 55.75);
+
+	/* Navy - Fourth Color */
+	--color-navy-50: oklch(0.9547 0.013 266.7);
+	--color-navy-100: oklch(0.9083 0.026 264.44);
+	--color-navy-200: oklch(0.8138 0.054 266.3);
+	--color-navy-300: oklch(0.7199 0.084 265.14);
+	--color-navy-400: oklch(0.6261 0.114 264.41);
+	--color-navy-500: oklch(0.5337 0.147 263.28);
+	--color-navy-600: oklch(0.4555 0.122 263.55);
+	--color-navy-700: oklch(0.374 0.098 263.67);
+	--color-navy-800: oklch(0.2878 0.069 264.42);
+	--color-navy-900: oklch(0.1976 0.039 263.14);
+	--color-navy-950: oklch(0.169 0.027 263.38);
+
+	/* Powder - Tertiary/Accent Color (Powder Blue) */
+	--color-powder-50: oklch(0.9632 0.022 230.54);
+	--color-powder-100: oklch(0.928 0.042 231.71);
+	--color-powder-200: oklch(0.8598 0.083 232.88);
+	--color-powder-300: oklch(0.7973 0.12 234.93);
+	--color-powder-400: oklch(0.7445 0.15 237.97);
+	--color-powder-500: oklch(0.6981 0.171 243.77);
+	--color-powder-600: oklch(0.5927 0.144 243.18);
+	--color-powder-700: oklch(0.4799 0.116 242.91);
+	--color-powder-800: oklch(0.3626 0.085 241.36);
+	--color-powder-900: oklch(0.2348 0.051 237.09);
+	--color-powder-950: oklch(0.1931 0.041 234.78);
+}
