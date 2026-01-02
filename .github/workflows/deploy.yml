@@ -42,7 +42,8 @@ jobs:
         if: ${{ github.event_name == 'push' || inputs.apply_migrations == 'true' }}
         # We explicitly target the PROD database here.
         # Ensure D1_DB_NAME secret is set to 'playims-central-db-prod' OR hardcode it below.
-        run: pnpm exec wrangler d1 migrations apply playims-central-db-prod --remote
+        # Must include --env production to read the correct config block
+        run: pnpm exec wrangler d1 migrations apply playims-central-db-prod --remote --env production
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

@@ -14,7 +14,7 @@
 		"db:introspect": "drizzle-kit introspect --config=drizzle.config.ts",
 		"db:migrate:dev:local": "wrangler d1 migrations apply playims-central-db-dev --local",
 		"db:migrate:dev:remote": "wrangler d1 migrations apply playims-central-db-dev --remote",
-		"db:migrate:prod": "wrangler d1 migrations apply playims-central-db-prod --remote",
+		"db:migrate:prod": "wrangler d1 migrations apply playims-central-db-prod --remote --env production",
 		"db:studio": "drizzle-kit studio --config=drizzle.config.ts",
 		"db:push": "drizzle-kit push --config=drizzle.config.ts",
 		"db:drop": "drizzle-kit drop --config=drizzle.config.ts"
