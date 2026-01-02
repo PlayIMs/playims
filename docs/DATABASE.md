@@ -17,50 +17,74 @@ The database logic is modular and located in `src/lib/database/`:
 
 This project uses Cloudflare D1. It is important to understand the difference between **Local** and **Remote (Production)** databases.
 
-*   **Local**: A SQLite file stored in your `.wrangler` directory. It is used when running `pnpm dev` or `wrangler pages dev`. It simulates D1 for development speed and safety.
-*   **Remote**: The actual D1 database running on Cloudflare's edge. This is your production data.
+- **Local**: A SQLite file stored in your `.wrangler` directory. It is used when running `pnpm dev` or `wrangler pages dev`. It simulates D1 for development speed and safety.
+- **Remote**: The actual D1 database running on Cloudflare's edge. This is your production data.
+
+### Workflow: From Local to Production
+
+The standard development workflow is:
+
+1.  **Develop Locally**: Write code, update schemas, and test features on your machine using `pnpm dev`.
+    *   *Note*: The data in your local database is completely separate from production.
+2.  **Generate Migration**: If you changed the database schema, run `pnpm db:generate`.
+3.  **Update Local DB**: Run `pnpm db:migrate --local` to apply changes to your local database so you can keep testing.
+4.  **Commit & Push**: Commit your code (including the new migration files in `migrations/`) to Git.
+5.  **Deploy Code**: Push to your repository to trigger a Cloudflare Pages deployment (or build/upload manually).
+6.  **Update Production DB**: Run `pnpm db:migrate` (without `--local`) to apply the schema changes to the live D1 database.
+
+**Important**: Data added to your **local** database (via `pnpm dev` or local Studio) is **NEVER** automatically migrated to production. Only the **schema structure** (tables, columns) is migrated. You must insert production data separately or use a seed script if needed.
 
 ### Database Management Commands
 
 The following commands are used to manage the database schema.
 
 #### 1. Generate Migrations
+
 ```bash
 pnpm db:generate
 ```
+
 - **What it does**: Scans your TypeScript schema files (`src/lib/database/schema/`) and creates a SQL migration file in `migrations/`.
 - **Target**: **Codebase** (Filesystem).
 - **When to use**: Every time you change your schema definition.
 
 #### 2. Apply Migrations (Production)
+
 ```bash
 pnpm db:migrate
 ```
+
 - **What it does**: Applies pending migrations to your **REMOTE** Cloudflare D1 database.
 - **Target**: **Production Database** (Cloudflare).
 - **Command**: Runs `wrangler d1 migrations apply`.
 - **When to use**: When you are ready to deploy schema changes to the live application.
 
 #### 3. Apply Migrations (Local)
+
 ```bash
 pnpm db:migrate --local
 ```
+
 - **What it does**: Applies pending migrations to your **LOCAL** development database.
 - **Target**: **Local Database** (`.wrangler/`).
 - **When to use**: After generating migrations, so your local dev environment (`pnpm dev`) reflects the changes.
 
 #### 4. Drizzle Studio (Remote)
+
 ```bash
 pnpm db:studio
 ```
+
 - **What it does**: Opens a GUI to inspect and edit your database.
 - **Target**: **Production Database** (by default, via `drizzle.config.ts`).
 - **Warning**: This connects to your live production data! Be careful.
 
 #### 5. Push Schema (Prototyping)
+
 ```bash
 pnpm db:push
 ```
+
 - **What it does**: Forces the **Remote** database to match your local schema code, bypassing migration files.
 - **Target**: **Production Database** (via `drizzle.config.ts`).
 - **Warning**: **Do not use this in production workflows.** It can cause data loss. It is primarily for rapid prototyping where you don't care about the data or migration history.
