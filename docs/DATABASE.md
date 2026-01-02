@@ -34,72 +34,55 @@ The standard development workflow is:
 
 **Important**: Data added to your **local** database (via `pnpm dev` or local Studio) is **NEVER** automatically migrated to production. Only the **schema structure** (tables, columns) is migrated. You must insert production data separately or use a seed script if needed.
 
-### Database Management Commands
+### Database Update Methods
 
-The following commands are used to manage the database schema.
+There are three main ways to update your database. Understanding the difference is critical for maintaining a stable application.
 
-#### 1. Generate Migrations
+#### 1. Via Migrations (✅ BEST / RECOMMENDED)
+This is the standard, safe workflow for all environments (local, staging, production).
 
-```bash
-pnpm db:generate
-```
+- **How**:
+  1. Modify TypeScript schema files (`schema/*.ts`).
+  2. Run `pnpm db:generate` to create a versioned SQL file.
+  3. Run `pnpm db:migrate` to apply it.
+- **Why it's the best**: 
+  - Provides a history of changes.
+  - Safe for production (you can review the SQL before applying).
+  - Keeps local and production schemas in sync reliably.
+  - Handles data transformations (like renames) without data loss if done correctly.
+- **Use when**: Making *any* change to the database structure that needs to be deployed.
 
-- **What it does**: Scans your TypeScript schema files (`src/lib/database/schema/`) and creates a SQL migration file in `migrations/`.
-- **Target**: **Codebase** (Filesystem).
-- **When to use**: Every time you change your schema definition.
+#### 2. Via `db:push` (⚠️ PROTOTYPING ONLY)
+This bypasses migrations and forces the database to match your code.
 
-#### 2. Apply Migrations (Production)
+- **How**: Run `pnpm db:push`.
+- **Why it's risky**:
+  - No history.
+  - Can delete data silently if you aren't careful.
+  - "It works on my machine" syndrome—production might fail because it doesn't have the same state.
+- **Use when**: You are starting a brand new project, or hacking on a feature locally and don't care about keeping the data in your local DB. **NEVER use in production.**
 
-```bash
-pnpm db:migrate
-```
+#### 3. Via SQL (🚫 WORST / AVOID)
+Manually running `CREATE TABLE` or `ALTER TABLE` commands.
 
-- **What it does**: Applies pending migrations to your **REMOTE** Cloudflare D1 database.
-- **Target**: **Production Database** (Cloudflare).
-- **Command**: Runs `wrangler d1 migrations apply`.
-- **When to use**: When you are ready to deploy schema changes to the live application.
-
-#### 3. Apply Migrations (Local)
-
-```bash
-pnpm db:migrate --local
-```
-
-- **What it does**: Applies pending migrations to your **LOCAL** development database.
-- **Target**: **Local Database** (`.wrangler/`).
-- **When to use**: After generating migrations, so your local dev environment (`pnpm dev`) reflects the changes.
-
-#### 4. Drizzle Studio (Remote)
-
-```bash
-pnpm db:studio
-```
-
-- **What it does**: Opens a GUI to inspect and edit your database.
-- **Target**: **Production Database** (by default, via `drizzle.config.ts`).
-- **Warning**: This connects to your live production data! Be careful.
-
-#### 5. Push Schema (Prototyping)
-
-```bash
-pnpm db:push
-```
-
-- **What it does**: Forces the **Remote** database to match your local schema code, bypassing migration files.
-- **Target**: **Production Database** (via `drizzle.config.ts`).
-- **Warning**: **Do not use this in production workflows.** It can cause data loss. It is primarily for rapid prototyping where you don't care about the data or migration history.
-
----
+- **How**: Using the D1 console in Cloudflare dashboard, or `wrangler d1 execute`.
+- **Why it's the worst**:
+  - **Breaks Type Safety**: Your TypeScript schema (`schema/*.ts`) will be out of sync with the real database. Drizzle won't know about your changes, leading to runtime errors.
+  - **Unreproducible**: Hard to replicate the exact state on another developer's machine.
+- **Use when**: Never, unless you are fixing a critical production emergency that migrations cannot handle (e.g., manual data repair). If you do this, you MUST immediately update your schema files to match.
 
 ### Syncing & Type Safety
 
-To ensure your application types match your database:
+The "Source of Truth" for your application is your TypeScript schema files in `src/lib/database/schema/`.
 
-1.  **Define**: Update schema in `src/lib/database/schema/*.ts`.
-2.  **Generate**: Run `pnpm db:generate` to create the SQL.
-3.  **Migrate**: Run `pnpm db:migrate --local` (for dev) and `pnpm db:migrate` (for prod).
+- **To sync DB → Code**: This flow is generally discouraged in this setup. You should define code first. If you have an existing DB, use `drizzle-kit introspect` to generate the initial schema, then switch to the migration workflow.
+- **To sync Code → DB**: Use **Migrations** (Method 1).
 
-**Note**: The source of truth is always your TypeScript schema files.
+**To ensure type safety:**
+1. Always define your table structure in `src/lib/database/schema/`.
+2. Do not bypass Drizzle to change the database structure.
+3. If you get type errors, it means your code doesn't match your schema definition. Update the schema, generate a migration, and migrate.
+
 
 ## Common Operations
 
