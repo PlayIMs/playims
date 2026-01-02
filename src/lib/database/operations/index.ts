@@ -29,13 +29,18 @@ export class DatabaseOperations {
 	constructor(platformOrDb: { env: { DB: D1Database } } | D1Database) {
 		let db: D1Database;
 		
+		// Handle null/undefined platform in case of error
+		if (!platformOrDb) {
+			throw new Error('DatabaseOperations requires a Platform object or D1Database binding. Ensure your Cloudflare Pages project has the D1 database binding configured.');
+		}
+
 		// Handle both platform object and direct DB binding
 		if ('env' in platformOrDb && platformOrDb.env && platformOrDb.env.DB) {
 			db = platformOrDb.env.DB;
 		} else if (platformOrDb && typeof (platformOrDb as any).prepare === 'function') {
 			db = platformOrDb as D1Database;
 		} else {
-			throw new Error('DatabaseOperations requires a D1Database binding or Platform object');
+			throw new Error('DatabaseOperations requires a D1Database binding or Platform object. platform.env.DB was undefined.');
 		}
 
 		const drizzleDb = createDrizzleClient(db);

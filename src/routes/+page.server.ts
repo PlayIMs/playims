@@ -4,11 +4,12 @@ import type { PageServerLoad } from './$types';
 export const load: PageServerLoad = async ({ platform }) => {
 	try {
 		// Create Drizzle database operations instance
-		const dbOps = new DatabaseOperations(platform);
+		const dbOps = new DatabaseOperations(platform || { env: {} } as any);
 
 		// Determine environment
-		const isLocalDevelopment = (platform as any)?.env?.DB;
-		const environment = isLocalDevelopment ? 'local (wrangler + drizzle)' : 'production (REST API)';
+		// Note: platform.env.DB exists in Cloudflare Pages (both local and prod)
+		const isLocalDevelopment = !platform?.env?.DB;
+		const environment = platform?.env?.DB ? 'production' : 'local (fallback)';
 
 		// Fetch data from both tables using Drizzle operations
 		const [clients, users] = await Promise.all([dbOps.clients.getAll(), dbOps.users.getAll()]);
