@@ -58,9 +58,11 @@ pnpm db:push
 - **Warning**: Do not use this for production databases or stable features, as you lose the version history of your schema changes.
 
 
-## Adding a New Table
+## Common Operations
 
-1.  **Create Schema**: Add `src/lib/database/schema/mytable.ts`.
+### Adding a New Table
+
+1.  **Create Schema**: Add a new file `src/lib/database/schema/mytable.ts`.
 
     ```typescript
     import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
@@ -97,6 +99,43 @@ pnpm db:push
     - Import `MyTableOperations`.
     - Add `public myTable: MyTableOperations;` to `DatabaseOperations` class.
     - Initialize `this.myTable = new MyTableOperations(drizzleDb);` in the constructor.
+
+### Renaming a Column
+
+1.  **Update Schema**: In your schema file (e.g., `schema/clients.ts`), change the column name in the database while keeping the property name if desired, or change both.
+    ```typescript
+    // Before: name: text('full_name')
+    // After: name: text('display_name') 
+    ```
+2.  **Generate Migration**: Run `pnpm db:generate`.
+3.  **Confirm Rename**: Drizzle Kit will ask: `? Did you rename column 'full_name' to 'display_name'?`. Select **Yes**.
+4.  **Apply**: Run `pnpm db:migrate`.
+
+### Adding a Column
+
+1.  **Update Schema**: Add the new column definition.
+    ```typescript
+    age: integer('age')
+    ```
+2.  **Generate Migration**: Run `pnpm db:generate`.
+3.  **Apply**: Run `pnpm db:migrate`.
+
+### Removing a Column
+
+1.  **Update Schema**: Remove the column definition from the file.
+2.  **Generate Migration**: Run `pnpm db:generate`.
+    *   *Warning*: This will generate a `DROP COLUMN` statement. All data in that column will be lost.
+3.  **Apply**: Run `pnpm db:migrate`.
+
+### Renaming a Table
+
+1.  **Update Schema**: Change the table name in the `sqliteTable` definition.
+    ```typescript
+    export const newName = sqliteTable('new_table_name', { ... })
+    ```
+2.  **Generate Migration**: Run `pnpm db:generate`.
+3.  **Confirm Rename**: Drizzle Kit will detect the rename and ask for confirmation. Select **Yes**.
+4.  **Apply**: Run `pnpm db:migrate`.
 
 ## Type Safety
 
