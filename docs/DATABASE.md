@@ -13,29 +13,25 @@ The database logic is modular and located in `src/lib/database/`:
 - **`operations/`**: Contains business logic classes (e.g., `ClientOperations`).
   - To add logic: Create a new operation class here and register it in `operations/index.ts`.
 
-## Local vs. Production Development
+## Local vs. Remote Development
 
-This project uses Cloudflare D1. It is important to understand the difference between **Local** and **Remote (Production)** databases.
+This project uses Cloudflare D1. It is important to understand the difference between **Local** and **Remote** databases.
 
 - **Local**: A SQLite file stored in your `.wrangler` directory. It is used when running `pnpm dev` or `wrangler pages dev`. It simulates D1 for development speed and safety.
-- **Remote**: The actual D1 database running on Cloudflare's edge. This is your production data.
+- **Remote**: The actual D1 database running on Cloudflare's edge (`playims-central-db-dev`). This is the shared development database.
 
-### Workflow: From Local to Production
+### Workflow: Schema Changes
 
-The standard development workflow involves ensuring your schema changes are safe.
+The standard development workflow:
 
 1.  **Develop Locally**: Write code, update schemas, and test features on your machine using `pnpm dev`.
-    - _Note_: The data in your local database is completely separate from production.
+    - _Note_: The data in your local database is completely separate from the remote database.
 2.  **Generate Migration**: If you changed the database schema, run `pnpm db:generate`.
 3.  **Update Local DB**: Run `pnpm db:migrate:local` to apply changes to your local database so you can keep testing.
-4.  **Commit & Push**: Commit your code.
-5.  **Deploy & Migrate**: The order depends on the type of change (Additive vs. Destructive).
-    - **Safe/Additive**: Migrate Production -> Deploy Code.
-    - **Destructive**: Deploy Code -> Migrate Production.
+4.  **Apply to Remote**: Run `pnpm db:migrate:remote` to apply the migration to the remote dev database.
+5.  **Commit & Push**: Commit your code and migration files.
 
-**See [DEVELOPMENT.md](./DEVELOPMENT.md#database-management) for the detailed, step-by-step guides for these workflows.**
-
-**Important**: Data added to your **local** database (via `pnpm dev` or local Studio) is **NEVER** automatically migrated to production. Only the **schema structure** (tables, columns) is migrated. You must insert production data separately or use a seed script if needed.
+**Important**: Data added to your **local** database (via `pnpm dev` or local Studio) is **NEVER** automatically synced to the remote database. Only the **schema structure** (tables, columns) is migrated. You must insert data separately or use a seed script if needed.
 
 ### Database Management Commands
 
@@ -51,36 +47,35 @@ pnpm db:generate
 - **Target**: **Codebase** (Filesystem).
 - **When to use**: Every time you change your schema definition.
 
-#### 2. Apply Migrations (Production)
+#### 2. Apply Migrations (Local)
 
 ```bash
-pnpm db:migrate:prod
+pnpm db:migrate:local
 ```
 
-- **What it does**: Applies pending migrations to your **REMOTE** Cloudflare D1 database (`playims-central-db-prod`).
-- **Target**: **Production Database** (Cloudflare).
-- **Command**: Runs `wrangler d1 migrations apply playims-central-db-prod --remote`.
-- **When to use**: Before or after deployment, depending on the change type.
-
-#### 3. Apply Migrations (Local)
-
-```bash
-pnpm db:migrate:dev:local
-```
-
-- **What it does**: Applies pending migrations to your **LOCAL** development database (`playims-central-db-dev` simulated).
-- **Target**: **Local Database** (`.wrangler/`).
+- **What it does**: Applies pending migrations to your **LOCAL** development database.
+- **Target**: **Local Database** (`.wrangler/` directory).
 - **When to use**: After generating migrations, so your local dev environment (`pnpm dev`) reflects the changes.
 
-#### 4. Drizzle Studio (Remote)
+#### 3. Apply Migrations (Remote)
+
+```bash
+pnpm db:migrate:remote
+```
+
+- **What it does**: Applies pending migrations to your **REMOTE** Cloudflare D1 dev database (`playims-central-db-dev`).
+- **Target**: **Remote Dev Database** (Cloudflare).
+- **When to use**: After testing locally, to update the shared dev database.
+
+#### 4. Drizzle Studio
 
 ```bash
 pnpm db:studio
 ```
 
 - **What it does**: Opens a GUI to inspect and edit your database.
-- **Target**: **Production Database** (by default, via `drizzle.config.ts`).
-- **Warning**: This connects to your live production data! Be careful.
+- **Target**: **Remote Dev Database** (via `drizzle.config.ts`).
+- **Note**: Configured to connect to the dev database.
 
 #### 5. Push Schema (Prototyping)
 
@@ -88,9 +83,9 @@ pnpm db:studio
 pnpm db:push
 ```
 
-- **What it does**: Forces the **Remote** database to match your local schema code, bypassing migration files.
-- **Target**: **Production Database** (via `drizzle.config.ts`).
-- **Warning**: **Do not use this in production workflows.** It can cause data loss. It is primarily for rapid prototyping where you don't care about the data or migration history.
+- **What it does**: Forces the database to match your local schema code, bypassing migration files.
+- **Target**: **Remote Dev Database** (via `drizzle.config.ts`).
+- **Warning**: **Use with caution.** It can cause data loss. Primarily for rapid prototyping where you don't care about the data or migration history.
 
 ---
 
@@ -100,7 +95,7 @@ To ensure your application types match your database:
 
 1.  **Define**: Update schema in `src/lib/database/schema/*.ts`.
 2.  **Generate**: Run `pnpm db:generate` to create the SQL.
-3.  **Migrate**: Run `pnpm db:migrate:dev:local` (for dev) and `pnpm db:migrate:prod` (for prod).
+3.  **Migrate**: Run `pnpm db:migrate:local` (for local testing) and `pnpm db:migrate:remote` (for remote dev database).
 
 **Note**: The source of truth is always your TypeScript schema files.
 
@@ -155,7 +150,7 @@ To ensure your application types match your database:
     ```
 2.  **Generate Migration**: Run `pnpm db:generate`.
 3.  **Confirm Rename**: Drizzle Kit will ask: `? Did you rename column 'full_name' to 'display_name'?`. Select **Yes**.
-4.  **Apply**: Run `pnpm db:migrate`.
+4.  **Apply**: Run `pnpm db:migrate:local` and then `pnpm db:migrate:remote`.
 
 ### Adding a Column
 
@@ -164,14 +159,14 @@ To ensure your application types match your database:
     age: integer('age');
     ```
 2.  **Generate Migration**: Run `pnpm db:generate`.
-3.  **Apply**: Run `pnpm db:migrate`.
+3.  **Apply**: Run `pnpm db:migrate:local` and then `pnpm db:migrate:remote`.
 
 ### Removing a Column
 
 1.  **Update Schema**: Remove the column definition from the file.
 2.  **Generate Migration**: Run `pnpm db:generate`.
     - _Warning_: This will generate a `DROP COLUMN` statement. All data in that column will be lost.
-3.  **Apply**: Run `pnpm db:migrate`.
+3.  **Apply**: Run `pnpm db:migrate:local` and then `pnpm db:migrate:remote`.
 
 ### Renaming a Table
 
@@ -181,7 +176,7 @@ To ensure your application types match your database:
     ```
 2.  **Generate Migration**: Run `pnpm db:generate`.
 3.  **Confirm Rename**: Drizzle Kit will detect the rename and ask for confirmation. Select **Yes**.
-4.  **Apply**: Run `pnpm db:migrate`.
+4.  **Apply**: Run `pnpm db:migrate:local` and then `pnpm db:migrate:remote`.
 
 ## Type Safety
 
@@ -222,8 +217,8 @@ Failing to follow these guidelines can lead to data loss, deployment failures, o
   - Ensure your schema definitions include `onDelete: 'cascade'` if you want automatic deletion.
   - Or, manually delete child records (e.g., delete all `Users` for a `Client`) before deleting the parent record in your operation logic.
 
-### ⚠️ CAUTION: Mixing Local and Production Data
+### ⚠️ CAUTION: Mixing Local and Remote Data
 
-- **Why**: Your local environment uses a local SQLite file (simulating D1). Production uses the real Cloudflare D1.
-- **Consequence**: Data you create locally (via `pnpm dev` or `pnpm db:studio`) **will not exist** in production, and vice versa.
-- **Correct Way**: Use migration files to keep the _structure_ in sync. Use seed scripts if you need consistent initial data across environments.
+- **Why**: Your local environment uses a local SQLite file (simulating D1). The remote dev database is the real Cloudflare D1.
+- **Consequence**: Data you create locally (via `pnpm dev` or `pnpm db:studio`) **will not exist** in the remote database, and vice versa.
+- **Correct Way**: Use migration files to keep the _structure_ in sync. Use seed scripts if you need consistent initial data.
