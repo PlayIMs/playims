@@ -47,30 +47,30 @@
 	/>
 </svelte:head>
 
-<div class="min-h-screen bg-beige-50">
+<div class="min-h-screen bg-secondary-500">
 	<!-- Hero Section -->
-	<section class="bg-red-600 text-white">
+	<section class="bg-primary-600 text-white">
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 sm:py-32">
 			<div class="text-center">
 				<h1 class="text-5xl sm:text-6xl lg:text-7xl font-bold mb-6">
-					Play<span class="text-red-200">IMs</span>
+					Play<span class="text-primary-200">IMs</span>
 				</h1>
-				<p class="text-xl sm:text-2xl mb-4 text-red-100 font-medium">
+				<p class="text-xl sm:text-2xl mb-4 text-primary-100 font-medium">
 					The next-generation platform for managing intramural sports leagues
 				</p>
-				<p class="text-lg sm:text-xl mb-8 text-red-200 max-w-3xl mx-auto">
+				<p class="text-lg sm:text-xl mb-8 text-primary-200 max-w-3xl mx-auto">
 					Built from the ground up to be more intuitive, easier to use, and more powerful than
 					existing solutions. Designed for both administrators and players who deserve better.
 				</p>
 				<div class="flex flex-col sm:flex-row gap-4 justify-center">
 					<button
-						class="bg-white text-red-600 px-8 py-3 font-bold text-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+						class="bg-white text-primary-950 px-8 py-3 font-bold text-lg hover:bg-primary-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 						disabled
 					>
 						Get Started
 					</button>
 					<button
-						class="bg-transparent border-2 border-white text-white px-8 py-3 font-bold text-lg hover:bg-white hover:text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+						class="bg-transparent border-2 border-white text-white px-8 py-3 font-bold text-lg hover:bg-white hover:text-primary-950 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 						disabled
 					>
 						Learn More
@@ -81,13 +81,13 @@
 	</section>
 
 	<!-- Features Section -->
-	<section class="bg-beige-100 py-16 sm:py-24">
+	<section class="bg-secondary-500 py-16 sm:py-24">
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 			<div class="text-center mb-12">
-				<h2 class="text-3xl sm:text-4xl font-bold text-red-900 mb-4">
+				<h2 class="text-3xl sm:text-4xl font-bold text-secondary-950 mb-4">
 					Everything you need, designed the right way
 				</h2>
-				<p class="text-lg text-beige-700 max-w-2xl mx-auto">
+				<p class="text-lg text-secondary-900 max-w-2xl mx-auto">
 					All the features you expect, reimagined for simplicity and ease of use. Built for
 					administrators who want control without complexity, and players who want clarity without
 					confusion.
@@ -96,8 +96,10 @@
 
 			<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
 				<!-- Feature 1 -->
-				<div class="bg-white border-l-4 border-red-500 p-6 hover:border-red-600 transition-colors">
-					<div class="bg-red-500 w-16 h-16 flex items-center justify-center mb-4">
+				<div
+					class="bg-white border-l-4 border-primary-500 p-6 hover:border-primary-600 transition-colors"
+				>
+					<div class="bg-primary-500 w-16 h-16 flex items-center justify-center mb-4">
 						<svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
 								stroke-linecap="round"
@@ -107,8 +109,8 @@
 							></path>
 						</svg>
 					</div>
-					<h3 class="text-xl font-bold text-red-900 mb-2">Intuitive Team Management</h3>
-					<p class="text-beige-700">
+					<h3 class="text-xl font-bold text-primary-950 mb-2">Intuitive Team Management</h3>
+					<p class="text-secondary-900">
 						Streamlined team registration and roster management that actually makes sense. No more
 						confusing workflows—just simple, clear processes that work the way you think.
 					</p>
@@ -116,9 +118,9 @@
 
 				<!-- Feature 2 -->
 				<div
-					class="bg-white border-l-4 border-powder-500 p-6 hover:border-powder-600 transition-colors"
+					class="bg-white border-l-4 border-accent-500 p-6 hover:border-accent-600 transition-colors"
 				>
-					<div class="bg-powder-500 w-16 h-16 flex items-center justify-center mb-4">
+					<div class="bg-accent-500 w-16 h-16 flex items-center justify-center mb-4">
 						<svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
 								stroke-linecap="round"
@@ -128,8 +130,8 @@
 							></path>
 						</svg>
 					</div>
-					<h3 class="text-xl font-bold text-red-900 mb-2">Smart Scheduling</h3>
-					<p class="text-beige-700">
+					<h3 class="text-xl font-bold text-primary-950 mb-2">Smart Scheduling</h3>
+					<p class="text-secondary-900">
 						Automated scheduling that handles conflicts intelligently, so you don't have to. Venue
 						management that's straightforward and visual, not buried in menus.
 					</p>
@@ -137,9 +139,9 @@
 
 				<!-- Feature 3 -->
 				<div
-					class="bg-white border-l-4 border-navy-500 p-6 hover:border-navy-600 transition-colors"
+					class="bg-white border-l-4 border-tertiary-500 p-6 hover:border-tertiary-600 transition-colors"
 				>
-					<div class="bg-navy-500 w-16 h-16 flex items-center justify-center mb-4">
+					<div class="bg-tertiary-500 w-16 h-16 flex items-center justify-center mb-4">
 						<svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
 								stroke-linecap="round"
@@ -149,8 +151,8 @@
 							></path>
 						</svg>
 					</div>
-					<h3 class="text-xl font-bold text-navy-900 mb-2">Clear Standings & Stats</h3>
-					<p class="text-beige-700">
+					<h3 class="text-xl font-bold text-tertiary-950 mb-2">Clear Standings & Stats</h3>
+					<p class="text-secondary-900">
 						Real-time standings and statistics presented in a way that's easy to understand at a
 						glance. No more hunting through confusing interfaces to find what you need.
 					</p>
@@ -160,11 +162,11 @@
 	</section>
 
 	<!-- What We're Building Section -->
-	<section class="bg-navy-800 py-16 sm:py-24">
+	<section class="bg-tertiary-800 py-16 sm:py-24">
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 			<div class="text-center mb-12">
-				<h2 class="text-3xl sm:text-4xl font-bold text-white mb-4">Built for Everyone</h2>
-				<p class="text-lg text-navy-200">
+				<h2 class="text-3xl sm:text-4xl font-bold text-tertiary-50 mb-4">Built for Everyone</h2>
+				<p class="text-lg text-tertiary-100">
 					Designed with both administrators and players in mind—because great software shouldn't
 					require a manual
 				</p>
@@ -172,8 +174,8 @@
 
 			<!-- Key Benefits -->
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-				<div class="bg-navy-900 border-2 border-navy-700 p-6">
-					<div class="bg-red-600 w-16 h-16 flex items-center justify-center mb-4">
+				<div class="bg-tertiary-900 border-2 border-tertiary-700 p-6">
+					<div class="bg-primary-600 w-16 h-16 flex items-center justify-center mb-4">
 						<svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
 								stroke-linecap="round"
@@ -183,16 +185,16 @@
 							></path>
 						</svg>
 					</div>
-					<h3 class="text-xl font-bold text-white mb-2">Admin-Friendly</h3>
-					<p class="text-navy-300">
+					<h3 class="text-xl font-bold text-tertiary-50 mb-2">Admin-Friendly</h3>
+					<p class="text-tertiary-200">
 						Powerful administrative tools that don't require a computer science degree. Manage
 						leagues, divisions, teams, and schedules with an interface that makes sense from day
 						one.
 					</p>
 				</div>
 
-				<div class="bg-navy-900 border-2 border-navy-700 p-6">
-					<div class="bg-powder-600 w-16 h-16 flex items-center justify-center mb-4">
+				<div class="bg-tertiary-900 border-2 border-tertiary-700 p-6">
+					<div class="bg-accent-600 w-16 h-16 flex items-center justify-center mb-4">
 						<svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
 								stroke-linecap="round"
@@ -202,8 +204,8 @@
 							></path>
 						</svg>
 					</div>
-					<h3 class="text-xl font-bold text-white mb-2">Player-Friendly</h3>
-					<p class="text-navy-300">
+					<h3 class="text-xl font-bold text-tertiary-50 mb-2">Player-Friendly</h3>
+					<p class="text-tertiary-200">
 						Clear schedules, easy registration, and straightforward team management. Find your
 						games, check standings, and manage your participation without getting lost in the
 						interface.
@@ -213,23 +215,23 @@
 
 			<!-- Additional Features -->
 			<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-				<div class="bg-navy-900 border-2 border-navy-700 p-6">
-					<h3 class="text-lg font-bold text-white mb-2">Division & League Management</h3>
-					<p class="text-sm text-navy-300">
+				<div class="bg-tertiary-900 border-2 border-tertiary-700 p-6">
+					<h3 class="text-lg font-bold text-tertiary-50 mb-2">Division & League Management</h3>
+					<p class="text-sm text-tertiary-200">
 						Organize multiple leagues and divisions with clear hierarchies. Set up seasons, manage
 						rosters, and handle registrations all in one intuitive system.
 					</p>
 				</div>
-				<div class="bg-navy-900 border-2 border-navy-700 p-6">
-					<h3 class="text-lg font-bold text-white mb-2">Event & Game Management</h3>
-					<p class="text-sm text-navy-300">
+				<div class="bg-tertiary-900 border-2 border-tertiary-700 p-6">
+					<h3 class="text-lg font-bold text-tertiary-50 mb-2">Event & Game Management</h3>
+					<p class="text-sm text-tertiary-200">
 						Schedule games, track results, and manage events with tools that make sense. View
 						everything in a calendar format that's actually usable.
 					</p>
 				</div>
-				<div class="bg-navy-900 border-2 border-navy-700 p-6">
-					<h3 class="text-lg font-bold text-white mb-2">Comprehensive Statistics</h3>
-					<p class="text-sm text-navy-300">
+				<div class="bg-tertiary-900 border-2 border-tertiary-700 p-6">
+					<h3 class="text-lg font-bold text-tertiary-50 mb-2">Comprehensive Statistics</h3>
+					<p class="text-sm text-tertiary-200">
 						Track team and player performance with detailed statistics. View standings, game
 						history, and performance metrics in formats that are easy to understand.
 					</p>
@@ -239,41 +241,41 @@
 	</section>
 
 	<!-- CTA Section -->
-	<section class="bg-red-600 py-16 sm:py-24">
+	<section class="bg-primary-600 py-16 sm:py-24">
 		<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-			<h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4">
+			<h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-primary-50 mb-4">
 				Ready for Something Better?
 			</h2>
-			<p class="text-lg sm:text-xl text-red-100 mb-8 max-w-2xl mx-auto">
+			<p class="text-lg sm:text-xl text-primary-200 mb-8 max-w-2xl mx-auto">
 				We're building the intramural sports management platform you've been waiting for. One that's
 				actually intuitive, genuinely easy to use, and designed for real people—not just feature
 				checklists.
 			</p>
 			<div class="flex flex-col sm:flex-row gap-4 justify-center mb-6">
 				<button
-					class="bg-white text-red-600 px-8 py-3 font-bold text-lg hover:bg-beige-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+					class="bg-white text-primary-950 px-8 py-3 font-bold text-lg hover:bg-secondary-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 					disabled
 				>
 					Get Early Access
 				</button>
 				<button
-					class="bg-transparent border-2 border-white text-white px-8 py-3 font-bold text-lg hover:bg-white hover:text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+					class="bg-transparent border-2 border-white text-white px-8 py-3 font-bold text-lg hover:bg-white hover:text-primary-950 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 					disabled
 				>
 					Contact Sales
 				</button>
 			</div>
-			<p class="text-base text-red-200">Currently in development. Coming soon.</p>
+			<p class="text-base text-primary-300">Currently in development. Coming soon.</p>
 		</div>
 	</section>
 
 	<!-- Footer -->
-	<footer class="bg-navy-950 py-8">
+	<footer class="bg-tertiary-950 py-8">
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-			<p class="text-navy-300 mb-2">
+			<p class="text-tertiary-200 mb-2">
 				&copy; {new Date().getFullYear()} PlayIMs. All rights reserved.
 			</p>
-			<p class="text-sm text-navy-400">Environment: {data.environment}</p>
+			<p class="text-sm text-tertiary-300">Environment: {data.environment}</p>
 		</div>
 	</footer>
 </div>

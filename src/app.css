@@ -2,56 +2,461 @@
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
 
+/* Disable Tailwind Forms plugin default blue focus ring */
+@layer base {
+	[type='text']:focus,
+	[type='email']:focus,
+	[type='url']:focus,
+	[type='password']:focus,
+	[type='number']:focus,
+	[type='date']:focus,
+	[type='datetime-local']:focus,
+	[type='month']:focus,
+	[type='week']:focus,
+	[type='time']:focus,
+	[type='search']:focus,
+	[type='tel']:focus,
+	[type='checkbox']:focus,
+	[type='radio']:focus,
+	[multiple]:focus,
+	textarea:focus,
+	select:focus {
+		--tw-ring-color: var(--color-primary-500) !important;
+	}
+}
+
 @theme {
-	/* Red - Primary Color (replaces default red) */
-	--color-red-50: oklch(0.9465 0.024 8.17);
-	--color-red-100: oklch(0.8957 0.049 10.22);
-	--color-red-200: oklch(0.7968 0.103 12.06);
-	--color-red-300: oklch(0.7085 0.161 14.6);
-	--color-red-400: oklch(0.6396 0.209 19);
-	--color-red-500: oklch(0.5987 0.236 24.88);
-	--color-red-600: oklch(0.5078 0.199 24.3);
-	--color-red-700: oklch(0.4127 0.16 23.69);
-	--color-red-800: oklch(0.3105 0.116 22.58);
-	--color-red-900: oklch(0.201 0.07 18.79);
-	--color-red-950: oklch(0.1658 0.055 17.41);
+	/* Dynamic Primary Color */
+	--color-primary-50: var(--color-primary-50);
+	--color-primary-100: var(--color-primary-100);
+	--color-primary-200: var(--color-primary-200);
+	--color-primary-300: var(--color-primary-300);
+	--color-primary-400: var(--color-primary-400);
+	--color-primary-500: var(--color-primary-500);
+	--color-primary-600: var(--color-primary-600);
+	--color-primary-700: var(--color-primary-700);
+	--color-primary-800: var(--color-primary-800);
+	--color-primary-900: var(--color-primary-900);
+	--color-primary-950: var(--color-primary-950);
 
-	/* Beige - Secondary Color */
-	--color-beige-50: oklch(0.9632 0.013 60.57);
-	--color-beige-100: oklch(0.9254 0.028 55.32);
-	--color-beige-200: oklch(0.8527 0.056 56.23);
-	--color-beige-300: oklch(0.7799 0.086 54.99);
-	--color-beige-400: oklch(0.7086 0.115 53.32);
-	--color-beige-500: oklch(0.6424 0.144 50.51);
-	--color-beige-600: oklch(0.5462 0.119 50.9);
-	--color-beige-700: oklch(0.4471 0.095 51.53);
-	--color-beige-800: oklch(0.3407 0.068 52.66);
-	--color-beige-900: oklch(0.2246 0.04 52.49);
-	--color-beige-950: oklch(0.1884 0.028 55.75);
+	/* Dynamic Secondary Color */
+	--color-secondary-50: var(--color-secondary-50);
+	--color-secondary-100: var(--color-secondary-100);
+	--color-secondary-200: var(--color-secondary-200);
+	--color-secondary-300: var(--color-secondary-300);
+	--color-secondary-400: var(--color-secondary-400);
+	--color-secondary-500: var(--color-secondary-500);
+	--color-secondary-600: var(--color-secondary-600);
+	--color-secondary-700: var(--color-secondary-700);
+	--color-secondary-800: var(--color-secondary-800);
+	--color-secondary-900: var(--color-secondary-900);
+	--color-secondary-950: var(--color-secondary-950);
 
-	/* Navy - Fourth Color */
-	--color-navy-50: oklch(0.9547 0.013 266.7);
-	--color-navy-100: oklch(0.9083 0.026 264.44);
-	--color-navy-200: oklch(0.8138 0.054 266.3);
-	--color-navy-300: oklch(0.7199 0.084 265.14);
-	--color-navy-400: oklch(0.6261 0.114 264.41);
-	--color-navy-500: oklch(0.5337 0.147 263.28);
-	--color-navy-600: oklch(0.4555 0.122 263.55);
-	--color-navy-700: oklch(0.374 0.098 263.67);
-	--color-navy-800: oklch(0.2878 0.069 264.42);
-	--color-navy-900: oklch(0.1976 0.039 263.14);
-	--color-navy-950: oklch(0.169 0.027 263.38);
+	/* Dynamic Tertiary Color */
+	--color-tertiary-50: var(--color-tertiary-50);
+	--color-tertiary-100: var(--color-tertiary-100);
+	--color-tertiary-200: var(--color-tertiary-200);
+	--color-tertiary-300: var(--color-tertiary-300);
+	--color-tertiary-400: var(--color-tertiary-400);
+	--color-tertiary-500: var(--color-tertiary-500);
+	--color-tertiary-600: var(--color-tertiary-600);
+	--color-tertiary-700: var(--color-tertiary-700);
+	--color-tertiary-800: var(--color-tertiary-800);
+	--color-tertiary-900: var(--color-tertiary-900);
+	--color-tertiary-950: var(--color-tertiary-950);
 
-	/* Powder - Tertiary/Accent Color (Powder Blue) */
-	--color-powder-50: oklch(0.9632 0.022 230.54);
-	--color-powder-100: oklch(0.928 0.042 231.71);
-	--color-powder-200: oklch(0.8598 0.083 232.88);
-	--color-powder-300: oklch(0.7973 0.12 234.93);
-	--color-powder-400: oklch(0.7445 0.15 237.97);
-	--color-powder-500: oklch(0.6981 0.171 243.77);
-	--color-powder-600: oklch(0.5927 0.144 243.18);
-	--color-powder-700: oklch(0.4799 0.116 242.91);
-	--color-powder-800: oklch(0.3626 0.085 241.36);
-	--color-powder-900: oklch(0.2348 0.051 237.09);
-	--color-powder-950: oklch(0.1931 0.041 234.78);
+	/* Dynamic Accent Color */
+	--color-accent-50: var(--color-accent-50);
+	--color-accent-100: var(--color-accent-100);
+	--color-accent-200: var(--color-accent-200);
+	--color-accent-300: var(--color-accent-300);
+	--color-accent-400: var(--color-accent-400);
+	--color-accent-500: var(--color-accent-500);
+	--color-accent-600: var(--color-accent-600);
+	--color-accent-700: var(--color-accent-700);
+	--color-accent-800: var(--color-accent-800);
+	--color-accent-900: var(--color-accent-900);
+	--color-accent-950: var(--color-accent-950);
+}
+
+/* Custom form controls using theme colors */
+@layer components {
+	/* Custom Checkbox */
+	input[type='checkbox'].custom-checkbox {
+		appearance: none;
+		-webkit-appearance: none;
+		width: 1.25rem;
+		height: 1.25rem;
+		border: 2px solid var(--color-primary-300);
+		background-color: white;
+		position: relative;
+		cursor: pointer;
+		outline: none;
+	}
+
+	input[type='checkbox'].custom-checkbox:focus {
+		outline: 1px solid var(--color-primary-500);
+		outline-offset: 1px;
+	}
+
+	input[type='checkbox'].custom-checkbox:checked {
+		background-color: var(--color-primary-600);
+		border-color: var(--color-primary-600);
+	}
+
+	input[type='checkbox'].custom-checkbox:checked::after {
+		content: '';
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		transform: translate(-50%, -50%);
+		width: 0.375rem;
+		height: 0.625rem;
+		border: solid white;
+		border-width: 0 2px 2px 0;
+		transform: translate(-50%, -60%) rotate(45deg);
+	}
+
+	input[type='checkbox'].custom-checkbox:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	/* Custom Radio Button */
+	input[type='radio'].custom-radio {
+		appearance: none;
+		-webkit-appearance: none;
+		width: 1.25rem;
+		height: 1.25rem;
+		border: 2px solid var(--color-primary-300);
+		background-color: white;
+		border-radius: 50%;
+		position: relative;
+		cursor: pointer;
+		outline: none;
+	}
+
+	input[type='radio'].custom-radio:focus {
+		outline: 1px solid var(--color-primary-500);
+		outline-offset: 1px;
+	}
+
+	input[type='radio'].custom-radio:checked {
+		border-color: var(--color-primary-600);
+	}
+
+	input[type='radio'].custom-radio:checked::after {
+		content: '';
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		transform: translate(-50%, -50%);
+		width: 0.5rem;
+		height: 0.5rem;
+		background-color: var(--color-primary-600);
+		border-radius: 50%;
+	}
+
+	input[type='radio'].custom-radio:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	/* Custom Toggle Switch - Flat Design */
+	input[type='checkbox'].custom-toggle {
+		appearance: none;
+		-webkit-appearance: none;
+		-moz-appearance: none;
+		width: 3rem;
+		height: 1.5rem;
+		border: 2px solid var(--color-primary-300);
+		border-radius: 0;
+		background-color: var(--color-primary-100);
+		background-image: none !important;
+		position: relative;
+		cursor: pointer;
+		transition:
+			background-color 0.2s,
+			border-color 0.2s;
+		outline: none;
+		overflow: hidden;
+		font-size: 0;
+		text-indent: -9999px;
+		line-height: 0;
+	}
+
+	input[type='checkbox'].custom-toggle:focus {
+		outline: 1px solid var(--color-primary-500);
+		outline-offset: 1px;
+	}
+
+	input[type='checkbox'].custom-toggle::before {
+		content: '';
+		display: none;
+	}
+
+	input[type='checkbox'].custom-toggle::after {
+		content: '';
+		position: absolute;
+		left: 0.125rem;
+		top: 50%;
+		transform: translateY(-50%);
+		width: 1.125rem;
+		height: 1.125rem;
+		background-color: var(--color-primary-600);
+		border-radius: 0;
+		transition:
+			transform 0.2s,
+			background-color 0.2s;
+		z-index: 1;
+	}
+
+	input[type='checkbox'].custom-toggle:checked {
+		background-color: var(--color-primary-600);
+		border-color: var(--color-primary-600);
+		background-image: none !important;
+	}
+
+	input[type='checkbox'].custom-toggle:checked::before {
+		content: '';
+		display: none;
+	}
+
+	input[type='checkbox'].custom-toggle:checked::after {
+		transform: translate(1.5rem, -50%);
+		background-color: white;
+		background-image: none !important;
+	}
+
+	input[type='checkbox'].custom-toggle:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	/* Custom Select Dropdown */
+	select.custom-select {
+		appearance: none;
+		-webkit-appearance: none;
+		-moz-appearance: none;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+		background-repeat: no-repeat;
+		background-position: right 0.75rem center;
+		background-size: 0.75rem;
+		padding-right: 2.5rem;
+		cursor: pointer;
+		outline: none !important;
+		box-shadow: none !important;
+		color-scheme: light;
+	}
+
+	select.custom-select:focus {
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23CE1126' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+		outline: 1px solid var(--color-primary-500) !important;
+		outline-offset: 1px !important;
+		box-shadow: 0 0 0 1px var(--color-primary-500) !important;
+		--tw-ring-color: var(--color-primary-500) !important;
+	}
+
+	select.custom-select:hover {
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23CE1126' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+	}
+
+	/* Style dropdown options - Aggressive styling to override browser defaults */
+	select.custom-select option {
+		background-color: white !important;
+		background: white !important;
+		color: var(--color-primary-950) !important;
+		padding: 0.5rem !important;
+		font-weight: normal !important;
+		font-size: inherit !important;
+	}
+
+	/* Selected option styling - try all possible states */
+	select.custom-select option:checked {
+		background-color: var(--color-primary-600) !important;
+		background: var(--color-primary-600) !important;
+		color: white !important;
+		font-weight: normal !important;
+	}
+
+	/* For Firefox */
+	select.custom-select option:checked:not(:disabled) {
+		background-color: var(--color-primary-600) !important;
+		background: var(--color-primary-600) !important;
+		color: white !important;
+		font-weight: normal !important;
+	}
+
+	/* Try to override hover/active states - limited browser support */
+	select.custom-select option:hover {
+		background-color: var(--color-primary-100) !important;
+		background: var(--color-primary-100) !important;
+		color: var(--color-primary-950) !important;
+	}
+
+	select.custom-select option:focus,
+	select.custom-select option:focus-visible {
+		background-color: var(--color-primary-600) !important;
+		background: var(--color-primary-600) !important;
+		color: white !important;
+	}
+
+	select.custom-select option:active {
+		background-color: var(--color-primary-600) !important;
+		background: var(--color-primary-600) !important;
+		color: white !important;
+	}
+
+	/* Remove any blue highlights from select */
+	select.custom-select::-ms-expand {
+		display: none;
+	}
+
+	select.custom-select::-webkit-appearance {
+		-webkit-appearance: none;
+	}
+
+	/* Remove blue from select when open */
+	select.custom-select:active,
+	select.custom-select:focus-visible {
+		outline: 1px solid var(--color-primary-500) !important;
+		outline-offset: 1px !important;
+		box-shadow: 0 0 0 1px var(--color-primary-500) !important;
+		--tw-ring-color: var(--color-primary-500) !important;
+	}
+}
+
+/* Override default focus styles for all form inputs */
+@layer base {
+	/* Remove blue from all form elements */
+	*:focus {
+		--tw-ring-color: var(--color-primary-500) !important;
+	}
+
+	/* Base styles for all form inputs */
+	input[type='text'],
+	input[type='email'],
+	input[type='password'],
+	input[type='number'],
+	input[type='tel'],
+	input[type='url'],
+	input[type='search'],
+	textarea,
+	select {
+		--tw-ring-color: transparent !important;
+		outline: none !important;
+		accent-color: var(--color-primary-600);
+	}
+
+	/* Focus styles for all form inputs */
+	input[type='text']:focus,
+	input[type='email']:focus,
+	input[type='password']:focus,
+	input[type='number']:focus,
+	input[type='tel']:focus,
+	input[type='url']:focus,
+	input[type='search']:focus,
+	textarea:focus,
+	select:focus {
+		outline: 1px solid var(--color-primary-500) !important;
+		outline-offset: 1px !important;
+		--tw-ring-color: var(--color-primary-500) !important;
+		box-shadow: 0 0 0 1px var(--color-primary-500) !important;
+		border-color: var(--color-primary-500) !important;
+		accent-color: var(--color-primary-600);
+	}
+
+	/* Specific textarea styles */
+	textarea {
+		outline: none !important;
+	}
+
+	textarea:focus {
+		outline: 1px solid var(--color-primary-500) !important;
+		outline-offset: 1px !important;
+		--tw-ring-color: var(--color-primary-500) !important;
+		box-shadow: 0 0 0 1px var(--color-primary-500) !important;
+		border-color: var(--color-primary-500) !important;
+	}
+
+	/* Specific select styles */
+	select {
+		outline: none !important;
+		box-shadow: none !important;
+		accent-color: var(--color-primary-600);
+		color-scheme: light;
+	}
+
+	select:focus {
+		outline: 1px solid var(--color-primary-500) !important;
+		outline-offset: 1px !important;
+		--tw-ring-color: var(--color-primary-500) !important;
+		box-shadow: 0 0 0 1px var(--color-primary-500) !important;
+		border-color: var(--color-primary-500) !important;
+		accent-color: var(--color-primary-600);
+	}
+
+	/* Style all select options to use theme colors */
+	/* Aggressive styling to override browser defaults */
+	select option {
+		background-color: white !important;
+		background: white !important;
+		color: var(--color-primary-950) !important;
+		font-weight: normal !important;
+		font-size: inherit !important;
+	}
+
+	/* Selected option - try multiple approaches */
+	select option:checked {
+		background-color: var(--color-primary-600) !important;
+		background: var(--color-primary-600) !important;
+		color: white !important;
+		font-weight: normal !important;
+	}
+
+	/* Firefox specific */
+	select option:checked:not(:disabled) {
+		background-color: var(--color-primary-600) !important;
+		background: var(--color-primary-600) !important;
+		color: white !important;
+		font-weight: normal !important;
+	}
+
+	/* Try to override hover/active states - limited browser support */
+	select option:hover {
+		background-color: var(--color-primary-100) !important;
+		background: var(--color-primary-100) !important;
+		color: var(--color-primary-950) !important;
+	}
+
+	select option:focus,
+	select option:focus-visible {
+		background-color: var(--color-primary-600) !important;
+		background: var(--color-primary-600) !important;
+		color: white !important;
+	}
+
+	select option:active {
+		background-color: var(--color-primary-600) !important;
+		background: var(--color-primary-600) !important;
+		color: white !important;
+	}
+
+	/* Additional overrides to prevent blue */
+	select:active,
+	select:focus-visible {
+		outline: 1px solid var(--color-primary-500) !important;
+		outline-offset: 1px !important;
+		box-shadow: 0 0 0 1px var(--color-primary-500) !important;
+		--tw-ring-color: var(--color-primary-500) !important;
+	}
+
+	textarea:active,
+	textarea:focus-visible {
+		outline: 1px solid var(--color-primary-500) !important;
+		outline-offset: 1px !important;
+		box-shadow: 0 0 0 1px var(--color-primary-500) !important;
+		--tw-ring-color: var(--color-primary-500) !important;
+		border-color: var(--color-primary-500) !important;
+	}
 }
