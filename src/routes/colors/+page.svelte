@@ -439,6 +439,10 @@
 					<label for="primary" class="block text-sm font-bold text-primary-900 mb-2">
 						Primary
 					</label>
+					<p class="text-xs text-secondary-600 mb-2">
+						Used for: Main buttons, primary actions, brand elements, and dominant UI components
+						(typically ~60% of your design). Choose a color that represents your brand identity.
+					</p>
 					<div class="flex gap-2">
 						<input
 							id="primary"
@@ -461,6 +465,10 @@
 					<label for="secondary" class="block text-sm font-bold text-primary-900 mb-2">
 						Secondary
 					</label>
+					<p class="text-xs text-secondary-600 mb-2">
+						Used for: Backgrounds, sidebars, headers, and supporting elements (typically ~30% of
+						your design). Should complement the primary color and provide visual balance.
+					</p>
 					<div class="flex gap-2">
 						<input
 							id="secondary"
@@ -483,6 +491,10 @@
 					<label for="tertiary" class="block text-sm font-bold text-primary-900 mb-2">
 						Tertiary
 					</label>
+					<p class="text-xs text-secondary-600 mb-2">
+						Used for: Additional contrast, borders, dividers, and supplementary UI elements. Helps
+						create visual hierarchy and depth in your design.
+					</p>
 					<div class="flex gap-2">
 						<input
 							id="tertiary"
@@ -503,6 +515,10 @@
 
 				<div class="relative">
 					<label for="accent" class="block text-sm font-bold text-primary-900 mb-2"> Accent </label>
+					<p class="text-xs text-secondary-600 mb-2">
+						Used for: Call-to-action buttons, important highlights, links, and attention-grabbing
+						elements (typically ~10% of your design). Use sparingly for maximum impact.
+					</p>
 					<div class="flex gap-2">
 						<input
 							id="accent"
@@ -520,6 +536,33 @@
 						></button>
 					</div>
 				</div>
+			</div>
+
+			<!-- Best Practices Section -->
+			<div class="mt-6 p-4 bg-primary-50 border-2 border-primary-200">
+				<h3 class="text-lg font-bold text-primary-900 mb-3">Design Best Practices</h3>
+				<ul class="text-sm text-primary-800 space-y-2 list-disc list-inside">
+					<li>
+						<strong>Contrast:</strong> Ensure sufficient contrast between text and backgrounds (minimum
+						4.5:1 for normal text, 3:1 for large text per WCAG guidelines).
+					</li>
+					<li>
+						<strong>Color Blindness:</strong> Avoid relying solely on red/green or blue/yellow combinations
+						to convey information. Use text labels, icons, or patterns as well.
+					</li>
+					<li>
+						<strong>Accessibility:</strong> Test your color combinations to ensure they're distinguishable
+						for users with color vision deficiencies.
+					</li>
+					<li>
+						<strong>Consistency:</strong> Use colors uniformly across your interface to create a cohesive
+						user experience.
+					</li>
+					<li>
+						<strong>60-30-10 Rule:</strong> Aim for approximately 60% primary, 30% secondary, and 10%
+						accent color usage for visual balance.
+					</li>
+				</ul>
 			</div>
 
 			<div class="mt-6 flex gap-4">
