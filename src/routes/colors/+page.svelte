@@ -13,6 +13,14 @@
 		getSavedThemes
 	} from '$lib/theme';
 
+	// Autofocus action for accessibility
+	function autofocus(node: HTMLElement) {
+		if (node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement) {
+			node.focus();
+		}
+		return {};
+	}
+
 	let primaryInput = $state('');
 	let secondaryInput = $state('');
 	let tertiaryInput = $state('');
@@ -457,6 +465,7 @@
 							onclick={() => openColorPicker('primary')}
 							class="w-16 h-10 border-2 border-primary-300 hover:border-primary-500 transition-colors cursor-pointer"
 							style="background-color: {getCurrentColorHex('primary')}"
+							aria-label="Open primary color picker"
 						></button>
 					</div>
 				</div>
@@ -483,6 +492,7 @@
 							onclick={() => openColorPicker('secondary')}
 							class="w-16 h-10 border-2 border-primary-300 hover:border-primary-500 transition-colors cursor-pointer"
 							style="background-color: {getCurrentColorHex('secondary')}"
+							aria-label="Open secondary color picker"
 						></button>
 					</div>
 				</div>
@@ -509,6 +519,7 @@
 							onclick={() => openColorPicker('tertiary')}
 							class="w-16 h-10 border-2 border-primary-300 hover:border-primary-500 transition-colors cursor-pointer"
 							style="background-color: {getCurrentColorHex('tertiary')}"
+							aria-label="Open tertiary color picker"
 						></button>
 					</div>
 				</div>
@@ -533,6 +544,7 @@
 							onclick={() => openColorPicker('accent')}
 							class="w-16 h-10 border-2 border-primary-300 hover:border-primary-500 transition-colors cursor-pointer"
 							style="background-color: {getCurrentColorHex('accent')}"
+							aria-label="Open accent color picker"
 						></button>
 					</div>
 				</div>
@@ -595,6 +607,15 @@
 							<div
 								class="border-2 border-primary-300 p-4 hover:border-primary-500 transition-colors cursor-pointer min-w-[280px] flex-shrink-0"
 								onclick={() => handleLoadTheme(theme.id)}
+								onkeydown={(e) => {
+									if (e.key === 'Enter' || e.key === ' ') {
+										e.preventDefault();
+										handleLoadTheme(theme.id);
+									}
+								}}
+								role="button"
+								tabindex="0"
+								aria-label="Load theme: {theme.name}"
 							>
 								<div class="flex justify-between items-start mb-3">
 									<h3 class="text-lg font-bold text-primary-900">{theme.name}</h3>
@@ -642,16 +663,27 @@
 			<div
 				class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
 				onclick={closeColorPicker}
+				onkeydown={(e) => {
+					if (e.key === 'Escape') {
+						closeColorPicker();
+					}
+				}}
+				role="button"
+				tabindex="0"
+				aria-label="Close color picker"
 			>
 				<div
 					class="bg-white border-4 border-primary-500 p-6 max-w-md w-full"
 					onclick={(e) => e.stopPropagation()}
+					onkeydown={(e) => e.stopPropagation()}
+					role="presentation"
 				>
 					<div class="flex justify-between items-center mb-4">
 						<h3 class="text-xl font-bold text-primary-900 capitalize">{openPicker} Color Picker</h3>
 						<button
 							onclick={closeColorPicker}
 							class="text-primary-600 hover:text-primary-800 font-bold text-2xl cursor-pointer"
+							aria-label="Close color picker"
 						>
 							×
 						</button>
@@ -665,8 +697,19 @@
 							height="256"
 							onmousedown={handleColorAreaMouseDown}
 							onclick={handleColorAreaClick}
+							onkeydown={(e) => {
+								if (e.key === 'Enter' || e.key === ' ') {
+									e.preventDefault();
+									// Center click for keyboard users
+									if (colorAreaElement) {
+										const rect = colorAreaElement.getBoundingClientRect();
+										updateColorFromPosition(rect.left + rect.width / 2, rect.top + rect.height / 2, colorAreaElement);
+									}
+								}
+							}}
 							role="button"
 							tabindex="0"
+							aria-label="Color picker area. Use arrow keys to adjust, Enter or Space to select center color."
 						></canvas>
 						<div
 							class="absolute w-4 h-4 border-2 border-white pointer-events-none"
@@ -675,13 +718,14 @@
 					</div>
 
 					<div class="mb-4">
-						<label class="block text-sm font-bold text-primary-900 mb-2">Hue</label>
+						<label for="hue-slider" class="block text-sm font-bold text-primary-900 mb-2">Hue</label>
 						<div class="relative h-8 border-2 border-primary-300">
 							<div
 								class="absolute inset-0"
 								style="background: linear-gradient(to right, hsl(0,100%,50%), hsl(60,100%,50%), hsl(120,100%,50%), hsl(180,100%,50%), hsl(240,100%,50%), hsl(300,100%,50%), hsl(360,100%,50%))"
 							></div>
 							<input
+								id="hue-slider"
 								type="range"
 								min="0"
 								max="360"
@@ -698,7 +742,7 @@
 					</div>
 
 					<div class="mb-4">
-						<label class="block text-sm font-bold text-primary-900 mb-2"
+						<label for="opacity-slider" class="block text-sm font-bold text-primary-900 mb-2"
 							>Opacity (Preview Only)</label
 						>
 						<div class="relative h-8 border-2 border-primary-300">
@@ -707,6 +751,7 @@
 								style="background: linear-gradient(to right, transparent, hsl({pickerColor.h}, {pickerColor.s}%, {pickerColor.l}%))"
 							></div>
 							<input
+								id="opacity-slider"
 								type="range"
 								min="0"
 								max="100"
@@ -788,10 +833,21 @@
 					showSaveModal = false;
 					themeNameInput = '';
 				}}
+				onkeydown={(e) => {
+					if (e.key === 'Escape') {
+						showSaveModal = false;
+						themeNameInput = '';
+					}
+				}}
+				role="button"
+				tabindex="0"
+				aria-label="Close save theme modal"
 			>
 				<div
 					class="bg-white border-4 border-primary-500 p-6 max-w-md w-full"
 					onclick={(e) => e.stopPropagation()}
+					onkeydown={(e) => e.stopPropagation()}
+					role="presentation"
 				>
 					<div class="flex justify-between items-center mb-4">
 						<h3 class="text-xl font-bold text-primary-900">Save Theme</h3>
@@ -801,13 +857,15 @@
 								themeNameInput = '';
 							}}
 							class="text-primary-600 hover:text-primary-800 font-bold text-2xl cursor-pointer"
+							aria-label="Close save theme modal"
 						>
 							×
 						</button>
 					</div>
 					<div class="mb-4">
-						<label class="block text-sm font-bold text-primary-900 mb-2">Theme Name</label>
+						<label for="theme-name-input" class="block text-sm font-bold text-primary-900 mb-2">Theme Name</label>
 						<input
+							id="theme-name-input"
 							type="text"
 							bind:value={themeNameInput}
 							placeholder="Enter theme name..."
@@ -817,7 +875,7 @@
 									handleSaveTheme();
 								}
 							}}
-							autofocus
+							use:autofocus
 						/>
 					</div>
 					<div class="flex gap-2">
@@ -849,10 +907,21 @@
 					showOverwriteModal = false;
 					existingThemeIndex = null;
 				}}
+				onkeydown={(e) => {
+					if (e.key === 'Escape') {
+						showOverwriteModal = false;
+						existingThemeIndex = null;
+					}
+				}}
+				role="button"
+				tabindex="0"
+				aria-label="Close overwrite theme modal"
 			>
 				<div
 					class="bg-white border-4 border-primary-500 p-6 max-w-md w-full"
 					onclick={(e) => e.stopPropagation()}
+					onkeydown={(e) => e.stopPropagation()}
+					role="presentation"
 				>
 					<div class="flex justify-between items-center mb-4">
 						<h3 class="text-xl font-bold text-primary-900">Overwrite Theme?</h3>
@@ -862,6 +931,7 @@
 								existingThemeIndex = null;
 							}}
 							class="text-primary-600 hover:text-primary-800 font-bold text-2xl cursor-pointer"
+							aria-label="Close overwrite theme modal"
 						>
 							×
 						</button>
@@ -899,10 +969,20 @@
 				onclick={() => {
 					showReplaceModal = false;
 				}}
+				onkeydown={(e) => {
+					if (e.key === 'Escape') {
+						showReplaceModal = false;
+					}
+				}}
+				role="button"
+				tabindex="0"
+				aria-label="Close replace theme modal"
 			>
 				<div
 					class="bg-white border-4 border-primary-500 p-6 max-w-md w-full"
 					onclick={(e) => e.stopPropagation()}
+					onkeydown={(e) => e.stopPropagation()}
+					role="presentation"
 				>
 					<div class="flex justify-between items-center mb-4">
 						<h3 class="text-xl font-bold text-primary-900">Replace Theme</h3>
@@ -911,6 +991,7 @@
 								showReplaceModal = false;
 							}}
 							class="text-primary-600 hover:text-primary-800 font-bold text-2xl cursor-pointer"
+							aria-label="Close replace theme modal"
 						>
 							×
 						</button>
@@ -1111,32 +1192,36 @@
 				<h3 class="text-xl font-bold text-primary-950 mb-3">Form Elements</h3>
 				<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 					<div>
-						<label class="block text-sm font-bold text-primary-950 mb-2">Text Input</label>
+						<label for="example-text-input" class="block text-sm font-bold text-primary-950 mb-2">Text Input</label>
 						<input
+							id="example-text-input"
 							type="text"
 							placeholder="Enter text..."
 							class="w-full border-2 border-primary-300 px-4 py-2 focus:outline-none focus:border-primary-500"
 						/>
 					</div>
 					<div>
-						<label class="block text-sm font-bold text-primary-950 mb-2">Email Input</label>
+						<label for="example-email-input" class="block text-sm font-bold text-primary-950 mb-2">Email Input</label>
 						<input
+							id="example-email-input"
 							type="email"
 							placeholder="email@example.com"
 							class="w-full border-2 border-primary-300 px-4 py-2 focus:outline-none focus:border-primary-500"
 						/>
 					</div>
 					<div>
-						<label class="block text-sm font-bold text-primary-950 mb-2">Textarea</label>
+						<label for="example-textarea" class="block text-sm font-bold text-primary-950 mb-2">Textarea</label>
 						<textarea
+							id="example-textarea"
 							placeholder="Enter message..."
 							class="w-full border-2 border-primary-300 px-4 py-2 focus:outline-none focus:border-primary-500"
 							rows="3"
 						></textarea>
 					</div>
 					<div>
-						<label class="block text-sm font-bold text-primary-950 mb-2">Select Dropdown</label>
+						<label for="example-select" class="block text-sm font-bold text-primary-950 mb-2">Select Dropdown</label>
 						<select
+							id="example-select"
 							class="custom-select w-full border-2 border-primary-300 bg-white px-4 py-2 focus:outline-none focus:border-primary-500 text-primary-950"
 						>
 							<option>Option 1</option>
