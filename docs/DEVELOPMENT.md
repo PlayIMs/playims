@@ -2,24 +2,93 @@
 
 ## Prerequisites
 
-- **Node.js**: v20 or higher.
-- **pnpm**: Package manager.
-- **Wrangler**: Cloudflare CLI (`npm install -g wrangler`).
+Before you begin, ensure you have the following installed:
 
-## Getting Started
+- **Node.js**: v24.x.x (recommended) or v20+ (minimum). You can check your version with `node --version`.
+  - If you need to install or switch versions, consider using [nvm](https://github.com/nvm-sh/nvm) (Mac/Linux) or [nvm-windows](https://github.com/coreybutler/nvm-windows) (Windows).
+- **pnpm**: Package manager (v10.2.1 or compatible). Install it globally:
+  ```bash
+  npm install -g pnpm
+  ```
+- **Wrangler**: Cloudflare CLI. Install it globally:
+  ```bash
+  npm install -g wrangler
+  ```
+  After installation, authenticate with Cloudflare:
+  ```bash
+  wrangler login
+  ```
 
-1.  **Install Dependencies**:
+## First-Time Setup
 
-    ```bash
-    pnpm install
-    ```
+Follow these steps to set up the project for the first time:
 
-2.  **Start Development Server**:
-    To develop with the local D1 database, use the Wrangler binding:
-    ```bash
-    pnpm dev
-    ```
-    _Note: This runs `vite dev`. To test with Cloudflare platform features closer to production, use `pnpm build && wrangler pages dev .svelte-kit/cloudflare`._
+### 1. Clone and Install Dependencies
+
+```bash
+# Clone the repository (if you haven't already)
+git clone <repository-url>
+cd playims
+
+# Install all project dependencies
+pnpm install
+```
+
+### 2. Set Up Local D1 Database
+
+The local D1 database is automatically created when you first run migrations. This creates a SQLite file in the `.wrangler/` directory that simulates Cloudflare D1 for local development.
+
+**Apply existing migrations to your local database:**
+
+```bash
+pnpm db:migrate:local
+```
+
+This command:
+
+- Creates the local D1 database file (if it doesn't exist)
+- Applies all migration files from `src/lib/database/migrations/` to set up your local database schema
+- The database will be stored in `.wrangler/state/v3/d1/miniflare-D1DatabaseObject/` (this directory is automatically created)
+
+**Verify the setup:**
+
+You can verify your local database is set up correctly by checking that the `.wrangler/` directory exists after running the migration command.
+
+### 3. (Optional) Seed Local Database
+
+If you want to populate your local database with initial test data:
+
+```bash
+pnpm db:seed:local
+```
+
+This runs the seed SQL file (`src/lib/database/seed.sql`) against your local database.
+
+### 4. Start Development Server
+
+Now you're ready to start developing:
+
+```bash
+pnpm dev
+```
+
+This will:
+
+- Start the Vite development server
+- Automatically open your browser to the local development URL
+- Use your local D1 database (created in step 2)
+
+_Note: This runs `vite dev`. To test with Cloudflare platform features closer to production, use `pnpm build && wrangler pages dev .svelte-kit/cloudflare`._
+
+## Getting Started (After Initial Setup)
+
+Once you've completed the first-time setup, you can simply run:
+
+```bash
+pnpm dev
+```
+
+to start developing. The local database will persist between sessions, so you only need to run `pnpm db:migrate:local` again when new migrations are added to the project.
 
 ## Database Management
 
@@ -81,6 +150,7 @@ When your repository is connected to Cloudflare Pages, pushing to `main` will au
 2.  Deploy to Cloudflare Pages
 
 Configure your build settings in the Cloudflare Dashboard:
+
 - **Build command**: `pnpm build`
 - **Build output directory**: `.svelte-kit/cloudflare`
 
