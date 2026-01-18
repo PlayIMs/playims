@@ -4,23 +4,25 @@
 
 /* Disable Tailwind Forms plugin default blue focus ring */
 @layer base {
-	[type='text']:focus,
-	[type='email']:focus,
-	[type='url']:focus,
-	[type='password']:focus,
-	[type='number']:focus,
-	[type='date']:focus,
-	[type='datetime-local']:focus,
-	[type='month']:focus,
-	[type='week']:focus,
-	[type='time']:focus,
-	[type='search']:focus,
-	[type='tel']:focus,
-	[type='checkbox']:focus,
-	[type='radio']:focus,
+	[type='text']:focus:not(.input-primary):not(.input-secondary):not(.input-accent),
+	[type='email']:focus:not(.input-primary):not(.input-secondary):not(.input-accent),
+	[type='url']:focus:not(.input-primary):not(.input-secondary):not(.input-accent),
+	[type='password']:focus:not(.input-primary):not(.input-secondary):not(.input-accent),
+	[type='number']:focus:not(.input-primary):not(.input-secondary):not(.input-accent),
+	[type='date']:focus:not(.input-primary):not(.input-secondary):not(.input-accent),
+	[type='datetime-local']:focus:not(.input-primary):not(.input-secondary):not(.input-accent),
+	[type='month']:focus:not(.input-primary):not(.input-secondary):not(.input-accent),
+	[type='week']:focus:not(.input-primary):not(.input-secondary):not(.input-accent),
+	[type='time']:focus:not(.input-primary):not(.input-secondary):not(.input-accent),
+	[type='search']:focus:not(.input-primary):not(.input-secondary):not(.input-accent),
+	[type='tel']:focus:not(.input-primary):not(.input-secondary):not(.input-accent),
+	[type='checkbox']:focus:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+			.toggle-primary
+		):not(.toggle-secondary):not(.toggle-accent),
+	[type='radio']:focus:not(.radio-primary):not(.radio-secondary):not(.radio-accent),
 	[multiple]:focus,
-	textarea:focus,
-	select:focus {
+	textarea:focus:not(.textarea-primary):not(.textarea-secondary):not(.textarea-accent),
+	select:focus:not(.select-primary):not(.select-secondary):not(.select-accent) {
 		--tw-ring-color: var(--color-primary-500) !important;
 	}
 }
@@ -52,18 +54,18 @@
 	--color-secondary-900: var(--color-secondary-900);
 	--color-secondary-950: var(--color-secondary-950);
 
-	/* Dynamic Tertiary Color */
-	--color-tertiary-50: var(--color-tertiary-50);
-	--color-tertiary-100: var(--color-tertiary-100);
-	--color-tertiary-200: var(--color-tertiary-200);
-	--color-tertiary-300: var(--color-tertiary-300);
-	--color-tertiary-400: var(--color-tertiary-400);
-	--color-tertiary-500: var(--color-tertiary-500);
-	--color-tertiary-600: var(--color-tertiary-600);
-	--color-tertiary-700: var(--color-tertiary-700);
-	--color-tertiary-800: var(--color-tertiary-800);
-	--color-tertiary-900: var(--color-tertiary-900);
-	--color-tertiary-950: var(--color-tertiary-950);
+	/* Dynamic Neutral Color */
+	--color-neutral-50: var(--color-neutral-50);
+	--color-neutral-100: var(--color-neutral-100);
+	--color-neutral-200: var(--color-neutral-200);
+	--color-neutral-300: var(--color-neutral-300);
+	--color-neutral-400: var(--color-neutral-400);
+	--color-neutral-500: var(--color-neutral-500);
+	--color-neutral-600: var(--color-neutral-600);
+	--color-neutral-700: var(--color-neutral-700);
+	--color-neutral-800: var(--color-neutral-800);
+	--color-neutral-900: var(--color-neutral-900);
+	--color-neutral-950: var(--color-neutral-950);
 
 	/* Dynamic Accent Color */
 	--color-accent-50: var(--color-accent-50);
@@ -81,8 +83,8 @@
 
 /* Custom form controls using theme colors */
 @layer components {
-	/* Custom Checkbox */
-	input[type='checkbox'].custom-checkbox {
+	/* Checkbox Component Classes */
+	input[type='checkbox'].checkbox-primary {
 		appearance: none;
 		-webkit-appearance: none;
 		width: 1.25rem;
@@ -94,17 +96,18 @@
 		outline: none;
 	}
 
-	input[type='checkbox'].custom-checkbox:focus {
+	input[type='checkbox'].checkbox-primary:focus {
 		outline: 1px solid var(--color-primary-500);
 		outline-offset: 1px;
+		--tw-ring-color: var(--color-primary-500) !important;
 	}
 
-	input[type='checkbox'].custom-checkbox:checked {
-		background-color: var(--color-primary-600);
-		border-color: var(--color-primary-600);
+	input[type='checkbox'].checkbox-primary:checked {
+		background-color: var(--color-primary-500);
+		border-color: var(--color-primary-500);
 	}
 
-	input[type='checkbox'].custom-checkbox:checked::after {
+	input[type='checkbox'].checkbox-primary:checked::after {
 		content: '';
 		position: absolute;
 		left: 50%;
@@ -117,13 +120,95 @@
 		transform: translate(-50%, -60%) rotate(45deg);
 	}
 
-	input[type='checkbox'].custom-checkbox:disabled {
+	input[type='checkbox'].checkbox-primary:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
 
-	/* Custom Radio Button */
-	input[type='radio'].custom-radio {
+	input[type='checkbox'].checkbox-secondary {
+		appearance: none;
+		-webkit-appearance: none;
+		width: 1.25rem;
+		height: 1.25rem;
+		border: 2px solid var(--color-secondary-300);
+		background-color: white;
+		position: relative;
+		cursor: pointer;
+		outline: none;
+	}
+
+	input[type='checkbox'].checkbox-secondary:focus {
+		outline: 1px solid var(--color-secondary-500);
+		outline-offset: 1px;
+		--tw-ring-color: var(--color-secondary-500) !important;
+	}
+
+	input[type='checkbox'].checkbox-secondary:checked {
+		background-color: var(--color-secondary-500);
+		border-color: var(--color-secondary-500);
+	}
+
+	input[type='checkbox'].checkbox-secondary:checked::after {
+		content: '';
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		transform: translate(-50%, -50%);
+		width: 0.375rem;
+		height: 0.625rem;
+		border: solid white;
+		border-width: 0 2px 2px 0;
+		transform: translate(-50%, -60%) rotate(45deg);
+	}
+
+	input[type='checkbox'].checkbox-secondary:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	input[type='checkbox'].checkbox-accent {
+		appearance: none;
+		-webkit-appearance: none;
+		width: 1.25rem;
+		height: 1.25rem;
+		border: 2px solid var(--color-accent-300);
+		background-color: white;
+		position: relative;
+		cursor: pointer;
+		outline: none;
+	}
+
+	input[type='checkbox'].checkbox-accent:focus {
+		outline: 1px solid var(--color-accent-500);
+		outline-offset: 1px;
+		--tw-ring-color: var(--color-accent-500) !important;
+	}
+
+	input[type='checkbox'].checkbox-accent:checked {
+		background-color: var(--color-accent-500);
+		border-color: var(--color-accent-500);
+	}
+
+	input[type='checkbox'].checkbox-accent:checked::after {
+		content: '';
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		transform: translate(-50%, -50%);
+		width: 0.375rem;
+		height: 0.625rem;
+		border: solid white;
+		border-width: 0 2px 2px 0;
+		transform: translate(-50%, -60%) rotate(45deg);
+	}
+
+	input[type='checkbox'].checkbox-accent:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	/* Radio Button Component Classes */
+	input[type='radio'].radio-primary {
 		appearance: none;
 		-webkit-appearance: none;
 		width: 1.25rem;
@@ -136,16 +221,17 @@
 		outline: none;
 	}
 
-	input[type='radio'].custom-radio:focus {
+	input[type='radio'].radio-primary:focus {
 		outline: 1px solid var(--color-primary-500);
 		outline-offset: 1px;
+		--tw-ring-color: var(--color-primary-500) !important;
 	}
 
-	input[type='radio'].custom-radio:checked {
-		border-color: var(--color-primary-600);
+	input[type='radio'].radio-primary:checked {
+		border-color: var(--color-primary-500);
 	}
 
-	input[type='radio'].custom-radio:checked::after {
+	input[type='radio'].radio-primary:checked::after {
 		content: '';
 		position: absolute;
 		left: 50%;
@@ -153,17 +239,97 @@
 		transform: translate(-50%, -50%);
 		width: 0.5rem;
 		height: 0.5rem;
-		background-color: var(--color-primary-600);
+		background-color: var(--color-primary-500);
 		border-radius: 50%;
 	}
 
-	input[type='radio'].custom-radio:disabled {
+	input[type='radio'].radio-primary:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
 
-	/* Custom Toggle Switch - Flat Design */
-	input[type='checkbox'].custom-toggle {
+	input[type='radio'].radio-secondary {
+		appearance: none;
+		-webkit-appearance: none;
+		width: 1.25rem;
+		height: 1.25rem;
+		border: 2px solid var(--color-secondary-300);
+		background-color: white;
+		border-radius: 50%;
+		position: relative;
+		cursor: pointer;
+		outline: none;
+	}
+
+	input[type='radio'].radio-secondary:focus {
+		outline: 1px solid var(--color-secondary-500);
+		outline-offset: 1px;
+		--tw-ring-color: var(--color-secondary-500) !important;
+	}
+
+	input[type='radio'].radio-secondary:checked {
+		border-color: var(--color-secondary-500);
+	}
+
+	input[type='radio'].radio-secondary:checked::after {
+		content: '';
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		transform: translate(-50%, -50%);
+		width: 0.5rem;
+		height: 0.5rem;
+		background-color: var(--color-secondary-500);
+		border-radius: 50%;
+	}
+
+	input[type='radio'].radio-secondary:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	input[type='radio'].radio-accent {
+		appearance: none;
+		-webkit-appearance: none;
+		width: 1.25rem;
+		height: 1.25rem;
+		border: 2px solid var(--color-accent-300);
+		background-color: white;
+		border-radius: 50%;
+		position: relative;
+		cursor: pointer;
+		outline: none;
+	}
+
+	input[type='radio'].radio-accent:focus {
+		outline: 1px solid var(--color-accent-500);
+		outline-offset: 1px;
+		--tw-ring-color: var(--color-accent-500) !important;
+	}
+
+	input[type='radio'].radio-accent:checked {
+		border-color: var(--color-accent-500);
+	}
+
+	input[type='radio'].radio-accent:checked::after {
+		content: '';
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		transform: translate(-50%, -50%);
+		width: 0.5rem;
+		height: 0.5rem;
+		background-color: var(--color-accent-500);
+		border-radius: 50%;
+	}
+
+	input[type='radio'].radio-accent:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	/* Toggle Switch Component Classes */
+	input[type='checkbox'].toggle-primary {
 		appearance: none;
 		-webkit-appearance: none;
 		-moz-appearance: none;
@@ -185,17 +351,18 @@
 		line-height: 0;
 	}
 
-	input[type='checkbox'].custom-toggle:focus {
+	input[type='checkbox'].toggle-primary:focus {
 		outline: 1px solid var(--color-primary-500);
 		outline-offset: 1px;
+		--tw-ring-color: var(--color-primary-500) !important;
 	}
 
-	input[type='checkbox'].custom-toggle::before {
+	input[type='checkbox'].toggle-primary::before {
 		content: '';
 		display: none;
 	}
 
-	input[type='checkbox'].custom-toggle::after {
+	input[type='checkbox'].toggle-primary::after {
 		content: '';
 		position: absolute;
 		left: 0.125rem;
@@ -203,7 +370,7 @@
 		transform: translateY(-50%);
 		width: 1.125rem;
 		height: 1.125rem;
-		background-color: var(--color-primary-600);
+		background-color: var(--color-primary-500);
 		border-radius: 0;
 		transition:
 			transform 0.2s,
@@ -211,24 +378,166 @@
 		z-index: 1;
 	}
 
-	input[type='checkbox'].custom-toggle:checked {
-		background-color: var(--color-primary-600);
-		border-color: var(--color-primary-600);
+	input[type='checkbox'].toggle-primary:checked {
+		background-color: var(--color-primary-500);
+		border-color: var(--color-primary-500);
 		background-image: none !important;
 	}
 
-	input[type='checkbox'].custom-toggle:checked::before {
+	input[type='checkbox'].toggle-primary:checked::before {
 		content: '';
 		display: none;
 	}
 
-	input[type='checkbox'].custom-toggle:checked::after {
+	input[type='checkbox'].toggle-primary:checked::after {
 		transform: translate(1.5rem, -50%);
 		background-color: white;
 		background-image: none !important;
 	}
 
-	input[type='checkbox'].custom-toggle:disabled {
+	input[type='checkbox'].toggle-primary:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	input[type='checkbox'].toggle-secondary {
+		appearance: none;
+		-webkit-appearance: none;
+		-moz-appearance: none;
+		width: 3rem;
+		height: 1.5rem;
+		border: 2px solid var(--color-secondary-300);
+		border-radius: 0;
+		background-color: var(--color-secondary-100);
+		background-image: none !important;
+		position: relative;
+		cursor: pointer;
+		transition:
+			background-color 0.2s,
+			border-color 0.2s;
+		outline: none;
+		overflow: hidden;
+		font-size: 0;
+		text-indent: -9999px;
+		line-height: 0;
+	}
+
+	input[type='checkbox'].toggle-secondary:focus {
+		outline: 1px solid var(--color-secondary-500);
+		outline-offset: 1px;
+		--tw-ring-color: var(--color-secondary-500) !important;
+	}
+
+	input[type='checkbox'].toggle-secondary::before {
+		content: '';
+		display: none;
+	}
+
+	input[type='checkbox'].toggle-secondary::after {
+		content: '';
+		position: absolute;
+		left: 0.125rem;
+		top: 50%;
+		transform: translateY(-50%);
+		width: 1.125rem;
+		height: 1.125rem;
+		background-color: var(--color-secondary-500);
+		border-radius: 0;
+		transition:
+			transform 0.2s,
+			background-color 0.2s;
+		z-index: 1;
+	}
+
+	input[type='checkbox'].toggle-secondary:checked {
+		background-color: var(--color-secondary-500);
+		border-color: var(--color-secondary-500);
+		background-image: none !important;
+	}
+
+	input[type='checkbox'].toggle-secondary:checked::before {
+		content: '';
+		display: none;
+	}
+
+	input[type='checkbox'].toggle-secondary:checked::after {
+		transform: translate(1.5rem, -50%);
+		background-color: white;
+		background-image: none !important;
+	}
+
+	input[type='checkbox'].toggle-secondary:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	input[type='checkbox'].toggle-accent {
+		appearance: none;
+		-webkit-appearance: none;
+		-moz-appearance: none;
+		width: 3rem;
+		height: 1.5rem;
+		border: 2px solid var(--color-accent-300);
+		border-radius: 0;
+		background-color: var(--color-accent-100);
+		background-image: none !important;
+		position: relative;
+		cursor: pointer;
+		transition:
+			background-color 0.2s,
+			border-color 0.2s;
+		outline: none;
+		overflow: hidden;
+		font-size: 0;
+		text-indent: -9999px;
+		line-height: 0;
+	}
+
+	input[type='checkbox'].toggle-accent:focus {
+		outline: 1px solid var(--color-accent-500);
+		outline-offset: 1px;
+		--tw-ring-color: var(--color-accent-500) !important;
+	}
+
+	input[type='checkbox'].toggle-accent::before {
+		content: '';
+		display: none;
+	}
+
+	input[type='checkbox'].toggle-accent::after {
+		content: '';
+		position: absolute;
+		left: 0.125rem;
+		top: 50%;
+		transform: translateY(-50%);
+		width: 1.125rem;
+		height: 1.125rem;
+		background-color: var(--color-accent-500);
+		border-radius: 0;
+		transition:
+			transform 0.2s,
+			background-color 0.2s;
+		z-index: 1;
+	}
+
+	input[type='checkbox'].toggle-accent:checked {
+		background-color: var(--color-accent-500);
+		border-color: var(--color-accent-500);
+		background-image: none !important;
+	}
+
+	input[type='checkbox'].toggle-accent:checked::before {
+		content: '';
+		display: none;
+	}
+
+	input[type='checkbox'].toggle-accent:checked::after {
+		transform: translate(1.5rem, -50%);
+		background-color: white;
+		background-image: none !important;
+	}
+
+	input[type='checkbox'].toggle-accent:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
@@ -262,7 +571,7 @@
 	}
 
 	/* Style dropdown options - Aggressive styling to override browser defaults */
-	select.custom-select option {
+	select.select-primary option {
 		background-color: white !important;
 		background: white !important;
 		color: var(--color-primary-950) !important;
@@ -272,92 +581,1667 @@
 	}
 
 	/* Selected option styling - try all possible states */
-	select.custom-select option:checked {
-		background-color: var(--color-primary-600) !important;
-		background: var(--color-primary-600) !important;
+	select.select-primary option:checked {
+		background-color: var(--color-primary-500) !important;
+		background: var(--color-primary-500) !important;
 		color: white !important;
 		font-weight: normal !important;
 	}
 
 	/* For Firefox */
-	select.custom-select option:checked:not(:disabled) {
-		background-color: var(--color-primary-600) !important;
-		background: var(--color-primary-600) !important;
+	select.select-primary option:checked:not(:disabled) {
+		background-color: var(--color-primary-500) !important;
+		background: var(--color-primary-500) !important;
 		color: white !important;
 		font-weight: normal !important;
 	}
 
 	/* Try to override hover/active states - limited browser support */
-	select.custom-select option:hover {
+	select.select-primary option:hover {
 		background-color: var(--color-primary-100) !important;
 		background: var(--color-primary-100) !important;
 		color: var(--color-primary-950) !important;
 	}
 
-	select.custom-select option:focus,
-	select.custom-select option:focus-visible {
-		background-color: var(--color-primary-600) !important;
-		background: var(--color-primary-600) !important;
+	select.select-primary option:focus,
+	select.select-primary option:focus-visible {
+		background-color: var(--color-primary-500) !important;
+		background: var(--color-primary-500) !important;
 		color: white !important;
 	}
 
-	select.custom-select option:active {
-		background-color: var(--color-primary-600) !important;
-		background: var(--color-primary-600) !important;
+	select.select-primary option:active {
+		background-color: var(--color-primary-500) !important;
+		background: var(--color-primary-500) !important;
+		color: white !important;
+	}
+
+	select.select-secondary option {
+		background-color: white !important;
+		background: white !important;
+		color: var(--color-secondary-950) !important;
+		padding: 0.5rem !important;
+		font-weight: normal !important;
+		font-size: inherit !important;
+	}
+
+	select.select-secondary option:checked {
+		background-color: var(--color-secondary-500) !important;
+		background: var(--color-secondary-500) !important;
+		color: white !important;
+		font-weight: normal !important;
+	}
+
+	select.select-secondary option:checked:not(:disabled) {
+		background-color: var(--color-secondary-500) !important;
+		background: var(--color-secondary-500) !important;
+		color: white !important;
+		font-weight: normal !important;
+	}
+
+	select.select-secondary option:hover {
+		background-color: var(--color-secondary-100) !important;
+		background: var(--color-secondary-100) !important;
+		color: var(--color-secondary-950) !important;
+	}
+
+	select.select-secondary option:focus,
+	select.select-secondary option:focus-visible {
+		background-color: var(--color-secondary-500) !important;
+		background: var(--color-secondary-500) !important;
+		color: white !important;
+	}
+
+	select.select-secondary option:active {
+		background-color: var(--color-secondary-500) !important;
+		background: var(--color-secondary-500) !important;
+		color: white !important;
+	}
+
+	select.select-accent option {
+		background-color: white !important;
+		background: white !important;
+		color: var(--color-accent-950) !important;
+		padding: 0.5rem !important;
+		font-weight: normal !important;
+		font-size: inherit !important;
+	}
+
+	select.select-accent option:checked {
+		background-color: var(--color-accent-500) !important;
+		background: var(--color-accent-500) !important;
+		color: white !important;
+		font-weight: normal !important;
+	}
+
+	select.select-accent option:checked:not(:disabled) {
+		background-color: var(--color-accent-500) !important;
+		background: var(--color-accent-500) !important;
+		color: white !important;
+		font-weight: normal !important;
+	}
+
+	select.select-accent option:hover {
+		background-color: var(--color-accent-100) !important;
+		background: var(--color-accent-100) !important;
+		color: var(--color-accent-950) !important;
+	}
+
+	select.select-accent option:focus,
+	select.select-accent option:focus-visible {
+		background-color: var(--color-accent-500) !important;
+		background: var(--color-accent-500) !important;
+		color: white !important;
+	}
+
+	select.select-accent option:active {
+		background-color: var(--color-accent-500) !important;
+		background: var(--color-accent-500) !important;
 		color: white !important;
 	}
 
 	/* Remove any blue highlights from select */
-	select.custom-select::-ms-expand {
+	select.select-primary::-ms-expand,
+	select.select-secondary::-ms-expand,
+	select.select-accent::-ms-expand {
 		display: none;
 	}
 
-	select.custom-select::-webkit-appearance {
+	select.select-primary::-webkit-appearance,
+	select.select-secondary::-webkit-appearance,
+	select.select-accent::-webkit-appearance {
 		-webkit-appearance: none;
 	}
 
 	/* Remove blue from select when open */
-	select.custom-select:active,
-	select.custom-select:focus-visible {
+	select.select-primary:active,
+	select.select-primary:focus-visible {
 		outline: 1px solid var(--color-primary-500) !important;
 		outline-offset: 1px !important;
 		box-shadow: 0 0 0 1px var(--color-primary-500) !important;
 		--tw-ring-color: var(--color-primary-500) !important;
+	}
+
+	select.select-secondary:active,
+	select.select-secondary:focus-visible {
+		outline: 1px solid var(--color-secondary-500) !important;
+		outline-offset: 1px !important;
+		box-shadow: 0 0 0 1px var(--color-secondary-500) !important;
+		--tw-ring-color: var(--color-secondary-500) !important;
+	}
+
+	select.select-accent:active,
+	select.select-accent:focus-visible {
+		outline: 1px solid var(--color-accent-500) !important;
+		outline-offset: 1px !important;
+		box-shadow: 0 0 0 1px var(--color-accent-500) !important;
+		--tw-ring-color: var(--color-accent-500) !important;
+	}
+
+	/* Input Component Classes */
+	input[type='text'].input-primary,
+	input[type='email'].input-primary,
+	input[type='password'].input-primary,
+	input[type='number'].input-primary,
+	input[type='tel'].input-primary,
+	input[type='url'].input-primary,
+	input[type='search'].input-primary,
+	input[type='date'].input-primary,
+	input[type='datetime-local'].input-primary,
+	input[type='month'].input-primary,
+	input[type='week'].input-primary,
+	input[type='time'].input-primary {
+		border: 2px solid var(--color-primary-300);
+		padding: 0.5rem 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		width: 100%;
+	}
+
+	input[type='text'].input-primary:focus,
+	input[type='email'].input-primary:focus,
+	input[type='password'].input-primary:focus,
+	input[type='number'].input-primary:focus,
+	input[type='tel'].input-primary:focus,
+	input[type='url'].input-primary:focus,
+	input[type='search'].input-primary:focus,
+	input[type='date'].input-primary:focus,
+	input[type='datetime-local'].input-primary:focus,
+	input[type='month'].input-primary:focus,
+	input[type='week'].input-primary:focus,
+	input[type='time'].input-primary:focus {
+		outline: none;
+		border-color: var(--color-primary-500);
+		--tw-ring-color: var(--color-primary-500) !important;
+		box-shadow: 0 0 0 1px var(--color-primary-500) !important;
+	}
+
+	input[type='text'].input-secondary,
+	input[type='email'].input-secondary,
+	input[type='password'].input-secondary,
+	input[type='number'].input-secondary,
+	input[type='tel'].input-secondary,
+	input[type='url'].input-secondary,
+	input[type='search'].input-secondary,
+	input[type='date'].input-secondary,
+	input[type='datetime-local'].input-secondary,
+	input[type='month'].input-secondary,
+	input[type='week'].input-secondary,
+	input[type='time'].input-secondary {
+		border: 2px solid var(--color-secondary-300);
+		padding: 0.5rem 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		width: 100%;
+	}
+
+	input[type='text'].input-secondary:focus,
+	input[type='email'].input-secondary:focus,
+	input[type='password'].input-secondary:focus,
+	input[type='number'].input-secondary:focus,
+	input[type='tel'].input-secondary:focus,
+	input[type='url'].input-secondary:focus,
+	input[type='search'].input-secondary:focus,
+	input[type='date'].input-secondary:focus,
+	input[type='datetime-local'].input-secondary:focus,
+	input[type='month'].input-secondary:focus,
+	input[type='week'].input-secondary:focus,
+	input[type='time'].input-secondary:focus {
+		outline: none;
+		border-color: var(--color-secondary-500);
+		--tw-ring-color: var(--color-secondary-500) !important;
+		box-shadow: 0 0 0 1px var(--color-secondary-500) !important;
+	}
+
+	input[type='text'].input-accent,
+	input[type='email'].input-accent,
+	input[type='password'].input-accent,
+	input[type='number'].input-accent,
+	input[type='tel'].input-accent,
+	input[type='url'].input-accent,
+	input[type='search'].input-accent,
+	input[type='date'].input-accent,
+	input[type='datetime-local'].input-accent,
+	input[type='month'].input-accent,
+	input[type='week'].input-accent,
+	input[type='time'].input-accent {
+		border: 2px solid var(--color-accent-300);
+		padding: 0.5rem 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		width: 100%;
+	}
+
+	input[type='text'].input-accent:focus,
+	input[type='email'].input-accent:focus,
+	input[type='password'].input-accent:focus,
+	input[type='number'].input-accent:focus,
+	input[type='tel'].input-accent:focus,
+	input[type='url'].input-accent:focus,
+	input[type='search'].input-accent:focus,
+	input[type='date'].input-accent:focus,
+	input[type='datetime-local'].input-accent:focus,
+	input[type='month'].input-accent:focus,
+	input[type='week'].input-accent:focus,
+	input[type='time'].input-accent:focus {
+		outline: none;
+		border-color: var(--color-accent-500);
+		--tw-ring-color: var(--color-accent-500) !important;
+		box-shadow: 0 0 0 1px var(--color-accent-500) !important;
+	}
+
+	/* Textarea Component Classes */
+	textarea.textarea-primary {
+		border: 2px solid var(--color-primary-300);
+		padding: 0.5rem 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		width: 100%;
+	}
+
+	textarea.textarea-primary:focus {
+		outline: none;
+		border-color: var(--color-primary-500);
+		--tw-ring-color: var(--color-primary-500) !important;
+		box-shadow: 0 0 0 1px var(--color-primary-500) !important;
+	}
+
+	textarea.textarea-secondary {
+		border: 2px solid var(--color-secondary-300);
+		padding: 0.5rem 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		width: 100%;
+	}
+
+	textarea.textarea-secondary:focus {
+		outline: none;
+		border-color: var(--color-secondary-500);
+		--tw-ring-color: var(--color-secondary-500) !important;
+		box-shadow: 0 0 0 1px var(--color-secondary-500) !important;
+	}
+
+	textarea.textarea-accent {
+		border: 2px solid var(--color-accent-300);
+		padding: 0.5rem 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		width: 100%;
+	}
+
+	textarea.textarea-accent:focus {
+		outline: none;
+		border-color: var(--color-accent-500);
+		--tw-ring-color: var(--color-accent-500) !important;
+		box-shadow: 0 0 0 1px var(--color-accent-500) !important;
+	}
+
+	/* Select Component Classes */
+	select.select-primary {
+		appearance: none;
+		-webkit-appearance: none;
+		-moz-appearance: none;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+		background-repeat: no-repeat;
+		background-position: right 0.75rem center;
+		background-size: 0.75rem;
+		padding-right: 2.5rem;
+		cursor: pointer;
+		outline: none !important;
+		box-shadow: none !important;
+		color-scheme: light;
+		border: 2px solid var(--color-primary-300);
+		background-color: white;
+		padding: 0.5rem 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		color: var(--color-primary-950);
+		width: 100%;
+	}
+
+	select.select-primary:focus {
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='var(--color-primary-500)' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+		outline: 1px solid var(--color-primary-500) !important;
+		outline-offset: 1px !important;
+		box-shadow: 0 0 0 1px var(--color-primary-500) !important;
+		--tw-ring-color: var(--color-primary-500) !important;
+		border-color: var(--color-primary-500);
+	}
+
+	select.select-primary:hover {
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='var(--color-primary-500)' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+	}
+
+	select.select-secondary {
+		appearance: none;
+		-webkit-appearance: none;
+		-moz-appearance: none;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+		background-repeat: no-repeat;
+		background-position: right 0.75rem center;
+		background-size: 0.75rem;
+		padding-right: 2.5rem;
+		cursor: pointer;
+		outline: none !important;
+		box-shadow: none !important;
+		color-scheme: light;
+		border: 2px solid var(--color-secondary-300);
+		background-color: white;
+		padding: 0.5rem 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		color: var(--color-secondary-950);
+		width: 100%;
+	}
+
+	select.select-secondary:focus {
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='var(--color-secondary-500)' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+		outline: 1px solid var(--color-secondary-500) !important;
+		outline-offset: 1px !important;
+		box-shadow: 0 0 0 1px var(--color-secondary-500) !important;
+		--tw-ring-color: var(--color-secondary-500) !important;
+		border-color: var(--color-secondary-500);
+	}
+
+	select.select-secondary:hover {
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='var(--color-secondary-500)' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+	}
+
+	select.select-accent {
+		appearance: none;
+		-webkit-appearance: none;
+		-moz-appearance: none;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+		background-repeat: no-repeat;
+		background-position: right 0.75rem center;
+		background-size: 0.75rem;
+		padding-right: 2.5rem;
+		cursor: pointer;
+		outline: none !important;
+		box-shadow: none !important;
+		color-scheme: light;
+		border: 2px solid var(--color-accent-300);
+		background-color: white;
+		padding: 0.5rem 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		color: var(--color-accent-950);
+		width: 100%;
+	}
+
+	select.select-accent:focus {
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='var(--color-accent-500)' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+		outline: 1px solid var(--color-accent-500) !important;
+		outline-offset: 1px !important;
+		box-shadow: 0 0 0 1px var(--color-accent-500) !important;
+		--tw-ring-color: var(--color-accent-500) !important;
+		border-color: var(--color-accent-500);
+	}
+
+	select.select-accent:hover {
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='var(--color-accent-500)' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+	}
+
+	/* Button Component Classes */
+	/* Primary Buttons */
+	button.button-primary {
+		background-color: var(--color-primary-500);
+		color: var(--color-primary-50);
+		padding: 0.75rem 1.5rem;
+		font-weight: 700;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		transition: background-color 0.2s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		border: none;
+	}
+
+	button.button-primary:hover:not(:disabled) {
+		background-color: var(--color-primary-600);
+	}
+
+	button.button-primary:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	button.button-primary-500 {
+		background-color: var(--color-primary-500);
+		color: var(--color-primary-50);
+		padding: 0.75rem 1.5rem;
+		font-weight: 700;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		transition: background-color 0.2s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		border: none;
+	}
+
+	button.button-primary-500:hover:not(:disabled) {
+		background-color: var(--color-primary-600);
+	}
+
+	button.button-primary-50 {
+		background-color: var(--color-primary-50);
+		color: var(--color-primary-950);
+		padding: 0.75rem 1.5rem;
+		font-weight: 700;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		transition: background-color 0.2s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		border: none;
+	}
+
+	button.button-primary-50:hover:not(:disabled) {
+		background-color: var(--color-primary-100);
+	}
+
+	button.button-primary-100 {
+		background-color: var(--color-primary-100);
+		color: var(--color-primary-950);
+		padding: 0.75rem 1.5rem;
+		font-weight: 700;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		transition: background-color 0.2s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		border: none;
+	}
+
+	button.button-primary-100:hover:not(:disabled) {
+		background-color: var(--color-primary-200);
+	}
+
+	button.button-primary-200 {
+		background-color: var(--color-primary-200);
+		color: var(--color-primary-950);
+		padding: 0.75rem 1.5rem;
+		font-weight: 700;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		transition: background-color 0.2s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		border: none;
+	}
+
+	button.button-primary-200:hover:not(:disabled) {
+		background-color: var(--color-primary-300);
+	}
+
+	button.button-primary-300 {
+		background-color: var(--color-primary-300);
+		color: var(--color-primary-950);
+		padding: 0.75rem 1.5rem;
+		font-weight: 700;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		transition: background-color 0.2s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		border: none;
+	}
+
+	button.button-primary-300:hover:not(:disabled) {
+		background-color: var(--color-primary-400);
+	}
+
+	button.button-primary-400 {
+		background-color: var(--color-primary-400);
+		color: var(--color-primary-50);
+		padding: 0.75rem 1.5rem;
+		font-weight: 700;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		transition: background-color 0.2s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		border: none;
+	}
+
+	button.button-primary-400:hover:not(:disabled) {
+		background-color: var(--color-primary-500);
+	}
+
+	button.button-primary-600 {
+		background-color: var(--color-primary-600);
+		color: var(--color-primary-50);
+		padding: 0.75rem 1.5rem;
+		font-weight: 700;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		transition: background-color 0.2s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		border: none;
+	}
+
+	button.button-primary-600:hover:not(:disabled) {
+		background-color: var(--color-primary-700);
+	}
+
+	button.button-primary-600:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	button.button-primary-700 {
+		background-color: var(--color-primary-700);
+		color: var(--color-primary-50);
+		padding: 0.75rem 1.5rem;
+		font-weight: 700;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		transition: background-color 0.2s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		border: none;
+	}
+
+	button.button-primary-700:hover:not(:disabled) {
+		background-color: var(--color-primary-800);
+	}
+
+	button.button-primary-800 {
+		background-color: var(--color-primary-800);
+		color: var(--color-primary-50);
+		padding: 0.75rem 1.5rem;
+		font-weight: 700;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		transition: background-color 0.2s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		border: none;
+	}
+
+	button.button-primary-800:hover:not(:disabled) {
+		background-color: var(--color-primary-900);
+	}
+
+	button.button-primary-900 {
+		background-color: var(--color-primary-900);
+		color: var(--color-primary-50);
+		padding: 0.75rem 1.5rem;
+		font-weight: 700;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		transition: background-color 0.2s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		border: none;
+	}
+
+	button.button-primary-900:hover:not(:disabled) {
+		background-color: var(--color-primary-950);
+	}
+
+	button.button-primary-950 {
+		background-color: var(--color-primary-950);
+		color: var(--color-primary-50);
+		padding: 0.75rem 1.5rem;
+		font-weight: 700;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		transition: background-color 0.2s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		border: none;
+	}
+
+	button.button-primary-950:hover:not(:disabled) {
+		background-color: var(--color-primary-900);
+	}
+
+	/* Primary Outlined Buttons */
+	button.button-primary-outlined {
+		background-color: white;
+		border: 2px solid var(--color-primary-500);
+		color: var(--color-primary-950);
+		padding: 0.75rem 1.5rem;
+		font-weight: 700;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		transition: background-color 0.2s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+	}
+
+	button.button-primary-outlined:hover:not(:disabled) {
+		background-color: var(--color-primary-50);
+	}
+
+	button.button-primary-outlined:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	button.button-primary-outlined-500 {
+		background-color: white;
+		border: 2px solid var(--color-primary-500);
+		color: var(--color-primary-950);
+		padding: 0.75rem 1.5rem;
+		font-weight: 700;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		transition: background-color 0.2s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+	}
+
+	button.button-primary-outlined-500:hover:not(:disabled) {
+		background-color: var(--color-primary-50);
+	}
+
+	/* Secondary Buttons */
+	button.button-secondary {
+		background-color: var(--color-secondary-500);
+		color: var(--color-secondary-50);
+		padding: 0.75rem 1.5rem;
+		font-weight: 700;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		transition: background-color 0.2s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		border: none;
+	}
+
+	button.button-secondary:hover:not(:disabled) {
+		background-color: var(--color-secondary-600);
+	}
+
+	button.button-secondary:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	button.button-secondary-500 {
+		background-color: var(--color-secondary-500);
+		color: var(--color-secondary-50);
+		padding: 0.75rem 1.5rem;
+		font-weight: 700;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		transition: background-color 0.2s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		border: none;
+	}
+
+	button.button-secondary-500:hover:not(:disabled) {
+		background-color: var(--color-secondary-600);
+	}
+
+	button.button-secondary-600 {
+		background-color: var(--color-secondary-600);
+		color: var(--color-secondary-50);
+		padding: 0.75rem 1.5rem;
+		font-weight: 700;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		transition: background-color 0.2s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		border: none;
+	}
+
+	button.button-secondary-600:hover:not(:disabled) {
+		background-color: var(--color-secondary-700);
+	}
+
+	button.button-secondary-600:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	/* Secondary Outlined Buttons */
+	button.button-secondary-outlined {
+		background-color: white;
+		border: 2px solid var(--color-secondary-500);
+		color: var(--color-secondary-950);
+		padding: 0.75rem 1.5rem;
+		font-weight: 700;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		transition: background-color 0.2s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+	}
+
+	button.button-secondary-outlined:hover:not(:disabled) {
+		background-color: var(--color-secondary-50);
+	}
+
+	button.button-secondary-outlined:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	button.button-secondary-outlined-500 {
+		background-color: white;
+		border: 2px solid var(--color-secondary-500);
+		color: var(--color-secondary-950);
+		padding: 0.75rem 1.5rem;
+		font-weight: 700;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		transition: background-color 0.2s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+	}
+
+	button.button-secondary-outlined-500:hover:not(:disabled) {
+		background-color: var(--color-secondary-50);
+	}
+
+	/* Accent Buttons */
+	button.button-accent {
+		background-color: var(--color-accent-500);
+		color: var(--color-accent-50);
+		padding: 0.75rem 1.5rem;
+		font-weight: 700;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		transition: background-color 0.2s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		border: none;
+	}
+
+	button.button-accent:hover:not(:disabled) {
+		background-color: var(--color-accent-600);
+	}
+
+	button.button-accent:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	button.button-accent-500 {
+		background-color: var(--color-accent-500);
+		color: var(--color-accent-50);
+		padding: 0.75rem 1.5rem;
+		font-weight: 700;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		transition: background-color 0.2s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		border: none;
+	}
+
+	button.button-accent-500:hover:not(:disabled) {
+		background-color: var(--color-accent-600);
+	}
+
+	button.button-accent-600 {
+		background-color: var(--color-accent-600);
+		color: var(--color-accent-50);
+		padding: 0.75rem 1.5rem;
+		font-weight: 700;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		transition: background-color 0.2s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		border: none;
+	}
+
+	button.button-accent-600:hover:not(:disabled) {
+		background-color: var(--color-accent-700);
+	}
+
+	button.button-accent-600:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	/* Accent Outlined Buttons */
+	button.button-accent-outlined {
+		background-color: white;
+		border: 2px solid var(--color-accent-500);
+		color: var(--color-accent-950);
+		padding: 0.75rem 1.5rem;
+		font-weight: 700;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		transition: background-color 0.2s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+	}
+
+	button.button-accent-outlined:hover:not(:disabled) {
+		background-color: var(--color-accent-50);
+	}
+
+	button.button-accent-outlined:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	button.button-accent-outlined-500 {
+		background-color: white;
+		border: 2px solid var(--color-accent-500);
+		color: var(--color-accent-950);
+		padding: 0.75rem 1.5rem;
+		font-weight: 700;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		transition: background-color 0.2s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+	}
+
+	button.button-accent-outlined-500:hover:not(:disabled) {
+		background-color: var(--color-accent-50);
+	}
+
+	/* Badge Component Classes */
+	.badge-primary {
+		background-color: var(--color-primary-500);
+		color: var(--color-primary-50);
+		padding: 0.25rem 0.75rem;
+		font-weight: 700;
+		font-size: 0.875rem;
+		line-height: 1.25rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.badge-primary-500 {
+		background-color: var(--color-primary-500);
+		color: var(--color-primary-50);
+		padding: 0.25rem 0.75rem;
+		font-weight: 700;
+		font-size: 0.875rem;
+		line-height: 1.25rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.badge-primary-600 {
+		background-color: var(--color-primary-600);
+		color: var(--color-primary-50);
+		padding: 0.25rem 0.75rem;
+		font-weight: 700;
+		font-size: 0.875rem;
+		line-height: 1.25rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.badge-primary-outlined {
+		border: 2px solid var(--color-primary-500);
+		color: var(--color-primary-950);
+		padding: 0.25rem 0.75rem;
+		font-weight: 700;
+		font-size: 0.875rem;
+		line-height: 1.25rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		background-color: transparent;
+	}
+
+	.badge-primary-outlined-500 {
+		border: 2px solid var(--color-primary-500);
+		color: var(--color-primary-950);
+		padding: 0.25rem 0.75rem;
+		font-weight: 700;
+		font-size: 0.875rem;
+		line-height: 1.25rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		background-color: transparent;
+	}
+
+	.badge-secondary {
+		background-color: var(--color-secondary-500);
+		color: var(--color-secondary-50);
+		padding: 0.25rem 0.75rem;
+		font-weight: 700;
+		font-size: 0.875rem;
+		line-height: 1.25rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.badge-secondary-500 {
+		background-color: var(--color-secondary-500);
+		color: var(--color-secondary-50);
+		padding: 0.25rem 0.75rem;
+		font-weight: 700;
+		font-size: 0.875rem;
+		line-height: 1.25rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.badge-secondary-600 {
+		background-color: var(--color-secondary-600);
+		color: var(--color-secondary-50);
+		padding: 0.25rem 0.75rem;
+		font-weight: 700;
+		font-size: 0.875rem;
+		line-height: 1.25rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.badge-secondary-outlined {
+		border: 2px solid var(--color-secondary-500);
+		color: var(--color-secondary-950);
+		padding: 0.25rem 0.75rem;
+		font-weight: 700;
+		font-size: 0.875rem;
+		line-height: 1.25rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		background-color: transparent;
+	}
+
+	.badge-secondary-outlined-500 {
+		border: 2px solid var(--color-secondary-500);
+		color: var(--color-secondary-950);
+		padding: 0.25rem 0.75rem;
+		font-weight: 700;
+		font-size: 0.875rem;
+		line-height: 1.25rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		background-color: transparent;
+	}
+
+	.badge-accent {
+		background-color: var(--color-accent-500);
+		color: var(--color-accent-50);
+		padding: 0.25rem 0.75rem;
+		font-weight: 700;
+		font-size: 0.875rem;
+		line-height: 1.25rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.badge-accent-500 {
+		background-color: var(--color-accent-500);
+		color: var(--color-accent-50);
+		padding: 0.25rem 0.75rem;
+		font-weight: 700;
+		font-size: 0.875rem;
+		line-height: 1.25rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.badge-accent-600 {
+		background-color: var(--color-accent-600);
+		color: var(--color-accent-50);
+		padding: 0.25rem 0.75rem;
+		font-weight: 700;
+		font-size: 0.875rem;
+		line-height: 1.25rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.badge-accent-outlined {
+		border: 2px solid var(--color-accent-500);
+		color: var(--color-accent-950);
+		padding: 0.25rem 0.75rem;
+		font-weight: 700;
+		font-size: 0.875rem;
+		line-height: 1.25rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		background-color: transparent;
+	}
+
+	.badge-accent-outlined-500 {
+		border: 2px solid var(--color-accent-500);
+		color: var(--color-accent-950);
+		padding: 0.25rem 0.75rem;
+		font-weight: 700;
+		font-size: 0.875rem;
+		line-height: 1.25rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		background-color: transparent;
+	}
+
+	/* Card Component Classes */
+	.card-primary {
+		border: 2px solid var(--color-primary-300);
+		background-color: var(--color-primary-50);
+		padding: 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+	}
+
+	.card-primary-500 {
+		border: 2px solid var(--color-primary-300);
+		background-color: var(--color-primary-50);
+		padding: 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+	}
+
+	.card-primary-outlined {
+		border: 2px solid var(--color-primary-600);
+		background-color: white;
+		padding: 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+	}
+
+	.card-primary-outlined-500 {
+		border: 2px solid var(--color-primary-600);
+		background-color: white;
+		padding: 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+	}
+
+	.card-secondary {
+		border: 2px solid var(--color-secondary-300);
+		background-color: var(--color-secondary-50);
+		padding: 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+	}
+
+	.card-secondary-500 {
+		border: 2px solid var(--color-secondary-300);
+		background-color: var(--color-secondary-50);
+		padding: 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+	}
+
+	.card-secondary-outlined {
+		border: 2px solid var(--color-secondary-600);
+		background-color: white;
+		padding: 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+	}
+
+	.card-secondary-outlined-500 {
+		border: 2px solid var(--color-secondary-600);
+		background-color: white;
+		padding: 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+	}
+
+	.card-accent {
+		border: 2px solid var(--color-accent-300);
+		background-color: var(--color-accent-50);
+		padding: 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+	}
+
+	.card-accent-500 {
+		border: 2px solid var(--color-accent-300);
+		background-color: var(--color-accent-50);
+		padding: 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+	}
+
+	.card-accent-outlined {
+		border: 2px solid var(--color-accent-600);
+		background-color: white;
+		padding: 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+	}
+
+	.card-accent-outlined-500 {
+		border: 2px solid var(--color-accent-600);
+		background-color: white;
+		padding: 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+	}
+
+	/* Toast Component Classes */
+	.toast-primary {
+		border: 2px solid var(--color-primary-500);
+		background-color: var(--color-primary-50);
+		padding: 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+	}
+
+	.toast-primary-500 {
+		border: 2px solid var(--color-primary-500);
+		background-color: var(--color-primary-50);
+		padding: 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+	}
+
+	.toast-primary-outlined {
+		border: 2px solid var(--color-primary-500);
+		background-color: white;
+		padding: 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+	}
+
+	.toast-primary-outlined-500 {
+		border: 2px solid var(--color-primary-500);
+		background-color: white;
+		padding: 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+	}
+
+	.toast-secondary {
+		border: 2px solid var(--color-secondary-500);
+		background-color: var(--color-secondary-50);
+		padding: 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+	}
+
+	.toast-secondary-500 {
+		border: 2px solid var(--color-secondary-500);
+		background-color: var(--color-secondary-50);
+		padding: 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+	}
+
+	.toast-secondary-outlined {
+		border: 2px solid var(--color-secondary-500);
+		background-color: white;
+		padding: 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+	}
+
+	.toast-secondary-outlined-500 {
+		border: 2px solid var(--color-secondary-500);
+		background-color: white;
+		padding: 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+	}
+
+	.toast-accent {
+		border: 2px solid var(--color-accent-500);
+		background-color: var(--color-accent-50);
+		padding: 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+	}
+
+	.toast-accent-500 {
+		border: 2px solid var(--color-accent-500);
+		background-color: var(--color-accent-50);
+		padding: 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+	}
+
+	.toast-accent-outlined {
+		border: 2px solid var(--color-accent-500);
+		background-color: white;
+		padding: 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+	}
+
+	.toast-accent-outlined-500 {
+		border: 2px solid var(--color-accent-500);
+		background-color: white;
+		padding: 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+	}
+
+	/* Alert Component Classes */
+	.alert-primary {
+		border: 2px solid var(--color-primary-500);
+		background-color: var(--color-primary-50);
+		padding: 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+	}
+
+	.alert-primary-500 {
+		border: 2px solid var(--color-primary-500);
+		background-color: var(--color-primary-50);
+		padding: 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+	}
+
+	.alert-secondary {
+		border: 2px solid var(--color-secondary-500);
+		background-color: var(--color-secondary-50);
+		padding: 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+	}
+
+	.alert-secondary-500 {
+		border: 2px solid var(--color-secondary-500);
+		background-color: var(--color-secondary-50);
+		padding: 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+	}
+
+	.alert-accent {
+		border: 2px solid var(--color-accent-500);
+		background-color: var(--color-accent-50);
+		padding: 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+	}
+
+	.alert-accent-500 {
+		border: 2px solid var(--color-accent-500);
+		background-color: var(--color-accent-50);
+		padding: 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+	}
+
+	/* Progress Bar Component Classes */
+	.progress-primary,
+	.progress-primary-500 {
+		border: 2px solid var(--color-primary-300);
+		background-color: var(--color-primary-100);
+	}
+
+	.progress-primary-bar {
+		background-color: var(--color-primary-500);
+		height: 1.5rem;
+	}
+
+	.progress-secondary,
+	.progress-secondary-500 {
+		border: 2px solid var(--color-secondary-300);
+		background-color: var(--color-secondary-100);
+	}
+
+	.progress-secondary-bar {
+		background-color: var(--color-secondary-500);
+		height: 1.5rem;
+	}
+
+	.progress-accent,
+	.progress-accent-500 {
+		border: 2px solid var(--color-accent-300);
+		background-color: var(--color-accent-100);
+	}
+
+	.progress-accent-bar {
+		background-color: var(--color-accent-500);
+		height: 1.5rem;
+	}
+
+	/* Background color utilities that default to 500 */
+	.bg-primary {
+		background-color: var(--color-primary-500);
+	}
+
+	.bg-secondary {
+		background-color: var(--color-secondary-500);
+	}
+
+	.bg-accent {
+		background-color: var(--color-accent-500);
+	}
+
+	.bg-neutral {
+		background-color: var(--color-neutral-500);
+	}
+
+	/* Text color utilities that default to 500 */
+	.text-primary {
+		color: var(--color-primary-500);
+	}
+
+	.text-secondary {
+		color: var(--color-secondary-500);
+	}
+
+	.text-accent {
+		color: var(--color-accent-500);
+	}
+
+	.text-neutral {
+		color: var(--color-neutral-500);
+	}
+
+	/* Border color utilities that default to 500 */
+	.border-primary {
+		border-color: var(--color-primary-500);
+	}
+
+	.border-secondary {
+		border-color: var(--color-secondary-500);
+	}
+
+	.border-accent {
+		border-color: var(--color-accent-500);
+	}
+
+	.border-neutral {
+		border-color: var(--color-neutral-500);
+	}
+
+	/* Global Form Element Styles - Default to primary */
+	input[type='text']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+			.radio-primary
+		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-accent
+		):not(.input-primary):not(.input-secondary):not(.input-accent),
+	input[type='email']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+			.radio-primary
+		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-accent
+		):not(.input-primary):not(.input-secondary):not(.input-accent),
+	input[type='url']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+			.radio-primary
+		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-accent
+		):not(.input-primary):not(.input-secondary):not(.input-accent),
+	input[type='password']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+			.radio-primary
+		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-accent
+		):not(.input-primary):not(.input-secondary):not(.input-accent),
+	input[type='number']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+			.radio-primary
+		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-accent
+		):not(.input-primary):not(.input-secondary):not(.input-accent),
+	input[type='tel']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+			.radio-primary
+		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-accent
+		):not(.input-primary):not(.input-secondary):not(.input-accent),
+	input[type='search']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+			.radio-primary
+		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-accent
+		):not(.input-primary):not(.input-secondary):not(.input-accent),
+	input[type='date']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+			.radio-primary
+		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-accent
+		):not(.input-primary):not(.input-secondary):not(.input-accent),
+	input[type='datetime-local']:not(.checkbox-primary):not(.checkbox-secondary):not(
+			.checkbox-accent
+		):not(.radio-primary):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(
+			.toggle-secondary
+		):not(.toggle-accent):not(.input-primary):not(.input-secondary):not(.input-accent),
+	input[type='month']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+			.radio-primary
+		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-accent
+		):not(.input-primary):not(.input-secondary):not(.input-accent),
+	input[type='week']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+			.radio-primary
+		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-accent
+		):not(.input-primary):not(.input-secondary):not(.input-accent),
+	input[type='time']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+			.radio-primary
+		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-accent
+		):not(.input-primary):not(.input-secondary):not(.input-accent),
+	textarea:not(.textarea-primary):not(.textarea-secondary):not(.textarea-accent) {
+		border: 2px solid var(--color-primary-300);
+		padding: 0.5rem 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		width: 100%;
+	}
+
+	input[type='text']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+			.radio-primary
+		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-accent
+		):not(.input-primary):not(.input-secondary):not(.input-accent):focus,
+	input[type='email']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+			.radio-primary
+		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-accent
+		):not(.input-primary):not(.input-secondary):not(.input-accent):focus,
+	input[type='url']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+			.radio-primary
+		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-accent
+		):not(.input-primary):not(.input-secondary):not(.input-accent):focus,
+	input[type='password']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+			.radio-primary
+		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-accent
+		):not(.input-primary):not(.input-secondary):not(.input-accent):focus,
+	input[type='number']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+			.radio-primary
+		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-accent
+		):not(.input-primary):not(.input-secondary):not(.input-accent):focus,
+	input[type='tel']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+			.radio-primary
+		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-accent
+		):not(.input-primary):not(.input-secondary):not(.input-accent):focus,
+	input[type='search']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+			.radio-primary
+		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-accent
+		):not(.input-primary):not(.input-secondary):not(.input-accent):focus,
+	input[type='date']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+			.radio-primary
+		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-accent
+		):not(.input-primary):not(.input-secondary):not(.input-accent):focus,
+	input[type='datetime-local']:not(.checkbox-primary):not(.checkbox-secondary):not(
+			.checkbox-accent
+		):not(.radio-primary):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(
+			.toggle-secondary
+		):not(.toggle-accent):not(.input-primary):not(.input-secondary):not(.input-accent):focus,
+	input[type='month']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+			.radio-primary
+		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-accent
+		):not(.input-primary):not(.input-secondary):not(.input-accent):focus,
+	input[type='week']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+			.radio-primary
+		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-accent
+		):not(.input-primary):not(.input-secondary):not(.input-accent):focus,
+	input[type='time']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+			.radio-primary
+		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-accent
+		):not(.input-primary):not(.input-secondary):not(.input-accent):focus,
+	textarea:not(.textarea-primary):not(.textarea-secondary):not(.textarea-accent):focus {
+		outline: none;
+		border-color: var(--color-primary-500);
+	}
+
+	select:not(.select-primary):not(.select-secondary):not(.select-accent) {
+		border: 2px solid var(--color-primary-300);
+		background-color: white;
+		padding: 0.5rem 1rem;
+		padding-right: 2.5rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		color: var(--color-primary-950);
+		width: 100%;
+	}
+
+	select:not(.select-primary):not(.select-secondary):not(.select-accent):focus {
+		outline: none;
+		border-color: var(--color-primary-500);
 	}
 }
 
 /* Override default focus styles for all form inputs */
 @layer base {
-	/* Remove blue from all form elements */
-	*:focus {
+	/* Remove blue from all form elements - exclude themed form elements */
+	*:focus:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+			.radio-primary
+		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-accent
+		):not(.input-primary):not(.input-secondary):not(.input-accent):not(.textarea-primary):not(
+			.textarea-secondary
+		):not(.textarea-accent):not(.select-primary):not(.select-secondary):not(.select-accent) {
 		--tw-ring-color: var(--color-primary-500) !important;
 	}
 
-	/* Base styles for all form inputs */
-	input[type='text'],
-	input[type='email'],
-	input[type='password'],
-	input[type='number'],
-	input[type='tel'],
-	input[type='url'],
-	input[type='search'],
-	textarea,
-	select {
+	/* Base styles for all form inputs - exclude themed classes */
+	input[type='text']:not(.input-primary):not(.input-secondary):not(.input-accent),
+	input[type='email']:not(.input-primary):not(.input-secondary):not(.input-accent),
+	input[type='password']:not(.input-primary):not(.input-secondary):not(.input-accent),
+	input[type='number']:not(.input-primary):not(.input-secondary):not(.input-accent),
+	input[type='tel']:not(.input-primary):not(.input-secondary):not(.input-accent),
+	input[type='url']:not(.input-primary):not(.input-secondary):not(.input-accent),
+	input[type='search']:not(.input-primary):not(.input-secondary):not(.input-accent),
+	textarea:not(.textarea-primary):not(.textarea-secondary):not(.textarea-accent),
+	select:not(.select-primary):not(.select-secondary):not(.select-accent) {
 		--tw-ring-color: transparent !important;
 		outline: none !important;
 		accent-color: var(--color-primary-600);
 	}
 
-	/* Focus styles for all form inputs */
-	input[type='text']:focus,
-	input[type='email']:focus,
-	input[type='password']:focus,
-	input[type='number']:focus,
-	input[type='tel']:focus,
-	input[type='url']:focus,
-	input[type='search']:focus,
-	textarea:focus,
-	select:focus {
+	/* Focus styles for all form inputs - exclude themed classes */
+	input[type='text']:not(.input-primary):not(.input-secondary):not(.input-accent):not(
+			.checkbox-primary
+		):not(.checkbox-secondary):not(.checkbox-accent):not(.radio-primary):not(.radio-secondary):not(
+			.radio-accent
+		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-accent):focus,
+	input[type='email']:not(.input-primary):not(.input-secondary):not(.input-accent):not(
+			.checkbox-primary
+		):not(.checkbox-secondary):not(.checkbox-accent):not(.radio-primary):not(.radio-secondary):not(
+			.radio-accent
+		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-accent):focus,
+	input[type='password']:not(.input-primary):not(.input-secondary):not(.input-accent):not(
+			.checkbox-primary
+		):not(.checkbox-secondary):not(.checkbox-accent):not(.radio-primary):not(.radio-secondary):not(
+			.radio-accent
+		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-accent):focus,
+	input[type='number']:not(.input-primary):not(.input-secondary):not(.input-accent):not(
+			.checkbox-primary
+		):not(.checkbox-secondary):not(.checkbox-accent):not(.radio-primary):not(.radio-secondary):not(
+			.radio-accent
+		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-accent):focus,
+	input[type='tel']:not(.input-primary):not(.input-secondary):not(.input-accent):not(
+			.checkbox-primary
+		):not(.checkbox-secondary):not(.checkbox-accent):not(.radio-primary):not(.radio-secondary):not(
+			.radio-accent
+		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-accent):focus,
+	input[type='url']:not(.input-primary):not(.input-secondary):not(.input-accent):not(
+			.checkbox-primary
+		):not(.checkbox-secondary):not(.checkbox-accent):not(.radio-primary):not(.radio-secondary):not(
+			.radio-accent
+		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-accent):focus,
+	input[type='search']:not(.input-primary):not(.input-secondary):not(.input-accent):not(
+			.checkbox-primary
+		):not(.checkbox-secondary):not(.checkbox-accent):not(.radio-primary):not(.radio-secondary):not(
+			.radio-accent
+		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-accent):focus,
+	textarea:not(.textarea-primary):not(.textarea-secondary):not(.textarea-accent):focus,
+	select:not(.select-primary):not(.select-secondary):not(.select-accent):focus {
 		outline: 1px solid var(--color-primary-500) !important;
 		outline-offset: 1px !important;
 		--tw-ring-color: var(--color-primary-500) !important;
@@ -366,12 +2250,12 @@
 		accent-color: var(--color-primary-600);
 	}
 
-	/* Specific textarea styles */
-	textarea {
+	/* Specific textarea styles - exclude themed classes */
+	textarea:not(.textarea-primary):not(.textarea-secondary):not(.textarea-accent) {
 		outline: none !important;
 	}
 
-	textarea:focus {
+	textarea:not(.textarea-primary):not(.textarea-secondary):not(.textarea-accent):focus {
 		outline: 1px solid var(--color-primary-500) !important;
 		outline-offset: 1px !important;
 		--tw-ring-color: var(--color-primary-500) !important;
@@ -379,15 +2263,76 @@
 		border-color: var(--color-primary-500) !important;
 	}
 
-	/* Specific select styles */
-	select {
+	/* Themed form element focus ring colors */
+	input[type='checkbox'].checkbox-primary:focus,
+	input[type='radio'].radio-primary:focus,
+	input[type='checkbox'].toggle-primary:focus,
+	input[type='text'].input-primary:focus,
+	input[type='email'].input-primary:focus,
+	input[type='password'].input-primary:focus,
+	input[type='number'].input-primary:focus,
+	input[type='tel'].input-primary:focus,
+	input[type='url'].input-primary:focus,
+	input[type='search'].input-primary:focus,
+	input[type='date'].input-primary:focus,
+	input[type='datetime-local'].input-primary:focus,
+	input[type='month'].input-primary:focus,
+	input[type='week'].input-primary:focus,
+	input[type='time'].input-primary:focus,
+	textarea.textarea-primary:focus,
+	select.select-primary:focus {
+		--tw-ring-color: var(--color-primary-500) !important;
+	}
+
+	input[type='checkbox'].checkbox-secondary:focus,
+	input[type='radio'].radio-secondary:focus,
+	input[type='checkbox'].toggle-secondary:focus,
+	input[type='text'].input-secondary:focus,
+	input[type='email'].input-secondary:focus,
+	input[type='password'].input-secondary:focus,
+	input[type='number'].input-secondary:focus,
+	input[type='tel'].input-secondary:focus,
+	input[type='url'].input-secondary:focus,
+	input[type='search'].input-secondary:focus,
+	input[type='date'].input-secondary:focus,
+	input[type='datetime-local'].input-secondary:focus,
+	input[type='month'].input-secondary:focus,
+	input[type='week'].input-secondary:focus,
+	input[type='time'].input-secondary:focus,
+	textarea.textarea-secondary:focus,
+	select.select-secondary:focus {
+		--tw-ring-color: var(--color-secondary-500) !important;
+	}
+
+	input[type='checkbox'].checkbox-accent:focus,
+	input[type='radio'].radio-accent:focus,
+	input[type='checkbox'].toggle-accent:focus,
+	input[type='text'].input-accent:focus,
+	input[type='email'].input-accent:focus,
+	input[type='password'].input-accent:focus,
+	input[type='number'].input-accent:focus,
+	input[type='tel'].input-accent:focus,
+	input[type='url'].input-accent:focus,
+	input[type='search'].input-accent:focus,
+	input[type='date'].input-accent:focus,
+	input[type='datetime-local'].input-accent:focus,
+	input[type='month'].input-accent:focus,
+	input[type='week'].input-accent:focus,
+	input[type='time'].input-accent:focus,
+	textarea.textarea-accent:focus,
+	select.select-accent:focus {
+		--tw-ring-color: var(--color-accent-500) !important;
+	}
+
+	/* Specific select styles - exclude themed classes */
+	select:not(.select-primary):not(.select-secondary):not(.select-accent) {
 		outline: none !important;
 		box-shadow: none !important;
 		accent-color: var(--color-primary-600);
 		color-scheme: light;
 	}
 
-	select:focus {
+	select:not(.select-primary):not(.select-secondary):not(.select-accent):focus {
 		outline: 1px solid var(--color-primary-500) !important;
 		outline-offset: 1px !important;
 		--tw-ring-color: var(--color-primary-500) !important;
@@ -396,9 +2341,9 @@
 		accent-color: var(--color-primary-600);
 	}
 
-	/* Style all select options to use theme colors */
+	/* Style all select options to use theme colors - exclude themed classes */
 	/* Aggressive styling to override browser defaults */
-	select option {
+	select:not(.select-primary):not(.select-secondary):not(.select-accent) option {
 		background-color: white !important;
 		background: white !important;
 		color: var(--color-primary-950) !important;
@@ -407,52 +2352,53 @@
 	}
 
 	/* Selected option - try multiple approaches */
-	select option:checked {
-		background-color: var(--color-primary-600) !important;
-		background: var(--color-primary-600) !important;
+	select:not(.select-primary):not(.select-secondary):not(.select-accent) option:checked {
+		background-color: var(--color-primary-500) !important;
+		background: var(--color-primary-500) !important;
 		color: white !important;
 		font-weight: normal !important;
 	}
 
 	/* Firefox specific */
-	select option:checked:not(:disabled) {
-		background-color: var(--color-primary-600) !important;
-		background: var(--color-primary-600) !important;
+	select:not(.select-primary):not(.select-secondary):not(.select-accent)
+		option:checked:not(:disabled) {
+		background-color: var(--color-primary-500) !important;
+		background: var(--color-primary-500) !important;
 		color: white !important;
 		font-weight: normal !important;
 	}
 
 	/* Try to override hover/active states - limited browser support */
-	select option:hover {
+	select:not(.select-primary):not(.select-secondary):not(.select-accent) option:hover {
 		background-color: var(--color-primary-100) !important;
 		background: var(--color-primary-100) !important;
 		color: var(--color-primary-950) !important;
 	}
 
-	select option:focus,
-	select option:focus-visible {
-		background-color: var(--color-primary-600) !important;
-		background: var(--color-primary-600) !important;
+	select:not(.select-primary):not(.select-secondary):not(.select-accent) option:focus,
+	select:not(.select-primary):not(.select-secondary):not(.select-accent) option:focus-visible {
+		background-color: var(--color-primary-500) !important;
+		background: var(--color-primary-500) !important;
 		color: white !important;
 	}
 
-	select option:active {
-		background-color: var(--color-primary-600) !important;
-		background: var(--color-primary-600) !important;
+	select:not(.select-primary):not(.select-secondary):not(.select-accent) option:active {
+		background-color: var(--color-primary-500) !important;
+		background: var(--color-primary-500) !important;
 		color: white !important;
 	}
 
 	/* Additional overrides to prevent blue */
-	select:active,
-	select:focus-visible {
+	select:not(.select-primary):not(.select-secondary):not(.select-accent):active,
+	select:not(.select-primary):not(.select-secondary):not(.select-accent):focus-visible {
 		outline: 1px solid var(--color-primary-500) !important;
 		outline-offset: 1px !important;
 		box-shadow: 0 0 0 1px var(--color-primary-500) !important;
 		--tw-ring-color: var(--color-primary-500) !important;
 	}
 
-	textarea:active,
-	textarea:focus-visible {
+	textarea:not(.textarea-primary):not(.textarea-secondary):not(.textarea-accent):active,
+	textarea:not(.textarea-primary):not(.textarea-secondary):not(.textarea-accent):focus-visible {
 		outline: 1px solid var(--color-primary-500) !important;
 		outline-offset: 1px !important;
 		box-shadow: 0 0 0 1px var(--color-primary-500) !important;

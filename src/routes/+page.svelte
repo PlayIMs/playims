@@ -139,9 +139,9 @@
 
 				<!-- Feature 3 -->
 				<div
-					class="bg-white border-l-4 border-tertiary-500 p-6 hover:border-tertiary-600 transition-colors"
+					class="bg-white border-l-4 border-neutral-500 p-6 hover:border-neutral-600 transition-colors"
 				>
-					<div class="bg-tertiary-500 w-16 h-16 flex items-center justify-center mb-4">
+					<div class="bg-neutral-500 w-16 h-16 flex items-center justify-center mb-4">
 						<svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
 								stroke-linecap="round"
@@ -151,7 +151,7 @@
 							></path>
 						</svg>
 					</div>
-					<h3 class="text-xl font-bold text-tertiary-950 mb-2">Clear Standings & Stats</h3>
+					<h3 class="text-xl font-bold text-neutral-950 mb-2">Clear Standings & Stats</h3>
 					<p class="text-secondary-900">
 						Real-time standings and statistics presented in a way that's easy to understand at a
 						glance. No more hunting through confusing interfaces to find what you need.
@@ -162,11 +162,11 @@
 	</section>
 
 	<!-- What We're Building Section -->
-	<section class="bg-tertiary-800 py-16 sm:py-24">
+	<section class="bg-neutral-800 py-16 sm:py-24">
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 			<div class="text-center mb-12">
-				<h2 class="text-3xl sm:text-4xl font-bold text-tertiary-50 mb-4">Built for Everyone</h2>
-				<p class="text-lg text-tertiary-100">
+				<h2 class="text-3xl sm:text-4xl font-bold text-neutral-50 mb-4">Built for Everyone</h2>
+				<p class="text-lg text-neutral-100">
 					Designed with both administrators and players in mind—because great software shouldn't
 					require a manual
 				</p>
@@ -174,7 +174,7 @@
 
 			<!-- Key Benefits -->
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-				<div class="bg-tertiary-900 border-2 border-tertiary-700 p-6">
+				<div class="bg-neutral-900 border-2 border-neutral-700 p-6">
 					<div class="bg-primary-600 w-16 h-16 flex items-center justify-center mb-4">
 						<svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
@@ -185,15 +185,15 @@
 							></path>
 						</svg>
 					</div>
-					<h3 class="text-xl font-bold text-tertiary-50 mb-2">Admin-Friendly</h3>
-					<p class="text-tertiary-200">
+					<h3 class="text-xl font-bold text-neutral-50 mb-2">Admin-Friendly</h3>
+					<p class="text-neutral-200">
 						Powerful administrative tools that don't require a computer science degree. Manage
 						leagues, divisions, teams, and schedules with an interface that makes sense from day
 						one.
 					</p>
 				</div>
 
-				<div class="bg-tertiary-900 border-2 border-tertiary-700 p-6">
+				<div class="bg-neutral-900 border-2 border-neutral-700 p-6">
 					<div class="bg-accent-600 w-16 h-16 flex items-center justify-center mb-4">
 						<svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
@@ -204,8 +204,8 @@
 							></path>
 						</svg>
 					</div>
-					<h3 class="text-xl font-bold text-tertiary-50 mb-2">Player-Friendly</h3>
-					<p class="text-tertiary-200">
+					<h3 class="text-xl font-bold text-neutral-50 mb-2">Player-Friendly</h3>
+					<p class="text-neutral-200">
 						Clear schedules, easy registration, and straightforward team management. Find your
 						games, check standings, and manage your participation without getting lost in the
 						interface.
@@ -215,23 +215,23 @@
 
 			<!-- Additional Features -->
 			<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-				<div class="bg-tertiary-900 border-2 border-tertiary-700 p-6">
-					<h3 class="text-lg font-bold text-tertiary-50 mb-2">Division & League Management</h3>
-					<p class="text-sm text-tertiary-200">
+				<div class="bg-neutral-900 border-2 border-neutral-700 p-6">
+					<h3 class="text-lg font-bold text-neutral-50 mb-2">Division & League Management</h3>
+					<p class="text-sm text-neutral-200">
 						Organize multiple leagues and divisions with clear hierarchies. Set up seasons, manage
 						rosters, and handle registrations all in one intuitive system.
 					</p>
 				</div>
-				<div class="bg-tertiary-900 border-2 border-tertiary-700 p-6">
-					<h3 class="text-lg font-bold text-tertiary-50 mb-2">Event & Game Management</h3>
-					<p class="text-sm text-tertiary-200">
+				<div class="bg-neutral-900 border-2 border-neutral-700 p-6">
+					<h3 class="text-lg font-bold text-neutral-50 mb-2">Event & Game Management</h3>
+					<p class="text-sm text-neutral-200">
 						Schedule games, track results, and manage events with tools that make sense. View
 						everything in a calendar format that's actually usable.
 					</p>
 				</div>
-				<div class="bg-tertiary-900 border-2 border-tertiary-700 p-6">
-					<h3 class="text-lg font-bold text-tertiary-50 mb-2">Comprehensive Statistics</h3>
-					<p class="text-sm text-tertiary-200">
+				<div class="bg-neutral-900 border-2 border-neutral-700 p-6">
+					<h3 class="text-lg font-bold text-neutral-50 mb-2">Comprehensive Statistics</h3>
+					<p class="text-sm text-neutral-200">
 						Track team and player performance with detailed statistics. View standings, game
 						history, and performance metrics in formats that are easy to understand.
 					</p>
@@ -270,12 +270,12 @@
 	</section>
 
 	<!-- Footer -->
-	<footer class="bg-tertiary-950 py-8">
+	<footer class="bg-neutral-950 py-8">
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-			<p class="text-tertiary-200 mb-2">
+			<p class="text-neutral-200 mb-2">
 				&copy; {new Date().getFullYear()} PlayIMs. All rights reserved.
 			</p>
-			<p class="text-sm text-tertiary-300">Environment: {data.environment}</p>
+			<p class="text-sm text-neutral-300">Environment: {data.environment}</p>
 		</div>
 	</footer>
 </div>

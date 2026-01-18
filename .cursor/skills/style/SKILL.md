@@ -21,7 +21,7 @@ This skill defines the styling standards, CSS framework usage, and design princi
 - **Always use TailwindCSS** for all CSS and styling in the project
 - Follow best practices according to the latest TailwindCSS version
 - Prefer utility classes over custom CSS when possible
-- Use the project's custom color palette (primary, secondary, tertiary, accent) defined in the theme system
+- Use the project's custom color palette (primary, secondary, neutral, accent) defined in the theme system
 
 ### Design Aesthetic
 
@@ -32,10 +32,16 @@ This skill defines the styling standards, CSS framework usage, and design princi
 
 ### Color System
 
-- Use the project's theme colors: `primary`, `secondary`, `tertiary`, and `accent`
+- Use the project's theme colors: `primary`, `secondary`, `neutral`, and `accent`
+- **Primary**: Main brand color, used for dominant UI elements (~60% of design)
+- **Secondary**: Supporting color for backgrounds and sidebars (~30% of design)
+- **Neutral**: Background colors, borders, and neutral UI elements. Defaults to Tailwind zinc palette, but can be customized with light shades (white, beige, pastels)
+- **Accent**: Call-to-action buttons, highlights, and attention-grabbing elements (~10% of design). Used on top of static surface backgrounds
 - Follow existing color patterns found in the codebase
 - Maintain consistency with text colors, fonts, and sizes used elsewhere in the project
 - Reference the color theme system defined in `$lib/theme.ts` for dynamic color generation
+- Use `getReadableTextColor(backgroundColorHex, themeColorPalette)` to automatically select accessible text colors based on background luminance
+- Accent colors are validated for WCAG contrast and saturation - warnings are shown if issues are detected
 
 ### Typography
 

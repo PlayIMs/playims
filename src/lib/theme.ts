@@ -1,10 +1,29 @@
 import { writable, get } from 'svelte/store';
 
+// Static surface colors (Tailwind zinc defaults)
+export const SURFACE_LIGHT = '#E4E4E7'; // zinc-200
+export const SURFACE_DARK = '#09090B'; // zinc-950
+
+// Default zinc palette (Tailwind CSS zinc colors)
+export const ZINC_PALETTE: Record<string, string> = {
+	'50': 'FAFAFA',
+	'100': 'F4F4F5',
+	'200': 'E4E4E7',
+	'300': 'D4D4D8',
+	'400': 'A1A1AA',
+	'500': '71717A',
+	'600': '52525B',
+	'700': '3F3F46',
+	'800': '27272A',
+	'900': '18181B',
+	'950': '09090B'
+};
+
 // Default hex values (without #)
 const DEFAULT_THEME = {
 	primary: 'CE1126',
 	secondary: 'F1D4C1',
-	tertiary: '14213D',
+	neutral: '', // Empty means use zinc default
 	accent: '006BA6'
 } as const;
 
@@ -12,7 +31,7 @@ const DEFAULT_THEME = {
 type ThemeColors = {
 	primary: string;
 	secondary: string;
-	tertiary: string;
+	neutral: string; // Empty string means use zinc default
 	accent: string;
 };
 
@@ -111,13 +130,190 @@ export function formatHex(hex: string): string {
 }
 
 /**
+ * Converts hex to RGB
+ */
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+	const cleanHex = hex.replace('#', '');
+	const r = parseInt(cleanHex.substring(0, 2), 16);
+	const g = parseInt(cleanHex.substring(2, 4), 16);
+	const b = parseInt(cleanHex.substring(4, 6), 16);
+	return { r, g, b };
+}
+
+/**
+ * Converts RGB to HSL
+ */
+function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
+	r /= 255;
+	g /= 255;
+	b /= 255;
+
+	const max = Math.max(r, g, b);
+	const min = Math.min(r, g, b);
+	let h = 0;
+	let s = 0;
+	const l = (max + min) / 2;
+
+	if (max !== min) {
+		const d = max - min;
+		s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+
+		switch (max) {
+			case r:
+				h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+				break;
+			case g:
+				h = ((b - r) / d + 2) / 6;
+				break;
+			case b:
+				h = ((r - g) / d + 4) / 6;
+				break;
+		}
+	}
+
+	return {
+		h: Math.round(h * 360),
+		s: Math.round(s * 100),
+		l: Math.round(l * 100)
+	};
+}
+
+/**
+ * Calculates relative luminance for WCAG contrast calculation
+ */
+function getLuminance(r: number, g: number, b: number): number {
+	const [rs, gs, bs] = [r, g, b].map((val) => {
+		val = val / 255;
+		return val <= 0.03928 ? val / 12.92 : Math.pow((val + 0.055) / 1.055, 2.4);
+	});
+	return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+}
+
+/**
+ * Calculates WCAG contrast ratio between two colors
+ */
+function getContrastRatio(color1: string, color2: string): number {
+	const rgb1 = hexToRgb(color1);
+	const rgb2 = hexToRgb(color2);
+
+	const lum1 = getLuminance(rgb1.r, rgb1.g, rgb1.b);
+	const lum2 = getLuminance(rgb2.r, rgb2.g, rgb2.b);
+
+	const lighter = Math.max(lum1, lum2);
+	const darker = Math.min(lum1, lum2);
+
+	return (lighter + 0.05) / (darker + 0.05);
+}
+
+/**
+ * Validates accent color against surface backgrounds
+ * Returns validation status with warnings
+ */
+export function validateAccent(accentHex: string): { isValid: boolean; warnings: string[] } {
+	const warnings: string[] = [];
+	const cleanHex = accentHex.replace('#', '').toUpperCase();
+	const hexWithHash = `#${cleanHex}`;
+
+	// Check 1: Saturation check (no grayscale)
+	const rgb = hexToRgb(hexWithHash);
+	const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+
+	if (hsl.s < 15) {
+		warnings.push('Accent color is too gray/dull.');
+	}
+
+	// Check 2: WCAG AA contrast check (4.5:1)
+	const contrastLight = getContrastRatio(hexWithHash, SURFACE_LIGHT);
+	const contrastDark = getContrastRatio(hexWithHash, SURFACE_DARK);
+
+	if (contrastLight < 4.5 && contrastDark < 4.5) {
+		warnings.push('Low contrast ratio - this color may be hard to read on both light and dark backgrounds.');
+	} else if (contrastLight < 4.5) {
+		warnings.push('Low contrast ratio - this color may be hard to read on light backgrounds.');
+	} else if (contrastDark < 4.5) {
+		warnings.push('Low contrast ratio - this color may be hard to read on dark backgrounds.');
+	}
+
+	return {
+		isValid: warnings.length === 0,
+		warnings
+	};
+}
+
+/**
+ * Determines if a color is light or dark based on luminance
+ */
+function isLightColor(hex: string): boolean {
+	const rgb = hexToRgb(hex);
+	const luminance = getLuminance(rgb.r, rgb.g, rgb.b);
+	return luminance > 0.5;
+}
+
+/**
+ * Gets readable text color based on background
+ * Returns the 950 shade for light backgrounds, 50 shade for dark backgrounds
+ */
+export function getReadableTextColor(
+	backgroundColorHex: string,
+	themeColorPalette: Record<string, string>
+): string {
+	const hexWithHash = backgroundColorHex.startsWith('#')
+		? backgroundColorHex
+		: `#${backgroundColorHex}`;
+
+	const isLight = isLightColor(hexWithHash);
+
+	// For light backgrounds, use darkest shade (950)
+	// For dark backgrounds, use lightest shade (50)
+	const shade = isLight ? '950' : '50';
+	const hexValue = themeColorPalette[shade] || themeColorPalette['500'];
+
+	return hexValue.startsWith('#') ? hexValue : `#${hexValue}`;
+}
+
+/**
+ * Validates neutral color to ensure it's appropriate for neutral backgrounds
+ * Neutral colors should be close to white, beige, or other light/pastel colors
+ * More lenient validation to allow beige and light pastel colors
+ */
+export function validateNeutral(neutralHex: string): { isValid: boolean; warnings: string[] } {
+	const warnings: string[] = [];
+	const cleanHex = neutralHex.replace('#', '').toUpperCase();
+	const hexWithHash = `#${cleanHex}`;
+
+	const rgb = hexToRgb(hexWithHash);
+	const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+
+	// Check lightness - neutral colors should be light (L > 60% - more lenient for beiges)
+	if (hsl.l < 60) {
+		warnings.push('Neutral color should be light (closer to white/beige).');
+	}
+
+	// Check saturation - neutral colors should have moderate saturation (< 65% - allows beiges)
+	if (hsl.s > 65) {
+		warnings.push('Neutral color should have moderate saturation (more gray/beige, less vibrant).');
+	}
+
+	// Check if it's too dark overall (luminance > 0.5 - more lenient)
+	const luminance = getLuminance(rgb.r, rgb.g, rgb.b);
+	if (luminance < 0.5) {
+		warnings.push('Neutral color is too dark. Use lighter shades closer to white or beige.');
+	}
+
+	return {
+		isValid: warnings.length === 0,
+		warnings
+	};
+}
+
+/**
  * Applies theme colors to CSS variables on document.documentElement
  */
 function applyThemeToDOM(colors: ThemeColors) {
 	const root = document.documentElement;
 
-	// Generate and apply palettes for each color
-	const colorNames: (keyof ThemeColors)[] = ['primary', 'secondary', 'tertiary', 'accent'];
+	// Generate and apply palettes for primary, secondary, and accent
+	const colorNames: ('primary' | 'secondary' | 'accent')[] = ['primary', 'secondary', 'accent'];
 
 	for (const colorName of colorNames) {
 		const baseHex = colors[colorName];
@@ -127,6 +323,21 @@ function applyThemeToDOM(colors: ThemeColors) {
 		for (const [shade, hexValue] of Object.entries(palette)) {
 			const hexWithHash = hexValue.startsWith('#') ? hexValue : `#${hexValue}`;
 			root.style.setProperty(`--color-${colorName}-${shade}`, hexWithHash);
+		}
+	}
+
+	// Apply neutral color (use zinc default if empty, otherwise generate palette)
+	if (colors.neutral && colors.neutral.trim() !== '') {
+		const neutralPalette = generatePalette(colors.neutral);
+		for (const [shade, hexValue] of Object.entries(neutralPalette)) {
+			const hexWithHash = hexValue.startsWith('#') ? hexValue : `#${hexValue}`;
+			root.style.setProperty(`--color-neutral-${shade}`, hexWithHash);
+		}
+	} else {
+		// Use zinc default palette
+		for (const [shade, hexValue] of Object.entries(ZINC_PALETTE)) {
+			const hexWithHash = hexValue.startsWith('#') ? hexValue : `#${hexValue}`;
+			root.style.setProperty(`--color-neutral-${shade}`, hexWithHash);
 		}
 	}
 }
@@ -154,15 +365,22 @@ function loadCurrentThemeFromStorage(): ThemeColors | null {
 		const stored = localStorage.getItem(STORAGE_KEY_CURRENT);
 		if (stored) {
 			const parsed = JSON.parse(stored);
-			// Validate structure
+			// Validate structure - handle migration from tertiary to neutral
 			if (
 				parsed &&
 				typeof parsed === 'object' &&
 				'primary' in parsed &&
 				'secondary' in parsed &&
-				'tertiary' in parsed &&
 				'accent' in parsed
 			) {
+				// Migrate old themes with tertiary to neutral
+				if ('tertiary' in parsed && !('neutral' in parsed)) {
+					parsed.neutral = '';
+				}
+				// Ensure neutral exists
+				if (!('neutral' in parsed)) {
+					parsed.neutral = '';
+				}
 				return parsed as ThemeColors;
 			}
 		}
@@ -184,19 +402,30 @@ function loadSavedThemesFromStorage(): SavedTheme[] {
 		if (stored) {
 			const parsed = JSON.parse(stored);
 			if (Array.isArray(parsed)) {
-				return parsed.filter(
-					(theme) =>
-						theme &&
-						typeof theme === 'object' &&
-						'id' in theme &&
-						'name' in theme &&
-						'colors' in theme &&
-						theme.colors &&
-						'primary' in theme.colors &&
-						'secondary' in theme.colors &&
-						'tertiary' in theme.colors &&
-						'accent' in theme.colors
-				) as SavedTheme[];
+				return parsed
+					.filter(
+						(theme) =>
+							theme &&
+							typeof theme === 'object' &&
+							'id' in theme &&
+							'name' in theme &&
+							'colors' in theme &&
+							theme.colors &&
+							'primary' in theme.colors &&
+							'secondary' in theme.colors &&
+							'accent' in theme.colors
+					)
+					.map((theme) => {
+						// Migrate old themes with tertiary to neutral
+						if ('tertiary' in theme.colors && !('neutral' in theme.colors)) {
+							theme.colors.neutral = '';
+						}
+						// Ensure neutral exists
+						if (!('neutral' in theme.colors)) {
+							theme.colors.neutral = '';
+						}
+						return theme;
+					}) as SavedTheme[];
 			}
 		}
 	} catch (error) {

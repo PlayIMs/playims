@@ -10,7 +10,11 @@
 		saveCurrentTheme,
 		loadTheme,
 		deleteTheme,
-		getSavedThemes
+		getSavedThemes,
+		validateAccent,
+		validateNeutral,
+		getReadableTextColor,
+		ZINC_PALETTE
 	} from '$lib/theme';
 
 	// Autofocus action for accessibility
@@ -23,11 +27,15 @@
 
 	let primaryInput = $state('');
 	let secondaryInput = $state('');
-	let tertiaryInput = $state('');
+	let neutralInput = $state('');
 	let accentInput = $state('');
 
+	// Validation warnings
+	let accentWarnings = $state<string[]>([]);
+	let neutralWarnings = $state<string[]>([]);
+
 	// Color picker state
-	let openPicker: 'primary' | 'secondary' | 'tertiary' | 'accent' | null = $state(null);
+	let openPicker: 'primary' | 'secondary' | 'neutral' | 'accent' | null = $state(null);
 	let pickerColor = $state({ h: 0, s: 100, l: 50, a: 100 });
 
 	// Helper to calculate cursor position (HSV) based on current state (HSL)
@@ -50,8 +58,11 @@
 		const unsubscribe = themeColors.subscribe((colors) => {
 			primaryInput = colors.primary;
 			secondaryInput = colors.secondary;
-			tertiaryInput = colors.tertiary;
+			neutralInput = colors.neutral || '';
 			accentInput = colors.accent;
+			// Validate on load
+			validateAccentColor();
+			validateNeutralColor();
 		});
 
 		// Handle mouse move and up globally for color picker dragging
@@ -90,15 +101,39 @@
 		}
 	}
 
-	function handleTertiaryChange() {
-		if (validateHex(tertiaryInput)) {
-			updateColor('tertiary', tertiaryInput);
+	function handleNeutralChange() {
+		if (validateHex(neutralInput)) {
+			updateColor('neutral', neutralInput);
+			validateNeutralColor();
+		} else if (neutralInput === '') {
+			// Empty means use zinc default
+			updateColor('neutral', '');
+			neutralWarnings = [];
 		}
 	}
 
 	function handleAccentChange() {
 		if (validateHex(accentInput)) {
 			updateColor('accent', accentInput);
+			validateAccentColor();
+		}
+	}
+
+	function validateAccentColor() {
+		if (validateHex(accentInput)) {
+			const result = validateAccent(accentInput);
+			accentWarnings = result.warnings;
+		} else {
+			accentWarnings = [];
+		}
+	}
+
+	function validateNeutralColor() {
+		if (neutralInput && validateHex(neutralInput)) {
+			const result = validateNeutral(neutralInput);
+			neutralWarnings = result.warnings;
+		} else {
+			neutralWarnings = [];
 		}
 	}
 
@@ -192,8 +227,12 @@
 			.toUpperCase();
 	}
 
-	function openColorPicker(colorName: 'primary' | 'secondary' | 'tertiary' | 'accent') {
-		const currentHex = $themeColors[colorName];
+	function openColorPicker(colorName: 'primary' | 'secondary' | 'neutral' | 'accent') {
+		let currentHex = $themeColors[colorName];
+		// For neutral, if empty, use zinc-500 as default
+		if (colorName === 'neutral' && (!currentHex || currentHex.trim() === '')) {
+			currentHex = ZINC_PALETTE['500'];
+		}
 		const hsl = hexToHsl(currentHex);
 		pickerColor = { ...hsl, a: 100 };
 		openPicker = colorName;
@@ -216,10 +255,12 @@
 			primaryInput = hex;
 		} else if (openPicker === 'secondary') {
 			secondaryInput = hex;
-		} else if (openPicker === 'tertiary') {
-			tertiaryInput = hex;
+		} else if (openPicker === 'neutral') {
+			neutralInput = hex;
+			validateNeutralColor();
 		} else if (openPicker === 'accent') {
 			accentInput = hex;
+			validateAccentColor();
 		}
 	}
 
@@ -319,8 +360,13 @@
 		// Note: Opacity is for preview only, hex doesn't store alpha
 	}
 
-	function getCurrentColorHex(colorName: 'primary' | 'secondary' | 'tertiary' | 'accent'): string {
-		return formatHex($themeColors[colorName]);
+	function getCurrentColorHex(colorName: 'primary' | 'secondary' | 'neutral' | 'accent'): string {
+		const color = $themeColors[colorName];
+		if (colorName === 'neutral' && (!color || color.trim() === '')) {
+			// Return zinc-500 for default neutral
+			return `#${ZINC_PALETTE['500']}`;
+		}
+		return formatHex(color);
 	}
 
 	// Computed position for the picker indicator
@@ -398,8 +444,10 @@
 		const colors = $themeColors;
 		primaryInput = colors.primary;
 		secondaryInput = colors.secondary;
-		tertiaryInput = colors.tertiary;
+		neutralInput = colors.neutral || '';
 		accentInput = colors.accent;
+		validateAccentColor();
+		validateNeutralColor();
 	}
 
 	function handleDeleteTheme(themeId: string, event: Event) {
@@ -437,7 +485,7 @@
 
 		<div class="bg-white border-2 border-primary-200 p-6 mb-8">
 			<h2 class="text-2xl font-bold text-primary-900 mb-4">Base Colors (500 Shade)</h2>
-			<p class="text-sm text-secondary-600 mb-6">
+			<p class="text-sm text-secondary mb-6">
 				Enter hex color codes (e.g., "CE1126" or "#CE1126") or click the color preview to use the
 				color picker.
 			</p>
@@ -447,7 +495,7 @@
 					<label for="primary" class="block text-sm font-bold text-primary-900 mb-2">
 						Primary
 					</label>
-					<p class="text-xs text-secondary-600 mb-2">
+					<p class="text-xs text-secondary mb-2">
 						Used for: Main buttons, primary actions, brand elements, and dominant UI components
 						(typically ~60% of your design). Choose a color that represents your brand identity.
 					</p>
@@ -457,7 +505,7 @@
 							type="text"
 							bind:value={primaryInput}
 							oninput={handlePrimaryChange}
-							class="flex-1 border-2 border-primary-300 px-4 py-2 focus:outline-none focus:border-primary-500"
+							class="flex-1"
 							placeholder="CE1126"
 						/>
 						<button
@@ -474,7 +522,7 @@
 					<label for="secondary" class="block text-sm font-bold text-primary-900 mb-2">
 						Secondary
 					</label>
-					<p class="text-xs text-secondary-600 mb-2">
+					<p class="text-xs text-secondary mb-2">
 						Used for: Backgrounds, sidebars, headers, and supporting elements (typically ~30% of
 						your design). Should complement the primary color and provide visual balance.
 					</p>
@@ -484,7 +532,7 @@
 							type="text"
 							bind:value={secondaryInput}
 							oninput={handleSecondaryChange}
-							class="flex-1 border-2 border-primary-300 px-4 py-2 focus:outline-none focus:border-primary-500"
+							class="flex-1"
 							placeholder="F1D4C1"
 						/>
 						<button
@@ -498,37 +546,48 @@
 				</div>
 
 				<div class="relative">
-					<label for="tertiary" class="block text-sm font-bold text-primary-900 mb-2">
-						Tertiary
+					<label for="neutral" class="block text-sm font-bold text-primary-900 mb-2">
+						Neutral
 					</label>
-					<p class="text-xs text-secondary-600 mb-2">
-						Used for: Additional contrast, borders, dividers, and supplementary UI elements. Helps
-						create visual hierarchy and depth in your design.
+					<p class="text-xs text-secondary mb-2">
+						Used for: Backgrounds, borders, and neutral UI elements. Leave empty to use default zinc
+						palette, or define a custom neutral color (light shades of white, beige, or pastels).
 					</p>
 					<div class="flex gap-2">
 						<input
-							id="tertiary"
+							id="neutral"
 							type="text"
-							bind:value={tertiaryInput}
-							oninput={handleTertiaryChange}
-							class="flex-1 border-2 border-primary-300 px-4 py-2 focus:outline-none focus:border-primary-500"
-							placeholder="14213D"
+							bind:value={neutralInput}
+							oninput={handleNeutralChange}
+							class="flex-1"
+							placeholder="Leave empty for zinc default"
 						/>
 						<button
 							type="button"
-							onclick={() => openColorPicker('tertiary')}
+							onclick={() => openColorPicker('neutral')}
 							class="w-16 h-10 border-2 border-primary-300 hover:border-primary-500 transition-colors cursor-pointer"
-							style="background-color: {getCurrentColorHex('tertiary')}"
-							aria-label="Open tertiary color picker"
+							style="background-color: {getCurrentColorHex('neutral')}"
+							aria-label="Open neutral color picker"
 						></button>
 					</div>
+					{#if neutralWarnings.length > 0}
+						<div class="mt-2 p-2 bg-yellow-50 border-2 border-yellow-300">
+							<p class="text-xs font-bold text-yellow-900 mb-1">Validation Warnings:</p>
+							<ul class="text-xs text-yellow-800 list-disc list-inside">
+								{#each neutralWarnings as warning}
+									<li>{warning}</li>
+								{/each}
+							</ul>
+						</div>
+					{/if}
 				</div>
 
 				<div class="relative">
 					<label for="accent" class="block text-sm font-bold text-primary-900 mb-2"> Accent </label>
-					<p class="text-xs text-secondary-600 mb-2">
+					<p class="text-xs text-secondary mb-2">
 						Used for: Call-to-action buttons, important highlights, links, and attention-grabbing
-						elements (typically ~10% of your design). Use sparingly for maximum impact.
+						elements (typically ~10% of your design). Use sparingly for maximum impact. This color
+						is used on top of static surface backgrounds.
 					</p>
 					<div class="flex gap-2">
 						<input
@@ -536,7 +595,7 @@
 							type="text"
 							bind:value={accentInput}
 							oninput={handleAccentChange}
-							class="flex-1 border-2 border-primary-300 px-4 py-2 focus:outline-none focus:border-primary-500"
+							class="flex-1"
 							placeholder="006BA6"
 						/>
 						<button
@@ -547,6 +606,16 @@
 							aria-label="Open accent color picker"
 						></button>
 					</div>
+					{#if accentWarnings.length > 0}
+						<div class="mt-2 p-2 bg-yellow-50 border-2 border-yellow-300">
+							<p class="text-xs font-bold text-yellow-900 mb-1">Validation Warnings:</p>
+							<ul class="text-xs text-yellow-800 list-disc list-inside">
+								{#each accentWarnings as warning}
+									<li>{warning}</li>
+								{/each}
+							</ul>
+						</div>
+					{/if}
 				</div>
 			</div>
 
@@ -572,24 +641,14 @@
 					</li>
 					<li>
 						<strong>60-30-10 Rule:</strong> Aim for approximately 60% primary, 30% secondary, and 10%
-						accent color usage for visual balance.
+						accent color usage for visual balance. Neutral colors are used for backgrounds and borders.
 					</li>
 				</ul>
 			</div>
 
 			<div class="mt-6 flex gap-4">
-				<button
-					onclick={openSaveModal}
-					class="bg-accent-600 text-white px-6 py-2 font-bold hover:bg-accent-700 transition-colors cursor-pointer"
-				>
-					Save Theme
-				</button>
-				<button
-					onclick={handleReset}
-					class="bg-primary-600 text-white px-6 py-2 font-bold hover:bg-primary-700 transition-colors cursor-pointer"
-				>
-					Reset to Defaults
-				</button>
+				<button onclick={openSaveModal} class="button-accent">Save Theme</button>
+				<button onclick={handleReset} class="button-primary">Reset to Defaults</button>
 			</div>
 		</div>
 
@@ -597,9 +656,7 @@
 		<div class="bg-white border-2 border-primary-200 p-6 mb-8">
 			<h2 class="text-2xl font-bold text-primary-900 mb-4">Saved Themes</h2>
 			{#if $savedThemes.length === 0}
-				<p class="text-secondary-600">
-					No saved themes yet. Save your current theme to get started!
-				</p>
+				<p class="text-secondary">No saved themes yet. Save your current theme to get started!</p>
 			{:else}
 				<div class="overflow-x-auto -mx-6 px-6 md:overflow-x-scroll">
 					<div class="flex gap-4">
@@ -640,8 +697,13 @@
 									></div>
 									<div
 										class="h-12 border-2 border-primary-300"
-										style="background-color: #{theme.colors.tertiary}"
-										title="Tertiary: #{theme.colors.tertiary}"
+										style="background-color: {theme.colors.neutral &&
+										theme.colors.neutral.trim() !== ''
+											? '#' + theme.colors.neutral
+											: '#' + ZINC_PALETTE['500']}"
+										title="Neutral: {theme.colors.neutral && theme.colors.neutral.trim() !== ''
+											? theme.colors.neutral
+											: 'Zinc default'}"
 									></div>
 									<div
 										class="h-12 border-2 border-primary-300"
@@ -703,7 +765,11 @@
 									// Center click for keyboard users
 									if (colorAreaElement) {
 										const rect = colorAreaElement.getBoundingClientRect();
-										updateColorFromPosition(rect.left + rect.width / 2, rect.top + rect.height / 2, colorAreaElement);
+										updateColorFromPosition(
+											rect.left + rect.width / 2,
+											rect.top + rect.height / 2,
+											colorAreaElement
+										);
 									}
 								}
 							}}
@@ -718,7 +784,8 @@
 					</div>
 
 					<div class="mb-4">
-						<label for="hue-slider" class="block text-sm font-bold text-primary-900 mb-2">Hue</label>
+						<label for="hue-slider" class="block text-sm font-bold text-primary-900 mb-2">Hue</label
+						>
 						<div class="relative h-8 border-2 border-primary-300">
 							<div
 								class="absolute inset-0"
@@ -803,23 +870,22 @@
 									primaryInput = hex;
 								} else if (openPicker === 'secondary') {
 									secondaryInput = hex;
-								} else if (openPicker === 'tertiary') {
-									tertiaryInput = hex;
+								} else if (openPicker === 'neutral') {
+									neutralInput = hex;
+									validateNeutralColor();
 								} else if (openPicker === 'accent') {
 									accentInput = hex;
+									validateAccentColor();
 								}
 								closeColorPicker();
 							}}
-							class="flex-1 bg-primary-600 text-white px-4 py-2 font-bold hover:bg-primary-700 transition-colors cursor-pointer"
+							class="flex-1 button-primary"
 						>
 							Apply
 						</button>
-						<button
-							onclick={closeColorPicker}
-							class="flex-1 bg-secondary-500 text-primary-900 px-4 py-2 font-bold hover:bg-secondary-600 transition-colors cursor-pointer"
+						<button onclick={closeColorPicker} class="flex-1 button-secondary-outlined"
+							>Cancel</button
 						>
-							Cancel
-						</button>
 					</div>
 				</div>
 			</div>
@@ -863,13 +929,15 @@
 						</button>
 					</div>
 					<div class="mb-4">
-						<label for="theme-name-input" class="block text-sm font-bold text-primary-900 mb-2">Theme Name</label>
+						<label for="theme-name-input" class="block text-sm font-bold text-primary-900 mb-2"
+							>Theme Name</label
+						>
 						<input
 							id="theme-name-input"
 							type="text"
 							bind:value={themeNameInput}
 							placeholder="Enter theme name..."
-							class="w-full border-2 border-primary-300 px-4 py-2 focus:outline-none focus:border-primary-500"
+							class="w-full"
 							onkeydown={(e) => {
 								if (e.key === 'Enter') {
 									handleSaveTheme();
@@ -879,18 +947,13 @@
 						/>
 					</div>
 					<div class="flex gap-2">
-						<button
-							onclick={handleSaveTheme}
-							class="flex-1 bg-primary-600 text-white px-4 py-2 font-bold hover:bg-primary-700 transition-colors cursor-pointer"
-						>
-							Save
-						</button>
+						<button onclick={handleSaveTheme} class="flex-1 button-primary">Save</button>
 						<button
 							onclick={() => {
 								showSaveModal = false;
 								themeNameInput = '';
 							}}
-							class="flex-1 bg-secondary-500 text-primary-900 px-4 py-2 font-bold hover:bg-secondary-600 transition-colors cursor-pointer"
+							class="flex-1 button-secondary-outlined"
 						>
 							Cancel
 						</button>
@@ -941,19 +1004,14 @@
 						overwrite it?
 					</p>
 					<div class="flex gap-2">
-						<button
-							onclick={handleOverwriteTheme}
-							class="flex-1 bg-primary-600 text-white px-4 py-2 font-bold hover:bg-primary-700 transition-colors cursor-pointer"
-						>
-							Overwrite
-						</button>
+						<button onclick={handleOverwriteTheme} class="flex-1 button-primary">Overwrite</button>
 						<button
 							onclick={() => {
 								showOverwriteModal = false;
 								existingThemeIndex = null;
 								showSaveModal = true;
 							}}
-							class="flex-1 bg-secondary-500 text-primary-900 px-4 py-2 font-bold hover:bg-secondary-600 transition-colors cursor-pointer"
+							class="flex-1 button-secondary-outlined"
 						>
 							Cancel
 						</button>
@@ -1017,7 +1075,10 @@
 										></div>
 										<div
 											class="w-8 h-8 border border-primary-300"
-											style="background-color: #{theme.colors.tertiary}"
+											style="background-color: {theme.colors.neutral &&
+											theme.colors.neutral.trim() !== ''
+												? '#' + theme.colors.neutral
+												: '#' + ZINC_PALETTE['500']}"
 										></div>
 										<div
 											class="w-8 h-8 border border-primary-300"
@@ -1038,7 +1099,7 @@
 						onclick={() => {
 							showReplaceModal = false;
 						}}
-						class="w-full bg-secondary-500 text-primary-900 px-4 py-2 font-bold hover:bg-secondary-600 transition-colors cursor-pointer"
+						class="w-full button-secondary-outlined"
 					>
 						Cancel
 					</button>
@@ -1090,27 +1151,6 @@
 			</div>
 
 			<div class="bg-white border-2 border-primary-200 p-4">
-				<h3 class="text-xl font-bold text-primary-900 mb-4">Tertiary Palette</h3>
-				<div class="space-y-2">
-					{#each [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950] as shade}
-						{@const palette = generatePalette($themeColors.tertiary)}
-						{@const hexValue = palette[shade]}
-						{@const hexWithHash = hexValue.startsWith('#') ? hexValue : `#${hexValue}`}
-						<div class="flex items-center gap-3">
-							<div
-								class="w-16 h-12 border-2 border-primary-300 flex-shrink-0"
-								style="background-color: {hexWithHash}"
-							></div>
-							<div class="flex-1">
-								<div class="text-xs font-mono text-secondary-700">tertiary-{shade}</div>
-								<div class="text-xs text-secondary-600 font-mono">{hexWithHash}</div>
-							</div>
-						</div>
-					{/each}
-				</div>
-			</div>
-
-			<div class="bg-white border-2 border-primary-200 p-4">
 				<h3 class="text-xl font-bold text-primary-900 mb-4">Accent Palette</h3>
 				<div class="space-y-2">
 					{#each [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950] as shade}
@@ -1130,6 +1170,47 @@
 					{/each}
 				</div>
 			</div>
+
+			<div class="bg-white border-2 border-primary-200 p-4">
+				<h3 class="text-xl font-bold text-primary-900 mb-4">Neutral Palette</h3>
+				{#if $themeColors.neutral && $themeColors.neutral.trim() !== ''}
+					<div class="space-y-2">
+						{#each [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950] as shade}
+							{@const palette = generatePalette($themeColors.neutral)}
+							{@const hexValue = palette[shade]}
+							{@const hexWithHash = hexValue.startsWith('#') ? hexValue : `#${hexValue}`}
+							<div class="flex items-center gap-3">
+								<div
+									class="w-16 h-12 border-2 border-primary-300 flex-shrink-0"
+									style="background-color: {hexWithHash}"
+								></div>
+								<div class="flex-1">
+									<div class="text-xs font-mono text-secondary-700">neutral-{shade}</div>
+									<div class="text-xs text-secondary-600 font-mono">{hexWithHash}</div>
+								</div>
+							</div>
+						{/each}
+					</div>
+				{:else}
+					<p class="text-xs text-secondary-600 mb-2">Default zinc palette</p>
+					<div class="space-y-2">
+						{#each [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950] as shade}
+							{@const hexValue = ZINC_PALETTE[shade]}
+							{@const hexWithHash = hexValue.startsWith('#') ? hexValue : `#${hexValue}`}
+							<div class="flex items-center gap-3">
+								<div
+									class="w-16 h-12 border-2 border-primary-300 flex-shrink-0"
+									style="background-color: {hexWithHash}"
+								></div>
+								<div class="flex-1">
+									<div class="text-xs font-mono text-secondary-700">neutral-{shade}</div>
+									<div class="text-xs text-secondary-600 font-mono">{hexWithHash}</div>
+								</div>
+							</div>
+						{/each}
+					</div>
+				{/if}
+			</div>
 		</div>
 
 		<div class="mt-8 bg-white border-2 border-primary-200 p-6">
@@ -1142,92 +1223,167 @@
 			<!-- Buttons Section -->
 			<div class="mb-8">
 				<h3 class="text-xl font-bold text-primary-950 mb-3">Buttons</h3>
-				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-					<button
-						class="bg-primary-600 text-white px-6 py-3 font-bold hover:bg-primary-700 transition-colors flex items-center justify-center cursor-pointer"
-					>
-						Primary Button
-					</button>
-					<button
-						class="bg-secondary-500 text-primary-950 px-6 py-3 font-bold hover:bg-secondary-600 transition-colors flex items-center justify-center cursor-pointer"
-					>
-						Secondary Button
-					</button>
-					<button
-						class="bg-tertiary-600 text-tertiary-50 px-6 py-3 font-bold hover:bg-tertiary-700 transition-colors flex items-center justify-center cursor-pointer"
-					>
-						Tertiary Button
-					</button>
-					<button
-						class="bg-accent-600 text-white px-6 py-3 font-bold hover:bg-accent-700 transition-colors flex items-center justify-center cursor-pointer"
-					>
-						Accent Button
-					</button>
-					<button
-						class="bg-white border-2 border-primary-600 text-primary-950 px-6 py-3 font-bold hover:bg-primary-50 transition-colors flex items-center justify-center cursor-pointer"
-					>
-						Outlined Button
-					</button>
-					<button
-						class="bg-primary-600/50 text-primary-950 px-6 py-3 font-bold hover:bg-primary-600 transition-colors flex items-center justify-center cursor-pointer"
-					>
-						With Opacity
-					</button>
-					<button
-						class="bg-primary-600 text-white px-6 py-3 font-bold opacity-50 cursor-not-allowed flex items-center justify-center"
-						disabled
-					>
-						Disabled Button
-					</button>
-					<button
-						class="bg-secondary-500 text-primary-950 px-4 py-2 font-bold hover:bg-secondary-600 transition-colors flex items-center justify-center cursor-pointer"
-					>
-						Small Button
-					</button>
+				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+					<!-- Row 1: Primary, Secondary, Accent -->
+					<button class="button-primary">Primary Button</button>
+					<button class="button-secondary">Secondary Button</button>
+					<button class="button-accent">Accent Button</button>
+					<!-- Row 2: Outlined versions -->
+					<button class="button-primary-outlined">Outlined Primary</button>
+					<button class="button-secondary-outlined">Outlined Secondary</button>
+					<button class="button-accent-outlined">Outlined Accent</button>
+					<!-- Row 3: Disabled versions of Row 1 -->
+					<button class="button-primary" disabled>Disabled Primary</button>
+					<button class="button-secondary" disabled>Disabled Secondary</button>
+					<button class="button-accent" disabled>Disabled Accent</button>
+					<!-- Row 4: Disabled versions of Row 2 -->
+					<button class="button-primary-outlined" disabled>Disabled Outlined Primary</button>
+					<button class="button-secondary-outlined" disabled>Disabled Outlined Secondary</button>
+					<button class="button-accent-outlined" disabled>Disabled Outlined Accent</button>
 				</div>
 			</div>
 
 			<!-- Form Elements Section -->
 			<div class="mb-8">
 				<h3 class="text-xl font-bold text-primary-950 mb-3">Form Elements</h3>
-				<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+				<div class="space-y-6">
+					<!-- Text Input -->
 					<div>
-						<label for="example-text-input" class="block text-sm font-bold text-primary-950 mb-2">Text Input</label>
-						<input
-							id="example-text-input"
-							type="text"
-							placeholder="Enter text..."
-							class="w-full border-2 border-primary-300 px-4 py-2 focus:outline-none focus:border-primary-500"
-						/>
+						<div class="block text-sm font-bold text-primary-950 mb-2">Text Input</div>
+						<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+							<div>
+								<input
+									id="example-text-input-primary"
+									type="text"
+									class="input-primary"
+									placeholder="Primary input..."
+									aria-label="Primary text input example"
+								/>
+							</div>
+							<div>
+								<input
+									id="example-text-input-secondary"
+									type="text"
+									class="input-secondary"
+									placeholder="Secondary input..."
+									aria-label="Secondary text input example"
+								/>
+							</div>
+							<div>
+								<input
+									id="example-text-input-accent"
+									type="text"
+									class="input-accent"
+									placeholder="Accent input..."
+									aria-label="Accent text input example"
+								/>
+							</div>
+						</div>
 					</div>
+					<!-- Email Input -->
 					<div>
-						<label for="example-email-input" class="block text-sm font-bold text-primary-950 mb-2">Email Input</label>
-						<input
-							id="example-email-input"
-							type="email"
-							placeholder="email@example.com"
-							class="w-full border-2 border-primary-300 px-4 py-2 focus:outline-none focus:border-primary-500"
-						/>
+						<div class="block text-sm font-bold text-primary-950 mb-2">Email Input</div>
+						<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+							<div>
+								<input
+									id="example-email-input-primary"
+									type="email"
+									class="input-primary"
+									placeholder="primary@example.com"
+									aria-label="Primary email input example"
+								/>
+							</div>
+							<div>
+								<input
+									id="example-email-input-secondary"
+									type="email"
+									class="input-secondary"
+									placeholder="secondary@example.com"
+									aria-label="Secondary email input example"
+								/>
+							</div>
+							<div>
+								<input
+									id="example-email-input-accent"
+									type="email"
+									class="input-accent"
+									placeholder="accent@example.com"
+									aria-label="Accent email input example"
+								/>
+							</div>
+						</div>
 					</div>
+					<!-- Textarea -->
 					<div>
-						<label for="example-textarea" class="block text-sm font-bold text-primary-950 mb-2">Textarea</label>
-						<textarea
-							id="example-textarea"
-							placeholder="Enter message..."
-							class="w-full border-2 border-primary-300 px-4 py-2 focus:outline-none focus:border-primary-500"
-							rows="3"
-						></textarea>
+						<div class="block text-sm font-bold text-primary-950 mb-2">Textarea</div>
+						<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+							<div>
+								<textarea
+									id="example-textarea-primary"
+									class="textarea-primary"
+									placeholder="Primary textarea..."
+									rows="3"
+									aria-label="Primary textarea example"
+								></textarea>
+							</div>
+							<div>
+								<textarea
+									id="example-textarea-secondary"
+									class="textarea-secondary"
+									placeholder="Secondary textarea..."
+									rows="3"
+									aria-label="Secondary textarea example"
+								></textarea>
+							</div>
+							<div>
+								<textarea
+									id="example-textarea-accent"
+									class="textarea-accent"
+									placeholder="Accent textarea..."
+									rows="3"
+									aria-label="Accent textarea example"
+								></textarea>
+							</div>
+						</div>
 					</div>
+					<!-- Select Dropdown -->
 					<div>
-						<label for="example-select" class="block text-sm font-bold text-primary-950 mb-2">Select Dropdown</label>
-						<select
-							id="example-select"
-							class="custom-select w-full border-2 border-primary-300 bg-white px-4 py-2 focus:outline-none focus:border-primary-500 text-primary-950"
-						>
-							<option>Option 1</option>
-							<option>Option 2</option>
-							<option>Option 3</option>
-						</select>
+						<div class="block text-sm font-bold text-primary-950 mb-2">Select Dropdown</div>
+						<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+							<div>
+								<select
+									id="example-select-primary"
+									class="select-primary"
+									aria-label="Primary select dropdown example"
+								>
+									<option>Primary Option 1</option>
+									<option>Primary Option 2</option>
+									<option>Primary Option 3</option>
+								</select>
+							</div>
+							<div>
+								<select
+									id="example-select-secondary"
+									class="select-secondary"
+									aria-label="Secondary select dropdown example"
+								>
+									<option>Secondary Option 1</option>
+									<option>Secondary Option 2</option>
+									<option>Secondary Option 3</option>
+								</select>
+							</div>
+							<div>
+								<select
+									id="example-select-accent"
+									class="select-accent"
+									aria-label="Accent select dropdown example"
+								>
+									<option>Accent Option 1</option>
+									<option>Accent Option 2</option>
+									<option>Accent Option 3</option>
+								</select>
+							</div>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -1235,21 +1391,21 @@
 			<!-- Checkboxes and Radio Buttons -->
 			<div class="mb-8">
 				<h3 class="text-xl font-bold text-primary-950 mb-3">Checkboxes & Radio Buttons</h3>
-				<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+				<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
 					<div>
 						<div class="space-y-3">
 							<label class="flex items-center gap-3 cursor-pointer">
-								<input type="checkbox" class="custom-checkbox" />
-								<span class="font-bold text-primary-950">Checkbox Option 1</span>
+								<input type="checkbox" class="checkbox-primary" />
+								<span class="font-bold text-primary-950">Primary Checkbox</span>
 							</label>
 							<label class="flex items-center gap-3 cursor-pointer">
-								<input type="checkbox" checked class="custom-checkbox" />
-								<span class="font-bold text-primary-950">Checkbox Option 2 (Checked)</span>
+								<input type="checkbox" checked class="checkbox-primary" />
+								<span class="font-bold text-primary-950">Primary Checkbox (Checked)</span>
 							</label>
 							<label class="flex items-center gap-3 cursor-pointer">
-								<input type="checkbox" disabled class="custom-checkbox" />
+								<input type="checkbox" disabled class="checkbox-primary" />
 								<span class="font-bold text-primary-950 opacity-50"
-									>Checkbox Option 3 (Disabled)</span
+									>Primary Checkbox (Disabled)</span
 								>
 							</label>
 						</div>
@@ -1257,16 +1413,86 @@
 					<div>
 						<div class="space-y-3">
 							<label class="flex items-center gap-3 cursor-pointer">
-								<input type="radio" name="radio-group" class="custom-radio" />
-								<span class="font-bold text-primary-950">Radio Option 1</span>
+								<input type="checkbox" class="checkbox-secondary" />
+								<span class="font-bold text-primary-950">Secondary Checkbox</span>
 							</label>
 							<label class="flex items-center gap-3 cursor-pointer">
-								<input type="radio" name="radio-group" checked class="custom-radio" />
-								<span class="font-bold text-primary-950">Radio Option 2 (Selected)</span>
+								<input type="checkbox" checked class="checkbox-secondary" />
+								<span class="font-bold text-primary-950">Secondary Checkbox (Checked)</span>
 							</label>
 							<label class="flex items-center gap-3 cursor-pointer">
-								<input type="radio" name="radio-group" disabled class="custom-radio" />
-								<span class="font-bold text-primary-950 opacity-50">Radio Option 3 (Disabled)</span>
+								<input type="checkbox" disabled class="checkbox-secondary" />
+								<span class="font-bold text-primary-950 opacity-50"
+									>Secondary Checkbox (Disabled)</span
+								>
+							</label>
+						</div>
+					</div>
+					<div>
+						<div class="space-y-3">
+							<label class="flex items-center gap-3 cursor-pointer">
+								<input type="checkbox" class="checkbox-accent" />
+								<span class="font-bold text-primary-950">Accent Checkbox</span>
+							</label>
+							<label class="flex items-center gap-3 cursor-pointer">
+								<input type="checkbox" checked class="checkbox-accent" />
+								<span class="font-bold text-primary-950">Accent Checkbox (Checked)</span>
+							</label>
+							<label class="flex items-center gap-3 cursor-pointer">
+								<input type="checkbox" disabled class="checkbox-accent" />
+								<span class="font-bold text-primary-950 opacity-50">Accent Checkbox (Disabled)</span
+								>
+							</label>
+						</div>
+					</div>
+				</div>
+				<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+					<div>
+						<div class="space-y-3">
+							<label class="flex items-center gap-3 cursor-pointer">
+								<input type="radio" name="radio-group-primary" class="radio-primary" />
+								<span class="font-bold text-primary-950">Primary Radio</span>
+							</label>
+							<label class="flex items-center gap-3 cursor-pointer">
+								<input type="radio" name="radio-group-primary" checked class="radio-primary" />
+								<span class="font-bold text-primary-950">Primary Radio (Selected)</span>
+							</label>
+							<label class="flex items-center gap-3 cursor-pointer">
+								<input type="radio" name="radio-group-primary" disabled class="radio-primary" />
+								<span class="font-bold text-primary-950 opacity-50">Primary Radio (Disabled)</span>
+							</label>
+						</div>
+					</div>
+					<div>
+						<div class="space-y-3">
+							<label class="flex items-center gap-3 cursor-pointer">
+								<input type="radio" name="radio-group-secondary" class="radio-secondary" />
+								<span class="font-bold text-primary-950">Secondary Radio</span>
+							</label>
+							<label class="flex items-center gap-3 cursor-pointer">
+								<input type="radio" name="radio-group-secondary" checked class="radio-secondary" />
+								<span class="font-bold text-primary-950">Secondary Radio (Selected)</span>
+							</label>
+							<label class="flex items-center gap-3 cursor-pointer">
+								<input type="radio" name="radio-group-secondary" disabled class="radio-secondary" />
+								<span class="font-bold text-primary-950 opacity-50">Secondary Radio (Disabled)</span
+								>
+							</label>
+						</div>
+					</div>
+					<div>
+						<div class="space-y-3">
+							<label class="flex items-center gap-3 cursor-pointer">
+								<input type="radio" name="radio-group-accent" class="radio-accent" />
+								<span class="font-bold text-primary-950">Accent Radio</span>
+							</label>
+							<label class="flex items-center gap-3 cursor-pointer">
+								<input type="radio" name="radio-group-accent" checked class="radio-accent" />
+								<span class="font-bold text-primary-950">Accent Radio (Selected)</span>
+							</label>
+							<label class="flex items-center gap-3 cursor-pointer">
+								<input type="radio" name="radio-group-accent" disabled class="radio-accent" />
+								<span class="font-bold text-primary-950 opacity-50">Accent Radio (Disabled)</span>
 							</label>
 						</div>
 					</div>
@@ -1278,16 +1504,44 @@
 				<h3 class="text-xl font-bold text-primary-950 mb-3">Toggle Switches</h3>
 				<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
 					<label class="flex items-center gap-3 cursor-pointer">
-						<input type="checkbox" role="switch" class="custom-toggle" />
-						<span class="font-bold text-primary-950">Toggle Switch Off</span>
+						<input type="checkbox" role="switch" class="toggle-primary" />
+						<span class="font-bold text-primary-950">Primary Toggle Off</span>
 					</label>
 					<label class="flex items-center gap-3 cursor-pointer">
-						<input type="checkbox" role="switch" checked class="custom-toggle" />
-						<span class="font-bold text-primary-950">Toggle Switch On</span>
+						<input type="checkbox" role="switch" checked class="toggle-primary" />
+						<span class="font-bold text-primary-950">Primary Toggle On</span>
 					</label>
 					<label class="flex items-center gap-3 cursor-pointer">
-						<input type="checkbox" role="switch" disabled class="custom-toggle" />
-						<span class="font-bold text-primary-950 opacity-50">Toggle Switch Disabled</span>
+						<input type="checkbox" role="switch" disabled class="toggle-primary" />
+						<span class="font-bold text-primary-950 opacity-50">Primary Toggle Disabled</span>
+					</label>
+				</div>
+				<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+					<label class="flex items-center gap-3 cursor-pointer">
+						<input type="checkbox" role="switch" class="toggle-secondary" />
+						<span class="font-bold text-primary-950">Secondary Toggle Off</span>
+					</label>
+					<label class="flex items-center gap-3 cursor-pointer">
+						<input type="checkbox" role="switch" checked class="toggle-secondary" />
+						<span class="font-bold text-primary-950">Secondary Toggle On</span>
+					</label>
+					<label class="flex items-center gap-3 cursor-pointer">
+						<input type="checkbox" role="switch" disabled class="toggle-secondary" />
+						<span class="font-bold text-primary-950 opacity-50">Secondary Toggle Disabled</span>
+					</label>
+				</div>
+				<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+					<label class="flex items-center gap-3 cursor-pointer">
+						<input type="checkbox" role="switch" class="toggle-accent" />
+						<span class="font-bold text-primary-950">Accent Toggle Off</span>
+					</label>
+					<label class="flex items-center gap-3 cursor-pointer">
+						<input type="checkbox" role="switch" checked class="toggle-accent" />
+						<span class="font-bold text-primary-950">Accent Toggle On</span>
+					</label>
+					<label class="flex items-center gap-3 cursor-pointer">
+						<input type="checkbox" role="switch" disabled class="toggle-accent" />
+						<span class="font-bold text-primary-950 opacity-50">Accent Toggle Disabled</span>
 					</label>
 				</div>
 			</div>
@@ -1295,52 +1549,38 @@
 			<!-- Cards Section -->
 			<div class="mb-8">
 				<h3 class="text-xl font-bold text-primary-950 mb-3">Cards</h3>
-				<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-					<div class="border-2 border-primary-300 p-4">
-						<h4 class="text-lg font-bold text-primary-950 mb-2">Card Title</h4>
-						<p class="text-secondary-900 mb-3">Card content with secondary text color.</p>
-						<button
-							class="bg-primary-600 text-white px-4 py-2 font-bold hover:bg-primary-700 transition-colors flex items-center justify-center cursor-pointer"
-						>
-							Action
-						</button>
+				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+					<!-- Primary, Secondary, Accent Cards -->
+					<div class="card-primary">
+						<h4 class="text-lg font-bold text-primary-950 mb-2">Primary Card</h4>
+						<p class="text-primary-900 mb-3">Card with primary background and border.</p>
+						<button class="button-primary">Action</button>
 					</div>
-					<div class="border-2 border-accent-300 bg-accent-50 p-4">
+					<div class="card-secondary">
+						<h4 class="text-lg font-bold text-secondary-950 mb-2">Secondary Card</h4>
+						<p class="text-secondary-900 mb-3">Card with secondary background and border.</p>
+						<button class="button-secondary">Action</button>
+					</div>
+					<div class="card-accent">
 						<h4 class="text-lg font-bold text-accent-950 mb-2">Accent Card</h4>
 						<p class="text-accent-900 mb-3">Card with accent background and border.</p>
-						<button
-							class="bg-accent-600 text-white px-4 py-2 font-bold hover:bg-accent-700 transition-colors flex items-center justify-center cursor-pointer"
-						>
-							Action
-						</button>
+						<button class="button-accent">Action</button>
 					</div>
-					<div class="border-2 border-tertiary-300 bg-tertiary-50 p-4">
-						<h4 class="text-lg font-bold text-tertiary-950 mb-2">Tertiary Card</h4>
-						<p class="text-tertiary-900 mb-3">Card with tertiary color scheme.</p>
-						<button
-							class="bg-tertiary-600 text-tertiary-50 px-4 py-2 font-bold hover:bg-tertiary-700 transition-colors flex items-center justify-center cursor-pointer"
-						>
-							Action
-						</button>
+					<!-- Outlined versions -->
+					<div class="card-primary-outlined">
+						<h4 class="text-lg font-bold text-primary-950 mb-2">Outlined Primary</h4>
+						<p class="text-primary-900 mb-3">Card with primary border only.</p>
+						<button class="button-primary">Action</button>
 					</div>
-				</div>
-			</div>
-
-			<!-- Alerts/Notifications -->
-			<div class="mb-8">
-				<h3 class="text-xl font-bold text-primary-950 mb-3">Alerts & Notifications</h3>
-				<div class="space-y-3">
-					<div class="border-2 border-primary-600 bg-primary-50 p-4">
-						<div class="font-bold text-primary-950">Primary Alert</div>
-						<div class="text-primary-900 text-sm mt-1">This is a primary alert message.</div>
+					<div class="card-secondary-outlined">
+						<h4 class="text-lg font-bold text-secondary-950 mb-2">Outlined Secondary</h4>
+						<p class="text-secondary-900 mb-3">Card with secondary border only.</p>
+						<button class="button-secondary">Action</button>
 					</div>
-					<div class="border-2 border-secondary-600 bg-secondary-50 p-4">
-						<div class="font-bold text-secondary-950">Secondary Alert</div>
-						<div class="text-secondary-900 text-sm mt-1">This is a secondary alert message.</div>
-					</div>
-					<div class="border-2 border-accent-600 bg-accent-50 p-4">
-						<div class="font-bold text-accent-950">Accent Alert</div>
-						<div class="text-accent-900 text-sm mt-1">This is an accent alert message.</div>
+					<div class="card-accent-outlined">
+						<h4 class="text-lg font-bold text-accent-950 mb-2">Outlined Accent</h4>
+						<p class="text-accent-900 mb-3">Card with accent border only.</p>
+						<button class="button-accent">Action</button>
 					</div>
 				</div>
 			</div>
@@ -1349,30 +1589,24 @@
 			<div class="mb-8">
 				<h3 class="text-xl font-bold text-primary-950 mb-3">Badges</h3>
 				<div class="flex flex-wrap gap-3">
-					<span
-						class="bg-primary-600 text-white px-3 py-1 font-bold flex items-center justify-center"
-						>Primary Badge</span
-					>
-					<span
-						class="bg-secondary-500 text-primary-950 px-3 py-1 font-bold flex items-center justify-center"
-						>Secondary Badge</span
-					>
-					<span
-						class="bg-tertiary-600 text-tertiary-50 px-3 py-1 font-bold flex items-center justify-center"
-						>Tertiary Badge</span
-					>
-					<span
-						class="bg-accent-600 text-white px-3 py-1 font-bold flex items-center justify-center"
-						>Accent Badge</span
-					>
-					<span
-						class="bg-primary-500/50 text-primary-950 px-3 py-1 font-bold flex items-center justify-center"
-						>With Opacity</span
-					>
-					<span
-						class="border-2 border-primary-600 text-primary-950 px-3 py-1 font-bold flex items-center justify-center"
-						>Outlined Badge</span
-					>
+					<!-- Row 1: Primary, Secondary, Accent -->
+					<span class="badge-primary w-fit">Primary Badge</span>
+					<span class="badge-secondary w-fit">Secondary Badge</span>
+					<span class="badge-accent w-fit">Accent Badge</span>
+					<!-- Row 2: Outlined versions -->
+					<span class="badge-primary-outlined w-fit">Outlined Primary</span>
+					<span class="badge-secondary-outlined w-fit">Outlined Secondary</span>
+					<span class="badge-accent-outlined w-fit">Outlined Accent</span>
+				</div>
+				<div class="flex flex-wrap gap-3 mt-3">
+					<!-- Row 3: Disabled versions of Row 1 -->
+					<span class="badge-primary opacity-50 w-fit">Disabled Primary</span>
+					<span class="badge-secondary opacity-50 w-fit">Disabled Secondary</span>
+					<span class="badge-accent opacity-50 w-fit">Disabled Accent</span>
+					<!-- Row 4: Disabled versions of Row 2 -->
+					<span class="badge-primary-outlined opacity-50 w-fit">Disabled Outlined Primary</span>
+					<span class="badge-secondary-outlined opacity-50 w-fit">Disabled Outlined Secondary</span>
+					<span class="badge-accent-outlined opacity-50 w-fit">Disabled Outlined Accent</span>
 				</div>
 			</div>
 
@@ -1385,8 +1619,17 @@
 							<span class="text-sm font-bold text-primary-950">Primary Progress</span>
 							<span class="text-sm font-bold text-primary-950">75%</span>
 						</div>
-						<div class="w-full border-2 border-primary-300 bg-primary-100">
-							<div class="bg-primary-600 h-6" style="width: 75%"></div>
+						<div class="w-full progress-primary">
+							<div class="progress-primary-bar" style="width: 75%"></div>
+						</div>
+					</div>
+					<div>
+						<div class="flex justify-between mb-1">
+							<span class="text-sm font-bold text-secondary-950">Secondary Progress</span>
+							<span class="text-sm font-bold text-secondary-950">60%</span>
+						</div>
+						<div class="w-full progress-secondary">
+							<div class="progress-secondary-bar" style="width: 60%"></div>
 						</div>
 					</div>
 					<div>
@@ -1394,17 +1637,53 @@
 							<span class="text-sm font-bold text-accent-950">Accent Progress</span>
 							<span class="text-sm font-bold text-accent-950">50%</span>
 						</div>
-						<div class="w-full border-2 border-accent-300 bg-accent-100">
-							<div class="bg-accent-600 h-6" style="width: 50%"></div>
+						<div class="w-full progress-accent">
+							<div class="progress-accent-bar" style="width: 50%"></div>
 						</div>
 					</div>
-					<div>
-						<div class="flex justify-between mb-1">
-							<span class="text-sm font-bold text-tertiary-950">Tertiary Progress</span>
-							<span class="text-sm font-bold text-tertiary-950">90%</span>
+				</div>
+			</div>
+
+			<!-- Toasts -->
+			<div class="mb-8">
+				<h3 class="text-xl font-bold text-primary-950 mb-3">Toasts</h3>
+				<div class="space-y-3">
+					<!-- Primary, Secondary, Accent Toasts -->
+					<div class="toast-primary">
+						<div class="font-bold text-primary-950">Primary Toast</div>
+						<div class="text-primary-900 text-sm mt-1">
+							This is a primary toast notification message.
 						</div>
-						<div class="w-full border-2 border-tertiary-300 bg-tertiary-100">
-							<div class="bg-tertiary-600 h-6" style="width: 90%"></div>
+					</div>
+					<div class="toast-secondary">
+						<div class="font-bold text-secondary-950">Secondary Toast</div>
+						<div class="text-secondary-900 text-sm mt-1">
+							This is a secondary toast notification message.
+						</div>
+					</div>
+					<div class="toast-accent">
+						<div class="font-bold text-accent-950">Accent Toast</div>
+						<div class="text-accent-900 text-sm mt-1">
+							This is an accent toast notification message.
+						</div>
+					</div>
+					<!-- Outlined versions -->
+					<div class="toast-primary-outlined">
+						<div class="font-bold text-primary-950">Outlined Primary Toast</div>
+						<div class="text-primary-900 text-sm mt-1">
+							This is an outlined primary toast notification message.
+						</div>
+					</div>
+					<div class="toast-secondary-outlined">
+						<div class="font-bold text-secondary-950">Outlined Secondary Toast</div>
+						<div class="text-secondary-900 text-sm mt-1">
+							This is an outlined secondary toast notification message.
+						</div>
+					</div>
+					<div class="toast-accent-outlined">
+						<div class="font-bold text-accent-950">Outlined Accent Toast</div>
+						<div class="text-accent-900 text-sm mt-1">
+							This is an outlined accent toast notification message.
 						</div>
 					</div>
 				</div>
@@ -1415,7 +1694,7 @@
 				<h3 class="text-xl font-bold text-primary-950 mb-3">Tables</h3>
 				<div class="border-2 border-primary-300 overflow-x-auto">
 					<table class="w-full">
-						<thead class="bg-primary-600">
+						<thead class="bg-primary">
 							<tr>
 								<th class="px-4 py-3 text-left font-bold text-white">Name</th>
 								<th class="px-4 py-3 text-left font-bold text-white">Status</th>
@@ -1426,49 +1705,28 @@
 							<tr class="border-b-2 border-primary-200 bg-white">
 								<td class="px-4 py-3 font-bold text-primary-950">Item 1</td>
 								<td class="px-4 py-3">
-									<span
-										class="bg-accent-600 text-white px-2 py-1 font-bold text-sm flex items-center justify-center inline-block"
-										>Active</span
-									>
+									<span class="badge-accent">Active</span>
 								</td>
 								<td class="px-4 py-3">
-									<button
-										class="bg-primary-600 text-white px-3 py-1 font-bold text-sm hover:bg-primary-700 transition-colors flex items-center justify-center cursor-pointer"
-									>
-										Edit
-									</button>
+									<button class="button-primary text-sm px-3 py-1">Edit</button>
 								</td>
 							</tr>
 							<tr class="border-b-2 border-primary-200 bg-secondary-50">
 								<td class="px-4 py-3 font-bold text-primary-950">Item 2</td>
 								<td class="px-4 py-3">
-									<span
-										class="bg-secondary-500 text-primary-950 px-2 py-1 font-bold text-sm flex items-center justify-center inline-block"
-										>Pending</span
-									>
+									<span class="badge-secondary">Pending</span>
 								</td>
 								<td class="px-4 py-3">
-									<button
-										class="bg-primary-600 text-white px-3 py-1 font-bold text-sm hover:bg-primary-700 transition-colors flex items-center justify-center cursor-pointer"
-									>
-										Edit
-									</button>
+									<button class="button-primary text-sm px-3 py-1">Edit</button>
 								</td>
 							</tr>
 							<tr class="bg-white">
 								<td class="px-4 py-3 font-bold text-primary-950">Item 3</td>
 								<td class="px-4 py-3">
-									<span
-										class="bg-tertiary-600 text-tertiary-50 px-2 py-1 font-bold text-sm flex items-center justify-center inline-block"
-										>Complete</span
-									>
+									<span class="badge-primary">Complete</span>
 								</td>
 								<td class="px-4 py-3">
-									<button
-										class="bg-primary-600 text-white px-3 py-1 font-bold text-sm hover:bg-primary-700 transition-colors flex items-center justify-center cursor-pointer"
-									>
-										Edit
-									</button>
+									<button class="button-primary text-sm px-3 py-1">Edit</button>
 								</td>
 							</tr>
 						</tbody>
@@ -1489,12 +1747,12 @@
 						<div class="text-xs font-bold text-primary-950">secondary-500</div>
 					</div>
 					<div>
-						<div class="bg-tertiary-500 h-16 border-2 border-primary-300 mb-2"></div>
-						<div class="text-xs font-bold text-primary-950">tertiary-500</div>
-					</div>
-					<div>
 						<div class="bg-accent-500 h-16 border-2 border-primary-300 mb-2"></div>
 						<div class="text-xs font-bold text-primary-950">accent-500</div>
+					</div>
+					<div>
+						<div class="bg-neutral-500 h-16 border-2 border-primary-300 mb-2"></div>
+						<div class="text-xs font-bold text-primary-950">neutral-500</div>
 					</div>
 				</div>
 			</div>
