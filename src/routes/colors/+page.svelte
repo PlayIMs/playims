@@ -13,6 +13,7 @@
 		getSavedThemes,
 		validateAccent,
 		validateNeutral,
+		validateColorNotGrayscale,
 		getReadableTextColor,
 		ZINC_PALETTE
 	} from '$lib/theme';
@@ -31,6 +32,8 @@
 	let accentInput = $state('');
 
 	// Validation warnings
+	let primaryWarnings = $state<string[]>([]);
+	let secondaryWarnings = $state<string[]>([]);
 	let accentWarnings = $state<string[]>([]);
 	let neutralWarnings = $state<string[]>([]);
 
@@ -61,6 +64,8 @@
 			neutralInput = colors.neutral || '';
 			accentInput = colors.accent;
 			// Validate on load
+			validatePrimaryColor();
+			validateSecondaryColor();
 			validateAccentColor();
 			validateNeutralColor();
 		});
@@ -92,12 +97,14 @@
 	function handlePrimaryChange() {
 		if (validateHex(primaryInput)) {
 			updateColor('primary', primaryInput);
+			validatePrimaryColor();
 		}
 	}
 
 	function handleSecondaryChange() {
 		if (validateHex(secondaryInput)) {
 			updateColor('secondary', secondaryInput);
+			validateSecondaryColor();
 		}
 	}
 
@@ -116,6 +123,24 @@
 		if (validateHex(accentInput)) {
 			updateColor('accent', accentInput);
 			validateAccentColor();
+		}
+	}
+
+	function validatePrimaryColor() {
+		if (validateHex(primaryInput)) {
+			const result = validateColorNotGrayscale(primaryInput, 'primary');
+			primaryWarnings = result.warnings;
+		} else {
+			primaryWarnings = [];
+		}
+	}
+
+	function validateSecondaryColor() {
+		if (validateHex(secondaryInput)) {
+			const result = validateColorNotGrayscale(secondaryInput, 'secondary');
+			secondaryWarnings = result.warnings;
+		} else {
+			secondaryWarnings = [];
 		}
 	}
 
@@ -253,8 +278,10 @@
 		// Update input field
 		if (openPicker === 'primary') {
 			primaryInput = hex;
+			validatePrimaryColor();
 		} else if (openPicker === 'secondary') {
 			secondaryInput = hex;
+			validateSecondaryColor();
 		} else if (openPicker === 'neutral') {
 			neutralInput = hex;
 			validateNeutralColor();
@@ -455,6 +482,8 @@
 		secondaryInput = colors.secondary;
 		neutralInput = colors.neutral || '';
 		accentInput = colors.accent;
+		validatePrimaryColor();
+		validateSecondaryColor();
 		validateAccentColor();
 		validateNeutralColor();
 	}
@@ -485,8 +514,8 @@
 <div class="min-h-screen bg-neutral p-8">
 	<div class="max-w-7xl mx-auto">
 		<div class="mb-8">
-			<h1 class="text-4xl font-bold text-primary-900 mb-2">Color Theme Editor</h1>
-			<p class="text-secondary-700">
+			<h1 class="text-4xl font-bold text-neutral-950 mb-2">Color Theme Editor</h1>
+			<p class="text-neutral-900">
 				Edit the base colors (500 shade) to generate a full palette. Colors are saved automatically
 				to localStorage.
 			</p>
@@ -505,8 +534,7 @@
 						Primary
 					</label>
 					<p class="text-xs text-secondary mb-2">
-						Used for: Main buttons, primary actions, brand elements, and dominant UI components
-						(typically ~60% of your design). Choose a color that represents your brand identity.
+						Your main brand color for key elements and primary calls to action.
 					</p>
 					<div class="flex gap-2">
 						<input
@@ -525,6 +553,16 @@
 							aria-label="Open primary color picker"
 						></button>
 					</div>
+					{#if primaryWarnings.length > 0}
+						<div class="mt-2 p-2 bg-yellow-50 border-2 border-yellow-300">
+							<p class="text-xs font-bold text-yellow-900 mb-1">Validation Warnings:</p>
+							<ul class="text-xs text-yellow-800 list-disc list-inside">
+								{#each primaryWarnings as warning}
+									<li>{warning}</li>
+								{/each}
+							</ul>
+						</div>
+					{/if}
 				</div>
 
 				<div class="relative">
@@ -532,8 +570,7 @@
 						Secondary
 					</label>
 					<p class="text-xs text-secondary mb-2">
-						Used for: Backgrounds, sidebars, headers, and supporting elements (typically ~30% of
-						your design). Should complement the primary color and provide visual balance.
+						Supporting color for backgrounds and secondary elements.
 					</p>
 					<div class="flex gap-2">
 						<input
@@ -552,6 +589,16 @@
 							aria-label="Open secondary color picker"
 						></button>
 					</div>
+					{#if secondaryWarnings.length > 0}
+						<div class="mt-2 p-2 bg-yellow-50 border-2 border-yellow-300">
+							<p class="text-xs font-bold text-yellow-900 mb-1">Validation Warnings:</p>
+							<ul class="text-xs text-yellow-800 list-disc list-inside">
+								{#each secondaryWarnings as warning}
+									<li>{warning}</li>
+								{/each}
+							</ul>
+						</div>
+					{/if}
 				</div>
 
 				<div class="relative">
@@ -559,8 +606,7 @@
 						Neutral
 					</label>
 					<p class="text-xs text-secondary mb-2">
-						Used for: Backgrounds, borders, and neutral UI elements. Leave empty to use default zinc
-						palette, or define a custom neutral color (light shades of white, beige, or pastels).
+						Neutral color for backgrounds and borders. Leave empty for default.
 					</p>
 					<div class="flex gap-2">
 						<input
@@ -594,9 +640,7 @@
 				<div class="relative">
 					<label for="accent" class="block text-sm font-bold text-primary-900 mb-2"> Accent </label>
 					<p class="text-xs text-secondary mb-2">
-						Used for: Call-to-action buttons, important highlights, links, and attention-grabbing
-						elements (typically ~10% of your design). Use sparingly for maximum impact. This color
-						is used on top of static surface backgrounds.
+						Accent color for highlights and important actions.
 					</p>
 					<div class="flex gap-2">
 						<input
@@ -628,36 +672,9 @@
 				</div>
 			</div>
 
-			<!-- Best Practices Section -->
-			<div class="mt-6 p-4 bg-primary-50 border-2 border-primary-200">
-				<h3 class="text-lg font-bold text-primary-900 mb-3">Design Best Practices</h3>
-				<ul class="text-sm text-primary-800 space-y-2 list-disc list-inside">
-					<li>
-						<strong>Contrast:</strong> Ensure sufficient contrast between text and backgrounds (minimum
-						4.5:1 for normal text, 3:1 for large text per WCAG guidelines).
-					</li>
-					<li>
-						<strong>Color Blindness:</strong> Avoid relying solely on red/green or blue/yellow combinations
-						to convey information. Use text labels, icons, or patterns as well.
-					</li>
-					<li>
-						<strong>Accessibility:</strong> Test your color combinations to ensure they're distinguishable
-						for users with color vision deficiencies.
-					</li>
-					<li>
-						<strong>Consistency:</strong> Use colors uniformly across your interface to create a cohesive
-						user experience.
-					</li>
-					<li>
-						<strong>60-30-10 Rule:</strong> Aim for approximately 60% primary, 30% secondary, and 10%
-						accent color usage for visual balance. Neutral colors are used for backgrounds and borders.
-					</li>
-				</ul>
-			</div>
-
 			<div class="mt-6 flex gap-4">
-				<button onclick={openSaveModal} class="button-accent">Save Theme</button>
-				<button onclick={handleReset} class="button-primary">Reset to Defaults</button>
+				<button onclick={openSaveModal} class="button-primary">Save Theme</button>
+				<button onclick={handleReset} class="button-primary-outlined">Reset to Defaults</button>
 			</div>
 		</div>
 
@@ -667,7 +684,7 @@
 			{#if $savedThemes.length === 0}
 				<p class="text-secondary">No saved themes yet. Save your current theme to get started!</p>
 			{:else}
-				<div class="overflow-x-auto -mx-6 px-6 md:overflow-x-scroll">
+				<div class="overflow-x-auto -mx-6 px-6">
 					<div class="flex gap-4">
 						{#each $savedThemes as theme (theme.id)}
 							<div
@@ -877,8 +894,10 @@
 								// Update input field
 								if (openPicker === 'primary') {
 									primaryInput = hex;
+									validatePrimaryColor();
 								} else if (openPicker === 'secondary') {
 									secondaryInput = hex;
+									validateSecondaryColor();
 								} else if (openPicker === 'neutral') {
 									neutralInput = hex;
 									validateNeutralColor();

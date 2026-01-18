@@ -23,9 +23,9 @@ export const ZINC_PALETTE: Record<string, string> = {
 // Default hex values (without #)
 const DEFAULT_THEME = {
 	primary: 'CE1126',
-	secondary: 'F1D4C1',
-	neutral: '', // Empty means use zinc default
-	accent: '006BA6'
+	secondary: '14213D',
+	neutral: 'EEDBCE',
+	accent: '04669A'
 } as const;
 
 // Theme store
@@ -208,6 +208,50 @@ function getContrastRatio(color1: string, color2: string): number {
 }
 
 /**
+ * Validates that a color is not white, black, or grayscale
+ * Returns validation status with warnings
+ */
+export function validateColorNotGrayscale(
+	colorHex: string,
+	colorName: 'primary' | 'secondary' | 'accent'
+): { isValid: boolean; warnings: string[] } {
+	const warnings: string[] = [];
+	const cleanHex = colorHex.replace('#', '').toUpperCase();
+	const hexWithHash = `#${cleanHex}`;
+
+	const rgb = hexToRgb(hexWithHash);
+	const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+
+	// Check if it's white (all RGB values close to 255, or lightness very high)
+	const isWhite = rgb.r > 250 && rgb.g > 250 && rgb.b > 250;
+	if (isWhite || hsl.l > 95) {
+		warnings.push(
+			`${colorName.charAt(0).toUpperCase() + colorName.slice(1)} color should not be white.`
+		);
+	}
+
+	// Check if it's black (all RGB values close to 0, or lightness very low)
+	const isBlack = rgb.r < 5 && rgb.g < 5 && rgb.b < 5;
+	if (isBlack || hsl.l < 5) {
+		warnings.push(
+			`${colorName.charAt(0).toUpperCase() + colorName.slice(1)} color should not be black.`
+		);
+	}
+
+	// Check if it's grayscale (low saturation)
+	if (hsl.s < 15 && !isWhite && !isBlack) {
+		warnings.push(
+			`${colorName.charAt(0).toUpperCase() + colorName.slice(1)} color is too gray. Use a more vibrant color.`
+		);
+	}
+
+	return {
+		isValid: warnings.length === 0,
+		warnings
+	};
+}
+
+/**
  * Validates accent color against the neutral color background
  * Returns validation status with warnings
  */
@@ -219,13 +263,9 @@ export function validateAccent(
 	const cleanHex = accentHex.replace('#', '').toUpperCase();
 	const hexWithHash = `#${cleanHex}`;
 
-	// Check 1: Saturation check (no grayscale)
-	const rgb = hexToRgb(hexWithHash);
-	const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
-
-	if (hsl.s < 15) {
-		warnings.push('Accent color is too gray/dull.');
-	}
+	// Check for white, black, or grayscale
+	const grayscaleCheck = validateColorNotGrayscale(accentHex, 'accent');
+	warnings.push(...grayscaleCheck.warnings);
 
 	// Check 2: WCAG AA contrast (4.5:1) against neutral color
 	// Use user's neutral color if provided, otherwise use default zinc-500
