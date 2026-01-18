@@ -6,6 +6,16 @@
 @layer base {
 	html {
 		font-family: var(--font-sans);
+		background-color: var(--color-secondary-500);
+		/* Prevent overscroll bounce background */
+		overscroll-behavior: none;
+	}
+
+	body {
+		background-color: var(--color-secondary-500);
+		/* Prevent overscroll bounce background */
+		overscroll-behavior: none;
+		min-height: 100vh;
 	}
 
 	h1,
