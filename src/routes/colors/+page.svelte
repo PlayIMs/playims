@@ -1120,7 +1120,7 @@
 			<div class="bg-white border-2 border-primary-200 p-4">
 				<h3 class="text-xl font-bold text-primary-900 mb-4">Primary Palette</h3>
 				<div class="space-y-2">
-					{#each [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950] as shade}
+					{#each [25, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950] as shade}
 						{@const palette = generatePalette($themeColors.primary)}
 						{@const hexValue = palette[shade]}
 						{@const hexWithHash = hexValue.startsWith('#') ? hexValue : `#${hexValue}`}
@@ -1141,7 +1141,7 @@
 			<div class="bg-white border-2 border-primary-200 p-4">
 				<h3 class="text-xl font-bold text-primary-900 mb-4">Secondary Palette</h3>
 				<div class="space-y-2">
-					{#each [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950] as shade}
+					{#each [25, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950] as shade}
 						{@const palette = generatePalette($themeColors.secondary)}
 						{@const hexValue = palette[shade]}
 						{@const hexWithHash = hexValue.startsWith('#') ? hexValue : `#${hexValue}`}
@@ -1162,7 +1162,7 @@
 			<div class="bg-white border-2 border-primary-200 p-4">
 				<h3 class="text-xl font-bold text-primary-900 mb-4">Accent Palette</h3>
 				<div class="space-y-2">
-					{#each [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950] as shade}
+					{#each [25, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950] as shade}
 						{@const palette = generatePalette($themeColors.accent)}
 						{@const hexValue = palette[shade]}
 						{@const hexWithHash = hexValue.startsWith('#') ? hexValue : `#${hexValue}`}
@@ -1184,7 +1184,7 @@
 				<h3 class="text-xl font-bold text-primary-900 mb-4">Neutral Palette</h3>
 				{#if $themeColors.neutral && $themeColors.neutral.trim() !== ''}
 					<div class="space-y-2">
-						{#each [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950] as shade}
+						{#each [25, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950] as shade}
 							{@const palette = generatePalette($themeColors.neutral)}
 							{@const hexValue = palette[shade]}
 							{@const hexWithHash = hexValue.startsWith('#') ? hexValue : `#${hexValue}`}
@@ -1203,7 +1203,7 @@
 				{:else}
 					<p class="text-xs text-secondary-600 mb-2">Default zinc palette</p>
 					<div class="space-y-2">
-						{#each [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950] as shade}
+						{#each [25, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950] as shade}
 							{@const hexValue = ZINC_PALETTE[shade]}
 							{@const hexWithHash = hexValue.startsWith('#') ? hexValue : `#${hexValue}`}
 							<div class="flex items-center gap-3">

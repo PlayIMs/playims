@@ -29,6 +29,7 @@
 
 @theme {
 	/* Dynamic Primary Color */
+	--color-primary-25: var(--color-primary-25);
 	--color-primary-50: var(--color-primary-50);
 	--color-primary-100: var(--color-primary-100);
 	--color-primary-200: var(--color-primary-200);
@@ -42,6 +43,7 @@
 	--color-primary-950: var(--color-primary-950);
 
 	/* Dynamic Secondary Color */
+	--color-secondary-25: var(--color-secondary-25);
 	--color-secondary-50: var(--color-secondary-50);
 	--color-secondary-100: var(--color-secondary-100);
 	--color-secondary-200: var(--color-secondary-200);
@@ -55,6 +57,7 @@
 	--color-secondary-950: var(--color-secondary-950);
 
 	/* Dynamic Neutral Color */
+	--color-neutral-25: var(--color-neutral-25);
 	--color-neutral-50: var(--color-neutral-50);
 	--color-neutral-100: var(--color-neutral-100);
 	--color-neutral-200: var(--color-neutral-200);
@@ -68,6 +71,7 @@
 	--color-neutral-950: var(--color-neutral-950);
 
 	/* Dynamic Accent Color */
+	--color-accent-25: var(--color-accent-25);
 	--color-accent-50: var(--color-accent-50);
 	--color-accent-100: var(--color-accent-100);
 	--color-accent-200: var(--color-accent-200);

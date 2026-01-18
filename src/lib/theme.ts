@@ -6,6 +6,7 @@ export const SURFACE_DARK = '#09090B'; // zinc-950
 
 // Default zinc palette (Tailwind CSS zinc colors)
 export const ZINC_PALETTE: Record<string, string> = {
+	'25': 'FDFDFD',
 	'50': 'FAFAFA',
 	'100': 'F4F4F5',
 	'200': 'E4E4E7',
@@ -89,10 +90,11 @@ export function generatePalette(baseHex: string): Record<string, string> {
 	const cleanBaseHex = baseHex.replace('#', '').toUpperCase();
 
 	// Mixing weights tuned to replicate the visual progression of Tailwind colors
-	// 50-400 mix with White
+	// 25-400 mix with White
 	// 500 is base
 	// 600-950 mix with Black
 	const palette: Record<string, string> = {
+		'25': rgbToHex(mix(base, white, 0.9).r, mix(base, white, 0.9).g, mix(base, white, 0.9).b),
 		'50': rgbToHex(mix(base, white, 0.75).r, mix(base, white, 0.75).g, mix(base, white, 0.75).b),
 		'100': rgbToHex(mix(base, white, 0.6).r, mix(base, white, 0.6).g, mix(base, white, 0.6).b),
 		'200': rgbToHex(mix(base, white, 0.4).r, mix(base, white, 0.4).g, mix(base, white, 0.4).b),
