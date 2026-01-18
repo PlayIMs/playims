@@ -206,10 +206,13 @@ function getContrastRatio(color1: string, color2: string): number {
 }
 
 /**
- * Validates accent color against surface backgrounds
+ * Validates accent color against the neutral color background
  * Returns validation status with warnings
  */
-export function validateAccent(accentHex: string): { isValid: boolean; warnings: string[] } {
+export function validateAccent(
+	accentHex: string,
+	neutralHex?: string
+): { isValid: boolean; warnings: string[] } {
 	const warnings: string[] = [];
 	const cleanHex = accentHex.replace('#', '').toUpperCase();
 	const hexWithHash = `#${cleanHex}`;
@@ -222,16 +225,16 @@ export function validateAccent(accentHex: string): { isValid: boolean; warnings:
 		warnings.push('Accent color is too gray/dull.');
 	}
 
-	// Check 2: WCAG AA contrast check (4.5:1)
-	const contrastLight = getContrastRatio(hexWithHash, SURFACE_LIGHT);
-	const contrastDark = getContrastRatio(hexWithHash, SURFACE_DARK);
+	// Check 2: WCAG AA contrast (4.5:1) against neutral color
+	// Use user's neutral color if provided, otherwise use default zinc-500
+	const neutralColorHex = neutralHex && neutralHex.trim() !== ''
+		? `#${neutralHex.replace('#', '').toUpperCase()}`
+		: `#${ZINC_PALETTE['500']}`;
 
-	if (contrastLight < 4.5 && contrastDark < 4.5) {
-		warnings.push('Low contrast ratio - this color may be hard to read on both light and dark backgrounds.');
-	} else if (contrastLight < 4.5) {
-		warnings.push('Low contrast ratio - this color may be hard to read on light backgrounds.');
-	} else if (contrastDark < 4.5) {
-		warnings.push('Low contrast ratio - this color may be hard to read on dark backgrounds.');
+	const contrast = getContrastRatio(hexWithHash, neutralColorHex);
+
+	if (contrast < 4.5) {
+		warnings.push('Low contrast ratio - this color may be hard to read on the neutral background.');
 	}
 
 	return {

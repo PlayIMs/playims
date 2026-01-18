@@ -121,7 +121,7 @@
 
 	function validateAccentColor() {
 		if (validateHex(accentInput)) {
-			const result = validateAccent(accentInput);
+			const result = validateAccent(accentInput, neutralInput);
 			accentWarnings = result.warnings;
 		} else {
 			accentWarnings = [];
@@ -301,6 +301,15 @@
 	$effect(() => {
 		if (openPicker && colorAreaElement) {
 			drawColorArea();
+		}
+	});
+
+	// Re-validate accent color when neutral color changes
+	$effect(() => {
+		// Access neutralInput to track it
+		neutralInput;
+		if (validateHex(accentInput)) {
+			validateAccentColor();
 		}
 	});
 
@@ -735,7 +744,7 @@
 				aria-label="Close color picker"
 			>
 				<div
-					class="bg-white border-4 border-primary-500 p-6 max-w-md w-full"
+					class="bg-white border-4 border-primary p-6 max-w-md w-full"
 					onclick={(e) => e.stopPropagation()}
 					onkeydown={(e) => e.stopPropagation()}
 					role="presentation"
@@ -910,7 +919,7 @@
 				aria-label="Close save theme modal"
 			>
 				<div
-					class="bg-white border-4 border-primary-500 p-6 max-w-md w-full"
+					class="bg-white border-4 border-primary p-6 max-w-md w-full"
 					onclick={(e) => e.stopPropagation()}
 					onkeydown={(e) => e.stopPropagation()}
 					role="presentation"
@@ -981,7 +990,7 @@
 				aria-label="Close overwrite theme modal"
 			>
 				<div
-					class="bg-white border-4 border-primary-500 p-6 max-w-md w-full"
+					class="bg-white border-4 border-primary p-6 max-w-md w-full"
 					onclick={(e) => e.stopPropagation()}
 					onkeydown={(e) => e.stopPropagation()}
 					role="presentation"
@@ -1037,7 +1046,7 @@
 				aria-label="Close replace theme modal"
 			>
 				<div
-					class="bg-white border-4 border-primary-500 p-6 max-w-md w-full"
+					class="bg-white border-4 border-primary p-6 max-w-md w-full"
 					onclick={(e) => e.stopPropagation()}
 					onkeydown={(e) => e.stopPropagation()}
 					role="presentation"
@@ -1739,19 +1748,19 @@
 				<h3 class="text-xl font-bold text-primary-950 mb-3">Color Swatches</h3>
 				<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
 					<div>
-						<div class="bg-primary-500 h-16 border-2 border-primary-300 mb-2"></div>
+						<div class="bg-primary h-16 border-2 border-primary-300 mb-2"></div>
 						<div class="text-xs font-bold text-primary-950">primary-500</div>
 					</div>
 					<div>
-						<div class="bg-secondary-500 h-16 border-2 border-primary-300 mb-2"></div>
+						<div class="bg-secondary h-16 border-2 border-primary-300 mb-2"></div>
 						<div class="text-xs font-bold text-primary-950">secondary-500</div>
 					</div>
 					<div>
-						<div class="bg-accent-500 h-16 border-2 border-primary-300 mb-2"></div>
+						<div class="bg-accent h-16 border-2 border-primary-300 mb-2"></div>
 						<div class="text-xs font-bold text-primary-950">accent-500</div>
 					</div>
 					<div>
-						<div class="bg-neutral-500 h-16 border-2 border-primary-300 mb-2"></div>
+						<div class="bg-neutral h-16 border-2 border-primary-300 mb-2"></div>
 						<div class="text-xs font-bold text-primary-950">neutral-500</div>
 					</div>
 				</div>
