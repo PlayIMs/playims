@@ -42,7 +42,7 @@ type SavedTheme = {
 	createdAt: number;
 };
 
-const MAX_SAVED_THEMES = 5;
+const MAX_SAVED_THEMES = 10;
 const STORAGE_KEY_THEMES = 'saved-themes';
 const STORAGE_KEY_CURRENT = 'current-theme';
 
@@ -93,11 +93,11 @@ export function generatePalette(baseHex: string): Record<string, string> {
 	// 500 is base
 	// 600-950 mix with Black
 	const palette: Record<string, string> = {
-		'50': rgbToHex(mix(base, white, 0.9).r, mix(base, white, 0.9).g, mix(base, white, 0.9).b),
-		'100': rgbToHex(mix(base, white, 0.75).r, mix(base, white, 0.75).g, mix(base, white, 0.75).b),
-		'200': rgbToHex(mix(base, white, 0.6).r, mix(base, white, 0.6).g, mix(base, white, 0.6).b),
-		'300': rgbToHex(mix(base, white, 0.45).r, mix(base, white, 0.45).g, mix(base, white, 0.45).b),
-		'400': rgbToHex(mix(base, white, 0.3).r, mix(base, white, 0.3).g, mix(base, white, 0.3).b),
+		'50': rgbToHex(mix(base, white, 0.75).r, mix(base, white, 0.75).g, mix(base, white, 0.75).b),
+		'100': rgbToHex(mix(base, white, 0.6).r, mix(base, white, 0.6).g, mix(base, white, 0.6).b),
+		'200': rgbToHex(mix(base, white, 0.4).r, mix(base, white, 0.4).g, mix(base, white, 0.4).b),
+		'300': rgbToHex(mix(base, white, 0.25).r, mix(base, white, 0.25).g, mix(base, white, 0.25).b),
+		'400': rgbToHex(mix(base, white, 0.1).r, mix(base, white, 0.1).g, mix(base, white, 0.1).b),
 		'500': cleanBaseHex,
 		'600': rgbToHex(mix(base, black, 0.1).r, mix(base, black, 0.1).g, mix(base, black, 0.1).b),
 		'700': rgbToHex(
@@ -227,9 +227,10 @@ export function validateAccent(
 
 	// Check 2: WCAG AA contrast (4.5:1) against neutral color
 	// Use user's neutral color if provided, otherwise use default zinc-500
-	const neutralColorHex = neutralHex && neutralHex.trim() !== ''
-		? `#${neutralHex.replace('#', '').toUpperCase()}`
-		: `#${ZINC_PALETTE['500']}`;
+	const neutralColorHex =
+		neutralHex && neutralHex.trim() !== ''
+			? `#${neutralHex.replace('#', '').toUpperCase()}`
+			: `#${ZINC_PALETTE['500']}`;
 
 	const contrast = getContrastRatio(hexWithHash, neutralColorHex);
 
