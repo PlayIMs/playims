@@ -84,10 +84,10 @@
 	<section class="bg-neutral py-16 sm:py-24">
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 			<div class="text-center mb-12">
-				<h2 class="text-3xl sm:text-4xl font-bold text-neutral-900 mb-4">
+				<h2 class="text-3xl sm:text-4xl font-bold text-neutral-950 mb-4">
 					Everything you need, designed the right way
 				</h2>
-				<p class="text-lg text-neutral-900 max-w-2xl mx-auto">
+				<p class="text-lg text-neutral-950 max-w-2xl mx-auto">
 					All the features you expect, reimagined for simplicity and ease of use. Built for
 					administrators who want control without complexity, and players who want clarity without
 					confusion.
@@ -166,7 +166,7 @@
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 			<div class="text-center mb-12">
 				<h2 class="text-3xl sm:text-4xl font-bold text-secondary-25 mb-4">Built for Everyone</h2>
-				<p class="text-lg text-secondary-50">
+				<p class="text-lg text-secondary-25">
 					Designed with both administrators and players in mind—because great software shouldn't
 					require a manual
 				</p>
