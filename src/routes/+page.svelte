@@ -53,12 +53,12 @@
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 sm:py-32">
 			<div class="text-center">
 				<h1 class="text-5xl sm:text-6xl lg:text-7xl font-bold mb-6">
-					Play<span class="text-primary-200">IMs</span>
+					Play<span class="text-primary-50">IMs</span>
 				</h1>
-				<p class="text-xl sm:text-2xl mb-4 text-primary-100 font-medium">
+				<p class="text-xl sm:text-2xl mb-4 text-primary-25 font-medium">
 					The next-generation platform for managing intramural sports leagues
 				</p>
-				<p class="text-lg sm:text-xl mb-8 text-primary-200 max-w-3xl mx-auto">
+				<p class="text-lg sm:text-xl mb-8 text-primary-50 max-w-3xl mx-auto">
 					Built from the ground up to be more intuitive, easier to use, and more powerful than
 					existing solutions. Designed for both administrators and players who deserve better.
 				</p>
@@ -84,10 +84,10 @@
 	<section class="bg-neutral py-16 sm:py-24">
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 			<div class="text-center mb-12">
-				<h2 class="text-3xl sm:text-4xl font-bold text-secondary-950 mb-4">
+				<h2 class="text-3xl sm:text-4xl font-bold text-neutral-900 mb-4">
 					Everything you need, designed the right way
 				</h2>
-				<p class="text-lg text-secondary-900 max-w-2xl mx-auto">
+				<p class="text-lg text-neutral-900 max-w-2xl mx-auto">
 					All the features you expect, reimagined for simplicity and ease of use. Built for
 					administrators who want control without complexity, and players who want clarity without
 					confusion.
@@ -165,8 +165,8 @@
 	<section class="bg-secondary py-16 sm:py-24">
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 			<div class="text-center mb-12">
-				<h2 class="text-3xl sm:text-4xl font-bold text-secondary-50 mb-4">Built for Everyone</h2>
-				<p class="text-lg text-secondary-100">
+				<h2 class="text-3xl sm:text-4xl font-bold text-secondary-25 mb-4">Built for Everyone</h2>
+				<p class="text-lg text-secondary-50">
 					Designed with both administrators and players in mind—because great software shouldn't
 					require a manual
 				</p>
@@ -185,8 +185,8 @@
 							></path>
 						</svg>
 					</div>
-					<h3 class="text-xl font-bold text-secondary-950 mb-2">Admin-Friendly</h3>
-					<p class="text-secondary-900">
+					<h3 class="text-xl font-bold text-secondary-25 mb-2">Admin-Friendly</h3>
+					<p class="text-secondary-25">
 						Powerful administrative tools that don't require a computer science degree. Manage
 						leagues, divisions, teams, and schedules with an interface that makes sense from day
 						one.
@@ -204,8 +204,8 @@
 							></path>
 						</svg>
 					</div>
-					<h3 class="text-xl font-bold text-secondary-950 mb-2">Player-Friendly</h3>
-					<p class="text-secondary-900">
+					<h3 class="text-xl font-bold text-secondary-25 mb-2">Player-Friendly</h3>
+					<p class="text-secondary-25">
 						Clear schedules, easy registration, and straightforward team management. Find your
 						games, check standings, and manage your participation without getting lost in the
 						interface.
@@ -216,22 +216,22 @@
 			<!-- Additional Features -->
 			<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
 				<div class="bg-secondary-400 border-2 border-secondary-300 p-6">
-					<h3 class="text-lg font-bold text-secondary-950 mb-2">Division & League Management</h3>
-					<p class="text-sm text-secondary-900">
+					<h3 class="text-lg font-bold text-secondary-25 mb-2">Division & League Management</h3>
+					<p class="text-sm text-secondary-25">
 						Organize multiple leagues and divisions with clear hierarchies. Set up seasons, manage
 						rosters, and handle registrations all in one intuitive system.
 					</p>
 				</div>
 				<div class="bg-secondary-400 border-2 border-secondary-300 p-6">
-					<h3 class="text-lg font-bold text-secondary-950 mb-2">Event & Game Management</h3>
-					<p class="text-sm text-secondary-900">
+					<h3 class="text-lg font-bold text-secondary-25 mb-2">Event & Game Management</h3>
+					<p class="text-sm text-secondary-25">
 						Schedule games, track results, and manage events with tools that make sense. View
 						everything in a calendar format that's actually usable.
 					</p>
 				</div>
 				<div class="bg-secondary-400 border-2 border-secondary-300 p-6">
-					<h3 class="text-lg font-bold text-secondary-950 mb-2">Comprehensive Statistics</h3>
-					<p class="text-sm text-secondary-900">
+					<h3 class="text-lg font-bold text-secondary-25 mb-2">Comprehensive Statistics</h3>
+					<p class="text-sm text-secondary-25">
 						Track team and player performance with detailed statistics. View standings, game
 						history, and performance metrics in formats that are easy to understand.
 					</p>
@@ -243,10 +243,10 @@
 	<!-- CTA Section -->
 	<section class="bg-primary-600 py-16 sm:py-24">
 		<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-			<h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-primary-50 mb-4">
+			<h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-primary-25 mb-4">
 				Ready for Something Better?
 			</h2>
-			<p class="text-lg sm:text-xl text-primary-200 mb-8 max-w-2xl mx-auto">
+			<p class="text-lg sm:text-xl text-primary-50 mb-8 max-w-2xl mx-auto">
 				We're building the intramural sports management platform you've been waiting for. One that's
 				actually intuitive, genuinely easy to use, and designed for real people—not just feature
 				checklists.
@@ -265,7 +265,7 @@
 					Contact Sales
 				</button>
 			</div>
-			<p class="text-base text-primary-300">Currently in development. Coming soon.</p>
+			<p class="text-base text-primary-100">Currently in early development.</p>
 		</div>
 	</section>
 
