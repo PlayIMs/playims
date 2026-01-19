@@ -49,7 +49,10 @@
 
 <div class="min-h-screen bg-secondary">
 	<!-- Hero Section -->
-	<section class="bg-primary-600 text-white">
+	<section
+		class="bg-primary text-white"
+		style="padding-top: max(env(safe-area-inset-top), 0px); margin-top: calc(-1 * env(safe-area-inset-top));"
+	>
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 sm:py-32">
 			<div class="text-center">
 				<h1 class="text-5xl sm:text-6xl lg:text-7xl font-bold mb-6">
@@ -175,7 +178,7 @@
 			<!-- Key Benefits -->
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
 				<div class="bg-secondary-400 border-2 border-secondary-300 p-6">
-					<div class="bg-primary-600 w-16 h-16 flex items-center justify-center mb-4">
+					<div class="bg-primary w-16 h-16 flex items-center justify-center mb-4">
 						<svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
 								stroke-linecap="round"
@@ -241,7 +244,7 @@
 	</section>
 
 	<!-- CTA Section -->
-	<section class="bg-primary-600 py-16 sm:py-24">
+	<section class="bg-primary py-16 sm:py-24">
 		<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
 			<h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-primary-25 mb-4">
 				Ready for Something Better?

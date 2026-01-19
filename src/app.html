@@ -188,6 +188,18 @@
 					}
 				}
 
+				// Set theme-color meta tag for iOS Safari status bar
+				// Use primary-500 color to match hero section
+				const primaryPalette = generatePalette(theme.primary);
+				const primary500Hex = '#' + primaryPalette[500];
+				let themeColorMeta = document.querySelector('meta[name="theme-color"]');
+				if (!themeColorMeta) {
+					themeColorMeta = document.createElement('meta');
+					themeColorMeta.setAttribute('name', 'theme-color');
+					document.head.appendChild(themeColorMeta);
+				}
+				themeColorMeta.setAttribute('content', primary500Hex);
+
 				// Show body after theme is applied
 				if (document.body) {
 					document.body.classList.add('theme-loaded');

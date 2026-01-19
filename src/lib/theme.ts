@@ -386,6 +386,19 @@ function applyThemeToDOM(colors: ThemeColors) {
 			root.style.setProperty(`--color-neutral-${shade}`, hexWithHash);
 		}
 	}
+
+	// Update theme-color meta tag for iOS Safari status bar
+	// Use primary-500 color to match hero section
+	const primaryPalette = generatePalette(colors.primary);
+	const primary500Hex = primaryPalette['500'];
+	const primary500WithHash = primary500Hex.startsWith('#') ? primary500Hex : `#${primary500Hex}`;
+	let themeColorMeta = document.querySelector('meta[name="theme-color"]');
+	if (!themeColorMeta) {
+		themeColorMeta = document.createElement('meta');
+		themeColorMeta.setAttribute('name', 'theme-color');
+		document.head.appendChild(themeColorMeta);
+	}
+	themeColorMeta.setAttribute('content', primary500WithHash);
 }
 
 /**
