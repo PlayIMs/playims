@@ -11,15 +11,18 @@
 		IconChartBar,
 		IconSettings,
 		IconHelpCircle,
-		IconMenu2,
-		IconX
+		IconChevronLeft,
+		IconChevronRight,
+		IconSearch,
+		IconFilter,
+		IconArrowsSort
 	} from '@tabler/icons-svelte';
-	import { onMount } from 'svelte';
 
 	let activeMenuItem = $state('Dashboard');
-	let sidebarWidth = $state(270); // Default 64 * 4 = 256px (w-64)
 	let isSidebarOpen = $state(true);
-	let isResizing = $state(false);
+	let searchQuery = $state('');
+	let sortBy = $state('time');
+	let filterSport = $state('all');
 
 	// Format date as "Tuesday, October 24th"
 	function formatDate(): string {
@@ -61,23 +64,6 @@
 		{ id: 'Help', label: 'Help', icon: IconHelpCircle }
 	];
 
-	function handleResizeStart(e: MouseEvent) {
-		isResizing = true;
-		e.preventDefault();
-	}
-
-	function handleResize(e: MouseEvent) {
-		if (!isResizing) return;
-		const newWidth = e.clientX;
-		if (newWidth >= 200 && newWidth <= 400) {
-			sidebarWidth = newWidth;
-		}
-	}
-
-	function handleResizeEnd() {
-		isResizing = false;
-	}
-
 	function toggleSidebar() {
 		isSidebarOpen = !isSidebarOpen;
 	}
@@ -99,6 +85,47 @@
 		{ time: '7:30 PM', sport: 'Basketball', teams: 'Thunder vs. Lightning', field: 'Court 1' },
 		{ time: '8:00 PM', sport: 'Soccer', teams: 'Strikers vs. Defenders', field: 'Field 2' }
 	];
+
+	// Get unique sports for filter
+	const allSports = ['all', ...new Set(liveGames.map((game) => game.sport))];
+
+	// Filter and sort games
+	let filteredGames = $derived.by(() => {
+		let games = [...liveGames];
+
+		// Filter by search query
+		if (searchQuery.trim()) {
+			const query = searchQuery.toLowerCase();
+			games = games.filter(
+				(game) =>
+					game.sport.toLowerCase().includes(query) ||
+					game.teams.toLowerCase().includes(query) ||
+					game.field.toLowerCase().includes(query) ||
+					game.time.toLowerCase().includes(query)
+			);
+		}
+
+		// Filter by sport
+		if (filterSport !== 'all') {
+			games = games.filter((game) => game.sport === filterSport);
+		}
+
+		// Sort
+		if (sortBy === 'time') {
+			games.sort((a, b) => {
+				// Simple time comparison (assuming PM format)
+				const timeA = parseInt(a.time.split(':')[0]);
+				const timeB = parseInt(b.time.split(':')[0]);
+				return timeA - timeB;
+			});
+		} else if (sortBy === 'sport') {
+			games.sort((a, b) => a.sport.localeCompare(b.sport));
+		} else if (sortBy === 'field') {
+			games.sort((a, b) => a.field.localeCompare(b.field));
+		}
+
+		return games;
+	});
 
 	const priorityActions = [
 		{
@@ -124,77 +151,62 @@
 		{ sport: "Basketball (Women's)", teamCount: 18, progress: 75 },
 		{ sport: 'Flag Football', teamCount: 32, progress: 45 }
 	];
-
-	onMount(() => {
-		document.addEventListener('mousemove', handleResize);
-		document.addEventListener('mouseup', handleResizeEnd);
-		return () => {
-			document.removeEventListener('mousemove', handleResize);
-			document.removeEventListener('mouseup', handleResizeEnd);
-		};
-	});
 </script>
 
 <div class="flex min-h-screen">
 	<!-- Sidebar Navigation -->
-	{#if isSidebarOpen}
-		<aside
-			class="bg-primary text-white flex flex-col relative transition-all duration-200"
-			style="width: {sidebarWidth}px; min-width: 200px; max-width: 400px;"
+	<aside
+		class="bg-primary text-white flex flex-col relative transition-all duration-200 {isSidebarOpen
+			? 'w-64'
+			: 'w-16'}"
+	>
+		<!-- Logo Area -->
+		<div
+			class="p-4 border-b border-primary-600 flex items-center {isSidebarOpen
+				? 'justify-between'
+				: 'justify-center'}"
 		>
-			<!-- Logo Area -->
-			<div class="p-8 border-b border-primary-600 flex items-center justify-between">
-				<h1 class="text-2xl font-bold font-serif">RecAdmin</h1>
-				<button
-					onclick={toggleSidebar}
-					class="p-2 hover:bg-primary-600 transition-colors cursor-pointer"
-					aria-label="Close sidebar"
-				>
-					<IconX class="w-5 h-5" />
-				</button>
-			</div>
-
-			<!-- Menu -->
-			<nav class="flex-1 p-4 overflow-y-auto">
-				<ul class="space-y-2">
-					{#each menuItems as item}
-						<li>
-							<button
-								onclick={() => (activeMenuItem = item.id)}
-								class="w-full text-left px-4 py-3 flex items-center gap-3 transition-all duration-150 cursor-pointer {activeMenuItem ===
-								item.id
-									? 'bg-primary-600 border-l-4 border-primary-950 text-white'
-									: 'text-primary-100 hover:bg-primary-600 hover:text-white border-l-4 border-transparent'}"
-							>
-								<item.icon class="w-5 h-5 flex-shrink-0" />
-								<span>{item.label}</span>
-							</button>
-						</li>
-					{/each}
-				</ul>
-			</nav>
-
-			<!-- Resize Handle -->
+			{#if isSidebarOpen}
+				<h1 class="text-xl font-bold font-serif">Navigation</h1>
+			{/if}
 			<button
-				type="button"
-				class="absolute right-0 top-0 bottom-0 w-1 bg-primary-600 hover:bg-primary-500 cursor-col-resize transition-colors border-0 p-0"
-				onmousedown={handleResizeStart}
-				aria-label="Resize sidebar"
-				tabindex="0"
-			></button>
-		</aside>
-	{/if}
+				onclick={toggleSidebar}
+				class="p-2 hover:bg-primary-600 transition-colors cursor-pointer"
+				aria-label={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+			>
+				{#if isSidebarOpen}
+					<IconChevronLeft class="w-5 h-5" />
+				{:else}
+					<IconChevronRight class="w-5 h-5" />
+				{/if}
+			</button>
+		</div>
 
-	<!-- Toggle Button (when sidebar is closed) -->
-	{#if !isSidebarOpen}
-		<button
-			onclick={toggleSidebar}
-			class="fixed left-4 top-4 z-50 p-2 bg-primary text-white hover:bg-primary-600 transition-colors cursor-pointer"
-			aria-label="Open sidebar"
-		>
-			<IconMenu2 class="w-6 h-6" />
-		</button>
-	{/if}
+		<!-- Menu -->
+		<nav class="flex-1 p-2 overflow-y-auto">
+			<ul class="space-y-2">
+				{#each menuItems as item}
+					<li>
+						<button
+							onclick={() => (activeMenuItem = item.id)}
+							class="w-full {isSidebarOpen
+								? 'px-4 py-3 flex items-center gap-3'
+								: 'px-2 py-3 flex items-center justify-center'} transition-all duration-150 cursor-pointer {activeMenuItem ===
+							item.id
+								? 'bg-primary-600 border-l-4 border-primary-950 text-white'
+								: 'text-primary-100 hover:bg-primary-600 hover:text-white border-l-4 border-transparent'}"
+							title={isSidebarOpen ? '' : item.label}
+						>
+							<item.icon class="w-5 h-5 shrink-0" />
+							{#if isSidebarOpen}
+								<span>{item.label}</span>
+							{/if}
+						</button>
+					</li>
+				{/each}
+			</ul>
+		</nav>
+	</aside>
 
 	<!-- Main Content Area -->
 	<main class="flex-1 bg-neutral min-h-screen">
@@ -203,19 +215,19 @@
 			<header class="flex justify-between items-start mb-8">
 				<div>
 					<h2 class="text-4xl font-bold font-serif text-neutral-950 mb-2">Dashboard Overview</h2>
-					<p class="text-neutral-600 font-sans">{currentDate}</p>
+					<p class="text-neutral-950 font-sans">{currentDate}</p>
 				</div>
 				<!-- User Profile Dropdown -->
 				<div class="relative">
 					<button
-						class="flex items-center gap-2 px-4 py-2 bg-neutral border border-neutral-300 hover:bg-neutral-200 transition-colors font-sans"
+						class="flex items-center gap-2 px-4 py-2 bg-neutral border border-secondary hover:bg-neutral-200 transition-colors font-sans"
 					>
-						<div class="w-8 h-8 bg-primary flex items-center justify-center text-white font-bold">
+						<div class="w-8 h-8 bg-secondary flex items-center justify-center text-white font-bold">
 							JD
 						</div>
 						<span class="text-neutral-950 font-sans">John Doe</span>
 						<svg
-							class="w-4 h-4 text-neutral-600"
+							class="w-4 h-4 text-neutral-950"
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
@@ -234,9 +246,9 @@
 			<!-- Stats Grid -->
 			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
 				{#each stats as stat}
-					<div class="bg-neutral border border-neutral-300 p-6">
+					<div class="bg-neutral border border-secondary p-6">
 						<div class="flex items-center justify-between mb-2">
-							<p class="text-xs uppercase tracking-wide text-neutral-600 font-sans">{stat.label}</p>
+							<p class="text-xs uppercase tracking-wide text-neutral-950 font-sans">{stat.label}</p>
 							{#if stat.badge}
 								<span class="badge-accent text-xs">{stat.badge}</span>
 							{/if}
@@ -248,34 +260,90 @@
 
 			<!-- Live Operations Section -->
 			<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-				<!-- Live Games Feed -->
-				<div class="lg:col-span-2 bg-neutral border border-neutral-300 p-6">
-					<h3 class="text-2xl font-bold font-serif text-neutral-950 mb-4">Live Games</h3>
-					<div class="space-y-4">
-						{#each liveGames as game}
-							<div
-								class="flex items-center justify-between py-3 border-b border-neutral-200 last:border-0"
-							>
-								<div class="flex-1">
-									<div class="flex items-center gap-4 mb-1">
-										<span class="text-sm font-medium text-neutral-600 font-sans">{game.time}</span>
-										<span class="text-sm text-neutral-950 font-sans">{game.sport}</span>
-									</div>
-									<p class="text-sm text-neutral-700 font-sans">{game.teams}</p>
-									<p class="text-xs text-neutral-500 mt-1 font-sans">{game.field}</p>
-								</div>
-								<span class="badge-accent ml-4">LIVE</span>
+				<!-- Today's Schedule -->
+				<div class="lg:col-span-2 bg-neutral border border-secondary p-6">
+					<div class="flex items-center justify-between mb-4">
+						<h3 class="text-2xl font-bold font-serif text-neutral-950">Today's Schedule</h3>
+					</div>
+
+					<!-- Search, Filter, and Sort Controls -->
+					<div class="mb-6 space-y-4">
+						<!-- Search -->
+						<div class="relative">
+							<IconSearch
+								class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-neutral-950"
+							/>
+							<input
+								type="text"
+								bind:value={searchQuery}
+								placeholder="Search games..."
+								class="w-full pl-10 pr-4 py-2 border border-secondary bg-neutral text-neutral-950 placeholder-neutral-500 font-sans focus:outline-none focus:border-secondary-600"
+							/>
+						</div>
+
+						<!-- Filter and Sort Row -->
+						<div class="flex flex-wrap gap-4">
+							<!-- Sport Filter -->
+							<div class="flex items-center gap-2">
+								<IconFilter class="w-5 h-5 text-neutral-950" />
+								<select
+									bind:value={filterSport}
+									class="px-3 py-2 border border-secondary bg-neutral text-neutral-950 font-sans focus:outline-none focus:border-secondary-600"
+								>
+									{#each allSports as sport}
+										<option value={sport}>{sport === 'all' ? 'All Sports' : sport}</option>
+									{/each}
+								</select>
 							</div>
-						{/each}
+
+							<!-- Sort -->
+							<div class="flex items-center gap-2">
+								<IconArrowsSort class="w-5 h-5 text-neutral-950" />
+								<select
+									bind:value={sortBy}
+									class="px-3 py-2 border border-secondary bg-neutral text-neutral-950 font-sans focus:outline-none focus:border-secondary-600"
+								>
+									<option value="time">Sort by Time</option>
+									<option value="sport">Sort by Sport</option>
+									<option value="field">Sort by Field</option>
+								</select>
+							</div>
+						</div>
+					</div>
+
+					<!-- Games List -->
+					<div class="space-y-4">
+						{#if filteredGames.length === 0}
+							<p class="text-neutral-950 font-sans py-8 text-center">
+								No games found matching your criteria.
+							</p>
+						{:else}
+							{#each filteredGames as game}
+								<div
+									class="flex items-center justify-between py-3 border-b border-secondary last:border-0"
+								>
+									<div class="flex-1">
+										<div class="flex items-center gap-4 mb-1">
+											<span class="text-sm font-medium text-neutral-950 font-sans">{game.time}</span
+											>
+											<span class="text-sm text-neutral-950 font-sans">{game.sport}</span>
+										</div>
+										<p class="text-sm text-neutral-950 font-sans">{game.teams}</p>
+										<p class="text-xs text-neutral-950 mt-1 font-sans">{game.field}</p>
+									</div>
+									<span class="badge-accent ml-4">LIVE</span>
+								</div>
+							{/each}
+						{/if}
 					</div>
 				</div>
 
 				<!-- Priority Actions -->
-				<div class="bg-neutral border border-neutral-300 p-6">
+				<div class="bg-neutral border border-secondary p-6">
 					<h3 class="text-2xl font-bold font-serif text-neutral-950 mb-4">Priority Actions</h3>
 					<div class="space-y-4">
 						{#each priorityActions as action}
-							<div class="pb-4 border-b border-neutral-200 last:border-0 last:pb-0">
+							<div class="pb-4 border-b border-secondary last:border-0 last:pb-0">
 								<p class="text-sm text-neutral-950 mb-3 font-sans">{action.title}</p>
 								<button class="button-accent w-full text-sm">{action.action}</button>
 							</div>
@@ -285,24 +353,24 @@
 			</div>
 
 			<!-- League Health Table -->
-			<div class="bg-neutral border border-neutral-300 p-6">
+			<div class="bg-neutral border border-secondary p-6">
 				<h3 class="text-2xl font-bold font-serif text-neutral-950 mb-6">Season Progress</h3>
 				<div class="overflow-x-auto">
 					<table class="w-full">
 						<thead>
-							<tr class="border-b border-neutral-300">
+							<tr class="border-b border-secondary">
 								<th
-									class="text-left py-3 px-4 text-sm font-semibold text-neutral-700 uppercase tracking-wide font-sans"
+									class="text-left py-3 px-4 text-sm font-semibold text-neutral-950 uppercase tracking-wide font-sans"
 								>
 									Sport
 								</th>
 								<th
-									class="text-left py-3 px-4 text-sm font-semibold text-neutral-700 uppercase tracking-wide font-sans"
+									class="text-left py-3 px-4 text-sm font-semibold text-neutral-950 uppercase tracking-wide font-sans"
 								>
 									Team Count
 								</th>
 								<th
-									class="text-left py-3 px-4 text-sm font-semibold text-neutral-700 uppercase tracking-wide font-sans"
+									class="text-left py-3 px-4 text-sm font-semibold text-neutral-950 uppercase tracking-wide font-sans"
 								>
 									Progress
 								</th>
@@ -310,15 +378,15 @@
 						</thead>
 						<tbody>
 							{#each leagueHealth as league}
-								<tr class="border-b border-neutral-200 last:border-0 hover:bg-neutral-50">
+								<tr class="border-b border-secondary last:border-0 hover:bg-neutral-50">
 									<td class="py-4 px-4 text-neutral-950 font-medium font-sans">{league.sport}</td>
-									<td class="py-4 px-4 text-neutral-700 font-sans">{league.teamCount} Teams</td>
+									<td class="py-4 px-4 text-neutral-950 font-sans">{league.teamCount} Teams</td>
 									<td class="py-4 px-4">
 										<div class="flex items-center gap-3">
 											<div class="flex-1 bg-neutral-200 h-4 max-w-xs">
 												<div class="h-full bg-secondary" style="width: {league.progress}%"></div>
 											</div>
-											<span class="text-sm text-neutral-600 font-medium font-sans"
+											<span class="text-sm text-neutral-950 font-medium font-sans"
 												>{league.progress}%</span
 											>
 										</div>
