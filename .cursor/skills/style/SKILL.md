@@ -22,6 +22,7 @@ This skill defines the styling standards, CSS framework usage, and design princi
 - Follow best practices according to the latest TailwindCSS version
 - Prefer utility classes over custom CSS when possible
 - Use the project's custom color palette (primary, secondary, neutral, accent) defined in the theme system
+- Use the custom components created for buttons, badges, form elements, etc. as seen in the usage examples in colors/+page.svelte.
 
 ### Design Aesthetic
 
@@ -49,6 +50,15 @@ This skill defines the styling standards, CSS framework usage, and design princi
 - Maintain consistent font sizes and weights
 - Use the project's established typography scale
 
+### Icons
+
+- **Use Tabler Icons** (`@tabler/icons-svelte`) for all icon needs throughout the project
+- Import icons as Svelte components from `@tabler/icons-svelte`
+- Use icons consistently and only where they add clarity or improve usability
+- Icons should be appropriately sized (typically `w-5 h-5` or `w-4 h-4` for navigation, `w-6 h-6` for larger contexts)
+- Match icon style to the context (e.g., navigation icons, action icons, status indicators)
+- Ensure icons have proper spacing from adjacent text (use `gap-2` or `gap-3` in flex containers)
+
 ### Dashboard Design
 
 - The project consists primarily of dashboard screens
@@ -58,6 +68,18 @@ This skill defines the styling standards, CSS framework usage, and design princi
   - Clear instructions
   - Information icons (ℹ️) that users can click for help
   - Tooltips or helper text where appropriate
+
+### Svelte Runes (Svelte 5)
+
+- **Always use Svelte 5 runes** for reactive state management
+- Use `$state()` for component state: `let count = $state(0)`
+- Use `$derived()` for computed values: `let doubled = $derived(count * 2)`
+- Use `$effect()` for side effects: `$effect(() => { console.log(count); })`
+- Use `$props()` for component props: `let { name, age } = $props()`
+- **Dynamic Components**: In runes mode, components are dynamic by default. Use component references directly as tags instead of `<svelte:component>`
+  - Example: `<item.icon class="w-5 h-5" />` instead of `<svelte:component this={item.icon} class="w-5 h-5" />`
+  - Component references stored in variables can be used directly: `const Icon = IconUser; <Icon />`
+- **Event Handlers**: Use interactive elements (buttons, links) for mouse/keyboard events. Avoid attaching event listeners to non-interactive elements like `<div>`. If needed, use `<button>` with appropriate styling (`type="button"`, `border-0`, `p-0` for styling) and add `tabindex="0"` for keyboard accessibility
 
 ### Best Practices
 

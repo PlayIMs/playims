@@ -32,5 +32,11 @@ export default defineConfig({
 				]
 			}
 		})
-	]
+	],
+	optimizeDeps: {
+		include: ['@tabler/icons-svelte']
+	},
+	ssr: {
+		noExternal: ['@tabler/icons-svelte']
+	}
 });

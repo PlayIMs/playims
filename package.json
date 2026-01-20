@@ -49,6 +49,7 @@
 		"wrangler": "^4.54.0"
 	},
 	"dependencies": {
+		"@tabler/icons-svelte": "^3.36.1",
 		"dotenv": "^17.2.3",
 		"drizzle-orm": "^0.44.6"
 	},
