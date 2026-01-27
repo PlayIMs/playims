@@ -18,7 +18,27 @@ export type {
 	Team,
 	NewTeam,
 	Roster,
-	NewRoster
+	NewRoster,
+	Event,
+	NewEvent,
+	Facility,
+	NewFacility,
+	FacilityArea,
+	NewFacilityArea,
+	SportOfficial,
+	NewSportOfficial,
+	DivisionStanding,
+	NewDivisionStanding,
+	Bracket,
+	NewBracket,
+	BracketEntry,
+	NewBracketEntry,
+	Announcement,
+	NewAnnouncement,
+	Notification,
+	NewNotification,
+	AuditLog,
+	NewAuditLog
 } from './schema/index.js';
 
 /**

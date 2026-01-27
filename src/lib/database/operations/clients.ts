@@ -28,7 +28,13 @@ export class ClientOperations {
 			.orderBy(desc(clients.createdAt));
 	}
 
-	async create(data: { name: string; slug: string; metadata?: string }): Promise<Client | null> {
+	async create(data: {
+		name: string;
+		slug: string;
+		metadata?: string;
+		createdUser?: string;
+		updatedUser?: string;
+	}): Promise<Client | null> {
 		const now = new Date().toISOString();
 		const id = crypto.randomUUID();
 
@@ -41,7 +47,9 @@ export class ClientOperations {
 				metadata: data.metadata || null,
 				status: 'active',
 				createdAt: now,
-				updatedAt: now
+				updatedAt: now,
+				createdUser: data.createdUser || null,
+				updatedUser: data.updatedUser || data.createdUser || null
 			})
 			.returning();
 
@@ -50,7 +58,13 @@ export class ClientOperations {
 
 	async update(
 		id: string,
-		data: Partial<{ name: string; slug: string; status: string; metadata: string }>
+		data: Partial<{
+			name: string;
+			slug: string;
+			status: string;
+			metadata: string;
+			updatedUser: string;
+		}>
 	): Promise<Client | null> {
 		const now = new Date().toISOString();
 

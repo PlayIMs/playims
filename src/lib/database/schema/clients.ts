@@ -7,6 +7,8 @@ export const clients = sqliteTable('clients', {
 	slug: text(),
 	createdAt: text('created_at').default('sql`(CURRENT_TIMESTAMP)`'),
 	updatedAt: text('updated_at'),
+	createdUser: text('created_user'),
+	updatedUser: text('updated_user'),
 	status: text().default('sql`(active)`'),
 	metadata: text()
 });

@@ -15,6 +15,13 @@
       "when": 1767323853246,
       "tag": "0001_sad_praxagora",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1769480277821,
+      "tag": "0002_parched_puma",
+      "breakpoints": true
     }
   ]
 }

@@ -15,7 +15,8 @@
 		IconChevronRight,
 		IconSearch,
 		IconFilter,
-		IconArrowsSort
+		IconArrowsSort,
+		IconMessageCircle
 	} from '@tabler/icons-svelte';
 
 	let activeMenuItem = $state('Dashboard');
@@ -55,6 +56,7 @@
 		{ id: 'Intramural Sports', label: 'Intramural Sports', icon: IconBallFootball },
 		{ id: 'Club Sports', label: 'Club Sports', icon: IconTrophy },
 		{ id: 'Member Management', label: 'Member Management', icon: IconUserCog },
+		{ id: 'Communication Center', label: 'Communication Center', icon: IconMessageCircle },
 		{ id: 'Facilities', label: 'Facilities', icon: IconBuilding },
 		{ id: 'Equipment Checkout', label: 'Equipment Checkout', icon: IconShoppingCart },
 		{ id: 'Payments', label: 'Payments', icon: IconCreditCard },
@@ -63,6 +65,8 @@
 		{ id: 'Settings', label: 'Settings', icon: IconSettings },
 		{ id: 'Help', label: 'Help', icon: IconHelpCircle }
 	];
+
+	const menuWidth = $derived.by(() => (isSidebarOpen ? 'w-66' : 'w-16'));
 
 	function toggleSidebar() {
 		isSidebarOpen = !isSidebarOpen;
@@ -156,9 +160,7 @@
 <div class="flex min-h-screen">
 	<!-- Sidebar Navigation -->
 	<aside
-		class="bg-primary text-white flex flex-col relative transition-all duration-200 {isSidebarOpen
-			? 'w-64'
-			: 'w-16'}"
+		class="bg-primary text-white flex flex-col relative transition-all duration-200 {menuWidth}"
 	>
 		<!-- Logo Area -->
 		<div
@@ -193,7 +195,7 @@
 								? 'px-4 py-3 flex items-center gap-3'
 								: 'px-2 py-3 flex items-center justify-center'} transition-all duration-150 cursor-pointer {activeMenuItem ===
 							item.id
-								? 'bg-primary-600 border-l-4 border-primary-950 text-white'
+								? 'bg-primary-600 border-l-4 border-neutral-500 text-white'
 								: 'text-primary-100 hover:bg-primary-600 hover:text-white border-l-4 border-transparent'}"
 							title={isSidebarOpen ? '' : item.label}
 						>

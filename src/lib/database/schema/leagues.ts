@@ -24,9 +24,11 @@ export const leagues = sqliteTable('leagues', {
 	preseasonEndDate: text('preseason_end_date'),
 	isActive: integer('is_active'),
 	isLocked: integer('is_locked'),
-	imageUrl: integer('image_url'),
+	imageUrl: text('image_url'),
 	createdAt: text('created_at'),
-	updatedAt: text('updated_at')
+	updatedAt: text('updated_at'),
+	createdUser: text('created_user'),
+	updatedUser: text('updated_user')
 });
 
 export type League = typeof leagues.$inferSelect;

@@ -42,6 +42,8 @@ export class DivisionOperations {
 		slug: string;
 		description?: string;
 		maxTeams?: number;
+		createdUser?: string;
+		updatedUser?: string;
 	}): Promise<Division | null> {
 		const now = new Date().toISOString();
 		const id = crypto.randomUUID();
@@ -57,7 +59,9 @@ export class DivisionOperations {
 				maxTeams: data.maxTeams || null,
 				isActive: 1,
 				createdAt: now,
-				updatedAt: now
+				updatedAt: now,
+				createdUser: data.createdUser || null,
+				updatedUser: data.updatedUser || data.createdUser || null
 			})
 			.returning();
 
@@ -72,6 +76,7 @@ export class DivisionOperations {
 			description: string;
 			maxTeams: number;
 			isActive: number;
+			updatedUser: string;
 		}>
 	): Promise<Division | null> {
 		const now = new Date().toISOString();

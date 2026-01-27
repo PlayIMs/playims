@@ -49,7 +49,9 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			email: data.email,
 			firstName: data.firstName,
 			lastName: data.lastName,
-			role: data.role
+			role: data.role,
+			createdUser: data.createdUser,
+			updatedUser: data.updatedUser
 		});
 
 		return json(

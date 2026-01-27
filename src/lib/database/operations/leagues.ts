@@ -62,6 +62,8 @@ export class LeagueOperations {
 		description?: string;
 		gender?: string;
 		skillLevel?: string;
+		createdUser?: string;
+		updatedUser?: string;
 	}): Promise<League | null> {
 		const now = new Date().toISOString();
 		const id = crypto.randomUUID();
@@ -83,7 +85,9 @@ export class LeagueOperations {
 				isActive: 1,
 				isLocked: 0,
 				createdAt: now,
-				updatedAt: now
+				updatedAt: now,
+				createdUser: data.createdUser || null,
+				updatedUser: data.updatedUser || data.createdUser || null
 			})
 			.returning();
 
@@ -106,6 +110,7 @@ export class LeagueOperations {
 			seasonEndDate: string;
 			isActive: number;
 			isLocked: number;
+			updatedUser: string;
 		}>
 	): Promise<League | null> {
 		const now = new Date().toISOString();

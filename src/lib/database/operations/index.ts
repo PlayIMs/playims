@@ -11,6 +11,15 @@ import { DivisionOperations } from './divisions.js';
 import { TeamOperations } from './teams.js';
 import { RosterOperations } from './rosters.js';
 import { EventOperations } from './events.js';
+import { FacilityOperations } from './facilities.js';
+import { FacilityAreaOperations } from './facility-areas.js';
+import { SportOfficialOperations } from './sport-officials.js';
+import { DivisionStandingOperations } from './division-standings.js';
+import { BracketOperations } from './brackets.js';
+import { BracketEntryOperations } from './bracket-entries.js';
+import { AnnouncementOperations } from './announcements.js';
+import { NotificationOperations } from './notifications.js';
+import { AuditLogOperations } from './audit-logs.js';
 
 /**
  * Unified database operations class
@@ -25,6 +34,15 @@ export class DatabaseOperations {
 	public teams: TeamOperations;
 	public rosters: RosterOperations;
 	public events: EventOperations;
+	public facilities: FacilityOperations;
+	public facilityAreas: FacilityAreaOperations;
+	public sportOfficials: SportOfficialOperations;
+	public divisionStandings: DivisionStandingOperations;
+	public brackets: BracketOperations;
+	public bracketEntries: BracketEntryOperations;
+	public announcements: AnnouncementOperations;
+	public notifications: NotificationOperations;
+	public auditLogs: AuditLogOperations;
 
 	constructor(platformOrDb: { env: { DB: D1Database } } | D1Database) {
 		let db: D1Database;
@@ -53,6 +71,15 @@ export class DatabaseOperations {
 		this.teams = new TeamOperations(drizzleDb);
 		this.rosters = new RosterOperations(drizzleDb);
 		this.events = new EventOperations(drizzleDb);
+		this.facilities = new FacilityOperations(drizzleDb);
+		this.facilityAreas = new FacilityAreaOperations(drizzleDb);
+		this.sportOfficials = new SportOfficialOperations(drizzleDb);
+		this.divisionStandings = new DivisionStandingOperations(drizzleDb);
+		this.brackets = new BracketOperations(drizzleDb);
+		this.bracketEntries = new BracketEntryOperations(drizzleDb);
+		this.announcements = new AnnouncementOperations(drizzleDb);
+		this.notifications = new NotificationOperations(drizzleDb);
+		this.auditLogs = new AuditLogOperations(drizzleDb);
 	}
 }
 
@@ -65,3 +92,12 @@ export { DivisionOperations } from './divisions.js';
 export { TeamOperations } from './teams.js';
 export { RosterOperations } from './rosters.js';
 export { EventOperations } from './events.js';
+export { FacilityOperations } from './facilities.js';
+export { FacilityAreaOperations } from './facility-areas.js';
+export { SportOfficialOperations } from './sport-officials.js';
+export { DivisionStandingOperations } from './division-standings.js';
+export { BracketOperations } from './brackets.js';
+export { BracketEntryOperations } from './bracket-entries.js';
+export { AnnouncementOperations } from './announcements.js';
+export { NotificationOperations } from './notifications.js';
+export { AuditLogOperations } from './audit-logs.js';

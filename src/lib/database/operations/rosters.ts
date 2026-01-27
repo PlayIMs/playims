@@ -10,12 +10,12 @@ export class RosterOperations {
 		return await this.db.select().from(rosters).orderBy(desc(rosters.createdAt));
 	}
 
-	async getById(id: number): Promise<Roster | null> {
+	async getById(id: string): Promise<Roster | null> {
 		const result = await this.db.select().from(rosters).where(eq(rosters.id, id));
 		return result[0] || null;
 	}
 
-	async getByTeamId(teamId: number): Promise<Roster[]> {
+	async getByTeamId(teamId: string): Promise<Roster[]> {
 		return await this.db
 			.select()
 			.from(rosters)
@@ -31,15 +31,15 @@ export class RosterOperations {
 			.orderBy(desc(rosters.createdAt));
 	}
 
-	async getActiveByTeamId(teamId: number): Promise<Roster[]> {
+	async getActiveByTeamId(teamId: string): Promise<Roster[]> {
 		return await this.db
 			.select()
 			.from(rosters)
-			.where(and(eq(rosters.teamId, teamId), eq(rosters.status, 'active')))
+			.where(and(eq(rosters.teamId, teamId), eq(rosters.rosterStatus, 'active')))
 			.orderBy(desc(rosters.isCaptain), desc(rosters.isCoCaptain), desc(rosters.dateJoined));
 	}
 
-	async getCaptainsByTeamId(teamId: number): Promise<Roster[]> {
+	async getCaptainsByTeamId(teamId: string): Promise<Roster[]> {
 		return await this.db
 			.select()
 			.from(rosters)
@@ -48,95 +48,52 @@ export class RosterOperations {
 	}
 
 	async create(data: {
-		teamId: number;
+		clientId: string;
+		teamId: string;
 		userId: string;
-		position?: string;
-		jerseyNumber?: number;
 		isCaptain?: boolean;
 		isCoCaptain?: boolean;
-		status?: string;
-		notes?: string;
-	}): Promise<Roster | null> {
-		const now = new Date().toISOString();
-
-		// As with teams, we need to check if schema requires client_id
-		// Schema: clientId: integer('client_id').notNull().references(() => clients.id)
-		// But input data does not provide it.
-		// I will use a placeholder or assume it's handled upstream, but adding 'clientId' here 
-		// just in case we need to add it to the input type later.
-		
-		const result = await this.db
-			.insert(rosters)
-			.values({
-				clientId: 0, // PLACEHOLDER: Needs to be provided
-				teamId: data.teamId,
-				userId: data.userId,
-				position: data.position || null,
-				jerseyNumber: data.jerseyNumber || null,
-				isCaptain: data.isCaptain ? 1 : 0,
-				isCoCaptain: data.isCoCaptain ? 1 : 0,
-				dateJoined: now,
-				status: data.status || 'active',
-				notes: data.notes || null,
-				createdAt: now,
-				updatedAt: now
-			} as any)
-			.returning();
-
-		return result[0] || null;
-	}
-	
-	// Overloaded create to allow clientId
-	async createWithClient(data: {
-		clientId: number;
-		teamId: number;
-		userId: string;
-		position?: string;
-		jerseyNumber?: number;
-		isCaptain?: boolean;
-		isCoCaptain?: boolean;
-		status?: string;
-		notes?: string;
+		rosterStatus?: string;
+		createdUser?: string;
+		updatedUser?: string;
 	}): Promise<Roster | null> {
 		const now = new Date().toISOString();
 
 		const result = await this.db
 			.insert(rosters)
 			.values({
+				id: crypto.randomUUID(),
 				clientId: data.clientId,
 				teamId: data.teamId,
 				userId: data.userId,
-				position: data.position || null,
-				jerseyNumber: data.jerseyNumber || null,
 				isCaptain: data.isCaptain ? 1 : 0,
 				isCoCaptain: data.isCoCaptain ? 1 : 0,
+				rosterStatus: data.rosterStatus || 'active',
 				dateJoined: now,
-				status: data.status || 'active',
-				notes: data.notes || null,
 				createdAt: now,
-				updatedAt: now
-			} as any)
+				updatedAt: now,
+				createdUser: data.createdUser || null,
+				updatedUser: data.updatedUser || data.createdUser || null
+			})
 			.returning();
 
 		return result[0] || null;
 	}
 
 	async update(
-		id: number,
+		id: string,
 		data: Partial<{
-			position: string;
-			jerseyNumber: number;
 			isCaptain: boolean;
 			isCoCaptain: boolean;
 			dateLeft: string;
-			status: string;
-			notes: string;
+			rosterStatus: string;
+			updatedUser: string;
 		}>
 	): Promise<Roster | null> {
 		const now = new Date().toISOString();
 		
 		// Map boolean to number for update
-		const updateData: any = { ...data };
+		const updateData: Record<string, unknown> = { ...data };
 		if (data.isCaptain !== undefined) updateData.isCaptain = data.isCaptain ? 1 : 0;
 		if (data.isCoCaptain !== undefined) updateData.isCoCaptain = data.isCoCaptain ? 1 : 0;
 
@@ -152,18 +109,18 @@ export class RosterOperations {
 		return result[0] || null;
 	}
 
-	async delete(id: number): Promise<boolean> {
+	async delete(id: string): Promise<boolean> {
 		const result = await this.db.delete(rosters).where(eq(rosters.id, id)).returning();
 		return result.length > 0;
 	}
 
-	async removeFromTeam(id: number): Promise<Roster | null> {
+	async removeFromTeam(id: string): Promise<Roster | null> {
 		const now = new Date().toISOString();
 
 		const result = await this.db
 			.update(rosters)
 			.set({
-				status: 'inactive',
+				rosterStatus: 'inactive',
 				dateLeft: now,
 				updatedAt: now
 			})
@@ -173,7 +130,7 @@ export class RosterOperations {
 		return result[0] || null;
 	}
 
-	async promoteToCaptain(id: number): Promise<Roster | null> {
+	async promoteToCaptain(id: string): Promise<Roster | null> {
 		const now = new Date().toISOString();
 
 		const result = await this.db
@@ -188,7 +145,7 @@ export class RosterOperations {
 		return result[0] || null;
 	}
 
-	async promoteToCoCaptain(id: number): Promise<Roster | null> {
+	async promoteToCoCaptain(id: string): Promise<Roster | null> {
 		const now = new Date().toISOString();
 
 		const result = await this.db

@@ -13,6 +13,8 @@ export const users = sqliteTable('users', {
 	avatarUrl: text('avatar_url'),
 	createdAt: text('created_at'),
 	updatedAt: text('updated_at'),
+	createdUser: text('created_user'),
+	updatedUser: text('updated_user'),
 	firstLoginAt: text('first_login_at'),
 	lastLoginAt: text('last_login_at'),
 	status: text(),

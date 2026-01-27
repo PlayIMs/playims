@@ -44,6 +44,8 @@ export class SportOperations {
 		minPlayers?: number;
 		maxPlayers?: number;
 		clientId?: string;
+		createdUser?: string;
+		updatedUser?: string;
 	}): Promise<Sport | null> {
 		const now = new Date().toISOString();
 		const id = crypto.randomUUID();
@@ -61,7 +63,9 @@ export class SportOperations {
 				clientId: data.clientId || null,
 				isActive: 1,
 				createdAt: now,
-				updatedAt: now
+				updatedAt: now,
+				createdUser: data.createdUser || null,
+				updatedUser: data.updatedUser || data.createdUser || null
 			})
 			.returning();
 
@@ -80,6 +84,7 @@ export class SportOperations {
 			isActive: number;
 			imageUrl: string;
 			rulebookUrl: string;
+			updatedUser: string;
 		}>
 	): Promise<Sport | null> {
 		const now = new Date().toISOString();

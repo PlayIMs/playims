@@ -42,7 +42,9 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		const client = await dbOps.clients.create({
 			name: data.name,
 			slug: data.slug,
-			metadata: data.metadata
+			metadata: data.metadata,
+			createdUser: data.createdUser,
+			updatedUser: data.updatedUser
 		});
 
 		return json(

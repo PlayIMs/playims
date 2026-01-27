@@ -5,11 +5,11 @@ import { divisions } from './divisions';
 
 
 export const teams = sqliteTable('teams', {
-	id: integer().primaryKey(),
-	clientId: integer('client_id')
+	id: text().primaryKey(),
+	clientId: text('client_id')
 		.notNull()
 		.references(() => clients.id),
-	divisionId: integer('division_id')
+	divisionId: text('division_id')
 		.notNull()
 		.references(() => divisions.id),
 	name: text().notNull(),
@@ -22,8 +22,11 @@ export const teams = sqliteTable('teams', {
 	currentRosterSize: integer('current_roster_size').default(0).notNull(),
 	teamColor: text('team_color'),
 	dateRegistered: text('date_registered'),
+	isActive: integer('is_active').default(1).notNull(),
 	createdAt: text('created_at').notNull(),
-	updatedAt: text('updated_at').notNull()
+	updatedAt: text('updated_at').notNull(),
+	createdUser: text('created_user'),
+	updatedUser: text('updated_user')
 });
 
 export type Team = typeof teams.$inferSelect;

@@ -72,6 +72,8 @@ export class UserOperations {
 		firstName?: string;
 		lastName?: string;
 		role?: string;
+		createdUser?: string;
+		updatedUser?: string;
 	}): Promise<User | null> {
 		const now = new Date().toISOString();
 		const id = crypto.randomUUID();
@@ -87,7 +89,9 @@ export class UserOperations {
 				role: data.role || 'player',
 				status: 'active',
 				createdAt: now,
-				updatedAt: now
+				updatedAt: now,
+				createdUser: data.createdUser || null,
+				updatedUser: data.updatedUser || data.createdUser || null
 			})
 			.returning();
 			
@@ -106,6 +110,7 @@ export class UserOperations {
 			timezone: string;
 			preferences: string;
 			notes: string;
+			updatedUser: string;
 		}>
 	): Promise<User | null> {
 		const now = new Date().toISOString();
