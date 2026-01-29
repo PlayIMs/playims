@@ -30,6 +30,8 @@ This skill defines the styling standards, CSS framework usage, and design princi
 - Avoid border-radius, rounded corners, or curved elements
 - Maintain consistent flat, geometric shapes throughout the interface
 - Use sharp, clean edges for all UI elements
+- Avoid clunky design elements
+- The inner-most, nested child border should be thinner than the outer-most (parent) border.
 
 ### Color System
 
@@ -39,6 +41,7 @@ This skill defines the styling standards, CSS framework usage, and design princi
 - **Neutral**: Background colors, borders, and neutral UI elements. Defaults to Tailwind zinc palette, but can be customized with light shades (white, beige, pastels)
 - **Accent**: Call-to-action buttons, highlights, and attention-grabbing elements (~10% of design). Used on top of static surface backgrounds
 - Follow existing color patterns found in the codebase
+- Follow the usage examples found in `/src/routes/colors/+page.svelte`
 - Maintain consistency with text colors, fonts, and sizes used elsewhere in the project
 - Reference the color theme system defined in `$lib/theme.ts` for dynamic color generation
 - Use `getReadableTextColor(backgroundColorHex, themeColorPalette)` to automatically select accessible text colors based on background luminance

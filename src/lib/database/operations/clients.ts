@@ -29,6 +29,7 @@ export class ClientOperations {
 	}
 
 	async create(data: {
+		id?: string;
 		name: string;
 		slug: string;
 		metadata?: string;
@@ -36,7 +37,7 @@ export class ClientOperations {
 		updatedUser?: string;
 	}): Promise<Client | null> {
 		const now = new Date().toISOString();
-		const id = crypto.randomUUID();
+		const id = data.id || crypto.randomUUID();
 
 		const result = await this.db
 			.insert(clients)

@@ -125,6 +125,34 @@
 	--color-accent-800: var(--color-accent-800);
 	--color-accent-900: var(--color-accent-900);
 	--color-accent-950: var(--color-accent-950);
+
+	/* Error (fixed palette) */
+	--color-error-25: #fff5f5;
+	--color-error-50: #fef2f2;
+	--color-error-100: #fee2e2;
+	--color-error-200: #fecaca;
+	--color-error-300: #fca5a5;
+	--color-error-400: #f87171;
+	--color-error-500: #ef4444;
+	--color-error-600: #dc2626;
+	--color-error-700: #b91c1c;
+	--color-error-800: #991b1b;
+	--color-error-900: #7f1d1d;
+	--color-error-950: #450a0a;
+
+	/* Warning (fixed palette) */
+	--color-warning-25: #fffcf0;
+	--color-warning-50: #fffbeb;
+	--color-warning-100: #fef3c7;
+	--color-warning-200: #fde68a;
+	--color-warning-300: #fcd34d;
+	--color-warning-400: #fbbf24;
+	--color-warning-500: #f59e0b;
+	--color-warning-600: #d97706;
+	--color-warning-700: #b45309;
+	--color-warning-800: #92400e;
+	--color-warning-900: #78350f;
+	--color-warning-950: #451a03;
 }
 
 /* Custom form controls using theme colors */

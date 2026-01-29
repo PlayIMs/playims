@@ -35,9 +35,7 @@ export class FacilityAreaOperations {
 		clientId?: string;
 		facilityId?: string;
 		name: string;
-		code?: string;
-		surfaceType?: string;
-		isIndoor?: number;
+		slug?: string;
 		isActive?: number;
 		metadata?: string;
 		createdUser?: string;
@@ -52,9 +50,7 @@ export class FacilityAreaOperations {
 				clientId: data.clientId || null,
 				facilityId: data.facilityId || null,
 				name: data.name,
-				code: data.code || null,
-				surfaceType: data.surfaceType || null,
-				isIndoor: data.isIndoor ?? 0,
+				slug: data.slug || null,
 				isActive: data.isActive ?? 1,
 				metadata: data.metadata || null,
 				createdAt: now,
@@ -72,9 +68,7 @@ export class FacilityAreaOperations {
 		data: Partial<{
 			facilityId: string;
 			name: string;
-			code: string;
-			surfaceType: string;
-			isIndoor: number;
+			slug: string;
 			isActive: number;
 			metadata: string;
 			updatedUser: string;

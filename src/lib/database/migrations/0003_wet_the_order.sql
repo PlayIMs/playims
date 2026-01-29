@@ -1,0 +1,1 @@
+ALTER TABLE `facility_areas` RENAME COLUMN "code" TO "slug";
