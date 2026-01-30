@@ -65,12 +65,20 @@ These tasks are ready to be worked on. I'll pick from here during my nightly ses
 
 | # | Task | Why Now | Notes |
 |---|------|---------|-------|
-| 1 | **Landing Page - Enable CTAs** | Buttons are disabled, need to link to actual flows | Start with "Get Early Access" → email capture form |
-| 2 | **Dashboard Polish** | PR #feature/dashboard-real-data is in progress | Complete any remaining items from that PR |
-| 3 | **SEO Meta Tags** | Landing page needs proper meta tags for search visibility | Title, description, OG tags, favicon setup |
-| 4 | **404 Page** | Better UX for broken links | Match design system |
-| 5 | **Offline Page** | Show cached content/service worker fallback when offline | PWA foundation step |
-| 6 | **Loading States** | Skeleton loaders for dashboard cards | Improves perceived performance |
+| 1 | **SEO Meta Tags & Landing Page SEO** | Landing page needs proper meta tags for search visibility | Title, description, OG tags, favicon, structured data, sitemap |
+| 2 | **404 Page** | Better UX for broken links | Match design system |
+| 3 | **Offline Page** | Show cached content/service worker fallback when offline | PWA foundation step |
+| 4 | **Dashboard Polish** | PR #feature/dashboard-real-data is in progress | Complete any remaining items from that PR |
+| 5 | **Loading States** | Skeleton loaders for dashboard cards | Improves perceived performance |
+
+### 🎯 Tonight's Priority (Jan 30)
+Per Jake's request, focus on:
+1. **SEO Meta Tags** — comprehensive meta tags for landing page
+2. **Landing Page SEO improvements** — structured data, semantic HTML, sitemap
+3. **404 Page** — match design system
+4. **Offline Page** — service worker + offline fallback
+
+**DO NOT touch landing page buttons — leave disabled as-is.**
 
 ---
 
@@ -110,14 +118,14 @@ These tasks are ready to be worked on. I'll pick from here during my nightly ses
 ## 📊 Sprint Goals
 
 ### Current Sprint (Week of Jan 30)
-**Focus:** Complete Dashboard Real Data + Landing Page Polish + Offline Support
+**Focus:** Complete Dashboard Real Data + SEO Improvements + Error/Offline Pages
 
 - [ ] Merge `feature/dashboard-real-data` PR
 - [ ] Merge `feature/project-kanban` PR
-- [ ] Enable landing page CTAs (email capture)
-- [ ] Add SEO meta tags
+- [ ] Add SEO meta tags & landing page SEO improvements
 - [ ] Create 404 page
 - [ ] Create Offline page with service worker
+- [ ] ~~Enable landing page CTAs~~ (Skip per Jake — leave disabled)
 
 ### Next Sprint (Week of Feb 6)
 **Focus:** Core Features (Auth-Free)
@@ -132,7 +140,7 @@ These tasks are ready to be worked on. I'll pick from here during my nightly ses
 
 | Issue | Severity | Notes |
 |-------|----------|-------|
-| Landing page buttons disabled | Low | Placeholder until flows ready |
+| Landing page buttons disabled | Intentional | Disabled by design until auth flows ready |
 | Dashboard needs real-time updates | Medium | Consider WebSockets for live scores |
 | Mobile menu not implemented | Medium | Need responsive navigation |
 | No offline support | Medium | Need service worker + offline page |
