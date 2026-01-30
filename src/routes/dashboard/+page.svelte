@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { IconSearch, IconFilter, IconArrowsSort } from '@tabler/icons-svelte';
+	import IconSearch from '@tabler/icons-svelte/icons/search';
+import IconFilter from '@tabler/icons-svelte/icons/filter';
+import IconArrowsSort from '@tabler/icons-svelte/icons/arrows-sort';
 	let searchQuery = $state('');
 	let sortBy = $state('time');
 	let filterSport = $state('all');

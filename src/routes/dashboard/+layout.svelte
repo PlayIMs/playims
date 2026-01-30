@@ -1,20 +1,18 @@
 <script lang="ts">
-	import {
-		IconLayoutDashboard,
-		IconBallFootball,
-		IconTrophy,
-		IconUserCog,
-		IconBuilding,
-		IconShoppingCart,
-		IconCreditCard,
-		IconFileText,
-		IconChartBar,
-		IconSettings,
-		IconHelpCircle,
-		IconChevronLeft,
-		IconChevronRight,
-		IconMessageCircle
-	} from '@tabler/icons-svelte';
+	import IconLayoutDashboard from '@tabler/icons-svelte/icons/layout-dashboard';
+	import IconBallFootball from '@tabler/icons-svelte/icons/ball-football';
+	import IconTrophy from '@tabler/icons-svelte/icons/trophy';
+	import IconUserCog from '@tabler/icons-svelte/icons/user-cog';
+	import IconBuilding from '@tabler/icons-svelte/icons/building';
+	import IconShoppingCart from '@tabler/icons-svelte/icons/shopping-cart';
+	import IconCreditCard from '@tabler/icons-svelte/icons/credit-card';
+	import IconFileText from '@tabler/icons-svelte/icons/file-text';
+	import IconChartBar from '@tabler/icons-svelte/icons/chart-bar';
+	import IconSettings from '@tabler/icons-svelte/icons/settings';
+	import IconHelpCircle from '@tabler/icons-svelte/icons/help-circle';
+	import IconChevronLeft from '@tabler/icons-svelte/icons/chevron-left';
+	import IconChevronRight from '@tabler/icons-svelte/icons/chevron-right';
+	import IconMessageCircle from '@tabler/icons-svelte/icons/message-circle';
 	import { page } from '$app/stores';
 
 	let { children } = $props();
