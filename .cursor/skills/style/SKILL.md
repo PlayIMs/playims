@@ -40,6 +40,7 @@ This skill defines the styling standards, CSS framework usage, and design princi
 - **Secondary**: Supporting color for backgrounds and sidebars (~30% of design)
 - **Neutral**: Background colors, borders, and neutral UI elements. Defaults to Tailwind zinc palette, but can be customized with light shades (white, beige, pastels)
 - **Accent**: Call-to-action buttons, highlights, and attention-grabbing elements (~10% of design). Used on top of static surface backgrounds
+- **Text Contrast on Neutral**: The neutral background is a light color (cream/beige). Always use very dark text (`text-neutral-950` or `text-neutral-900`) on neutral backgrounds to ensure readability. Never use `text-neutral-600` or lighter on neutral backgrounds.
 - Follow existing color patterns found in the codebase
 - Follow the usage examples found in `/src/routes/colors/+page.svelte`
 - Maintain consistency with text colors, fonts, and sizes used elsewhere in the project

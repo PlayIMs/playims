@@ -28,6 +28,18 @@ function normalizeSlug(raw: string | null): string | null {
 		.replace(/^-|-$/g, '');
 }
 
+function normalizeSlugAllowTrailing(raw: string | null): string | null {
+	if (!raw) return null;
+	return raw
+		.toLowerCase()
+		.trim()
+		.replace(/['"]/g, '')
+		.replace(/\s+/g, '-')
+		.replace(/[^a-z0-9-]/g, '')
+		.replace(/-+/g, '-')
+		.replace(/^-/, '');
+}
+
 function normalizeName(raw: string | null): string | null {
 	if (!raw) return null;
 	const trimmed = raw.trim();
@@ -63,14 +75,8 @@ export const actions: Actions = {
 
 		const clientId = resolveClientId(locals);
 		const name = asTrimmedString(form.get('name'));
-		const slugRaw = typeof form.get('slug') === 'string' ? (form.get('slug') as string) : null;
-		if (slugRaw && slugRaw.replace(/\s+$/g, '').endsWith('-')) {
-			return fail(400, {
-				message: 'Slug cannot end with a dash.',
-				action: 'createFacility'
-			});
-		}
-		const slug = normalizeSlug(asTrimmedString(form.get('slug')));
+		// Allow trailing dashes during input, trim them on save
+		const slug = normalizeSlugAllowTrailing(asTrimmedString(form.get('slug')));
 
 		if (!name) return fail(400, { message: 'Facility name is required.', action: 'createFacility' });
 		if (!slug) return fail(400, { message: 'Facility slug is required.', action: 'createFacility' });
@@ -81,12 +87,21 @@ export const actions: Actions = {
 		// Prevent duplicates by name or slug (within the client), including archived records.
 		const existingFacilities = await dbOps.facilities.getAll(clientId);
 		const nameKey = normalizeName(name);
-		const hasDuplicate = existingFacilities.some((f) => {
+		const duplicate = existingFacilities.find((f) => {
 			const fName = normalizeName(f.name ?? null);
 			const fSlug = normalizeSlug(f.slug ?? null);
 			return (nameKey && fName === nameKey) || fSlug === slug;
 		});
-		if (hasDuplicate) {
+		if (duplicate) {
+			const isArchived = duplicate.isActive === 0;
+			if (isArchived) {
+				return fail(400, {
+					message: `An archived facility with that name/slug already exists. Please restore or delete it before creating one with the same name/slug.`,
+					action: 'createFacility',
+					archivedFacilityId: duplicate.id,
+					duplicateType: 'archived'
+				});
+			}
 			return fail(400, {
 				message: 'A facility with that name/slug already exists.',
 				action: 'createFacility'
@@ -124,10 +139,6 @@ export const actions: Actions = {
 
 		const facilityId = asTrimmedString(form.get('facilityId'));
 		if (!facilityId) return fail(400, { message: 'Facility ID is required.' });
-		const slugRaw = typeof form.get('slug') === 'string' ? (form.get('slug') as string) : null;
-		if (slugRaw && slugRaw.replace(/\s+$/g, '').endsWith('-')) {
-			return fail(400, { message: 'Slug cannot end with a dash.', action: 'updateFacility' });
-		}
 
 		const dbOps = new DatabaseOperations(platform as App.Platform);
 		const actorUserId = locals.user?.id ?? null;
@@ -137,20 +148,55 @@ export const actions: Actions = {
 		const existing = await dbOps.facilities.getById(facilityId);
 		if (!existing || existing.clientId !== clientId) return fail(404, { message: 'Facility not found.' });
 
-		const slugUpdate = normalizeSlug(asTrimmedString(form.get('slug')));
+		// Normalize inputs (allow trailing dash during typing, trim on save)
+		const slugUpdate = normalizeSlugAllowTrailing(asTrimmedString(form.get('slug')));
 		const nameUpdate = asTrimmedString(form.get('name'));
+		const addressLine1Update = asTrimmedString(form.get('addressLine1'));
+		const addressLine2Update = asTrimmedString(form.get('addressLine2'));
+		const cityUpdate = asTrimmedString(form.get('city'));
+		const stateUpdate = asTrimmedString(form.get('state'));
+		const postalCodeUpdate = asTrimmedString(form.get('postalCode'));
+		const countryUpdate = asTrimmedString(form.get('country'));
+		const timezoneUpdate = asTrimmedString(form.get('timezone'));
+		const notesUpdate = asTrimmedString(form.get('notes'));
+
+		// Check for actual changes
+		const hasChanges = 
+			(nameUpdate !== undefined && nameUpdate !== existing.name) ||
+			(slugUpdate !== undefined && slugUpdate !== existing.slug) ||
+			(addressLine1Update !== undefined && addressLine1Update !== existing.addressLine1) ||
+			(addressLine2Update !== undefined && addressLine2Update !== existing.addressLine2) ||
+			(cityUpdate !== undefined && cityUpdate !== existing.city) ||
+			(stateUpdate !== undefined && stateUpdate !== existing.state) ||
+			(postalCodeUpdate !== undefined && postalCodeUpdate !== existing.postalCode) ||
+			(countryUpdate !== undefined && countryUpdate !== existing.country) ||
+			(timezoneUpdate !== undefined && timezoneUpdate !== existing.timezone) ||
+			(notesUpdate !== undefined && notesUpdate !== existing.notes);
+
+		if (!hasChanges) {
+			return { ok: true, facilityId, noChange: true };
+		}
 
 		// Prevent duplicates when changing name/slug.
 		if (nameUpdate || slugUpdate) {
 			const existingFacilities = await dbOps.facilities.getAll(clientId);
 			const nameKey = normalizeName(nameUpdate ?? null);
-			const hasDuplicate = existingFacilities.some((f) => {
+			const duplicate = existingFacilities.find((f) => {
 				if (f.id === facilityId) return false;
 				const fName = normalizeName(f.name ?? null);
 				const fSlug = normalizeSlug(f.slug ?? null);
 				return (nameKey && fName === nameKey) || (slugUpdate && fSlug === slugUpdate);
 			});
-			if (hasDuplicate) {
+			if (duplicate) {
+				const isArchived = duplicate.isActive === 0;
+				if (isArchived) {
+					return fail(400, {
+						message: `An archived facility with that name/slug already exists. Please restore or delete it before creating one with the same name/slug.`,
+						action: 'updateFacility',
+						archivedFacilityId: duplicate.id,
+						duplicateType: 'archived'
+					});
+				}
 				return fail(400, {
 					message: 'A facility with that name/slug already exists.',
 					action: 'updateFacility'
@@ -161,14 +207,14 @@ export const actions: Actions = {
 		const updated = await dbOps.facilities.update(facilityId, {
 			name: nameUpdate ?? undefined,
 			slug: slugUpdate ?? undefined,
-			addressLine1: asTrimmedString(form.get('addressLine1')) ?? undefined,
-			addressLine2: asTrimmedString(form.get('addressLine2')) ?? undefined,
-			city: asTrimmedString(form.get('city')) ?? undefined,
-			state: asTrimmedString(form.get('state')) ?? undefined,
-			postalCode: asTrimmedString(form.get('postalCode')) ?? undefined,
-			country: asTrimmedString(form.get('country')) ?? undefined,
-			timezone: asTrimmedString(form.get('timezone')) ?? undefined,
-			notes: asTrimmedString(form.get('notes')) ?? undefined,
+			addressLine1: addressLine1Update ?? undefined,
+			addressLine2: addressLine2Update ?? undefined,
+			city: cityUpdate ?? undefined,
+			state: stateUpdate ?? undefined,
+			postalCode: postalCodeUpdate ?? undefined,
+			country: countryUpdate ?? undefined,
+			timezone: timezoneUpdate ?? undefined,
+			notes: notesUpdate ?? undefined,
 			metadata: asTrimmedString(form.get('metadata')) ?? undefined,
 			updatedUser: actorUserId || undefined
 		});
@@ -207,18 +253,12 @@ export const actions: Actions = {
 		const clientId = resolveClientId(locals);
 		const facilityId = asTrimmedString(form.get('facilityId'));
 		const name = asTrimmedString(form.get('name'));
-		const slugRaw = typeof form.get('slug') === 'string' ? (form.get('slug') as string) : null;
-		if (slugRaw && slugRaw.replace(/\s+$/g, '').endsWith('-')) {
-			return fail(400, {
-				message: 'Slug cannot end with a dash.',
-				action: 'createFacilityArea'
-			});
-		}
-		const slug = normalizeSlug(asTrimmedString(form.get('slug')));
+		// Allow trailing dashes during input, trim them on save
+		const code = normalizeSlugAllowTrailing(asTrimmedString(form.get('code')));
 
 		if (!facilityId) return fail(400, { message: 'Facility is required.', action: 'createFacilityArea' });
 		if (!name) return fail(400, { message: 'Area name is required.', action: 'createFacilityArea' });
-		if (!slug) return fail(400, { message: 'Area slug is required.', action: 'createFacilityArea' });
+		if (!code) return fail(400, { message: 'Area code is required.', action: 'createFacilityArea' });
 
 		const dbOps = new DatabaseOperations(platform as App.Platform);
 		const actorUserId = locals.user?.id ?? null;
@@ -226,15 +266,25 @@ export const actions: Actions = {
 		const facility = await dbOps.facilities.getById(facilityId);
 		if (!facility || facility.clientId !== clientId) return fail(404, { message: 'Facility not found.', action: 'createFacilityArea' });
 
-		// Prevent duplicates by name or slug within the facility.
-		const existingAreas = await dbOps.facilityAreas.getByFacilityId(facilityId);
+		// Prevent duplicates by name or slug within the facility (including archived).
+		const allExistingAreas = await dbOps.facilityAreas.getByFacilityId(facilityId);
 		const nameKey = normalizeName(name);
-		const hasDuplicate = existingAreas.some((a) => {
+		const duplicate = allExistingAreas.find((a) => {
 			const aName = normalizeName(a.name ?? null);
-			const aSlug = normalizeSlug(a.slug ?? null);
-			return (nameKey && aName === nameKey) || aSlug === slug;
+			const aCode = normalizeSlug(a.code ?? null);
+			return (nameKey && aName === nameKey) || aCode === code;
 		});
-		if (hasDuplicate) {
+		if (duplicate) {
+			const isArchived = duplicate.isActive === 0;
+			if (isArchived) {
+				return fail(400, {
+					message: `An archived facility area with that name/slug already exists. Please restore or delete it before creating one with the same name/slug.`,
+					action: 'createFacilityArea',
+					archivedAreaId: duplicate.id,
+					archivedAreaFacilityId: facilityId,
+					duplicateType: 'archived'
+				});
+			}
 			return fail(400, {
 				message: 'A facility area with that name/slug already exists.',
 				action: 'createFacilityArea'
@@ -245,7 +295,7 @@ export const actions: Actions = {
 			clientId,
 			facilityId,
 			name,
-			slug,
+			code,
 			isActive: 1,
 			metadata: asTrimmedString(form.get('metadata')) || undefined,
 			createdUser: actorUserId || undefined,
@@ -266,10 +316,6 @@ export const actions: Actions = {
 
 		const facilityAreaId = asTrimmedString(form.get('facilityAreaId'));
 		if (!facilityAreaId) return fail(400, { message: 'Facility area ID is required.' });
-		const slugRaw = typeof form.get('slug') === 'string' ? (form.get('slug') as string) : null;
-		if (slugRaw && slugRaw.replace(/\s+$/g, '').endsWith('-')) {
-			return fail(400, { message: 'Slug cannot end with a dash.', action: 'updateFacilityArea' });
-		}
 
 		const dbOps = new DatabaseOperations(platform as App.Platform);
 		const actorUserId = locals.user?.id ?? null;
@@ -278,20 +324,40 @@ export const actions: Actions = {
 		const existing = await dbOps.facilityAreas.getById(facilityAreaId);
 		if (!existing || existing.clientId !== clientId) return fail(404, { message: 'Facility area not found.' });
 
-		const slugUpdate = normalizeSlug(asTrimmedString(form.get('slug')));
+		// Normalize inputs
+		const codeUpdate = normalizeSlugAllowTrailing(asTrimmedString(form.get('code')));
 		const nameUpdate = asTrimmedString(form.get('name'));
 
-		// Prevent duplicates within the facility when changing name/slug.
-		if (nameUpdate || slugUpdate) {
+		// Check for actual changes
+		const hasChanges = 
+			(nameUpdate !== undefined && nameUpdate !== existing.name) ||
+			(codeUpdate !== undefined && codeUpdate !== existing.code);
+
+		if (!hasChanges) {
+			return { ok: true, facilityAreaId, noChange: true };
+		}
+
+		// Prevent duplicates within the facility when changing name/code.
+		if (nameUpdate || codeUpdate) {
 			const existingAreas = await dbOps.facilityAreas.getByFacilityId(existing.facilityId ?? '');
 			const nameKey = normalizeName(nameUpdate ?? null);
-			const hasDuplicate = existingAreas.some((a) => {
+			const duplicate = existingAreas.find((a) => {
 				if (a.id === facilityAreaId) return false;
 				const aName = normalizeName(a.name ?? null);
-				const aSlug = normalizeSlug(a.slug ?? null);
-				return (nameKey && aName === nameKey) || (slugUpdate && aSlug === slugUpdate);
+				const aCode = normalizeSlug(a.code ?? null);
+				return (nameKey && aName === nameKey) || (codeUpdate && aCode === codeUpdate);
 			});
-			if (hasDuplicate) {
+			if (duplicate) {
+				const isArchived = duplicate.isActive === 0;
+				if (isArchived) {
+					return fail(400, {
+						message: `An archived facility area with that name/slug already exists. Please restore or delete it before creating one with the same name/slug.`,
+						action: 'updateFacilityArea',
+						archivedAreaId: duplicate.id,
+						archivedAreaFacilityId: existing.facilityId,
+						duplicateType: 'archived'
+					});
+				}
 				return fail(400, {
 					message: 'A facility area with that name/slug already exists.',
 					action: 'updateFacilityArea'
@@ -301,7 +367,7 @@ export const actions: Actions = {
 
 		const updated = await dbOps.facilityAreas.update(facilityAreaId, {
 			name: nameUpdate ?? undefined,
-			slug: slugUpdate ?? undefined,
+			code: codeUpdate ?? undefined,
 			metadata: asTrimmedString(form.get('metadata')) ?? undefined,
 			updatedUser: actorUserId || undefined
 		});
@@ -407,11 +473,11 @@ export const actions: Actions = {
 		if (existing.isActive !== 0) {
 			return fail(400, { message: 'Facility area must be archived before deleting.', action: 'deleteFacilityArea' });
 		}
-		const expected = normalizeSlug(existing.slug ?? null);
+		const expected = normalizeSlug(existing.code ?? null);
 		const provided = normalizeSlug(confirmSlug ?? null);
 		if (!expected || provided !== expected) {
 			return fail(400, {
-				message: 'To delete, type the area slug exactly.',
+				message: 'To delete, type the area code exactly.',
 				action: 'deleteFacilityArea'
 			});
 		}

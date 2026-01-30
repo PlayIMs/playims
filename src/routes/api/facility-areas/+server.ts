@@ -48,7 +48,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			clientId: data.clientId,
 			facilityId: data.facilityId,
 			name: data.name,
-			slug: data.slug,
+			code: data.code,
 			isActive: data.isActive,
 			metadata: data.metadata,
 			createdUser: data.createdUser,
