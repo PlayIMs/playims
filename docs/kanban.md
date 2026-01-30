@@ -112,6 +112,7 @@ Per Jake's request, focus on:
 | 7 | Comprehensive Seed Data | 2026-01-26 | - | Sports, leagues, teams, games |
 | 8 | Style Guide & Design System | 2026-01-18 | - | Cursor SKILL.md with colors |
 | 9 | AGENTS.md | 2026-01-29 | - | AI assistant guidelines |
+| 10 | Schedule Nav Link | 2026-01-30 | - | Added Schedule to dashboard sidebar (trivial change) |
 
 ---
 
