@@ -12,21 +12,21 @@
 
 | # | Task | Description | Est. Effort | Blocked By |
 |---|------|-------------|-------------|------------|
-| 1 | **Auth System** | Implement user registration, login, JWT/session management. Email verification, password reset. | Medium | - |
-| 2 | **Player Registration Flow** | Allow players to sign up, create profiles, join teams. Player dashboard with their schedule. | Medium | Auth System |
-| 3 | **Team Management UI** | Create/join teams, roster management, invite system, team pages. | Medium | Auth System |
-| 4 | **League Registration** | Browse leagues, register teams, payment integration (Stripe), registration deadlines. | Large | Auth System |
-| 5 | **Game Score Tracking** | Referees/Admins can input scores, update standings automatically. | Medium | - |
+| 1 | **Game Score Tracking** | Referees/Admins can input scores, update standings automatically. | Medium | - |
+| 2 | **Team Management UI** | Create/join teams, roster management, invite system, team pages. | Medium | - |
+| 3 | **Player Registration Flow** | Allow players to create profiles, join teams. Player dashboard with their schedule. | Medium | - |
+| 4 | **League Registration** | Browse leagues, register teams, registration deadlines. | Medium | - |
+| 5 | **Schedule Management** | Create/edit game schedules, venue assignment, conflict detection. | Medium | - |
 
 ### Medium Priority (Enhancements)
 
 | # | Task | Description | Est. Effort | Blocked By |
 |---|------|-------------|-------------|------------|
 | 6 | **Mobile Responsiveness Audit** | Ensure all pages work great on mobile. Touch-friendly controls. | Medium | - |
-| 7 | **Email Notifications** | Welcome emails, game reminders, registration confirmations. SendGrid/Resend integration. | Small | Auth System |
-| 8 | **Search & Filtering** | Global search for teams, leagues, players. Advanced filters. | Small | - |
-| 9 | **Calendar Export** | iCal/ICS export for player schedules. Google Calendar integration. | Small | - |
-| 10 | **Announcements System** | Admin can create announcements, push notifications. Priority/urgency levels. | Small | - |
+| 7 | **Search & Filtering** | Global search for teams, leagues, players. Advanced filters. | Small | - |
+| 8 | **Calendar Export** | iCal/ICS export for player schedules. Google Calendar integration. | Small | - |
+| 9 | **Announcements System** | Admin can create announcements, priority/urgency levels. | Small | - |
+| 10 | **Email Notifications** | Game reminders, registration confirmations. SendGrid/Resend. | Small | - |
 
 ### Lower Priority (Nice-to-Have)
 
@@ -38,15 +38,24 @@
 | 14 | **File Uploads** | Team logos, player photos, facility images. R2 integration. | Small | - |
 | 15 | **Bulk Import/Export** | CSV import for teams, players. Data export for admins. | Small | - |
 
+### Blocked / Later (Dependencies)
+
+| # | Task | Description | Est. Effort | Blocker |
+|---|------|-------------|-------------|---------|
+| 16 | **Auth System** | University SSO login (SAML/OAuth). Students log in via their school's auth. | Large | Microsoft sandbox for testing SSO |
+| 17 | **Payments** | Stripe integration for league fees, team registration payments. | Medium | Auth System + Business setup |
+| 18 | **Email Notifications** | Welcome emails, password resets (requires auth system). | Small | Auth System |
+
 ### Technical Debt & Infrastructure
 
 | # | Task | Description | Est. Effort | Priority |
 |---|------|-------------|-------------|----------|
-| 16 | **Unit Tests** | Jest/Vitest setup, test critical operations. | Medium | Medium |
-| 17 | **E2E Tests** | Playwright tests for critical user flows. | Medium | Medium |
-| 18 | **Error Monitoring** | Sentry integration for production error tracking. | Small | Low |
-| 19 | **API Documentation** | OpenAPI/Swagger docs for all API endpoints. | Medium | Low |
-| 20 | **Performance Optimization** | Lighthouse audit, bundle size optimization, image optimization. | Medium | Low |
+| 19 | **Offline Page** | Show cached content when offline, graceful degradation. | Small | High |
+| 20 | **Unit Tests** | Jest/Vitest setup, test critical operations. | Medium | Medium |
+| 21 | **E2E Tests** | Playwright tests for critical user flows. | Medium | Medium |
+| 22 | **Error Monitoring** | Sentry integration for production error tracking. | Small | Low |
+| 23 | **API Documentation** | OpenAPI/Swagger docs for all API endpoints. | Medium | Low |
+| 24 | **Performance Optimization** | Lighthouse audit, bundle size optimization, image optimization. | Medium | Low |
 
 ---
 
@@ -60,7 +69,8 @@ These tasks are ready to be worked on. I'll pick from here during my nightly ses
 | 2 | **Dashboard Polish** | PR #feature/dashboard-real-data is in progress | Complete any remaining items from that PR |
 | 3 | **SEO Meta Tags** | Landing page needs proper meta tags for search visibility | Title, description, OG tags, favicon setup |
 | 4 | **404 Page** | Better UX for broken links | Match design system |
-| 5 | **Loading States** | Skeleton loaders for dashboard cards | Improves perceived performance |
+| 5 | **Offline Page** | Show cached content/service worker fallback when offline | PWA foundation step |
+| 6 | **Loading States** | Skeleton loaders for dashboard cards | Improves perceived performance |
 
 ---
 
@@ -77,6 +87,7 @@ These tasks are ready to be worked on. I'll pick from here during my nightly ses
 | # | PR | Description | Link | Status |
 |---|-----|-------------|------|--------|
 | 1 | Dashboard Real Data | Transform dashboard from static mock data to real database integration | `feature/dashboard-real-data` | 🔄 Awaiting review |
+| 2 | Project Kanban | Development tracking board for organized work | `feature/project-kanban` | 🔄 Awaiting review |
 
 ---
 
@@ -99,20 +110,21 @@ These tasks are ready to be worked on. I'll pick from here during my nightly ses
 ## 📊 Sprint Goals
 
 ### Current Sprint (Week of Jan 30)
-**Focus:** Complete Dashboard Real Data + Landing Page Polish
+**Focus:** Complete Dashboard Real Data + Landing Page Polish + Offline Support
 
 - [ ] Merge `feature/dashboard-real-data` PR
+- [ ] Merge `feature/project-kanban` PR
 - [ ] Enable landing page CTAs (email capture)
 - [ ] Add SEO meta tags
 - [ ] Create 404 page
+- [ ] Create Offline page with service worker
 
 ### Next Sprint (Week of Feb 6)
-**Focus:** Authentication Foundation
+**Focus:** Core Features (Auth-Free)
 
-- [ ] Auth system design & schema
-- [ ] Login/Register pages
-- [ ] JWT/session implementation
-- [ ] Protected routes middleware
+- [ ] Game Score Tracking
+- [ ] Team Management UI basics
+- [ ] Schedule Management
 
 ---
 
@@ -120,9 +132,10 @@ These tasks are ready to be worked on. I'll pick from here during my nightly ses
 
 | Issue | Severity | Notes |
 |-------|----------|-------|
-| Landing page buttons disabled | Low | Placeholder until auth ready |
+| Landing page buttons disabled | Low | Placeholder until flows ready |
 | Dashboard needs real-time updates | Medium | Consider WebSockets for live scores |
 | Mobile menu not implemented | Medium | Need responsive navigation |
+| No offline support | Medium | Need service worker + offline page |
 
 ---
 
@@ -130,13 +143,13 @@ These tasks are ready to be worked on. I'll pick from here during my nightly ses
 
 - **Multi-tenancy**: Support multiple schools/organizations
 - **White-labeling**: Custom branding per client
-- **Payments**: Stripe integration for league fees
+- **Payments**: Stripe integration for league fees (post-auth)
 - **SMS Notifications**: Twilio for game reminders
-- **Social Login**: Google, Apple sign-in
 - **Referral System**: Invite friends, earn rewards
 - **Captain Features**: Team management tools for captains
 - **Waitlist System**: For full leagues
 - **Free Agent System**: Players without teams
+- **Auth Strategy**: University SSO (SAML/OAuth) — requires Microsoft sandbox for testing
 
 ---
 
@@ -156,6 +169,11 @@ These tasks are ready to be worked on. I'll pick from here during my nightly ses
 - Works 30 hours/week
 - Limited time for PlayIMs daily
 - Prioritize small, reviewable PRs
+
+**Important Context:**
+- **Payments:** Skip for now. Focus on software first.
+- **Auth:** Skip for now. Goal is university SSO (students log in via school auth), but requires Microsoft sandbox setup for testing. Not ready yet.
+- **Offline:** High priority — add service worker + offline page for PWA foundation.
 
 **Competitor Analysis (imleagues.com):**
 - Their UI is dated and clunky
