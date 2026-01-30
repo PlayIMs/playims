@@ -172,6 +172,17 @@ Per Jake's request, focus on:
 - Test locally before pushing
 - Respect Jake's time (student + 30hr work week)
 
+**PR Process (MANDATORY):**
+1. Push branch: `git push -u origin feature/name`
+2. **Create PR on GitHub** — don't just push branch, actually open the PR
+3. **Title:** 3-5 words, Title Case (e.g., "Add Offline Page Support")
+4. **Description format:**
+   - ## What Was Added
+   - ## Why It Was Needed  
+   - ## How It Works
+   - ## Testing / Screenshots (if applicable)
+   - ## Checklist
+
 **Jake's Constraints:**
 - Full-time student
 - Works 30 hours/week
