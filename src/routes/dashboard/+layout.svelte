@@ -1,5 +1,6 @@
 <script lang="ts">
 	import IconLayoutDashboard from '@tabler/icons-svelte/icons/layout-dashboard';
+	import IconCalendar from '@tabler/icons-svelte/icons/calendar';
 	import IconBallFootball from '@tabler/icons-svelte/icons/ball-football';
 	import IconTrophy from '@tabler/icons-svelte/icons/trophy';
 	import IconUserCog from '@tabler/icons-svelte/icons/user-cog';
@@ -21,6 +22,7 @@
 
 	const menuItems = [
 		{ id: 'Dashboard', label: 'Dashboard', icon: IconLayoutDashboard, href: '/dashboard' },
+		{ id: 'Schedule', label: 'Schedule', icon: IconCalendar, href: '/dashboard/schedule' },
 		{ id: 'Intramural Sports', label: 'Intramural Sports', icon: IconBallFootball, href: '#' },
 		{ id: 'Club Sports', label: 'Club Sports', icon: IconTrophy, href: '#' },
 		{ id: 'Member Management', label: 'Member Management', icon: IconUserCog, href: '#' },
