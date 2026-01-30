@@ -166,17 +166,24 @@ Per Jake's request, focus on:
 **Style Guide Location:** `.cursor/skills/style/SKILL.md`
 
 **Key Principles:**
-- Always create feature branches: `feature/description`
-- Write detailed PR descriptions
 - Follow existing code patterns
 - Test locally before pushing
 - Respect Jake's time (student + 30hr work week)
 
-**PR Process (MANDATORY):**
-1. Push branch: `git push -u origin feature/name`
-2. **Create PR on GitHub** — don't just push branch, actually open the PR
-3. **Title:** 3-5 words, Title Case (e.g., "Add Offline Page Support")
-4. **Description format:**
+**Workflow by Change Size:**
+
+| Size | Examples | Workflow |
+|------|----------|----------|
+| **Trivial** | Add nav link, fix typo, update comment | Commit directly to current branch, no PR needed |
+| **Small** | Single component, CSS fixes, config changes | Feature branch + PR (I create on GitHub directly) |
+| **Medium+** | New pages, API endpoints, schema changes | Feature branch + detailed PR (I create on GitHub directly) |
+
+**PR Process (for non-trivial changes):**
+1. Create feature branch: `git checkout -b feature/description`
+2. Push branch: `git push -u origin feature/name`
+3. **I create PR on GitHub directly** via browser automation
+4. **Title:** 3-5 words, Title Case (e.g., "Add Offline Page Support")
+5. **Description format:**
    - ## What Was Added
    - ## Why It Was Needed  
    - ## How It Works
