@@ -29,7 +29,7 @@
 		<div class="flex justify-between items-start">
 			<div>
 				<h1 class="text-4xl font-bold font-serif text-neutral-950">Dashboard</h1>
-				<p class="text-neutral-600 mt-2 font-sans">{today}</p>
+				<p class="text-neutral-950 mt-2 font-sans">{today}</p>
 			</div>
 			<div class="flex gap-3">
 				<a 
@@ -65,7 +65,7 @@
 		<div class="bg-neutral border-2 border-secondary p-6">
 			<div class="flex items-center justify-between">
 				<div>
-					<p class="text-sm font-medium text-neutral-600 uppercase tracking-wide font-sans">Total Players</p>
+					<p class="text-sm font-medium text-neutral-950 uppercase tracking-wide font-sans">Total Players</p>
 					<p class="text-4xl font-bold text-neutral-950 mt-2 font-serif">{data.stats?.totalUsers || 0}</p>
 				</div>
 				<div class="bg-secondary p-3">
@@ -78,7 +78,7 @@
 		<div class="bg-neutral border-2 border-secondary p-6">
 			<div class="flex items-center justify-between">
 				<div>
-					<p class="text-sm font-medium text-neutral-600 uppercase tracking-wide font-sans">Active Teams</p>
+					<p class="text-sm font-medium text-neutral-950 uppercase tracking-wide font-sans">Active Teams</p>
 					<p class="text-4xl font-bold text-neutral-950 mt-2 font-serif">{data.stats?.totalTeams || 0}</p>
 				</div>
 				<div class="bg-secondary p-3">
@@ -91,7 +91,7 @@
 		<div class="bg-neutral border-2 border-secondary p-6">
 			<div class="flex items-center justify-between">
 				<div>
-					<p class="text-sm font-medium text-neutral-600 uppercase tracking-wide font-sans">Active Leagues</p>
+					<p class="text-sm font-medium text-neutral-950 uppercase tracking-wide font-sans">Active Leagues</p>
 					<p class="text-4xl font-bold text-neutral-950 mt-2 font-serif">{data.stats?.totalLeagues || 0}</p>
 				</div>
 				<div class="bg-secondary p-3">
@@ -104,7 +104,7 @@
 		<div class="bg-neutral border-2 border-secondary p-6">
 			<div class="flex items-center justify-between">
 				<div>
-					<p class="text-sm font-medium text-neutral-600 uppercase tracking-wide font-sans">Facilities</p>
+					<p class="text-sm font-medium text-neutral-950 uppercase tracking-wide font-sans">Facilities</p>
 					<p class="text-4xl font-bold text-neutral-950 mt-2 font-serif">{data.stats?.totalFacilities || 0}</p>
 				</div>
 				<div class="bg-secondary p-3">
@@ -122,7 +122,7 @@
 					<IconCalendar class="w-6 h-6 text-white" />
 				</div>
 				<div>
-					<p class="text-sm text-neutral-600 uppercase tracking-wide font-sans">Games Today</p>
+					<p class="text-sm text-neutral-950 uppercase tracking-wide font-sans">Games Today</p>
 					<p class="text-3xl font-bold text-neutral-950 font-serif">{data.stats?.gamesToday || 0}</p>
 				</div>
 			</div>
@@ -134,7 +134,7 @@
 					<IconCheck class="w-6 h-6 text-white" />
 				</div>
 				<div>
-					<p class="text-sm text-neutral-600 uppercase tracking-wide font-sans">Completed</p>
+					<p class="text-sm text-neutral-950 uppercase tracking-wide font-sans">Completed</p>
 					<p class="text-3xl font-bold text-neutral-950 font-serif">{data.stats?.completedToday || 0}</p>
 				</div>
 			</div>
@@ -177,7 +177,7 @@
 										<div class="w-px h-12 bg-secondary"></div>
 										<div>
 											<p class="text-lg font-medium text-neutral-950 font-sans">{game.matchup}</p>
-											<p class="text-sm text-neutral-600 font-sans mt-1">{game.sport} • {game.location}</p>
+											<p class="text-sm text-neutral-950 font-sans mt-1">{game.sport} • {game.location}</p>
 										</div>
 									</div>
 									<div class="flex items-center gap-4">
@@ -192,7 +192,7 @@
 												LIVE
 											</span>
 										{:else if game.status === 'completed'}
-											<span class="text-neutral-500 font-medium text-sm font-sans">FINAL</span>
+											<span class="text-neutral-950 font-medium text-sm font-sans">FINAL</span>
 										{:else}
 											<span class="text-accent font-medium text-sm font-sans">UPCOMING</span>
 										{/if}
@@ -204,10 +204,10 @@
 				{:else}
 					<div class="p-12 text-center">
 						<div class="bg-neutral-100 border-2 border-secondary w-20 h-20 flex items-center justify-center mx-auto mb-4">
-							<IconCalendar class="w-10 h-10 text-neutral-400" />
+							<IconCalendar class="w-10 h-10 text-neutral-600" />
 						</div>
-						<p class="text-neutral-600 font-medium font-sans">No games scheduled for today</p>
-						<p class="text-neutral-500 text-sm mt-1 font-sans">Check back later for upcoming events</p>
+						<p class="text-neutral-950 font-medium font-sans">No games scheduled for today</p>
+						<p class="text-neutral-950 text-sm mt-1 font-sans">Check back later for upcoming events</p>
 					</div>
 				{/if}
 			</div>
@@ -223,12 +223,12 @@
 							<div class="p-4 hover:bg-neutral-100 transition-colors">
 								<div class="flex items-center justify-between">
 									<div class="flex items-center gap-4">
-										<span class="text-sm text-neutral-500 font-sans min-w-[100px]">{game.date}</span>
+										<span class="text-sm text-neutral-950 font-sans min-w-[100px]">{game.date}</span>
 										<span class="text-sm font-semibold text-neutral-950 font-sans">{game.time}</span>
 										<span class="text-secondary">|</span>
-										<span class="text-sm text-neutral-700 font-sans">{game.matchup}</span>
+										<span class="text-sm text-neutral-950 font-sans">{game.matchup}</span>
 									</div>
-									<span class="text-xs text-neutral-500 font-sans">{game.sport}</span>
+									<span class="text-xs text-neutral-950 font-sans">{game.sport}</span>
 								</div>
 							</div>
 						{/each}
@@ -257,8 +257,8 @@
 									{/if}
 									<div class="flex-1">
 										<p class="font-semibold text-neutral-950 font-sans">{alert.title}</p>
-										<p class="text-sm text-neutral-600 mt-1 font-sans">{alert.message}</p>
-										<p class="text-xs text-neutral-500 mt-2 font-sans">{alert.date}</p>
+										<p class="text-sm text-neutral-950 mt-1 font-sans">{alert.message}</p>
+										<p class="text-xs text-neutral-950 mt-2 font-sans">{alert.date}</p>
 									</div>
 								</div>
 							</div>
@@ -282,7 +282,7 @@
 									</div>
 									<div class="flex-1 min-w-0">
 										<p class="text-sm text-neutral-950 font-sans truncate">{activity.message}</p>
-										<p class="text-xs text-neutral-500 font-sans">{activity.time}</p>
+										<p class="text-xs text-neutral-950 font-sans">{activity.time}</p>
 									</div>
 								</div>
 							</div>
@@ -290,7 +290,7 @@
 					</div>
 				{:else}
 					<div class="p-8 text-center">
-						<p class="text-neutral-500 text-sm font-sans">No recent activity</p>
+						<p class="text-neutral-950 text-sm font-sans">No recent activity</p>
 					</div>
 				{/if}
 			</div>
@@ -304,7 +304,7 @@
 						</div>
 						<div>
 							<p class="font-bold text-neutral-950 font-sans">Pending Actions</p>
-							<p class="text-sm text-neutral-600 font-sans">Items requiring attention</p>
+							<p class="text-sm text-neutral-950 font-sans">Items requiring attention</p>
 						</div>
 					</div>
 					<a href="/dashboard/rosters" class="mt-4 block w-full text-center bg-white border-2 border-accent text-accent py-2 hover:bg-accent-50 transition-colors text-sm font-bold font-sans">
