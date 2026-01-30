@@ -1,7 +1,11 @@
 <script lang="ts">
 	import IconSearch from '@tabler/icons-svelte/icons/search';
-import IconFilter from '@tabler/icons-svelte/icons/filter';
-import IconArrowsSort from '@tabler/icons-svelte/icons/arrows-sort';
+	import IconFilter from '@tabler/icons-svelte/icons/filter';
+	import IconArrowsSort from '@tabler/icons-svelte/icons/arrows-sort';
+	import IconLivePhoto from '@tabler/icons-svelte/icons/live-photo';
+	
+	let { data } = $props();
+	
 	let searchQuery = $state('');
 	let sortBy = $state('time');
 	let filterSport = $state('all');
@@ -32,30 +36,32 @@ import IconArrowsSort from '@tabler/icons-svelte/icons/arrows-sort';
 
 	const currentDate = formatDate();
 
-	const stats = [
-		{ label: 'Active Players', value: '2,405' },
-		{ label: 'Games Today', value: '34' },
-		{ label: 'Pending Rosters', value: '12', badge: 'Action Required' },
-		{ label: 'Facility Load', value: '85%' }
-	];
-
-	const liveGames = [
-		{
-			time: '7:00 PM',
-			sport: 'Flag Football',
-			teams: 'Team Alpha vs. Beta Blockers',
-			field: 'Field 3'
+	// Build stats from real data
+	const stats = $derived([
+		{ label: 'Active Players', value: data.stats?.activePlayers?.toLocaleString() || '0' },
+		{ label: 'Games Today', value: data.stats?.gamesToday?.toString() || '0' },
+		{ 
+			label: 'Live Games', 
+			value: data.stats?.liveGames?.toString() || '0',
+			badge: data.stats?.liveGames > 0 ? 'LIVE' : undefined
 		},
-		{ time: '7:30 PM', sport: 'Basketball', teams: 'Thunder vs. Lightning', field: 'Court 1' },
-		{ time: '8:00 PM', sport: 'Soccer', teams: 'Strikers vs. Defenders', field: 'Field 2' }
-	];
+		{ 
+			label: 'Pending Rosters', 
+			value: data.stats?.pendingRosters?.toString() || '0',
+			badge: data.stats?.pendingRosters > 0 ? 'Action Required' : undefined
+		},
+		{ label: 'Facility Load', value: `${data.stats?.facilityLoad || 0}%` }
+	]);
+
+	// Use real events from data
+	const todaysEvents = $derived(data.todaysEvents || []);
 
 	// Get unique sports for filter
-	const allSports = ['all', ...new Set(liveGames.map((game) => game.sport))];
+	const allSports = $derived(['all', ...new Set(todaysEvents.map((game) => game.sport))]);
 
 	// Filter and sort games
-	let filteredGames = $derived.by(() => {
-		let games = [...liveGames];
+	const filteredGames = $derived.by(() => {
+		let games = [...todaysEvents];
 
 		// Filter by search query
 		if (searchQuery.trim()) {
@@ -77,10 +83,16 @@ import IconArrowsSort from '@tabler/icons-svelte/icons/arrows-sort';
 		// Sort
 		if (sortBy === 'time') {
 			games.sort((a, b) => {
-				// Simple time comparison (assuming PM format)
-				const timeA = parseInt(a.time.split(':')[0]);
-				const timeB = parseInt(b.time.split(':')[0]);
-				return timeA - timeB;
+				// Parse time strings (e.g., "7:00 PM")
+				const parseTime = (timeStr: string) => {
+					const [time, period] = timeStr.split(' ');
+					const [hours, minutes] = time.split(':').map(Number);
+					let totalHours = hours;
+					if (period === 'PM' && hours !== 12) totalHours += 12;
+					if (period === 'AM' && hours === 12) totalHours = 0;
+					return totalHours * 60 + minutes;
+				};
+				return parseTime(a.time) - parseTime(b.time);
 			});
 		} else if (sortBy === 'sport') {
 			games.sort((a, b) => a.sport.localeCompare(b.sport));
@@ -91,30 +103,24 @@ import IconArrowsSort from '@tabler/icons-svelte/icons/arrows-sort';
 		return games;
 	});
 
-	const priorityActions = [
-		{
-			title: 'Weather Alert: Lightning detected near North Fields',
-			action: 'Suspend Play',
-			urgent: true
-		},
-		{
-			title: 'Roster verification needed for Team Alpha',
-			action: 'Review',
-			urgent: false
-		},
-		{
-			title: 'Field 3 maintenance scheduled for tomorrow',
-			action: 'View Details',
-			urgent: false
-		}
-	];
+	// Priority actions from announcements
+	const priorityActions = $derived(data.priorityActions || []);
 
-	const leagueHealth = [
-		{ sport: "Soccer (Men's)", teamCount: 40, progress: 60 },
-		{ sport: 'Volleyball (Co-Rec)', teamCount: 24, progress: 30 },
-		{ sport: "Basketball (Women's)", teamCount: 18, progress: 75 },
-		{ sport: 'Flag Football', teamCount: 32, progress: 45 }
-	];
+	// League health data
+	const leagueHealth = $derived(data.leagueHealth || []);
+
+	// Get status badge for games
+	function getStatusBadge(status: string) {
+		switch (status) {
+			case 'in_progress':
+				return { text: 'LIVE', class: 'bg-red-500 text-white animate-pulse' };
+			case 'completed':
+				return { text: 'FINAL', class: 'bg-gray-500 text-white' };
+			case 'scheduled':
+			default:
+				return { text: 'UPCOMING', class: 'bg-blue-500 text-white' };
+		}
+	}
 </script>
 
 <div class="p-8">
@@ -132,9 +138,9 @@ import IconArrowsSort from '@tabler/icons-svelte/icons/arrows-sort';
 				aria-label="User menu"
 			>
 				<div class="w-8 h-8 bg-secondary flex items-center justify-center text-white font-bold">
-					JD
+					JH
 				</div>
-				<span class="text-neutral-950 font-sans">John Doe</span>
+				<span class="text-neutral-950 font-sans">Jake Harvanchik</span>
 				<svg class="w-4 h-4 text-neutral-950" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"
 					></path>
@@ -143,8 +149,16 @@ import IconArrowsSort from '@tabler/icons-svelte/icons/arrows-sort';
 		</div>
 	</header>
 
+	<!-- Error Message -->
+	{#if data.error}
+		<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6" role="alert">
+			<strong class="font-bold">Error:</strong>
+			<span class="block sm:inline">{data.error}</span>
+		</div>
+	{/if}
+
 	<!-- Stats Grid -->
-	<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+	<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
 		{#each stats as stat}
 			<div class="bg-neutral border border-secondary p-6">
 				<div class="flex items-center justify-between mb-2">
@@ -164,6 +178,12 @@ import IconArrowsSort from '@tabler/icons-svelte/icons/arrows-sort';
 		<div class="lg:col-span-2 bg-neutral border border-secondary p-6">
 			<div class="flex items-center justify-between mb-4">
 				<h3 class="text-2xl font-bold font-serif text-neutral-950">Today's Schedule</h3>
+				{#if data.stats?.liveGames > 0}
+					<div class="flex items-center gap-2 text-red-600">
+						<IconLivePhoto class="w-5 h-5 animate-pulse" />
+						<span class="text-sm font-medium">{data.stats.liveGames} Live</span>
+					</div>
+				{/if}
 			</div>
 
 			<!-- Search, Filter, and Sort Controls -->
@@ -220,23 +240,32 @@ import IconArrowsSort from '@tabler/icons-svelte/icons/arrows-sort';
 			<!-- Games List -->
 			<div class="space-y-4">
 				{#if filteredGames.length === 0}
-					<p class="text-neutral-950 font-sans py-8 text-center">
-						No games found matching your criteria.
-					</p>
+					<div class="text-center py-12">
+						<p class="text-neutral-600 font-sans text-lg">No games scheduled for today.</p>
+						<p class="text-neutral-500 font-sans text-sm mt-2">Check back later for upcoming events!</p>
+					</div>
 				{:else}
 					{#each filteredGames as game}
+						{@const status = getStatusBadge(game.status)}
 						<div
-							class="flex items-center justify-between py-3 border-b border-secondary last:border-0"
+							class="flex items-center justify-between py-4 border-b border-secondary last:border-0 hover:bg-neutral-50 transition-colors px-2 -mx-2 rounded"
 						>
-							<div class="flex-1">
+							<div class="flex-1 min-w-0">
 								<div class="flex items-center gap-4 mb-1">
 									<span class="text-sm font-medium text-neutral-950 font-sans">{game.time}</span>
-									<span class="text-sm text-neutral-950 font-sans">{game.sport}</span>
+									<span class="text-sm text-neutral-700 font-sans">{game.sport}</span>
 								</div>
-								<p class="text-sm text-neutral-950 font-sans">{game.teams}</p>
-								<p class="text-xs text-neutral-950 mt-1 font-sans">{game.field}</p>
+								<p class="text-sm font-medium text-neutral-950 font-sans truncate">{game.teams}</p>
+								<p class="text-xs text-neutral-600 mt-1 font-sans">{game.field}</p>
+								{#if game.status === 'in_progress' && (game.homeScore !== null || game.awayScore !== null)}
+									<p class="text-sm font-bold text-neutral-950 mt-1 font-sans">
+										Score: {game.homeScore ?? 0} - {game.awayScore ?? 0}
+									</p>
+								{/if}
 							</div>
-							<span class="badge-accent ml-4">LIVE</span>
+							<span class="{status.class} px-2 py-1 text-xs font-bold rounded ml-4 whitespace-nowrap">
+								{status.text}
+							</span>
 						</div>
 					{/each}
 				{/if}
@@ -247,12 +276,27 @@ import IconArrowsSort from '@tabler/icons-svelte/icons/arrows-sort';
 		<div class="bg-neutral border border-secondary p-6">
 			<h3 class="text-2xl font-bold font-serif text-neutral-950 mb-4">Priority Actions</h3>
 			<div class="space-y-4">
-				{#each priorityActions as action}
-					<div class="pb-4 border-b border-secondary last:border-0 last:pb-0">
-						<p class="text-sm text-neutral-950 mb-3 font-sans">{action.title}</p>
-						<button class="button-accent w-full text-sm" type="button">{action.action}</button>
-					</div>
-				{/each}
+				{#if priorityActions.length === 0}
+					<p class="text-neutral-600 font-sans py-4">No pending actions.</p>
+				{:else}
+					{#each priorityActions as action}
+						<div class="pb-4 border-b border-secondary last:border-0 last:pb-0">
+							<div class="flex items-start gap-2 mb-2">
+								{#if action.urgent}
+									<span class="text-red-500 font-bold text-xs">URGENT</span>
+								{/if}
+								<p class="text-sm font-medium text-neutral-950 font-sans">{action.title}</p>
+							</div>
+							<p class="text-xs text-neutral-600 mb-3 line-clamp-2">{action.content}</p>
+							<button 
+								class="button-accent w-full text-sm {action.urgent ? 'bg-red-600 hover:bg-red-700' : ''}" 
+								type="button"
+							>
+								{action.action}
+							</button>
+						</div>
+					{/each}
+				{/if}
 			</div>
 		</div>
 	</div>
@@ -261,48 +305,55 @@ import IconArrowsSort from '@tabler/icons-svelte/icons/arrows-sort';
 	<div class="bg-neutral border border-secondary p-6">
 		<h3 class="text-2xl font-bold font-serif text-neutral-950 mb-6">Season Progress</h3>
 		<div class="overflow-x-auto">
-			<table class="w-full">
-				<thead>
-					<tr class="border-b border-secondary">
-						<th
-							scope="col"
-							class="text-left py-3 px-4 text-sm font-semibold text-neutral-950 uppercase tracking-wide font-sans"
-						>
-							Sport
-						</th>
-						<th
-							scope="col"
-							class="text-left py-3 px-4 text-sm font-semibold text-neutral-950 uppercase tracking-wide font-sans"
-						>
-							Team Count
-						</th>
-						<th
-							scope="col"
-							class="text-left py-3 px-4 text-sm font-semibold text-neutral-950 uppercase tracking-wide font-sans"
-						>
-							Progress
-						</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each leagueHealth as league}
-						<tr class="border-b border-secondary last:border-0 hover:bg-neutral-50">
-							<td class="py-4 px-4 text-neutral-950 font-medium font-sans">{league.sport}</td>
-							<td class="py-4 px-4 text-neutral-950 font-sans">{league.teamCount} Teams</td>
-							<td class="py-4 px-4">
-								<div class="flex items-center gap-3">
-									<div class="flex-1 bg-neutral-200 h-4 max-w-xs" aria-hidden="true">
-										<div class="h-full bg-secondary" style="width: {league.progress}%"></div>
-									</div>
-									<span class="text-sm text-neutral-950 font-medium font-sans"
-										>{league.progress}%</span
-									>
-								</div>
-							</td>
+			{#if leagueHealth.length === 0}
+				<p class="text-neutral-600 font-sans py-4">No league data available.</p>
+			{:else}
+				<table class="w-full">
+					<thead>
+						<tr class="border-b border-secondary">
+							<th
+								scope="col"
+								class="text-left py-3 px-4 text-sm font-semibold text-neutral-950 uppercase tracking-wide font-sans"
+							>
+								Sport / Division
+							</th>
+							<th
+								scope="col"
+								class="text-left py-3 px-4 text-sm font-semibold text-neutral-950 uppercase tracking-wide font-sans"
+							>
+								Teams
+							</th>
+							<th
+								scope="col"
+								class="text-left py-3 px-4 text-sm font-semibold text-neutral-950 uppercase tracking-wide font-sans"
+							>
+								Season Progress
+							</th>
 						</tr>
-					{/each}
-				</tbody>
-			</table>
+					</thead>
+					<tbody>
+						{#each leagueHealth as league}
+							<tr class="border-b border-secondary last:border-0 hover:bg-neutral-50 transition-colors">
+								<td class="py-4 px-4 text-neutral-950 font-medium font-sans">{league.sport}</td>
+								<td class="py-4 px-4 text-neutral-950 font-sans">{league.teamCount} Teams</td>
+								<td class="py-4 px-4">
+									<div class="flex items-center gap-3">
+										<div class="flex-1 bg-neutral-200 h-4 max-w-xs rounded-full overflow-hidden" aria-hidden="true">
+											<div 
+												class="h-full bg-secondary transition-all duration-500" 
+												style="width: {Math.min(league.progress, 100)}%"
+											></div>
+										</div>
+										<span class="text-sm text-neutral-950 font-medium font-sans w-12">
+											{league.progress}%
+										</span>
+									</div>
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			{/if}
 		</div>
 	</div>
 </div>

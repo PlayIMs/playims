@@ -13,7 +13,7 @@ export const facilities = sqliteTable('facilities', {
 	postalCode: text('postal_code'),
 	country: text(),
 	timezone: text(),
-	notes: text(),
+	description: text(),
 	metadata: text(),
 	isActive: integer('is_active').default(1),
 	createdAt: text('created_at'),

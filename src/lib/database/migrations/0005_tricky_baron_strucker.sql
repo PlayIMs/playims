@@ -1,0 +1,1 @@
+ALTER TABLE `facility_areas` ADD `notes` text;
