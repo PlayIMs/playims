@@ -35,7 +35,7 @@
 		<div class="flex flex-col sm:flex-row gap-4 justify-center">
 			<button
 				onclick={() => window.location.reload()}
-				class="border-2 border-primary bg-primary text-white hover:bg-primary-600 px-8 py-3 text-base font-medium inline-flex items-center justify-center gap-2 cursor-pointer transition-colors duration-200"
+				class="border-2 border-primary-500 bg-primary-500 text-white hover:bg-primary-600 px-8 py-3 text-base font-medium inline-flex items-center justify-center gap-2 cursor-pointer transition-colors duration-200"
 			>
 				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path

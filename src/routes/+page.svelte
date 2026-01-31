@@ -104,10 +104,10 @@
 	</script>
 </svelte:head>
 
-<div class="min-h-screen bg-secondary">
+<div class="min-h-screen bg-secondary-500">
 	<!-- Hero Section -->
 	<section
-		class="bg-primary text-white"
+		class="bg-primary-500 text-white"
 		style="padding-top: max(env(safe-area-inset-top), 0px); margin-top: calc(-1 * env(safe-area-inset-top));"
 	>
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 sm:py-32">
@@ -141,7 +141,7 @@
 	</section>
 
 	<!-- Features Section -->
-	<section class="bg-neutral py-16 sm:py-24">
+	<section class="bg-neutral-500 py-16 sm:py-24">
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 			<div class="text-center mb-12">
 				<h2 class="text-3xl sm:text-4xl font-bold text-neutral-950 mb-4">
@@ -157,9 +157,9 @@
 			<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
 				<!-- Feature 1 -->
 				<div
-					class="bg-white border-l-4 border-primary p-6 hover:border-primary-600 transition-colors"
+					class="bg-white border-l-4 border-primary-500 p-6 hover:border-primary-600 transition-colors"
 				>
-					<div class="bg-primary w-16 h-16 flex items-center justify-center mb-4">
+					<div class="bg-primary-500 w-16 h-16 flex items-center justify-center mb-4">
 						<svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
 								stroke-linecap="round"
@@ -178,9 +178,9 @@
 
 				<!-- Feature 2 -->
 				<div
-					class="bg-white border-l-4 border-secondary p-6 hover:border-secondary-600 transition-colors"
+					class="bg-white border-l-4 border-secondary-500 p-6 hover:border-secondary-600 transition-colors"
 				>
-					<div class="bg-secondary w-16 h-16 flex items-center justify-center mb-4">
+					<div class="bg-secondary-500 w-16 h-16 flex items-center justify-center mb-4">
 						<svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
 								stroke-linecap="round"
@@ -199,9 +199,9 @@
 
 				<!-- Feature 3 -->
 				<div
-					class="bg-white border-l-4 border-accent p-6 hover:border-accent-600 transition-colors"
+					class="bg-white border-l-4 border-accent-500 p-6 hover:border-accent-600 transition-colors"
 				>
-					<div class="bg-accent w-16 h-16 flex items-center justify-center mb-4">
+					<div class="bg-accent-500 w-16 h-16 flex items-center justify-center mb-4">
 						<svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
 								stroke-linecap="round"
@@ -222,7 +222,7 @@
 	</section>
 
 	<!-- What We're Building Section -->
-	<section class="bg-secondary py-16 sm:py-24">
+	<section class="bg-secondary-500 py-16 sm:py-24">
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 			<div class="text-center mb-12">
 				<h2 class="text-3xl sm:text-4xl font-bold text-secondary-25 mb-4">Built for Everyone</h2>
@@ -235,7 +235,7 @@
 			<!-- Key Benefits -->
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
 				<div class="bg-secondary-400 border-2 border-secondary-300 p-6">
-					<div class="bg-primary w-16 h-16 flex items-center justify-center mb-4">
+					<div class="bg-primary-500 w-16 h-16 flex items-center justify-center mb-4">
 						<svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
 								stroke-linecap="round"
@@ -301,7 +301,7 @@
 	</section>
 
 	<!-- CTA Section -->
-	<section class="bg-primary py-16 sm:py-24">
+	<section class="bg-primary-500 py-16 sm:py-24">
 		<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
 			<h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-primary-25 mb-4">
 				Ready for Something Better?
