@@ -23,6 +23,12 @@
 	});
 </script>
 
+<svelte:head>
+	<title>Dashboard - PlayIMs</title>
+	<meta name="description" content="Manage your intramural sports leagues, view today's schedule, track live games, and monitor team standings." />
+	<meta name="robots" content="noindex, follow" />
+</svelte:head>
+
 <div class="p-8">
 	<!-- Header -->
 	<header class="mb-8">

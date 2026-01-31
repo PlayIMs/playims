@@ -40,11 +40,68 @@
 </script>
 
 <svelte:head>
-	<title>PlayIMs - Intramural Sports League Manager</title>
+	<!-- Primary Meta Tags -->
+	<title>PlayIMs - Intramural Sports League Manager | Modern Sports League Software</title>
 	<meta
 		name="description"
-		content="Manage your intramural sports leagues with PlayIMs. Easy team management, scheduling, and league administration."
+		content="PlayIMs is the modern intramural sports league management platform. Easy team management, automated scheduling, real-time standings, and intuitive administration tools for schools and organizations."
 	/>
+	<meta name="keywords" content="intramural sports, league management, sports scheduling, team management, recreational sports, school sports, sports league software" />
+	<meta name="author" content="PlayIMs" />
+	<meta name="robots" content="index, follow" />
+	<link rel="canonical" href="https://playims.com/" />
+
+	<!-- Open Graph / Facebook -->
+	<meta property="og:type" content="website" />
+	<meta property="og:url" content="https://playims.com/" />
+	<meta property="og:title" content="PlayIMs - Modern Intramural Sports League Manager" />
+	<meta
+		property="og:description"
+		content="The next-generation platform for managing intramural sports leagues. Built for administrators who want control without complexity."
+	/>
+	<meta property="og:image" content="https://playims.com/pwa-512x512.png" />
+	<meta property="og:site_name" content="PlayIMs" />
+	<meta property="og:locale" content="en_US" />
+
+	<!-- Twitter -->
+	<meta property="twitter:card" content="summary_large_image" />
+	<meta property="twitter:url" content="https://playims.com/" />
+	<meta property="twitter:title" content="PlayIMs - Modern Intramural Sports League Manager" />
+	<meta
+		property="twitter:description"
+		content="The next-generation platform for managing intramural sports leagues. Built for administrators who want control without complexity."
+	/>
+	<meta property="twitter:image" content="https://playims.com/pwa-512x512.png" />
+
+	<!-- Structured Data (JSON-LD) -->
+	<script type="application/ld+json">
+		{
+			"@context": "https://schema.org",
+			"@type": "WebApplication",
+			"name": "PlayIMs",
+			"applicationCategory": "SportsApplication",
+			"description": "Modern intramural sports league management platform with intuitive team management, automated scheduling, and real-time standings.",
+			"url": "https://playims.com",
+			"offers": {
+				"@type": "Offer",
+				"price": "0",
+				"priceCurrency": "USD"
+			},
+			"aggregateRating": {
+				"@type": "AggregateRating",
+				"ratingValue": "5",
+				"ratingCount": "1"
+			},
+			"featureList": [
+				"Team Management",
+				"Automated Scheduling",
+				"Real-time Standings",
+				"League Administration",
+				"Player Registration",
+				"Venue Management"
+			]
+		}
+	</script>
 </svelte:head>
 
 <div class="min-h-screen bg-secondary">

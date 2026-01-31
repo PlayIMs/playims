@@ -388,6 +388,12 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
+<svelte:head>
+	<title>Facilities - PlayIMs</title>
+	<meta name="description" content="Manage sports facilities and venue areas. Create, edit, and organize your league's locations." />
+	<meta name="robots" content="noindex, follow" />
+</svelte:head>
+
 <div class="p-8">
 	<header class="flex flex-col gap-2 mb-6">
 		<div class="flex items-center justify-between gap-4">
