@@ -83,7 +83,20 @@ This skill defines the styling standards, CSS framework usage, and design princi
 - **Dynamic Components**: In runes mode, components are dynamic by default. Use component references directly as tags instead of `<svelte:component>`
   - Example: `<item.icon class="w-5 h-5" />` instead of `<svelte:component this={item.icon} class="w-5 h-5" />`
   - Component references stored in variables can be used directly: `const Icon = IconUser; <Icon />`
-- **Event Handlers**: Use interactive elements (buttons, links) for mouse/keyboard events. Avoid attaching event listeners to non-interactive elements like `<div>`. If needed, use `<button>` with appropriate styling (`type="button"`, `border-0`, `p-0` for styling) and add `tabindex="0"` for keyboard accessibility
+- **Event Handlers**: Use interactive elements (buttons, links) for mouse/keyboard events. Avoid attaching event listeners to non-interactive elements like `<div>`. If you must use a non-interactive element with a click handler:
+  - Add `role="button"` and `tabindex="0"` for accessibility
+  - Add `onkeydown` handler that triggers on Enter/Space keys: `onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handler(); }}`
+  - Prefer using `<button type="button">` with styling (`border-0`, `bg-transparent`, `p-0`) instead
+
+### HTML Structure Rules
+
+- **Never nest `<form>` elements**: HTML does not allow a `<form>` inside another `<form>`. If you need to trigger a different action from within a form (e.g., a "Restore" button inside an edit form's error message), use a `<button type="button">` with an `onclick` handler that calls a JavaScript function using `fetch` to submit the action.
+  - Example: Instead of nesting forms, use `onclick={() => submitAction('actionName', { key: value })}`
+- **Modal backdrop accessibility**: When using a `<div>` as a clickable modal backdrop overlay:
+  - Add `role="button"` and `tabindex="0"` for accessibility
+  - Add `onkeydown` handler for keyboard support (at minimum handle Escape key to close)
+  - Example: `onkeydown={(e) => { if (e.key === 'Escape') closeModal(); }}`
+- **Inner modal content**: Use `role="presentation"` and `onclick={(e) => e.stopPropagation()}` to prevent clicks inside the modal from closing it
 
 ### Best Practices
 

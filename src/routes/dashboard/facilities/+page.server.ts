@@ -78,8 +78,10 @@ export const actions: Actions = {
 		// Allow trailing dashes during input, trim them on save
 		const slug = normalizeSlugAllowTrailing(asTrimmedString(form.get('slug')));
 
-		if (!name) return fail(400, { message: 'Facility name is required.', action: 'createFacility' });
-		if (!slug) return fail(400, { message: 'Facility slug is required.', action: 'createFacility' });
+		if (!name)
+			return fail(400, { message: 'Facility name is required.', action: 'createFacility' });
+		if (!slug)
+			return fail(400, { message: 'Facility slug is required.', action: 'createFacility' });
 
 		const dbOps = new DatabaseOperations(platform as App.Platform);
 		const actorUserId = locals.user?.id ?? null;
@@ -119,18 +121,16 @@ export const actions: Actions = {
 			postalCode: asTrimmedString(form.get('postalCode')) || undefined,
 			country: asTrimmedString(form.get('country')) || undefined,
 			timezone: asTrimmedString(form.get('timezone')) || undefined,
-			notes: asTrimmedString(form.get('notes')) || undefined,
+			description: asTrimmedString(form.get('description')) || undefined,
 			metadata: asTrimmedString(form.get('metadata')) || undefined,
 			isActive: 1,
 			createdUser: actorUserId || undefined,
 			updatedUser: actorUserId || undefined
 		});
 
-		if (!created?.id) return fail(500, { message: 'Failed to create facility.', action: 'createFacility' });
-		throw redirect(
-			303,
-			`/dashboard/facilities?facilityId=${encodeURIComponent(created.id)}`
-		);
+		if (!created?.id)
+			return fail(500, { message: 'Failed to create facility.', action: 'createFacility' });
+		throw redirect(303, `/dashboard/facilities?facilityId=${encodeURIComponent(created.id)}`);
 	},
 
 	updateFacility: async ({ request, platform, locals }) => {
@@ -146,7 +146,8 @@ export const actions: Actions = {
 
 		// Security: validate ownership manually (D1 has no RLS)
 		const existing = await dbOps.facilities.getById(facilityId);
-		if (!existing || existing.clientId !== clientId) return fail(404, { message: 'Facility not found.' });
+		if (!existing || existing.clientId !== clientId)
+			return fail(404, { message: 'Facility not found.' });
 
 		// Normalize inputs (allow trailing dash during typing, trim on save)
 		const slugUpdate = normalizeSlugAllowTrailing(asTrimmedString(form.get('slug')));
@@ -158,10 +159,10 @@ export const actions: Actions = {
 		const postalCodeUpdate = asTrimmedString(form.get('postalCode'));
 		const countryUpdate = asTrimmedString(form.get('country'));
 		const timezoneUpdate = asTrimmedString(form.get('timezone'));
-		const notesUpdate = asTrimmedString(form.get('notes'));
+		const descriptionUpdate = asTrimmedString(form.get('description'));
 
 		// Check for actual changes
-		const hasChanges = 
+		const hasChanges =
 			(nameUpdate !== undefined && nameUpdate !== existing.name) ||
 			(slugUpdate !== undefined && slugUpdate !== existing.slug) ||
 			(addressLine1Update !== undefined && addressLine1Update !== existing.addressLine1) ||
@@ -171,7 +172,7 @@ export const actions: Actions = {
 			(postalCodeUpdate !== undefined && postalCodeUpdate !== existing.postalCode) ||
 			(countryUpdate !== undefined && countryUpdate !== existing.country) ||
 			(timezoneUpdate !== undefined && timezoneUpdate !== existing.timezone) ||
-			(notesUpdate !== undefined && notesUpdate !== existing.notes);
+			(descriptionUpdate !== undefined && descriptionUpdate !== existing.description);
 
 		if (!hasChanges) {
 			return { ok: true, facilityId, noChange: true };
@@ -214,7 +215,7 @@ export const actions: Actions = {
 			postalCode: postalCodeUpdate ?? undefined,
 			country: countryUpdate ?? undefined,
 			timezone: timezoneUpdate ?? undefined,
-			notes: notesUpdate ?? undefined,
+			description: descriptionUpdate ?? undefined,
 			metadata: asTrimmedString(form.get('metadata')) ?? undefined,
 			updatedUser: actorUserId || undefined
 		});
@@ -236,7 +237,8 @@ export const actions: Actions = {
 		const clientId = resolveClientId(locals);
 
 		const existing = await dbOps.facilities.getById(facilityId);
-		if (!existing || existing.clientId !== clientId) return fail(404, { message: 'Facility not found.' });
+		if (!existing || existing.clientId !== clientId)
+			return fail(404, { message: 'Facility not found.' });
 
 		await dbOps.facilities.update(facilityId, {
 			isActive,
@@ -254,25 +256,29 @@ export const actions: Actions = {
 		const facilityId = asTrimmedString(form.get('facilityId'));
 		const name = asTrimmedString(form.get('name'));
 		// Allow trailing dashes during input, trim them on save
-		const code = normalizeSlugAllowTrailing(asTrimmedString(form.get('code')));
+		const slug = normalizeSlugAllowTrailing(asTrimmedString(form.get('slug')));
 
-		if (!facilityId) return fail(400, { message: 'Facility is required.', action: 'createFacilityArea' });
-		if (!name) return fail(400, { message: 'Area name is required.', action: 'createFacilityArea' });
-		if (!code) return fail(400, { message: 'Area code is required.', action: 'createFacilityArea' });
+		if (!facilityId)
+			return fail(400, { message: 'Facility is required.', action: 'createFacilityArea' });
+		if (!name)
+			return fail(400, { message: 'Area name is required.', action: 'createFacilityArea' });
+		if (!slug)
+			return fail(400, { message: 'Area slug is required.', action: 'createFacilityArea' });
 
 		const dbOps = new DatabaseOperations(platform as App.Platform);
 		const actorUserId = locals.user?.id ?? null;
 
 		const facility = await dbOps.facilities.getById(facilityId);
-		if (!facility || facility.clientId !== clientId) return fail(404, { message: 'Facility not found.', action: 'createFacilityArea' });
+		if (!facility || facility.clientId !== clientId)
+			return fail(404, { message: 'Facility not found.', action: 'createFacilityArea' });
 
 		// Prevent duplicates by name or slug within the facility (including archived).
 		const allExistingAreas = await dbOps.facilityAreas.getByFacilityId(facilityId);
 		const nameKey = normalizeName(name);
 		const duplicate = allExistingAreas.find((a) => {
 			const aName = normalizeName(a.name ?? null);
-			const aCode = normalizeSlug(a.code ?? null);
-			return (nameKey && aName === nameKey) || aCode === code;
+			const aSlug = normalizeSlug(a.slug ?? null);
+			return (nameKey && aName === nameKey) || aSlug === slug;
 		});
 		if (duplicate) {
 			const isArchived = duplicate.isActive === 0;
@@ -295,19 +301,20 @@ export const actions: Actions = {
 			clientId,
 			facilityId,
 			name,
-			code,
+			slug,
 			isActive: 1,
 			metadata: asTrimmedString(form.get('metadata')) || undefined,
 			createdUser: actorUserId || undefined,
 			updatedUser: actorUserId || undefined
 		});
 
-		if (!created?.id) return fail(500, { message: 'Failed to create facility area.', action: 'createFacilityArea' });
+		if (!created?.id)
+			return fail(500, {
+				message: 'Failed to create facility area.',
+				action: 'createFacilityArea'
+			});
 		// Keep user on the same facility after creating an area
-		throw redirect(
-			303,
-			`/dashboard/facilities?facilityId=${encodeURIComponent(facilityId)}`
-		);
+		throw redirect(303, `/dashboard/facilities?facilityId=${encodeURIComponent(facilityId)}`);
 	},
 
 	updateFacilityArea: async ({ request, platform, locals }) => {
@@ -322,30 +329,31 @@ export const actions: Actions = {
 		const clientId = resolveClientId(locals);
 
 		const existing = await dbOps.facilityAreas.getById(facilityAreaId);
-		if (!existing || existing.clientId !== clientId) return fail(404, { message: 'Facility area not found.' });
+		if (!existing || existing.clientId !== clientId)
+			return fail(404, { message: 'Facility area not found.' });
 
 		// Normalize inputs
-		const codeUpdate = normalizeSlugAllowTrailing(asTrimmedString(form.get('code')));
+		const slugUpdate = normalizeSlugAllowTrailing(asTrimmedString(form.get('slug')));
 		const nameUpdate = asTrimmedString(form.get('name'));
 
 		// Check for actual changes
-		const hasChanges = 
+		const hasChanges =
 			(nameUpdate !== undefined && nameUpdate !== existing.name) ||
-			(codeUpdate !== undefined && codeUpdate !== existing.code);
+			(slugUpdate !== undefined && slugUpdate !== existing.slug);
 
 		if (!hasChanges) {
 			return { ok: true, facilityAreaId, noChange: true };
 		}
 
-		// Prevent duplicates within the facility when changing name/code.
-		if (nameUpdate || codeUpdate) {
+		// Prevent duplicates within the facility when changing name/slug.
+		if (nameUpdate || slugUpdate) {
 			const existingAreas = await dbOps.facilityAreas.getByFacilityId(existing.facilityId ?? '');
 			const nameKey = normalizeName(nameUpdate ?? null);
 			const duplicate = existingAreas.find((a) => {
 				if (a.id === facilityAreaId) return false;
 				const aName = normalizeName(a.name ?? null);
-				const aCode = normalizeSlug(a.code ?? null);
-				return (nameKey && aName === nameKey) || (codeUpdate && aCode === codeUpdate);
+				const aSlug = normalizeSlug(a.slug ?? null);
+				return (nameKey && aName === nameKey) || (slugUpdate && aSlug === slugUpdate);
 			});
 			if (duplicate) {
 				const isArchived = duplicate.isActive === 0;
@@ -367,7 +375,7 @@ export const actions: Actions = {
 
 		const updated = await dbOps.facilityAreas.update(facilityAreaId, {
 			name: nameUpdate ?? undefined,
-			code: codeUpdate ?? undefined,
+			slug: slugUpdate ?? undefined,
 			metadata: asTrimmedString(form.get('metadata')) ?? undefined,
 			updatedUser: actorUserId || undefined
 		});
@@ -389,10 +397,12 @@ export const actions: Actions = {
 		const clientId = resolveClientId(locals);
 
 		const existing = await dbOps.facilityAreas.getById(facilityAreaId);
-		if (!existing || existing.clientId !== clientId) return fail(404, { message: 'Facility area not found.' });
+		if (!existing || existing.clientId !== clientId)
+			return fail(404, { message: 'Facility area not found.' });
 
 		const newFacility = await dbOps.facilities.getById(facilityId);
-		if (!newFacility || newFacility.clientId !== clientId) return fail(404, { message: 'Facility not found.' });
+		if (!newFacility || newFacility.clientId !== clientId)
+			return fail(404, { message: 'Facility not found.' });
 
 		await dbOps.facilityAreas.update(facilityAreaId, {
 			facilityId,
@@ -416,7 +426,8 @@ export const actions: Actions = {
 		const clientId = resolveClientId(locals);
 
 		const existing = await dbOps.facilityAreas.getById(facilityAreaId);
-		if (!existing || existing.clientId !== clientId) return fail(404, { message: 'Facility area not found.' });
+		if (!existing || existing.clientId !== clientId)
+			return fail(404, { message: 'Facility area not found.' });
 
 		await dbOps.facilityAreas.update(facilityAreaId, {
 			isActive,
@@ -432,15 +443,20 @@ export const actions: Actions = {
 
 		const facilityId = asTrimmedString(form.get('facilityId'));
 		const confirmSlug = asTrimmedString(form.get('confirmSlug'));
-		if (!facilityId) return fail(400, { message: 'Facility ID is required.', action: 'deleteFacility' });
+		if (!facilityId)
+			return fail(400, { message: 'Facility ID is required.', action: 'deleteFacility' });
 
 		const dbOps = new DatabaseOperations(platform as App.Platform);
 		const clientId = resolveClientId(locals);
 
 		const existing = await dbOps.facilities.getById(facilityId);
-		if (!existing || existing.clientId !== clientId) return fail(404, { message: 'Facility not found.', action: 'deleteFacility' });
+		if (!existing || existing.clientId !== clientId)
+			return fail(404, { message: 'Facility not found.', action: 'deleteFacility' });
 		if (existing.isActive !== 0) {
-			return fail(400, { message: 'Facility must be archived before deleting.', action: 'deleteFacility' });
+			return fail(400, {
+				message: 'Facility must be archived before deleting.',
+				action: 'deleteFacility'
+			});
 		}
 		const expected = normalizeSlug(existing.slug ?? null);
 		const provided = normalizeSlug(confirmSlug ?? null);
@@ -463,29 +479,37 @@ export const actions: Actions = {
 
 		const facilityAreaId = asTrimmedString(form.get('facilityAreaId'));
 		const confirmSlug = asTrimmedString(form.get('confirmSlug'));
-		if (!facilityAreaId) return fail(400, { message: 'Facility area ID is required.', action: 'deleteFacilityArea' });
+		if (!facilityAreaId)
+			return fail(400, { message: 'Facility area ID is required.', action: 'deleteFacilityArea' });
 
 		const dbOps = new DatabaseOperations(platform as App.Platform);
 		const clientId = resolveClientId(locals);
 
 		const existing = await dbOps.facilityAreas.getById(facilityAreaId);
-		if (!existing || existing.clientId !== clientId) return fail(404, { message: 'Facility area not found.', action: 'deleteFacilityArea' });
+		if (!existing || existing.clientId !== clientId)
+			return fail(404, { message: 'Facility area not found.', action: 'deleteFacilityArea' });
 		if (existing.isActive !== 0) {
-			return fail(400, { message: 'Facility area must be archived before deleting.', action: 'deleteFacilityArea' });
+			return fail(400, {
+				message: 'Facility area must be archived before deleting.',
+				action: 'deleteFacilityArea'
+			});
 		}
-		const expected = normalizeSlug(existing.code ?? null);
+		const expected = normalizeSlug(existing.slug ?? null);
 		const provided = normalizeSlug(confirmSlug ?? null);
 		if (!expected || provided !== expected) {
 			return fail(400, {
-				message: 'To delete, type the area code exactly.',
+				message: 'To delete, type the area slug exactly.',
 				action: 'deleteFacilityArea'
 			});
 		}
 
 		const ok = await dbOps.facilityAreas.delete(facilityAreaId);
-		if (!ok) return fail(500, { message: 'Failed to delete facility area.', action: 'deleteFacilityArea' });
+		if (!ok)
+			return fail(500, {
+				message: 'Failed to delete facility area.',
+				action: 'deleteFacilityArea'
+			});
 
 		return { ok: true };
 	}
 };
-

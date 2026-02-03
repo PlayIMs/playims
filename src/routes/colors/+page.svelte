@@ -761,7 +761,7 @@
 				aria-label="Close color picker"
 			>
 				<div
-					class="bg-white border-4 border-primary p-6 max-w-md w-full"
+					class="bg-white border-4 border-primary-500 p-6 max-w-md w-full"
 					onclick={(e) => e.stopPropagation()}
 					onkeydown={(e) => e.stopPropagation()}
 					role="presentation"
@@ -938,7 +938,7 @@
 				aria-label="Close save theme modal"
 			>
 				<div
-					class="bg-white border-4 border-primary p-6 max-w-md w-full"
+					class="bg-white border-4 border-primary-500 p-6 max-w-md w-full"
 					onclick={(e) => e.stopPropagation()}
 					onkeydown={(e) => e.stopPropagation()}
 					role="presentation"
@@ -1009,7 +1009,7 @@
 				aria-label="Close overwrite theme modal"
 			>
 				<div
-					class="bg-white border-4 border-primary p-6 max-w-md w-full"
+					class="bg-white border-4 border-primary-500 p-6 max-w-md w-full"
 					onclick={(e) => e.stopPropagation()}
 					onkeydown={(e) => e.stopPropagation()}
 					role="presentation"
@@ -1065,7 +1065,7 @@
 				aria-label="Close replace theme modal"
 			>
 				<div
-					class="bg-white border-4 border-primary p-6 max-w-md w-full"
+					class="bg-white border-4 border-primary-500 p-6 max-w-md w-full"
 					onclick={(e) => e.stopPropagation()}
 					onkeydown={(e) => e.stopPropagation()}
 					role="presentation"

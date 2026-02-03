@@ -48,22 +48,29 @@
 	let creatingAreaForFacilityId = $state<string | null>(null);
 
 	// Facility edit drafts
-	let facilityDrafts = $state<Record<string, {
-		name: string;
-		slug: string;
-		addressLine1: string;
-		addressLine2: string;
-		city: string;
-		state: string;
-		postalCode: string;
-		country: string;
-		timezone: string;
-		notes: string;
-		_addressExpanded?: boolean;
-	}>>({});
+	let facilityDrafts = $state<
+		Record<
+			string,
+			{
+				name: string;
+				slug: string;
+				addressLine1: string;
+				addressLine2: string;
+				city: string;
+				state: string;
+				postalCode: string;
+				country: string;
+				timezone: string;
+				description: string;
+				_addressExpanded?: boolean;
+			}
+		>
+	>({});
 
 	// Area edit drafts
-	let areaDrafts = $state<Record<string, { name: string; code: string; _addressExpanded?: boolean }>>({});
+	let areaDrafts = $state<
+		Record<string, { name: string; slug: string; _addressExpanded?: boolean }>
+	>({});
 
 	// Confirm modal (archive/restore/delete).
 	type ConfirmIntent =
@@ -183,20 +190,41 @@
 		return value;
 	}
 
+	// Submit a form action via fetch (avoids nested form issues)
+	async function submitAction(action: string, formDataObj: Record<string, string>) {
+		const fd = new FormData();
+		for (const [k, v] of Object.entries(formDataObj)) {
+			fd.append(k, v);
+		}
+		try {
+			const res = await fetch(`?/${action}`, {
+				method: 'POST',
+				body: fd
+			});
+			if (res.ok || res.redirected) {
+				// Reload to reflect changes
+				window.location.reload();
+			}
+		} catch (e) {
+			console.error('Action failed:', e);
+		}
+	}
+
 	const currentClientId = $derived(data.clientId || '');
 
 	// Compute matched area IDs based on facility search - use $effect to update state
 	let matchedAreaIds = $state<Set<string>>(new Set());
-	
+
 	$effect(() => {
 		const query = facilitySearch.trim().toLowerCase();
 		if (!query) {
 			matchedAreaIds = new Set();
 		} else {
 			// Find matching areas
-			const matchingAreas = data.facilityAreas.filter((a) =>
-				(a.name || '').toLowerCase().includes(query) ||
-				(a.code || '').toLowerCase().includes(query)
+			const matchingAreas = data.facilityAreas.filter(
+				(a) =>
+					(a.name || '').toLowerCase().includes(query) ||
+					(a.slug || '').toLowerCase().includes(query)
 			);
 			matchedAreaIds = new Set(matchingAreas.map((a) => a.id));
 		}
@@ -206,7 +234,7 @@
 	const facilities = $derived.by(() => {
 		const query = facilitySearch.trim().toLowerCase();
 		let filtered = data.facilities;
-		
+
 		if (viewArchiveMode) {
 			// In archive mode, show only archived facilities OR facilities with archived areas
 			filtered = filtered.filter((f) => {
@@ -220,24 +248,23 @@
 			// Normal mode: show active facilities (but they may have archived areas that we'll filter out)
 			filtered = filtered.filter((f) => f.isActive !== 0);
 		}
-		
+
 		if (!query) {
 			return filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 		}
-		
+
 		// Get facility IDs that have matching areas (use the reactive matchedAreaIds)
 		const facilityIdsWithMatchingAreas = new Set(
-			data.facilityAreas
-				.filter((a) => matchedAreaIds.has(a.id))
-				.map((a) => a.facilityId)
+			data.facilityAreas.filter((a) => matchedAreaIds.has(a.id)).map((a) => a.facilityId)
 		);
-		
+
 		return filtered
-			.filter((f) =>
-				(f.name || '').toLowerCase().includes(query) ||
-				(f.slug || '').toLowerCase().includes(query) ||
-				(f.notes || '').toLowerCase().includes(query) ||
-				facilityIdsWithMatchingAreas.has(f.id)
+			.filter(
+				(f) =>
+					(f.name || '').toLowerCase().includes(query) ||
+					(f.slug || '').toLowerCase().includes(query) ||
+					(f.description || '').toLowerCase().includes(query) ||
+					facilityIdsWithMatchingAreas.has(f.id)
 			)
 			.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 	});
@@ -261,8 +288,10 @@
 				if (facilityQuery && matchedAreaIds.has(a.id)) return true;
 				// Normal area search
 				if (!query) return true;
-				return (a.name || '').toLowerCase().includes(query) ||
-					(a.code || '').toLowerCase().includes(query);
+				return (
+					(a.name || '').toLowerCase().includes(query) ||
+					(a.slug || '').toLowerCase().includes(query)
+				);
 			})
 			.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 	}
@@ -271,9 +300,14 @@
 		return data.facilityAreas.filter((a) => a.facilityId === facilityId && a.isActive !== 0).length;
 	}
 
-	function getGoogleMapsUrl(facility: typeof data.facilities[0]) {
-		const parts = [facility.addressLine1, facility.city, facility.state, facility.postalCode, facility.country]
-			.filter(Boolean);
+	function getGoogleMapsUrl(facility: (typeof data.facilities)[0]) {
+		const parts = [
+			facility.addressLine1,
+			facility.city,
+			facility.state,
+			facility.postalCode,
+			facility.country
+		].filter(Boolean);
 		if (parts.length === 0) return null;
 		return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(parts.join(', '))}`;
 	}
@@ -288,7 +322,7 @@
 		expandedFacilityIds = next;
 	}
 
-	function startEditingFacility(facility: typeof data.facilities[0]) {
+	function startEditingFacility(facility: (typeof data.facilities)[0]) {
 		editingFacilityId = facility.id;
 		facilityDrafts[facility.id] = {
 			name: facility.name || '',
@@ -300,8 +334,15 @@
 			postalCode: facility.postalCode || '',
 			country: facility.country || '',
 			timezone: facility.timezone || '',
-			notes: facility.notes || '',
-			_addressExpanded: !!(facility.addressLine1 || facility.addressLine2 || facility.city || facility.state || facility.postalCode || facility.country)
+			description: facility.description || '',
+			_addressExpanded: !!(
+				facility.addressLine1 ||
+				facility.addressLine2 ||
+				facility.city ||
+				facility.state ||
+				facility.postalCode ||
+				facility.country
+			)
 		};
 	}
 
@@ -309,11 +350,11 @@
 		editingFacilityId = null;
 	}
 
-	function startEditingArea(area: typeof data.facilityAreas[0]) {
+	function startEditingArea(area: (typeof data.facilityAreas)[0]) {
 		editingAreaId = area.id;
 		areaDrafts[area.id] = {
 			name: area.name || '',
-			code: area.code || ''
+			slug: area.slug || ''
 		};
 	}
 
@@ -368,7 +409,9 @@
 	}
 
 	function submitAreaArchive(facilityAreaId: string) {
-		const formEl = document.getElementById(`area-archive-form-${facilityAreaId}`) as HTMLFormElement | null;
+		const formEl = document.getElementById(
+			`area-archive-form-${facilityAreaId}`
+		) as HTMLFormElement | null;
 		formEl?.requestSubmit();
 	}
 
@@ -390,7 +433,10 @@
 
 <svelte:head>
 	<title>Facilities - PlayIMs</title>
-	<meta name="description" content="Manage sports facilities and venue areas. Create, edit, and organize your league's locations." />
+	<meta
+		name="description"
+		content="Manage sports facilities and venue areas. Create, edit, and organize your league's locations."
+	/>
 	<meta name="robots" content="noindex, follow" />
 </svelte:head>
 
@@ -432,14 +478,20 @@
 										Restore
 									</button>
 								</form>
-								<button 
+								<button
 									type="button"
 									class="button-secondary-outlined text-sm flex items-center gap-1 border-error-500 text-error-700"
 									onclick={() => {
 										if (formData?.archivedFacilityId) {
-											const archivedFacility = data.facilities.find(f => f.id === formData?.archivedFacilityId);
+											const archivedFacility = data.facilities.find(
+												(f) => f.id === formData?.archivedFacilityId
+											);
 											if (archivedFacility) {
-												openConfirm({ kind: 'facility-delete', facilityId: archivedFacility.id, slug: archivedFacility.slug || '' });
+												openConfirm({
+													kind: 'facility-delete',
+													facilityId: archivedFacility.id,
+													slug: archivedFacility.slug || ''
+												});
 											}
 										}
 									}}
@@ -448,7 +500,9 @@
 									Delete
 								</button>
 							{:else if formData?.archivedAreaId && formData?.archivedAreaFacilityId}
-								{@const archivedArea = data.facilityAreas.find(a => a.id === formData?.archivedAreaId)}
+								{@const archivedArea = data.facilityAreas.find(
+									(a) => a.id === formData?.archivedAreaId
+								)}
 								<form method="POST" action="?/setFacilityAreaArchived" use:enhance class="inline">
 									<input type="hidden" name="facilityAreaId" value={formData?.archivedAreaId} />
 									<input type="hidden" name="isActive" value="1" />
@@ -457,12 +511,16 @@
 										Restore
 									</button>
 								</form>
-								<button 
+								<button
 									type="button"
 									class="button-secondary-outlined text-sm flex items-center gap-1 border-error-500 text-error-700"
 									onclick={() => {
 										if (formData?.archivedAreaId && archivedArea) {
-											openConfirm({ kind: 'area-delete', facilityAreaId: archivedArea.id, slug: archivedArea.code || '' });
+											openConfirm({
+												kind: 'area-delete',
+												facilityAreaId: archivedArea.id,
+												slug: archivedArea.slug || ''
+											});
 										}
 									}}
 								>
@@ -478,7 +536,9 @@
 	</header>
 
 	<!-- Filters -->
-	<div class="flex flex-wrap items-center justify-between gap-4 mb-6 p-4 bg-neutral-400 border border-secondary">
+	<div
+		class="flex flex-wrap items-center justify-between gap-4 mb-6 p-4 bg-neutral-400 border border-secondary"
+	>
 		<div class="relative flex-1 min-w-[200px] max-w-md">
 			<IconSearch class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-950" />
 			<label for="facility-search" class="sr-only">Search facilities and areas</label>
@@ -495,7 +555,7 @@
 		<button
 			class="button-secondary-outlined {viewArchiveMode ? 'bg-secondary-100' : ''} cursor-pointer"
 			type="button"
-			onclick={() => viewArchiveMode = !viewArchiveMode}
+			onclick={() => (viewArchiveMode = !viewArchiveMode)}
 		>
 			{viewArchiveMode ? 'View Active' : 'View Archive'}
 		</button>
@@ -531,7 +591,8 @@
 					<!-- Facility Header -->
 					<div class="p-4 {isExpanded ? 'border-b border-secondary' : ''}">
 						{#if isEditing}
-							{@const editingAddressExpanded = facilityDrafts[facility.id]?._addressExpanded ?? false}
+							{@const editingAddressExpanded =
+								facilityDrafts[facility.id]?._addressExpanded ?? false}
 							<!-- Inline Facility Edit Form -->
 							<form
 								method="POST"
@@ -539,7 +600,11 @@
 								use:enhance={() => {
 									return async ({ update, result }) => {
 										await update({ reset: false });
-										if (result.type === 'success' || (result.type === 'failure' && (result.data as { noChange?: boolean })?.noChange)) {
+										if (
+											result.type === 'success' ||
+											(result.type === 'failure' &&
+												(result.data as { noChange?: boolean })?.noChange)
+										) {
 											stopEditingFacility();
 										}
 									};
@@ -552,24 +617,35 @@
 										<IconAlertCircle class="w-5 h-5 text-error-700 mt-0.5" />
 										<div class="flex-1">
 											<p class="text-error-800 font-sans">{form.message}</p>
-														{#if formData?.duplicateType === 'archived' && formData?.archivedFacilityId}
+											{#if formData?.duplicateType === 'archived' && formData?.archivedFacilityId}
 												<div class="flex items-center gap-2 mt-2">
-													<form method="POST" action="?/setFacilityArchived" use:enhance class="inline">
-														<input type="hidden" name="facilityId" value={String(formData.archivedFacilityId)} />
-														<input type="hidden" name="isActive" value="1" />
-														<button type="submit" class="button-secondary text-sm flex items-center gap-1">
-															<IconRestore class="w-4 h-4" />
-															Restore
-														</button>
-													</form>
-													<button 
+													<button
+														type="button"
+														class="button-secondary text-sm flex items-center gap-1"
+														onclick={() =>
+															submitAction('setFacilityArchived', {
+																facilityId: String(formData?.archivedFacilityId),
+																isActive: '1'
+															})}
+													>
+														<IconRestore class="w-4 h-4" />
+														Restore
+													</button>
+													<button
 														type="button"
 														class="button-secondary-outlined text-sm flex items-center gap-1 border-error-500 text-error-700"
 														onclick={() => {
 															if (formData?.archivedFacilityId) {
-																const archivedFacility = data.facilities.find(f => f.id === formData.archivedFacilityId);
+																const archivedFacility = data.facilities.find(
+																	(f) => f.id === formData.archivedFacilityId
+																);
 																if (archivedFacility) {
-																	openConfirm({ kind: 'facility-delete', facilityId: archivedFacility.id, slug: archivedFacility.slug || '', name: archivedFacility.name || '' });
+																	openConfirm({
+																		kind: 'facility-delete',
+																		facilityId: archivedFacility.id,
+																		slug: archivedFacility.slug || '',
+																		name: archivedFacility.name || ''
+																	});
 																}
 															}
 														}}
@@ -614,10 +690,10 @@
 								</div>
 								<div>
 									<label class="block text-sm font-sans text-neutral-950 mb-1"
-										>Notes (optional)
+										>Description (optional)
 										<textarea
-											name="notes"
-											bind:value={facilityDrafts[facility.id].notes}
+											name="description"
+											bind:value={facilityDrafts[facility.id].description}
 											rows="2"
 											class="w-full input-secondary bg-white mt-1 resize-none"
 											autocomplete="off"
@@ -631,9 +707,9 @@
 										type="button"
 										class="button-secondary text-sm flex items-center gap-2 cursor-pointer"
 										onclick={() => {
-											facilityDrafts[facility.id] = { 
-												...facilityDrafts[facility.id], 
-												_addressExpanded: !editingAddressExpanded 
+											facilityDrafts[facility.id] = {
+												...facilityDrafts[facility.id],
+												_addressExpanded: !editingAddressExpanded
 											};
 										}}
 									>
@@ -709,7 +785,10 @@
 									</div>
 								{/if}
 								<div class="flex items-center gap-2">
-									<button type="submit" class="button-accent flex items-center gap-2 cursor-pointer">
+									<button
+										type="submit"
+										class="button-accent flex items-center gap-2 cursor-pointer"
+									>
 										<IconCheck class="w-4 h-4" />
 										<span>Save</span>
 									</button>
@@ -731,7 +810,11 @@
 									onclick={() => toggleFacilityExpanded(facility.id)}
 									aria-expanded={isExpanded}
 								>
-									<div class="transition-transform duration-300 ease-in-out {isExpanded ? 'rotate-90' : 'rotate-0'}">
+									<div
+										class="transition-transform duration-300 ease-in-out {isExpanded
+											? 'rotate-90'
+											: 'rotate-0'}"
+									>
 										<IconChevronRight class="w-5 h-5 text-neutral-950 shrink-0" />
 									</div>
 									<div class="min-w-0">
@@ -790,11 +873,7 @@
 												<IconPencil class="w-4 h-4 text-secondary-700" />
 											</button>
 										{/if}
-										<form
-											method="POST"
-											action="?/setFacilityArchived"
-											use:enhance
-										>
+										<form method="POST" action="?/setFacilityArchived" use:enhance>
 											<input type="hidden" name="facilityId" value={facility.id} />
 											<input
 												type="hidden"
@@ -804,7 +883,9 @@
 											<button
 												type="button"
 												class="button-secondary-outlined p-2! cursor-pointer"
-												aria-label={facility.isActive === 0 ? 'Restore facility' : 'Archive facility'}
+												aria-label={facility.isActive === 0
+													? 'Restore facility'
+													: 'Archive facility'}
 												onclick={() =>
 													openConfirm(
 														facility.isActive === 0
@@ -859,7 +940,9 @@
 					{#if isExpanded}
 						<div class="border-t border-secondary bg-white">
 							<!-- Areas Header -->
-							<div class="p-3 border-b border-secondary bg-neutral-100 flex items-center justify-between gap-3">
+							<div
+								class="p-3 border-b border-secondary bg-neutral-100 flex items-center justify-between gap-3"
+							>
 								<span class="font-sans font-semibold text-neutral-950 text-sm">
 									Areas ({facilityAreas.length})
 								</span>
@@ -879,7 +962,9 @@
 							{#if facilityAreas.length === 0}
 								<div class="p-4 text-center">
 									<p class="text-sm font-sans text-neutral-700">
-										{viewArchiveMode ? 'No archived areas for this facility.' : 'No areas for this facility yet.'}
+										{viewArchiveMode
+											? 'No archived areas for this facility.'
+											: 'No areas for this facility yet.'}
 										{#if !viewArchiveMode && !isArchived && !isPartiallyArchived}
 											<button
 												type="button"
@@ -900,14 +985,19 @@
 										<li class="p-3 {isMatchedArea ? 'bg-secondary-50' : ''}">
 											{#if isEditingArea}
 												<!-- Inline Area Edit Form -->
-												{@const editingAreaAddressExpanded = areaDrafts[area.id]?._addressExpanded ?? false}
+												{@const editingAreaAddressExpanded =
+													areaDrafts[area.id]?._addressExpanded ?? false}
 												<form
 													method="POST"
 													action="?/updateFacilityArea"
 													use:enhance={() => {
 														return async ({ update, result }) => {
 															await update({ reset: false });
-															if (result.type === 'success' || (result.type === 'failure' && (result.data as { noChange?: boolean })?.noChange)) {
+															if (
+																result.type === 'success' ||
+																(result.type === 'failure' &&
+																	(result.data as { noChange?: boolean })?.noChange)
+															) {
 																stopEditingArea();
 															}
 														};
@@ -916,27 +1006,39 @@
 												>
 													<input type="hidden" name="facilityAreaId" value={area.id} />
 													{#if form?.action === 'updateFacilityArea' && form?.message}
-														<div class="border-2 border-error-300 bg-error-50 p-3 flex items-start gap-3">
+														<div
+															class="border-2 border-error-300 bg-error-50 p-3 flex items-start gap-3"
+														>
 															<IconAlertCircle class="w-5 h-5 text-error-700 mt-0.5" />
 															<div class="flex-1">
 																<p class="text-error-800 font-sans">{form.message}</p>
 																{#if formData?.duplicateType === 'archived' && formData?.archivedAreaId}
-																	{@const archivedArea = data.facilityAreas.find(a => a.id === form.archivedAreaId)}
+																	{@const archivedArea = data.facilityAreas.find(
+																		(a) => a.id === formData.archivedAreaId
+																	)}
 																	<div class="flex items-center gap-2 mt-2">
-																		<form method="POST" action="?/setFacilityAreaArchived" use:enhance class="inline">
-																			<input type="hidden" name="facilityAreaId" value={formData?.archivedAreaId} />
-																			<input type="hidden" name="isActive" value="1" />
-																			<button type="submit" class="button-secondary text-sm flex items-center gap-1">
-																				<IconRestore class="w-4 h-4" />
-																				Restore
-																			</button>
-																		</form>
-																		<button 
+																		<button
+																			type="button"
+																			class="button-secondary text-sm flex items-center gap-1"
+																			onclick={() =>
+																				submitAction('setFacilityAreaArchived', {
+																					facilityAreaId: String(formData?.archivedAreaId),
+																					isActive: '1'
+																				})}
+																		>
+																			<IconRestore class="w-4 h-4" />
+																			Restore
+																		</button>
+																		<button
 																			type="button"
 																			class="button-secondary-outlined text-sm flex items-center gap-1 border-error-500 text-error-700"
 																			onclick={() => {
 																				if (formData?.archivedAreaId && archivedArea) {
-																					openConfirm({ kind: 'area-delete', facilityAreaId: archivedArea.id, slug: archivedArea.code || '' });
+																					openConfirm({
+																						kind: 'area-delete',
+																						facilityAreaId: archivedArea.id,
+																						slug: archivedArea.slug || ''
+																					});
 																				}
 																			}}
 																		>
@@ -960,10 +1062,10 @@
 														<input
 															type="text"
 															name="slug"
-															value={areaDrafts[area.id].code}
+															value={areaDrafts[area.id].slug}
 															oninput={(e) => {
 																const el = e.currentTarget as HTMLInputElement;
-																areaDrafts[area.id].code = applyLiveSlugInput(el);
+																areaDrafts[area.id].slug = applyLiveSlugInput(el);
 															}}
 															placeholder="slug"
 															class="w-full input-secondary text-sm"
@@ -974,7 +1076,6 @@
 														<label class="block text-xs font-sans text-neutral-950 mb-1"
 															>Notes (optional)
 															<textarea
-																
 																rows="2"
 																class="w-full input-secondary text-sm resize-none"
 																autocomplete="off"
@@ -982,7 +1083,11 @@
 														</label>
 													</div>
 													<div class="flex items-center gap-2 shrink-0">
-														<button type="submit" class="button-secondary-outlined p-2! cursor-pointer" aria-label="Save">
+														<button
+															type="submit"
+															class="button-secondary-outlined p-2! cursor-pointer"
+															aria-label="Save"
+														>
 															<IconCheck class="w-4 h-4 text-secondary-700" />
 														</button>
 														<button
@@ -1063,7 +1168,8 @@
 																	type="button"
 																	class="button-secondary-outlined p-2! cursor-pointer"
 																	aria-label="Restore area"
-																	onclick={() => openConfirm({ kind: 'area-restore', facilityAreaId: area.id })}
+																	onclick={() =>
+																		openConfirm({ kind: 'area-restore', facilityAreaId: area.id })}
 																>
 																	<IconRestore class="w-4 h-4 text-secondary-700" />
 																</button>
@@ -1146,6 +1252,9 @@
 	<div
 		class="fixed inset-0 bg-black/50 z-50 flex items-start justify-center p-6"
 		onclick={closeCreateFacility}
+		onkeydown={(e) => {
+			if (e.key === 'Escape') closeCreateFacility();
+		}}
 		role="button"
 		tabindex="0"
 		aria-label="Close modal"
@@ -1176,22 +1285,32 @@
 							<p class="text-error-800 font-sans">{form.message}</p>
 							{#if formData?.duplicateType === 'archived' && formData?.archivedFacilityId}
 								<div class="flex items-center gap-2 mt-2">
-									<form method="POST" action="?/setFacilityArchived" use:enhance class="inline">
-										<input type="hidden" name="facilityId" value={formData?.archivedFacilityId} />
-										<input type="hidden" name="isActive" value="1" />
-										<button type="submit" class="button-secondary text-sm flex items-center gap-1">
-											<IconRestore class="w-4 h-4" />
-											Restore
-										</button>
-									</form>
-									<button 
+									<button
+										type="button"
+										class="button-secondary text-sm flex items-center gap-1"
+										onclick={() =>
+											submitAction('setFacilityArchived', {
+												facilityId: String(formData?.archivedFacilityId),
+												isActive: '1'
+											})}
+									>
+										<IconRestore class="w-4 h-4" />
+										Restore
+									</button>
+									<button
 										type="button"
 										class="button-secondary-outlined text-sm flex items-center gap-1 border-error-500 text-error-700"
 										onclick={() => {
 											if (formData?.archivedFacilityId) {
-												const archivedFacility = data.facilities.find(f => f.id === form.archivedFacilityId);
+												const archivedFacility = data.facilities.find(
+													(f) => f.id === formData.archivedFacilityId
+												);
 												if (archivedFacility) {
-													openConfirm({ kind: 'facility-delete', facilityId: archivedFacility.id, slug: archivedFacility.slug || '' });
+													openConfirm({
+														kind: 'facility-delete',
+														facilityId: archivedFacility.id,
+														slug: archivedFacility.slug || ''
+													});
 												}
 											}
 										}}
@@ -1251,12 +1370,13 @@
 				</div>
 
 				<div>
-					<label for="new-facility-notes" class="block text-sm font-sans text-neutral-950 mb-1"
-						>Notes (optional)</label
+					<label
+						for="new-facility-description"
+						class="block text-sm font-sans text-neutral-950 mb-1">Description (optional)</label
 					>
 					<textarea
-						id="new-facility-notes"
-						name="notes"
+						id="new-facility-description"
+						name="description"
 						bind:value={newFacilityNotes}
 						rows="2"
 						class="w-full input-secondary resize-none"
@@ -1419,8 +1539,10 @@
 				{/if}
 
 				<div class="flex items-center justify-end gap-3">
-					<button type="button" class="button-secondary cursor-pointer" onclick={closeCreateFacility}
-						>Cancel</button
+					<button
+						type="button"
+						class="button-secondary cursor-pointer"
+						onclick={closeCreateFacility}>Cancel</button
 					>
 					<button type="submit" class="button-accent flex items-center gap-2 cursor-pointer">
 						<IconPlus class="w-5 h-5" />
@@ -1437,6 +1559,9 @@
 	<div
 		class="fixed inset-0 bg-black/50 z-50 flex items-start justify-center p-6"
 		onclick={closeCreateArea}
+		onkeydown={(e) => {
+			if (e.key === 'Escape') closeCreateArea();
+		}}
 		role="button"
 		tabindex="0"
 		aria-label="Close modal"
@@ -1466,22 +1591,32 @@
 						<div class="flex-1">
 							<p class="text-error-800 font-sans">{form.message}</p>
 							{#if formData?.duplicateType === 'archived' && formData?.archivedAreaId}
-								{@const archivedArea = data.facilityAreas.find(a => a.id === formData.archivedAreaId)}
+								{@const archivedArea = data.facilityAreas.find(
+									(a) => a.id === formData.archivedAreaId
+								)}
 								<div class="flex items-center gap-2 mt-2">
-									<form method="POST" action="?/setFacilityAreaArchived" use:enhance class="inline">
-										<input type="hidden" name="facilityAreaId" value={String(formData.archivedAreaId)} />
-										<input type="hidden" name="isActive" value="1" />
-										<button type="submit" class="button-secondary text-sm flex items-center gap-1">
-											<IconRestore class="w-4 h-4" />
-											Restore
-										</button>
-									</form>
-									<button 
+									<button
+										type="button"
+										class="button-secondary text-sm flex items-center gap-1"
+										onclick={() =>
+											submitAction('setFacilityAreaArchived', {
+												facilityAreaId: String(formData?.archivedAreaId),
+												isActive: '1'
+											})}
+									>
+										<IconRestore class="w-4 h-4" />
+										Restore
+									</button>
+									<button
 										type="button"
 										class="button-secondary-outlined text-sm flex items-center gap-1 border-error-500 text-error-700"
 										onclick={() => {
 											if (formData?.archivedAreaId && archivedArea) {
-												openConfirm({ kind: 'area-delete', facilityAreaId: archivedArea.id, slug: archivedArea.slug || '' });
+												openConfirm({
+													kind: 'area-delete',
+													facilityAreaId: archivedArea.id,
+													slug: archivedArea.slug || ''
+												});
 											}
 										}}
 									>
@@ -1540,10 +1675,10 @@
 					</div>
 				</div>
 
-
-
 				<div class="flex items-center justify-end gap-3">
-					<button type="button" class="button-secondary cursor-pointer" onclick={closeCreateArea}>Cancel</button>
+					<button type="button" class="button-secondary cursor-pointer" onclick={closeCreateArea}
+						>Cancel</button
+					>
 					<button type="submit" class="button-accent flex items-center gap-2 cursor-pointer">
 						<IconPlus class="w-5 h-5" />
 						<span>Create Area</span>
@@ -1559,6 +1694,9 @@
 	<div
 		class="fixed inset-0 bg-black/50 z-50 flex items-start justify-center p-6"
 		onclick={closeConfirm}
+		onkeydown={(e) => {
+			if (e.key === 'Escape') closeConfirm();
+		}}
 		role="button"
 		tabindex="0"
 		aria-label="Close confirmation modal"
@@ -1576,7 +1714,8 @@
 				<div class="p-5 space-y-4">
 					{#if confirmIntent.kind === 'facility-delete'}
 						<p class="font-sans text-neutral-950">
-							This will <span class="font-bold text-error-500">permanently delete</span> the facility. This action <span class="font-bold text-error-500">cannot</span>
+							This will <span class="font-bold text-error-500">permanently delete</span> the
+							facility. This action <span class="font-bold text-error-500">cannot</span>
 							be undone.
 						</p>
 						<p class="font-sans text-neutral-950">
@@ -1586,8 +1725,8 @@
 						</p>
 					{:else}
 						<p class="font-sans text-neutral-950">
-							This will <span class="font-bold text-error-500">permanently delete</span> the area. This action <span class="font-bold text-error-500">cannot</span> be
-							undone.
+							This will <span class="font-bold text-error-500">permanently delete</span> the area.
+							This action <span class="font-bold text-error-500">cannot</span> be undone.
 						</p>
 						<p class="font-sans text-neutral-950">
 							Type the area slug to confirm: <span class="font-mono font-bold"
@@ -1603,7 +1742,9 @@
 						autocomplete="off"
 					/>
 					<div class="flex items-center justify-end gap-3 pt-2">
-						<button type="button" class="button-secondary cursor-pointer" onclick={closeConfirm}>Cancel</button>
+						<button type="button" class="button-secondary cursor-pointer" onclick={closeConfirm}
+							>Cancel</button
+						>
 						<button
 							type="button"
 							class="button-secondary-outlined border-error-500 text-error-700 hover:bg-error-50 flex items-center gap-2 min-w-[10rem] justify-center cursor-pointer"
@@ -1649,7 +1790,9 @@
 						<p class="font-sans text-neutral-950">This will make it active again.</p>
 					{/if}
 					<div class="flex items-center justify-end gap-3 pt-2">
-						<button type="button" class="button-secondary cursor-pointer" onclick={closeConfirm}>Cancel</button>
+						<button type="button" class="button-secondary cursor-pointer" onclick={closeConfirm}
+							>Cancel</button
+						>
 						<button
 							type="button"
 							class="button-primary-outlined flex items-center gap-2 min-w-[10rem] justify-center cursor-pointer"
@@ -1665,7 +1808,10 @@
 									return;
 								}
 
-								if (confirmIntent.kind === 'area-archive' || confirmIntent.kind === 'area-restore') {
+								if (
+									confirmIntent.kind === 'area-archive' ||
+									confirmIntent.kind === 'area-restore'
+								) {
 									submitAreaArchive(confirmIntent.facilityAreaId);
 									closeConfirm();
 									return;

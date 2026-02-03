@@ -34,7 +34,7 @@ export class FacilityOperations {
 		postalCode?: string;
 		country?: string;
 		timezone?: string;
-		notes?: string;
+		description?: string;
 		metadata?: string;
 		isActive?: number;
 		createdUser?: string;
@@ -56,7 +56,7 @@ export class FacilityOperations {
 				postalCode: data.postalCode || null,
 				country: data.country || null,
 				timezone: data.timezone || null,
-				notes: data.notes || null,
+				description: data.description || null,
 				metadata: data.metadata || null,
 				isActive: data.isActive ?? 1,
 				createdAt: now,
@@ -81,7 +81,7 @@ export class FacilityOperations {
 			postalCode: string;
 			country: string;
 			timezone: string;
-			notes: string;
+			description: string;
 			metadata: string;
 			isActive: number;
 			updatedUser: string;

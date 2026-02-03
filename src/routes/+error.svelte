@@ -3,30 +3,36 @@
 </script>
 
 <svelte:head>
-	<title>Page Not Found - PlayIMs</title>
-	<meta name="description" content="The page you're looking for doesn't exist. Return to PlayIMs home." />
+	<title>{$page.status === 404 ? 'Page Not Found' : 'Error'} - PlayIMs</title>
+	<meta
+		name="description"
+		content="The page you're looking for doesn't exist. Return to PlayIMs home."
+	/>
 	<meta name="robots" content="noindex, follow" />
 </svelte:head>
 
-<div class="min-h-screen bg-secondary flex items-center justify-center px-4 sm:px-6 lg:px-8">
+<div class="min-h-screen bg-secondary-500 flex items-center justify-center px-4 sm:px-6 lg:px-8">
 	<div class="max-w-lg w-full text-center">
-		<!-- Error Code -->
 		<div class="mb-8">
-			<h1 class="text-8xl sm:text-9xl font-bold text-primary-500 tracking-tight">404</h1>
+			<h1 class="text-8xl sm:text-9xl font-bold text-primary-500 tracking-tight">
+				{$page.status === 404 ? '404' : $page.status || 'Error'}
+			</h1>
 		</div>
 
-		<!-- Error Message -->
 		<div class="mb-8">
-			<h2 class="text-2xl sm:text-3xl font-bold text-secondary-25 mb-4">Page Not Found</h2>
+			<h2 class="text-2xl sm:text-3xl font-bold text-secondary-25 mb-4">
+				{$page.status === 404 ? 'Page Not Found' : 'Something Went Wrong'}
+			</h2>
 			<p class="text-lg text-secondary-50 mb-2">
-				Sorry, we couldn't find the page you're looking for.
-			</p>
-			{#if $page.error?.message}
+				{$page.status === 404 
+					? "Sorry, we couldn't find the page you're looking for." 
+					: ($page.error?.message || "An unexpected error occurred. Please try again later.")}
+						</p>
+			{#if $page.status !== 404 && $page.error?.message}
 				<p class="text-sm text-secondary-100 mt-2">{$page.error.message}</p>
 			{/if}
 		</div>
 
-		<!-- Actions -->
 		<div class="flex flex-col sm:flex-row gap-4 justify-center">
 			<a
 				href="/"
@@ -58,7 +64,6 @@
 			</a>
 		</div>
 
-		<!-- Help Text -->
 		<div class="mt-12 pt-8 border-t-2 border-secondary-400">
 			<p class="text-sm text-secondary-100">
 				If you believe this is an error, please contact support.
