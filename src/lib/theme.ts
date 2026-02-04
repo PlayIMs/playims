@@ -43,7 +43,7 @@ type SavedTheme = {
 	createdAt: number;
 };
 
-const MAX_SAVED_THEMES = 10;
+const MAX_SAVED_THEMES = 15;
 const STORAGE_KEY_THEMES = 'saved-themes';
 const STORAGE_KEY_CURRENT = 'current-theme';
 

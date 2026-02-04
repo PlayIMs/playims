@@ -496,7 +496,7 @@
 	}
 
 	function openSaveModal() {
-		if ($savedThemes.length >= 5) {
+		if ($savedThemes.length >= 15) {
 			// Show replace modal first
 			showReplaceModal = true;
 		} else {
@@ -1083,7 +1083,7 @@
 						</button>
 					</div>
 					<p class="text-secondary-700 mb-4">
-						You have reached the maximum of 5 saved themes. Which theme would you like to replace?
+						You have reached the maximum of 15 saved themes. Which theme would you like to replace?
 					</p>
 					<div class="space-y-2 mb-4 max-h-64 overflow-y-auto">
 						{#each $savedThemes as theme, index}

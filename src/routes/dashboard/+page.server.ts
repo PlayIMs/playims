@@ -61,6 +61,7 @@ export const load: PageServerLoad = async ({ platform }) => {
 
 		const liveGames = todaysEvents.filter(evt => evt.status === 'in_progress');
 		const completedToday = todaysEvents.filter(evt => evt.status === 'completed');
+		const practicesToday = 0;
 
 		// Format events with details
 		const formatEvent = async (evt: any) => {
@@ -130,7 +131,8 @@ export const load: PageServerLoad = async ({ platform }) => {
 				gamesToday: todaysEvents.length,
 				liveGames: liveGames.length,
 				completedToday: completedToday.length,
-				pendingActions: pendingRosters
+				pendingActions: pendingRosters,
+				practicesToday
 			},
 			todaysEvents: formattedTodaysEvents,
 			upcomingEvents: formattedUpcoming,
@@ -160,6 +162,7 @@ function getDefaultStats() {
 		gamesToday: 0,
 		liveGames: 0,
 		completedToday: 0,
-		pendingActions: 0
+		pendingActions: 0,
+		practicesToday: 0
 	};
 }

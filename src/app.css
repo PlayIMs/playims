@@ -1,4 +1,4 @@
-@import 'tailwindcss';
+﻿@import 'tailwindcss';
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
 
@@ -1084,7 +1084,7 @@
 
 	/* Button Component Classes */
 	/* Primary Buttons */
-	button.button-primary {
+	:is(button, a).button-primary {
 		background-color: var(--color-primary-500);
 		color: var(--color-primary-25);
 		padding: 0.75rem 1.5rem;
@@ -1099,20 +1099,20 @@
 		border: none;
 	}
 
-	button.button-primary:hover:not(:disabled) {
+	:is(button, a).button-primary:hover:not(:disabled) {
 		background-color: var(--color-primary-600);
 	}
 
-	button.button-primary:active:not(:disabled) {
+	:is(button, a).button-primary:active:not(:disabled) {
 		background-color: var(--color-primary-700);
 	}
 
-	button.button-primary:disabled {
+	:is(button, a).button-primary:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
 
-	button.button-primary-500 {
+	:is(button, a).button-primary-500 {
 		background-color: var(--color-primary-500);
 		color: var(--color-primary-25);
 		padding: 0.75rem 1.5rem;
@@ -1127,15 +1127,15 @@
 		border: none;
 	}
 
-	button.button-primary-500:hover:not(:disabled) {
+	:is(button, a).button-primary-500:hover:not(:disabled) {
 		background-color: var(--color-primary-600);
 	}
 
-	button.button-primary-500:active:not(:disabled) {
+	:is(button, a).button-primary-500:active:not(:disabled) {
 		background-color: var(--color-primary-700);
 	}
 
-	button.button-primary-50 {
+	:is(button, a).button-primary-50 {
 		background-color: var(--color-primary-50);
 		color: var(--color-primary-950);
 		padding: 0.75rem 1.5rem;
@@ -1150,15 +1150,15 @@
 		border: none;
 	}
 
-	button.button-primary-50:hover:not(:disabled) {
+	:is(button, a).button-primary-50:hover:not(:disabled) {
 		background-color: var(--color-primary-100);
 	}
 
-	button.button-primary-50:active:not(:disabled) {
+	:is(button, a).button-primary-50:active:not(:disabled) {
 		background-color: var(--color-primary-200);
 	}
 
-	button.button-primary-100 {
+	:is(button, a).button-primary-100 {
 		background-color: var(--color-primary-100);
 		color: var(--color-primary-950);
 		padding: 0.75rem 1.5rem;
@@ -1173,15 +1173,15 @@
 		border: none;
 	}
 
-	button.button-primary-100:hover:not(:disabled) {
+	:is(button, a).button-primary-100:hover:not(:disabled) {
 		background-color: var(--color-primary-200);
 	}
 
-	button.button-primary-100:active:not(:disabled) {
+	:is(button, a).button-primary-100:active:not(:disabled) {
 		background-color: var(--color-primary-300);
 	}
 
-	button.button-primary-200 {
+	:is(button, a).button-primary-200 {
 		background-color: var(--color-primary-200);
 		color: var(--color-primary-950);
 		padding: 0.75rem 1.5rem;
@@ -1196,15 +1196,15 @@
 		border: none;
 	}
 
-	button.button-primary-200:hover:not(:disabled) {
+	:is(button, a).button-primary-200:hover:not(:disabled) {
 		background-color: var(--color-primary-300);
 	}
 
-	button.button-primary-200:active:not(:disabled) {
+	:is(button, a).button-primary-200:active:not(:disabled) {
 		background-color: var(--color-primary-400);
 	}
 
-	button.button-primary-300 {
+	:is(button, a).button-primary-300 {
 		background-color: var(--color-primary-300);
 		color: var(--color-primary-950);
 		padding: 0.75rem 1.5rem;
@@ -1219,15 +1219,15 @@
 		border: none;
 	}
 
-	button.button-primary-300:hover:not(:disabled) {
+	:is(button, a).button-primary-300:hover:not(:disabled) {
 		background-color: var(--color-primary-400);
 	}
 
-	button.button-primary-300:active:not(:disabled) {
+	:is(button, a).button-primary-300:active:not(:disabled) {
 		background-color: var(--color-primary-500);
 	}
 
-	button.button-primary-400 {
+	:is(button, a).button-primary-400 {
 		background-color: var(--color-primary-400);
 		color: var(--color-primary-25);
 		padding: 0.75rem 1.5rem;
@@ -1242,15 +1242,15 @@
 		border: none;
 	}
 
-	button.button-primary-400:hover:not(:disabled) {
+	:is(button, a).button-primary-400:hover:not(:disabled) {
 		background-color: var(--color-primary-500);
 	}
 
-	button.button-primary-400:active:not(:disabled) {
+	:is(button, a).button-primary-400:active:not(:disabled) {
 		background-color: var(--color-primary-600);
 	}
 
-	button.button-primary-600 {
+	:is(button, a).button-primary-600 {
 		background-color: var(--color-primary-600);
 		color: var(--color-primary-25);
 		padding: 0.75rem 1.5rem;
@@ -1265,20 +1265,20 @@
 		border: none;
 	}
 
-	button.button-primary-600:hover:not(:disabled) {
+	:is(button, a).button-primary-600:hover:not(:disabled) {
 		background-color: var(--color-primary-700);
 	}
 
-	button.button-primary-600:active:not(:disabled) {
+	:is(button, a).button-primary-600:active:not(:disabled) {
 		background-color: var(--color-primary-800);
 	}
 
-	button.button-primary-600:disabled {
+	:is(button, a).button-primary-600:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
 
-	button.button-primary-700 {
+	:is(button, a).button-primary-700 {
 		background-color: var(--color-primary-700);
 		color: var(--color-primary-25);
 		padding: 0.75rem 1.5rem;
@@ -1293,15 +1293,15 @@
 		border: none;
 	}
 
-	button.button-primary-700:hover:not(:disabled) {
+	:is(button, a).button-primary-700:hover:not(:disabled) {
 		background-color: var(--color-primary-800);
 	}
 
-	button.button-primary-700:active:not(:disabled) {
+	:is(button, a).button-primary-700:active:not(:disabled) {
 		background-color: var(--color-primary-900);
 	}
 
-	button.button-primary-800 {
+	:is(button, a).button-primary-800 {
 		background-color: var(--color-primary-800);
 		color: var(--color-primary-25);
 		padding: 0.75rem 1.5rem;
@@ -1316,15 +1316,15 @@
 		border: none;
 	}
 
-	button.button-primary-800:hover:not(:disabled) {
+	:is(button, a).button-primary-800:hover:not(:disabled) {
 		background-color: var(--color-primary-900);
 	}
 
-	button.button-primary-800:active:not(:disabled) {
+	:is(button, a).button-primary-800:active:not(:disabled) {
 		background-color: var(--color-primary-950);
 	}
 
-	button.button-primary-900 {
+	:is(button, a).button-primary-900 {
 		background-color: var(--color-primary-900);
 		color: var(--color-primary-25);
 		padding: 0.75rem 1.5rem;
@@ -1339,15 +1339,15 @@
 		border: none;
 	}
 
-	button.button-primary-900:hover:not(:disabled) {
+	:is(button, a).button-primary-900:hover:not(:disabled) {
 		background-color: var(--color-primary-950);
 	}
 
-	button.button-primary-900:active:not(:disabled) {
+	:is(button, a).button-primary-900:active:not(:disabled) {
 		background-color: var(--color-primary-950);
 	}
 
-	button.button-primary-950 {
+	:is(button, a).button-primary-950 {
 		background-color: var(--color-primary-950);
 		color: var(--color-primary-25);
 		padding: 0.75rem 1.5rem;
@@ -1362,18 +1362,20 @@
 		border: none;
 	}
 
-	button.button-primary-950:hover:not(:disabled) {
+	:is(button, a).button-primary-950:hover:not(:disabled) {
 		background-color: var(--color-primary-900);
 	}
 
-	button.button-primary-950:active:not(:disabled) {
+	:is(button, a).button-primary-950:active:not(:disabled) {
 		background-color: var(--color-primary-900);
 	}
 
 	/* Primary Outlined Buttons */
-	button.button-primary-outlined {
-		background-color: white;
-		border: 2px solid var(--color-primary-500);
+	:is(button, a).button-primary-outlined {
+		background-color: transparent;
+		outline: 2px solid var(--color-primary-500);
+		outline-offset: -2px;
+		border: none;
 		color: var(--color-primary-950);
 		padding: 0.75rem 1.5rem;
 		font-weight: 700;
@@ -1386,22 +1388,24 @@
 		cursor: pointer;
 	}
 
-	button.button-primary-outlined:hover:not(:disabled) {
+	:is(button, a).button-primary-outlined:hover:not(:disabled) {
 		background-color: var(--color-primary-50);
 	}
 
-	button.button-primary-outlined:active:not(:disabled) {
+	:is(button, a).button-primary-outlined:active:not(:disabled) {
 		background-color: var(--color-primary-100);
 	}
 
-	button.button-primary-outlined:disabled {
+	:is(button, a).button-primary-outlined:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
 
-	button.button-primary-outlined-500 {
-		background-color: white;
-		border: 2px solid var(--color-primary-500);
+	:is(button, a).button-primary-outlined-500 {
+		background-color: transparent;
+		outline: 2px solid var(--color-primary-500);
+		outline-offset: -2px;
+		border: none;
 		color: var(--color-primary-950);
 		padding: 0.75rem 1.5rem;
 		font-weight: 700;
@@ -1414,16 +1418,16 @@
 		cursor: pointer;
 	}
 
-	button.button-primary-outlined-500:hover:not(:disabled) {
+	:is(button, a).button-primary-outlined-500:hover:not(:disabled) {
 		background-color: var(--color-primary-50);
 	}
 
-	button.button-primary-outlined-500:active:not(:disabled) {
+	:is(button, a).button-primary-outlined-500:active:not(:disabled) {
 		background-color: var(--color-primary-100);
 	}
 
 	/* Secondary Buttons */
-	button.button-secondary {
+	:is(button, a).button-secondary {
 		background-color: var(--color-secondary-500);
 		color: var(--color-secondary-25);
 		padding: 0.75rem 1.5rem;
@@ -1438,20 +1442,20 @@
 		border: none;
 	}
 
-	button.button-secondary:hover:not(:disabled) {
+	:is(button, a).button-secondary:hover:not(:disabled) {
 		background-color: var(--color-secondary-600);
 	}
 
-	button.button-secondary:active:not(:disabled) {
+	:is(button, a).button-secondary:active:not(:disabled) {
 		background-color: var(--color-secondary-700);
 	}
 
-	button.button-secondary:disabled {
+	:is(button, a).button-secondary:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
 
-	button.button-secondary-500 {
+	:is(button, a).button-secondary-500 {
 		background-color: var(--color-secondary-500);
 		color: var(--color-secondary-25);
 		padding: 0.75rem 1.5rem;
@@ -1466,15 +1470,15 @@
 		border: none;
 	}
 
-	button.button-secondary-500:hover:not(:disabled) {
+	:is(button, a).button-secondary-500:hover:not(:disabled) {
 		background-color: var(--color-secondary-600);
 	}
 
-	button.button-secondary-500:active:not(:disabled) {
+	:is(button, a).button-secondary-500:active:not(:disabled) {
 		background-color: var(--color-secondary-700);
 	}
 
-	button.button-secondary-600 {
+	:is(button, a).button-secondary-600 {
 		background-color: var(--color-secondary-600);
 		color: var(--color-secondary-25);
 		padding: 0.75rem 1.5rem;
@@ -1489,23 +1493,25 @@
 		border: none;
 	}
 
-	button.button-secondary-600:hover:not(:disabled) {
+	:is(button, a).button-secondary-600:hover:not(:disabled) {
 		background-color: var(--color-secondary-700);
 	}
 
-	button.button-secondary-600:active:not(:disabled) {
+	:is(button, a).button-secondary-600:active:not(:disabled) {
 		background-color: var(--color-secondary-800);
 	}
 
-	button.button-secondary-600:disabled {
+	:is(button, a).button-secondary-600:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
 
 	/* Secondary Outlined Buttons */
-	button.button-secondary-outlined {
-		background-color: white;
-		border: 2px solid var(--color-secondary-500);
+	:is(button, a).button-secondary-outlined {
+		background-color: transparent;
+		outline: 2px solid var(--color-secondary-500);
+		outline-offset: -2px;
+		border: none;
 		color: var(--color-secondary-950);
 		padding: 0.75rem 1.5rem;
 		font-weight: 700;
@@ -1518,22 +1524,24 @@
 		cursor: pointer;
 	}
 
-	button.button-secondary-outlined:hover:not(:disabled) {
+	:is(button, a).button-secondary-outlined:hover:not(:disabled) {
 		background-color: var(--color-secondary-50);
 	}
 
-	button.button-secondary-outlined:active:not(:disabled) {
+	:is(button, a).button-secondary-outlined:active:not(:disabled) {
 		background-color: var(--color-secondary-100);
 	}
 
-	button.button-secondary-outlined:disabled {
+	:is(button, a).button-secondary-outlined:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
 
-	button.button-secondary-outlined-500 {
-		background-color: white;
-		border: 2px solid var(--color-secondary-500);
+	:is(button, a).button-secondary-outlined-500 {
+		background-color: transparent;
+		outline: 2px solid var(--color-secondary-500);
+		outline-offset: -2px;
+		border: none;
 		color: var(--color-secondary-950);
 		padding: 0.75rem 1.5rem;
 		font-weight: 700;
@@ -1546,16 +1554,16 @@
 		cursor: pointer;
 	}
 
-	button.button-secondary-outlined-500:hover:not(:disabled) {
+	:is(button, a).button-secondary-outlined-500:hover:not(:disabled) {
 		background-color: var(--color-secondary-50);
 	}
 
-	button.button-secondary-outlined-500:active:not(:disabled) {
+	:is(button, a).button-secondary-outlined-500:active:not(:disabled) {
 		background-color: var(--color-secondary-100);
 	}
 
 	/* Accent Buttons */
-	button.button-accent {
+	:is(button, a).button-accent {
 		background-color: var(--color-accent-500);
 		color: var(--color-accent-25);
 		padding: 0.75rem 1.5rem;
@@ -1570,20 +1578,20 @@
 		border: none;
 	}
 
-	button.button-accent:hover:not(:disabled) {
+	:is(button, a).button-accent:hover:not(:disabled) {
 		background-color: var(--color-accent-600);
 	}
 
-	button.button-accent:active:not(:disabled) {
+	:is(button, a).button-accent:active:not(:disabled) {
 		background-color: var(--color-accent-700);
 	}
 
-	button.button-accent:disabled {
+	:is(button, a).button-accent:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
 
-	button.button-accent-500 {
+	:is(button, a).button-accent-500 {
 		background-color: var(--color-accent-500);
 		color: var(--color-accent-25);
 		padding: 0.75rem 1.5rem;
@@ -1598,15 +1606,15 @@
 		border: none;
 	}
 
-	button.button-accent-500:hover:not(:disabled) {
+	:is(button, a).button-accent-500:hover:not(:disabled) {
 		background-color: var(--color-accent-600);
 	}
 
-	button.button-accent-500:active:not(:disabled) {
+	:is(button, a).button-accent-500:active:not(:disabled) {
 		background-color: var(--color-accent-700);
 	}
 
-	button.button-accent-600 {
+	:is(button, a).button-accent-600 {
 		background-color: var(--color-accent-600);
 		color: var(--color-accent-25);
 		padding: 0.75rem 1.5rem;
@@ -1621,23 +1629,25 @@
 		border: none;
 	}
 
-	button.button-accent-600:hover:not(:disabled) {
+	:is(button, a).button-accent-600:hover:not(:disabled) {
 		background-color: var(--color-accent-700);
 	}
 
-	button.button-accent-600:active:not(:disabled) {
+	:is(button, a).button-accent-600:active:not(:disabled) {
 		background-color: var(--color-accent-800);
 	}
 
-	button.button-accent-600:disabled {
+	:is(button, a).button-accent-600:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
 
 	/* Accent Outlined Buttons */
-	button.button-accent-outlined {
-		background-color: white;
-		border: 2px solid var(--color-accent-500);
+	:is(button, a).button-accent-outlined {
+		background-color: transparent;
+		outline: 2px solid var(--color-accent-500);
+		outline-offset: -2px;
+		border: none;
 		color: var(--color-accent-950);
 		padding: 0.75rem 1.5rem;
 		font-weight: 700;
@@ -1650,22 +1660,24 @@
 		cursor: pointer;
 	}
 
-	button.button-accent-outlined:hover:not(:disabled) {
+	:is(button, a).button-accent-outlined:hover:not(:disabled) {
 		background-color: var(--color-accent-50);
 	}
 
-	button.button-accent-outlined:active:not(:disabled) {
+	:is(button, a).button-accent-outlined:active:not(:disabled) {
 		background-color: var(--color-accent-100);
 	}
 
-	button.button-accent-outlined:disabled {
+	:is(button, a).button-accent-outlined:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
 
-	button.button-accent-outlined-500 {
-		background-color: white;
-		border: 2px solid var(--color-accent-500);
+	:is(button, a).button-accent-outlined-500 {
+		background-color: transparent;
+		outline: 2px solid var(--color-accent-500);
+		outline-offset: -2px;
+		border: none;
 		color: var(--color-accent-950);
 		padding: 0.75rem 1.5rem;
 		font-weight: 700;
@@ -1678,11 +1690,11 @@
 		cursor: pointer;
 	}
 
-	button.button-accent-outlined-500:hover:not(:disabled) {
+	:is(button, a).button-accent-outlined-500:hover:not(:disabled) {
 		background-color: var(--color-accent-50);
 	}
 
-	button.button-accent-outlined-500:active:not(:disabled) {
+	:is(button, a).button-accent-outlined-500:active:not(:disabled) {
 		background-color: var(--color-accent-100);
 	}
 
@@ -2582,3 +2594,7 @@
 		border-color: var(--color-primary-500) !important;
 	}
 }
+
+
+
+
