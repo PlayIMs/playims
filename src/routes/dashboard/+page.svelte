@@ -1,6 +1,7 @@
 <script lang="ts">
 	import IconLayoutDashboard from '@tabler/icons-svelte/icons/layout-dashboard';
 	import IconCalendar from '@tabler/icons-svelte/icons/calendar';
+	import IconCalendarWeek from '@tabler/icons-svelte/icons/calendar-week';
 	import IconClock from '@tabler/icons-svelte/icons/clock';
 	import IconLivePhoto from '@tabler/icons-svelte/icons/live-photo';
 	import IconUsers from '@tabler/icons-svelte/icons/users';
@@ -101,7 +102,7 @@
 					href="/dashboard/events"
 					class="button-accent px-3 py-3 text-xs font-bold uppercase tracking-wide flex items-center justify-center gap-2"
 				>
-					<IconCalendar class="w-4 h-4" />
+					<IconCalendarWeek class="w-4 h-4" />
 					<span>Schedule</span>
 				</a>
 				<button
