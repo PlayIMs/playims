@@ -4,4 +4,50 @@
 	"description": "Modern intramural sports league management platform with intuitive team management, automated scheduling, and real-time standings.",
 	"start_url": "/",
 	"display": "standalone",
-	"background_color":="#EEDBCE","theme_color":"#CE1126","orientation":"portrait-primary","scope":"/","lang":"en-US","categories":["sports","productivity","utilities"],"icons":[{"src":"/pwa-64x64.png","sizes":"64x64","type":"image/png"},{"src":"/pwa-192x192.png","sizes":"192x192","type":"image/png"},{"src":"/pwa-512x512.png","sizes":"512x512","type":"image/png","purpose":"any"},{"src":"/maskable-icon-512x512.png","sizes":"512x512","type":"image/png","purpose":"maskable"}],"screenshots":[{"src":"/pwa-512x512.png","sizes":"512x512","type":"image/png","form_factor":"narrow"},{"src":"/pwa-512x512.png","sizes":"512x512","type":"image/png","form_factor":"wide"}],"related_applications":[],"prefer_related_applications":false}
+	"background_color": "#EEDBCE",
+	"theme_color": "#CE1126",
+	"orientation": "portrait-primary",
+	"scope": "/",
+	"lang": "en-US",
+	"categories": ["sports", "productivity", "utilities"],
+	"icons": [
+		{
+			"src": "/pwa-64x64.png",
+			"sizes": "64x64",
+			"type": "image/png"
+		},
+		{
+			"src": "/pwa-192x192.png",
+			"sizes": "192x192",
+			"type": "image/png"
+		},
+		{
+			"src": "/pwa-512x512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "any"
+		},
+		{
+			"src": "/maskable-icon-512x512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "maskable"
+		}
+	],
+	"screenshots": [
+		{
+			"src": "/pwa-512x512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"form_factor": "narrow"
+		},
+		{
+			"src": "/pwa-512x512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"form_factor": "wide"
+		}
+	],
+	"related_applications": [],
+	"prefer_related_applications": false
+}
