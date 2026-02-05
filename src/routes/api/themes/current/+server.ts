@@ -3,6 +3,30 @@ import { DatabaseOperations } from '$lib/database';
 import { ensureDefaultClient, resolveClientId } from '$lib/server/client-context';
 import type { RequestHandler } from './$types';
 
+const buildEtag = (theme: {
+	id?: string | null;
+	updatedAt?: string | null;
+	primary?: string | null;
+	secondary?: string | null;
+	neutral?: string | null;
+	accent?: string | null;
+} | null) => {
+	if (!theme) {
+		return 'W/"theme-empty"';
+	}
+
+	const parts = [
+		theme.id ?? 'no-id',
+		theme.updatedAt ?? '',
+		theme.primary ?? '',
+		theme.secondary ?? '',
+		theme.neutral ?? '',
+		theme.accent ?? ''
+	];
+
+	return `W/"${parts.join('|')}"`;
+};
+
 const normalizeHex = (hex: string) => hex.replace('#', '').toUpperCase();
 
 const getColorsFromBody = (body: Record<string, unknown>) => {
@@ -19,13 +43,34 @@ const getColorsFromBody = (body: Record<string, unknown>) => {
 	return { primary, secondary, neutral, accent };
 };
 
-export const GET: RequestHandler = async ({ platform, locals }) => {
+export const GET: RequestHandler = async ({ platform, locals, request }) => {
 	try {
 		const dbOps = new DatabaseOperations(platform as App.Platform);
 		await ensureDefaultClient(dbOps);
 		const clientId = resolveClientId(locals);
 		const theme = await dbOps.themes.getBySlug(clientId, 'current');
-		return json({ success: true, data: theme || null });
+
+		const etag = buildEtag(theme);
+		const ifNoneMatch = request.headers.get('if-none-match');
+		if (ifNoneMatch && ifNoneMatch === etag) {
+			return new Response(null, {
+				status: 304,
+				headers: {
+					ETag: etag,
+					'Cache-Control': 'no-cache'
+				}
+			});
+		}
+
+		return json(
+			{ success: true, data: theme || null },
+			{
+				headers: {
+					ETag: etag,
+					'Cache-Control': 'no-cache'
+				}
+			}
+		);
 	} catch (error) {
 		console.error('Failed to load current theme:', error);
 		return json({ success: false, error: 'Failed to load current theme' }, { status: 500 });
@@ -54,7 +99,16 @@ export const PUT: RequestHandler = async ({ request, platform, locals }) => {
 			userId
 		});
 
-		return json({ success: true, data: theme });
+		const etag = buildEtag(theme);
+
+		return json(
+			{ success: true, data: theme },
+			{
+				headers: {
+					ETag: etag
+				}
+			}
+		);
 	} catch (error) {
 		console.error('Failed to update current theme:', error);
 		return json({ success: false, error: 'Failed to update current theme' }, { status: 500 });

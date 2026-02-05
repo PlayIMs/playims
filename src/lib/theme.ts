@@ -21,7 +21,7 @@ export const ZINC_PALETTE: Record<string, string> = {
 };
 
 // Default hex values (without #)
-const DEFAULT_THEME = {
+export const DEFAULT_THEME = {
 	primary: 'CE1126',
 	secondary: '14213D',
 	neutral: 'EEDBCE',
@@ -29,7 +29,7 @@ const DEFAULT_THEME = {
 } as const;
 
 // Theme store
-type ThemeColors = {
+export type ThemeColors = {
 	primary: string;
 	secondary: string;
 	neutral: string; // Empty string means use zinc default
@@ -400,8 +400,14 @@ function applyThemeToDOM(colors: ThemeColors) {
 	themeColorMeta.setAttribute('content', primary500WithHash);
 }
 
+function markThemeReady() {
+	if (typeof document === 'undefined') return;
+	document.body?.classList.add('theme-ready');
+}
+
 type ThemeRecord = {
 	id: string;
+	clientId?: string;
 	name: string;
 	slug: string;
 	primary: string;
@@ -409,6 +415,9 @@ type ThemeRecord = {
 	neutral: string;
 	accent: string;
 	createdAt: string;
+	updatedAt?: string;
+	createdUser?: string;
+	updatedUser?: string;
 };
 
 type ThemeApiResponse<T> = {
@@ -416,6 +425,8 @@ type ThemeApiResponse<T> = {
 	data: T;
 	error?: string;
 };
+
+let currentThemeETag: string | null = null;
 
 const normalizeHex = (hex: string) => hex.replace('#', '').toUpperCase();
 
@@ -450,12 +461,41 @@ async function apiRequest<T>(path: string, options?: RequestInit): Promise<T> {
 	return payload.data;
 }
 
-async function loadCurrentThemeFromDatabase(): Promise<ThemeColors | null> {
-	const data = await apiRequest<ThemeRecord | null>('/current');
-	if (!data) {
-		return null;
+type ThemeFetchResult = {
+	theme: ThemeColors | null;
+	notModified: boolean;
+};
+
+async function loadCurrentThemeFromDatabase(useEtag = true): Promise<ThemeFetchResult> {
+	if (typeof window === 'undefined') {
+		throw new Error('Theme API requests are only available in the browser');
 	}
-	return mapRecordToColors(data);
+
+	const headers: HeadersInit = {};
+	if (useEtag && currentThemeETag) {
+		headers['If-None-Match'] = currentThemeETag;
+	}
+
+	const response = await fetch(`${API_BASE}/current`, { headers });
+	if (response.status === 304) {
+		return { theme: null, notModified: true };
+	}
+
+	const payload = (await response.json()) as ThemeApiResponse<ThemeRecord | null>;
+	if (!response.ok || !payload.success) {
+		throw new Error(payload.error || 'Theme request failed');
+	}
+
+	const etag = response.headers.get('etag');
+	if (etag) {
+		currentThemeETag = etag;
+	}
+
+	if (!payload.data) {
+		return { theme: null, notModified: false };
+	}
+
+	return { theme: mapRecordToColors(payload.data), notModified: false };
 }
 
 async function loadSavedThemesFromDatabase(): Promise<SavedTheme[]> {
@@ -468,8 +508,11 @@ async function persistCurrentThemeToDatabase(colors: ThemeColors) {
 		return;
 	}
 	try {
-		await apiRequest<ThemeRecord>('/current', {
+		const response = await fetch(`${API_BASE}/current`, {
 			method: 'PUT',
+			headers: {
+				'Content-Type': 'application/json'
+			},
 			body: JSON.stringify({
 				colors: {
 					primary: normalizeHex(colors.primary),
@@ -479,6 +522,16 @@ async function persistCurrentThemeToDatabase(colors: ThemeColors) {
 				}
 			})
 		});
+
+		const payload = (await response.json()) as ThemeApiResponse<ThemeRecord>;
+		if (!response.ok || !payload.success) {
+			throw new Error(payload.error || 'Theme request failed');
+		}
+
+		const etag = response.headers.get('etag');
+		if (etag) {
+			currentThemeETag = etag;
+		}
 	} catch (error) {
 		console.warn('Failed to save current theme to database:', error);
 	}
@@ -620,41 +673,66 @@ export async function deleteTheme(themeId: string) {
 /**
  * Gets the list of saved themes
  */
-export function getSavedThemes(): SavedTheme[] {
-	return get(savedThemes);
-}
-
 /**
  * Initializes the theme system
  * - Loads from database if available
  * - Applies theme to DOM
  * - Sets up subscription for future changes
  */
-export async function init() {
+export async function init(
+	initialTheme?: ThemeColors,
+	options?: {
+		fetchCurrent?: boolean;
+		persistCurrent?: boolean;
+	}
+) {
 	if (typeof window === 'undefined') return;
 
+	const etagMeta = document.querySelector('meta[name="theme-etag"]');
+	if (etagMeta) {
+		const value = etagMeta.getAttribute('content');
+		if (value) {
+			currentThemeETag = value;
+		}
+	}
+
+	const fallbackTheme = initialTheme ?? DEFAULT_THEME;
+	themeColors.set(fallbackTheme);
+	applyThemeToDOM(fallbackTheme);
+
 	try {
-		const [currentTheme, saved] = await Promise.all([
-			loadCurrentThemeFromDatabase(),
-			loadSavedThemesFromDatabase()
-		]);
+		void loadSavedThemesFromDatabase()
+			.then((saved) => {
+				savedThemes.set(saved);
+			})
+			.catch((error) => {
+				console.warn('Failed to load saved themes from database:', error);
+			});
 
-		savedThemes.set(saved);
+		const shouldFetchCurrent = options?.fetchCurrent ?? !initialTheme;
+		const shouldPersistCurrent = options?.persistCurrent ?? false;
+		if (shouldFetchCurrent) {
+			const currentResult = await loadCurrentThemeFromDatabase();
+			const currentTheme = currentResult.notModified ? null : currentResult.theme;
+			const resolvedTheme = currentTheme || fallbackTheme;
+			themeColors.set(resolvedTheme);
+			applyThemeToDOM(resolvedTheme);
 
-		const initialTheme = currentTheme || DEFAULT_THEME;
-		themeColors.set(initialTheme);
-		applyThemeToDOM(initialTheme);
-
-		if (!currentTheme) {
-			void persistCurrentThemeToDatabase(initialTheme);
+			if (!currentTheme && !currentResult.notModified) {
+				void persistCurrentThemeToDatabase(resolvedTheme);
+			}
+		} else if (shouldPersistCurrent) {
+			void persistCurrentThemeToDatabase(fallbackTheme);
 		}
 	} catch (error) {
 		console.warn('Failed to initialize themes from database:', error);
-		themeColors.set(DEFAULT_THEME);
-		applyThemeToDOM(DEFAULT_THEME);
+		themeColors.set(fallbackTheme);
+		applyThemeToDOM(fallbackTheme);
 	}
 
 	themeColors.subscribe((colors) => {
 		applyThemeToDOM(colors);
 	});
+
+	markThemeReady();
 }
