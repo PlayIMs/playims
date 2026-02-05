@@ -17,9 +17,10 @@
 		ZINC_PALETTE
 	} from '$lib/theme';
 
-	// Autofocus action for accessibility
+	/** keeps focus on form elements for accessibility. */
 	function autofocus(node: HTMLElement) {
 		if (node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement) {
+			// focus the element when it supports direct focus
 			node.focus();
 		}
 		return {};
@@ -30,76 +31,86 @@
 	let neutralInput = $state('');
 	let accentInput = $state('');
 
-	// Validation warnings
+	// validation warnings
 	let primaryWarnings = $state<string[]>([]);
 	let secondaryWarnings = $state<string[]>([]);
 	let accentWarnings = $state<string[]>([]);
 	let neutralWarnings = $state<string[]>([]);
 
-	// Color picker state
+	// color picker state
 	let openPicker: 'primary' | 'secondary' | 'neutral' | 'accent' | null = $state(null);
 	let pickerColor = $state({ h: 0, s: 100, l: 50, a: 100 });
 
-	// Helper to calculate cursor position (HSV) based on current state (HSL)
-	// Returns {x: 0-100, y: 0-100}
+	/** calculates the picker cursor position from the current hsl state. */
 	function getPickerPosition() {
+		// normalize saturation and lightness into 0-1 for calculations
 		const s = pickerColor.s / 100;
 		const l = pickerColor.l / 100;
 
+		// convert hsl to hsv to match the picker axes
 		const v = l + s * Math.min(l, 1 - l);
 		const s_v = v === 0 ? 0 : 2 * (1 - l / v);
 
 		return {
+			// scale to percent values for the ui cursor
 			x: s_v * 100,
 			y: (1 - v) * 100
 		};
 	}
 
-	// Initialize and sync with store
+	/** initializes store syncing and global mouse handlers on mount. */
 	onMount(() => {
+		// sync inputs with the theme store
 		const unsubscribe = themeColors.subscribe((colors) => {
 			primaryInput = colors.primary;
 			secondaryInput = colors.secondary;
 			neutralInput = colors.neutral || '';
 			accentInput = colors.accent;
-			// Validate on load
+			// validate inputs after syncing from the store
 			validatePrimaryColor();
 			validateSecondaryColor();
 			validateAccentColor();
 			validateNeutralColor();
 		});
 
-		// Handle mouse move and up globally for color picker dragging
+		/** forwards global mouse move events to the color picker. */
 		function handleGlobalMouseMove(event: MouseEvent) {
 			handleColorAreaMouseMove(event);
 		}
 
+		/** ends drag state when the mouse is released anywhere. */
 		function handleGlobalMouseUp() {
 			handleColorAreaMouseUp();
 		}
 
+		// attach global handlers for drag interactions
 		window.addEventListener('mousemove', handleGlobalMouseMove);
 		window.addEventListener('mouseup', handleGlobalMouseUp);
 
 		return () => {
+			// remove listeners to avoid leaks
 			unsubscribe();
 			window.removeEventListener('mousemove', handleGlobalMouseMove);
 			window.removeEventListener('mouseup', handleGlobalMouseUp);
 		};
 	});
 
+	/** checks if a string is a valid 6-digit hex value. */
 	function validateHex(hex: string): boolean {
 		const cleanHex = hex.replace('#', '').toUpperCase();
 		return /^[0-9A-F]{6}$/.test(cleanHex);
 	}
 
+	/** updates the primary color when the input is valid. */
 	function handlePrimaryChange() {
 		if (validateHex(primaryInput)) {
+			// update the store first, then refresh warnings
 			updateColor('primary', primaryInput);
 			validatePrimaryColor();
 		}
 	}
 
+	/** updates the secondary color when the input is valid. */
 	function handleSecondaryChange() {
 		if (validateHex(secondaryInput)) {
 			updateColor('secondary', secondaryInput);
@@ -107,17 +118,19 @@
 		}
 	}
 
+	/** updates the neutral color, including the empty default case. */
 	function handleNeutralChange() {
 		if (validateHex(neutralInput)) {
 			updateColor('neutral', neutralInput);
 			validateNeutralColor();
 		} else if (neutralInput === '') {
-			// Empty means use zinc default
+			// empty means use zinc default
 			updateColor('neutral', '');
 			neutralWarnings = [];
 		}
 	}
 
+	/** updates the accent color when the input is valid. */
 	function handleAccentChange() {
 		if (validateHex(accentInput)) {
 			updateColor('accent', accentInput);
@@ -125,6 +138,7 @@
 		}
 	}
 
+	/** validates the primary color input and updates warnings. */
 	function validatePrimaryColor() {
 		if (validateHex(primaryInput)) {
 			const result = validateColorNotGrayscale(primaryInput, 'primary');
@@ -134,6 +148,7 @@
 		}
 	}
 
+	/** validates the secondary color input and updates warnings. */
 	function validateSecondaryColor() {
 		if (validateHex(secondaryInput)) {
 			const result = validateColorNotGrayscale(secondaryInput, 'secondary');
@@ -143,6 +158,7 @@
 		}
 	}
 
+	/** validates the accent color input and updates warnings. */
 	function validateAccentColor() {
 		if (validateHex(accentInput)) {
 			const result = validateAccent(accentInput, neutralInput);
@@ -152,6 +168,7 @@
 		}
 	}
 
+	/** validates the neutral color input and updates warnings. */
 	function validateNeutralColor() {
 		if (neutralInput && validateHex(neutralInput)) {
 			const result = validateNeutral(neutralInput);
@@ -161,11 +178,12 @@
 		}
 	}
 
+	/** resets the theme back to defaults. */
 	function handleReset() {
 		resetTheme();
 	}
 
-	// Color picker functions
+	/** converts hex to hsl for the color picker. */
 	function hexToHsl(hex: string): { h: number; s: number; l: number } {
 		const cleanHex = hex.replace('#', '');
 		const r = parseInt(cleanHex.substring(0, 2), 16) / 255;
@@ -201,6 +219,7 @@
 		};
 	}
 
+	/** converts hsl to hex for picker output. */
 	function hslToHex(h: number, s: number, l: number): string {
 		s /= 100;
 		l /= 100;
@@ -251,30 +270,33 @@
 			.toUpperCase();
 	}
 
+	/** opens the color picker for the selected color. */
 	function openColorPicker(colorName: 'primary' | 'secondary' | 'neutral' | 'accent') {
 		let currentHex = $themeColors[colorName];
-		// For neutral, if empty, use zinc-500 as default
+		// for neutral, if empty, use zinc-500 as default
 		if (colorName === 'neutral' && (!currentHex || currentHex.trim() === '')) {
 			currentHex = ZINC_PALETTE['500'];
 		}
 		const hsl = hexToHsl(currentHex);
 		pickerColor = { ...hsl, a: 100 };
 		openPicker = colorName;
-		// Draw canvas after a brief delay to ensure it's mounted
+		// draw canvas after a brief delay to ensure it's mounted
 		setTimeout(() => {
 			drawColorArea();
 		}, 0);
 	}
 
+	/** closes the color picker without changing the current value. */
 	function closeColorPicker() {
 		openPicker = null;
 	}
 
+	/** updates the color value based on the current picker state. */
 	function updatePickerColor() {
 		if (!openPicker) return;
 		const hex = hslToHex(pickerColor.h, pickerColor.s, pickerColor.l);
 		updateColor(openPicker, hex);
-		// Update input field
+		// update input field to match the picker
 		if (openPicker === 'primary') {
 			primaryInput = hex;
 			validatePrimaryColor();
@@ -290,11 +312,11 @@
 		}
 	}
 
-	// Handle color area interaction
+	// handle color area interaction
 	let isDragging = $state(false);
 	let colorAreaElement: HTMLCanvasElement | null = $state(null);
 
-	// Draw color picker canvas
+	/** draws the color picker canvas based on current hue. */
 	function drawColorArea() {
 		if (!colorAreaElement) return;
 		const canvas = colorAreaElement;
@@ -304,18 +326,18 @@
 		const width = canvas.width;
 		const height = canvas.height;
 
-		// 1. Fill with the base Hue color
+		// fill with the base hue color
 		ctx.fillStyle = `hsl(${pickerColor.h}, 100%, 50%)`;
 		ctx.fillRect(0, 0, width, height);
 
-		// 2. Gradient: White (Left) -> Transparent (Right)
+		// gradient: white (left) -> transparent (right)
 		const gradWhite = ctx.createLinearGradient(0, 0, width, 0);
 		gradWhite.addColorStop(0, 'rgba(255,255,255,1)');
 		gradWhite.addColorStop(1, 'rgba(255,255,255,0)');
 		ctx.fillStyle = gradWhite;
 		ctx.fillRect(0, 0, width, height);
 
-		// 3. Gradient: Transparent (Top) -> Black (Bottom)
+		// gradient: transparent (top) -> black (bottom)
 		const gradBlack = ctx.createLinearGradient(0, 0, 0, height);
 		gradBlack.addColorStop(0, 'rgba(0,0,0,0)');
 		gradBlack.addColorStop(1, 'rgba(0,0,0,1)');
@@ -323,34 +345,35 @@
 		ctx.fillRect(0, 0, width, height);
 	}
 
-	// Redraw canvas when hue changes
+	// redraw canvas when hue changes
 	$effect(() => {
 		if (openPicker && colorAreaElement) {
 			drawColorArea();
 		}
 	});
 
-	// Re-validate accent color when neutral color changes
+	// re-validate accent color when neutral color changes
 	$effect(() => {
-		// Access neutralInput to track it
+		// access neutralInput to track it
 		neutralInput;
 		if (validateHex(accentInput)) {
 			validateAccentColor();
 		}
 	});
 
+	/** converts a picker position to an hsl color. */
 	function updateColorFromPosition(x: number, y: number, element: HTMLCanvasElement) {
 		const rect = element.getBoundingClientRect();
 		const relX = Math.max(0, Math.min(rect.width, x - rect.left));
 		const relY = Math.max(0, Math.min(rect.height, y - rect.top));
 
-		// Map cursor position (HSV) to HSL
-		// x axis: Saturation (HSV)
-		// y axis: Value (HSV)
+		// map cursor position (hsv) to hsl
+		// x axis: saturation (hsv)
+		// y axis: value (hsv)
 		const s_hsv = relX / rect.width;
 		const v = 1 - relY / rect.height;
 
-		// HSV to HSL conversion
+		// hsv to hsl conversion
 		const l = v * (1 - s_hsv / 2);
 		let s_hsl = 0;
 		if (l > 0 && l < 1) {
@@ -362,53 +385,57 @@
 		updatePickerColor();
 	}
 
+	/** starts dragging in the color area. */
 	function handleColorAreaMouseDown(event: MouseEvent) {
 		isDragging = true;
 		updateColorFromPosition(event.clientX, event.clientY, event.currentTarget as HTMLCanvasElement);
 	}
 
+	/** updates the color while dragging. */
 	function handleColorAreaMouseMove(event: MouseEvent) {
 		if (isDragging && colorAreaElement) {
 			updateColorFromPosition(event.clientX, event.clientY, colorAreaElement);
 		}
 	}
 
+	/** ends a drag interaction in the color area. */
 	function handleColorAreaMouseUp() {
 		isDragging = false;
 	}
 
+	/** handles a single click in the color area. */
 	function handleColorAreaClick(event: MouseEvent) {
 		updateColorFromPosition(event.clientX, event.clientY, event.currentTarget as HTMLCanvasElement);
 	}
 
-	// Handle hue slider
+	/** handles hue slider changes. */
 	function handleHueChange(event: Event) {
 		const target = event.target as HTMLInputElement;
 		pickerColor.h = parseInt(target.value);
 		updatePickerColor();
 	}
 
-	// Handle opacity slider
+	/** handles opacity slider changes (preview only). */
 	function handleOpacityChange(event: Event) {
 		const target = event.target as HTMLInputElement;
 		pickerColor.a = parseInt(target.value);
-		// Note: Opacity is for preview only, hex doesn't store alpha
+		// opacity is for preview only, hex doesn't store alpha
 	}
 
+	/** returns a formatted hex string for the current color. */
 	function getCurrentColorHex(colorName: 'primary' | 'secondary' | 'neutral' | 'accent'): string {
 		const color = $themeColors[colorName];
 		if (colorName === 'neutral' && (!color || color.trim() === '')) {
-			// Return zinc-500 for default neutral
+			// return zinc-500 for default neutral
 			return `#${ZINC_PALETTE['500']}`;
 		}
 		return formatHex(color);
 	}
 
-	// Computed position for the picker indicator
-	// Using a derived state or function in the template
+	// computed position for the picker indicator
 	let pickerPos = $derived(getPickerPosition());
 
-	// Theme management state
+	// theme management state
 	let showSaveModal = $state(false);
 	let showReplaceModal = $state(false);
 	let showOverwriteModal = $state(false);
@@ -416,12 +443,7 @@
 	let replaceThemeIndex: number | null = $state(null);
 	let existingThemeIndex: number | null = $state(null);
 
-	// Initialize saved themes on mount
-	onMount(() => {
-		// Themes are already loaded by theme.init() in layout
-		// Just ensure we're subscribed to updates
-	});
-
+	/** saves the current theme and manages replace/overwrite prompts. */
 	async function handleSaveTheme() {
 		const name = themeNameInput.trim();
 		if (!name) {
@@ -429,13 +451,13 @@
 			return;
 		}
 
-		// Check for duplicate name (case-insensitive)
+		// check for duplicate name (case-insensitive)
 		const existingIndex = $savedThemes.findIndex(
 			(theme) => theme.name.toLowerCase() === name.toLowerCase()
 		);
 
 		if (existingIndex !== -1 && replaceThemeIndex !== existingIndex) {
-			// Found duplicate, ask to overwrite
+			// found a duplicate, ask for overwrite confirmation
 			existingThemeIndex = existingIndex;
 			showSaveModal = false;
 			showOverwriteModal = true;
@@ -444,11 +466,11 @@
 
 		const result = await saveCurrentTheme(name, replaceThemeIndex ?? undefined);
 		if (result === null) {
-			// Need to show replace modal
+			// show the replace modal when at the limit
 			showSaveModal = false;
 			showReplaceModal = true;
 		} else {
-			// Successfully saved
+			// reset modal state after a successful save
 			showSaveModal = false;
 			showReplaceModal = false;
 			showOverwriteModal = false;
@@ -458,24 +480,29 @@
 		}
 	}
 
+	/** overwrites the existing theme with the current colors. */
 	async function handleOverwriteTheme() {
 		if (existingThemeIndex !== null) {
+			// reuse the save flow with a pinned index
 			replaceThemeIndex = existingThemeIndex;
 			showOverwriteModal = false;
 			await handleSaveTheme();
 		}
 	}
 
+	/** replaces a saved theme at the provided index. */
 	async function handleReplaceTheme(index: number) {
+		// open the save flow with a replacement index set
 		replaceThemeIndex = index;
 		showReplaceModal = false;
 		showSaveModal = true;
 		await handleSaveTheme();
 	}
 
+	/** loads a saved theme and syncs the inputs to it. */
 	async function handleLoadTheme(themeId: string) {
 		await loadTheme(themeId);
-		// Update inputs to match loaded theme
+		// update inputs to match loaded theme
 		const colors = $themeColors;
 		primaryInput = colors.primary;
 		secondaryInput = colors.secondary;
@@ -487,19 +514,22 @@
 		validateNeutralColor();
 	}
 
+	/** deletes a saved theme after confirmation. */
 	async function handleDeleteTheme(themeId: string, event: Event) {
+		// prevent the click from triggering load
 		event.stopPropagation();
 		if (confirm('Are you sure you want to delete this theme?')) {
 			await deleteTheme(themeId);
 		}
 	}
 
+	/** opens the save modal or the replace modal when at capacity. */
 	function openSaveModal() {
 		if ($savedThemes.length >= 15) {
-			// Show replace modal first
+			// show replace modal first when at capacity
 			showReplaceModal = true;
 		} else {
-			// Show save modal
+			// show save modal when space is available
 			showSaveModal = true;
 		}
 	}
@@ -787,7 +817,7 @@
 							onkeydown={(e) => {
 								if (e.key === 'Enter' || e.key === ' ') {
 									e.preventDefault();
-									// Center click for keyboard users
+									// center click for keyboard users
 									if (colorAreaElement) {
 										const rect = colorAreaElement.getBoundingClientRect();
 										updateColorFromPosition(
@@ -890,7 +920,7 @@
 							onclick={() => {
 								const hex = hslToHex(pickerColor.h, pickerColor.s, pickerColor.l);
 								updateColor(openPicker!, hex);
-								// Update input field
+								// update input field
 								if (openPicker === 'primary') {
 									primaryInput = hex;
 									validatePrimaryColor();

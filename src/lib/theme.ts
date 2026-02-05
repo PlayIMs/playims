@@ -1,10 +1,6 @@
 import { writable, get } from 'svelte/store';
 
-// Static surface colors (Tailwind zinc defaults)
-export const SURFACE_LIGHT = '#E4E4E7'; // zinc-200
-export const SURFACE_DARK = '#09090B'; // zinc-950
-
-// Default zinc palette (Tailwind CSS zinc colors)
+// default zinc palette (tailwind css zinc colors)
 export const ZINC_PALETTE: Record<string, string> = {
 	'25': 'FDFDFD',
 	'50': 'FAFAFA',
@@ -20,7 +16,7 @@ export const ZINC_PALETTE: Record<string, string> = {
 	'950': '09090B'
 };
 
-// Default hex values (without #)
+// default hex values (without #)
 export const DEFAULT_THEME = {
 	primary: 'CE1126',
 	secondary: '14213D',
@@ -28,11 +24,10 @@ export const DEFAULT_THEME = {
 	accent: '04669A'
 } as const;
 
-// Theme store
 export type ThemeColors = {
 	primary: string;
 	secondary: string;
-	neutral: string; // Empty string means use zinc default
+	neutral: string; // empty string means use zinc default
 	accent: string;
 };
 
@@ -43,107 +38,84 @@ type SavedTheme = {
 	createdAt: string;
 };
 
+type ThemeRecord = {
+	id: string;
+	clientId?: string;
+	name: string;
+	slug: string;
+	primary: string;
+	secondary: string;
+	neutral: string;
+	accent: string;
+	createdAt: string;
+	updatedAt?: string;
+	createdUser?: string;
+	updatedUser?: string;
+};
+
+type ThemeApiResponse<T> = {
+	success: boolean;
+	data: T;
+	error?: string;
+};
+
+type ThemeFetchResult = {
+	theme: ThemeColors | null;
+	notModified: boolean;
+};
+
+type Rgb = {
+	r: number;
+	g: number;
+	b: number;
+};
+
 const MAX_SAVED_THEMES = 15;
 const API_BASE = '/api/themes';
+let currentThemeETag: string | null = null;
 
+// store the current theme in memory for immediate use
 export const themeColors = writable<ThemeColors>(DEFAULT_THEME);
+// store the list of saved themes for the editor ui
 export const savedThemes = writable<SavedTheme[]>([]);
 
-export function generatePalette(baseHex: string): Record<string, string> {
-	// Helper to parse hex to RGB
-	const hexToRgb = (hex: string) => {
-		const cleanHex = hex.replace('#', '');
-		const r = parseInt(cleanHex.substring(0, 2), 16);
-		const g = parseInt(cleanHex.substring(2, 4), 16);
-		const b = parseInt(cleanHex.substring(4, 6), 16);
-		return { r, g, b };
-	};
+/** converts a hex string to a normalised uppercase hex string without '#'. */
+const normalizeHex = (hex: string) => hex.replace('#', '').toUpperCase();
 
-	// Helper to format RGB to hex (without # for internal use, will add # when setting CSS vars)
-	const rgbToHex = (r: number, g: number, b: number) => {
-		const toHex = (c: number) => {
-			const hex = Math.round(c).toString(16);
-			return hex.length === 1 ? '0' + hex : hex;
-		};
-		return `${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
-	};
-
-	// Mix two colors: color A mixed with color B by percentage (0-1)
-	const mix = (
-		color: { r: number; g: number; b: number },
-		mixColor: { r: number; g: number; b: number },
-		weight: number
-	) => {
-		return {
-			r: color.r + (mixColor.r - color.r) * weight,
-			g: color.g + (mixColor.g - color.g) * weight,
-			b: color.b + (mixColor.b - color.b) * weight
-		};
-	};
-
-	const base = hexToRgb(baseHex);
-	const white = { r: 255, g: 255, b: 255 };
-	const black = { r: 0, g: 0, b: 0 };
-
-	// Ensure baseHex doesn't have # prefix for processing
-	const cleanBaseHex = baseHex.replace('#', '').toUpperCase();
-
-	// Mixing weights tuned to replicate the visual progression of Tailwind colors
-	// 25-400 mix with White
-	// 500 is base
-	// 600-950 mix with Black
-	const palette: Record<string, string> = {
-		'25': rgbToHex(mix(base, white, 0.975).r, mix(base, white, 0.975).g, mix(base, white, 0.975).b),
-		'50': rgbToHex(mix(base, white, 0.75).r, mix(base, white, 0.75).g, mix(base, white, 0.75).b),
-		'100': rgbToHex(mix(base, white, 0.6).r, mix(base, white, 0.6).g, mix(base, white, 0.6).b),
-		'200': rgbToHex(mix(base, white, 0.4).r, mix(base, white, 0.4).g, mix(base, white, 0.4).b),
-		'300': rgbToHex(mix(base, white, 0.25).r, mix(base, white, 0.25).g, mix(base, white, 0.25).b),
-		'400': rgbToHex(mix(base, white, 0.1).r, mix(base, white, 0.1).g, mix(base, white, 0.1).b),
-		'500': cleanBaseHex,
-		'600': rgbToHex(mix(base, black, 0.1).r, mix(base, black, 0.1).g, mix(base, black, 0.1).b),
-		'700': rgbToHex(
-			mix(base, black, 0.2625).r,
-			mix(base, black, 0.2625).g,
-			mix(base, black, 0.2625).b
-		),
-		'800': rgbToHex(
-			mix(base, black, 0.425).r,
-			mix(base, black, 0.425).g,
-			mix(base, black, 0.425).b
-		),
-		'900': rgbToHex(
-			mix(base, black, 0.5875).r,
-			mix(base, black, 0.5875).g,
-			mix(base, black, 0.5875).b
-		),
-		'950': rgbToHex(mix(base, black, 0.75).r, mix(base, black, 0.75).g, mix(base, black, 0.75).b)
-	};
-
-	return palette;
-}
-
-/**
- * Converts hex to full hex with #
- */
+/** converts hex to full hex with '#'. */
 export function formatHex(hex: string): string {
-	const cleanHex = hex.replace('#', '').toUpperCase();
+	const cleanHex = normalizeHex(hex);
 	return `#${cleanHex}`;
 }
 
-/**
- * Converts hex to RGB
- */
-function hexToRgb(hex: string): { r: number; g: number; b: number } {
-	const cleanHex = hex.replace('#', '');
+/** converts hex to rgb. */
+function hexToRgb(hex: string): Rgb {
+	const cleanHex = normalizeHex(hex);
 	const r = parseInt(cleanHex.substring(0, 2), 16);
 	const g = parseInt(cleanHex.substring(2, 4), 16);
 	const b = parseInt(cleanHex.substring(4, 6), 16);
 	return { r, g, b };
 }
 
-/**
- * Converts RGB to HSL
- */
+/** converts rgb to hex (without '#'). */
+function rgbToHex(r: number, g: number, b: number): string {
+	const toHex = (c: number) => {
+		const hex = Math.round(c).toString(16);
+		return hex.length === 1 ? `0${hex}` : hex;
+	};
+	return `${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+}
+
+/** mixes two rgb colors by weight (0-1). */
+function mixRgb(color: Rgb, mixColor: Rgb, weight: number): Rgb {
+	return {
+		r: color.r + (mixColor.r - color.r) * weight,
+		g: color.g + (mixColor.g - color.g) * weight,
+		b: color.b + (mixColor.b - color.b) * weight
+	};
+}
+
+/** converts rgb to hsl. */
 function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
 	r /= 255;
 	g /= 255;
@@ -179,20 +151,18 @@ function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: n
 	};
 }
 
-/**
- * Calculates relative luminance for WCAG contrast calculation
- */
+/** calculates relative luminance for wcag contrast. */
 function getLuminance(r: number, g: number, b: number): number {
 	const [rs, gs, bs] = [r, g, b].map((val) => {
-		val = val / 255;
-		return val <= 0.03928 ? val / 12.92 : Math.pow((val + 0.055) / 1.055, 2.4);
+		const normalized = val / 255;
+		return normalized <= 0.03928
+			? normalized / 12.92
+			: Math.pow((normalized + 0.055) / 1.055, 2.4);
 	});
 	return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
 }
 
-/**
- * Calculates WCAG contrast ratio between two colors
- */
+/** calculates wcag contrast ratio between two colors. */
 function getContrastRatio(color1: string, color2: string): number {
 	const rgb1 = hexToRgb(color1);
 	const rgb2 = hexToRgb(color2);
@@ -206,22 +176,69 @@ function getContrastRatio(color1: string, color2: string): number {
 	return (lighter + 0.05) / (darker + 0.05);
 }
 
-/**
- * Validates that a color is not white, black, or grayscale
- * Returns validation status with warnings
- */
+/** determines if a color is light or dark based on luminance. */
+function isLightColor(hex: string): boolean {
+	const rgb = hexToRgb(hex);
+	const luminance = getLuminance(rgb.r, rgb.g, rgb.b);
+	return luminance > 0.5;
+}
+
+/** generates a full 25-950 palette for a base color (no '#'). */
+export function generatePalette(baseHex: string): Record<string, string> {
+	const base = hexToRgb(baseHex);
+	const white = { r: 255, g: 255, b: 255 };
+	const black = { r: 0, g: 0, b: 0 };
+	const cleanBaseHex = normalizeHex(baseHex);
+	// helper to convert a mixed rgb value to hex
+	const toHex = (rgb: Rgb) => rgbToHex(rgb.r, rgb.g, rgb.b);
+	// helper to mix the base with a target color
+	const mixWith = (target: Rgb, weight: number) => mixRgb(base, target, weight);
+
+	return {
+		'25': toHex(mixWith(white, 0.975)),
+		'50': toHex(mixWith(white, 0.75)),
+		'100': toHex(mixWith(white, 0.6)),
+		'200': toHex(mixWith(white, 0.4)),
+		'300': toHex(mixWith(white, 0.25)),
+		'400': toHex(mixWith(white, 0.1)),
+		'500': cleanBaseHex,
+		'600': toHex(mixWith(black, 0.1)),
+		'700': toHex(mixWith(black, 0.2625)),
+		'800': toHex(mixWith(black, 0.425)),
+		'900': toHex(mixWith(black, 0.5875)),
+		'950': toHex(mixWith(black, 0.75))
+	};
+}
+
+/** gets a readable text color from a palette based on background color. */
+export function getReadableTextColor(
+	backgroundColorHex: string,
+	themeColorPalette: Record<string, string>
+): string {
+	const hexWithHash = backgroundColorHex.startsWith('#')
+		? backgroundColorHex
+		: `#${backgroundColorHex}`;
+
+	const isLight = isLightColor(hexWithHash);
+	const shade = isLight ? '950' : '50';
+	const hexValue = themeColorPalette[shade] || themeColorPalette['500'];
+
+	return hexValue.startsWith('#') ? hexValue : `#${hexValue}`;
+}
+
+/** validates that a color is not white, black, or grayscale. */
 export function validateColorNotGrayscale(
 	colorHex: string,
 	colorName: 'primary' | 'secondary' | 'accent'
 ): { isValid: boolean; warnings: string[] } {
 	const warnings: string[] = [];
-	const cleanHex = colorHex.replace('#', '').toUpperCase();
+	const cleanHex = normalizeHex(colorHex);
 	const hexWithHash = `#${cleanHex}`;
 
 	const rgb = hexToRgb(hexWithHash);
 	const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
 
-	// Check if it's white (all RGB values close to 255, or lightness very high)
+	// check if it's white
 	const isWhite = rgb.r > 250 && rgb.g > 250 && rgb.b > 250;
 	if (isWhite || hsl.l > 95) {
 		warnings.push(
@@ -229,7 +246,7 @@ export function validateColorNotGrayscale(
 		);
 	}
 
-	// Check if it's black (all RGB values close to 0, or lightness very low)
+	// check if it's black
 	const isBlack = rgb.r < 5 && rgb.g < 5 && rgb.b < 5;
 	if (isBlack || hsl.l < 5) {
 		warnings.push(
@@ -237,7 +254,7 @@ export function validateColorNotGrayscale(
 		);
 	}
 
-	// Check if it's grayscale (low saturation)
+	// check if it's grayscale
 	if (hsl.s < 15 && !isWhite && !isBlack) {
 		warnings.push(
 			`${colorName.charAt(0).toUpperCase() + colorName.slice(1)} color is too gray. Use a more vibrant color.`
@@ -250,27 +267,23 @@ export function validateColorNotGrayscale(
 	};
 }
 
-/**
- * Validates accent color against the neutral color background
- * Returns validation status with warnings
- */
+/** validates accent color against neutral background contrast. */
 export function validateAccent(
 	accentHex: string,
 	neutralHex?: string
 ): { isValid: boolean; warnings: string[] } {
 	const warnings: string[] = [];
-	const cleanHex = accentHex.replace('#', '').toUpperCase();
+	const cleanHex = normalizeHex(accentHex);
 	const hexWithHash = `#${cleanHex}`;
 
-	// Check for white, black, or grayscale
+	// check for white, black, or grayscale
 	const grayscaleCheck = validateColorNotGrayscale(accentHex, 'accent');
 	warnings.push(...grayscaleCheck.warnings);
 
-	// Check 2: WCAG AA contrast (4.5:1) against neutral color
-	// Use user's neutral color if provided, otherwise use default zinc-500
+	// check wcag aa contrast (4.5:1) against neutral
 	const neutralColorHex =
 		neutralHex && neutralHex.trim() !== ''
-			? `#${neutralHex.replace('#', '').toUpperCase()}`
+			? `#${normalizeHex(neutralHex)}`
 			: `#${ZINC_PALETTE['500']}`;
 
 	const contrast = getContrastRatio(hexWithHash, neutralColorHex);
@@ -285,61 +298,26 @@ export function validateAccent(
 	};
 }
 
-/**
- * Determines if a color is light or dark based on luminance
- */
-function isLightColor(hex: string): boolean {
-	const rgb = hexToRgb(hex);
-	const luminance = getLuminance(rgb.r, rgb.g, rgb.b);
-	return luminance > 0.5;
-}
-
-/**
- * Gets readable text color based on background
- * Returns the 950 shade for light backgrounds, 50 shade for dark backgrounds
- */
-export function getReadableTextColor(
-	backgroundColorHex: string,
-	themeColorPalette: Record<string, string>
-): string {
-	const hexWithHash = backgroundColorHex.startsWith('#')
-		? backgroundColorHex
-		: `#${backgroundColorHex}`;
-
-	const isLight = isLightColor(hexWithHash);
-
-	// For light backgrounds, use darkest shade (950)
-	// For dark backgrounds, use lightest shade (50)
-	const shade = isLight ? '950' : '50';
-	const hexValue = themeColorPalette[shade] || themeColorPalette['500'];
-
-	return hexValue.startsWith('#') ? hexValue : `#${hexValue}`;
-}
-
-/**
- * Validates neutral color to ensure it's appropriate for neutral backgrounds
- * Neutral colors should be close to white, beige, or other light/pastel colors
- * More lenient validation to allow beige and light pastel colors
- */
+/** validates neutral color for a light, usable background. */
 export function validateNeutral(neutralHex: string): { isValid: boolean; warnings: string[] } {
 	const warnings: string[] = [];
-	const cleanHex = neutralHex.replace('#', '').toUpperCase();
+	const cleanHex = normalizeHex(neutralHex);
 	const hexWithHash = `#${cleanHex}`;
 
 	const rgb = hexToRgb(hexWithHash);
 	const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
 
-	// Check lightness - neutral colors should be light (L > 60% - more lenient for beiges)
+	// check lightness
 	if (hsl.l < 60) {
 		warnings.push('Neutral color should be light (closer to white/beige).');
 	}
 
-	// Check saturation - neutral colors should have moderate saturation (< 65% - allows beiges)
+	// check saturation
 	if (hsl.s > 65) {
 		warnings.push('Neutral color should have moderate saturation (more gray/beige, less vibrant).');
 	}
 
-	// Check if it's too dark overall (luminance > 0.5 - more lenient)
+	// check luminance
 	const luminance = getLuminance(rgb.r, rgb.g, rgb.b);
 	if (luminance < 0.5) {
 		warnings.push('Neutral color is too dark. Use lighter shades closer to white or beige.');
@@ -351,27 +329,25 @@ export function validateNeutral(neutralHex: string): { isValid: boolean; warning
 	};
 }
 
-/**
- * Applies theme colors to CSS variables on document.documentElement
- */
+/** applies the theme to css variables on the document root. */
 function applyThemeToDOM(colors: ThemeColors) {
 	const root = document.documentElement;
 
-	// Generate and apply palettes for primary, secondary, and accent
+	// generate and apply palettes for primary, secondary, and accent
 	const colorNames: ('primary' | 'secondary' | 'accent')[] = ['primary', 'secondary', 'accent'];
 
 	for (const colorName of colorNames) {
 		const baseHex = colors[colorName];
 		const palette = generatePalette(baseHex);
 
-		// Apply each shade to CSS variable (ensure hex has # prefix)
+		// apply each shade to css variable
 		for (const [shade, hexValue] of Object.entries(palette)) {
 			const hexWithHash = hexValue.startsWith('#') ? hexValue : `#${hexValue}`;
 			root.style.setProperty(`--color-${colorName}-${shade}`, hexWithHash);
 		}
 	}
 
-	// Apply neutral color (use zinc default if empty, otherwise generate palette)
+	// apply neutral color (use zinc default if empty)
 	if (colors.neutral && colors.neutral.trim() !== '') {
 		const neutralPalette = generatePalette(colors.neutral);
 		for (const [shade, hexValue] of Object.entries(neutralPalette)) {
@@ -379,15 +355,13 @@ function applyThemeToDOM(colors: ThemeColors) {
 			root.style.setProperty(`--color-neutral-${shade}`, hexWithHash);
 		}
 	} else {
-		// Use zinc default palette
 		for (const [shade, hexValue] of Object.entries(ZINC_PALETTE)) {
 			const hexWithHash = hexValue.startsWith('#') ? hexValue : `#${hexValue}`;
 			root.style.setProperty(`--color-neutral-${shade}`, hexWithHash);
 		}
 	}
 
-	// Update theme-color meta tag for iOS Safari status bar
-	// Use primary-500 color to match hero section
+	// sync theme-color meta tag with primary-500
 	const primaryPalette = generatePalette(colors.primary);
 	const primary500Hex = primaryPalette['500'];
 	const primary500WithHash = primary500Hex.startsWith('#') ? primary500Hex : `#${primary500Hex}`;
@@ -400,50 +374,33 @@ function applyThemeToDOM(colors: ThemeColors) {
 	themeColorMeta.setAttribute('content', primary500WithHash);
 }
 
+/** marks the ui as safe to show after theme variables are applied. */
 function markThemeReady() {
 	if (typeof document === 'undefined') return;
 	document.body?.classList.add('theme-ready');
 }
 
-type ThemeRecord = {
-	id: string;
-	clientId?: string;
-	name: string;
-	slug: string;
-	primary: string;
-	secondary: string;
-	neutral: string;
-	accent: string;
-	createdAt: string;
-	updatedAt?: string;
-	createdUser?: string;
-	updatedUser?: string;
-};
+/** maps a database theme record to the theme color shape. */
+function mapRecordToColors(record: ThemeRecord): ThemeColors {
+	return {
+		primary: record.primary,
+		secondary: record.secondary,
+		neutral: record.neutral || '',
+		accent: record.accent
+	};
+}
 
-type ThemeApiResponse<T> = {
-	success: boolean;
-	data: T;
-	error?: string;
-};
+/** maps a database theme record to a saved theme entry. */
+function mapRecordToSavedTheme(record: ThemeRecord): SavedTheme {
+	return {
+		id: record.id,
+		name: record.name,
+		colors: mapRecordToColors(record),
+		createdAt: record.createdAt
+	};
+}
 
-let currentThemeETag: string | null = null;
-
-const normalizeHex = (hex: string) => hex.replace('#', '').toUpperCase();
-
-const mapRecordToColors = (record: ThemeRecord): ThemeColors => ({
-	primary: record.primary,
-	secondary: record.secondary,
-	neutral: record.neutral || '',
-	accent: record.accent
-});
-
-const mapRecordToSavedTheme = (record: ThemeRecord): SavedTheme => ({
-	id: record.id,
-	name: record.name,
-	colors: mapRecordToColors(record),
-	createdAt: record.createdAt
-});
-
+/** wraps api calls with json parsing and error handling. */
 async function apiRequest<T>(path: string, options?: RequestInit): Promise<T> {
 	if (typeof window === 'undefined') {
 		throw new Error('Theme API requests are only available in the browser');
@@ -461,16 +418,13 @@ async function apiRequest<T>(path: string, options?: RequestInit): Promise<T> {
 	return payload.data;
 }
 
-type ThemeFetchResult = {
-	theme: ThemeColors | null;
-	notModified: boolean;
-};
-
+/** fetches the current theme and honors etag caching. */
 async function loadCurrentThemeFromDatabase(useEtag = true): Promise<ThemeFetchResult> {
 	if (typeof window === 'undefined') {
 		throw new Error('Theme API requests are only available in the browser');
 	}
 
+	// send etag to avoid refetching unchanged themes
 	const headers: HeadersInit = {};
 	if (useEtag && currentThemeETag) {
 		headers['If-None-Match'] = currentThemeETag;
@@ -498,11 +452,13 @@ async function loadCurrentThemeFromDatabase(useEtag = true): Promise<ThemeFetchR
 	return { theme: mapRecordToColors(payload.data), notModified: false };
 }
 
+/** fetches the list of saved themes from the database. */
 async function loadSavedThemesFromDatabase(): Promise<SavedTheme[]> {
 	const data = await apiRequest<ThemeRecord[]>('');
 	return data.map(mapRecordToSavedTheme);
 }
 
+/** saves the current theme to the database and updates etag state. */
 async function persistCurrentThemeToDatabase(colors: ThemeColors) {
 	if (typeof window === 'undefined') {
 		return;
@@ -537,6 +493,7 @@ async function persistCurrentThemeToDatabase(colors: ThemeColors) {
 	}
 }
 
+/** creates a new saved theme in the database. */
 async function createThemeInDatabase(name: string, colors: ThemeColors) {
 	return await apiRequest<ThemeRecord>('', {
 		method: 'POST',
@@ -552,6 +509,7 @@ async function createThemeInDatabase(name: string, colors: ThemeColors) {
 	});
 }
 
+/** updates an existing saved theme in the database. */
 async function updateThemeInDatabase(themeId: string, name: string, colors: ThemeColors) {
 	return await apiRequest<ThemeRecord>(`/${themeId}`, {
 		method: 'PUT',
@@ -567,42 +525,38 @@ async function updateThemeInDatabase(themeId: string, name: string, colors: Them
 	});
 }
 
-/**
- * Updates a single color in the theme
- */
+/** updates a single color in the current theme and persists it. */
 export function updateColor(colorName: keyof ThemeColors, hexValue: string) {
-	// Remove # if present and uppercase
-	const cleanHex = hexValue.replace('#', '').toUpperCase();
+	// normalize incoming values before writing them
+	const cleanHex = normalizeHex(hexValue);
 	let updatedColors: ThemeColors | null = null;
+	// update the store and keep css vars in sync
 	themeColors.update((colors) => {
 		const updated = { ...colors, [colorName]: cleanHex };
 		updatedColors = updated;
 		applyThemeToDOM(updated);
 		return updated;
 	});
+	// persist once we have a stable update
 	if (updatedColors) {
 		void persistCurrentThemeToDatabase(updatedColors);
 	}
 }
 
-/**
- * Resets theme to defaults
- */
+/** resets the theme back to defaults and persists it. */
 export function resetTheme() {
+	// set the store first to keep ui responsive
 	themeColors.set(DEFAULT_THEME);
 	applyThemeToDOM(DEFAULT_THEME);
 	void persistCurrentThemeToDatabase(DEFAULT_THEME);
 }
 
-/**
- * Saves the current theme with a name
- * Returns the index of the saved theme, or -1 if user needs to select which to replace
- */
+/** saves the current theme with a name, optionally replacing an existing one. */
 export async function saveCurrentTheme(name: string, replaceIndex?: number): Promise<number | null> {
 	const currentColors = get(themeColors);
 	const themes = get(savedThemes);
 
-	// If replaceIndex is provided, replace that theme
+	// replace an existing theme when requested
 	if (replaceIndex !== undefined && replaceIndex >= 0 && replaceIndex < themes.length) {
 		try {
 			const record = await updateThemeInDatabase(themes[replaceIndex].id, name, currentColors);
@@ -616,7 +570,7 @@ export async function saveCurrentTheme(name: string, replaceIndex?: number): Pro
 		}
 	}
 
-	// If there's space, add new theme
+	// create a new theme if there is room
 	if (themes.length < MAX_SAVED_THEMES) {
 		try {
 			const record = await createThemeInDatabase(name, currentColors);
@@ -629,13 +583,11 @@ export async function saveCurrentTheme(name: string, replaceIndex?: number): Pro
 		}
 	}
 
-	// No space, return null to indicate user needs to select which to replace
+	// no space left, ask the caller to choose a replacement
 	return null;
 }
 
-/**
- * Loads a saved theme
- */
+/** loads a saved theme and makes it the current theme. */
 export async function loadTheme(themeId: string) {
 	const themes = get(savedThemes);
 	let theme = themes.find((t) => t.id === themeId);
@@ -656,9 +608,7 @@ export async function loadTheme(themeId: string) {
 	return true;
 }
 
-/**
- * Deletes a saved theme
- */
+/** deletes a saved theme from the database and store. */
 export async function deleteTheme(themeId: string) {
 	try {
 		await apiRequest<boolean>(`/${themeId}`, { method: 'DELETE' });
@@ -670,24 +620,16 @@ export async function deleteTheme(themeId: string) {
 	}
 }
 
-/**
- * Gets the list of saved themes
- */
-/**
- * Initializes the theme system
- * - Loads from database if available
- * - Applies theme to DOM
- * - Sets up subscription for future changes
- */
+/** initializes the theme system and keeps css variables in sync. */
 export async function init(
 	initialTheme?: ThemeColors,
 	options?: {
 		fetchCurrent?: boolean;
-		persistCurrent?: boolean;
 	}
 ) {
 	if (typeof window === 'undefined') return;
 
+	// pull etag from the server-rendered meta tag
 	const etagMeta = document.querySelector('meta[name="theme-etag"]');
 	if (etagMeta) {
 		const value = etagMeta.getAttribute('content');
@@ -697,10 +639,12 @@ export async function init(
 	}
 
 	const fallbackTheme = initialTheme ?? DEFAULT_THEME;
+	// keep the store in sync with the first paint
 	themeColors.set(fallbackTheme);
 	applyThemeToDOM(fallbackTheme);
 
 	try {
+		// load saved themes without blocking initial paint
 		void loadSavedThemesFromDatabase()
 			.then((saved) => {
 				savedThemes.set(saved);
@@ -710,7 +654,6 @@ export async function init(
 			});
 
 		const shouldFetchCurrent = options?.fetchCurrent ?? !initialTheme;
-		const shouldPersistCurrent = options?.persistCurrent ?? false;
 		if (shouldFetchCurrent) {
 			const currentResult = await loadCurrentThemeFromDatabase();
 			const currentTheme = currentResult.notModified ? null : currentResult.theme;
@@ -721,8 +664,6 @@ export async function init(
 			if (!currentTheme && !currentResult.notModified) {
 				void persistCurrentThemeToDatabase(resolvedTheme);
 			}
-		} else if (shouldPersistCurrent) {
-			void persistCurrentThemeToDatabase(fallbackTheme);
 		}
 	} catch (error) {
 		console.warn('Failed to initialize themes from database:', error);
@@ -730,9 +671,11 @@ export async function init(
 		applyThemeToDOM(fallbackTheme);
 	}
 
+	// keep css variables in sync with store changes
 	themeColors.subscribe((colors) => {
 		applyThemeToDOM(colors);
 	});
 
+	// allow the body to display after theme is applied
 	markThemeReady();
 }

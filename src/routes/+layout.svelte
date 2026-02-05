@@ -10,10 +10,14 @@
 	let { children, data } = $props();
 	// injectSpeedInsights();
 
+	// use the server-provided theme as the initial paint values
 	let initialTheme = $derived((data?.theme as theme.ThemeColors | null) ?? theme.DEFAULT_THEME);
+	// only fetch the current theme when the server did not provide one
 	let shouldFetchCurrent = $derived((data?.themeSource as 'db' | 'fallback' | undefined) !== 'db');
 
 	let themeEtag = $derived((data?.themeEtag as string | undefined) ?? 'W/"theme-empty"');
+
+	/** builds the blocking head script that applies css variables before paint. */
 	const buildInlineThemeScript = (colors: theme.ThemeColors) => {
 		const themeJson = JSON.stringify(colors ?? theme.DEFAULT_THEME);
 		const zincJson = JSON.stringify(theme.ZINC_PALETTE);
@@ -107,29 +111,32 @@
 		})()`;
 	};
 
+	// create the inline script once per navigation
 	let inlineThemeScript = $derived(buildInlineThemeScript(initialTheme));
 
-	onMount(() => {
+	/** applies the select arrow action to themed select elements. */
+	const applySelectArrowToAll = () => {
+		const selects = document.querySelectorAll<HTMLSelectElement>(
+			'select.select-primary, select.select-secondary, select.select-accent'
+		);
+		selects.forEach((select) => {
+			// skip selects that already have the action
+			if (!select.dataset.selectArrowApplied) {
+				select.dataset.selectArrowApplied = 'true';
+				selectArrow(select);
+			}
+		});
+	};
+
+	/** runs client-only setup after the component mounts. */
+	const handleMount = () => {
+		// initialize the theme store and keep it in sync with the dom
 		theme.init(initialTheme, { fetchCurrent: shouldFetchCurrent });
 
-		// Automatically apply selectArrow action to all themed select elements
-		function applySelectArrowToAll() {
-			const selects = document.querySelectorAll<HTMLSelectElement>(
-				'select.select-primary, select.select-secondary, select.select-accent'
-			);
-			selects.forEach((select) => {
-				// Only apply if not already applied (check for a data attribute)
-				if (!select.dataset.selectArrowApplied) {
-					select.dataset.selectArrowApplied = 'true';
-					selectArrow(select);
-				}
-			});
-		}
-
-		// Apply immediately
+		// apply select arrow once on mount
 		applySelectArrowToAll();
 
-		// Watch for new selects added dynamically
+		// watch for dynamically added selects
 		const observer = new MutationObserver(() => {
 			applySelectArrowToAll();
 		});
@@ -142,7 +149,9 @@
 		return () => {
 			observer.disconnect();
 		};
-	});
+	};
+
+	onMount(handleMount);
 </script>
 
 <svelte:head>
