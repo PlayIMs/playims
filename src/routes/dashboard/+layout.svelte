@@ -24,7 +24,12 @@
 		{ id: 'Intramural Sports', label: 'Intramural Sports', icon: IconBallFootball, href: '#' },
 		{ id: 'Club Sports', label: 'Club Sports', icon: IconTrophy, href: '#' },
 		{ id: 'Member Management', label: 'Member Management', icon: IconUserCog, href: '#' },
-		{ id: 'Communication Center', label: 'Communication Center', icon: IconMessageCircle, href: '#' },
+		{
+			id: 'Communication Center',
+			label: 'Communication Center',
+			icon: IconMessageCircle,
+			href: '#'
+		},
 		{ id: 'Facilities', label: 'Facilities', icon: IconBuilding, href: '/dashboard/facilities' },
 		{ id: 'Equipment Checkout', label: 'Equipment Checkout', icon: IconShoppingCart, href: '#' },
 		{ id: 'Payments', label: 'Payments', icon: IconCreditCard, href: '#' },
@@ -45,7 +50,9 @@
 
 <div class="flex min-h-screen">
 	<!-- Sidebar Navigation -->
-	<aside class="bg-primary text-white flex flex-col relative transition-all duration-200 {menuWidth}">
+	<aside
+		class="bg-primary text-white flex flex-col relative transition-all duration-200 {menuWidth}"
+	>
 		<!-- Logo Area -->
 		<div
 			class="p-4 border-b border-primary-600 flex items-center {isSidebarOpen
@@ -76,12 +83,13 @@
 					<li>
 						<a
 							href={item.href}
-							class="w-full {isSidebarOpen
+							class="w-full whitespace-nowrap {isSidebarOpen
 								? 'px-4 py-3 flex items-center gap-3'
 								: 'px-2 py-3 flex items-center justify-center'} transition-all duration-150 cursor-pointer {activePath ===
 							item.href
 								? 'bg-primary-600 border-l-4 border-neutral-500 text-white'
-								: 'text-primary-100 hover:bg-primary-600 hover:text-white border-l-4 border-transparent'} {item.href === '#'
+								: 'text-primary-100 hover:bg-primary-600 hover:text-white border-l-4 border-transparent'} {item.href ===
+							'#'
 								? 'opacity-70 pointer-events-none'
 								: ''}"
 							title={isSidebarOpen ? '' : item.label}
