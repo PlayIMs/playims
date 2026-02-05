@@ -688,7 +688,7 @@
 					<div class="flex gap-4">
 						{#each $savedThemes as theme (theme.id)}
 							<div
-								class="border-2 border-primary-300 p-4 hover:border-primary-500 transition-colors cursor-pointer min-w-[280px] flex-shrink-0"
+								class="border-2 border-primary-300 p-4 hover:border-primary-500 transition-colors cursor-pointer min-w-[280px] shrink-0"
 								onclick={() => handleLoadTheme(theme.id)}
 								onkeydown={(e) => {
 									if (e.key === 'Enter' || e.key === ' ') {
@@ -1092,7 +1092,7 @@
 								class="w-full text-left border-2 border-primary-300 p-3 hover:border-primary-500 hover:bg-primary-50 transition-colors cursor-pointer"
 							>
 								<div class="flex items-center gap-3">
-									<div class="grid grid-cols-4 gap-1 flex-shrink-0">
+									<div class="grid grid-cols-4 gap-1 shrink-0">
 										<div
 											class="w-8 h-8 border border-primary-300"
 											style="background-color: #{theme.colors.primary}"
@@ -1145,7 +1145,7 @@
 						{@const hexWithHash = hexValue.startsWith('#') ? hexValue : `#${hexValue}`}
 						<div class="flex items-center gap-3">
 							<div
-								class="w-16 h-12 border-2 border-primary-300 flex-shrink-0"
+								class="w-16 h-12 border-2 border-primary-300 shrink-0"
 								style="background-color: {hexWithHash}"
 							></div>
 							<div class="flex-1">
@@ -1166,7 +1166,7 @@
 						{@const hexWithHash = hexValue.startsWith('#') ? hexValue : `#${hexValue}`}
 						<div class="flex items-center gap-3">
 							<div
-								class="w-16 h-12 border-2 border-primary-300 flex-shrink-0"
+								class="w-16 h-12 border-2 border-primary-300 shrink-0"
 								style="background-color: {hexWithHash}"
 							></div>
 							<div class="flex-1">
@@ -1187,7 +1187,7 @@
 						{@const hexWithHash = hexValue.startsWith('#') ? hexValue : `#${hexValue}`}
 						<div class="flex items-center gap-3">
 							<div
-								class="w-16 h-12 border-2 border-primary-300 flex-shrink-0"
+								class="w-16 h-12 border-2 border-primary-300 shrink-0"
 								style="background-color: {hexWithHash}"
 							></div>
 							<div class="flex-1">
@@ -1209,7 +1209,7 @@
 							{@const hexWithHash = hexValue.startsWith('#') ? hexValue : `#${hexValue}`}
 							<div class="flex items-center gap-3">
 								<div
-									class="w-16 h-12 border-2 border-primary-300 flex-shrink-0"
+									class="w-16 h-12 border-2 border-primary-300 shrink-0"
 									style="background-color: {hexWithHash}"
 								></div>
 								<div class="flex-1">
@@ -1227,7 +1227,7 @@
 							{@const hexWithHash = hexValue.startsWith('#') ? hexValue : `#${hexValue}`}
 							<div class="flex items-center gap-3">
 								<div
-									class="w-16 h-12 border-2 border-primary-300 flex-shrink-0"
+									class="w-16 h-12 border-2 border-primary-300 shrink-0"
 									style="background-color: {hexWithHash}"
 								></div>
 								<div class="flex-1">
