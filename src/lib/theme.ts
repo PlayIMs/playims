@@ -40,12 +40,11 @@ type SavedTheme = {
 	id: string;
 	name: string;
 	colors: ThemeColors;
-	createdAt: number;
+	createdAt: string;
 };
 
 const MAX_SAVED_THEMES = 15;
-const STORAGE_KEY_THEMES = 'saved-themes';
-const STORAGE_KEY_CURRENT = 'current-theme';
+const API_BASE = '/api/themes';
 
 export const themeColors = writable<ThemeColors>(DEFAULT_THEME);
 export const savedThemes = writable<SavedTheme[]>([]);
@@ -401,110 +400,118 @@ function applyThemeToDOM(colors: ThemeColors) {
 	themeColorMeta.setAttribute('content', primary500WithHash);
 }
 
-/**
- * Saves current theme to localStorage
- */
-function saveCurrentThemeToStorage(colors: ThemeColors) {
-	if (typeof window !== 'undefined') {
-		try {
-			localStorage.setItem(STORAGE_KEY_CURRENT, JSON.stringify(colors));
-		} catch (error) {
-			console.warn('Failed to save current theme to localStorage:', error);
-		}
+type ThemeRecord = {
+	id: string;
+	name: string;
+	slug: string;
+	primary: string;
+	secondary: string;
+	neutral: string;
+	accent: string;
+	createdAt: string;
+};
+
+type ThemeApiResponse<T> = {
+	success: boolean;
+	data: T;
+	error?: string;
+};
+
+const normalizeHex = (hex: string) => hex.replace('#', '').toUpperCase();
+
+const mapRecordToColors = (record: ThemeRecord): ThemeColors => ({
+	primary: record.primary,
+	secondary: record.secondary,
+	neutral: record.neutral || '',
+	accent: record.accent
+});
+
+const mapRecordToSavedTheme = (record: ThemeRecord): SavedTheme => ({
+	id: record.id,
+	name: record.name,
+	colors: mapRecordToColors(record),
+	createdAt: record.createdAt
+});
+
+async function apiRequest<T>(path: string, options?: RequestInit): Promise<T> {
+	if (typeof window === 'undefined') {
+		throw new Error('Theme API requests are only available in the browser');
 	}
+	const response = await fetch(`${API_BASE}${path}`, {
+		headers: {
+			'Content-Type': 'application/json'
+		},
+		...options
+	});
+	const payload = (await response.json()) as ThemeApiResponse<T>;
+	if (!response.ok || !payload.success) {
+		throw new Error(payload.error || 'Theme request failed');
+	}
+	return payload.data;
 }
 
-/**
- * Loads current theme from localStorage
- */
-function loadCurrentThemeFromStorage(): ThemeColors | null {
-	if (typeof window === 'undefined') return null;
+async function loadCurrentThemeFromDatabase(): Promise<ThemeColors | null> {
+	const data = await apiRequest<ThemeRecord | null>('/current');
+	if (!data) {
+		return null;
+	}
+	return mapRecordToColors(data);
+}
 
+async function loadSavedThemesFromDatabase(): Promise<SavedTheme[]> {
+	const data = await apiRequest<ThemeRecord[]>('');
+	return data.map(mapRecordToSavedTheme);
+}
+
+async function persistCurrentThemeToDatabase(colors: ThemeColors) {
+	if (typeof window === 'undefined') {
+		return;
+	}
 	try {
-		const stored = localStorage.getItem(STORAGE_KEY_CURRENT);
-		if (stored) {
-			const parsed = JSON.parse(stored);
-			// Validate structure - handle migration from tertiary to neutral
-			if (
-				parsed &&
-				typeof parsed === 'object' &&
-				'primary' in parsed &&
-				'secondary' in parsed &&
-				'accent' in parsed
-			) {
-				// Migrate old themes with tertiary to neutral
-				if ('tertiary' in parsed && !('neutral' in parsed)) {
-					parsed.neutral = '';
+		await apiRequest<ThemeRecord>('/current', {
+			method: 'PUT',
+			body: JSON.stringify({
+				colors: {
+					primary: normalizeHex(colors.primary),
+					secondary: normalizeHex(colors.secondary),
+					neutral: colors.neutral ? normalizeHex(colors.neutral) : '',
+					accent: normalizeHex(colors.accent)
 				}
-				// Ensure neutral exists
-				if (!('neutral' in parsed)) {
-					parsed.neutral = '';
-				}
-				return parsed as ThemeColors;
-			}
-		}
+			})
+		});
 	} catch (error) {
-		console.warn('Failed to load current theme from localStorage:', error);
+		console.warn('Failed to save current theme to database:', error);
 	}
-
-	return null;
 }
 
-/**
- * Loads saved themes from localStorage
- */
-function loadSavedThemesFromStorage(): SavedTheme[] {
-	if (typeof window === 'undefined') return [];
-
-	try {
-		const stored = localStorage.getItem(STORAGE_KEY_THEMES);
-		if (stored) {
-			const parsed = JSON.parse(stored);
-			if (Array.isArray(parsed)) {
-				return parsed
-					.filter(
-						(theme) =>
-							theme &&
-							typeof theme === 'object' &&
-							'id' in theme &&
-							'name' in theme &&
-							'colors' in theme &&
-							theme.colors &&
-							'primary' in theme.colors &&
-							'secondary' in theme.colors &&
-							'accent' in theme.colors
-					)
-					.map((theme) => {
-						// Migrate old themes with tertiary to neutral
-						if ('tertiary' in theme.colors && !('neutral' in theme.colors)) {
-							theme.colors.neutral = '';
-						}
-						// Ensure neutral exists
-						if (!('neutral' in theme.colors)) {
-							theme.colors.neutral = '';
-						}
-						return theme;
-					}) as SavedTheme[];
+async function createThemeInDatabase(name: string, colors: ThemeColors) {
+	return await apiRequest<ThemeRecord>('', {
+		method: 'POST',
+		body: JSON.stringify({
+			name,
+			colors: {
+				primary: normalizeHex(colors.primary),
+				secondary: normalizeHex(colors.secondary),
+				neutral: colors.neutral ? normalizeHex(colors.neutral) : '',
+				accent: normalizeHex(colors.accent)
 			}
-		}
-	} catch (error) {
-		console.warn('Failed to load saved themes from localStorage:', error);
-	}
-
-	return [];
+		})
+	});
 }
 
-/**
- * Saves themes array to localStorage
- */
-function saveThemesToStorage(themes: SavedTheme[]) {
-	if (typeof window !== 'undefined') {
-		try {
-			localStorage.setItem(STORAGE_KEY_THEMES, JSON.stringify(themes));
-		} catch (error) {
-			console.warn('Failed to save themes to localStorage:', error);
-		}
-	}
+async function updateThemeInDatabase(themeId: string, name: string, colors: ThemeColors) {
+	return await apiRequest<ThemeRecord>(`/${themeId}`, {
+		method: 'PUT',
+		body: JSON.stringify({
+			name,
+			colors: {
+				primary: normalizeHex(colors.primary),
+				secondary: normalizeHex(colors.secondary),
+				neutral: colors.neutral ? normalizeHex(colors.neutral) : '',
+				accent: normalizeHex(colors.accent)
+			}
+		})
+	});
 }
 
 /**
@@ -513,12 +520,16 @@ function saveThemesToStorage(themes: SavedTheme[]) {
 export function updateColor(colorName: keyof ThemeColors, hexValue: string) {
 	// Remove # if present and uppercase
 	const cleanHex = hexValue.replace('#', '').toUpperCase();
+	let updatedColors: ThemeColors | null = null;
 	themeColors.update((colors) => {
 		const updated = { ...colors, [colorName]: cleanHex };
+		updatedColors = updated;
 		applyThemeToDOM(updated);
-		saveCurrentThemeToStorage(updated);
 		return updated;
 	});
+	if (updatedColors) {
+		void persistCurrentThemeToDatabase(updatedColors);
+	}
 }
 
 /**
@@ -527,43 +538,42 @@ export function updateColor(colorName: keyof ThemeColors, hexValue: string) {
 export function resetTheme() {
 	themeColors.set(DEFAULT_THEME);
 	applyThemeToDOM(DEFAULT_THEME);
-	saveCurrentThemeToStorage(DEFAULT_THEME);
+	void persistCurrentThemeToDatabase(DEFAULT_THEME);
 }
 
 /**
  * Saves the current theme with a name
  * Returns the index of the saved theme, or -1 if user needs to select which to replace
  */
-export function saveCurrentTheme(name: string, replaceIndex?: number): number | null {
+export async function saveCurrentTheme(name: string, replaceIndex?: number): Promise<number | null> {
 	const currentColors = get(themeColors);
 	const themes = get(savedThemes);
 
 	// If replaceIndex is provided, replace that theme
 	if (replaceIndex !== undefined && replaceIndex >= 0 && replaceIndex < themes.length) {
-		const updated = [...themes];
-		updated[replaceIndex] = {
-			id: themes[replaceIndex].id,
-			name,
-			colors: { ...currentColors },
-			createdAt: Date.now()
-		};
-		savedThemes.set(updated);
-		saveThemesToStorage(updated);
-		return replaceIndex;
+		try {
+			const record = await updateThemeInDatabase(themes[replaceIndex].id, name, currentColors);
+			const updated = [...themes];
+			updated[replaceIndex] = mapRecordToSavedTheme(record);
+			savedThemes.set(updated);
+			return replaceIndex;
+		} catch (error) {
+			console.warn('Failed to update theme:', error);
+			return null;
+		}
 	}
 
 	// If there's space, add new theme
 	if (themes.length < MAX_SAVED_THEMES) {
-		const newTheme: SavedTheme = {
-			id: `theme-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-			name,
-			colors: { ...currentColors },
-			createdAt: Date.now()
-		};
-		const updated = [...themes, newTheme];
-		savedThemes.set(updated);
-		saveThemesToStorage(updated);
-		return updated.length - 1;
+		try {
+			const record = await createThemeInDatabase(name, currentColors);
+			const updated = [...themes, mapRecordToSavedTheme(record)];
+			savedThemes.set(updated);
+			return updated.length - 1;
+		} catch (error) {
+			console.warn('Failed to save theme:', error);
+			return null;
+		}
 	}
 
 	// No space, return null to indicate user needs to select which to replace
@@ -573,26 +583,38 @@ export function saveCurrentTheme(name: string, replaceIndex?: number): number | 
 /**
  * Loads a saved theme
  */
-export function loadTheme(themeId: string) {
+export async function loadTheme(themeId: string) {
 	const themes = get(savedThemes);
-	const theme = themes.find((t) => t.id === themeId);
-	if (theme) {
-		themeColors.set({ ...theme.colors });
-		applyThemeToDOM(theme.colors);
-		saveCurrentThemeToStorage(theme.colors);
-		return true;
+	let theme = themes.find((t) => t.id === themeId);
+
+	if (!theme) {
+		try {
+			const record = await apiRequest<ThemeRecord>(`/${themeId}`);
+			theme = mapRecordToSavedTheme(record);
+		} catch (error) {
+			console.warn('Failed to load theme:', error);
+			return false;
+		}
 	}
-	return false;
+
+	themeColors.set({ ...theme.colors });
+	applyThemeToDOM(theme.colors);
+	void persistCurrentThemeToDatabase(theme.colors);
+	return true;
 }
 
 /**
  * Deletes a saved theme
  */
-export function deleteTheme(themeId: string) {
-	const themes = get(savedThemes);
-	const updated = themes.filter((t) => t.id !== themeId);
-	savedThemes.set(updated);
-	saveThemesToStorage(updated);
+export async function deleteTheme(themeId: string) {
+	try {
+		await apiRequest<boolean>(`/${themeId}`, { method: 'DELETE' });
+		const themes = get(savedThemes);
+		const updated = themes.filter((t) => t.id !== themeId);
+		savedThemes.set(updated);
+	} catch (error) {
+		console.warn('Failed to delete theme:', error);
+	}
 }
 
 /**
@@ -604,30 +626,35 @@ export function getSavedThemes(): SavedTheme[] {
 
 /**
  * Initializes the theme system
- * - Loads from localStorage if available
+ * - Loads from database if available
  * - Applies theme to DOM
  * - Sets up subscription for future changes
  */
-export function init() {
+export async function init() {
 	if (typeof window === 'undefined') return;
 
-	// Load saved themes
-	const saved = loadSavedThemesFromStorage();
-	savedThemes.set(saved);
+	try {
+		const [currentTheme, saved] = await Promise.all([
+			loadCurrentThemeFromDatabase(),
+			loadSavedThemesFromDatabase()
+		]);
 
-	// Load current theme from localStorage or use defaults
-	const savedTheme = loadCurrentThemeFromStorage();
-	const initialTheme = savedTheme || DEFAULT_THEME;
+		savedThemes.set(saved);
 
-	// Set initial theme
-	themeColors.set(initialTheme);
+		const initialTheme = currentTheme || DEFAULT_THEME;
+		themeColors.set(initialTheme);
+		applyThemeToDOM(initialTheme);
 
-	// Apply to DOM immediately
-	applyThemeToDOM(initialTheme);
+		if (!currentTheme) {
+			void persistCurrentThemeToDatabase(initialTheme);
+		}
+	} catch (error) {
+		console.warn('Failed to initialize themes from database:', error);
+		themeColors.set(DEFAULT_THEME);
+		applyThemeToDOM(DEFAULT_THEME);
+	}
 
-	// Subscribe to future changes
 	themeColors.subscribe((colors) => {
 		applyThemeToDOM(colors);
-		saveCurrentThemeToStorage(colors);
 	});
 }

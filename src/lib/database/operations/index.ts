@@ -20,6 +20,7 @@ import { BracketEntryOperations } from './bracket-entries.js';
 import { AnnouncementOperations } from './announcements.js';
 import { NotificationOperations } from './notifications.js';
 import { AuditLogOperations } from './audit-logs.js';
+import { ThemeOperations } from './themes.js';
 
 /**
  * Unified database operations class
@@ -43,6 +44,7 @@ export class DatabaseOperations {
 	public announcements: AnnouncementOperations;
 	public notifications: NotificationOperations;
 	public auditLogs: AuditLogOperations;
+	public themes: ThemeOperations;
 
 	constructor(platformOrDb: { env: { DB: D1Database } } | D1Database) {
 		let db: D1Database;
@@ -80,6 +82,7 @@ export class DatabaseOperations {
 		this.announcements = new AnnouncementOperations(drizzleDb);
 		this.notifications = new NotificationOperations(drizzleDb);
 		this.auditLogs = new AuditLogOperations(drizzleDb);
+		this.themes = new ThemeOperations(drizzleDb);
 	}
 }
 
@@ -101,3 +104,4 @@ export { BracketEntryOperations } from './bracket-entries.js';
 export { AnnouncementOperations } from './announcements.js';
 export { NotificationOperations } from './notifications.js';
 export { AuditLogOperations } from './audit-logs.js';
+export { ThemeOperations } from './themes.js';

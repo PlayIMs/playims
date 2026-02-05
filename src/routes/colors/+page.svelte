@@ -10,7 +10,6 @@
 		saveCurrentTheme,
 		loadTheme,
 		deleteTheme,
-		getSavedThemes,
 		validateAccent,
 		validateNeutral,
 		validateColorNotGrayscale,
@@ -423,7 +422,7 @@
 		// Just ensure we're subscribed to updates
 	});
 
-	function handleSaveTheme() {
+	async function handleSaveTheme() {
 		const name = themeNameInput.trim();
 		if (!name) {
 			alert('Please enter a theme name');
@@ -443,7 +442,7 @@
 			return;
 		}
 
-		const result = saveCurrentTheme(name, replaceThemeIndex ?? undefined);
+		const result = await saveCurrentTheme(name, replaceThemeIndex ?? undefined);
 		if (result === null) {
 			// Need to show replace modal
 			showSaveModal = false;
@@ -459,23 +458,23 @@
 		}
 	}
 
-	function handleOverwriteTheme() {
+	async function handleOverwriteTheme() {
 		if (existingThemeIndex !== null) {
 			replaceThemeIndex = existingThemeIndex;
 			showOverwriteModal = false;
-			handleSaveTheme();
+			await handleSaveTheme();
 		}
 	}
 
-	function handleReplaceTheme(index: number) {
+	async function handleReplaceTheme(index: number) {
 		replaceThemeIndex = index;
 		showReplaceModal = false;
 		showSaveModal = true;
-		handleSaveTheme();
+		await handleSaveTheme();
 	}
 
-	function handleLoadTheme(themeId: string) {
-		loadTheme(themeId);
+	async function handleLoadTheme(themeId: string) {
+		await loadTheme(themeId);
 		// Update inputs to match loaded theme
 		const colors = $themeColors;
 		primaryInput = colors.primary;
@@ -488,10 +487,10 @@
 		validateNeutralColor();
 	}
 
-	function handleDeleteTheme(themeId: string, event: Event) {
+	async function handleDeleteTheme(themeId: string, event: Event) {
 		event.stopPropagation();
 		if (confirm('Are you sure you want to delete this theme?')) {
-			deleteTheme(themeId);
+			await deleteTheme(themeId);
 		}
 	}
 
@@ -517,7 +516,7 @@
 			<h1 class="text-4xl font-bold text-neutral-950 mb-2">Color Theme Editor</h1>
 			<p class="text-neutral-900">
 				Edit the base colors (500 shade) to generate a full palette. Colors are saved automatically
-				to localStorage.
+				to your database.
 			</p>
 		</div>
 

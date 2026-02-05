@@ -38,7 +38,9 @@ export type {
 	Notification,
 	NewNotification,
 	AuditLog,
-	NewAuditLog
+	NewAuditLog,
+	Theme,
+	NewTheme
 } from './schema/index.js';
 
 /**

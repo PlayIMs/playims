@@ -23,7 +23,6 @@
 		<script>
 			// Blocking script to prevent theme flash - runs before page renders
 			(function () {
-				const STORAGE_KEY_CURRENT = 'current-theme';
 				const DEFAULT_THEME = {
 					primary: 'CE1126',
 					secondary: '14213D',
@@ -45,32 +44,8 @@
 					950: '09090B'
 				};
 
-				// Load theme from localStorage
+				// Use default theme for initial paint; database sync happens after load
 				let theme = DEFAULT_THEME;
-				try {
-					const stored = localStorage.getItem(STORAGE_KEY_CURRENT);
-					if (stored) {
-						const parsed = JSON.parse(stored);
-						if (
-							parsed &&
-							typeof parsed === 'object' &&
-							'primary' in parsed &&
-							'secondary' in parsed &&
-							'accent' in parsed
-						) {
-							// Migrate old themes
-							if ('tertiary' in parsed && !('neutral' in parsed)) {
-								parsed.neutral = '';
-							}
-							if (!('neutral' in parsed)) {
-								parsed.neutral = '';
-							}
-							theme = parsed;
-						}
-					}
-				} catch (e) {
-					// Use defaults on error
-				}
 
 				// Generate palette function (inline version)
 				function generatePalette(baseHex) {

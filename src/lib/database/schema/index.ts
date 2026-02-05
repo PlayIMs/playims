@@ -16,3 +16,4 @@ export * from './bracket-entries';
 export * from './announcements';
 export * from './notifications';
 export * from './audit-logs';
+export * from './themes';

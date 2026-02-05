@@ -13,6 +13,23 @@ The database logic is modular and located in `src/lib/database/`:
 - **`operations/`**: Contains business logic classes (e.g., `ClientOperations`).
   - To add logic: Create a new operation class here and register it in `operations/index.ts`.
 
+## Schema Standards (Required)
+
+All tables in this project are expected to include:
+
+- `client_id` (tenant scoping; themes are per-client, not per-user)
+- `created_at`
+- `updated_at`
+- `created_user`
+- `updated_user`
+
+Notes:
+
+- `created_at` should default to the current timestamp when possible.
+- `updated_at` should be set/updated by the application whenever a record changes.
+- `created_user` / `updated_user` should be set from `locals.user?.id` when auth exists; until then, they may be null.
+- If a table is truly global (rare), still include `client_id` and leave it null; document the exception in the schema file.
+
 ## Local vs. Remote Development
 
 This project uses Cloudflare D1. It is important to understand the difference between **Local** and **Remote** databases.
@@ -110,7 +127,12 @@ To ensure your application types match your database:
 
     export const myTable = sqliteTable('my_table', {
     	id: text().primaryKey(),
-    	name: text()
+    	clientId: text('client_id'),
+    	name: text(),
+    	createdAt: text('created_at').default('sql`(CURRENT_TIMESTAMP)`'),
+    	updatedAt: text('updated_at'),
+    	createdUser: text('created_user'),
+    	updatedUser: text('updated_user')
     	// ...
     });
 
