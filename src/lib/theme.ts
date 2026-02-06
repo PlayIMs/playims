@@ -2,6 +2,7 @@ import { writable, get } from 'svelte/store';
 
 // default zinc palette (tailwind css zinc colors)
 export const ZINC_PALETTE: Record<string, string> = {
+	'05': 'FEFEFE',
 	'25': 'FDFDFD',
 	'50': 'FAFAFA',
 	'100': 'F4F4F5',
@@ -20,7 +21,7 @@ export const ZINC_PALETTE: Record<string, string> = {
 export const DEFAULT_THEME = {
 	primary: 'CE1126',
 	secondary: '14213D',
-	neutral: 'EEDBCE',
+	neutral: 'F5ECE5',
 	accent: '04669A'
 } as const;
 
@@ -183,7 +184,7 @@ function isLightColor(hex: string): boolean {
 	return luminance > 0.5;
 }
 
-/** generates a full 25-950 palette for a base color (no '#'). */
+/** generates a full 05-950 palette for a base color (no '#'). */
 export function generatePalette(baseHex: string): Record<string, string> {
 	const base = hexToRgb(baseHex);
 	const white = { r: 255, g: 255, b: 255 };
@@ -195,7 +196,8 @@ export function generatePalette(baseHex: string): Record<string, string> {
 	const mixWith = (target: Rgb, weight: number) => mixRgb(base, target, weight);
 
 	return {
-		'25': toHex(mixWith(white, 0.975)),
+		'05': toHex(mixWith(white, 0.975)),
+		'25': toHex(mixWith(white, 0.8625)),
 		'50': toHex(mixWith(white, 0.75)),
 		'100': toHex(mixWith(white, 0.6)),
 		'200': toHex(mixWith(white, 0.4)),

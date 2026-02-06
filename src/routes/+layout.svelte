@@ -29,7 +29,10 @@
 				? theme.generatePalette(colors.neutral)
 				: theme.ZINC_PALETTE;
 
-		const toCssVars = (name: 'primary' | 'secondary' | 'neutral' | 'accent', palette: Record<string, string>) =>
+		const toCssVars = (
+			name: 'primary' | 'secondary' | 'neutral' | 'accent',
+			palette: Record<string, string>
+		) =>
 			Object.entries(palette)
 				.map(([shade, value]) => `--color-${name}-${shade}:#${value};`)
 				.join('');
@@ -119,10 +122,15 @@
 					const cleanBaseHex = baseHex.replace('#', '').toUpperCase();
 
 					return {
-						25: rgbToHex(
+						'05': rgbToHex(
 							mix(base, white, 0.975).r,
 							mix(base, white, 0.975).g,
 							mix(base, white, 0.975).b
+						),
+						25: rgbToHex(
+							mix(base, white, 0.8625).r,
+							mix(base, white, 0.8625).g,
+							mix(base, white, 0.8625).b
 						),
 						50: rgbToHex(
 							mix(base, white, 0.75).r,
@@ -209,11 +217,11 @@
 					document.head.appendChild(themeColorMeta);
 				}
 				themeColorMeta.setAttribute('content', metaColor);
-
 			}
 
 			const defaultTheme = { primary: 'CE1126', secondary: '14213D', neutral: 'EEDBCE', accent: '04669A' };
 			const defaultZinc = {
+				'05': 'FEFEFE',
 				25: 'FDFDFD',
 				50: 'FAFAFA',
 				100: 'F4F4F5',
