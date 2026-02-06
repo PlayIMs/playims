@@ -39,7 +39,7 @@
 
 	// color picker state
 	let openPicker: 'primary' | 'secondary' | 'neutral' | 'accent' | null = $state(null);
-	let pickerColor = $state({ h: 0, s: 100, l: 50, a: 100 });
+	let pickerColor = $state({ h: 0, s: 100, l: 50, saturation: 100 });
 
 	/** calculates the picker cursor position from the current hsl state. */
 	function getPickerPosition() {
@@ -270,6 +270,28 @@
 			.toUpperCase();
 	}
 
+	/** applies a saturation factor (0-100) by blending from white to the base color. */
+	function applySaturationToHex(hex: string, saturation: number): string {
+		const cleanHex = hex.replace('#', '');
+		const factor = Math.max(0, Math.min(100, saturation)) / 100;
+		const r = parseInt(cleanHex.substring(0, 2), 16);
+		const g = parseInt(cleanHex.substring(2, 4), 16);
+		const b = parseInt(cleanHex.substring(4, 6), 16);
+		const toHex = (value: number) => {
+			const saturated = Math.round(255 - (255 - value) * factor);
+			const clamped = Math.max(0, Math.min(255, saturated));
+			const result = clamped.toString(16);
+			return result.length === 1 ? `0${result}` : result;
+		};
+		return `${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+	}
+
+	/** returns the final saturation-adjusted hex shown in preview and saved to theme. */
+	function getPickerHex(): string {
+		const baseHex = hslToHex(pickerColor.h, pickerColor.s, pickerColor.l);
+		return applySaturationToHex(baseHex, pickerColor.saturation);
+	}
+
 	/** opens the color picker for the selected color. */
 	function openColorPicker(colorName: 'primary' | 'secondary' | 'neutral' | 'accent') {
 		let currentHex = $themeColors[colorName];
@@ -278,7 +300,7 @@
 			currentHex = ZINC_PALETTE['500'];
 		}
 		const hsl = hexToHsl(currentHex);
-		pickerColor = { ...hsl, a: 100 };
+		pickerColor = { ...hsl, saturation: 100 };
 		openPicker = colorName;
 		// draw canvas after a brief delay to ensure it's mounted
 		setTimeout(() => {
@@ -294,7 +316,7 @@
 	/** updates the color value based on the current picker state. */
 	function updatePickerColor() {
 		if (!openPicker) return;
-		const hex = hslToHex(pickerColor.h, pickerColor.s, pickerColor.l);
+		const hex = getPickerHex();
 		updateColor(openPicker, hex);
 		// update input field to match the picker
 		if (openPicker === 'primary') {
@@ -415,11 +437,11 @@
 		updatePickerColor();
 	}
 
-	/** handles opacity slider changes (preview only). */
-	function handleOpacityChange(event: Event) {
+	/** handles saturation slider changes. */
+	function handleSaturationChange(event: Event) {
 		const target = event.target as HTMLInputElement;
-		pickerColor.a = parseInt(target.value);
-		// opacity is for preview only, hex doesn't store alpha
+		pickerColor.saturation = parseInt(target.value);
+		updatePickerColor();
 	}
 
 	/** returns a formatted hex string for the current color. */
@@ -544,14 +566,10 @@
 	<div class="max-w-7xl mx-auto">
 		<div class="mb-8">
 			<h1 class="text-4xl font-bold text-neutral-950 mb-2">Color Theme Editor</h1>
-			<p class="text-neutral-900">
-				Edit the base colors (500 shade) to generate a full palette. Colors are saved automatically
-				to your database.
-			</p>
 		</div>
 
 		<div class="bg-white border-2 border-primary-200 p-6 mb-8">
-			<h2 class="text-2xl font-bold text-primary-900 mb-4">Base Colors (500 Shade)</h2>
+			<h2 class="text-2xl font-bold text-primary-900 mb-4">Your Site Theme</h2>
 			<p class="text-sm text-secondary mb-6">
 				Enter hex color codes (e.g., "CE1126" or "#CE1126") or click the color preview to use the
 				color picker.
@@ -864,29 +882,29 @@
 					</div>
 
 					<div class="mb-4">
-						<label for="opacity-slider" class="block text-sm font-bold text-primary-900 mb-2"
-							>Opacity (Preview Only)</label
+						<label for="saturation-slider" class="block text-sm font-bold text-primary-900 mb-2"
+							>Saturation</label
 						>
 						<div class="relative h-8 border-2 border-primary-300">
 							<div
 								class="absolute inset-0"
-								style="background: linear-gradient(to right, transparent, hsl({pickerColor.h}, {pickerColor.s}%, {pickerColor.l}%))"
+								style="background: linear-gradient(to right, #FFFFFF, #{hslToHex(pickerColor.h, pickerColor.s, pickerColor.l)})"
 							></div>
 							<input
-								id="opacity-slider"
+								id="saturation-slider"
 								type="range"
 								min="0"
 								max="100"
-								bind:value={pickerColor.a}
-								oninput={handleOpacityChange}
+								bind:value={pickerColor.saturation}
+								oninput={handleSaturationChange}
 								class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
 							/>
 							<div
 								class="absolute top-0 w-1 h-full bg-white border border-primary-900 pointer-events-none"
-								style="left: {pickerColor.a}%"
+								style="left: {pickerColor.saturation}%"
 							></div>
 						</div>
-						<div class="text-xs text-secondary-600 mt-1">{pickerColor.a}%</div>
+						<div class="text-xs text-secondary-600 mt-1">{pickerColor.saturation}%</div>
 					</div>
 
 					<div class="mb-4 p-4 border-2 border-primary-200">
@@ -900,7 +918,7 @@
 							<div>
 								<div class="font-bold text-primary-900">Hex</div>
 								<div class="text-secondary-700 font-mono">
-									#{hslToHex(pickerColor.h, pickerColor.s, pickerColor.l)}
+									#{getPickerHex()}
 								</div>
 							</div>
 						</div>
@@ -910,15 +928,14 @@
 						<div class="text-sm font-bold text-primary-900 mb-2">Preview</div>
 						<div
 							class="w-full h-16 border-2 border-primary-300"
-							style="background-color: hsla({pickerColor.h}, {pickerColor.s}%, {pickerColor.l}%, {pickerColor.a /
-								100})"
+							style="background-color: #{getPickerHex()}"
 						></div>
 					</div>
 
 					<div class="flex gap-2">
 						<button
 							onclick={() => {
-								const hex = hslToHex(pickerColor.h, pickerColor.s, pickerColor.l);
+								const hex = getPickerHex();
 								updateColor(openPicker!, hex);
 								// update input field
 								if (openPicker === 'primary') {

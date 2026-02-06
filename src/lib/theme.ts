@@ -525,30 +525,23 @@ async function updateThemeInDatabase(themeId: string, name: string, colors: Them
 	});
 }
 
-/** updates a single color in the current theme and persists it. */
+/** updates a single color in the current theme locally. */
 export function updateColor(colorName: keyof ThemeColors, hexValue: string) {
 	// normalize incoming values before writing them
 	const cleanHex = normalizeHex(hexValue);
-	let updatedColors: ThemeColors | null = null;
 	// update the store and keep css vars in sync
 	themeColors.update((colors) => {
 		const updated = { ...colors, [colorName]: cleanHex };
-		updatedColors = updated;
 		applyThemeToDOM(updated);
 		return updated;
 	});
-	// persist once we have a stable update
-	if (updatedColors) {
-		void persistCurrentThemeToDatabase(updatedColors);
-	}
 }
 
-/** resets the theme back to defaults and persists it. */
+/** resets the theme back to defaults locally. */
 export function resetTheme() {
 	// set the store first to keep ui responsive
 	themeColors.set(DEFAULT_THEME);
 	applyThemeToDOM(DEFAULT_THEME);
-	void persistCurrentThemeToDatabase(DEFAULT_THEME);
 }
 
 /** saves the current theme with a name, optionally replacing an existing one. */
@@ -563,6 +556,7 @@ export async function saveCurrentTheme(name: string, replaceIndex?: number): Pro
 			const updated = [...themes];
 			updated[replaceIndex] = mapRecordToSavedTheme(record);
 			savedThemes.set(updated);
+			await persistCurrentThemeToDatabase(currentColors);
 			return replaceIndex;
 		} catch (error) {
 			console.warn('Failed to update theme:', error);
@@ -576,6 +570,7 @@ export async function saveCurrentTheme(name: string, replaceIndex?: number): Pro
 			const record = await createThemeInDatabase(name, currentColors);
 			const updated = [...themes, mapRecordToSavedTheme(record)];
 			savedThemes.set(updated);
+			await persistCurrentThemeToDatabase(currentColors);
 			return updated.length - 1;
 		} catch (error) {
 			console.warn('Failed to save theme:', error);
@@ -604,7 +599,7 @@ export async function loadTheme(themeId: string) {
 
 	themeColors.set({ ...theme.colors });
 	applyThemeToDOM(theme.colors);
-	void persistCurrentThemeToDatabase(theme.colors);
+	await persistCurrentThemeToDatabase(theme.colors);
 	return true;
 }
 
@@ -660,10 +655,6 @@ export async function init(
 			const resolvedTheme = currentTheme || fallbackTheme;
 			themeColors.set(resolvedTheme);
 			applyThemeToDOM(resolvedTheme);
-
-			if (!currentTheme && !currentResult.notModified) {
-				void persistCurrentThemeToDatabase(resolvedTheme);
-			}
 		}
 	} catch (error) {
 		console.warn('Failed to initialize themes from database:', error);
