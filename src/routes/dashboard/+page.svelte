@@ -11,7 +11,6 @@
 	import IconPlayerPlay from '@tabler/icons-svelte/icons/player-play';
 	import IconPlus from '@tabler/icons-svelte/icons/plus';
 	import IconBell from '@tabler/icons-svelte/icons/bell';
-	import IconArrowRight from '@tabler/icons-svelte/icons/arrow-right';
 
 	let { data } = $props();
 
@@ -224,33 +223,30 @@
 							Track live games, completions, and scheduled starts.
 						</p>
 					</div>
-					<div class="flex flex-col items-stretch gap-2 sm:items-end">
+					<div
+						class="flex flex-wrap items-center gap-2"
+						role="radiogroup"
+						aria-label="Filter today's lineup"
+					>
+						{#each filterOptions as option}
+							<button
+								type="button"
+								role="radio"
+								aria-checked={scheduleFilter === option.id}
+								class={`${scheduleFilter === option.id ? option.activeClass : option.inactiveClass} px-3 py-2 text-xs font-bold uppercase tracking-wide`}
+								onclick={() => {
+									scheduleFilter = option.id;
+								}}
+							>
+								{option.label}
+							</button>
+						{/each}
 						<a
 							href={`/schedule?status=${encodeURIComponent(scheduleFilter)}`}
-							class="button-secondary-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide inline-flex items-center justify-center gap-2"
+							class="px-1 py-2 text-xs font-bold uppercase tracking-wide text-accent-500 hover:text-accent-600"
 						>
-							<span>View All</span>
-							<IconArrowRight class="w-4 h-4" />
+							View all ->
 						</a>
-						<div
-							class="flex flex-wrap items-center gap-2"
-							role="radiogroup"
-							aria-label="Filter today's lineup"
-						>
-							{#each filterOptions as option}
-								<button
-									type="button"
-									role="radio"
-									aria-checked={scheduleFilter === option.id}
-									class={`${scheduleFilter === option.id ? option.activeClass : option.inactiveClass} px-3 py-2 text-xs font-bold uppercase tracking-wide`}
-									onclick={() => {
-										scheduleFilter = option.id;
-									}}
-								>
-									{option.label}
-								</button>
-							{/each}
-						</div>
 					</div>
 				</div>
 

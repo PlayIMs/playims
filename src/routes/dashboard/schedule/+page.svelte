@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
 	import IconAlertTriangle from '@tabler/icons-svelte/icons/alert-triangle';
 	import IconCalendar from '@tabler/icons-svelte/icons/calendar';
@@ -57,6 +58,12 @@
 		completed: 'Completed'
 	};
 
+	const STATUS_LABEL_TO_QUERY: Record<string, string> = {
+		Scheduled: 'scheduled',
+		Live: 'in_progress',
+		Completed: 'completed'
+	};
+
 	let { data } = $props<{ data: SchedulePageData }>();
 
 	let searchQuery = $state('');
@@ -89,6 +96,31 @@
 		if (queryStatusLabel) {
 			selectedStatus = queryStatusLabel;
 		}
+	});
+
+	$effect(() => {
+		if (!browser) return;
+
+		const currentUrl = new URL($page.url);
+		const queryValue =
+			selectedStatus === 'all'
+				? null
+				: (STATUS_LABEL_TO_QUERY[selectedStatus] ?? selectedStatus.toLowerCase());
+		const currentStatus = currentUrl.searchParams.get('status');
+
+		if (queryValue) {
+			if (currentStatus === queryValue) return;
+			currentUrl.searchParams.set('status', queryValue);
+		} else {
+			if (!currentStatus) return;
+			currentUrl.searchParams.delete('status');
+		}
+
+		window.history.replaceState(
+			{},
+			'',
+			`${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`
+		);
 	});
 
 	function parseDate(value: string | null): Date | null {
