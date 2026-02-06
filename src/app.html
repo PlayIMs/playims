@@ -19,6 +19,12 @@
 			body.theme-ready {
 				visibility: visible;
 			}
+			body:not(.theme-ready) *,
+			body:not(.theme-ready) *::before,
+			body:not(.theme-ready) *::after {
+				transition: none !important;
+				animation: none !important;
+			}
 		</style>
 		%sveltekit.head%
 	</head>

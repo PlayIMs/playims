@@ -57,7 +57,8 @@
 
 	/** runs client-only setup after the component mounts. */
 	const handleMount = () => {
-		// initialize the theme store and keep it in sync with the dom
+		// critical: reveal is handled inside theme.init/markThemeReady only
+		// do not add body.theme-ready toggles in this file or head script
 		theme.init(initialTheme, { fetchCurrent: shouldFetchCurrent });
 
 		// apply select arrow once on mount
@@ -82,6 +83,7 @@
 </script>
 
 <svelte:head>
+	<!-- critical: keep server-side theme vars in head so first visible frame is themed -->
 	<style id="initial-theme-vars">{initialThemeVarsCss}</style>
 	<script id="initial-theme-data" type="application/json">
 		{initialThemeJson}
@@ -91,6 +93,8 @@
 	</script>
 	<script>
 		(() => {
+			// critical: this head script may set variables/meta only
+			// do not reveal body visibility from here
 			function buildInlineThemeScript(themeInput, zincPaletteInput) {
 				const hexToRgb = (hex) => {
 					const cleanHex = hex.replace('#', '');

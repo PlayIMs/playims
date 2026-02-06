@@ -377,8 +377,39 @@ function applyThemeToDOM(colors: ThemeColors) {
 }
 
 /** marks the ui as safe to show after theme variables are applied. */
-function markThemeReady() {
+async function markThemeReady() {
 	if (typeof document === 'undefined') return;
+	if (document.body?.classList.contains('theme-ready')) return;
+
+	// wait for pending stylesheets so themed backgrounds are available on first visible frame
+	const stylesheetLinks = Array.from(
+		document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]')
+	);
+	const pendingStylesheetLinks = stylesheetLinks.filter((link) => !link.sheet);
+	if (pendingStylesheetLinks.length > 0) {
+		await new Promise<void>((resolve) => {
+			let pendingCount = pendingStylesheetLinks.length;
+			const handleComplete = () => {
+				pendingCount -= 1;
+				if (pendingCount <= 0) {
+					resolve();
+				}
+			};
+			pendingStylesheetLinks.forEach((link) => {
+				link.addEventListener('load', handleComplete, { once: true });
+				link.addEventListener('error', handleComplete, { once: true });
+			});
+		});
+	}
+
+	// wait two paint frames to ensure css variables and computed styles are settled
+	// critical: this is the only allowed body reveal path for no-flicker startup
+	await new Promise<void>((resolve) => {
+		requestAnimationFrame(() => {
+			requestAnimationFrame(() => resolve());
+		});
+	});
+
 	document.body?.classList.add('theme-ready');
 }
 
@@ -669,6 +700,6 @@ export async function init(
 		applyThemeToDOM(colors);
 	});
 
-	// allow the body to display after theme is applied
-	markThemeReady();
+	// allow the body to display after theme and styles are fully settled
+	await markThemeReady();
 }

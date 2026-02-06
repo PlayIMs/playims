@@ -168,3 +168,64 @@ If you need to deploy manually from your machine:
     ```bash
     npx wrangler pages deploy .svelte-kit/cloudflare
     ```
+
+## Theme Boot And No-Flicker Contract (Critical)
+
+The app has strict startup rules to prevent theme flicker (FOUC), especially on dashboard navigation
+surfaces.
+
+### Files Involved
+
+- `src/app.html`
+- `src/routes/+layout.server.ts`
+- `src/routes/+layout.svelte`
+- `src/lib/theme.ts`
+- `src/routes/dashboard/+layout.svelte`
+
+### Required Behavior
+
+1. The `<body>` must remain hidden until theme startup is complete.
+2. Theme CSS variables must exist before first visible paint.
+3. `theme-ready` must be set only after:
+   - theme variables are applied, and
+   - pending stylesheet links are loaded, and
+   - at least two paint frames have elapsed.
+4. Dashboard sidebar base background must be explicit and not rely on `transition-all` during
+   initial render.
+
+### Current Implementation Rules
+
+- `src/app.html`
+  - Keeps `body { visibility: hidden; }`.
+  - Reveals only with `body.theme-ready`.
+  - Disables transitions/animations while `theme-ready` is absent.
+
+- `src/routes/+layout.svelte`
+  - Injects server-computed theme CSS variables in `<svelte:head>` (`#initial-theme-vars`).
+  - Runs a blocking head script to set theme variables and `meta[name="theme-color"]`.
+  - Does not reveal the body directly from head script.
+
+- `src/lib/theme.ts`
+  - `init(...)` is the single reveal path.
+  - `markThemeReady()` waits for stylesheet readiness and two RAF ticks, then adds `theme-ready`.
+
+- `src/routes/dashboard/+layout.svelte`
+  - Sidebar uses explicit inline `background-color: var(--color-primary-500)`.
+  - Avoids `transition-all` on sidebar container and nav rows during startup-sensitive render.
+
+### Do Not Change (Without Re-Testing Flicker)
+
+- Do not call `document.body.classList.add('theme-ready')` anywhere except `markThemeReady()` in
+  `src/lib/theme.ts`.
+- Do not remove the hidden-body gate in `src/app.html`.
+- Do not move theme variable bootstrap out of root layout head.
+- Do not reintroduce `transition-all` on the dashboard sidebar container/nav items.
+
+### Regression Test Checklist
+
+After any theme/layout/bootstrap change, verify:
+
+1. Hard refresh `/dashboard` with cache disabled.
+2. Hard refresh `/colors` with cache disabled.
+3. Confirm no frame where sidebar/button backgrounds go transparent or default.
+4. Confirm theme persists correctly across refresh and route navigation.

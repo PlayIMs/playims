@@ -53,7 +53,8 @@
 <div class="flex min-h-screen">
 	<!-- Sidebar Navigation -->
 	<aside
-		class="bg-primary text-white flex flex-col relative transition-all duration-200 {menuWidth}"
+		class="bg-primary text-white flex flex-col relative transition-[width] duration-200 {menuWidth}"
+		style="background-color: var(--color-primary-500);"
 	>
 		<!-- Logo Area -->
 		<div
@@ -66,7 +67,7 @@
 			{/if}
 			<button
 				onclick={toggleSidebar}
-				class="p-2 hover:bg-primary-600 transition-colors cursor-pointer"
+				class="p-2 hover:bg-primary-600 transition-colors duration-150 cursor-pointer"
 				aria-label={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
 				type="button"
 			>
@@ -87,7 +88,7 @@
 							href={item.href}
 							class="w-full whitespace-nowrap {isSidebarOpen
 								? 'px-4 py-3 flex items-center gap-3'
-								: 'px-2 py-3 flex items-center justify-center'} transition-all duration-150 cursor-pointer {activePath ===
+								: 'px-2 py-3 flex items-center justify-center'} transition-colors duration-150 cursor-pointer {activePath ===
 							item.href
 								? 'bg-primary-600 border-l-4 border-neutral-500 text-white'
 								: 'text-primary-100 hover:bg-primary-600 hover:text-white border-l-4 border-transparent'} {item.href ===
