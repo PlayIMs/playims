@@ -1,6 +1,9 @@
 ﻿@import 'tailwindcss';
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
+@plugin 'tailwind-scrollbar' {
+	preferredstrategy: 'pseudoelements';
+}
 
 /* Base Typography */
 @layer base {
@@ -9,6 +12,8 @@
 		background-color: var(--color-secondary-500);
 		/* Prevent overscroll bounce background */
 		overscroll-behavior: none;
+		scrollbar-gutter: stable;
+		@apply scrollbar-thumb-secondary-500 scrollbar-track-secondary-300 scrollbar-corner-secondary-300;
 	}
 
 	body {
@@ -35,6 +40,20 @@
 	textarea,
 	label {
 		font-family: var(--font-sans);
+	}
+
+	/* Apply scrollbar sizing globally so any overflow container gets themed automatically */
+	* {
+		@apply scrollbar;
+	}
+
+	/* Keep interactions in-theme */
+	*:hover {
+		@apply scrollbar-thumb-secondary-400;
+	}
+
+	*:active {
+		@apply scrollbar-thumb-secondary-600;
 	}
 }
 
@@ -2594,7 +2613,3 @@
 		border-color: var(--color-primary-500) !important;
 	}
 }
-
-
-
-
