@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/stores';
 	import IconAlertTriangle from '@tabler/icons-svelte/icons/alert-triangle';
 	import IconCalendar from '@tabler/icons-svelte/icons/calendar';
 	import IconCalendarWeek from '@tabler/icons-svelte/icons/calendar-week';
@@ -49,6 +50,13 @@
 
 	type WindowFilter = 'all' | 'today' | 'next7' | 'next30' | 'past7';
 
+	const STATUS_QUERY_TO_LABEL: Record<string, string> = {
+		scheduled: 'Scheduled',
+		in_progress: 'Live',
+		live: 'Live',
+		completed: 'Completed'
+	};
+
 	let { data } = $props<{ data: SchedulePageData }>();
 
 	let searchQuery = $state('');
@@ -70,6 +78,18 @@
 		{ value: 'next30', label: 'Next 30 days' },
 		{ value: 'past7', label: 'Past 7 days' }
 	] as const;
+
+	const queryStatusLabel = $derived.by(() => {
+		const raw = $page.url.searchParams.get('status')?.trim().toLowerCase();
+		if (!raw) return null;
+		return STATUS_QUERY_TO_LABEL[raw] ?? null;
+	});
+
+	$effect(() => {
+		if (queryStatusLabel) {
+			selectedStatus = queryStatusLabel;
+		}
+	});
 
 	function parseDate(value: string | null): Date | null {
 		if (!value) return null;
