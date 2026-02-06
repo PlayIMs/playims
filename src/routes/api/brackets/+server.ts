@@ -18,7 +18,6 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 			count: brackets.length
 		});
 	} catch (error) {
-		console.error('API Error fetching brackets:', error);
 		return json(
 			{
 				success: false,
@@ -65,7 +64,6 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			{ status: 201 }
 		);
 	} catch (error) {
-		console.error('API Error creating bracket:', error);
 		return json(
 			{
 				success: false,

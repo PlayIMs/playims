@@ -36,7 +36,6 @@ export const GET: RequestHandler = async ({ platform, locals }) => {
 		const themes = await dbOps.themes.getSaved(clientId);
 		return json({ success: true, data: themes });
 	} catch (error) {
-		console.error('Failed to load themes:', error);
 		return json({ success: false, error: 'Failed to load themes' }, { status: 500 });
 	}
 };
@@ -93,7 +92,6 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 
 		return json({ success: true, data: theme });
 	} catch (error) {
-		console.error('Failed to save theme:', error);
 		return json({ success: false, error: 'Failed to save theme' }, { status: 500 });
 	}
 };

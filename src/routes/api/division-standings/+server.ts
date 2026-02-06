@@ -21,7 +21,6 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 			count: standings.length
 		});
 	} catch (error) {
-		console.error('API Error fetching division standings:', error);
 		return json(
 			{
 				success: false,
@@ -63,7 +62,6 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			{ status: 201 }
 		);
 	} catch (error) {
-		console.error('API Error creating division standing:', error);
 		return json(
 			{
 				success: false,

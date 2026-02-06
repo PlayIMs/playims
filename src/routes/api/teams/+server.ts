@@ -6,7 +6,9 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 	try {
 		const dbOps = new DatabaseOperations(platform as App.Platform);
 		const divisionId = url.searchParams.get('divisionId');
-		const teams = divisionId ? await dbOps.teams.getByDivisionId(divisionId) : await dbOps.teams.getAll();
+		const teams = divisionId
+			? await dbOps.teams.getByDivisionId(divisionId)
+			: await dbOps.teams.getAll();
 
 		return json({
 			success: true,
@@ -14,7 +16,6 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 			count: teams.length
 		});
 	} catch (error) {
-		console.error('API Error fetching teams:', error);
 		return json(
 			{
 				success: false,
@@ -65,7 +66,6 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			{ status: 201 }
 		);
 	} catch (error) {
-		console.error('API Error creating team:', error);
 		return json(
 			{
 				success: false,

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import type { Client, User } from '$lib/database/schema';
 
 	export let data: {
@@ -10,33 +9,6 @@
 		dbName?: string;
 		error?: string;
 	};
-
-	onMount(() => {
-		console.log('=== D1 Database Query Results ===');
-		console.log('Environment:', data.environment);
-		if (data.dbName) console.log('Target Database:', data.dbName);
-		console.log('Development mode:', data.isDevelopment);
-
-		if (data.error) {
-			console.error('Database error:', data.error);
-		} else {
-			console.log('Clients:', data.clients);
-			console.log('Users:', data.users);
-			console.log('Total clients:', data.clients.length);
-			console.log('Total users:', data.users.length);
-
-			if (data.clients.length === 0 && data.users.length === 0) {
-				console.warn(
-					'⚠️ No data found. If you expect data, ensure you have seeded the correct database.'
-				);
-				console.warn(
-					`Run "pnpm db:studio" to inspect the ${data.isDevelopment ? 'DEV' : 'PROD'} database content.`
-				);
-			}
-		}
-
-		console.log('===================================');
-	});
 </script>
 
 <svelte:head>
@@ -46,7 +18,10 @@
 		name="description"
 		content="PlayIMs is the modern intramural sports league management platform. Easy team management, automated scheduling, real-time standings, and intuitive administration tools for schools and organizations."
 	/>
-	<meta name="keywords" content="intramural sports, league management, sports scheduling, team management, recreational sports, school sports, sports league software" />
+	<meta
+		name="keywords"
+		content="intramural sports, league management, sports scheduling, team management, recreational sports, school sports, sports league software"
+	/>
 	<meta name="author" content="PlayIMs" />
 	<meta name="robots" content="index, follow" />
 	<link rel="canonical" href="https://playims.com/" />

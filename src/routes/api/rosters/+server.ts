@@ -20,7 +20,6 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 			count: rosters.length
 		});
 	} catch (error) {
-		console.error('API Error fetching rosters:', error);
 		return json(
 			{
 				success: false,
@@ -65,7 +64,6 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			{ status: 201 }
 		);
 	} catch (error) {
-		console.error('API Error creating roster:', error);
 		return json(
 			{
 				success: false,

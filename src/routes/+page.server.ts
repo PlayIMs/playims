@@ -1,7 +1,10 @@
 import { DatabaseOperations } from '$lib/database';
+import { logRequestSummary, nowMs } from '$lib/server/request-logger';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ platform }) => {
+	const startedAt = nowMs();
+
 	try {
 		// Create Drizzle database operations instance
 		const dbOps = new DatabaseOperations(platform || ({ env: {} } as any));
@@ -36,19 +39,14 @@ export const load: PageServerLoad = async ({ platform }) => {
 		// Fetch data from both tables using Drizzle operations
 		const [clients, users] = await Promise.all([dbOps.clients.getAll(), dbOps.users.getAll()]);
 
-		console.log(`Drizzle database query results (${environment}):`, {
-			environment,
-			isDevelopment,
-			clientsCount: clients.length,
-			usersCount: users.length,
-			// Log queries isn't directly supported by Drizzle's D1 adapter in the return values of queries
-			// but we can log that we attempted them.
-			queries: [
-				'SELECT * FROM clients ORDER BY created_at DESC',
-				'SELECT * FROM users ORDER BY created_at DESC'
-			],
-			clients: clients.slice(0, 3), // Log first 3 clients for debugging
-			users: users.slice(0, 3) // Log first 3 users for debugging
+		logRequestSummary({
+			scope: 'SSR',
+			method: 'LOAD',
+			endpoint: '/',
+			table: 'clients,users',
+			recordCount: clients.length + users.length,
+			status: 200,
+			durationMs: nowMs() - startedAt
 		});
 
 		return {
@@ -59,7 +57,16 @@ export const load: PageServerLoad = async ({ platform }) => {
 			isDevelopment
 		};
 	} catch (error) {
-		console.error('Drizzle database query error:', error);
+		logRequestSummary({
+			scope: 'SSR',
+			method: 'LOAD',
+			endpoint: '/',
+			table: 'clients,users',
+			recordCount: 0,
+			status: 500,
+			durationMs: nowMs() - startedAt,
+			error: error instanceof Error ? error.message : 'Failed to fetch data from database'
+		});
 
 		// Return empty arrays if there's an error
 		return {

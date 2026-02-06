@@ -30,7 +30,6 @@ export const GET: RequestHandler = async ({ params, platform, locals }) => {
 		}
 		return json({ success: true, data: theme });
 	} catch (error) {
-		console.error('Failed to load theme:', error);
 		return json({ success: false, error: 'Failed to load theme' }, { status: 500 });
 	}
 };
@@ -71,7 +70,6 @@ export const PUT: RequestHandler = async ({ params, request, platform, locals })
 
 		return json({ success: true, data: updated });
 	} catch (error) {
-		console.error('Failed to update theme:', error);
 		return json({ success: false, error: 'Failed to update theme' }, { status: 500 });
 	}
 };
@@ -91,7 +89,6 @@ export const DELETE: RequestHandler = async ({ params, platform, locals }) => {
 		const deleted = await dbOps.themes.delete(clientId, existing.id);
 		return json({ success: true, data: deleted });
 	} catch (error) {
-		console.error('Failed to delete theme:', error);
 		return json({ success: false, error: 'Failed to delete theme' }, { status: 500 });
 	}
 };

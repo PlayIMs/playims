@@ -6,7 +6,9 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 	try {
 		const dbOps = new DatabaseOperations(platform as App.Platform);
 		const clientId = url.searchParams.get('clientId');
-		const sports = clientId ? await dbOps.sports.getByClientId(clientId) : await dbOps.sports.getAll();
+		const sports = clientId
+			? await dbOps.sports.getByClientId(clientId)
+			: await dbOps.sports.getAll();
 
 		return json({
 			success: true,
@@ -14,7 +16,6 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 			count: sports.length
 		});
 	} catch (error) {
-		console.error('API Error fetching sports:', error);
 		return json(
 			{
 				success: false,
@@ -60,7 +61,6 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			{ status: 201 }
 		);
 	} catch (error) {
-		console.error('API Error creating sport:', error);
 		return json(
 			{
 				success: false,

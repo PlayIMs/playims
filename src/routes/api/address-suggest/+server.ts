@@ -57,8 +57,6 @@ export const GET: RequestHandler = async ({ url, fetch }) => {
 			}
 		);
 	} catch (e) {
-		console.error('Address lookup error:', e);
 		return json({ success: false, error: 'Address lookup failed' }, { status: 502 });
 	}
 };
-

@@ -18,7 +18,6 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 			count: officials.length
 		});
 	} catch (error) {
-		console.error('API Error fetching sport officials:', error);
 		return json(
 			{
 				success: false,
@@ -52,7 +51,6 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			{ status: 201 }
 		);
 	} catch (error) {
-		console.error('API Error creating sport official:', error);
 		return json(
 			{
 				success: false,

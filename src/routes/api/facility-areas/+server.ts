@@ -18,7 +18,6 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 			count: areas.length
 		});
 	} catch (error) {
-		console.error('API Error fetching facility areas:', error);
 		return json(
 			{
 				success: false,
@@ -63,7 +62,6 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			{ status: 201 }
 		);
 	} catch (error) {
-		console.error('API Error creating facility area:', error);
 		return json(
 			{
 				success: false,

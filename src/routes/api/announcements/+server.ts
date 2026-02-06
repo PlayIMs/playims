@@ -21,7 +21,6 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 			count: announcements.length
 		});
 	} catch (error) {
-		console.error('API Error fetching announcements:', error);
 		return json(
 			{
 				success: false,
@@ -68,7 +67,6 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			{ status: 201 }
 		);
 	} catch (error) {
-		console.error('API Error creating announcement:', error);
 		return json(
 			{
 				success: false,

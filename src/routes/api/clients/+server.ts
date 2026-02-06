@@ -12,7 +12,6 @@ export const GET: RequestHandler = async ({ platform }) => {
 			count: clients.length
 		});
 	} catch (error) {
-		console.error('API Error fetching clients:', error);
 		return json(
 			{
 				success: false,
@@ -55,7 +54,6 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			{ status: 201 }
 		);
 	} catch (error) {
-		console.error('API Error creating client:', error);
 		return json(
 			{
 				success: false,

@@ -3,14 +3,16 @@ import { DatabaseOperations } from '$lib/database';
 import { ensureDefaultClient, resolveClientId } from '$lib/server/client-context';
 import type { RequestHandler } from './$types';
 
-const buildEtag = (theme: {
-	id?: string | null;
-	updatedAt?: string | null;
-	primary?: string | null;
-	secondary?: string | null;
-	neutral?: string | null;
-	accent?: string | null;
-} | null) => {
+const buildEtag = (
+	theme: {
+		id?: string | null;
+		updatedAt?: string | null;
+		primary?: string | null;
+		secondary?: string | null;
+		neutral?: string | null;
+		accent?: string | null;
+	} | null
+) => {
 	if (!theme) {
 		return 'W/"theme-empty"';
 	}
@@ -72,7 +74,6 @@ export const GET: RequestHandler = async ({ platform, locals, request }) => {
 			}
 		);
 	} catch (error) {
-		console.error('Failed to load current theme:', error);
 		return json({ success: false, error: 'Failed to load current theme' }, { status: 500 });
 	}
 };
@@ -110,7 +111,6 @@ export const PUT: RequestHandler = async ({ request, platform, locals }) => {
 			}
 		);
 	} catch (error) {
-		console.error('Failed to update current theme:', error);
 		return json({ success: false, error: 'Failed to update current theme' }, { status: 500 });
 	}
 };

@@ -18,7 +18,6 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 			count: notifications.length
 		});
 	} catch (error) {
-		console.error('API Error fetching notifications:', error);
 		return json(
 			{
 				success: false,
@@ -55,7 +54,6 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			{ status: 201 }
 		);
 	} catch (error) {
-		console.error('API Error creating notification:', error);
 		return json(
 			{
 				success: false,

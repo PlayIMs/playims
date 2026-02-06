@@ -210,13 +210,10 @@
 
 				const primary500 = primary[500] || themeInput.primary;
 				const metaColor = primary500.startsWith('#') ? primary500 : '#' + primary500;
-				let themeColorMeta = document.querySelector('meta[name="theme-color"]');
-				if (!themeColorMeta) {
-					themeColorMeta = document.createElement('meta');
-					themeColorMeta.setAttribute('name', 'theme-color');
-					document.head.appendChild(themeColorMeta);
+				const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+				if (themeColorMeta) {
+					themeColorMeta.setAttribute('content', metaColor);
 				}
-				themeColorMeta.setAttribute('content', metaColor);
 			}
 
 			const defaultTheme = { primary: 'CE1126', secondary: '14213D', neutral: 'EEDBCE', accent: '04669A' };

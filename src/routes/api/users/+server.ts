@@ -17,7 +17,6 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 			count: users.length
 		});
 	} catch (error) {
-		console.error('API Error fetching users:', error);
 		return json(
 			{
 				success: false,
@@ -62,7 +61,6 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			{ status: 201 }
 		);
 	} catch (error) {
-		console.error('API Error creating user:', error);
 		return json(
 			{
 				success: false,

@@ -20,7 +20,6 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 			count: leagues.length
 		});
 	} catch (error) {
-		console.error('API Error fetching leagues:', error);
 		return json(
 			{
 				success: false,
@@ -68,7 +67,6 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			{ status: 201 }
 		);
 	} catch (error) {
-		console.error('API Error creating league:', error);
 		return json(
 			{
 				success: false,

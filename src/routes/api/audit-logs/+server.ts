@@ -18,7 +18,6 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 			count: logs.length
 		});
 	} catch (error) {
-		console.error('API Error fetching audit logs:', error);
 		return json(
 			{
 				success: false,
@@ -64,7 +63,6 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			{ status: 201 }
 		);
 	} catch (error) {
-		console.error('API Error creating audit log:', error);
 		return json(
 			{
 				success: false,

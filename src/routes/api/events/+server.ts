@@ -14,7 +14,6 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 			count: events.length
 		});
 	} catch (error) {
-		console.error('API Error fetching events:', error);
 		return json(
 			{
 				success: false,
@@ -76,7 +75,6 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			{ status: 201 }
 		);
 	} catch (error) {
-		console.error('API Error creating event:', error);
 		return json(
 			{
 				success: false,
