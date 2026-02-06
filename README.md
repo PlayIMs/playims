@@ -1,4 +1,4 @@
-# PlayIMs
+﻿# PlayIMs
 
 PlayIMs is a next-generation intramural and tournament management platform built to replace
 outdated, slow, and frustrating league software with something fast, intuitive, and reliable.
@@ -16,11 +16,13 @@ PlayIMs is being built to end that experience.
 No more hunting through confusing navigation.
 No more wasting time on tasks that should take seconds.
 No more sacrificing control just to keep things simple.
+No more annoying ads blocking the entire screen.
 
 PlayIMs is designed around two non-negotiables:
 
-- Make everyday league operations simple and intuitive
-- Preserve fine-grained control for serious administrators
+- Make everyday league operations simple and intuitive while preserving fine-grained control for
+  administrators
+- Deliver an easy-to-use experience for your participants and staff members
 
 The goal is clear: run leagues and tournaments without fighting the platform.
 
