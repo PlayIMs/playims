@@ -6,17 +6,15 @@
 	"packageManager": "pnpm@10.28.1",
 	"scripts": {
 		"dev": "vite dev --open",
-		"build": "vite build",
-		"preview": "vite preview",
-		"pwa-assets": "pwa-assets-generator",
 		"updates": "ncu --interactive --format group",
 		"db:generate": "drizzle-kit generate --config=drizzle.config.ts",
-		"db:introspect": "drizzle-kit introspect --config=drizzle.config.ts",
 		"db:migrate:local": "wrangler d1 migrations apply playims-central-db-dev --local",
 		"db:migrate:remote": "wrangler d1 migrations apply playims-central-db-dev --remote",
 		"db:studio": "drizzle-kit studio --config=drizzle.config.ts",
 		"db:push": "drizzle-kit push --config=drizzle.config.ts",
-		"db:seed:local": "wrangler d1 execute playims-central-db-dev --local --file=src/lib/database/seed.sql"
+		"pwa-assets": "pwa-assets-generator",
+		"build": "vite build",
+		"preview": "vite preview"
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^4.20260124.0",
