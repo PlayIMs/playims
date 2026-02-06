@@ -51,7 +51,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			postalCode: data.postalCode,
 			country: data.country,
 			timezone: data.timezone,
-			notes: data.notes,
+			description: data.description ?? data.notes,
 			metadata: data.metadata,
 			isActive: data.isActive,
 			createdUser: data.createdUser,

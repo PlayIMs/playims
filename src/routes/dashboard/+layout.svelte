@@ -22,7 +22,7 @@
 
 	const menuItems = [
 		{ id: 'Dashboard', label: 'Dashboard', icon: IconLayoutDashboard, href: '/dashboard' },
-		{ id: 'Schedule', label: 'Schedule', icon: IconCalendarWeek, href: '/dashboard/events' },
+		{ id: 'Schedule', label: 'Schedule', icon: IconCalendarWeek, href: '/dashboard/schedule' },
 		{ id: 'Intramural Sports', label: 'Intramural Sports', icon: IconBallFootball, href: '#' },
 		{ id: 'Club Sports', label: 'Club Sports', icon: IconTrophy, href: '#' },
 		{ id: 'Member Management', label: 'Member Management', icon: IconUserCog, href: '#' },
