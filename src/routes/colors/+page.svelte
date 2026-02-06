@@ -454,8 +454,18 @@
 		return formatHex(color);
 	}
 
+	/** returns warnings for whichever color is currently open in the picker. */
+	function getActivePickerWarnings(): string[] {
+		if (openPicker === 'primary') return primaryWarnings;
+		if (openPicker === 'secondary') return secondaryWarnings;
+		if (openPicker === 'neutral') return neutralWarnings;
+		if (openPicker === 'accent') return accentWarnings;
+		return [];
+	}
+
 	// computed position for the picker indicator
 	let pickerPos = $derived(getPickerPosition());
+	let activePickerWarnings = $derived(getActivePickerWarnings());
 
 	// theme management state
 	let showSaveModal = $state(false);
@@ -808,7 +818,7 @@
 				aria-label="Close color picker"
 			>
 				<div
-					class="bg-white border-4 border-primary-500 p-6 max-w-md w-full"
+					class="bg-white border-4 border-primary-500 p-4 md:p-6 max-w-md lg:max-w-5xl w-full max-h-[90vh] overflow-y-auto"
 					onclick={(e) => e.stopPropagation()}
 					onkeydown={(e) => e.stopPropagation()}
 					role="presentation"
@@ -824,115 +834,135 @@
 						</button>
 					</div>
 
-					<div class="mb-4 relative">
-						<canvas
-							bind:this={colorAreaElement}
-							class="w-full h-64 border-2 border-primary-300 cursor-crosshair select-none"
-							width="400"
-							height="256"
-							onmousedown={handleColorAreaMouseDown}
-							onclick={handleColorAreaClick}
-							onkeydown={(e) => {
-								if (e.key === 'Enter' || e.key === ' ') {
-									e.preventDefault();
-									// center click for keyboard users
-									if (colorAreaElement) {
-										const rect = colorAreaElement.getBoundingClientRect();
-										updateColorFromPosition(
-											rect.left + rect.width / 2,
-											rect.top + rect.height / 2,
-											colorAreaElement
-										);
+					<div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-4">
+						<div class="mb-4 lg:mb-0 relative lg:col-span-3 lg:self-stretch">
+							<canvas
+								bind:this={colorAreaElement}
+								class="w-full h-64 lg:h-full border-2 border-primary-300 cursor-crosshair select-none"
+								width="400"
+								height="256"
+								onmousedown={handleColorAreaMouseDown}
+								onclick={handleColorAreaClick}
+								onkeydown={(e) => {
+									if (e.key === 'Enter' || e.key === ' ') {
+										e.preventDefault();
+										// center click for keyboard users
+										if (colorAreaElement) {
+											const rect = colorAreaElement.getBoundingClientRect();
+											updateColorFromPosition(
+												rect.left + rect.width / 2,
+												rect.top + rect.height / 2,
+												colorAreaElement
+											);
+										}
 									}
-								}
-							}}
-							role="button"
-							tabindex="0"
-							aria-label="Color picker area. Use arrow keys to adjust, Enter or Space to select center color."
-						></canvas>
-						<div
-							class="absolute w-4 h-4 border-2 border-white pointer-events-none"
-							style="left: {pickerPos.x}%; top: {pickerPos.y}%; transform: translate(-50%, -50%); box-shadow: 0 0 0 1px rgba(0,0,0,0.5);"
-						></div>
-					</div>
-
-					<div class="mb-4">
-						<label for="hue-slider" class="block text-sm font-bold text-primary-900 mb-2">Hue</label
-						>
-						<div class="relative h-8 border-2 border-primary-300">
+								}}
+								role="button"
+								tabindex="0"
+								aria-label="Color picker area. Use arrow keys to adjust, Enter or Space to select center color."
+							></canvas>
 							<div
-								class="absolute inset-0"
-								style="background: linear-gradient(to right, hsl(0,100%,50%), hsl(60,100%,50%), hsl(120,100%,50%), hsl(180,100%,50%), hsl(240,100%,50%), hsl(300,100%,50%), hsl(360,100%,50%))"
-							></div>
-							<input
-								id="hue-slider"
-								type="range"
-								min="0"
-								max="360"
-								bind:value={pickerColor.h}
-								oninput={handleHueChange}
-								class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-							/>
-							<div
-								class="absolute top-0 w-1 h-full bg-white border border-primary-900 pointer-events-none"
-								style="left: {(pickerColor.h / 360) * 100}%"
+								class="absolute w-4 h-4 border-2 border-white pointer-events-none"
+								style="left: {pickerPos.x}%; top: {pickerPos.y}%; transform: translate(-50%, -50%); box-shadow: 0 0 0 1px rgba(0,0,0,0.5);"
 							></div>
 						</div>
-						<div class="text-xs text-secondary-600 mt-1">{pickerColor.h}°</div>
-					</div>
 
-					<div class="mb-4">
-						<label for="saturation-slider" class="block text-sm font-bold text-primary-900 mb-2"
-							>Saturation</label
-						>
-						<div class="relative h-8 border-2 border-primary-300">
-							<div
-								class="absolute inset-0"
-								style="background: linear-gradient(to right, #FFFFFF, #{hslToHex(pickerColor.h, pickerColor.s, pickerColor.l)})"
-							></div>
-							<input
-								id="saturation-slider"
-								type="range"
-								min="0"
-								max="100"
-								bind:value={pickerColor.saturation}
-								oninput={handleSaturationChange}
-								class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-							/>
-							<div
-								class="absolute top-0 w-1 h-full bg-white border border-primary-900 pointer-events-none"
-								style="left: {pickerColor.saturation}%"
-							></div>
-						</div>
-						<div class="text-xs text-secondary-600 mt-1">{pickerColor.saturation}%</div>
-					</div>
+						<div class="lg:col-span-2">
+							<div class="mb-4">
+								<label for="hue-slider" class="block text-sm font-bold text-primary-900 mb-2"
+									>Hue</label
+								>
+								<div class="relative h-8 border-2 border-primary-300">
+									<div
+										class="absolute inset-0"
+										style="background: linear-gradient(to right, hsl(0,100%,50%), hsl(60,100%,50%), hsl(120,100%,50%), hsl(180,100%,50%), hsl(240,100%,50%), hsl(300,100%,50%), hsl(360,100%,50%))"
+									></div>
+									<input
+										id="hue-slider"
+										type="range"
+										min="0"
+										max="360"
+										bind:value={pickerColor.h}
+										oninput={handleHueChange}
+										class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+									/>
+									<div
+										class="absolute top-0 w-1 h-full bg-white border border-primary-900 pointer-events-none"
+										style="left: {(pickerColor.h / 360) * 100}%"
+									></div>
+								</div>
+								<div class="text-xs text-secondary-600 mt-1">{pickerColor.h}°</div>
+							</div>
 
-					<div class="mb-4 p-4 border-2 border-primary-200">
-						<div class="grid grid-cols-2 gap-4 text-sm">
-							<div>
-								<div class="font-bold text-primary-900">HSL</div>
-								<div class="text-secondary-700 font-mono">
-									{pickerColor.h}°, {pickerColor.s}%, {pickerColor.l}%
+							<div class="mb-4">
+								<label for="saturation-slider" class="block text-sm font-bold text-primary-900 mb-2"
+									>Saturation</label
+								>
+								<div class="relative h-8 border-2 border-primary-300">
+									<div
+										class="absolute inset-0"
+										style="background: linear-gradient(to right, #FFFFFF, #{hslToHex(
+											pickerColor.h,
+											pickerColor.s,
+											pickerColor.l
+										)})"
+									></div>
+									<input
+										id="saturation-slider"
+										type="range"
+										min="0"
+										max="100"
+										bind:value={pickerColor.saturation}
+										oninput={handleSaturationChange}
+										class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+									/>
+									<div
+										class="absolute top-0 w-1 h-full bg-white border border-primary-900 pointer-events-none"
+										style="left: {pickerColor.saturation}%"
+									></div>
+								</div>
+								<div class="text-xs text-secondary-600 mt-1">{pickerColor.saturation}%</div>
+							</div>
+
+							<div class="mb-4 p-4 border-2 border-primary-200">
+								<div class="grid grid-cols-2 gap-4 text-sm">
+									<div>
+										<div class="font-bold text-primary-900">HSL</div>
+										<div class="text-secondary-700 font-mono">
+											{pickerColor.h}°, {pickerColor.s}%, {pickerColor.l}%
+										</div>
+									</div>
+									<div>
+										<div class="font-bold text-primary-900">Hex</div>
+										<div class="text-secondary-700 font-mono">
+											#{getPickerHex()}
+										</div>
+									</div>
 								</div>
 							</div>
-							<div>
-								<div class="font-bold text-primary-900">Hex</div>
-								<div class="text-secondary-700 font-mono">
-									#{getPickerHex()}
-								</div>
+
+							<div class="mb-0">
+								<div class="text-sm font-bold text-primary-900 mb-2">Preview</div>
+								<div
+									class="w-full h-16 border-2 border-primary-300"
+									style="background-color: #{getPickerHex()}"
+								></div>
 							</div>
 						</div>
 					</div>
 
-					<div class="mb-4">
-						<div class="text-sm font-bold text-primary-900 mb-2">Preview</div>
-						<div
-							class="w-full h-16 border-2 border-primary-300"
-							style="background-color: #{getPickerHex()}"
-						></div>
-					</div>
+					{#if activePickerWarnings.length > 0}
+						<div class="mb-4 p-2 bg-yellow-50 border-2 border-yellow-300">
+							<p class="text-xs font-bold text-yellow-900 mb-1">Validation Warnings:</p>
+							<ul class="text-xs text-yellow-800 list-disc list-inside">
+								{#each activePickerWarnings as warning}
+									<li>{warning}</li>
+								{/each}
+							</ul>
+						</div>
+					{/if}
 
-					<div class="flex gap-2">
+					<div class="flex flex-col sm:flex-row gap-2">
 						<button
 							onclick={() => {
 								const hex = getPickerHex();
