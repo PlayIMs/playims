@@ -99,7 +99,7 @@
 					<span>Add Team</span>
 				</a>
 				<a
-					href="/dashboard/events"
+					href="/dashboard/schedule"
 					class="button-accent px-3 py-3 text-xs font-bold uppercase tracking-wide flex items-center justify-center gap-2"
 				>
 					<IconCalendarWeek class="w-4 h-4" />
