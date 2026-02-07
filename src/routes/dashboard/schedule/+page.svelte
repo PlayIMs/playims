@@ -308,15 +308,16 @@
 	<header class="border-2 border-secondary-300 bg-neutral p-5">
 		<div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
 			<div class="flex items-start gap-4">
-				<div class="bg-primary p-3 text-white" aria-hidden="true">
-					<IconCalendarWeek class="w-7 h-7" />
+				<div
+					class="bg-primary text-white w-[2.75rem] h-[2.75rem] lg:w-[3.4rem] lg:h-[3.4rem] flex items-center justify-center"
+					aria-hidden="true"
+				>
+					<IconCalendarWeek class="w-7 h-7 lg:w-8 lg:h-8" />
 				</div>
 				<div>
-					<p class="text-xs uppercase tracking-wide text-neutral-950 font-sans">League Calendar</p>
-					<h1 class="text-4xl font-bold font-serif text-neutral-950">Schedule</h1>
-					<p class="text-sm text-neutral-950 font-sans">
-						{summary.total} total event{summary.total === 1 ? '' : 's'} loaded
-					</p>
+					<h1 class="text-5xl lg:text-6xl leading-[0.9] font-bold font-serif text-neutral-950">
+						Schedule
+					</h1>
 				</div>
 			</div>
 			<div class="text-xs text-neutral-950 font-sans">

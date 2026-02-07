@@ -14,7 +14,6 @@
 	import IconSearch from '@tabler/icons-svelte/icons/search';
 	import IconShip from '@tabler/icons-svelte/icons/ship';
 	import IconTarget from '@tabler/icons-svelte/icons/target';
-	import IconTournament from '@tabler/icons-svelte/icons/tournament';
 	import IconX from '@tabler/icons-svelte/icons/x';
 
 	type Activity = PageData['activities'][number];
@@ -74,7 +73,7 @@
 	}
 
 	type RegistrationWindowState = 'upcoming' | 'open' | 'closed';
-	type OfferingView = 'sports' | 'tournaments' | 'all';
+	type OfferingView = 'leagues' | 'tournaments' | 'all';
 
 	const TERM_ORDER: Record<string, number> = {
 		spring: 0,
@@ -92,7 +91,7 @@
 	let offeringViewHydrated = $state(false);
 
 	function isOfferingView(value: string | null): value is OfferingView {
-		return value === 'sports' || value === 'tournaments' || value === 'all';
+		return value === 'leagues' || value === 'tournaments' || value === 'all';
 	}
 
 	function parseDate(value: string | null): Date | null {
@@ -537,10 +536,12 @@
 		const url = new URL(window.location.href);
 		const fromUrl = url.searchParams.get('view');
 		const saved = window.localStorage.getItem(OFFERING_VIEW_STORAGE_KEY);
-		if (isOfferingView(fromUrl)) {
-			offeringView = fromUrl;
-		} else if (isOfferingView(saved)) {
-			offeringView = saved;
+		const normalizedUrlView = fromUrl === 'sports' ? 'leagues' : fromUrl;
+		const normalizedSavedView = saved === 'sports' ? 'leagues' : saved;
+		if (isOfferingView(normalizedUrlView)) {
+			offeringView = normalizedUrlView;
+		} else if (isOfferingView(normalizedSavedView)) {
+			offeringView = normalizedSavedView;
 		} else {
 			offeringView = 'all';
 		}
@@ -563,21 +564,19 @@
 
 	const currentSemester = $derived.by(() => semesterBoards[0] ?? null);
 	const activeSemester = $derived.by(() => currentSemester);
-	const badgeSportCount = $derived.by(() => {
+	const badgeOfferingCount = $derived.by(() => {
 		if (!activeSemester) return 0;
 		return new Set(activeSemester.sports.map((sport) => sport.sportName)).size;
 	});
-	const badgeEntryCount = $derived.by(() => {
+	const badgeLeagueOrGroupCount = $derived.by(() => {
 		if (!activeSemester) return 0;
-		if (showAllOfferings) {
-			return activeSemester.sports.reduce((sum, sport) => sum + sport.leagues.length, 0);
-		}
 		return activeSemester.totalLeagues;
 	});
-	const badgeEntryLabel = $derived.by(() => {
-		if (showTournaments) return pluralize(badgeEntryCount, 'group', 'groups');
-		if (showAllOfferings) return pluralize(badgeEntryCount, 'offering', 'offerings');
-		return pluralize(badgeEntryCount, 'league', 'leagues');
+	const badgeLeagueOrGroupLabel = $derived.by(() => {
+		if (showTournaments) return pluralize(badgeLeagueOrGroupCount, 'group', 'groups');
+		if (showAllOfferings)
+			return pluralize(badgeLeagueOrGroupCount, 'league/group', 'leagues/groups');
+		return pluralize(badgeLeagueOrGroupCount, 'league', 'leagues');
 	});
 
 	const visibleSports = $derived.by(() => {
@@ -689,13 +688,13 @@
 	<header class="border-2 border-secondary-300 bg-neutral p-5 space-y-4">
 		<div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
 			<div class="flex items-start gap-4">
-				<div class="bg-primary p-3 text-white" aria-hidden="true">
-					<IconTournament class="w-7 h-7" />
+				<div
+					class="bg-primary text-white w-[2.75rem] h-[2.75rem] lg:w-[3.4rem] lg:h-[3.4rem] flex items-center justify-center"
+					aria-hidden="true"
+				>
+					<IconBallFootball class="w-7 h-7 lg:w-8 lg:h-8" />
 				</div>
 				<div>
-					<p class="text-xs uppercase tracking-wide text-neutral-950 font-sans">
-						Intramural Tournament Offerings
-					</p>
 					<h1 class="text-5xl lg:text-6xl leading-[0.9] font-bold font-serif text-neutral-950">
 						Intramural Sports
 					</h1>
@@ -720,7 +719,7 @@
 			</div>
 			<h2 class="text-2xl font-bold font-serif text-neutral-950">
 				No
-				{showTournaments ? 'tournament' : showAllOfferings ? 'intramural' : 'sports'}
+				{showTournaments ? 'tournament' : 'offering'}
 				offerings yet
 			</h2>
 			<p class="text-sm text-neutral-950 font-sans mt-1">
@@ -728,7 +727,7 @@
 			</p>
 		</section>
 	{:else}
-		<div class="grid grid-cols-1 xl:grid-cols-[1.45fr_0.85fr] gap-6">
+		<div class="grid grid-cols-1 xl:grid-cols-[1.6fr_0.7fr] gap-6">
 			<section class="border-2 border-secondary-300 bg-neutral">
 				<div class="p-4 border-b border-secondary-300 bg-neutral-500 space-y-3">
 					<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -739,34 +738,34 @@
 							<label class="sr-only" for="offering-view">Offering type</label>
 							<select
 								id="offering-view"
-								class="select-primary w-auto min-w-36 py-1 text-sm"
+								class="select-secondary w-auto min-w-36 py-1 text-sm"
 								bind:value={offeringView}
 							>
-								<option value="sports">Leagues</option>
+								<option value="leagues">Leagues</option>
 								<option value="tournaments">Tournaments</option>
 								<option value="all">All</option>
 							</select>
 						</div>
 						<div class="flex items-center gap-2 text-xs text-neutral-950 font-sans">
 							<span class="border border-secondary-300 px-2 py-1">
-								{badgeSportCount}
-								{pluralize(badgeSportCount, 'sport', 'sports')}
+								{badgeOfferingCount}
+								{pluralize(badgeOfferingCount, 'offering', 'offerings')}
 							</span>
 							<span class="border border-secondary-300 px-2 py-1">
-								{badgeEntryCount}
-								{badgeEntryLabel}
+								{badgeLeagueOrGroupCount}
+								{badgeLeagueOrGroupLabel}
 							</span>
 						</div>
 					</div>
 					<div class="relative">
 						<IconSearch class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-950" />
-						<label class="sr-only" for="tournament-search">Search sports and leagues</label>
+						<label class="sr-only" for="tournament-search">Search offerings and deadlines</label>
 						<input
 							id="tournament-search"
 							type="text"
-							class="input-primary pl-10 pr-10 py-1 text-sm"
+							class="input-secondary pl-10 pr-10 py-1 text-sm"
 							autocomplete="off"
-							placeholder={`Search sport, ${showTournaments ? 'group' : showAllOfferings ? 'league/group' : 'league'}, or deadline`}
+							placeholder={`Search offering, ${showTournaments ? 'group' : showAllOfferings ? 'league/group' : 'league'}, or deadline`}
 							bind:value={searchQuery}
 						/>
 						{#if searchQuery.trim().length > 0}
@@ -871,7 +870,7 @@
 													<th scope="row" class="px-2 py-1 text-left">
 														<div class="flex items-center gap-2">
 															<div
-																class="w-9 h-9 bg-secondary text-white flex items-center justify-center shrink-0 cursor-pointer transition-colors hover:bg-secondary-700"
+																class="w-9 h-9 bg-primary text-white flex items-center justify-center shrink-0 cursor-pointer transition-colors hover:bg-primary-700"
 																aria-hidden="true"
 															>
 																<SportIcon class="w-6 h-6" />
@@ -938,12 +937,7 @@
 									<span
 										class="text-sm font-bold font-sans text-neutral-950 uppercase tracking-wide"
 									>
-										Concluded Sports ({concludedSports.length}
-										{showTournaments
-											? pluralize(concludedSports.length, 'group', 'groups')
-											: showAllOfferings
-												? pluralize(concludedSports.length, 'offering', 'offerings')
-												: pluralize(concludedSports.length, 'sport', 'sports')})
+										Concluded Offerings ({concludedSports.length})
 									</span>
 									{#if showConcludedSeasons}
 										<IconChevronUp class="w-5 h-5 text-secondary-900" />
@@ -1031,7 +1025,7 @@
 																	<th scope="row" class="px-2 py-1 text-left">
 																		<div class="flex items-center gap-2">
 																			<div
-																				class="w-9 h-9 bg-secondary text-white flex items-center justify-center shrink-0 cursor-pointer transition-colors hover:bg-secondary-700"
+																				class="w-9 h-9 bg-primary text-white flex items-center justify-center shrink-0 cursor-pointer transition-colors hover:bg-primary-700"
 																				aria-hidden="true"
 																			>
 																				<SportIcon class="w-6 h-6" />
@@ -1129,7 +1123,7 @@
 					<div class="p-4 grid grid-cols-3 gap-2">
 						<div class="card-secondary-outlined">
 							<p class="text-[11px] uppercase tracking-wide text-neutral-950 font-bold">
-								{showTournaments ? 'Tournaments' : showAllOfferings ? 'Offerings' : 'Sports'}
+								Offerings
 							</p>
 							<p class="text-2xl font-bold font-serif text-neutral-950">
 								{activeSemester?.totalSports ?? 0}

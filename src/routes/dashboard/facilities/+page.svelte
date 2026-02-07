@@ -15,6 +15,7 @@
 	import IconMapPinPlus from '@tabler/icons-svelte/icons/map-pin-plus';
 	import IconChevronRight from '@tabler/icons-svelte/icons/chevron-right';
 	import IconExternalLink from '@tabler/icons-svelte/icons/external-link';
+	import IconBuilding from '@tabler/icons-svelte/icons/building';
 
 	let { data, form }: PageProps = $props();
 
@@ -441,10 +442,18 @@
 </svelte:head>
 
 <div class="p-8">
-	<header class="flex flex-col gap-2 mb-6">
+	<header class="border-2 border-secondary-300 bg-neutral p-5 mb-6 flex flex-col gap-4">
 		<div class="flex items-center justify-between gap-4">
 			<div class="flex items-center gap-3">
-				<h2 class="text-4xl font-bold font-serif text-neutral-950">Facilities</h2>
+				<div
+					class="bg-primary text-white w-[2.75rem] h-[2.75rem] lg:w-[3.4rem] lg:h-[3.4rem] flex items-center justify-center"
+					aria-hidden="true"
+				>
+					<IconBuilding class="w-7 h-7 lg:w-8 lg:h-8" />
+				</div>
+				<h1 class="text-5xl lg:text-6xl leading-[0.9] font-bold font-serif text-neutral-950">
+					Facilities
+				</h1>
 			</div>
 			<div class="flex items-center gap-3">
 				<button
@@ -458,10 +467,6 @@
 				</button>
 			</div>
 		</div>
-		<p class="text-neutral-950 font-sans max-w-3xl">
-			Manage facilities and their areas. Click a facility to view and manage its areas.
-		</p>
-
 		{#if form?.message}
 			<div class="border-2 border-error-300 bg-error-50 p-4 flex items-start gap-3">
 				<IconAlertCircle class="w-5 h-5 text-error-700 mt-0.5" />
