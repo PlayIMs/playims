@@ -84,7 +84,9 @@
 
 <svelte:head>
 	<!-- critical: keep server-side theme vars in head so first visible frame is themed -->
-	<style id="initial-theme-vars">{initialThemeVarsCss}</style>
+	<style id="initial-theme-vars">
+{initialThemeVarsCss}
+	</style>
 	<script id="initial-theme-data" type="application/json">
 		{initialThemeJson}
 	</script>
@@ -220,7 +222,12 @@
 				}
 			}
 
-			const defaultTheme = { primary: 'CE1126', secondary: '14213D', neutral: 'EEDBCE', accent: '04669A' };
+			const defaultTheme = {
+				primary: 'CE1126',
+				secondary: '14213D',
+				neutral: 'EEDBCE',
+				accent: '04669A'
+			};
 			const defaultZinc = {
 				'05': 'FEFEFE',
 				25: 'FDFDFD',
