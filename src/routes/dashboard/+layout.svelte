@@ -58,7 +58,7 @@
 <div class="flex min-h-screen">
 	<!-- Sidebar Navigation -->
 	<aside
-		class="bg-primary text-white flex flex-col relative transition-[width] duration-200 {menuWidth}"
+		class="bg-primary text-white flex flex-col relative transition-[width] duration-200 {menuWidth} sticky top-0 h-screen"
 		style="background-color: var(--color-primary-500);"
 	>
 		<!-- Logo Area -->
@@ -68,7 +68,7 @@
 				: 'justify-center'}"
 		>
 			{#if isSidebarOpen}
-				<h1 class="text-xl font-bold font-serif">Navigation</h1>
+				<h1 class="text-xl font-bold font-serif tracking-wider">Navigation</h1>
 			{/if}
 			<button
 				onclick={toggleSidebar}
@@ -85,7 +85,10 @@
 		</div>
 
 		<!-- Menu -->
-		<nav class="flex-1 p-2 overflow-y-auto" aria-label="Dashboard navigation">
+		<nav
+			class="flex-1 p-2 overflow-y-auto scrollbar-thin scrollbar-thumb-primary-700 scrollbar-track-primary-400 scrollbar-corner-primary-500 hover:scrollbar-thumb-primary-700 active:scrollbar-thumb-primary-700 scrollbar-hover:scrollbar-thumb-primary-800 scrollbar-active:scrollbar-thumb-primary-700"
+			aria-label="Dashboard navigation"
+		>
 			<ul class="space-y-2">
 				{#each menuItems as item}
 					<li>
