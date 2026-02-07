@@ -848,7 +848,7 @@
 	input[type='month'].input-primary,
 	input[type='week'].input-primary,
 	input[type='time'].input-primary {
-		border: 2px solid var(--color-primary-300);
+		border: 2px solid var(--color-primary-400);
 		padding: 0.5rem 1rem;
 		font-size: 1rem;
 		line-height: 1.5rem;
@@ -885,7 +885,7 @@
 	input[type='month'].input-secondary,
 	input[type='week'].input-secondary,
 	input[type='time'].input-secondary {
-		border: 2px solid var(--color-secondary-300);
+		border: 2px solid var(--color-secondary-400);
 		padding: 0.5rem 1rem;
 		font-size: 1rem;
 		line-height: 1.5rem;
@@ -922,7 +922,7 @@
 	input[type='month'].input-accent,
 	input[type='week'].input-accent,
 	input[type='time'].input-accent {
-		border: 2px solid var(--color-accent-300);
+		border: 2px solid var(--color-accent-400);
 		padding: 0.5rem 1rem;
 		font-size: 1rem;
 		line-height: 1.5rem;
@@ -949,7 +949,7 @@
 
 	/* Textarea Component Classes */
 	textarea.textarea-primary {
-		border: 2px solid var(--color-primary-300);
+		border: 2px solid var(--color-primary-400);
 		padding: 0.5rem 1rem;
 		font-size: 1rem;
 		line-height: 1.5rem;
@@ -964,7 +964,7 @@
 	}
 
 	textarea.textarea-secondary {
-		border: 2px solid var(--color-secondary-300);
+		border: 2px solid var(--color-secondary-400);
 		padding: 0.5rem 1rem;
 		font-size: 1rem;
 		line-height: 1.5rem;
@@ -979,7 +979,7 @@
 	}
 
 	textarea.textarea-accent {
-		border: 2px solid var(--color-accent-300);
+		border: 2px solid var(--color-accent-400);
 		padding: 0.5rem 1rem;
 		font-size: 1rem;
 		line-height: 1.5rem;
@@ -1008,7 +1008,7 @@
 		outline: none !important;
 		box-shadow: none !important;
 		color-scheme: light;
-		border: 2px solid var(--color-primary-300);
+		border: 2px solid var(--color-primary-400);
 		padding: 0.5rem 1rem;
 		font-size: 1rem;
 		line-height: 1.5rem;
@@ -1045,7 +1045,7 @@
 		outline: none !important;
 		box-shadow: none !important;
 		color-scheme: light;
-		border: 2px solid var(--color-secondary-300);
+		border: 2px solid var(--color-secondary-400);
 		padding: 0.5rem 1rem;
 		font-size: 1rem;
 		line-height: 1.5rem;
@@ -1082,7 +1082,7 @@
 		outline: none !important;
 		box-shadow: none !important;
 		color-scheme: light;
-		border: 2px solid var(--color-accent-300);
+		border: 2px solid var(--color-accent-400);
 		padding: 0.5rem 1rem;
 		font-size: 1rem;
 		line-height: 1.5rem;
@@ -1724,7 +1724,7 @@
 	/* Badge Component Classes */
 	.badge-primary {
 		background-color: var(--color-primary-500);
-		color: var(--color-primary-25);
+		color: var(--color-primary-05);
 		padding: 0.25rem 0.75rem;
 		font-weight: 700;
 		font-size: 0.875rem;
@@ -1736,7 +1736,7 @@
 
 	.badge-primary-500 {
 		background-color: var(--color-primary-500);
-		color: var(--color-primary-25);
+		color: var(--color-primary-05);
 		padding: 0.25rem 0.75rem;
 		font-weight: 700;
 		font-size: 0.875rem;
@@ -1748,7 +1748,7 @@
 
 	.badge-primary-600 {
 		background-color: var(--color-primary-600);
-		color: var(--color-primary-25);
+		color: var(--color-primary-05);
 		padding: 0.25rem 0.75rem;
 		font-weight: 700;
 		font-size: 0.875rem;
@@ -1759,8 +1759,10 @@
 	}
 
 	.badge-primary-outlined {
-		border: 2px solid var(--color-primary-500);
-		color: var(--color-primary-950);
+		outline: 2px solid var(--color-primary-500);
+		outline-offset: -2px;
+		border: none;
+		color: var(--color-primary-500);
 		padding: 0.25rem 0.75rem;
 		font-weight: 700;
 		font-size: 0.875rem;
@@ -1772,8 +1774,10 @@
 	}
 
 	.badge-primary-outlined-500 {
-		border: 2px solid var(--color-primary-500);
-		color: var(--color-primary-950);
+		outline: 2px solid var(--color-primary-500);
+		outline-offset: -2px;
+		border: none;
+		color: var(--color-primary-500);
 		padding: 0.25rem 0.75rem;
 		font-weight: 700;
 		font-size: 0.875rem;
@@ -1786,7 +1790,7 @@
 
 	.badge-secondary {
 		background-color: var(--color-secondary-500);
-		color: var(--color-secondary-25);
+		color: var(--color-secondary-05);
 		padding: 0.25rem 0.75rem;
 		font-weight: 700;
 		font-size: 0.875rem;
@@ -1798,7 +1802,7 @@
 
 	.badge-secondary-500 {
 		background-color: var(--color-secondary-500);
-		color: var(--color-secondary-25);
+		color: var(--color-secondary-05);
 		padding: 0.25rem 0.75rem;
 		font-weight: 700;
 		font-size: 0.875rem;
@@ -1810,7 +1814,7 @@
 
 	.badge-secondary-600 {
 		background-color: var(--color-secondary-600);
-		color: var(--color-secondary-25);
+		color: var(--color-secondary-05);
 		padding: 0.25rem 0.75rem;
 		font-weight: 700;
 		font-size: 0.875rem;
@@ -1821,8 +1825,10 @@
 	}
 
 	.badge-secondary-outlined {
-		border: 2px solid var(--color-secondary-500);
-		color: var(--color-secondary-950);
+		outline: 2px solid var(--color-secondary-500);
+		outline-offset: -2px;
+		border: none;
+		color: var(--color-secondary-500);
 		padding: 0.25rem 0.75rem;
 		font-weight: 700;
 		font-size: 0.875rem;
@@ -1834,8 +1840,10 @@
 	}
 
 	.badge-secondary-outlined-500 {
-		border: 2px solid var(--color-secondary-500);
-		color: var(--color-secondary-950);
+		outline: 2px solid var(--color-secondary-500);
+		outline-offset: -2px;
+		border: none;
+		color: var(--color-secondary-500);
 		padding: 0.25rem 0.75rem;
 		font-weight: 700;
 		font-size: 0.875rem;
@@ -1848,7 +1856,7 @@
 
 	.badge-accent {
 		background-color: var(--color-accent-500);
-		color: var(--color-accent-25);
+		color: var(--color-accent-05);
 		padding: 0.25rem 0.75rem;
 		font-weight: 700;
 		font-size: 0.875rem;
@@ -1860,7 +1868,7 @@
 
 	.badge-accent-500 {
 		background-color: var(--color-accent-500);
-		color: var(--color-accent-25);
+		color: var(--color-accent-05);
 		padding: 0.25rem 0.75rem;
 		font-weight: 700;
 		font-size: 0.875rem;
@@ -1872,7 +1880,7 @@
 
 	.badge-accent-600 {
 		background-color: var(--color-accent-600);
-		color: var(--color-accent-25);
+		color: var(--color-accent-05);
 		padding: 0.25rem 0.75rem;
 		font-weight: 700;
 		font-size: 0.875rem;
@@ -1883,8 +1891,10 @@
 	}
 
 	.badge-accent-outlined {
-		border: 2px solid var(--color-accent-500);
-		color: var(--color-accent-950);
+		outline: 2px solid var(--color-accent-500);
+		outline-offset: -2px;
+		border: none;
+		color: var(--color-accent-500);
 		padding: 0.25rem 0.75rem;
 		font-weight: 700;
 		font-size: 0.875rem;
@@ -1896,8 +1906,10 @@
 	}
 
 	.badge-accent-outlined-500 {
-		border: 2px solid var(--color-accent-500);
-		color: var(--color-accent-950);
+		outline: 2px solid var(--color-accent-500);
+		outline-offset: -2px;
+		border: none;
+		color: var(--color-accent-500);
 		padding: 0.25rem 0.75rem;
 		font-weight: 700;
 		font-size: 0.875rem;
