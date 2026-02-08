@@ -11,10 +11,12 @@
 		"db:migrate:local": "wrangler d1 migrations apply playims-central-db-dev --local",
 		"db:migrate:remote": "wrangler d1 migrations apply playims-central-db-dev --remote",
 		"db:studio": "drizzle-kit studio --config=drizzle.config.ts",
+		"db:studio:local": "node scripts/kill-listener-port.mjs 4983 && drizzle-kit studio --config=drizzle.local.config.ts",
 		"db:push": "drizzle-kit push --config=drizzle.config.ts",
 		"pwa-assets": "pwa-assets-generator",
 		"build": "vite build",
-		"preview": "vite preview"
+		"preview": "vite preview",
+		"check": "svelte-check"
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^4.20260207.0",

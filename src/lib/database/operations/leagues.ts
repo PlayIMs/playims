@@ -28,11 +28,11 @@ export class LeagueOperations {
 			.orderBy(desc(leagues.year), desc(leagues.createdAt));
 	}
 
-	async getBySportId(sportId: string): Promise<League[]> {
+	async getByOfferingId(offeringId: string): Promise<League[]> {
 		return await this.db
 			.select()
 			.from(leagues)
-			.where(eq(leagues.sportId, sportId))
+			.where(eq(leagues.offeringId, offeringId))
 			.orderBy(desc(leagues.year));
 	}
 
@@ -54,7 +54,7 @@ export class LeagueOperations {
 
 	async create(data: {
 		clientId: string;
-		sportId: string;
+		offeringId: string;
 		name: string;
 		slug: string;
 		year?: number;
@@ -74,7 +74,7 @@ export class LeagueOperations {
 			.values({
 				id,
 				clientId: data.clientId,
-				sportId: data.sportId,
+				offeringId: data.offeringId,
 				name: data.name,
 				slug: data.slug,
 				year,

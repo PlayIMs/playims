@@ -71,6 +71,13 @@
       "when": 1770307545706,
       "tag": "0009_high_bromley",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1770512151115,
+      "tag": "0010_elite_tinkerer",
+      "breakpoints": true
     }
   ]
 }

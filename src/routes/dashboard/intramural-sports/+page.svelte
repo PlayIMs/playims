@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { replaceState } from '$app/navigation';
 	import type { PageData } from './$types';
 	import IconAlertTriangle from '@tabler/icons-svelte/icons/alert-triangle';
 	import IconBallAmericanFootball from '@tabler/icons-svelte/icons/ball-american-football';
@@ -36,9 +37,9 @@
 		seasonConcluded: boolean;
 	}
 
-	interface SportOfferingGroup {
-		sportName: string;
-		sportSlug: string;
+	interface OfferingGroup {
+		offeringName: string;
+		offeringSlug: string;
 		offeringType: 'league' | 'tournament';
 		divisionCount: number;
 		openCount: number;
@@ -52,8 +53,8 @@
 		label: string;
 		yearSort: number;
 		termSort: number;
-		sports: SportOfferingGroup[];
-		totalSports: number;
+		offerings: OfferingGroup[];
+		totalOfferings: number;
 		totalLeagues: number;
 		totalDivisions: number;
 		openCount: number;
@@ -67,7 +68,7 @@
 		deadlineText: string;
 		leagues: Array<{
 			id: string;
-			sportName: string;
+			offeringName: string;
 			categoryLabel: string;
 		}>;
 	}
@@ -92,6 +93,26 @@
 
 	function isOfferingView(value: string | null): value is OfferingView {
 		return value === 'leagues' || value === 'tournaments' || value === 'all';
+	}
+
+	function readStoredOfferingView(): OfferingView | null {
+		if (typeof window === 'undefined') return null;
+		try {
+			const saved = window.localStorage.getItem(OFFERING_VIEW_STORAGE_KEY);
+			const normalizedSavedView = saved === 'sports' ? 'leagues' : saved;
+			return isOfferingView(normalizedSavedView) ? normalizedSavedView : null;
+		} catch {
+			return null;
+		}
+	}
+
+	function writeStoredOfferingView(value: OfferingView): void {
+		if (typeof window === 'undefined') return;
+		try {
+			window.localStorage.setItem(OFFERING_VIEW_STORAGE_KEY, value);
+		} catch {
+			// Ignore storage quota/privacy errors; URL still persists the selected view.
+		}
 	}
 
 	function parseDate(value: string | null): Date | null {
@@ -197,24 +218,9 @@
 		return toTitleCase(value);
 	}
 
-	function normalizeSkill(value: string | null): string | null {
-		if (!value) return null;
-		const normalized = value.trim().toLowerCase();
-		if (normalized === 'rec' || normalized === 'recreational') return 'Recreational';
-		if (normalized === 'comp' || normalized === 'competitive') return 'Competitive';
-		if (normalized === 'intermediate') return 'Intermediate';
-		if (normalized === 'advanced') return 'Advanced';
-		if (normalized === 'beginner') return 'Beginner';
-		if (normalized === 'all') return null;
-		return toTitleCase(value);
-	}
-
 	function buildCategoryLabel(activity: Activity): string {
 		const gender = normalizeGender(activity.gender ?? null);
-		const skill = normalizeSkill(activity.skillLevel ?? null);
-		if (gender && skill) return `${gender} ${skill}`;
 		if (gender) return gender;
-		if (skill) return skill;
 		return activity.leagueName;
 	}
 
@@ -338,19 +344,19 @@
 		return league.seasonConcluded;
 	}
 
-	function isSportConcluded(sport: SportOfferingGroup): boolean {
-		return sport.leagues.length > 0 && sport.leagues.every(isLeagueSeasonConcluded);
+	function isOfferingConcluded(offering: OfferingGroup): boolean {
+		return offering.leagues.length > 0 && offering.leagues.every(isLeagueSeasonConcluded);
 	}
 
-	function sortSportsByName(a: SportOfferingGroup, b: SportOfferingGroup): number {
-		const nameDiff = a.sportName.localeCompare(b.sportName);
+	function sortOfferingsByName(a: OfferingGroup, b: OfferingGroup): number {
+		const nameDiff = a.offeringName.localeCompare(b.offeringName);
 		if (nameDiff !== 0) return nameDiff;
 		if (a.offeringType === b.offeringType) return 0;
 		return a.offeringType === 'league' ? -1 : 1;
 	}
 
-	function sportIconFor(sportName: string) {
-		const key = sportName.trim().toLowerCase();
+	function offeringIconFor(offeringName: string) {
+		const key = offeringName.trim().toLowerCase();
 		if (key.includes('flag football')) return IconBallAmericanFootball;
 		if (key.includes('basketball')) return IconBallBasketball;
 		if (key.includes('soccer')) return IconBallFootball;
@@ -364,14 +370,14 @@
 		return IconBallFootball;
 	}
 
-	function columnHeaderFor(group: SportOfferingGroup, column: 'league' | 'registration' | 'range') {
+	function columnHeaderFor(group: OfferingGroup, column: 'league' | 'registration' | 'range') {
 		if (column === 'league') return group.offeringType === 'tournament' ? 'Group' : 'League';
 		if (column === 'registration')
 			return group.offeringType === 'tournament' ? 'Tournament Registration' : 'Team Registration';
 		return group.offeringType === 'tournament' ? 'Tournament Date(s)' : 'Season Date Range';
 	}
 
-	function entryLabelFor(group: SportOfferingGroup): 'league' | 'group' {
+	function entryLabelFor(group: OfferingGroup): 'league' | 'group' {
 		return group.offeringType === 'tournament' ? 'group' : 'league';
 	}
 
@@ -384,7 +390,7 @@
 				label: string;
 				yearSort: number;
 				termSort: number;
-				sports: Map<string, SportOfferingGroup>;
+				offerings: Map<string, OfferingGroup>;
 			}
 		>();
 
@@ -393,19 +399,19 @@
 			if (!semesterMap.has(semester.key)) {
 				semesterMap.set(semester.key, {
 					...semester,
-					sports: new Map<string, SportOfferingGroup>()
+					offerings: new Map<string, OfferingGroup>()
 				});
 			}
 
 			const bucket = semesterMap.get(semester.key);
 			if (!bucket) continue;
 
-			const sportName = activity.sportName?.trim() || 'General Recreation';
-			const sportKey = splitByOfferingType ? `${sportName}::${activity.offeringType}` : sportName;
-			if (!bucket.sports.has(sportKey)) {
-				bucket.sports.set(sportKey, {
-					sportName,
-					sportSlug: `sport-${slugify(sportName)}-${activity.offeringType}-${semester.key}`,
+			const offeringName = activity.offeringName?.trim() || 'General Recreation';
+			const offeringKey = splitByOfferingType ? `${offeringName}::${activity.offeringType}` : offeringName;
+			if (!bucket.offerings.has(offeringKey)) {
+				bucket.offerings.set(offeringKey, {
+					offeringName,
+					offeringSlug: `offering-${slugify(offeringName)}-${activity.offeringType}-${semester.key}`,
 					offeringType: activity.offeringType,
 					divisionCount: 0,
 					openCount: 0,
@@ -415,8 +421,8 @@
 				});
 			}
 
-			const sportGroup = bucket.sports.get(sportKey);
-			if (!sportGroup) continue;
+			const offeringGroup = bucket.offerings.get(offeringKey);
+			if (!offeringGroup) continue;
 
 			const registrationWindow = getRegistrationWindowInfo(activity, now);
 			const status = getOfferingStatus(activity, registrationWindow.windowState);
@@ -441,19 +447,19 @@
 				seasonConcluded: seasonEndMs < now.getTime()
 			};
 
-			sportGroup.leagues.push(leagueOffering);
-			sportGroup.divisionCount += activity.divisionCount ?? 0;
-			if (status === 'open') sportGroup.openCount += 1;
-			if (status === 'waitlisted') sportGroup.waitlistedCount += 1;
-			if (status === 'closed') sportGroup.closedCount += 1;
+			offeringGroup.leagues.push(leagueOffering);
+			offeringGroup.divisionCount += activity.divisionCount ?? 0;
+			if (status === 'open') offeringGroup.openCount += 1;
+			if (status === 'waitlisted') offeringGroup.waitlistedCount += 1;
+			if (status === 'closed') offeringGroup.closedCount += 1;
 		}
 
 		const boards = Array.from(semesterMap.values())
 			.map((bucket) => {
-				const sports = Array.from(bucket.sports.values())
-					.map((sport) => ({
-						...sport,
-						leagues: sport.leagues.sort((a, b) => {
+				const offerings = Array.from(bucket.offerings.values())
+					.map((offering) => ({
+						...offering,
+						leagues: offering.leagues.sort((a, b) => {
 							const category = a.categoryLabel.localeCompare(b.categoryLabel);
 							if (category !== 0) return category;
 
@@ -467,21 +473,21 @@
 							return aDate - bDate;
 						})
 					}))
-					.sort(sortSportsByName);
+					.sort(sortOfferingsByName);
 
-				const openCount = sports.reduce((sum, sport) => sum + sport.openCount, 0);
-				const waitlistedCount = sports.reduce((sum, sport) => sum + sport.waitlistedCount, 0);
-				const closedCount = sports.reduce((sum, sport) => sum + sport.closedCount, 0);
-				const totalLeagues = sports.reduce((sum, sport) => sum + sport.leagues.length, 0);
-				const totalDivisions = sports.reduce((sum, sport) => sum + sport.divisionCount, 0);
+				const openCount = offerings.reduce((sum, offering) => sum + offering.openCount, 0);
+				const waitlistedCount = offerings.reduce((sum, offering) => sum + offering.waitlistedCount, 0);
+				const closedCount = offerings.reduce((sum, offering) => sum + offering.closedCount, 0);
+				const totalLeagues = offerings.reduce((sum, offering) => sum + offering.leagues.length, 0);
+				const totalDivisions = offerings.reduce((sum, offering) => sum + offering.divisionCount, 0);
 
 				return {
 					key: bucket.key,
 					label: bucket.label,
 					yearSort: bucket.yearSort,
 					termSort: bucket.termSort,
-					sports,
-					totalSports: sports.length,
+					offerings,
+					totalOfferings: offerings.length,
 					totalLeagues,
 					totalDivisions,
 					openCount,
@@ -506,7 +512,7 @@
 		return 'Leagues';
 	});
 
-	const sportsActivities = $derived.by(() =>
+	const leagueActivities = $derived.by(() =>
 		(data.activities ?? []).filter(
 			(activity: Activity) => activity.isActive && activity.offeringType !== 'tournament'
 		)
@@ -521,9 +527,9 @@
 	const semesterBoards = $derived.by(() => {
 		if (showTournaments) return buildBoards(tournamentActivities);
 		if (showAllOfferings) {
-			return buildBoards([...sportsActivities, ...tournamentActivities], true);
+			return buildBoards([...leagueActivities, ...tournamentActivities], true);
 		}
-		return buildBoards(sportsActivities);
+		return buildBoards(leagueActivities);
 	});
 
 	$effect(() => {
@@ -535,30 +541,32 @@
 		if (offeringViewHydrated || typeof window === 'undefined') return;
 		const url = new URL(window.location.href);
 		const fromUrl = url.searchParams.get('view');
-		const saved = window.localStorage.getItem(OFFERING_VIEW_STORAGE_KEY);
 		const normalizedUrlView = fromUrl === 'sports' ? 'leagues' : fromUrl;
-		const normalizedSavedView = saved === 'sports' ? 'leagues' : saved;
 		if (isOfferingView(normalizedUrlView)) {
 			offeringView = normalizedUrlView;
-		} else if (isOfferingView(normalizedSavedView)) {
-			offeringView = normalizedSavedView;
 		} else {
-			offeringView = 'all';
+			const savedView = readStoredOfferingView();
+			if (savedView) {
+				offeringView = savedView;
+			} else {
+				offeringView = 'all';
+			}
 		}
 		offeringViewHydrated = true;
 	});
 
 	$effect(() => {
 		if (!offeringViewHydrated || typeof window === 'undefined') return;
-		window.localStorage.setItem(OFFERING_VIEW_STORAGE_KEY, offeringView);
+		writeStoredOfferingView(offeringView);
 		const url = new URL(window.location.href);
 		if (url.searchParams.get('view') !== offeringView) {
 			url.searchParams.set('view', offeringView);
-			window.history.replaceState(
-				window.history.state,
-				'',
-				`${url.pathname}${url.search}${url.hash}`
-			);
+			try {
+				// Firefox can throw quota errors when cloning large existing history.state objects.
+				replaceState(`${url.pathname}${url.search}${url.hash}`, {});
+			} catch {
+				// Ignore history state errors in restrictive browser modes.
+			}
 		}
 	});
 
@@ -566,7 +574,7 @@
 	const activeSemester = $derived.by(() => currentSemester);
 	const badgeOfferingCount = $derived.by(() => {
 		if (!activeSemester) return 0;
-		return new Set(activeSemester.sports.map((sport) => sport.sportName)).size;
+		return new Set(activeSemester.offerings.map((offering) => offering.offeringName)).size;
 	});
 	const badgeLeagueOrGroupCount = $derived.by(() => {
 		if (!activeSemester) return 0;
@@ -579,26 +587,26 @@
 		return pluralize(badgeLeagueOrGroupCount, 'league', 'leagues');
 	});
 
-	const visibleSports = $derived.by(() => {
+	const visibleOfferings = $derived.by(() => {
 		if (!activeSemester) return [];
 		const query = normalizeSearch(searchQuery.trim());
 		if (!query) {
-			return activeSemester.sports
-				.map((sport) => ({
-					...sport,
-					...computeStatusCounts(sport.leagues)
+			return activeSemester.offerings
+				.map((offering) => ({
+					...offering,
+					...computeStatusCounts(offering.leagues)
 				}))
-				.sort(sortSportsByName);
+				.sort(sortOfferingsByName);
 		}
 
-		return activeSemester.sports
-			.map((sport) => {
-				let leagues = sport.leagues;
-				if (!normalizeSearch(sport.sportName).includes(query)) {
-					leagues = sport.leagues.filter((league) => {
+		return activeSemester.offerings
+			.map((offering) => {
+				let leagues = offering.leagues;
+				if (!normalizeSearch(offering.offeringName).includes(query)) {
+					leagues = offering.leagues.filter((league) => {
 						const normalizedText = normalizeSearch(
 							[
-								sport.sportName,
+								offering.offeringName,
 								league.categoryLabel,
 								league.leagueName,
 								league.teamRegistrationOpenText,
@@ -612,13 +620,13 @@
 
 				if (leagues.length === 0) return null;
 				return {
-					...sport,
+					...offering,
 					leagues,
 					...computeStatusCounts(leagues)
 				};
 			})
-			.filter((sport): sport is SportOfferingGroup => Boolean(sport))
-			.sort(sortSportsByName);
+			.filter((offering): offering is OfferingGroup => Boolean(offering))
+			.sort(sortOfferingsByName);
 	});
 
 	const activeDeadlines = $derived.by(() => {
@@ -626,8 +634,8 @@
 		const nowMs = new Date().getTime();
 		const grouped = new Map<string, DeadlineGroup>();
 
-		for (const sport of activeSemester.sports) {
-			for (const league of sport.leagues) {
+		for (const offering of activeSemester.offerings) {
+			for (const league of offering.leagues) {
 				const deadlineDate = league.teamRegistrationCloseDate;
 				if (!deadlineDate) continue;
 				const deadlineMs = parseDate(deadlineDate)?.getTime();
@@ -646,7 +654,7 @@
 				if (!bucket) continue;
 				bucket.leagues.push({
 					id: league.id,
-					sportName: sport.sportName,
+					offeringName: offering.offeringName,
 					categoryLabel: league.categoryLabel
 				});
 			}
@@ -661,11 +669,11 @@
 			.slice(0, 8);
 	});
 
-	const nonConcludedSports = $derived.by(() =>
-		visibleSports.filter((sport) => !isSportConcluded(sport))
+	const nonConcludedOfferings = $derived.by(() =>
+		visibleOfferings.filter((offering) => !isOfferingConcluded(offering))
 	);
-	const concludedSports = $derived.by(() =>
-		visibleSports.filter((sport) => isSportConcluded(sport))
+	const concludedOfferings = $derived.by(() =>
+		visibleOfferings.filter((offering) => isOfferingConcluded(offering))
 	);
 
 	function statusClass(status: OfferingStatus): string {
@@ -713,18 +721,34 @@
 	{/if}
 
 	{#if semesterBoards.length === 0}
-		<section class="border-2 border-secondary-300 bg-neutral p-8 text-center">
-			<div class="bg-secondary p-3 inline-flex mb-3" aria-hidden="true">
-				<IconBallFootball class="w-7 h-7 text-white" />
+		<section class="border-2 border-secondary-300 bg-neutral p-6 space-y-4">
+			<div class="text-center">
+				<div class="bg-secondary p-3 inline-flex mb-3" aria-hidden="true">
+					<IconBallFootball class="w-7 h-7 text-white" />
+				</div>
+				<h2 class="text-2xl font-bold font-serif text-neutral-950">
+					No
+					{showTournaments ? 'tournament' : 'offering'}
+					offerings yet
+				</h2>
+				<p class="text-sm text-neutral-950 font-sans mt-1">
+					Add or enable leagues/tournaments to populate this view.
+				</p>
 			</div>
-			<h2 class="text-2xl font-bold font-serif text-neutral-950">
-				No
-				{showTournaments ? 'tournament' : 'offering'}
-				offerings yet
-			</h2>
-			<p class="text-sm text-neutral-950 font-sans mt-1">
-				Add or enable leagues/tournaments to populate this view.
-			</p>
+			<div class="grid grid-cols-1 lg:grid-cols-2 gap-4" aria-hidden="true">
+				<div class="border border-secondary-300 bg-white p-4 space-y-3">
+					<div class="h-4 bg-neutral-100 animate-pulse w-2/5"></div>
+					<div class="h-3 bg-neutral-100 animate-pulse w-full"></div>
+					<div class="h-3 bg-neutral-100 animate-pulse w-5/6"></div>
+					<div class="h-3 bg-neutral-100 animate-pulse w-3/4"></div>
+				</div>
+				<div class="border border-secondary-300 bg-white p-4 space-y-3">
+					<div class="h-4 bg-neutral-100 animate-pulse w-1/3"></div>
+					<div class="h-3 bg-neutral-100 animate-pulse w-full"></div>
+					<div class="h-3 bg-neutral-100 animate-pulse w-4/5"></div>
+					<div class="h-3 bg-neutral-100 animate-pulse w-2/3"></div>
+				</div>
+			</div>
 		</section>
 	{:else}
 		<div class="grid grid-cols-1 xl:grid-cols-[1.6fr_0.7fr] gap-6">
@@ -783,7 +807,7 @@
 					</div>
 				</div>
 
-				{#if visibleSports.length === 0}
+				{#if visibleOfferings.length === 0}
 					<div class="p-8 text-center">
 						<p class="text-sm text-neutral-950 font-sans">
 							No {offeringTypeLabel.toLowerCase()} match this search for this semester.
@@ -791,36 +815,38 @@
 					</div>
 				{:else}
 					<div class="divide-y divide-secondary-300">
-						{#each nonConcludedSports as sport}
-							<article id={sport.sportSlug} class="p-4 space-y-3">
+						{#each nonConcludedOfferings as offering}
+							<article id={offering.offeringSlug} class="p-4 space-y-3">
 								<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
 									<div>
 										<div class="flex items-center gap-2">
 											<h3 class="text-2xl font-bold font-serif text-neutral-950">
-												{sport.sportName}
+												{offering.offeringName}
 											</h3>
 											{#if showAllOfferings}
 												<span
 													class="badge-secondary-outlined text-[10px] uppercase tracking-wide px-1.5 py-0 self-center"
 												>
-													{sport.offeringType === 'tournament' ? 'Tournament' : 'League'}
+													{offering.offeringType === 'tournament' ? 'Tournament' : 'League'}
 												</span>
 											{/if}
 										</div>
 										<p class="text-xs text-neutral-950 font-sans">
-											{sport.leagues.length}
-											{entryLabelFor(sport)} offer{sport.leagues.length === 1 ? 'ing' : 'ings'}
+											{offering.leagues.length}
+											{entryLabelFor(offering)} offer{offering.leagues.length === 1
+												? 'ing'
+												: 'ings'}
 										</p>
 									</div>
 									<div class="flex flex-wrap items-center gap-1">
 										<span class="badge-primary text-xs uppercase tracking-wide"
-											>{sport.openCount} Open</span
+											>{offering.openCount} Open</span
 										>
 										<span class="badge-primary-outlined text-xs uppercase tracking-wide">
-											{sport.waitlistedCount} Waitlist
+											{offering.waitlistedCount} Waitlist
 										</span>
 										<span class="badge-secondary-outlined text-xs uppercase tracking-wide">
-											{sport.closedCount} Closed
+											{offering.closedCount} Closed
 										</span>
 									</div>
 								</div>
@@ -833,7 +859,7 @@
 													scope="col"
 													class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-48"
 												>
-													{columnHeaderFor(sport, 'league')}
+													{columnHeaderFor(offering, 'league')}
 												</th>
 												<th
 													scope="col"
@@ -845,7 +871,7 @@
 													scope="col"
 													class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-44"
 												>
-													{columnHeaderFor(sport, 'registration')}
+													{columnHeaderFor(offering, 'registration')}
 												</th>
 												<th
 													scope="col"
@@ -857,15 +883,15 @@
 													scope="col"
 													class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-44"
 												>
-													{columnHeaderFor(sport, 'range')}
+													{columnHeaderFor(offering, 'range')}
 												</th>
 											</tr>
 										</thead>
 										<tbody>
-											{#each sport.leagues as league, leagueIndex}
-												{@const SportIcon = sportIconFor(sport.sportName)}
+											{#each offering.leagues as league, leagueIndex}
+												{@const OfferingIcon = offeringIconFor(offering.offeringName)}
 												<tr
-													class={`align-middle ${leagueIndex < sport.leagues.length - 1 ? 'border-b border-secondary-200' : ''} ${leagueIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}
+													class={`align-middle ${leagueIndex < offering.leagues.length - 1 ? 'border-b border-secondary-200' : ''} ${leagueIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}
 												>
 													<th scope="row" class="px-2 py-1 text-left">
 														<div class="flex items-center gap-2">
@@ -873,7 +899,7 @@
 																class="w-9 h-9 bg-primary text-white flex items-center justify-center shrink-0 cursor-pointer transition-colors hover:bg-primary-700"
 																aria-hidden="true"
 															>
-																<SportIcon class="w-6 h-6" />
+																<OfferingIcon class="w-6 h-6" />
 															</div>
 															<div>
 																<p
@@ -924,7 +950,7 @@
 							</article>
 						{/each}
 
-						{#if concludedSports.length > 0}
+						{#if concludedOfferings.length > 0}
 							<section class="p-4 space-y-3">
 								<button
 									type="button"
@@ -937,7 +963,7 @@
 									<span
 										class="text-sm font-bold font-sans text-neutral-950 uppercase tracking-wide"
 									>
-										Concluded Offerings ({concludedSports.length})
+										Concluded Offerings ({concludedOfferings.length})
 									</span>
 									{#if showConcludedSeasons}
 										<IconChevronUp class="w-5 h-5 text-secondary-900" />
@@ -948,27 +974,27 @@
 
 								{#if showConcludedSeasons}
 									<div class="divide-y divide-secondary-300 border border-secondary-300">
-										{#each concludedSports as sport}
-											<article id={sport.sportSlug} class="p-4 space-y-3 bg-neutral">
+										{#each concludedOfferings as offering}
+											<article id={offering.offeringSlug} class="p-4 space-y-3 bg-neutral">
 												<div
 													class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
 												>
 													<div>
 														<div class="flex items-center gap-2">
 															<h3 class="text-2xl font-bold font-serif text-neutral-950">
-																{sport.sportName}
+																{offering.offeringName}
 															</h3>
 															{#if showAllOfferings}
 																<span
 																	class="badge-secondary-outlined text-[10px] uppercase tracking-wide px-1 py-0 self-center"
 																>
-																	{sport.offeringType === 'tournament' ? 'Tournament' : 'League'}
+																	{offering.offeringType === 'tournament' ? 'Tournament' : 'League'}
 																</span>
 															{/if}
 														</div>
 														<p class="text-xs text-neutral-950 font-sans">
-															{sport.leagues.length}
-															{entryLabelFor(sport)} offer{sport.leagues.length === 1
+															{offering.leagues.length}
+															{entryLabelFor(offering)} offer{offering.leagues.length === 1
 																? 'ing'
 																: 'ings'}
 														</p>
@@ -988,7 +1014,7 @@
 																	scope="col"
 																	class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-48"
 																>
-																	{columnHeaderFor(sport, 'league')}
+																	{columnHeaderFor(offering, 'league')}
 																</th>
 																<th
 																	scope="col"
@@ -1000,7 +1026,7 @@
 																	scope="col"
 																	class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-44"
 																>
-																	{columnHeaderFor(sport, 'registration')}
+																	{columnHeaderFor(offering, 'registration')}
 																</th>
 																<th
 																	scope="col"
@@ -1012,15 +1038,15 @@
 																	scope="col"
 																	class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-44"
 																>
-																	{columnHeaderFor(sport, 'range')}
+																	{columnHeaderFor(offering, 'range')}
 																</th>
 															</tr>
 														</thead>
 														<tbody>
-															{#each sport.leagues as league, leagueIndex}
-																{@const SportIcon = sportIconFor(sport.sportName)}
+															{#each offering.leagues as league, leagueIndex}
+																{@const OfferingIcon = offeringIconFor(offering.offeringName)}
 																<tr
-																	class={`align-middle ${leagueIndex < sport.leagues.length - 1 ? 'border-b border-secondary-200' : ''} ${leagueIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}
+																	class={`align-middle ${leagueIndex < offering.leagues.length - 1 ? 'border-b border-secondary-200' : ''} ${leagueIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}
 																>
 																	<th scope="row" class="px-2 py-1 text-left">
 																		<div class="flex items-center gap-2">
@@ -1028,7 +1054,7 @@
 																				class="w-9 h-9 bg-primary text-white flex items-center justify-center shrink-0 cursor-pointer transition-colors hover:bg-primary-700"
 																				aria-hidden="true"
 																			>
-																				<SportIcon class="w-6 h-6" />
+																				<OfferingIcon class="w-6 h-6" />
 																			</div>
 																			<div>
 																				<p
@@ -1106,7 +1132,7 @@
 									<div class="mt-2 flex flex-wrap gap-1">
 										{#each deadline.leagues as league}
 											<span class="badge-secondary-outlined text-xs">
-												{league.sportName} - {league.categoryLabel}
+												{league.offeringName} - {league.categoryLabel}
 											</span>
 										{/each}
 									</div>
@@ -1126,7 +1152,7 @@
 								Offerings
 							</p>
 							<p class="text-2xl font-bold font-serif text-neutral-950">
-								{activeSemester?.totalSports ?? 0}
+								{activeSemester?.totalOfferings ?? 0}
 							</p>
 						</div>
 						<div class="card-secondary-outlined">
@@ -1169,3 +1195,5 @@
 		</div>
 	{/if}
 </div>
+
+

@@ -4,38 +4,32 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { z } from 'zod';
 
-const createLeagueSchema = z.object({
-	offeringId: z.string().uuid(),
+const createOfferingSchema = z.object({
 	name: z.string().trim().min(1),
 	slug: z.string().trim().min(1),
-	year: z.number().int().optional(),
-	season: z.string().trim().min(1).optional(),
+	type: z.enum(['league', 'tournament', 'other']).default('league'),
 	description: z.string().trim().max(2000).optional(),
-	gender: z.string().trim().min(1).optional(),
-	skillLevel: z.string().trim().min(1).optional()
+	minPlayers: z.number().int().positive().optional(),
+	maxPlayers: z.number().int().positive().optional()
 });
 
-export const GET: RequestHandler = async ({ url, platform, locals }) => {
+export const GET: RequestHandler = async ({ platform, locals }) => {
 	try {
 		const dbOps = new DatabaseOperations(platform as App.Platform);
 		const clientId = resolveClientId(locals);
-		const offeringId = url.searchParams.get('offeringId');
-
-		const leagues = offeringId
-			? await dbOps.leagues.getByOfferingId(offeringId)
-			: await dbOps.leagues.getByClientId(clientId);
+		const offerings = await dbOps.offerings.getByClientId(clientId);
 
 		return json({
 			success: true,
-			data: leagues,
-			count: leagues.length
+			data: offerings,
+			count: offerings.length
 		});
 	} catch (error) {
-		console.error('Failed to fetch leagues:', error);
+		console.error('Failed to fetch offerings:', error);
 		return json(
 			{
 				success: false,
-				error: 'Failed to fetch leagues'
+				error: 'Failed to fetch offerings'
 			},
 			{ status: 500 }
 		);
@@ -45,7 +39,7 @@ export const GET: RequestHandler = async ({ url, platform, locals }) => {
 export const POST: RequestHandler = async ({ request, platform, locals }) => {
 	try {
 		const payload = await request.json();
-		const parsed = createLeagueSchema.safeParse(payload);
+		const parsed = createOfferingSchema.safeParse(payload);
 		if (!parsed.success) {
 			return json(
 				{
@@ -58,31 +52,29 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 
 		const dbOps = new DatabaseOperations(platform as App.Platform);
 		const clientId = resolveClientId(locals);
-		const league = await dbOps.leagues.create({
-			clientId,
-			offeringId: parsed.data.offeringId,
+		const offering = await dbOps.offerings.create({
 			name: parsed.data.name,
 			slug: parsed.data.slug,
-			year: parsed.data.year,
-			season: parsed.data.season,
+			type: parsed.data.type,
 			description: parsed.data.description,
-			gender: parsed.data.gender,
-			skillLevel: parsed.data.skillLevel
+			minPlayers: parsed.data.minPlayers,
+			maxPlayers: parsed.data.maxPlayers,
+			clientId
 		});
 
 		return json(
 			{
 				success: true,
-				data: league
+				data: offering
 			},
 			{ status: 201 }
 		);
 	} catch (error) {
-		console.error('Failed to create league:', error);
+		console.error('Failed to create offering:', error);
 		return json(
 			{
 				success: false,
-				error: 'Failed to create league'
+				error: 'Failed to create offering'
 			},
 			{ status: 500 }
 		);

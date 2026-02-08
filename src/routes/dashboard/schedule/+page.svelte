@@ -14,7 +14,7 @@
 		statusLabel: string;
 		scheduledStartAt: string | null;
 		scheduledEndAt: string | null;
-		sportName: string;
+		offeringName: string;
 		leagueName: string;
 		divisionName: string;
 		matchup: string;
@@ -43,7 +43,7 @@
 	type SchedulePageData = {
 		generatedAt: string;
 		events: ScheduleEvent[];
-		sportOptions: OptionCount[];
+		offeringOptions: OptionCount[];
 		statusOptions: OptionCount[];
 		summary: ScheduleSummary;
 		error?: string;
@@ -68,11 +68,11 @@
 
 	let searchQuery = $state('');
 	let selectedStatus = $state('all');
-	let selectedSport = $state('all');
+	let selectedOffering = $state('all');
 	let selectedWindow = $state<WindowFilter>('all');
 
 	const events = $derived(data.events ?? []);
-	const sportOptions = $derived(data.sportOptions ?? []);
+	const offeringOptions = $derived(data.offeringOptions ?? []);
 	const statusOptions = $derived(data.statusOptions ?? []);
 	const summary = $derived(
 		data.summary ?? { total: 0, live: 0, scheduled: 0, completed: 0, needsAttention: 0 }
@@ -217,7 +217,7 @@
 		const lowerQuery = query.toLowerCase();
 		const searchable = [
 			event.matchup,
-			event.sportName,
+			event.offeringName,
 			event.leagueName,
 			event.divisionName,
 			event.location,
@@ -244,7 +244,7 @@
 
 		return events.filter((event: ScheduleEvent) => {
 			if (selectedStatus !== 'all' && event.statusLabel !== selectedStatus) return false;
-			if (selectedSport !== 'all' && event.sportName !== selectedSport) return false;
+			if (selectedOffering !== 'all' && event.offeringName !== selectedOffering) return false;
 			if (!isInWindow(event.scheduledStartAt, selectedWindow)) return false;
 			if (!matchesQuery(event, query)) return false;
 			return true;
@@ -291,7 +291,7 @@
 	function resetFilters() {
 		searchQuery = '';
 		selectedStatus = 'all';
-		selectedSport = 'all';
+		selectedOffering = 'all';
 		selectedWindow = 'all';
 	}
 </script>
@@ -300,7 +300,7 @@
 	<title>Schedule - PlayIMs</title>
 	<meta
 		name="description"
-		content="View upcoming and completed intramural events, with sport and status filters."
+		content="View upcoming and completed intramural events, with offering and status filters."
 	/>
 </svelte:head>
 
@@ -367,7 +367,7 @@
 		<div class="flex flex-col gap-1">
 			<h2 class="text-xl font-bold font-serif text-neutral-950">Filters</h2>
 			<p class="text-xs text-neutral-950 font-sans">
-				Filter by text, sport, status, and date range.
+				Filter by text, offering, status, and date range.
 			</p>
 		</div>
 
@@ -410,13 +410,17 @@
 			<div>
 				<label
 					class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1"
-					for="schedule-sport"
+					for="schedule-offering"
 				>
-					Sport
+					Offering
 				</label>
-				<select id="schedule-sport" class="select-primary custom-select" bind:value={selectedSport}>
-					<option value="all">All sports</option>
-					{#each sportOptions as option}
+				<select
+					id="schedule-offering"
+					class="select-primary custom-select"
+					bind:value={selectedOffering}
+				>
+					<option value="all">All offerings</option>
+					{#each offeringOptions as option}
 						<option value={option.value}>
 							{option.label} ({option.count})
 						</option>
@@ -506,7 +510,7 @@
 									<div class="space-y-1">
 										<p class="text-base font-bold text-neutral-950 font-serif">{event.matchup}</p>
 										<p class="text-sm text-neutral-950 font-sans">
-											{event.sportName} - {event.leagueName} - {event.divisionName}
+											{event.offeringName} - {event.leagueName} - {event.divisionName}
 										</p>
 										<p class="text-sm text-neutral-950 font-sans">{event.location}</p>
 										{#if event.notes}
