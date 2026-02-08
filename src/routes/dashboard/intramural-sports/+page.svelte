@@ -218,24 +218,9 @@
 		return toTitleCase(value);
 	}
 
-	function normalizeSkill(value: string | null): string | null {
-		if (!value) return null;
-		const normalized = value.trim().toLowerCase();
-		if (normalized === 'rec' || normalized === 'recreational') return 'Recreational';
-		if (normalized === 'comp' || normalized === 'competitive') return 'Competitive';
-		if (normalized === 'intermediate') return 'Intermediate';
-		if (normalized === 'advanced') return 'Advanced';
-		if (normalized === 'beginner') return 'Beginner';
-		if (normalized === 'all') return null;
-		return toTitleCase(value);
-	}
-
 	function buildCategoryLabel(activity: Activity): string {
 		const gender = normalizeGender(activity.gender ?? null);
-		const skill = normalizeSkill(activity.skillLevel ?? null);
-		if (gender && skill) return `${gender} ${skill}`;
 		if (gender) return gender;
-		if (skill) return skill;
 		return activity.leagueName;
 	}
 
