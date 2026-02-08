@@ -15,6 +15,14 @@ declare global {
 				role?: string;
 				clientId?: string;
 			};
+			/**
+			 * Optional per-request logging metadata used by SSR loaders to report table/row context
+			 * through the centralized request logger in hooks.server.ts.
+			 */
+			requestLogMeta?: {
+				table?: string;
+				recordCount?: number | null;
+			};
 		}
 		// interface PageData {}
 		// interface PageState {}

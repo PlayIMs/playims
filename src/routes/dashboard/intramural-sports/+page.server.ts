@@ -44,7 +44,10 @@ function formatSeasonLabel(league: League): string {
 	return 'Unscheduled';
 }
 
-function createDivisionCountByLeague(divisions: Division[], leagueIds: Set<string>): Map<string, number> {
+function createDivisionCountByLeague(
+	divisions: Division[],
+	leagueIds: Set<string>
+): Map<string, number> {
 	const counts = new Map<string, number>();
 	for (const division of divisions) {
 		if (!division.leagueId || !leagueIds.has(division.leagueId)) continue;
@@ -54,7 +57,15 @@ function createDivisionCountByLeague(divisions: Division[], leagueIds: Set<strin
 }
 
 export const load: PageServerLoad = async ({ platform, locals }) => {
+	const setRequestLogMeta = (recordCount: number) => {
+		locals.requestLogMeta = {
+			table: 'offerings,leagues,divisions',
+			recordCount: Math.max(0, recordCount)
+		};
+	};
+
 	if (!platform?.env?.DB) {
+		setRequestLogMeta(0);
 		return {
 			activities: [] as ActivityCard[],
 			error: 'Database not configured'
@@ -71,6 +82,7 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 			db.leagues.getByClientId(clientId),
 			db.divisions.getAll()
 		]);
+		setRequestLogMeta(offerings.length + leagues.length + divisions.length);
 
 		const leagueIds = new Set(
 			leagues.map((league) => league.id).filter((id): id is string => Boolean(id))
@@ -123,6 +135,7 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 			activities
 		};
 	} catch (error) {
+		setRequestLogMeta(0);
 		console.error('Failed to load intramural offerings page:', error);
 		return {
 			activities: [] as ActivityCard[],

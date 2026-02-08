@@ -1,10 +1,7 @@
 import { DatabaseOperations } from '$lib/database';
-import { logRequestSummary, nowMs } from '$lib/server/request-logger';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ platform }) => {
-	const startedAt = nowMs();
-
 	try {
 		// Create Drizzle database operations instance
 		const dbOps = new DatabaseOperations(platform || ({ env: {} } as any));
@@ -39,16 +36,6 @@ export const load: PageServerLoad = async ({ platform }) => {
 		// Fetch data from both tables using Drizzle operations
 		const [clients, users] = await Promise.all([dbOps.clients.getAll(), dbOps.users.getAll()]);
 
-		logRequestSummary({
-			scope: 'SSR',
-			method: 'LOAD',
-			endpoint: '/',
-			table: 'clients,users',
-			recordCount: clients.length + users.length,
-			status: 200,
-			durationMs: nowMs() - startedAt
-		});
-
 		return {
 			clients,
 			users,
@@ -57,17 +44,6 @@ export const load: PageServerLoad = async ({ platform }) => {
 			isDevelopment
 		};
 	} catch (error) {
-		logRequestSummary({
-			scope: 'SSR',
-			method: 'LOAD',
-			endpoint: '/',
-			table: 'clients,users',
-			recordCount: 0,
-			status: 500,
-			durationMs: nowMs() - startedAt,
-			error: error instanceof Error ? error.message : 'Failed to fetch data from database'
-		});
-
 		// Return empty arrays if there's an error
 		return {
 			clients: [],
