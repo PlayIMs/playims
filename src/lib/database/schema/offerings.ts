@@ -1,7 +1,7 @@
-// Sports schema
+// Offerings schema
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
 
-export const sports = sqliteTable('sports', {
+export const offerings = sqliteTable('offerings', {
 	id: text().primaryKey(),
 	name: text(),
 	slug: text(),
@@ -20,5 +20,5 @@ export const sports = sqliteTable('sports', {
 	updatedUser: text('updated_user')
 });
 
-export type Sport = typeof sports.$inferSelect;
-export type NewSport = typeof sports.$inferInsert;
+export type Offering = typeof offerings.$inferSelect;
+export type NewOffering = typeof offerings.$inferInsert;

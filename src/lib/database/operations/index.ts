@@ -5,7 +5,7 @@ import { createDrizzleClient, type DrizzleClient } from '../drizzle.js';
 import type { D1Database } from '@cloudflare/workers-types';
 import { ClientOperations } from './clients.js';
 import { UserOperations } from './users.js';
-import { SportOperations } from './sports.js';
+import { OfferingOperations } from './offerings.js';
 import { LeagueOperations } from './leagues.js';
 import { DivisionOperations } from './divisions.js';
 import { TeamOperations } from './teams.js';
@@ -29,7 +29,7 @@ import { ThemeOperations } from './themes.js';
 export class DatabaseOperations {
 	public clients: ClientOperations;
 	public users: UserOperations;
-	public sports: SportOperations;
+	public offerings: OfferingOperations;
 	public leagues: LeagueOperations;
 	public divisions: DivisionOperations;
 	public teams: TeamOperations;
@@ -67,7 +67,7 @@ export class DatabaseOperations {
 
 		this.clients = new ClientOperations(drizzleDb);
 		this.users = new UserOperations(drizzleDb);
-		this.sports = new SportOperations(drizzleDb);
+		this.offerings = new OfferingOperations(drizzleDb);
 		this.leagues = new LeagueOperations(drizzleDb);
 		this.divisions = new DivisionOperations(drizzleDb);
 		this.teams = new TeamOperations(drizzleDb);
@@ -89,7 +89,7 @@ export class DatabaseOperations {
 // Export individual operation classes for direct use
 export { ClientOperations } from './clients.js';
 export { UserOperations } from './users.js';
-export { SportOperations } from './sports.js';
+export { OfferingOperations } from './offerings.js';
 export { LeagueOperations } from './leagues.js';
 export { DivisionOperations } from './divisions.js';
 export { TeamOperations } from './teams.js';

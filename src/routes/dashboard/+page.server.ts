@@ -59,11 +59,11 @@ export const load: PageServerLoad = async ({ platform }) => {
 
 		// Format events with details
 		const formatEvent = async (evt: any) => {
-			const [homeTeam, awayTeam, facility, sport] = await Promise.all([
+			const [homeTeam, awayTeam, facility, offering] = await Promise.all([
 				evt.homeTeamId ? db.teams.getById(evt.homeTeamId) : null,
 				evt.awayTeamId ? db.teams.getById(evt.awayTeamId) : null,
 				evt.facilityId ? db.facilities.getById(evt.facilityId) : null,
-				evt.sportId ? db.sports.getById(evt.sportId) : null
+				evt.offeringId ? db.offerings.getById(evt.offeringId) : null
 			]);
 
 			const startTime = evt.scheduledStartAt ? new Date(evt.scheduledStartAt) : null;
@@ -82,7 +82,7 @@ export const load: PageServerLoad = async ({ platform }) => {
 						month: 'short',
 						day: 'numeric'
 					}) || 'TBD',
-				sport: sport?.name || 'Unknown',
+				sport: offering?.name || 'Unknown',
 				matchup: `${homeTeam?.name || 'TBD'} vs ${awayTeam?.name || 'TBD'}`,
 				location: facility?.name || 'TBD',
 				status: evt.status || 'scheduled',

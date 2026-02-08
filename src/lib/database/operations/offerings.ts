@@ -1,39 +1,39 @@
-// Sport operations - Drizzle ORM
-import { eq, desc, asc } from 'drizzle-orm';
+// Offering operations - Drizzle ORM
+import { eq, asc } from 'drizzle-orm';
 import type { DrizzleClient } from '../drizzle.js';
-import { sports, type Sport } from '../schema/index.js';
+import { offerings, type Offering } from '../schema/index.js';
 
-export class SportOperations {
+export class OfferingOperations {
 	constructor(private db: DrizzleClient) {}
 
-	async getAll(): Promise<Sport[]> {
-		return await this.db.select().from(sports).orderBy(asc(sports.name));
+	async getAll(): Promise<Offering[]> {
+		return await this.db.select().from(offerings).orderBy(asc(offerings.name));
 	}
 
-	async getById(id: string): Promise<Sport | null> {
-		const result = await this.db.select().from(sports).where(eq(sports.id, id));
+	async getById(id: string): Promise<Offering | null> {
+		const result = await this.db.select().from(offerings).where(eq(offerings.id, id));
 		return result[0] || null;
 	}
 
-	async getBySlug(slug: string): Promise<Sport | null> {
-		const result = await this.db.select().from(sports).where(eq(sports.slug, slug));
+	async getBySlug(slug: string): Promise<Offering | null> {
+		const result = await this.db.select().from(offerings).where(eq(offerings.slug, slug));
 		return result[0] || null;
 	}
 
-	async getActive(): Promise<Sport[]> {
+	async getActive(): Promise<Offering[]> {
 		return await this.db
 			.select()
-			.from(sports)
-			.where(eq(sports.isActive, 1))
-			.orderBy(asc(sports.name));
+			.from(offerings)
+			.where(eq(offerings.isActive, 1))
+			.orderBy(asc(offerings.name));
 	}
 
-	async getByClientId(clientId: string): Promise<Sport[]> {
+	async getByClientId(clientId: string): Promise<Offering[]> {
 		return await this.db
 			.select()
-			.from(sports)
-			.where(eq(sports.clientId, clientId))
-			.orderBy(asc(sports.name));
+			.from(offerings)
+			.where(eq(offerings.clientId, clientId))
+			.orderBy(asc(offerings.name));
 	}
 
 	async create(data: {
@@ -46,12 +46,12 @@ export class SportOperations {
 		clientId?: string;
 		createdUser?: string;
 		updatedUser?: string;
-	}): Promise<Sport | null> {
+	}): Promise<Offering | null> {
 		const now = new Date().toISOString();
 		const id = crypto.randomUUID();
 
 		const result = await this.db
-			.insert(sports)
+			.insert(offerings)
 			.values({
 				id,
 				name: data.name,
@@ -86,39 +86,39 @@ export class SportOperations {
 			rulebookUrl: string;
 			updatedUser: string;
 		}>
-	): Promise<Sport | null> {
+	): Promise<Offering | null> {
 		const now = new Date().toISOString();
 
 		const result = await this.db
-			.update(sports)
+			.update(offerings)
 			.set({
 				...data,
 				updatedAt: now
 			})
-			.where(eq(sports.id, id))
+			.where(eq(offerings.id, id))
 			.returning();
 
 		return result[0] || null;
 	}
 
 	async delete(id: string): Promise<boolean> {
-		const result = await this.db.delete(sports).where(eq(sports.id, id)).returning();
+		const result = await this.db.delete(offerings).where(eq(offerings.id, id)).returning();
 		return result.length > 0;
 	}
 
-	async toggleActive(id: string): Promise<Sport | null> {
-		const sport = await this.getById(id);
-		if (!sport) return null;
+	async toggleActive(id: string): Promise<Offering | null> {
+		const offering = await this.getById(id);
+		if (!offering) return null;
 
-		const newStatus = sport.isActive === 1 ? 0 : 1;
+		const newStatus = offering.isActive === 1 ? 0 : 1;
 
 		const result = await this.db
-			.update(sports)
+			.update(offerings)
 			.set({
 				isActive: newStatus,
 				updatedAt: new Date().toISOString()
 			})
-			.where(eq(sports.id, id))
+			.where(eq(offerings.id, id))
 			.returning();
 
 		return result[0] || null;

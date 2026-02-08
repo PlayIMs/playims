@@ -25,7 +25,7 @@ export class EventOperations {
 	async create(data: {
 		clientId: string;
 		type: string;
-		sportId?: string;
+		offeringId?: string;
 		leagueId?: string;
 		divisionId?: string;
 		facilityId?: string;
@@ -58,7 +58,7 @@ export class EventOperations {
 				id,
 				clientId: data.clientId,
 				type: data.type,
-				sportId: data.sportId || null,
+				offeringId: data.offeringId || null,
 				leagueId: data.leagueId || null,
 				divisionId: data.divisionId || null,
 				facilityId: data.facilityId || null,
@@ -93,7 +93,7 @@ export class EventOperations {
 		id: string,
 		data: Partial<{
 			type: string;
-			sportId: string;
+			offeringId: string;
 			leagueId: string;
 			divisionId: string;
 			facilityId: string;
