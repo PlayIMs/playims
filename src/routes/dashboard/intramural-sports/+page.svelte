@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { replaceState } from '$app/navigation';
 	import type { PageData } from './$types';
 	import IconAlertTriangle from '@tabler/icons-svelte/icons/alert-triangle';
 	import IconBallAmericanFootball from '@tabler/icons-svelte/icons/ball-american-football';
@@ -92,6 +93,26 @@
 
 	function isOfferingView(value: string | null): value is OfferingView {
 		return value === 'leagues' || value === 'tournaments' || value === 'all';
+	}
+
+	function readStoredOfferingView(): OfferingView | null {
+		if (typeof window === 'undefined') return null;
+		try {
+			const saved = window.localStorage.getItem(OFFERING_VIEW_STORAGE_KEY);
+			const normalizedSavedView = saved === 'sports' ? 'leagues' : saved;
+			return isOfferingView(normalizedSavedView) ? normalizedSavedView : null;
+		} catch {
+			return null;
+		}
+	}
+
+	function writeStoredOfferingView(value: OfferingView): void {
+		if (typeof window === 'undefined') return;
+		try {
+			window.localStorage.setItem(OFFERING_VIEW_STORAGE_KEY, value);
+		} catch {
+			// Ignore storage quota/privacy errors; URL still persists the selected view.
+		}
 	}
 
 	function parseDate(value: string | null): Date | null {
@@ -535,30 +556,32 @@
 		if (offeringViewHydrated || typeof window === 'undefined') return;
 		const url = new URL(window.location.href);
 		const fromUrl = url.searchParams.get('view');
-		const saved = window.localStorage.getItem(OFFERING_VIEW_STORAGE_KEY);
 		const normalizedUrlView = fromUrl === 'sports' ? 'leagues' : fromUrl;
-		const normalizedSavedView = saved === 'sports' ? 'leagues' : saved;
 		if (isOfferingView(normalizedUrlView)) {
 			offeringView = normalizedUrlView;
-		} else if (isOfferingView(normalizedSavedView)) {
-			offeringView = normalizedSavedView;
 		} else {
-			offeringView = 'all';
+			const savedView = readStoredOfferingView();
+			if (savedView) {
+				offeringView = savedView;
+			} else {
+				offeringView = 'all';
+			}
 		}
 		offeringViewHydrated = true;
 	});
 
 	$effect(() => {
 		if (!offeringViewHydrated || typeof window === 'undefined') return;
-		window.localStorage.setItem(OFFERING_VIEW_STORAGE_KEY, offeringView);
+		writeStoredOfferingView(offeringView);
 		const url = new URL(window.location.href);
 		if (url.searchParams.get('view') !== offeringView) {
 			url.searchParams.set('view', offeringView);
-			window.history.replaceState(
-				window.history.state,
-				'',
-				`${url.pathname}${url.search}${url.hash}`
-			);
+			try {
+				// Firefox can throw quota errors when cloning large existing history.state objects.
+				replaceState(`${url.pathname}${url.search}${url.hash}`, {});
+			} catch {
+				// Ignore history state errors in restrictive browser modes.
+			}
 		}
 	});
 

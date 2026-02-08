@@ -12,7 +12,8 @@ export default defineConfig({
 		sveltekit(),
 		tailwindcss(),
 		SvelteKitPWA({
-			injectRegister: 'inline',
+			// Registration is handled in src/hooks.client.ts to keep dev/prod behavior explicit.
+			injectRegister: false,
 			manifest: {
 				name: 'PlayIMs - Intramural Sports League Manager',
 				short_name: 'PlayIMs',
