@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { DatabaseOperations } from '$lib/database';
 import { ensureDefaultClient, resolveClientId } from '$lib/server/client-context';
+import { updateCurrentThemeSchema } from '$lib/server/theme-validation';
 import type { RequestHandler } from './$types';
 
 const buildEtag = (
@@ -27,22 +28,6 @@ const buildEtag = (
 	];
 
 	return `W/"${parts.join('|')}"`;
-};
-
-const normalizeHex = (hex: string) => hex.replace('#', '').toUpperCase();
-
-const getColorsFromBody = (body: Record<string, unknown>) => {
-	const colors = (body.colors as Record<string, string>) || body;
-	const primary = typeof colors.primary === 'string' ? normalizeHex(colors.primary) : null;
-	const secondary = typeof colors.secondary === 'string' ? normalizeHex(colors.secondary) : null;
-	const accent = typeof colors.accent === 'string' ? normalizeHex(colors.accent) : null;
-	const neutral = typeof colors.neutral === 'string' ? normalizeHex(colors.neutral) : '';
-
-	if (!primary || !secondary || !accent) {
-		return null;
-	}
-
-	return { primary, secondary, neutral, accent };
 };
 
 export const GET: RequestHandler = async ({ platform, locals, request }) => {
@@ -84,12 +69,17 @@ export const PUT: RequestHandler = async ({ request, platform, locals }) => {
 		await ensureDefaultClient(dbOps);
 		const clientId = resolveClientId(locals);
 		const userId = locals.user?.id;
-		const body = (await request.json()) as Record<string, unknown>;
-		const colors = getColorsFromBody(body);
-
-		if (!colors) {
-			return json({ success: false, error: 'Theme colors are required' }, { status: 400 });
+		let body: unknown;
+		try {
+			body = (await request.json()) as unknown;
+		} catch {
+			return json({ success: false, error: 'Invalid request payload' }, { status: 400 });
 		}
+		const parsed = updateCurrentThemeSchema.safeParse(body);
+		if (!parsed.success) {
+			return json({ success: false, error: 'Invalid request payload' }, { status: 400 });
+		}
+		const colors = parsed.data.colors;
 
 		const theme = await dbOps.themes.upsertCurrent({
 			clientId,

@@ -77,17 +77,18 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 	const clientId = resolveClientId(locals);
 
 	try {
-		const [offerings, leagues, divisions] = await Promise.all([
+		const [offerings, leagues] = await Promise.all([
 			db.offerings.getByClientId(clientId),
-			db.leagues.getByClientId(clientId),
-			db.divisions.getAll()
+			db.leagues.getByClientId(clientId)
 		]);
+		const leagueIds = leagues
+			.map((league) => league.id)
+			.filter((leagueId): leagueId is string => Boolean(leagueId));
+		const divisions = await db.divisions.getByLeagueIds(leagueIds);
 		setRequestLogMeta(offerings.length + leagues.length + divisions.length);
 
-		const leagueIds = new Set(
-			leagues.map((league) => league.id).filter((id): id is string => Boolean(id))
-		);
-		const divisionCountByLeague = createDivisionCountByLeague(divisions, leagueIds);
+		const leagueIdSet = new Set(leagueIds);
+		const divisionCountByLeague = createDivisionCountByLeague(divisions, leagueIdSet);
 		const offeringsById = new Map(
 			offerings
 				.filter((offering): offering is Offering & { id: string } => Boolean(offering.id))

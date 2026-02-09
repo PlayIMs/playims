@@ -6,16 +6,12 @@ import { facilityAreas, type FacilityArea } from '../schema/index.js';
 export class FacilityAreaOperations {
 	constructor(private db: DrizzleClient) {}
 
-	async getAll(clientId?: string): Promise<FacilityArea[]> {
-		if (clientId) {
-			return await this.db
-				.select()
-				.from(facilityAreas)
-				.where(eq(facilityAreas.clientId, clientId))
-				.orderBy(desc(facilityAreas.createdAt));
-		}
-
-		return await this.db.select().from(facilityAreas).orderBy(desc(facilityAreas.createdAt));
+	async getAll(clientId: string): Promise<FacilityArea[]> {
+		return await this.db
+			.select()
+			.from(facilityAreas)
+			.where(eq(facilityAreas.clientId, clientId))
+			.orderBy(desc(facilityAreas.createdAt));
 	}
 
 	async getById(id: string): Promise<FacilityArea | null> {
@@ -32,8 +28,8 @@ export class FacilityAreaOperations {
 	}
 
 	async create(data: {
-		clientId?: string;
-		facilityId?: string;
+		clientId: string;
+		facilityId: string;
 		name: string;
 		slug?: string;
 		isActive?: number;
@@ -47,8 +43,8 @@ export class FacilityAreaOperations {
 			.insert(facilityAreas)
 			.values({
 				id: crypto.randomUUID(),
-				clientId: data.clientId || null,
-				facilityId: data.facilityId || null,
+				clientId: data.clientId,
+				facilityId: data.facilityId,
 				name: data.name,
 				slug: data.slug || null,
 				isActive: data.isActive ?? 1,

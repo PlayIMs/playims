@@ -34,9 +34,5 @@ export async function ensureDefaultClient(dbOps: DatabaseOperations) {
 		updatedUser: undefined
 	});
 
-	// If the clients.create implementation ever changes (it currently generates an ID),
-	// we still want the default client to be stable. Fall back to first existing client.
-	// NOTE: Once auth is implemented, this can be removed.
-	return created ?? (await dbOps.clients.getAll())[0] ?? null;
+	return created ?? (await dbOps.clients.getById(DEFAULT_CLIENT.id));
 }
-

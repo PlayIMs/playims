@@ -1,30 +1,20 @@
 import { json } from '@sveltejs/kit';
 import { DatabaseOperations } from '$lib/database';
 import { ensureDefaultClient, resolveClientId } from '$lib/server/client-context';
+import { themeIdParamSchema, updateSavedThemeSchema } from '$lib/server/theme-validation';
 import type { RequestHandler } from './$types';
-
-const normalizeHex = (hex: string) => hex.replace('#', '').toUpperCase();
-
-const getColorsFromBody = (body: Record<string, unknown>) => {
-	const colors = (body.colors as Record<string, string>) || body;
-	const primary = typeof colors.primary === 'string' ? normalizeHex(colors.primary) : null;
-	const secondary = typeof colors.secondary === 'string' ? normalizeHex(colors.secondary) : null;
-	const accent = typeof colors.accent === 'string' ? normalizeHex(colors.accent) : null;
-	const neutral = typeof colors.neutral === 'string' ? normalizeHex(colors.neutral) : '';
-
-	if (!primary || !secondary || !accent) {
-		return null;
-	}
-
-	return { primary, secondary, neutral, accent };
-};
 
 export const GET: RequestHandler = async ({ params, platform, locals }) => {
 	try {
+		const parsedParams = themeIdParamSchema.safeParse(params);
+		if (!parsedParams.success) {
+			return json({ success: false, error: 'Invalid theme id' }, { status: 400 });
+		}
+
 		const dbOps = new DatabaseOperations(platform as App.Platform);
 		await ensureDefaultClient(dbOps);
 		const clientId = resolveClientId(locals);
-		const theme = await dbOps.themes.getById(clientId, params.themeId);
+		const theme = await dbOps.themes.getById(clientId, parsedParams.data.themeId);
 		if (!theme) {
 			return json({ success: false, error: 'Theme not found' }, { status: 404 });
 		}
@@ -36,11 +26,16 @@ export const GET: RequestHandler = async ({ params, platform, locals }) => {
 
 export const PUT: RequestHandler = async ({ params, request, platform, locals }) => {
 	try {
+		const parsedParams = themeIdParamSchema.safeParse(params);
+		if (!parsedParams.success) {
+			return json({ success: false, error: 'Invalid theme id' }, { status: 400 });
+		}
+
 		const dbOps = new DatabaseOperations(platform as App.Platform);
 		await ensureDefaultClient(dbOps);
 		const clientId = resolveClientId(locals);
 		const userId = locals.user?.id;
-		const existing = await dbOps.themes.getById(clientId, params.themeId);
+		const existing = await dbOps.themes.getById(clientId, parsedParams.data.themeId);
 		if (!existing) {
 			return json({ success: false, error: 'Theme not found' }, { status: 404 });
 		}
@@ -48,15 +43,18 @@ export const PUT: RequestHandler = async ({ params, request, platform, locals })
 			return json({ success: false, error: 'Cannot update current theme here' }, { status: 400 });
 		}
 
-		const body = (await request.json()) as Record<string, unknown>;
-		const name = typeof body.name === 'string' ? body.name.trim() : (existing.name ?? '');
-		if (!name) {
-			return json({ success: false, error: 'Theme name is required' }, { status: 400 });
+		let body: unknown;
+		try {
+			body = (await request.json()) as unknown;
+		} catch {
+			return json({ success: false, error: 'Invalid request payload' }, { status: 400 });
 		}
-		const colors = getColorsFromBody(body);
-		if (!colors) {
-			return json({ success: false, error: 'Theme colors are required' }, { status: 400 });
+		const parsed = updateSavedThemeSchema.safeParse(body);
+		if (!parsed.success) {
+			return json({ success: false, error: 'Invalid request payload' }, { status: 400 });
 		}
+		const name = parsed.data.name;
+		const colors = parsed.data.colors;
 
 		const updated = await dbOps.themes.update(clientId, existing.id, {
 			name,
@@ -76,10 +74,15 @@ export const PUT: RequestHandler = async ({ params, request, platform, locals })
 
 export const DELETE: RequestHandler = async ({ params, platform, locals }) => {
 	try {
+		const parsedParams = themeIdParamSchema.safeParse(params);
+		if (!parsedParams.success) {
+			return json({ success: false, error: 'Invalid theme id' }, { status: 400 });
+		}
+
 		const dbOps = new DatabaseOperations(platform as App.Platform);
 		await ensureDefaultClient(dbOps);
 		const clientId = resolveClientId(locals);
-		const existing = await dbOps.themes.getById(clientId, params.themeId);
+		const existing = await dbOps.themes.getById(clientId, parsedParams.data.themeId);
 		if (!existing) {
 			return json({ success: false, error: 'Theme not found' }, { status: 404 });
 		}

@@ -1,15 +1,45 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { z } from 'zod';
 
 type NominatimResult = {
 	display_name?: string;
 	address?: Record<string, string | undefined>;
 };
 
+const querySchema = z.object({
+	q: z
+		.string()
+		.trim()
+		.max(120)
+		.regex(/^[a-zA-Z0-9\s,.'#/-]*$/, 'Query contains unsupported characters')
+		.optional()
+});
+
 export const GET: RequestHandler = async ({ url, fetch }) => {
-	const q = url.searchParams.get('q')?.trim() ?? '';
+	const parsedQuery = querySchema.safeParse({
+		q: url.searchParams.get('q') ?? undefined
+	});
+	if (!parsedQuery.success) {
+		return json(
+			{
+				success: false,
+				error: 'Invalid query'
+			},
+			{ status: 400 }
+		);
+	}
+
+	const q = parsedQuery.data.q ?? '';
 	if (q.length < 4) {
-		return json({ success: true, data: [] });
+		return json(
+			{ success: true, data: [] },
+			{
+				headers: {
+					'cache-control': 'private, max-age=60'
+				}
+			}
+		);
 	}
 
 	try {
@@ -21,10 +51,15 @@ export const GET: RequestHandler = async ({ url, fetch }) => {
 		nominatimUrl.searchParams.set('limit', '5');
 		nominatimUrl.searchParams.set('q', q);
 
+		const controller = new AbortController();
+		const timeout = setTimeout(() => controller.abort(), 5000);
 		const resp = await fetch(nominatimUrl.toString(), {
 			headers: {
 				Accept: 'application/json'
-			}
+			},
+			signal: controller.signal
+		}).finally(() => {
+			clearTimeout(timeout);
 		});
 
 		if (!resp.ok) {
@@ -52,11 +87,11 @@ export const GET: RequestHandler = async ({ url, fetch }) => {
 			{
 				headers: {
 					// Short cache to reduce repeated lookups
-					'cache-control': 'public, max-age=60'
+					'cache-control': 'private, max-age=60'
 				}
 			}
 		);
-	} catch (e) {
+	} catch {
 		return json({ success: false, error: 'Address lookup failed' }, { status: 502 });
 	}
 };

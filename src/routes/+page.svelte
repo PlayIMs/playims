@@ -1,9 +1,5 @@
 <script lang="ts">
-	import type { Client, User } from '$lib/database/schema';
-
 	export let data: {
-		clients: Client[];
-		users: User[];
 		isDevelopment: boolean;
 		environment: string;
 		dbName?: string;

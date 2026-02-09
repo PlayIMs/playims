@@ -23,6 +23,7 @@ declare global {
 				table?: string;
 				recordCount?: number | null;
 			};
+			requestId?: string;
 		}
 		// interface PageData {}
 		// interface PageState {}

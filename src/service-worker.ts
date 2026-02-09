@@ -7,78 +7,75 @@ const sw = self as unknown as ServiceWorkerGlobalScope;
 
 import { build, files, version } from '$service-worker';
 
-// Create a unique cache name for this deployment
-const CACHE = `cache-${version}`;
+const CACHE = `static-${version}`;
+const OFFLINE_FALLBACK = '/offline.html';
+const ASSETS = [...build, ...files, OFFLINE_FALLBACK];
+const ASSET_SET = new Set(ASSETS);
 
-// List of assets to cache
-const ASSETS = [
-	...build, // the app itself
-	...files // everything in `static`
-];
-
-// Install event - cache all static assets
 sw.addEventListener('install', (event) => {
 	async function addFilesToCache() {
 		const cache = await caches.open(CACHE);
-		await cache.addAll(ASSETS);
+		await cache.addAll([...ASSET_SET]);
 	}
 
 	event.waitUntil(addFilesToCache());
+	sw.skipWaiting();
 });
 
-// Activate event - remove old caches
 sw.addEventListener('activate', (event) => {
 	async function deleteOldCaches() {
 		for (const key of await caches.keys()) {
 			if (key !== CACHE) await caches.delete(key);
 		}
+
+		await sw.clients.claim();
 	}
 
 	event.waitUntil(deleteOldCaches());
 });
 
-// Fetch event - serve from cache, fall back to network
 sw.addEventListener('fetch', (event) => {
-	// Ignore non-GET requests
-	if (event.request.method !== 'GET') return;
+	if (event.request.method !== 'GET') {
+		return;
+	}
 
-	// Ignore API requests (don't cache dynamic data)
-	if (event.request.url.includes('/api/')) return;
-
-	async function respond() {
+	async function respondWithSafeCaching() {
 		const url = new URL(event.request.url);
-		const cache = await caches.open(CACHE);
+		if (url.origin !== sw.location.origin) {
+			return fetch(event.request);
+		}
 
-		// Try the cache first
+		const pathname = url.pathname;
+		if (pathname.startsWith('/api/') || pathname.endsWith('/__data.json')) {
+			return fetch(event.request);
+		}
+
+		if (event.request.mode === 'navigate') {
+			try {
+				return await fetch(event.request);
+			} catch {
+				const cache = await caches.open(CACHE);
+				const offline = await cache.match(OFFLINE_FALLBACK);
+				return offline ?? Response.error();
+			}
+		}
+
+		if (!ASSET_SET.has(pathname)) {
+			return fetch(event.request);
+		}
+
+		const cache = await caches.open(CACHE);
 		const cachedResponse = await cache.match(event.request);
 		if (cachedResponse) {
 			return cachedResponse;
 		}
 
-		// Try the network
-		try {
-			const response = await fetch(event.request);
-			// Cache successful responses for static assets
-			if (response.status === 200) {
-				cache.put(event.request, response.clone());
-			}
-			return response;
-		} catch (error) {
-			// Network failed - return offline fallback for navigation requests
-			if (event.request.mode === 'navigate') {
-				const offlineResponse = await cache.match('/offline');
-				if (offlineResponse) {
-					return offlineResponse;
-				}
-			}
-			throw error;
-		}
+		return fetch(event.request);
 	}
 
-	event.respondWith(respond());
+	event.respondWith(respondWithSafeCaching());
 });
 
-// Handle messages from the client
 sw.addEventListener('message', (event) => {
 	if (event.data && event.data.type === 'SKIP_WAITING') {
 		sw.skipWaiting();
