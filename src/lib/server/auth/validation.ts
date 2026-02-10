@@ -5,13 +5,23 @@ const emailSchema = z.string().trim().email().max(254).transform((value) => valu
 
 const passwordSchema = z.string().min(8).max(128);
 
-const nameSchema = z
-	.string()
-	.trim()
-	.min(1)
-	.max(80)
-	.regex(/^[A-Za-z .'-]+$/)
-	.optional();
+const nameSchema = z.preprocess(
+	(value) => {
+		if (typeof value !== 'string') {
+			return value;
+		}
+
+		const trimmed = value.trim();
+		return trimmed.length === 0 ? undefined : trimmed;
+	},
+	z
+		.string()
+		.trim()
+		.min(1)
+		.max(80)
+		.regex(/^[A-Za-z .'-]+$/)
+		.optional()
+);
 
 const nextPathSchema = z
 	.string()

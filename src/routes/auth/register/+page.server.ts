@@ -17,6 +17,30 @@ const sanitizeNextPath = (value: string | null | undefined) => {
 	return trimmed;
 };
 
+const FIELD_LABELS: Record<string, string> = {
+	email: 'Email',
+	password: 'Password',
+	confirmPassword: 'Confirm password',
+	inviteKey: 'Invite key',
+	firstName: 'First name',
+	lastName: 'Last name'
+};
+
+const getValidationMessage = (issues: { path: PropertyKey[]; message: string }[]) => {
+	const issue = issues[0];
+	if (!issue) {
+		return 'Please complete all required fields with valid values.';
+	}
+
+	const fieldKey = String(issue.path[0] ?? '');
+	const label = FIELD_LABELS[fieldKey];
+	if (label) {
+		return `${label}: ${issue.message}`;
+	}
+
+	return issue.message || 'Please complete all required fields with valid values.';
+};
+
 // If already authenticated with required role, skip register page.
 export const load: PageServerLoad = async ({ locals, url }) => {
 	if (locals.user && hasAnyRole(locals.user.role, DASHBOARD_ALLOWED_ROLES)) {
@@ -49,7 +73,7 @@ export const actions: Actions = {
 
 		if (!parsed.success) {
 			return fail(400, {
-				error: 'Please complete all required fields with valid values.',
+				error: getValidationMessage(parsed.error.issues),
 				next: nextPath,
 				email: formData.get('email')?.toString() ?? '',
 				firstName: formData.get('firstName')?.toString() ?? '',

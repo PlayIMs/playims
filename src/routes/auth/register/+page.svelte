@@ -17,6 +17,17 @@
 
 	let showPassword = $state(false);
 	let showInviteKey = $state(false);
+	let nextValue = $state('');
+	let firstNameValue = $state('');
+	let lastNameValue = $state('');
+	let emailValue = $state('');
+
+	$effect(() => {
+		nextValue = form?.next ?? data.next;
+		firstNameValue = form?.firstName ?? '';
+		lastNameValue = form?.lastName ?? '';
+		emailValue = form?.email ?? '';
+	});
 </script>
 
 <svelte:head>
@@ -36,7 +47,7 @@
 
 		<form method="POST" class="space-y-4">
 			<!-- Preserve safe post-register destination from server-side validation. -->
-			<input type="hidden" name="next" value={form?.next ?? data.next} />
+			<input type="hidden" name="next" value={nextValue} />
 
 			<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 				<label class="block">
@@ -45,7 +56,7 @@
 						class="input-secondary w-full"
 						type="text"
 						name="firstName"
-						value={form?.firstName ?? ''}
+						bind:value={firstNameValue}
 					/>
 				</label>
 
@@ -55,7 +66,7 @@
 						class="input-secondary w-full"
 						type="text"
 						name="lastName"
-						value={form?.lastName ?? ''}
+						bind:value={lastNameValue}
 					/>
 				</label>
 			</div>
@@ -66,7 +77,7 @@
 					class="input-secondary w-full"
 					type="email"
 					name="email"
-					value={form?.email ?? ''}
+					bind:value={emailValue}
 					required
 				/>
 			</label>
@@ -84,6 +95,7 @@
 						type="button"
 						class="absolute right-3 top-1/2 -translate-y-1/2 text-secondary-700 hover:text-secondary-900 cursor-pointer"
 						aria-label={showPassword ? 'Hide password' : 'Show password'}
+						tabindex="-1"
 						onclick={() => (showPassword = !showPassword)}
 					>
 						{#if showPassword}
@@ -108,6 +120,7 @@
 						type="button"
 						class="absolute right-3 top-1/2 -translate-y-1/2 text-secondary-700 hover:text-secondary-900 cursor-pointer"
 						aria-label={showPassword ? 'Hide password' : 'Show password'}
+						tabindex="-1"
 						onclick={() => (showPassword = !showPassword)}
 					>
 						{#if showPassword}
@@ -132,6 +145,7 @@
 						type="button"
 						class="absolute right-3 top-1/2 -translate-y-1/2 text-secondary-700 hover:text-secondary-900 cursor-pointer"
 						aria-label={showInviteKey ? 'Hide invite key' : 'Show invite key'}
+						tabindex="-1"
 						onclick={() => (showInviteKey = !showInviteKey)}
 					>
 						{#if showInviteKey}

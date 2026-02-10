@@ -14,6 +14,13 @@
 	}>();
 
 	let showPassword = $state(false);
+	let emailValue = $state('');
+	let nextValue = $state('');
+
+	$effect(() => {
+		emailValue = form?.email ?? '';
+		nextValue = form?.next ?? data.next;
+	});
 </script>
 
 <svelte:head>
@@ -31,7 +38,7 @@
 
 		<form method="POST" class="space-y-4">
 			<!-- Preserve safe post-login destination from server-side validation. -->
-			<input type="hidden" name="next" autocomplete="off" value={form?.next ?? data.next} />
+			<input type="hidden" name="next" autocomplete="off" value={nextValue} />
 
 			<label class="block">
 				<span class="block text-sm font-medium text-secondary-900 mb-1">Email</span>
@@ -40,7 +47,7 @@
 					type="email"
 					name="email"
 					autocomplete="off"
-					value={form?.email ?? ''}
+					bind:value={emailValue}
 					required
 				/>
 			</label>
@@ -59,6 +66,7 @@
 						type="button"
 						class="absolute right-3 top-1/2 -translate-y-1/2 text-secondary-700 hover:text-secondary-900 cursor-pointer"
 						aria-label={showPassword ? 'Hide password' : 'Show password'}
+						tabindex="-1"
 						onclick={() => (showPassword = !showPassword)}
 					>
 						{#if showPassword}
