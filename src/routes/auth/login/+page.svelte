@@ -1,4 +1,7 @@
 <script lang="ts">
+	import IconEye from '@tabler/icons-svelte/icons/eye';
+	import IconEyeOff from '@tabler/icons-svelte/icons/eye-off';
+
 	let { data, form } = $props<{
 		data: {
 			next: string;
@@ -9,6 +12,8 @@
 			next?: string;
 		};
 	}>();
+
+	let showPassword = $state(false);
 </script>
 
 <svelte:head>
@@ -42,13 +47,27 @@
 
 			<label class="block">
 				<span class="block text-sm font-medium text-secondary-900 mb-1">Password</span>
-				<input
-					class="input-secondary w-full"
-					type="password"
-					name="password"
-					autocomplete="off"
-					required
-				/>
+				<div class="relative">
+					<input
+						class="input-secondary w-full pr-10"
+						type={showPassword ? 'text' : 'password'}
+						name="password"
+						autocomplete="off"
+						required
+					/>
+					<button
+						type="button"
+						class="absolute right-3 top-1/2 -translate-y-1/2 text-secondary-700 hover:text-secondary-900 cursor-pointer"
+						aria-label={showPassword ? 'Hide password' : 'Show password'}
+						onclick={() => (showPassword = !showPassword)}
+					>
+						{#if showPassword}
+							<IconEye class="w-5 h-5" />
+						{:else}
+							<IconEyeOff class="w-5 h-5" />
+						{/if}
+					</button>
+				</div>
 			</label>
 
 			<button class="button-secondary w-full" type="submit">Sign in</button>

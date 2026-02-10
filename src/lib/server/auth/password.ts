@@ -31,10 +31,7 @@ const binaryToBytes = (binary: string): Uint8Array => {
 };
 
 const toBase64Url = (bytes: Uint8Array): string =>
-	btoa(bytesToBinary(bytes))
-		.replace(/\+/g, '-')
-		.replace(/\//g, '_')
-		.replace(/=+$/g, '');
+	btoa(bytesToBinary(bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 
 const fromBase64Url = (value: string): Uint8Array => {
 	const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
