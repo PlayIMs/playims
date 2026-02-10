@@ -1,5 +1,5 @@
 import { DatabaseOperations } from '$lib/database';
-import { ensureDefaultClient, resolveClientId } from '$lib/server/client-context';
+import { requireAuthenticatedClientId } from '$lib/server/client-context';
 import type { Event } from '$lib/database/schema/events';
 import type { Facility } from '$lib/database/schema/facilities';
 import type { FacilityArea } from '$lib/database/schema/facility-areas';
@@ -189,8 +189,7 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 	}
 
 	const db = new DatabaseOperations(platform);
-	await ensureDefaultClient(db);
-	const clientId = resolveClientId(locals);
+	const clientId = requireAuthenticatedClientId(locals);
 
 	try {
 		const [events, teams, offerings, leagues, facilities, facilityAreas] = await Promise.all([

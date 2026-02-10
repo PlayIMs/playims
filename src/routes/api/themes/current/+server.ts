@@ -1,6 +1,9 @@
 import { json } from '@sveltejs/kit';
 import { DatabaseOperations } from '$lib/database';
-import { ensureDefaultClient, resolveClientId } from '$lib/server/client-context';
+import {
+	requireAuthenticatedClientId,
+	requireAuthenticatedUserId
+} from '$lib/server/client-context';
 import { updateCurrentThemeSchema } from '$lib/server/theme-validation';
 import type { RequestHandler } from './$types';
 
@@ -33,8 +36,7 @@ const buildEtag = (
 export const GET: RequestHandler = async ({ platform, locals, request }) => {
 	try {
 		const dbOps = new DatabaseOperations(platform as App.Platform);
-		await ensureDefaultClient(dbOps);
-		const clientId = resolveClientId(locals);
+		const clientId = requireAuthenticatedClientId(locals);
 		const theme = await dbOps.themes.getBySlug(clientId, 'current');
 
 		const etag = buildEtag(theme);
@@ -58,7 +60,7 @@ export const GET: RequestHandler = async ({ platform, locals, request }) => {
 				}
 			}
 		);
-	} catch (error) {
+	} catch {
 		return json({ success: false, error: 'Failed to load current theme' }, { status: 500 });
 	}
 };
@@ -66,9 +68,8 @@ export const GET: RequestHandler = async ({ platform, locals, request }) => {
 export const PUT: RequestHandler = async ({ request, platform, locals }) => {
 	try {
 		const dbOps = new DatabaseOperations(platform as App.Platform);
-		await ensureDefaultClient(dbOps);
-		const clientId = resolveClientId(locals);
-		const userId = locals.user?.id;
+		const clientId = requireAuthenticatedClientId(locals);
+		const userId = requireAuthenticatedUserId(locals);
 		let body: unknown;
 		try {
 			body = (await request.json()) as unknown;
@@ -100,7 +101,7 @@ export const PUT: RequestHandler = async ({ request, platform, locals }) => {
 				}
 			}
 		);
-	} catch (error) {
+	} catch {
 		return json({ success: false, error: 'Failed to update current theme' }, { status: 500 });
 	}
 };

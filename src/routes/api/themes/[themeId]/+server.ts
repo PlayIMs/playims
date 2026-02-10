@@ -1,6 +1,9 @@
 import { json } from '@sveltejs/kit';
 import { DatabaseOperations } from '$lib/database';
-import { ensureDefaultClient, resolveClientId } from '$lib/server/client-context';
+import {
+	requireAuthenticatedClientId,
+	requireAuthenticatedUserId
+} from '$lib/server/client-context';
 import { themeIdParamSchema, updateSavedThemeSchema } from '$lib/server/theme-validation';
 import type { RequestHandler } from './$types';
 
@@ -12,14 +15,13 @@ export const GET: RequestHandler = async ({ params, platform, locals }) => {
 		}
 
 		const dbOps = new DatabaseOperations(platform as App.Platform);
-		await ensureDefaultClient(dbOps);
-		const clientId = resolveClientId(locals);
+		const clientId = requireAuthenticatedClientId(locals);
 		const theme = await dbOps.themes.getById(clientId, parsedParams.data.themeId);
 		if (!theme) {
 			return json({ success: false, error: 'Theme not found' }, { status: 404 });
 		}
 		return json({ success: true, data: theme });
-	} catch (error) {
+	} catch {
 		return json({ success: false, error: 'Failed to load theme' }, { status: 500 });
 	}
 };
@@ -32,9 +34,8 @@ export const PUT: RequestHandler = async ({ params, request, platform, locals })
 		}
 
 		const dbOps = new DatabaseOperations(platform as App.Platform);
-		await ensureDefaultClient(dbOps);
-		const clientId = resolveClientId(locals);
-		const userId = locals.user?.id;
+		const clientId = requireAuthenticatedClientId(locals);
+		const userId = requireAuthenticatedUserId(locals);
 		const existing = await dbOps.themes.getById(clientId, parsedParams.data.themeId);
 		if (!existing) {
 			return json({ success: false, error: 'Theme not found' }, { status: 404 });
@@ -67,7 +68,7 @@ export const PUT: RequestHandler = async ({ params, request, platform, locals })
 		});
 
 		return json({ success: true, data: updated });
-	} catch (error) {
+	} catch {
 		return json({ success: false, error: 'Failed to update theme' }, { status: 500 });
 	}
 };
@@ -80,8 +81,7 @@ export const DELETE: RequestHandler = async ({ params, platform, locals }) => {
 		}
 
 		const dbOps = new DatabaseOperations(platform as App.Platform);
-		await ensureDefaultClient(dbOps);
-		const clientId = resolveClientId(locals);
+		const clientId = requireAuthenticatedClientId(locals);
 		const existing = await dbOps.themes.getById(clientId, parsedParams.data.themeId);
 		if (!existing) {
 			return json({ success: false, error: 'Theme not found' }, { status: 404 });
@@ -91,7 +91,7 @@ export const DELETE: RequestHandler = async ({ params, platform, locals }) => {
 		}
 		const deleted = await dbOps.themes.delete(clientId, existing.id);
 		return json({ success: true, data: deleted });
-	} catch (error) {
+	} catch {
 		return json({ success: false, error: 'Failed to delete theme' }, { status: 500 });
 	}
 };

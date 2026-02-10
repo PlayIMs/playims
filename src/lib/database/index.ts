@@ -40,7 +40,9 @@ export type {
 	AuditLog,
 	NewAuditLog,
 	Theme,
-	NewTheme
+	NewTheme,
+	Session,
+	NewSession
 } from './schema/index.js';
 
 /**

@@ -1,5 +1,5 @@
 // User operations - Drizzle ORM
-import { eq, desc } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import type { DrizzleClient } from '../drizzle.js';
 import { users, clients, type User, type Client } from '../schema/index.js';
 
@@ -25,5 +25,93 @@ export class UserOperations {
 			.orderBy(desc(users.createdAt));
 
 		return result.map(this.mapResult);
+	}
+
+	async getAuthByEmail(email: string): Promise<User | null> {
+		const normalizedEmail = email.trim().toLowerCase();
+		const result = await this.db
+			.select()
+			.from(users)
+			.where(eq(users.email, normalizedEmail))
+			.limit(1);
+		return result[0] ?? null;
+	}
+
+	// Auth lookups should use this helper instead of broad list queries.
+	async getAuthById(userId: string): Promise<User | null> {
+		const result = await this.db.select().from(users).where(eq(users.id, userId)).limit(1);
+		return result[0] ?? null;
+	}
+
+	// Creates an auth-ready user row with normalized email and security fields.
+	async createAuthUser(data: {
+		clientId: string;
+		email: string;
+		passwordHash: string;
+		role: 'admin' | 'manager' | 'player';
+		firstName?: string | null;
+		lastName?: string | null;
+		status?: string;
+		createdUser?: string | null;
+		updatedUser?: string | null;
+	}): Promise<User | null> {
+		const now = new Date().toISOString();
+		const normalizedEmail = data.email.trim().toLowerCase();
+		const result = await this.db
+			.insert(users)
+			.values({
+				id: crypto.randomUUID(),
+				clientId: data.clientId,
+				email: normalizedEmail,
+				passwordHash: data.passwordHash,
+				role: data.role,
+				firstName: data.firstName ?? null,
+				lastName: data.lastName ?? null,
+				status: data.status ?? 'active',
+				createdAt: now,
+				updatedAt: now,
+				createdUser: data.createdUser ?? null,
+				updatedUser: data.updatedUser ?? data.createdUser ?? null,
+				firstLoginAt: null,
+				lastLoginAt: null,
+				lastActiveAt: null,
+				sessionCount: 0
+			})
+			.returning();
+
+		return result[0] ?? null;
+	}
+
+	// Updates login audit metadata after successful authentication.
+	async markLoginSuccess(userId: string): Promise<User | null> {
+		const now = new Date().toISOString();
+		const result = await this.db
+			.update(users)
+			.set({
+				lastLoginAt: now,
+				lastActiveAt: now,
+				firstLoginAt: sql`coalesce(${users.firstLoginAt}, ${now})`,
+				sessionCount: sql`coalesce(${users.sessionCount}, 0) + 1`,
+				updatedAt: now
+			})
+			.where(and(eq(users.id, userId), eq(users.status, 'active')))
+			.returning();
+
+		return result[0] ?? null;
+	}
+
+	// Lightweight per-request activity touch for active sessions.
+	async touchLastActive(userId: string): Promise<User | null> {
+		const now = new Date().toISOString();
+		const result = await this.db
+			.update(users)
+			.set({
+				lastActiveAt: now,
+				updatedAt: now
+			})
+			.where(and(eq(users.id, userId), eq(users.status, 'active')))
+			.returning();
+
+		return result[0] ?? null;
 	}
 }

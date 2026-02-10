@@ -1,6 +1,9 @@
 import { json } from '@sveltejs/kit';
 import { DatabaseOperations } from '$lib/database';
-import { ensureDefaultClient, resolveClientId } from '$lib/server/client-context';
+import {
+	requireAuthenticatedClientId,
+	requireAuthenticatedUserId
+} from '$lib/server/client-context';
 import { createSavedThemeSchema } from '$lib/server/theme-validation';
 import type { RequestHandler } from './$types';
 
@@ -16,11 +19,10 @@ const slugify = (value: string) =>
 export const GET: RequestHandler = async ({ platform, locals }) => {
 	try {
 		const dbOps = new DatabaseOperations(platform as App.Platform);
-		await ensureDefaultClient(dbOps);
-		const clientId = resolveClientId(locals);
+		const clientId = requireAuthenticatedClientId(locals);
 		const themes = await dbOps.themes.getSaved(clientId);
 		return json({ success: true, data: themes });
-	} catch (error) {
+	} catch {
 		return json({ success: false, error: 'Failed to load themes' }, { status: 500 });
 	}
 };
@@ -28,9 +30,8 @@ export const GET: RequestHandler = async ({ platform, locals }) => {
 export const POST: RequestHandler = async ({ request, platform, locals }) => {
 	try {
 		const dbOps = new DatabaseOperations(platform as App.Platform);
-		await ensureDefaultClient(dbOps);
-		const clientId = resolveClientId(locals);
-		const userId = locals.user?.id;
+		const clientId = requireAuthenticatedClientId(locals);
+		const userId = requireAuthenticatedUserId(locals);
 		let body: unknown;
 		try {
 			body = (await request.json()) as unknown;
@@ -78,7 +79,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 		});
 
 		return json({ success: true, data: theme });
-	} catch (error) {
+	} catch {
 		return json({ success: false, error: 'Failed to save theme' }, { status: 500 });
 	}
 };

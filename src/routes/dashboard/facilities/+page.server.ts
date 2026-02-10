@@ -1,7 +1,10 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { DatabaseOperations } from '$lib/database';
-import { ensureDefaultClient, resolveClientId } from '$lib/server/client-context';
+import {
+	requireAuthenticatedClientId,
+	requireAuthenticatedUserId
+} from '$lib/server/client-context';
 
 function asTrimmedString(value: FormDataEntryValue | null): string | null {
 	if (typeof value !== 'string') return null;
@@ -49,11 +52,9 @@ function normalizeName(raw: string | null): string | null {
 export const load: PageServerLoad = async ({ platform, url, locals }) => {
 	if (!platform) throw error(500, 'Platform not available');
 
-	// Secured server-side query (no client-side DB access). Auth can be enforced once locals.user exists.
+	// Secured server-side query (no client-side DB access).
 	const dbOps = new DatabaseOperations(platform as App.Platform);
-	// Ensure a stable default client for admin/dev until auth is implemented.
-	await ensureDefaultClient(dbOps);
-	const clientId = resolveClientId(locals);
+	const clientId = requireAuthenticatedClientId(locals);
 
 	const facilityId = url.searchParams.get('facilityId');
 
@@ -73,7 +74,7 @@ export const actions: Actions = {
 		if (!platform) throw error(500, 'Platform not available');
 		const form = await request.formData();
 
-		const clientId = resolveClientId(locals);
+		const clientId = requireAuthenticatedClientId(locals);
 		const name = asTrimmedString(form.get('name'));
 		// Allow trailing dashes during input, trim them on save
 		const slug = normalizeSlugAllowTrailing(asTrimmedString(form.get('slug')));
@@ -84,7 +85,7 @@ export const actions: Actions = {
 			return fail(400, { message: 'Facility slug is required.', action: 'createFacility' });
 
 		const dbOps = new DatabaseOperations(platform as App.Platform);
-		const actorUserId = locals.user?.id ?? null;
+		const actorUserId = requireAuthenticatedUserId(locals);
 
 		// Prevent duplicates by name or slug (within the client), including archived records.
 		const existingFacilities = await dbOps.facilities.getAll(clientId);
@@ -141,8 +142,8 @@ export const actions: Actions = {
 		if (!facilityId) return fail(400, { message: 'Facility ID is required.' });
 
 		const dbOps = new DatabaseOperations(platform as App.Platform);
-		const actorUserId = locals.user?.id ?? null;
-		const clientId = resolveClientId(locals);
+		const actorUserId = requireAuthenticatedUserId(locals);
+		const clientId = requireAuthenticatedClientId(locals);
 
 		// Security: validate ownership manually (D1 has no RLS)
 		const existing = await dbOps.facilities.getById(facilityId);
@@ -233,8 +234,8 @@ export const actions: Actions = {
 		if (isActive === null) return fail(400, { message: 'isActive must be 0 or 1.' });
 
 		const dbOps = new DatabaseOperations(platform as App.Platform);
-		const actorUserId = locals.user?.id ?? null;
-		const clientId = resolveClientId(locals);
+		const actorUserId = requireAuthenticatedUserId(locals);
+		const clientId = requireAuthenticatedClientId(locals);
 
 		const existing = await dbOps.facilities.getById(facilityId);
 		if (!existing || existing.clientId !== clientId)
@@ -252,7 +253,7 @@ export const actions: Actions = {
 		if (!platform) throw error(500, 'Platform not available');
 		const form = await request.formData();
 
-		const clientId = resolveClientId(locals);
+		const clientId = requireAuthenticatedClientId(locals);
 		const facilityId = asTrimmedString(form.get('facilityId'));
 		const name = asTrimmedString(form.get('name'));
 		// Allow trailing dashes during input, trim them on save
@@ -266,7 +267,7 @@ export const actions: Actions = {
 			return fail(400, { message: 'Area slug is required.', action: 'createFacilityArea' });
 
 		const dbOps = new DatabaseOperations(platform as App.Platform);
-		const actorUserId = locals.user?.id ?? null;
+		const actorUserId = requireAuthenticatedUserId(locals);
 
 		const facility = await dbOps.facilities.getById(facilityId);
 		if (!facility || facility.clientId !== clientId)
@@ -325,8 +326,8 @@ export const actions: Actions = {
 		if (!facilityAreaId) return fail(400, { message: 'Facility area ID is required.' });
 
 		const dbOps = new DatabaseOperations(platform as App.Platform);
-		const actorUserId = locals.user?.id ?? null;
-		const clientId = resolveClientId(locals);
+		const actorUserId = requireAuthenticatedUserId(locals);
+		const clientId = requireAuthenticatedClientId(locals);
 
 		const existing = await dbOps.facilityAreas.getById(facilityAreaId);
 		if (!existing || existing.clientId !== clientId)
@@ -393,8 +394,8 @@ export const actions: Actions = {
 		if (!facilityId) return fail(400, { message: 'New facility is required.' });
 
 		const dbOps = new DatabaseOperations(platform as App.Platform);
-		const actorUserId = locals.user?.id ?? null;
-		const clientId = resolveClientId(locals);
+		const actorUserId = requireAuthenticatedUserId(locals);
+		const clientId = requireAuthenticatedClientId(locals);
 
 		const existing = await dbOps.facilityAreas.getById(facilityAreaId);
 		if (!existing || existing.clientId !== clientId)
@@ -422,8 +423,8 @@ export const actions: Actions = {
 		if (isActive === null) return fail(400, { message: 'isActive must be 0 or 1.' });
 
 		const dbOps = new DatabaseOperations(platform as App.Platform);
-		const actorUserId = locals.user?.id ?? null;
-		const clientId = resolveClientId(locals);
+		const actorUserId = requireAuthenticatedUserId(locals);
+		const clientId = requireAuthenticatedClientId(locals);
 
 		const existing = await dbOps.facilityAreas.getById(facilityAreaId);
 		if (!existing || existing.clientId !== clientId)
@@ -447,7 +448,7 @@ export const actions: Actions = {
 			return fail(400, { message: 'Facility ID is required.', action: 'deleteFacility' });
 
 		const dbOps = new DatabaseOperations(platform as App.Platform);
-		const clientId = resolveClientId(locals);
+		const clientId = requireAuthenticatedClientId(locals);
 
 		const existing = await dbOps.facilities.getById(facilityId);
 		if (!existing || existing.clientId !== clientId)
@@ -483,7 +484,7 @@ export const actions: Actions = {
 			return fail(400, { message: 'Facility area ID is required.', action: 'deleteFacilityArea' });
 
 		const dbOps = new DatabaseOperations(platform as App.Platform);
-		const clientId = resolveClientId(locals);
+		const clientId = requireAuthenticatedClientId(locals);
 
 		const existing = await dbOps.facilityAreas.getById(facilityAreaId);
 		if (!existing || existing.clientId !== clientId)

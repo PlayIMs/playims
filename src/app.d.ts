@@ -6,14 +6,24 @@ declare global {
 	namespace App {
 		// interface Error {}
 		interface Locals {
-			/**
-			 * Optional authenticated user (to be set in hooks.server.ts once auth is implemented).
-			 * Keep optional to avoid breaking unauthenticated dev flows.
-			 */
+			// Hydrated by hooks.server.ts from a validated session token.
 			user?: {
 				id: string;
-				role?: string;
-				clientId?: string;
+				clientId: string;
+				role: 'admin' | 'manager' | 'player';
+				email?: string;
+				firstName?: string | null;
+				lastName?: string | null;
+				status?: string | null;
+			};
+			// Auth session metadata used for route/API authorization decisions.
+			session?: {
+				id: string;
+				userId: string;
+				clientId: string;
+				role: 'admin' | 'manager' | 'player';
+				authProvider: 'password' | string;
+				expiresAt: string;
 			};
 			/**
 			 * Optional per-request logging metadata used by SSR loaders to report table/row context
@@ -30,6 +40,9 @@ declare global {
 		interface Platform {
 			env: {
 				DB: D1Database;
+				AUTH_SIGNUP_INVITE_KEY?: string;
+				AUTH_SESSION_SECRET?: string;
+				AUTH_PASSWORD_PBKDF2_ITERATIONS?: string;
 			};
 			context: {
 				waitUntil(promise: Promise<any>): void;

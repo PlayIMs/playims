@@ -31,10 +31,9 @@ export default defineConfig({
 				includeVersionFile: true
 			},
 			workbox: {
-				globPatterns: [
-					'client/**/*.{js,css,ico,png,svg,webp,webmanifest}',
-					'prerendered/**/*.{html,json}'
-				]
+				globStrict: false,
+				modifyURLPrefix: {},
+				globPatterns: ['client/**/*.{js,css,ico,png,svg,webp,webmanifest}']
 			}
 		})
 	],

@@ -6,6 +6,7 @@
 	"packageManager": "pnpm@10.29.1",
 	"scripts": {
 		"dev": "vite dev --open",
+		"dev:pages": "pnpm build && pnpm exec wrangler pages dev .svelte-kit/cloudflare --port 8788",
 		"updates": "ncu --interactive --format group",
 		"db:generate": "drizzle-kit generate --config=drizzle.config.ts",
 		"db:migrate:local": "wrangler d1 migrations apply playims-central-db-dev --local",

@@ -1,0 +1,78 @@
+import { DatabaseOperations } from '$lib/database';
+import { DASHBOARD_ALLOWED_ROLES, hasAnyRole } from '$lib/server/auth/rbac';
+import { AuthServiceError, loginWithPassword } from '$lib/server/auth/service';
+import { loginSchema } from '$lib/server/auth/validation';
+import { fail, redirect } from '@sveltejs/kit';
+import type { Actions, PageServerLoad } from './$types';
+
+// Only allow internal app redirects to prevent open redirect abuse.
+const sanitizeNextPath = (value: string | null | undefined) => {
+	if (!value) {
+		return null;
+	}
+	const trimmed = value.trim();
+	if (!trimmed.startsWith('/') || trimmed.startsWith('//') || trimmed.startsWith('/api/')) {
+		return null;
+	}
+	return trimmed;
+};
+
+// If already authenticated with required role, skip login page.
+export const load: PageServerLoad = async ({ locals, url }) => {
+	if (locals.user && hasAnyRole(locals.user.role, DASHBOARD_ALLOWED_ROLES)) {
+		const nextPath = sanitizeNextPath(url.searchParams.get('next'));
+		throw redirect(303, nextPath ?? '/dashboard');
+	}
+
+	return {
+		next: sanitizeNextPath(url.searchParams.get('next')) ?? '/dashboard'
+	};
+};
+
+export const actions: Actions = {
+	default: async (event) => {
+		if (!event.platform?.env?.DB) {
+			return fail(500, { error: 'Authentication is unavailable.' });
+		}
+
+		const formData = await event.request.formData();
+		const nextPath = sanitizeNextPath(formData.get('next')?.toString()) ?? '/dashboard';
+		const parsed = loginSchema.safeParse({
+			email: formData.get('email')?.toString(),
+			password: formData.get('password')?.toString(),
+			next: nextPath
+		});
+
+		if (!parsed.success) {
+			return fail(400, {
+				error: 'Please provide a valid email and password.',
+				next: nextPath,
+				email: formData.get('email')?.toString() ?? ''
+			});
+		}
+
+		try {
+			const dbOps = new DatabaseOperations(event.platform as App.Platform);
+			await loginWithPassword(event, dbOps, {
+				email: parsed.data.email,
+				password: parsed.data.password
+			});
+		} catch (error) {
+			if (error instanceof AuthServiceError) {
+				return fail(error.status, {
+					error: error.clientMessage,
+					next: nextPath,
+					email: parsed.data.email
+				});
+			}
+
+			return fail(500, {
+				error: 'Unable to log in right now.',
+				next: nextPath,
+				email: parsed.data.email
+			});
+		}
+
+		throw redirect(303, nextPath);
+	}
+};

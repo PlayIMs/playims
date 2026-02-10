@@ -44,15 +44,26 @@ If a request conflicts with these rules, refuse and explain why, then propose a 
   - Protected resources must enforce `locals.user` and return `401`/`403` as appropriate.
 - RBAC/ABAC:
   - Check role/subscription/ownership server-side before data access or mutation.
-- Pre-Auth Transition Rule:
-  - Before full auth is live, only explicitly allowlisted public endpoints may be exposed.
-  - All other API endpoints should be disabled or blocked.
+- Session Controls:
+  - Use opaque random session tokens in cookies and store only token hashes server-side.
+  - Session cookies must be `HttpOnly`, `Secure` (outside local dev), `SameSite=Lax`, and path-scoped to `/`.
+  - Enforce expiration and server-side revocation checks on every request.
+  - Sliding session renewal must happen server-side only and update expiry metadata atomically.
+- API Route Policy:
+  - Only auth bootstrap endpoints may be public (`/api/auth/login`, `/api/auth/register`).
+  - All other protected APIs must require authenticated session context from `locals`.
+  - Management APIs and dashboard routes require RBAC (`admin`/`manager` unless route-specific policy says otherwise).
+- Tenant Context:
+  - Tenant and actor identity must come from authenticated server session (`locals.user.clientId`, `locals.user.id`).
+  - Never authorize or scope writes from client-submitted identity fields.
 
 ## 5. Input Validation and Abuse Controls
 
 - Validation:
   - Validate all query params, path params, JSON bodies, and form payloads server-side using Zod.
   - Reject malformed input with stable error responses.
+- CSRF Protection:
+  - For cookie-authenticated mutating requests (`POST`, `PUT`, `PATCH`, `DELETE`), enforce strict same-origin checks in hooks/server guards.
 - Business Logic:
   - Perform critical calculations on the server. Do not trust client-computed values.
 - Rate Limiting:
@@ -92,3 +103,6 @@ When generating or reviewing code, verify:
 6. No raw internal error leakage to clients.
 7. Appropriate rate limiting and security headers.
 8. Safe caching policy (no dynamic sensitive payload caching).
+9. Opaque hashed session tokens with secure cookie settings and revocation support.
+10. CSRF origin enforcement on mutating cookie-authenticated routes.
+11. RBAC + tenant boundary enforcement derived from `locals`, never client identity fields.

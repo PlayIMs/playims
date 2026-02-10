@@ -4,7 +4,14 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 const config = {
 	preprocess: vitePreprocess(),
 	kit: {
-		adapter: adapter(),
+		adapter: adapter({
+			platformProxy: {
+				// Lets normal `pnpm dev` use Wrangler bindings/secrets (D1/auth)
+				// so we keep HMR + real local auth/DB behavior in one workflow.
+				configPath: 'wrangler.toml',
+				persist: true
+			}
+		}),
 		csp: {
 			mode: 'auto',
 			directives: {

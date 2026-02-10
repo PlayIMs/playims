@@ -1,5 +1,5 @@
 import { DatabaseOperations } from '$lib/database/operations/index.js';
-import { ensureDefaultClient, resolveClientId } from '$lib/server/client-context';
+import { requireAuthenticatedClientId } from '$lib/server/client-context';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ platform, locals }) => {
@@ -16,8 +16,7 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 	}
 
 	const db = new DatabaseOperations(platform);
-	await ensureDefaultClient(db);
-	const clientId = resolveClientId(locals);
+	const clientId = requireAuthenticatedClientId(locals);
 
 	try {
 		const now = new Date();

@@ -1,83 +1,90 @@
 {
-  "version": "7",
-  "dialect": "sqlite",
-  "entries": [
-    {
-      "idx": 0,
-      "version": "6",
-      "when": 1767320084841,
-      "tag": "0000_flawless_hobgoblin",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1767323853246,
-      "tag": "0001_sad_praxagora",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1769480277821,
-      "tag": "0002_parched_puma",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1769484473308,
-      "tag": "0003_wet_the_order",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1769491764377,
-      "tag": "0004_hot_sue_storm",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "6",
-      "when": 1769793269319,
-      "tag": "0005_tricky_baron_strucker",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "6",
-      "when": 1769793496498,
-      "tag": "0006_shallow_talkback",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "6",
-      "when": 1769806914289,
-      "tag": "0007_silent_monster_badoon",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "6",
-      "when": 1769806984034,
-      "tag": "0008_colossal_electro",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "6",
-      "when": 1770307545706,
-      "tag": "0009_high_bromley",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "6",
-      "when": 1770512151115,
-      "tag": "0010_elite_tinkerer",
-      "breakpoints": true
-    }
-  ]
+	"version": "7",
+	"dialect": "sqlite",
+	"entries": [
+		{
+			"idx": 0,
+			"version": "6",
+			"when": 1767320084841,
+			"tag": "0000_flawless_hobgoblin",
+			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "6",
+			"when": 1767323853246,
+			"tag": "0001_sad_praxagora",
+			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "6",
+			"when": 1769480277821,
+			"tag": "0002_parched_puma",
+			"breakpoints": true
+		},
+		{
+			"idx": 3,
+			"version": "6",
+			"when": 1769484473308,
+			"tag": "0003_wet_the_order",
+			"breakpoints": true
+		},
+		{
+			"idx": 4,
+			"version": "6",
+			"when": 1769491764377,
+			"tag": "0004_hot_sue_storm",
+			"breakpoints": true
+		},
+		{
+			"idx": 5,
+			"version": "6",
+			"when": 1769793269319,
+			"tag": "0005_tricky_baron_strucker",
+			"breakpoints": true
+		},
+		{
+			"idx": 6,
+			"version": "6",
+			"when": 1769793496498,
+			"tag": "0006_shallow_talkback",
+			"breakpoints": true
+		},
+		{
+			"idx": 7,
+			"version": "6",
+			"when": 1769806914289,
+			"tag": "0007_silent_monster_badoon",
+			"breakpoints": true
+		},
+		{
+			"idx": 8,
+			"version": "6",
+			"when": 1769806984034,
+			"tag": "0008_colossal_electro",
+			"breakpoints": true
+		},
+		{
+			"idx": 9,
+			"version": "6",
+			"when": 1770307545706,
+			"tag": "0009_high_bromley",
+			"breakpoints": true
+		},
+		{
+			"idx": 10,
+			"version": "6",
+			"when": 1770512151115,
+			"tag": "0010_elite_tinkerer",
+			"breakpoints": true
+		},
+		{
+			"idx": 11,
+			"version": "6",
+			"when": 1770602867044,
+			"tag": "0011_abnormal_shinobi_shaw",
+			"breakpoints": true
+		}
+	]
 }

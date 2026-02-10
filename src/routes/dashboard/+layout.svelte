@@ -19,6 +19,7 @@
 	let { children } = $props();
 
 	let isSidebarOpen = $state(true);
+	let isLoggingOut = $state(false);
 
 	const menuItems = [
 		{ id: 'Dashboard', label: 'Dashboard', icon: IconLayoutDashboard, href: '/dashboard' },
@@ -50,6 +51,20 @@
 
 	function toggleSidebar() {
 		isSidebarOpen = !isSidebarOpen;
+	}
+
+	async function handleLogout() {
+		if (isLoggingOut) return;
+		isLoggingOut = true;
+		try {
+			// Server revokes current session + clears cookie.
+			await fetch('/api/auth/logout', {
+				method: 'POST'
+			});
+		} finally {
+			// Always return to login, even if network/request fails.
+			window.location.href = '/auth/login';
+		}
 	}
 
 	const activePath = $derived.by(() => $page.url.pathname);
@@ -115,6 +130,17 @@
 				{/each}
 			</ul>
 		</nav>
+
+		<div class="p-2 border-t border-primary-600">
+			<button
+				type="button"
+				class="w-full whitespace-nowrap px-4 py-3 flex items-center justify-center border border-primary-300 text-primary-50 hover:bg-primary-600 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+				onclick={handleLogout}
+				disabled={isLoggingOut}
+			>
+				{isLoggingOut ? 'Signing out...' : 'Sign out'}
+			</button>
+		</div>
 	</aside>
 
 	<!-- Main Content Area -->

@@ -15,6 +15,7 @@ import { FacilityOperations } from './facilities.js';
 import { FacilityAreaOperations } from './facility-areas.js';
 import { AnnouncementOperations } from './announcements.js';
 import { ThemeOperations } from './themes.js';
+import { SessionOperations } from './sessions.js';
 
 /**
  * Unified database operations class
@@ -33,6 +34,7 @@ export class DatabaseOperations {
 	public facilityAreas: FacilityAreaOperations;
 	public announcements: AnnouncementOperations;
 	public themes: ThemeOperations;
+	public sessions: SessionOperations;
 
 	constructor(platformOrDb: { env: { DB: D1Database } } | D1Database) {
 		let db: D1Database;
@@ -69,6 +71,7 @@ export class DatabaseOperations {
 		this.facilityAreas = new FacilityAreaOperations(drizzleDb);
 		this.announcements = new AnnouncementOperations(drizzleDb);
 		this.themes = new ThemeOperations(drizzleDb);
+		this.sessions = new SessionOperations(drizzleDb);
 	}
 }
 
@@ -85,3 +88,4 @@ export { FacilityOperations } from './facilities.js';
 export { FacilityAreaOperations } from './facility-areas.js';
 export { AnnouncementOperations } from './announcements.js';
 export { ThemeOperations } from './themes.js';
+export { SessionOperations } from './sessions.js';

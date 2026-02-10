@@ -1,4 +1,10 @@
+import { DatabaseOperations } from '$lib/database';
 import { dev } from '$app/environment';
+import { clearSessionCookie, resolveSessionFromRequest } from '$lib/server/auth/session';
+import type { AuthRole } from '$lib/server/auth/rbac';
+import { DASHBOARD_ALLOWED_ROLES, hasAnyRole } from '$lib/server/auth/rbac';
+import { AuthServiceError, requireSessionSecret } from '$lib/server/auth/service';
+import { AUTH_SESSION_COOKIE_NAME } from '$lib/server/auth/constants';
 import {
 	getApiTableFromPath,
 	getErrorFromPayload,
@@ -10,17 +16,65 @@ import {
 } from '$lib/server/request-logger';
 import type { Handle, RequestEvent } from '@sveltejs/kit';
 
+/**
+ * Central request security pipeline.
+ *
+ * Responsibilities:
+ * 1) Hydrate auth session into locals.
+ * 2) Enforce API/page auth + RBAC policy.
+ * 3) Apply CSRF origin checks for mutating requests.
+ * 4) Apply lightweight per-route rate limits.
+ * 5) Emit consistent request logs and security headers.
+ */
 type RateLimitConfig = {
 	windowMs: number;
 	maxRequests: number;
 };
 
-const API_PUBLIC_ALLOWLIST: RegExp[] = [
-	/^\/api\/address-suggest$/,
-	/^\/api\/themes$/,
-	/^\/api\/themes\/current$/,
-	/^\/api\/themes\/[^/]+$/
+type ApiAccessPolicy =
+	| {
+			access: 'public';
+	  }
+	| {
+			access: 'authenticated';
+	  }
+	| {
+			access: 'role';
+			roles: readonly AuthRole[];
+	  };
+
+type ApiRoutePolicy = {
+	pattern: RegExp;
+	policy: ApiAccessPolicy;
+};
+
+// Single source of truth for API access requirements.
+const API_ROUTE_POLICIES: ApiRoutePolicy[] = [
+	{ pattern: /^\/api\/auth\/login$/, policy: { access: 'public' } },
+	{ pattern: /^\/api\/auth\/register$/, policy: { access: 'public' } },
+	{ pattern: /^\/api\/auth\/logout$/, policy: { access: 'authenticated' } },
+	{ pattern: /^\/api\/auth\/session$/, policy: { access: 'authenticated' } },
+	{
+		pattern: /^\/api\/address-suggest$/,
+		policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES }
+	},
+	{ pattern: /^\/api\/themes$/, policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES } },
+	{
+		pattern: /^\/api\/themes\/current$/,
+		policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES }
+	},
+	{ pattern: /^\/api\/themes\/[^/]+$/, policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES } }
 ];
+
+const LOGIN_RATE_LIMIT: RateLimitConfig = {
+	windowMs: 60_000,
+	maxRequests: 12
+};
+
+const REGISTER_RATE_LIMIT: RateLimitConfig = {
+	windowMs: 10 * 60_000,
+	maxRequests: 6
+};
 
 const ADDRESS_SUGGEST_RATE_LIMIT: RateLimitConfig = {
 	windowMs: 60_000,
@@ -32,15 +86,39 @@ const THEMES_RATE_LIMIT: RateLimitConfig = {
 	maxRequests: 120
 };
 
+const AUTH_READ_RATE_LIMIT: RateLimitConfig = {
+	windowMs: 60_000,
+	maxRequests: 120
+};
+
+// In-memory limiter is intentionally simple for this phase/local scale.
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 let lastRateLimitCleanupAt = 0;
 
+const PROTECTED_PAGE_PREFIXES = ['/dashboard'];
+const PROTECTED_PAGE_EXACT = new Set(['/schedule', '/colors']);
+const AUTH_PAGE_PATHS = new Set(['/auth/login', '/auth/register']);
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
 const resolveRateLimitConfig = (pathname: string): RateLimitConfig | null => {
+	if (pathname === '/api/auth/login') {
+		return LOGIN_RATE_LIMIT;
+	}
+
+	if (pathname === '/api/auth/register') {
+		return REGISTER_RATE_LIMIT;
+	}
+
 	if (pathname === '/api/address-suggest') {
 		return ADDRESS_SUGGEST_RATE_LIMIT;
 	}
+
 	if (pathname === '/api/themes' || pathname.startsWith('/api/themes/')) {
 		return THEMES_RATE_LIMIT;
+	}
+
+	if (pathname === '/api/auth/session' || pathname === '/api/auth/logout') {
+		return AUTH_READ_RATE_LIMIT;
 	}
 
 	return null;
@@ -82,8 +160,59 @@ const consumeRateLimit = (key: string, config: RateLimitConfig, now: number) => 
 	};
 };
 
-const isAllowedPublicApiPath = (pathname: string) =>
-	API_PUBLIC_ALLOWLIST.some((pattern) => pattern.test(pathname));
+const isProtectedPagePath = (pathname: string) => {
+	if (PROTECTED_PAGE_EXACT.has(pathname)) {
+		return true;
+	}
+
+	return PROTECTED_PAGE_PREFIXES.some(
+		(prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+	);
+};
+
+const isAuthPagePath = (pathname: string) => AUTH_PAGE_PATHS.has(pathname);
+
+const sanitizeNextPath = (nextPath: string | null | undefined) => {
+	if (!nextPath) {
+		return null;
+	}
+
+	const trimmed = nextPath.trim();
+	if (!trimmed.startsWith('/')) {
+		return null;
+	}
+
+	if (trimmed.startsWith('//')) {
+		return null;
+	}
+
+	if (trimmed.startsWith('/api/')) {
+		return null;
+	}
+
+	return trimmed;
+};
+
+const getSafeSearch = (url: URL): string => {
+	try {
+		return url.search;
+	} catch {
+		return '';
+	}
+};
+
+const getSafeSearchParam = (url: URL, key: string): string | null => {
+	try {
+		return url.searchParams.get(key);
+	} catch {
+		return null;
+	}
+};
+
+const getApiPolicy = (pathname: string): ApiAccessPolicy | null => {
+	const matched = API_ROUTE_POLICIES.find((entry) => entry.pattern.test(pathname));
+	return matched?.policy ?? null;
+};
 
 const getClientAddress = (event: RequestEvent) => {
 	try {
@@ -101,6 +230,15 @@ const getClientAddress = (event: RequestEvent) => {
 
 		return 'unknown';
 	}
+};
+
+const isTrustedOrigin = (event: RequestEvent): boolean => {
+	const origin = event.request.headers.get('origin');
+	if (!origin) {
+		return false;
+	}
+
+	return origin === event.url.origin;
 };
 
 const toApiErrorResponse = (
@@ -129,6 +267,15 @@ const toApiErrorResponse = (
 		}
 	);
 };
+
+const toPageErrorResponse = (status: number, message: string) =>
+	new Response(message, {
+		status,
+		headers: {
+			'content-type': 'text/plain; charset=utf-8',
+			'cache-control': 'no-store'
+		}
+	});
 
 const withSecurityHeaders = (
 	response: Response,
@@ -166,7 +313,17 @@ const withSecurityHeaders = (
 	});
 };
 
+const toRedirectResponse = (location: string, status = 303) =>
+	new Response(null, {
+		status,
+		headers: {
+			location,
+			'cache-control': 'no-store'
+		}
+	});
+
 export const handle: Handle = async ({ event, resolve }) => {
+	// Request ID is attached to responses/logs for support/debug traceability.
 	event.locals.requestId = crypto.randomUUID();
 
 	if (dev && event.url.pathname === '/.well-known/appspecific/com.chrome.devtools.json') {
@@ -180,6 +337,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const pathname = event.url.pathname;
 	const isApiRequest = pathname.startsWith('/api/');
 	const isSsrRequest = !isApiRequest && !isStaticAssetRequestPath(pathname);
+	const isMutatingRequest = MUTATING_METHODS.has(event.request.method.toUpperCase());
 
 	if (!isApiRequest && !isSsrRequest) {
 		const response = await resolve(event);
@@ -191,34 +349,176 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	const startedAt = nowMs();
 	const method = event.request.method;
-	const endpoint = `${event.url.pathname}${event.url.search}`;
+	const endpoint = `${event.url.pathname}${getSafeSearch(event.url)}`;
 	const table = isApiRequest ? getApiTableFromPath(pathname) : getSsrTableFromPath(pathname);
 	const scope = isApiRequest ? 'API' : 'SSR';
 
-	if (isApiRequest && !isAllowedPublicApiPath(pathname)) {
-		const response = toApiErrorResponse(
-			403,
-			event.locals.requestId,
-			'API_FORBIDDEN',
-			'This API endpoint is not available in the current security mode.'
-		);
+	let dbOps: DatabaseOperations | null = null;
+	const getDbOps = () => {
+		if (dbOps) {
+			return dbOps;
+		}
+
+		if (!event.platform?.env?.DB) {
+			throw new Error('DB_NOT_CONFIGURED');
+		}
+
+		dbOps = new DatabaseOperations(event.platform as App.Platform);
+		return dbOps;
+	};
+
+	let authHydrationError: Error | null = null;
+	const hasSessionCookie = Boolean(event.cookies.get(AUTH_SESSION_COOKIE_NAME));
+	if (hasSessionCookie) {
+		try {
+			// Session resolution is centralized and never trusts client-provided user identity.
+			const sessionSecret = requireSessionSecret(event);
+			const authContext = await resolveSessionFromRequest(event, getDbOps(), sessionSecret);
+			if (authContext) {
+				event.locals.session = authContext.session;
+				event.locals.user = authContext.user;
+			}
+		} catch (error) {
+			authHydrationError = error instanceof Error ? error : new Error('AUTH_HYDRATION_FAILED');
+			clearSessionCookie(event);
+		}
+	}
+
+	if (isMutatingRequest && (isApiRequest || isSsrRequest) && !isTrustedOrigin(event)) {
+		// Cookie auth + mutating methods require same-origin to reduce CSRF risk.
+		const response = isApiRequest
+			? toApiErrorResponse(
+					403,
+					event.locals.requestId,
+					'CSRF_INVALID_ORIGIN',
+					'Invalid request origin.'
+				)
+			: toPageErrorResponse(403, 'Invalid request origin.');
+
 		logRequestSummary({
-			scope: 'API',
+			scope,
 			method,
 			endpoint,
 			table,
 			recordCount: 0,
 			status: 403,
 			durationMs: nowMs() - startedAt,
-			error: 'Endpoint blocked by API allowlist'
+			error: 'Blocked by CSRF origin enforcement'
 		});
+
 		return withSecurityHeaders(response, {
 			requestId: event.locals.requestId,
-			isApiRequest: true
+			isApiRequest
 		});
 	}
 
 	if (isApiRequest) {
+		// Unknown API routes are blocked by policy map by default.
+		const apiPolicy = getApiPolicy(pathname);
+		if (!apiPolicy) {
+			const response = toApiErrorResponse(
+				403,
+				event.locals.requestId,
+				'API_FORBIDDEN',
+				'This API endpoint is not available.'
+			);
+
+			logRequestSummary({
+				scope: 'API',
+				method,
+				endpoint,
+				table,
+				recordCount: 0,
+				status: 403,
+				durationMs: nowMs() - startedAt,
+				error: 'Endpoint blocked by API policy map'
+			});
+
+			return withSecurityHeaders(response, {
+				requestId: event.locals.requestId,
+				isApiRequest: true
+			});
+		}
+
+		if (authHydrationError && apiPolicy.access !== 'public') {
+			const response = toApiErrorResponse(
+				500,
+				event.locals.requestId,
+				'AUTH_UNAVAILABLE',
+				'Authentication is temporarily unavailable.'
+			);
+
+			logRequestSummary({
+				scope: 'API',
+				method,
+				endpoint,
+				table,
+				recordCount: 0,
+				status: 500,
+				durationMs: nowMs() - startedAt,
+				error: authHydrationError.message
+			});
+
+			return withSecurityHeaders(response, {
+				requestId: event.locals.requestId,
+				isApiRequest: true
+			});
+		}
+
+		if (apiPolicy.access === 'authenticated' || apiPolicy.access === 'role') {
+			if (!event.locals.user || !event.locals.session) {
+				const response = toApiErrorResponse(
+					401,
+					event.locals.requestId,
+					'AUTH_REQUIRED',
+					'Authentication is required.'
+				);
+
+				logRequestSummary({
+					scope: 'API',
+					method,
+					endpoint,
+					table,
+					recordCount: 0,
+					status: 401,
+					durationMs: nowMs() - startedAt,
+					error: 'Missing authenticated session'
+				});
+
+				return withSecurityHeaders(response, {
+					requestId: event.locals.requestId,
+					isApiRequest: true
+				});
+			}
+		}
+
+		if (apiPolicy.access === 'role') {
+			if (!hasAnyRole(event.locals.user?.role, apiPolicy.roles)) {
+				const response = toApiErrorResponse(
+					403,
+					event.locals.requestId,
+					'AUTH_FORBIDDEN',
+					'You do not have permission to access this resource.'
+				);
+
+				logRequestSummary({
+					scope: 'API',
+					method,
+					endpoint,
+					table,
+					recordCount: 0,
+					status: 403,
+					durationMs: nowMs() - startedAt,
+					error: 'Role-based access denied'
+				});
+
+				return withSecurityHeaders(response, {
+					requestId: event.locals.requestId,
+					isApiRequest: true
+				});
+			}
+		}
+
 		const rateLimitConfig = resolveRateLimitConfig(pathname);
 		if (rateLimitConfig) {
 			const now = Date.now();
@@ -251,6 +551,91 @@ export const handle: Handle = async ({ event, resolve }) => {
 					isApiRequest: true
 				});
 			}
+		}
+	}
+
+	if (isSsrRequest) {
+		// Protected pages require both valid session and allowed role.
+		const protectedPage = isProtectedPagePath(pathname);
+		if (protectedPage) {
+			if (authHydrationError) {
+				const response = toPageErrorResponse(500, 'Authentication is temporarily unavailable.');
+				logRequestSummary({
+					scope: 'SSR',
+					method,
+					endpoint,
+					table,
+					recordCount: 0,
+					status: 500,
+					durationMs: nowMs() - startedAt,
+					error: authHydrationError.message
+				});
+				return withSecurityHeaders(response, {
+					requestId: event.locals.requestId,
+					isApiRequest: false
+				});
+			}
+
+			if (!event.locals.user || !event.locals.session) {
+				const loginTarget = `/auth/login?next=${encodeURIComponent(`${pathname}${getSafeSearch(event.url)}`)}`;
+				const response = toRedirectResponse(loginTarget, 303);
+				logRequestSummary({
+					scope: 'SSR',
+					method,
+					endpoint,
+					table,
+					recordCount: 0,
+					status: 303,
+					durationMs: nowMs() - startedAt,
+					error: 'Redirected to login'
+				});
+				return withSecurityHeaders(response, {
+					requestId: event.locals.requestId,
+					isApiRequest: false
+				});
+			}
+
+			if (!hasAnyRole(event.locals.user.role, DASHBOARD_ALLOWED_ROLES)) {
+				const response = toPageErrorResponse(403, 'Forbidden');
+				logRequestSummary({
+					scope: 'SSR',
+					method,
+					endpoint,
+					table,
+					recordCount: 0,
+					status: 403,
+					durationMs: nowMs() - startedAt,
+					error: 'Role-based access denied'
+				});
+				return withSecurityHeaders(response, {
+					requestId: event.locals.requestId,
+					isApiRequest: false
+				});
+			}
+		}
+
+		if (
+			isAuthPagePath(pathname) &&
+			event.locals.user &&
+			hasAnyRole(event.locals.user.role, DASHBOARD_ALLOWED_ROLES)
+		) {
+			// Logged-in users should not stay on login/register pages.
+			const nextParam = sanitizeNextPath(getSafeSearchParam(event.url, 'next'));
+			const response = toRedirectResponse(nextParam ?? '/dashboard', 303);
+			logRequestSummary({
+				scope: 'SSR',
+				method,
+				endpoint,
+				table,
+				recordCount: 0,
+				status: 303,
+				durationMs: nowMs() - startedAt,
+				error: 'Redirected authenticated user away from auth page'
+			});
+			return withSecurityHeaders(response, {
+				requestId: event.locals.requestId,
+				isApiRequest: false
+			});
 		}
 	}
 
@@ -289,7 +674,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 					}
 				}
 			} catch {
-				// Ignore invalid JSON bodies from downstream handlers.
+				// Ignore invalid JSON payloads from downstream handlers.
 			}
 		}
 
@@ -359,12 +744,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 		});
 
 		if (isApiRequest) {
-			const response = toApiErrorResponse(
-				500,
-				event.locals.requestId,
-				'INTERNAL_ERROR',
-				'An unexpected server error occurred.'
-			);
+			const status = error instanceof AuthServiceError ? error.status : 500;
+			const code = error instanceof AuthServiceError ? error.code : 'INTERNAL_ERROR';
+			const clientMessage =
+				error instanceof AuthServiceError
+					? error.clientMessage
+					: 'An unexpected server error occurred.';
+			const response = toApiErrorResponse(status, event.locals.requestId, code, clientMessage);
 			return withSecurityHeaders(response, {
 				requestId: event.locals.requestId,
 				isApiRequest: true
