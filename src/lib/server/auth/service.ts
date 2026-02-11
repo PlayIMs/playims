@@ -1,7 +1,7 @@
 import { DEFAULT_CLIENT, ensureDefaultClient } from '$lib/server/client-context';
 import type { DatabaseOperations } from '$lib/database';
 import type { RequestEvent } from '@sveltejs/kit';
-import { AUTH_ENV_KEYS } from './constants';
+import { AUTH_ENV_KEYS, AUTH_PBKDF2_DEFAULT_ITERATIONS } from './constants';
 import { hashPassword, normalizeIterations, verifyPassword } from './password';
 import { createSessionForUser } from './session';
 
@@ -23,17 +23,18 @@ export class AuthServiceError extends Error {
 }
 
 const textEncoder = new TextEncoder();
+const DUMMY_PASSWORD_HASH = `pbkdf2_sha256$${AUTH_PBKDF2_DEFAULT_ITERATIONS}$AAECAwQFBgcICQoLDA0ODw$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA`;
 
 const constantTimeStringEqual = (a: string, b: string): boolean => {
 	const aBytes = textEncoder.encode(a);
 	const bBytes = textEncoder.encode(b);
-	if (aBytes.length !== bBytes.length) {
-		return false;
-	}
 
-	let result = 0;
-	for (let i = 0; i < aBytes.length; i += 1) {
-		result |= aBytes[i] ^ bBytes[i];
+	const maxLength = Math.max(aBytes.length, bBytes.length);
+	let result = aBytes.length ^ bBytes.length;
+	for (let i = 0; i < maxLength; i += 1) {
+		const aByte = i < aBytes.length ? aBytes[i] : 0;
+		const bByte = i < bBytes.length ? bBytes[i] : 0;
+		result |= aByte ^ bByte;
 	}
 	return result === 0;
 };
@@ -75,6 +76,14 @@ const requireSignupInviteKey = (event: RequestEvent): string => {
 const getPasswordIterations = (event: RequestEvent): number =>
 	normalizeIterations(readAuthEnv(event, AUTH_ENV_KEYS.passwordIterations));
 
+const throwRegistrationDenied = (): never => {
+	throw new AuthServiceError(
+		403,
+		'AUTH_REGISTRATION_DENIED',
+		'Unable to register with the provided credentials.'
+	);
+};
+
 /**
  * Password login flow:
  * 1) look up user by normalized email
@@ -94,6 +103,12 @@ export const loginWithPassword = async (
 	const normalizedEmail = input.email.trim().toLowerCase();
 	const existingUser = await dbOps.users.getAuthByEmail(normalizedEmail);
 	if (!existingUser || !existingUser.passwordHash) {
+		// Keep per-request timing closer to "real" verification to reduce user-enumeration signals.
+		await verifyPassword({
+			password: input.password,
+			pepper: sessionSecret,
+			storedHash: DUMMY_PASSWORD_HASH
+		});
 		throw new AuthServiceError(401, 'AUTH_INVALID_CREDENTIALS', 'Invalid email or password.');
 	}
 
@@ -117,7 +132,7 @@ export const loginWithPassword = async (
 
 /**
  * Invite-key registration flow for this phase.
- * New users are attached to DEFAULT_CLIENT and granted admin role.
+ * New users are attached to DEFAULT_CLIENT with least-privilege role.
  */
 export const registerWithPassword = async (
 	event: RequestEvent,
@@ -135,7 +150,7 @@ export const registerWithPassword = async (
 	const providedInviteKey = input.inviteKey.trim();
 
 	if (!constantTimeStringEqual(expectedInviteKey, providedInviteKey)) {
-		throw new AuthServiceError(403, 'AUTH_INVALID_INVITE_KEY', 'Invalid invite key.');
+		throwRegistrationDenied();
 	}
 
 	await ensureDefaultClient(dbOps);
@@ -143,7 +158,7 @@ export const registerWithPassword = async (
 	const normalizedEmail = input.email.trim().toLowerCase();
 	const existingUser = await dbOps.users.getAuthByEmail(normalizedEmail);
 	if (existingUser) {
-		throw new AuthServiceError(409, 'AUTH_ACCOUNT_EXISTS', 'An account with that email already exists.');
+		throwRegistrationDenied();
 	}
 
 	const passwordHash = await hashPassword({
@@ -156,7 +171,7 @@ export const registerWithPassword = async (
 		clientId: DEFAULT_CLIENT.id,
 		email: normalizedEmail,
 		passwordHash,
-		role: 'admin',
+		role: 'manager',
 		firstName: input.firstName?.trim() || null,
 		lastName: input.lastName?.trim() || null,
 		status: 'active'

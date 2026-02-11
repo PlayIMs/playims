@@ -306,6 +306,11 @@ const withSecurityHeaders = (
 		);
 	}
 
+	if (isApiRequest && !headers.has('cache-control')) {
+		// API payloads may contain session/user context; never allow caching by default.
+		headers.set('cache-control', 'no-store');
+	}
+
 	return new Response(response.body, {
 		status: response.status,
 		statusText: response.statusText,

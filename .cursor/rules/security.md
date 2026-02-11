@@ -49,6 +49,12 @@ If a request conflicts with these rules, refuse and explain why, then propose a 
   - Session cookies must be `HttpOnly`, `Secure` (outside local dev), `SameSite=Lax`, and path-scoped to `/`.
   - Enforce expiration and server-side revocation checks on every request.
   - Sliding session renewal must happen server-side only and update expiry metadata atomically.
+- Account Enumeration Resistance:
+  - Login and registration must return generic, non-enumerating auth errors (do not reveal whether email, invite key, or account state exists).
+  - Keep failure-path timing as uniform as practical (e.g., dummy password verification when user is missing) to reduce timing side channels.
+- Least-Privilege Provisioning:
+  - Self-registration must never create `admin` users by default.
+  - Grant the minimum role required (for example `manager` or lower), with privileged elevation handled by a separate admin-only flow.
 - API Route Policy:
   - Only auth bootstrap endpoints may be public (`/api/auth/login`, `/api/auth/register`).
   - All other protected APIs must require authenticated session context from `locals`.
@@ -77,6 +83,9 @@ If a request conflicts with these rules, refuse and explain why, then propose a 
 - Service Worker Caching:
   - Cache only immutable/static assets.
   - Never cache dynamic SSR HTML, `__data.json`, or API responses containing tenant/user data.
+- Sensitive Response Caching:
+  - Set `Cache-Control: no-store` on all auth responses and any API/SSR response containing session, user, tenant, or authorization-dependent data.
+  - Default API responses to `no-store` unless a route is explicitly reviewed and approved for caching.
 - Error Handling:
   - Never return raw exception messages, stack traces, DB internals, or file paths to clients.
   - Return generic client-facing errors and log internal details server-side.
@@ -106,3 +115,6 @@ When generating or reviewing code, verify:
 9. Opaque hashed session tokens with secure cookie settings and revocation support.
 10. CSRF origin enforcement on mutating cookie-authenticated routes.
 11. RBAC + tenant boundary enforcement derived from `locals`, never client identity fields.
+12. Non-enumerating auth failures (content + timing) for login/register/password reset flows.
+13. Least-privilege default role for all self-service account creation paths.
+14. `Cache-Control: no-store` for all sensitive API/auth responses.
