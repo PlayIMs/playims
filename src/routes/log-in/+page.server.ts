@@ -17,6 +17,26 @@ const sanitizeNextPath = (value: string | null | undefined) => {
 	return trimmed;
 };
 
+const FIELD_LABELS: Record<string, string> = {
+	email: 'Email',
+	password: 'Password'
+};
+
+const getValidationMessage = (issues: { path: PropertyKey[]; message: string }[]) => {
+	const issue = issues[0];
+	if (!issue) {
+		return 'Please provide a valid email and password.';
+	}
+
+	const fieldKey = String(issue.path[0] ?? '');
+	const label = FIELD_LABELS[fieldKey];
+	if (label) {
+		return `${label}: ${issue.message}`;
+	}
+
+	return issue.message || 'Please provide a valid email and password.';
+};
+
 // If already authenticated with required role, skip login page.
 export const load: PageServerLoad = async ({ locals, url }) => {
 	if (locals.user && hasAnyRole(locals.user.role, DASHBOARD_ALLOWED_ROLES)) {
@@ -45,7 +65,7 @@ export const actions: Actions = {
 
 		if (!parsed.success) {
 			return fail(400, {
-				error: 'Please provide a valid email and password.',
+				error: getValidationMessage(parsed.error.issues),
 				next: nextPath,
 				email: formData.get('email')?.toString() ?? ''
 			});

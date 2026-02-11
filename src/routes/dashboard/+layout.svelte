@@ -63,7 +63,7 @@
 			});
 		} finally {
 			// Always return to login, even if network/request fails.
-			window.location.href = '/auth/login';
+			window.location.href = '/log-in';
 		}
 	}
 

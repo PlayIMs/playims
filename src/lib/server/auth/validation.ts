@@ -1,7 +1,13 @@
 import { z } from 'zod';
 
 // Shared field-level validators for auth payloads/forms.
-const emailSchema = z.string().trim().email().max(254).transform((value) => value.toLowerCase());
+const SIMPLE_EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const emailSchema = z
+	.string()
+	.trim()
+	.max(254)
+	.regex(SIMPLE_EMAIL_REGEX, 'Please enter a valid email address')
+	.transform((value) => value.toLowerCase());
 
 const passwordSchema = z.string().min(8).max(128);
 

@@ -97,7 +97,7 @@ let lastRateLimitCleanupAt = 0;
 
 const PROTECTED_PAGE_PREFIXES = ['/dashboard'];
 const PROTECTED_PAGE_EXACT = new Set(['/schedule', '/colors']);
-const AUTH_PAGE_PATHS = new Set(['/auth/login', '/auth/register']);
+const AUTH_PAGE_PATHS = new Set(['/log-in', '/register']);
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 const resolveRateLimitConfig = (pathname: string): RateLimitConfig | null => {
@@ -577,7 +577,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 			}
 
 			if (!event.locals.user || !event.locals.session) {
-				const loginTarget = `/auth/login?next=${encodeURIComponent(`${pathname}${getSafeSearch(event.url)}`)}`;
+				const loginTarget = `/log-in?next=${encodeURIComponent(`${pathname}${getSafeSearch(event.url)}`)}`;
 				const response = toRedirectResponse(loginTarget, 303);
 				logRequestSummary({
 					scope: 'SSR',

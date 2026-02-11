@@ -15,6 +15,7 @@
 
 	let showPassword = $state(false);
 	let emailValue = $state('');
+	let passwordValue = $state('');
 	let nextValue = $state('');
 
 	$effect(() => {
@@ -60,6 +61,7 @@
 						type={showPassword ? 'text' : 'password'}
 						name="password"
 						autocomplete="off"
+						bind:value={passwordValue}
 						required
 					/>
 					<button
@@ -78,12 +80,18 @@
 				</div>
 			</label>
 
-			<button class="button-secondary w-full" type="submit">Sign in</button>
+			<button
+				class="button-secondary w-full disabled:opacity-60 disabled:cursor-not-allowed"
+				type="submit"
+				disabled={passwordValue.length < 8}
+			>
+				Sign in
+			</button>
 		</form>
 
 		<p class="mt-4 text-sm text-secondary-900">
 			Need an account?
-			<a class="text-primary-700 hover:underline" href="/auth/register">Register</a>
+			<a class="text-primary-700 hover:underline" href="/register">Register</a>
 		</p>
 	</div>
 </div>
