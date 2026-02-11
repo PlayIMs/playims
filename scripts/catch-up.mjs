@@ -1,14 +1,16 @@
 import { spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { stripVTControlCharacters } from 'node:util';
 
-const pnpmBin = 'pnpm';
 const gitBin = 'git';
 const childMaxBuffer = 50 * 1024 * 1024;
 const envFilePath = resolve('.env');
 const minNodeMajor = 20;
 const recommendedNodeMajor = 24;
+const corepackExecutable = process.platform === 'win32' ? 'corepack.cmd' : 'corepack';
+const corepackPath = resolve(dirname(process.execPath), corepackExecutable);
+const pnpmBin = existsSync(corepackPath) ? `"${corepackPath}" pnpm` : 'pnpm';
 const placeholderCloudflareValues = new Set([
 	'cloudflare_account_id',
 	'd1_database_id',
