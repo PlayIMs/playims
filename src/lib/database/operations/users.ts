@@ -43,6 +43,16 @@ export class UserOperations {
 		return result[0] ?? null;
 	}
 
+	// Account self-service queries must stay scoped to authenticated tenant + user.
+	async getAuthByIdForClient(userId: string, clientId: string): Promise<User | null> {
+		const result = await this.db
+			.select()
+			.from(users)
+			.where(and(eq(users.id, userId), eq(users.clientId, clientId)))
+			.limit(1);
+		return result[0] ?? null;
+	}
+
 	// Creates an auth-ready user row with normalized email and security fields.
 	async createAuthUser(data: {
 		clientId: string;
@@ -51,6 +61,7 @@ export class UserOperations {
 		role: 'admin' | 'manager' | 'player';
 		firstName?: string | null;
 		lastName?: string | null;
+		cellPhone?: string | null;
 		status?: string;
 		createdUser?: string | null;
 		updatedUser?: string | null;
@@ -67,6 +78,7 @@ export class UserOperations {
 				role: data.role,
 				firstName: data.firstName ?? null,
 				lastName: data.lastName ?? null,
+				cellPhone: data.cellPhone ?? null,
 				status: data.status ?? 'active',
 				createdAt: now,
 				updatedAt: now,
@@ -110,6 +122,119 @@ export class UserOperations {
 				updatedAt: now
 			})
 			.where(and(eq(users.id, userId), eq(users.status, 'active')))
+			.returning();
+
+		return result[0] ?? null;
+	}
+
+	async updateSelfProfile(input: {
+		userId: string;
+		clientId: string;
+		firstName: string | null;
+		lastName: string | null;
+		cellPhone: string | null;
+		avatarUrl: string | null;
+		timezone: string | null;
+		updatedUser: string | null;
+	}): Promise<User | null> {
+		const now = new Date().toISOString();
+		const result = await this.db
+			.update(users)
+			.set({
+				firstName: input.firstName,
+				lastName: input.lastName,
+				cellPhone: input.cellPhone,
+				avatarUrl: input.avatarUrl,
+				timezone: input.timezone,
+				updatedAt: now,
+				updatedUser: input.updatedUser
+			})
+			.where(
+				and(
+					eq(users.id, input.userId),
+					eq(users.clientId, input.clientId),
+					eq(users.status, 'active')
+				)
+			)
+			.returning();
+
+		return result[0] ?? null;
+	}
+
+	async updateSelfPreferences(input: {
+		userId: string;
+		clientId: string;
+		preferences: string | null;
+		notes: string | null;
+		updatedUser: string | null;
+	}): Promise<User | null> {
+		const now = new Date().toISOString();
+		const result = await this.db
+			.update(users)
+			.set({
+				preferences: input.preferences,
+				notes: input.notes,
+				updatedAt: now,
+				updatedUser: input.updatedUser
+			})
+			.where(
+				and(
+					eq(users.id, input.userId),
+					eq(users.clientId, input.clientId),
+					eq(users.status, 'active')
+				)
+			)
+			.returning();
+
+		return result[0] ?? null;
+	}
+
+	async updateSelfPasswordHash(input: {
+		userId: string;
+		clientId: string;
+		passwordHash: string;
+		updatedUser: string | null;
+	}): Promise<User | null> {
+		const now = new Date().toISOString();
+		const result = await this.db
+			.update(users)
+			.set({
+				passwordHash: input.passwordHash,
+				updatedAt: now,
+				updatedUser: input.updatedUser
+			})
+			.where(
+				and(
+					eq(users.id, input.userId),
+					eq(users.clientId, input.clientId),
+					eq(users.status, 'active')
+				)
+			)
+			.returning();
+
+		return result[0] ?? null;
+	}
+
+	async archiveSelf(input: {
+		userId: string;
+		clientId: string;
+		updatedUser: string | null;
+	}): Promise<User | null> {
+		const now = new Date().toISOString();
+		const result = await this.db
+			.update(users)
+			.set({
+				status: 'archived',
+				updatedAt: now,
+				updatedUser: input.updatedUser
+			})
+			.where(
+				and(
+					eq(users.id, input.userId),
+					eq(users.clientId, input.clientId),
+					eq(users.status, 'active')
+				)
+			)
 			.returning();
 
 		return result[0] ?? null;

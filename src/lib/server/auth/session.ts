@@ -122,6 +122,7 @@ export const buildSafeUser = (user: User) => ({
 	email: user.email ?? '',
 	firstName: user.firstName ?? null,
 	lastName: user.lastName ?? null,
+	cellPhone: user.cellPhone ?? null,
 	role: normalizeRole(user.role),
 	status: user.status ?? null
 });

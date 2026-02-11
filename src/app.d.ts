@@ -14,6 +14,7 @@ declare global {
 				email?: string;
 				firstName?: string | null;
 				lastName?: string | null;
+				cellPhone?: string | null;
 				status?: string | null;
 			};
 			// Auth session metadata used for route/API authorization decisions.

@@ -11,6 +11,7 @@
 	import IconChartBar from '@tabler/icons-svelte/icons/chart-bar';
 	import IconSettings from '@tabler/icons-svelte/icons/settings';
 	import IconHelpCircle from '@tabler/icons-svelte/icons/help-circle';
+	import IconUser from '@tabler/icons-svelte/icons/user';
 	import IconChevronLeft from '@tabler/icons-svelte/icons/chevron-left';
 	import IconChevronRight from '@tabler/icons-svelte/icons/chevron-right';
 	import IconMessageCircle from '@tabler/icons-svelte/icons/message-circle';
@@ -19,7 +20,6 @@
 	let { children } = $props();
 
 	let isSidebarOpen = $state(true);
-	let isLoggingOut = $state(false);
 
 	const menuItems = [
 		{ id: 'Dashboard', label: 'Dashboard', icon: IconLayoutDashboard, href: '/dashboard' },
@@ -43,6 +43,7 @@
 		{ id: 'Payments', label: 'Payments', icon: IconCreditCard, href: '#' },
 		{ id: 'Forms', label: 'Forms', icon: IconFileText, href: '#' },
 		{ id: 'Reports', label: 'Reports', icon: IconChartBar, href: '#' },
+		{ id: 'Account', label: 'Account', icon: IconUser, href: '/dashboard/account' },
 		{ id: 'Settings', label: 'Settings', icon: IconSettings, href: '#' },
 		{ id: 'Help', label: 'Help', icon: IconHelpCircle, href: '#' }
 	] as const;
@@ -51,20 +52,6 @@
 
 	function toggleSidebar() {
 		isSidebarOpen = !isSidebarOpen;
-	}
-
-	async function handleLogout() {
-		if (isLoggingOut) return;
-		isLoggingOut = true;
-		try {
-			// Server revokes current session + clears cookie.
-			await fetch('/api/auth/logout', {
-				method: 'POST'
-			});
-		} finally {
-			// Always return to login, even if network/request fails.
-			window.location.href = '/log-in';
-		}
 	}
 
 	const activePath = $derived.by(() => $page.url.pathname);
@@ -131,16 +118,6 @@
 			</ul>
 		</nav>
 
-		<div class="p-2 border-t border-primary-600">
-			<button
-				type="button"
-				class="w-full whitespace-nowrap px-4 py-3 flex items-center justify-center border border-primary-300 text-primary-50 hover:bg-primary-600 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-				onclick={handleLogout}
-				disabled={isLoggingOut}
-			>
-				{isLoggingOut ? 'Signing out...' : 'Sign out'}
-			</button>
-		</div>
 	</aside>
 
 	<!-- Main Content Area -->

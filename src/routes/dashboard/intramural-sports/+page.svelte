@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { replaceState } from '$app/navigation';
+	import { onDestroy, tick } from 'svelte';
 	import type { PageData } from './$types';
 	import IconAlertTriangle from '@tabler/icons-svelte/icons/alert-triangle';
 	import IconBallAmericanFootball from '@tabler/icons-svelte/icons/ball-american-football';
@@ -68,6 +69,7 @@
 		deadlineText: string;
 		leagues: Array<{
 			id: string;
+			offeringSlug: string;
 			offeringName: string;
 			categoryLabel: string;
 		}>;
@@ -90,6 +92,56 @@
 	let showConcludedSeasons = $state(false);
 	let offeringView = $state<OfferingView>('all');
 	let offeringViewHydrated = $state(false);
+	let highlightedLeagueRowId = $state<string | null>(null);
+	let highlightTimeout: ReturnType<typeof setTimeout> | null = null;
+
+	function getLeagueRowId(offeringSlug: string, leagueId: string): string {
+		return `league-row-${offeringSlug}-${leagueId}`;
+	}
+
+	async function scrollToLeagueRow(offeringSlug: string, leagueId: string): Promise<void> {
+		if (typeof window === 'undefined') return;
+		const rowId = getLeagueRowId(offeringSlug, leagueId);
+
+		let rowElement = document.getElementById(rowId);
+		if (!rowElement && searchQuery.trim().length > 0) {
+			searchQuery = '';
+			await tick();
+			rowElement = document.getElementById(rowId);
+		}
+
+		if (
+			!rowElement &&
+			concludedOfferings.some((offering) => offering.leagues.some((league) => league.id === leagueId))
+		) {
+			showConcludedSeasons = true;
+			await tick();
+			rowElement = document.getElementById(rowId);
+		}
+
+		if (!rowElement) return;
+
+		rowElement.scrollIntoView({
+			behavior: 'smooth',
+			block: 'center',
+			inline: 'nearest'
+		});
+
+		if (highlightTimeout) clearTimeout(highlightTimeout);
+		if (highlightedLeagueRowId === rowId) {
+			highlightedLeagueRowId = null;
+			await tick();
+		}
+
+		highlightedLeagueRowId = rowId;
+		highlightTimeout = setTimeout(() => {
+			if (highlightedLeagueRowId === rowId) highlightedLeagueRowId = null;
+		}, 2000);
+	}
+
+	onDestroy(() => {
+		if (highlightTimeout) clearTimeout(highlightTimeout);
+	});
 
 	function isOfferingView(value: string | null): value is OfferingView {
 		return value === 'leagues' || value === 'tournaments' || value === 'all';
@@ -654,6 +706,7 @@
 				if (!bucket) continue;
 				bucket.leagues.push({
 					id: league.id,
+					offeringSlug: offering.offeringSlug,
 					offeringName: offering.offeringName,
 					categoryLabel: league.categoryLabel
 				});
@@ -890,8 +943,11 @@
 										<tbody>
 											{#each offering.leagues as league, leagueIndex}
 												{@const OfferingIcon = offeringIconFor(offering.offeringName)}
+												{@const rowId = getLeagueRowId(offering.offeringSlug, league.id)}
 												<tr
+													id={rowId}
 													class={`align-middle ${leagueIndex < offering.leagues.length - 1 ? 'border-b border-secondary-200' : ''} ${leagueIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}
+													class:league-row-highlight={highlightedLeagueRowId === rowId}
 												>
 													<th scope="row" class="px-2 py-1 text-left">
 														<div class="flex items-center gap-2">
@@ -1045,8 +1101,11 @@
 														<tbody>
 															{#each offering.leagues as league, leagueIndex}
 																{@const OfferingIcon = offeringIconFor(offering.offeringName)}
+																{@const rowId = getLeagueRowId(offering.offeringSlug, league.id)}
 																<tr
+																	id={rowId}
 																	class={`align-middle ${leagueIndex < offering.leagues.length - 1 ? 'border-b border-secondary-200' : ''} ${leagueIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}
+																	class:league-row-highlight={highlightedLeagueRowId === rowId}
 																>
 																	<th scope="row" class="px-2 py-1 text-left">
 																		<div class="flex items-center gap-2">
@@ -1131,9 +1190,15 @@
 									</p>
 									<div class="mt-2 flex flex-wrap gap-1">
 										{#each deadline.leagues as league}
-											<span class="badge-secondary-outlined text-xs">
+											<button
+												type="button"
+												class="badge-secondary-outlined text-xs cursor-pointer transition-colors duration-150 hover:bg-secondary-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-500"
+												onclick={() => {
+													void scrollToLeagueRow(league.offeringSlug, league.id);
+												}}
+											>
 												{league.offeringName} - {league.categoryLabel}
-											</span>
+											</button>
 										{/each}
 									</div>
 								</div>
@@ -1195,5 +1260,41 @@
 		</div>
 	{/if}
 </div>
+
+<style>
+	:global(tr.league-row-highlight.bg-neutral-25 > th),
+	:global(tr.league-row-highlight.bg-neutral-25 > td) {
+		animation: league-row-highlight-fade-even 2s ease-out;
+	}
+
+	:global(tr.league-row-highlight.bg-neutral-05 > th),
+	:global(tr.league-row-highlight.bg-neutral-05 > td) {
+		animation: league-row-highlight-fade-odd 2s ease-out;
+	}
+
+	@keyframes league-row-highlight-fade-even {
+		0% {
+			background-color: var(--color-neutral-75);
+		}
+		60% {
+			background-color: var(--color-neutral-50);
+		}
+		100% {
+			background-color: transparent;
+		}
+	}
+
+	@keyframes league-row-highlight-fade-odd {
+		0% {
+			background-color: var(--color-neutral-50);
+		}
+		60% {
+			background-color: var(--color-neutral-25);
+		}
+		100% {
+			background-color: transparent;
+		}
+	}
+</style>
 
 

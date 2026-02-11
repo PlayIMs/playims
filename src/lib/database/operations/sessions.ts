@@ -1,4 +1,4 @@
-import { and, eq, gt, isNull } from 'drizzle-orm';
+import { and, eq, gt, isNull, ne, sql } from 'drizzle-orm';
 import type { DrizzleClient } from '../drizzle.js';
 import { sessions, users, type Session, type User } from '../schema/index.js';
 
@@ -114,5 +114,64 @@ export class SessionOperations {
 			.returning();
 
 		return result.length;
+	}
+
+	async revokeAllForUserInClient(userId: string, clientId: string): Promise<number> {
+		const now = new Date().toISOString();
+		const result = await this.db
+			.update(sessions)
+			.set({
+				revokedAt: now,
+				updatedAt: now
+			})
+			.where(
+				and(eq(sessions.userId, userId), eq(sessions.clientId, clientId), isNull(sessions.revokedAt))
+			)
+			.returning();
+
+		return result.length;
+	}
+
+	async revokeAllForUserExceptSessionInClient(
+		userId: string,
+		clientId: string,
+		sessionId: string
+	): Promise<number> {
+		const now = new Date().toISOString();
+		const result = await this.db
+			.update(sessions)
+			.set({
+				revokedAt: now,
+				updatedAt: now
+			})
+			.where(
+				and(
+					eq(sessions.userId, userId),
+					eq(sessions.clientId, clientId),
+					ne(sessions.id, sessionId),
+					isNull(sessions.revokedAt)
+				)
+			)
+			.returning();
+
+		return result.length;
+	}
+
+	async countActiveForUserInClient(userId: string, clientId: string, nowIso: string): Promise<number> {
+		const result = await this.db
+			.select({
+				count: sql<number>`count(*)`
+			})
+			.from(sessions)
+			.where(
+				and(
+					eq(sessions.userId, userId),
+					eq(sessions.clientId, clientId),
+					isNull(sessions.revokedAt),
+					gt(sessions.expiresAt, nowIso)
+				)
+			);
+
+		return Number(result[0]?.count ?? 0);
 	}
 }
