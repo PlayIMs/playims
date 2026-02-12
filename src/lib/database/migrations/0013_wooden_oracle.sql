@@ -4,31 +4,6 @@ SET `email` = lower(trim(`email`))
 WHERE `email` IS NOT NULL
 	AND `email` != lower(trim(`email`));
 --> statement-breakpoint
--- Abort migration with an explicit message when duplicate normalized emails exist.
-CREATE TEMP TABLE `_users_email_guard` (`id` integer);
---> statement-breakpoint
-CREATE TEMP TRIGGER `_users_email_guard_trigger`
-BEFORE INSERT ON `_users_email_guard`
-WHEN EXISTS (
-	SELECT 1
-	FROM (
-		SELECT lower(trim(`email`)) AS normalized_email, count(*) AS email_count
-		FROM `users`
-		WHERE `email` IS NOT NULL AND trim(`email`) <> ''
-		GROUP BY lower(trim(`email`))
-		HAVING count(*) > 1
-	)
-)
-BEGIN
-	SELECT RAISE(ABORT, 'Migration aborted: duplicate normalized emails found in users.email');
-END;
---> statement-breakpoint
-INSERT INTO `_users_email_guard` (`id`) VALUES (1);
---> statement-breakpoint
-DROP TRIGGER `_users_email_guard_trigger`;
---> statement-breakpoint
-DROP TABLE `_users_email_guard`;
---> statement-breakpoint
 -- Enforce global case-insensitive uniqueness for email identity.
 CREATE UNIQUE INDEX `users_email_normalized_unique`
 ON `users` (lower(trim(`email`)))

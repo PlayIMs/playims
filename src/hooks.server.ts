@@ -10,8 +10,6 @@ import {
 	getSsrTableFromPath,
 	getErrorFromPayload,
 	getRecordCountFromPayload,
-	getSsrTableFromPath,
-	isStaticAssetRequestPath,
 	isStaticAssetRequestPath,
 	logRequestSummary,
 	nowMs
@@ -383,15 +381,6 @@ export const handle: Handle = async ({ event, resolve }) => {
 			requestId: event.locals.requestId,
 			isApiRequest: false
 		});
-		return new Response('Go away, Chrome DevTools!', { status: 404 });
-	}
-
-	const pathname = event.url.pathname;
-	const isApiRequest = pathname.startsWith('/api/');
-	const isSsrRequest = !isApiRequest && !isStaticAssetRequestPath(pathname);
-
-	if (!isApiRequest && !isSsrRequest) {
-		return resolve(event);
 	}
 
 	const startedAt = nowMs();
@@ -780,23 +769,6 @@ export const handle: Handle = async ({ event, resolve }) => {
 			requestLogMeta.recordCount >= 0
 				? requestLogMeta.recordCount
 				: null;
-	const endpoint = `${event.url.pathname}${event.url.search}`;
-	const table = isApiRequest ? getApiTableFromPath(pathname) : getSsrTableFromPath(pathname);
-	const scope = isApiRequest ? 'API' : 'SSR';
-
-	try {
-		const response = await resolve(event);
-		const requestLogMeta = event.locals.requestLogMeta;
-		const metaTable =
-			typeof requestLogMeta?.table === 'string' && requestLogMeta.table.trim().length > 0
-				? requestLogMeta.table.trim()
-				: null;
-		const metaRecordCount =
-			typeof requestLogMeta?.recordCount === 'number' &&
-			Number.isFinite(requestLogMeta.recordCount) &&
-			requestLogMeta.recordCount >= 0
-				? requestLogMeta.recordCount
-				: null;
 		let recordCount: number | null = response.status === 304 ? 0 : null;
 		let errorMessage: string | null = null;
 		const contentType = response.headers.get('content-type') ?? '';
@@ -823,20 +795,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 			recordCount = 1;
 		}
 
-		if (metaRecordCount !== null) {
-			recordCount = metaRecordCount;
-		}
-
-		if (recordCount === null && !isApiRequest && response.status < 400) {
-			recordCount = 1;
-		}
-
 		logRequestSummary({
-			scope,
 			scope,
 			method,
 			endpoint,
-			table: metaTable ?? table,
 			table: metaTable ?? table,
 			recordCount,
 			status: response.status,
@@ -851,7 +813,6 @@ export const handle: Handle = async ({ event, resolve }) => {
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : 'Unhandled server error';
 		logRequestSummary({
-			scope,
 			scope,
 			method,
 			endpoint,
