@@ -1,7 +1,8 @@
 import { DatabaseOperations } from '$lib/database/operations/index.js';
+import { requireAuthenticatedClientId } from '$lib/server/client-context';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ platform }) => {
+export const load: PageServerLoad = async ({ platform, locals }) => {
 	if (!platform?.env?.DB) {
 		return {
 			stats: getDefaultStats(),
@@ -15,7 +16,7 @@ export const load: PageServerLoad = async ({ platform }) => {
 	}
 
 	const db = new DatabaseOperations(platform);
-	const clientId = '6eb657af-4ab8-4a13-980a-add993f78d65';
+	const clientId = requireAuthenticatedClientId(locals);
 
 	try {
 		const now = new Date();
@@ -23,20 +24,31 @@ export const load: PageServerLoad = async ({ platform }) => {
 		const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
 		const weekEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7).toISOString();
 
-		// Fetch all data
-		const [users, allEvents, teams, leagues, divisions, facilities, announcements, rosters] =
+		const [users, allEvents, teams, leagues, offerings, facilities, announcements, rosters] =
 			await Promise.all([
 				db.users.getByClientId(clientId),
-				db.events.getAll(clientId),
-				db.teams.getAll(),
+				db.events.getByClientId(clientId),
+				db.teams.getByClientId(clientId),
 				db.leagues.getByClientId(clientId),
-				db.divisions.getAll(),
+				db.offerings.getByClientId(clientId),
 				db.facilities.getAll(clientId),
 				db.announcements.getAll(clientId),
-				db.rosters.getAll()
+				db.rosters.getByClientId(clientId)
 			]);
 
-		const clientTeams = teams.filter((team) => team.clientId === clientId);
+		const teamsById = new Map(
+			teams.filter((team) => Boolean(team.id)).map((team) => [team.id as string, team])
+		);
+		const facilitiesById = new Map(
+			facilities
+				.filter((facility) => Boolean(facility.id))
+				.map((facility) => [facility.id as string, facility])
+		);
+		const offeringsById = new Map(
+			offerings
+				.filter((offering) => Boolean(offering.id))
+				.map((offering) => [offering.id as string, offering])
+		);
 
 		// Filter events
 		const todaysEvents = allEvents.filter((evt) => {
@@ -58,14 +70,11 @@ export const load: PageServerLoad = async ({ platform }) => {
 		const practicesToday = 0;
 
 		// Format events with details
-		const formatEvent = async (evt: any) => {
-			const [homeTeam, awayTeam, facility, offering] = await Promise.all([
-				evt.homeTeamId ? db.teams.getById(evt.homeTeamId) : null,
-				evt.awayTeamId ? db.teams.getById(evt.awayTeamId) : null,
-				evt.facilityId ? db.facilities.getById(evt.facilityId) : null,
-				evt.offeringId ? db.offerings.getById(evt.offeringId) : null
-			]);
-
+		const formatEvent = (evt: (typeof allEvents)[number]) => {
+			const homeTeam = evt.homeTeamId ? teamsById.get(evt.homeTeamId) : null;
+			const awayTeam = evt.awayTeamId ? teamsById.get(evt.awayTeamId) : null;
+			const facility = evt.facilityId ? facilitiesById.get(evt.facilityId) : null;
+			const offering = evt.offeringId ? offeringsById.get(evt.offeringId) : null;
 			const startTime = evt.scheduledStartAt ? new Date(evt.scheduledStartAt) : null;
 
 			return {
@@ -90,19 +99,19 @@ export const load: PageServerLoad = async ({ platform }) => {
 			};
 		};
 
-		const formattedTodaysEvents = await Promise.all(todaysEvents.map(formatEvent));
-		const formattedUpcoming = await Promise.all(upcomingEvents.map(formatEvent));
+		const formattedTodaysEvents = todaysEvents.map(formatEvent);
+		const formattedUpcoming = upcomingEvents.map(formatEvent);
 
 		// Calculate meaningful stats
 		const activeUsers = users.filter((u) => u.status === 'active').length;
-		const activeTeams = clientTeams.filter((t) => t.teamStatus === 'active').length;
+		const activeTeams = teams.filter((t) => t.teamStatus === 'active').length;
 		const activeLeagues = leagues.filter((l) => l.isActive === 1).length;
 
 		// Pending actions (rosters needing attention, etc)
 		const pendingRosters = rosters.filter((r) => r.rosterStatus === 'pending').length;
 
 		// Recent activity from audit logs or recent registrations
-		const recentTeams = clientTeams
+		const recentTeams = teams
 			.filter((t) => t.dateRegistered)
 			.sort((a, b) => new Date(b.dateRegistered!).getTime() - new Date(a.dateRegistered!).getTime())
 			.slice(0, 5);

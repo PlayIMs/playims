@@ -11,12 +11,14 @@
 	import IconChartBar from '@tabler/icons-svelte/icons/chart-bar';
 	import IconSettings from '@tabler/icons-svelte/icons/settings';
 	import IconHelpCircle from '@tabler/icons-svelte/icons/help-circle';
+	import IconHeadset from '@tabler/icons-svelte/icons/headset';
+	import IconUser from '@tabler/icons-svelte/icons/user';
 	import IconChevronLeft from '@tabler/icons-svelte/icons/chevron-left';
 	import IconChevronRight from '@tabler/icons-svelte/icons/chevron-right';
 	import IconMessageCircle from '@tabler/icons-svelte/icons/message-circle';
 	import { page } from '$app/stores';
 
-	let { children } = $props();
+	let { children, data } = $props();
 
 	let isSidebarOpen = $state(true);
 
@@ -42,17 +44,35 @@
 		{ id: 'Payments', label: 'Payments', icon: IconCreditCard, href: '#' },
 		{ id: 'Forms', label: 'Forms', icon: IconFileText, href: '#' },
 		{ id: 'Reports', label: 'Reports', icon: IconChartBar, href: '#' },
-		{ id: 'Settings', label: 'Settings', icon: IconSettings, href: '#' },
-		{ id: 'Help', label: 'Help', icon: IconHelpCircle, href: '#' }
+		{ id: 'Settings', label: 'Settings', icon: IconSettings, href: '#' }
 	] as const;
 
 	const menuWidth = $derived.by(() => (isSidebarOpen ? 'w-66' : 'w-16'));
+	const navBottomPadding = $derived.by(() => (isSidebarOpen ? 'pb-40' : 'pb-36'));
 
 	function toggleSidebar() {
 		isSidebarOpen = !isSidebarOpen;
 	}
 
 	const activePath = $derived.by(() => $page.url.pathname);
+	const accountHref = '/dashboard/account';
+	const isAccountRoute = $derived.by(
+		() => activePath === accountHref || activePath.startsWith(`${accountHref}/`)
+	);
+	const viewerName = $derived.by(() => {
+		const name = data?.viewer?.name?.trim() ?? '';
+		if (name.length > 0) {
+			return name;
+		}
+
+		const email = data?.viewer?.email?.trim() ?? '';
+		if (email.includes('@')) {
+			return email.split('@')[0];
+		}
+
+		return 'My Account';
+	});
+	const viewerEmail = $derived.by(() => data?.viewer?.email?.trim() ?? 'No email');
 </script>
 
 <div class="flex min-h-screen">
@@ -86,10 +106,10 @@
 
 		<!-- Menu -->
 		<nav
-			class="flex-1 p-2 overflow-y-auto scrollbar-thin scrollbar-thumb-primary-700 scrollbar-track-primary-400 scrollbar-corner-primary-500 hover:scrollbar-thumb-primary-700 active:scrollbar-thumb-primary-700 scrollbar-hover:scrollbar-thumb-primary-800 scrollbar-active:scrollbar-thumb-primary-700"
+			class="flex-1 p-2 {navBottomPadding} overflow-y-auto scrollbar-thin scrollbar-thumb-primary-700 scrollbar-track-primary-400 scrollbar-corner-primary-500 hover:scrollbar-thumb-primary-700 active:scrollbar-thumb-primary-700 scrollbar-hover:scrollbar-thumb-primary-800 scrollbar-active:scrollbar-thumb-primary-700"
 			aria-label="Dashboard navigation"
 		>
-			<ul class="space-y-2">
+			<ul class="space-y-1.5">
 				{#each menuItems as item}
 					<li>
 						<a
@@ -115,6 +135,81 @@
 				{/each}
 			</ul>
 		</nav>
+
+		<div
+			class="absolute bottom-0 left-0 right-0 border-t border-primary-600 bg-primary-500 p-2"
+			style="background-color: var(--color-primary-500);"
+		>
+			{#if isSidebarOpen}
+				<div class="flex items-stretch gap-2">
+					<a
+						href={accountHref}
+						class="flex-1 min-w-0 px-3 py-2 flex items-center gap-3 border-l-4 transition-colors duration-150 cursor-pointer {isAccountRoute
+							? 'bg-primary-600 border-neutral-500 text-white'
+							: 'border-transparent text-primary-100 hover:bg-primary-600 hover:text-white'}"
+						aria-current={isAccountRoute ? 'page' : undefined}
+					>
+						<IconUser class="w-5 h-5 shrink-0" />
+						<div class="min-w-0">
+							<p class="text-sm font-semibold truncate">{viewerName}</p>
+							<p class="text-[11px] text-primary-100 truncate">{viewerEmail}</p>
+						</div>
+					</a>
+
+					<div class="flex flex-col gap-2">
+						<button
+							type="button"
+							class="w-10 h-10 flex items-center justify-center border border-primary-300 text-primary-50 opacity-70 cursor-not-allowed"
+							title="Tech support"
+							aria-label="Tech support"
+							disabled
+						>
+							<IconHeadset class="w-5 h-5" />
+						</button>
+						<button
+							type="button"
+							class="w-10 h-10 flex items-center justify-center border border-primary-300 text-primary-50 opacity-70 cursor-not-allowed"
+							title="Help"
+							aria-label="Help"
+							disabled
+						>
+							<IconHelpCircle class="w-5 h-5" />
+						</button>
+					</div>
+				</div>
+			{:else}
+				<div class="flex flex-col items-center gap-2">
+					<a
+						href={accountHref}
+						class="w-10 h-10 flex items-center justify-center border transition-colors duration-150 cursor-pointer {isAccountRoute
+							? 'border-primary-100 bg-primary-600 text-white'
+							: 'border-primary-300 text-primary-50 hover:bg-primary-600 hover:text-white'}"
+						title={viewerName}
+						aria-current={isAccountRoute ? 'page' : undefined}
+					>
+						<IconUser class="w-5 h-5" />
+					</a>
+					<button
+						type="button"
+						class="w-10 h-10 flex items-center justify-center border border-primary-300 text-primary-50 opacity-70 cursor-not-allowed"
+						title="Tech support"
+						aria-label="Tech support"
+						disabled
+					>
+						<IconHeadset class="w-5 h-5" />
+					</button>
+					<button
+						type="button"
+						class="w-10 h-10 flex items-center justify-center border border-primary-300 text-primary-50 opacity-70 cursor-not-allowed"
+						title="Help"
+						aria-label="Help"
+						disabled
+					>
+						<IconHelpCircle class="w-5 h-5" />
+					</button>
+				</div>
+			{/if}
+		</div>
 	</aside>
 
 	<!-- Main Content Area -->

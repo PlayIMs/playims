@@ -3,13 +3,25 @@ const ANSI = {
 	bold: '\x1b[1m',
 	dim: '\x1b[2m',
 	gray: '\x1b[90m',
+	brightBlue: '\x1b[94m',
+	brightMagenta: '\x1b[95m',
+	brightCyan: '\x1b[96m',
+	brightGreen: '\x1b[92m',
+	brightYellow: '\x1b[93m',
+	brightRed: '\x1b[91m',
+	brightWhite: '\x1b[97m',
 	blue: '\x1b[94m',
 	cyan: '\x1b[36m',
 	magenta: '\x1b[35m',
 	white: '\x1b[97m',
 	green: '\x1b[32m',
 	yellow: '\x1b[33m',
-	red: '\x1b[31m'
+	red: '\x1b[31m',
+	teal: '\x1b[38;5;45m',
+	orange: '\x1b[38;5;214m',
+	violet: '\x1b[38;5;141m',
+	lime: '\x1b[38;5;118m',
+	rose: '\x1b[38;5;205m'
 };
 
 type RequestLogScope = 'API' | 'SSR';
@@ -26,10 +38,10 @@ type RequestSummaryLog = {
 };
 
 const friendlyTimestampFormatter = new Intl.DateTimeFormat('en-US', {
+	day: 'numeric',
 	month: 'short',
-	day: '2-digit',
 	year: 'numeric',
-	hour: '2-digit',
+	hour: 'numeric',
 	minute: '2-digit',
 	second: '2-digit',
 	hour12: true
@@ -53,34 +65,32 @@ const formatTimestamp = (date: Date) => {
 	const parts = friendlyTimestampFormatter.formatToParts(date);
 	const get = (type: Intl.DateTimeFormatPartTypes) =>
 		parts.find((part) => part.type === type)?.value ?? '';
-
-	const milliseconds = String(date.getMilliseconds()).padStart(3, '0');
-	return `${get('month')} ${get('day')}, ${get('year')} ${get('hour')}:${get('minute')}:${get('second')}.${milliseconds} ${get('dayPeriod')}`;
+	return `${get('day')} ${get('month')} ${get('year')} ${get('hour')}:${get('minute')}:${get('second')} ${get('dayPeriod').toUpperCase()}`;
 };
 
 const statusColor = (status: number) => {
 	if (status >= 500) {
-		return ANSI.red;
+		return ANSI.brightRed;
 	}
 	if (status >= 400) {
-		return ANSI.yellow;
+		return ANSI.brightYellow;
 	}
-	return ANSI.green;
+	return ANSI.brightGreen;
 };
 
 const methodColor = (method: string) => {
 	switch (method.toUpperCase()) {
 		case 'GET':
-			return ANSI.cyan;
+			return ANSI.brightCyan;
 		case 'POST':
-			return ANSI.green;
+			return ANSI.brightGreen;
 		case 'PUT':
 		case 'PATCH':
-			return ANSI.yellow;
+			return ANSI.brightYellow;
 		case 'DELETE':
-			return ANSI.red;
+			return ANSI.brightRed;
 		default:
-			return ANSI.white;
+			return ANSI.brightWhite;
 	}
 };
 
@@ -92,6 +102,30 @@ export const getApiTableFromPath = (pathname: string) => {
 	const segments = pathname.split('/').filter(Boolean);
 	const resource = segments[1] ?? 'unknown';
 	return resource.replace(/-/g, '_');
+};
+
+export const isSsrDataRequestPath = (pathname: string) => pathname.endsWith('/__data.json');
+
+export const getSsrTableFromPath = (pathname: string) => {
+	const normalized = pathname.replace(/\/__data\.json$/, '');
+	const segments = normalized.split('/').filter(Boolean);
+	if (segments.length === 0) {
+		return 'root';
+	}
+
+	return segments.join('_').replace(/-/g, '_');
+};
+
+export const isStaticAssetRequestPath = (pathname: string) => {
+	if (isSsrDataRequestPath(pathname)) {
+		return false;
+	}
+	if (pathname.startsWith('/_app/')) {
+		return true;
+	}
+
+	const lastSegment = pathname.split('/').filter(Boolean).at(-1) ?? '';
+	return /\.[a-z0-9]{2,8}$/i.test(lastSegment);
 };
 
 export const getRecordCountFromPayload = (payload: unknown): number | null => {
@@ -151,18 +185,23 @@ export const logRequestSummary = ({
 	const now = new Date();
 	const methodLabel = formatMethod(method);
 	const cleanedError = error ? cleanForSingleLine(error) : null;
+	const scopeColor = scope === 'API' ? ANSI.teal : ANSI.violet;
+	const statusLabelColor = statusColor(status);
+	const keyColor = ANSI.orange;
 	const line =
 		`${ANSI.gray}${formatTimestamp(now)}${ANSI.reset} ` +
-		`${ANSI.blue}[${scope}]${ANSI.reset} ` +
-		`${statusColor(status)}${outcome}${ANSI.reset} ` +
-		`${methodColor(method)}${methodLabel}${ANSI.reset} ` +
-		`${ANSI.magenta}${route}${ANSI.reset} ` +
+		`${scopeColor}${ANSI.bold}[${scope}]${ANSI.reset} ` +
+		`${statusLabelColor}${ANSI.bold}${outcome}${ANSI.reset} ` +
+		`${methodColor(method)}${ANSI.bold}${methodLabel}${ANSI.reset} ` +
+		`${ANSI.rose}${route}${ANSI.reset} ` +
 		`${ANSI.dim}|${ANSI.reset} ` +
-		`${ANSI.dim}table${ANSI.reset}=${ANSI.bold}${table}${ANSI.reset} ` +
-		`${ANSI.dim}rows${ANSI.reset}=${ANSI.bold}${rows}${ANSI.reset} ` +
-		`${ANSI.dim}status${ANSI.reset}=${ANSI.bold}${status}${ANSI.reset} ` +
-		`${ANSI.dim}dur${ANSI.reset}=${ANSI.bold}${formatDuration(durationMs)}${ANSI.reset}` +
-		(cleanedError ? ` ${ANSI.dim}err${ANSI.reset}="${cleanedError}"` : '');
+		`${keyColor}table${ANSI.reset}=${ANSI.brightBlue}${ANSI.bold}${table}${ANSI.reset} ` +
+		`${keyColor}rows${ANSI.reset}=${ANSI.lime}${ANSI.bold}${rows}${ANSI.reset} ` +
+		`${keyColor}status${ANSI.reset}=${statusLabelColor}${ANSI.bold}${status}${ANSI.reset} ` +
+		`${keyColor}dur${ANSI.reset}=${ANSI.brightWhite}${ANSI.bold}${formatDuration(durationMs)}${ANSI.reset}` +
+		(cleanedError
+			? ` ${ANSI.brightRed}${ANSI.bold}err${ANSI.reset}="${ANSI.brightYellow}${cleanedError}${ANSI.reset}"`
+			: '');
 
 	if (isSuccessStatus(status)) {
 		console.info(line);

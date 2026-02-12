@@ -1,5 +1,5 @@
 import { DatabaseOperations } from '$lib/database';
-import { ensureDefaultClient, resolveClientId } from '$lib/server/client-context';
+import { requireAuthenticatedClientId } from '$lib/server/client-context';
 import type { Division } from '$lib/database/schema/divisions';
 import type { League } from '$lib/database/schema/leagues';
 import type { Offering } from '$lib/database/schema/offerings';
@@ -44,7 +44,10 @@ function formatSeasonLabel(league: League): string {
 	return 'Unscheduled';
 }
 
-function createDivisionCountByLeague(divisions: Division[], leagueIds: Set<string>): Map<string, number> {
+function createDivisionCountByLeague(
+	divisions: Division[],
+	leagueIds: Set<string>
+): Map<string, number> {
 	const counts = new Map<string, number>();
 	for (const division of divisions) {
 		if (!division.leagueId || !leagueIds.has(division.leagueId)) continue;
@@ -54,7 +57,15 @@ function createDivisionCountByLeague(divisions: Division[], leagueIds: Set<strin
 }
 
 export const load: PageServerLoad = async ({ platform, locals }) => {
+	const setRequestLogMeta = (recordCount: number) => {
+		locals.requestLogMeta = {
+			table: 'offerings,leagues,divisions',
+			recordCount: Math.max(0, recordCount)
+		};
+	};
+
 	if (!platform?.env?.DB) {
+		setRequestLogMeta(0);
 		return {
 			activities: [] as ActivityCard[],
 			error: 'Database not configured'
@@ -62,20 +73,21 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 	}
 
 	const db = new DatabaseOperations(platform);
-	await ensureDefaultClient(db);
-	const clientId = resolveClientId(locals);
+	const clientId = requireAuthenticatedClientId(locals);
 
 	try {
-		const [offerings, leagues, divisions] = await Promise.all([
+		const [offerings, leagues] = await Promise.all([
 			db.offerings.getByClientId(clientId),
-			db.leagues.getByClientId(clientId),
-			db.divisions.getAll()
+			db.leagues.getByClientId(clientId)
 		]);
+		const leagueIds = leagues
+			.map((league) => league.id)
+			.filter((leagueId): leagueId is string => Boolean(leagueId));
+		const divisions = await db.divisions.getByLeagueIds(leagueIds);
+		setRequestLogMeta(offerings.length + leagues.length + divisions.length);
 
-		const leagueIds = new Set(
-			leagues.map((league) => league.id).filter((id): id is string => Boolean(id))
-		);
-		const divisionCountByLeague = createDivisionCountByLeague(divisions, leagueIds);
+		const leagueIdSet = new Set(leagueIds);
+		const divisionCountByLeague = createDivisionCountByLeague(divisions, leagueIdSet);
 		const offeringsById = new Map(
 			offerings
 				.filter((offering): offering is Offering & { id: string } => Boolean(offering.id))
@@ -123,6 +135,7 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 			activities
 		};
 	} catch (error) {
+		setRequestLogMeta(0);
 		console.error('Failed to load intramural offerings page:', error);
 		return {
 			activities: [] as ActivityCard[],

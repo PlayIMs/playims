@@ -10,6 +10,7 @@ export const users = sqliteTable('users', {
 	ssoUserId: text('sso_user_id'),
 	firstName: text('first_name'),
 	lastName: text('last_name'),
+	cellPhone: text('cell_phone'),
 	avatarUrl: text('avatar_url'),
 	createdAt: text('created_at'),
 	updatedAt: text('updated_at'),

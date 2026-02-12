@@ -13,11 +13,11 @@ database_id = "66dc8c86-b1da-4882-b259-f7847ecf5350"
 migrations_dir = "src/lib/database/migrations"
 
 # --- Production ---
-# Used when passing `--env production` (mostly for Workers, but good for reference)
-# Note: For Pages, production bindings are set in the Cloudflare Dashboard > Settings > Functions
+# Temporary setup: production traffic points to the dev database while prod DB is outdated.
+# Revert to playims-central-db-prod once production data/schema is brought up to date.
 [env.production]
 [[env.production.d1_databases]]
 binding = "DB"
-database_name = "playims-central-db-prod"
-database_id = "b20ff0a2-3fac-4645-a45a-bd7de64ec2a3"
+database_name = "playims-central-db-dev"
+database_id = "66dc8c86-b1da-4882-b259-f7847ecf5350"
 migrations_dir = "src/lib/database/migrations"

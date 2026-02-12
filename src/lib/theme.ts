@@ -74,6 +74,7 @@ type Rgb = {
 const MAX_SAVED_THEMES = 15;
 const API_BASE = '/api/themes';
 let currentThemeETag: string | null = null;
+const THEME_API_PROTECTED_PREFIXES = ['/dashboard', '/schedule', '/colors'];
 
 // store the current theme in memory for immediate use
 export const themeColors = writable<ThemeColors>(DEFAULT_THEME);
@@ -156,9 +157,7 @@ function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: n
 function getLuminance(r: number, g: number, b: number): number {
 	const [rs, gs, bs] = [r, g, b].map((val) => {
 		const normalized = val / 255;
-		return normalized <= 0.03928
-			? normalized / 12.92
-			: Math.pow((normalized + 0.055) / 1.055, 2.4);
+		return normalized <= 0.03928 ? normalized / 12.92 : Math.pow((normalized + 0.055) / 1.055, 2.4);
 	});
 	return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
 }
@@ -433,6 +432,16 @@ function mapRecordToSavedTheme(record: ThemeRecord): SavedTheme {
 	};
 }
 
+function canUseThemeApiFromCurrentPath(): boolean {
+	if (typeof window === 'undefined') {
+		return false;
+	}
+	const pathname = window.location.pathname;
+	return THEME_API_PROTECTED_PREFIXES.some(
+		(prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+	);
+}
+
 /** wraps api calls with json parsing and error handling. */
 async function apiRequest<T>(path: string, options?: RequestInit): Promise<T> {
 	if (typeof window === 'undefined') {
@@ -578,7 +587,10 @@ export function resetTheme() {
 }
 
 /** saves the current theme with a name, optionally replacing an existing one. */
-export async function saveCurrentTheme(name: string, replaceIndex?: number): Promise<number | null> {
+export async function saveCurrentTheme(
+	name: string,
+	replaceIndex?: number
+): Promise<number | null> {
 	const currentColors = get(themeColors);
 	const themes = get(savedThemes);
 
@@ -672,17 +684,23 @@ export async function init(
 	applyThemeToDOM(fallbackTheme);
 
 	try {
-		// load saved themes without blocking initial paint
-		void loadSavedThemesFromDatabase()
-			.then((saved) => {
-				savedThemes.set(saved);
-			})
-			.catch((error) => {
-				console.warn('Failed to load saved themes from database:', error);
-			});
+		const canUseThemeApi = canUseThemeApiFromCurrentPath();
+
+		if (canUseThemeApi) {
+			// load saved themes without blocking initial paint
+			void loadSavedThemesFromDatabase()
+				.then((saved) => {
+					savedThemes.set(saved);
+				})
+				.catch((error) => {
+					console.warn('Failed to load saved themes from database:', error);
+				});
+		} else {
+			savedThemes.set([]);
+		}
 
 		const shouldFetchCurrent = options?.fetchCurrent ?? !initialTheme;
-		if (shouldFetchCurrent) {
+		if (canUseThemeApi && shouldFetchCurrent) {
 			const currentResult = await loadCurrentThemeFromDatabase();
 			const currentTheme = currentResult.notModified ? null : currentResult.theme;
 			const resolvedTheme = currentTheme || fallbackTheme;

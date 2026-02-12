@@ -1,0 +1,1 @@
+ALTER TABLE `users` ADD `cell_phone` text;

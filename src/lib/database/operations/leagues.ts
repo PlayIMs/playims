@@ -1,24 +1,10 @@
 // League operations - Drizzle ORM
-import { eq, desc, and } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import type { DrizzleClient } from '../drizzle.js';
 import { leagues, type League } from '../schema/index.js';
 
 export class LeagueOperations {
 	constructor(private db: DrizzleClient) {}
-
-	async getAll(): Promise<League[]> {
-		return await this.db.select().from(leagues).orderBy(desc(leagues.createdAt));
-	}
-
-	async getById(id: string): Promise<League | null> {
-		const result = await this.db.select().from(leagues).where(eq(leagues.id, id));
-		return result[0] || null;
-	}
-
-	async getBySlug(slug: string): Promise<League | null> {
-		const result = await this.db.select().from(leagues).where(eq(leagues.slug, slug));
-		return result[0] || null;
-	}
 
 	async getByClientId(clientId: string): Promise<League[]> {
 		return await this.db
@@ -28,28 +14,14 @@ export class LeagueOperations {
 			.orderBy(desc(leagues.year), desc(leagues.createdAt));
 	}
 
-	async getByOfferingId(offeringId: string): Promise<League[]> {
-		return await this.db
+	async getByClientIdAndSlug(clientId: string, slug: string): Promise<League | null> {
+		const result = await this.db
 			.select()
 			.from(leagues)
-			.where(eq(leagues.offeringId, offeringId))
-			.orderBy(desc(leagues.year));
-	}
+			.where(and(eq(leagues.clientId, clientId), eq(leagues.slug, slug)))
+			.limit(1);
 
-	async getActive(): Promise<League[]> {
-		return await this.db
-			.select()
-			.from(leagues)
-			.where(eq(leagues.isActive, 1))
-			.orderBy(desc(leagues.seasonStartDate));
-	}
-
-	async getByYearAndSeason(year: number, season: string): Promise<League[]> {
-		return await this.db
-			.select()
-			.from(leagues)
-			.where(and(eq(leagues.year, year), eq(leagues.season, season)))
-			.orderBy(desc(leagues.createdAt));
+		return result[0] ?? null;
 	}
 
 	async create(data: {
@@ -57,122 +29,62 @@ export class LeagueOperations {
 		offeringId: string;
 		name: string;
 		slug: string;
-		year?: number;
-		season?: string;
-		description?: string;
-		gender?: string;
-		skillLevel?: string;
-		createdUser?: string;
-		updatedUser?: string;
+		description: string;
+		year: number;
+		season: string;
+		gender: 'mens' | 'womens' | 'corec' | 'unified';
+		skillLevel: 'competitive' | 'intermediate' | 'recreational' | 'all';
+		regStartDate: string;
+		regEndDate: string;
+		seasonStartDate: string;
+		seasonEndDate: string;
+		hasPostseason: number;
+		postseasonStartDate: string | null;
+		postseasonEndDate: string | null;
+		hasPreseason: number;
+		preseasonStartDate: string | null;
+		preseasonEndDate: string | null;
+		isActive: number;
+		isLocked: number;
+		imageUrl: string;
+		createdUser?: string | null;
+		updatedUser?: string | null;
 	}): Promise<League | null> {
 		const now = new Date().toISOString();
-		const id = crypto.randomUUID();
-		const year = data.year || new Date().getFullYear();
 
 		const result = await this.db
 			.insert(leagues)
 			.values({
-				id,
+				id: crypto.randomUUID(),
 				clientId: data.clientId,
 				offeringId: data.offeringId,
 				name: data.name,
 				slug: data.slug,
-				year,
-				season: data.season || null,
-				description: data.description || null,
-				gender: data.gender || null,
-				skillLevel: data.skillLevel || null,
-				isActive: 1,
-				isLocked: 0,
+				description: data.description,
+				year: data.year,
+				season: data.season,
+				gender: data.gender,
+				skillLevel: data.skillLevel,
+				regStartDate: data.regStartDate,
+				regEndDate: data.regEndDate,
+				seasonStartDate: data.seasonStartDate,
+				seasonEndDate: data.seasonEndDate,
+				hasPostseason: data.hasPostseason,
+				postseasonStartDate: data.postseasonStartDate,
+				postseasonEndDate: data.postseasonEndDate,
+				hasPreseason: data.hasPreseason,
+				preseasonStartDate: data.preseasonStartDate,
+				preseasonEndDate: data.preseasonEndDate,
+				isActive: data.isActive,
+				isLocked: data.isLocked,
+				imageUrl: data.imageUrl,
 				createdAt: now,
 				updatedAt: now,
-				createdUser: data.createdUser || null,
-				updatedUser: data.updatedUser || data.createdUser || null
+				createdUser: data.createdUser ?? null,
+				updatedUser: data.updatedUser ?? data.createdUser ?? null
 			})
 			.returning();
 
-		return result[0] || null;
-	}
-
-	async update(
-		id: string,
-		data: Partial<{
-			name: string;
-			slug: string;
-			description: string;
-			year: number;
-			season: string;
-			gender: string;
-			skillLevel: string;
-			regStartDate: string;
-			regEndDate: string;
-			seasonStartDate: string;
-			seasonEndDate: string;
-			isActive: number;
-			isLocked: number;
-			updatedUser: string;
-		}>
-	): Promise<League | null> {
-		const now = new Date().toISOString();
-
-		const result = await this.db
-			.update(leagues)
-			.set({
-				...data,
-				updatedAt: now
-			})
-			.where(eq(leagues.id, id))
-			.returning();
-
-		return result[0] || null;
-	}
-
-	async delete(id: string): Promise<boolean> {
-		const result = await this.db.delete(leagues).where(eq(leagues.id, id)).returning();
-		return result.length > 0;
-	}
-
-	async toggleActive(id: string): Promise<League | null> {
-		const league = await this.getById(id);
-		if (!league) return null;
-
-		const newStatus = league.isActive === 1 ? 0 : 1;
-
-		const result = await this.db
-			.update(leagues)
-			.set({
-				isActive: newStatus,
-				updatedAt: new Date().toISOString()
-			})
-			.where(eq(leagues.id, id))
-			.returning();
-
-		return result[0] || null;
-	}
-
-	async lock(id: string): Promise<League | null> {
-		const result = await this.db
-			.update(leagues)
-			.set({
-				isLocked: 1,
-				updatedAt: new Date().toISOString()
-			})
-			.where(eq(leagues.id, id))
-			.returning();
-
-		return result[0] || null;
-	}
-
-	async unlock(id: string): Promise<League | null> {
-		const result = await this.db
-			.update(leagues)
-			.set({
-				isLocked: 0,
-				updatedAt: new Date().toISOString()
-			})
-			.where(eq(leagues.id, id))
-			.returning();
-
-		return result[0] || null;
+		return result[0] ?? null;
 	}
 }
