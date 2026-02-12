@@ -5,6 +5,7 @@
 	let { data, form } = $props<{
 		data: {
 			next: string;
+			allowLocalDevLogin: boolean;
 		};
 		form?: {
 			error?: string;
@@ -42,15 +43,22 @@
 			<input type="hidden" name="next" autocomplete="off" value={nextValue} />
 
 			<label class="block">
-				<span class="block text-sm font-medium text-secondary-900 mb-1">Email</span>
+				<span class="block text-sm font-medium text-secondary-900 mb-1">
+					{data.allowLocalDevLogin ? 'Email or username' : 'Email'}
+				</span>
 				<input
 					class="input-secondary w-full"
-					type="email"
+					type={data.allowLocalDevLogin ? 'text' : 'email'}
 					name="email"
 					autocomplete="off"
 					bind:value={emailValue}
 					required
 				/>
+				{#if data.allowLocalDevLogin}
+					<p class="mt-1 text-xs text-secondary-700">
+						Localhost shortcut: sign in with <strong>dev</strong> / <strong>dev</strong>.
+					</p>
+				{/if}
 			</label>
 
 			<label class="block">
@@ -83,7 +91,7 @@
 			<button
 				class="button-secondary w-full disabled:opacity-60 disabled:cursor-not-allowed"
 				type="submit"
-				disabled={passwordValue.length < 8}
+				disabled={!data.allowLocalDevLogin && passwordValue.length < 8}
 			>
 				Sign in
 			</button>

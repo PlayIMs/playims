@@ -2,7 +2,9 @@ import { DEFAULT_CLIENT, ensureDefaultClient } from '$lib/server/client-context'
 import type { DatabaseOperations } from '$lib/database';
 import type { RequestEvent } from '@sveltejs/kit';
 import { AUTH_ENV_KEYS, AUTH_PBKDF2_DEFAULT_ITERATIONS } from './constants';
+import { isLocalhostRequest } from './local-dev';
 import { hashPassword, normalizeIterations, verifyPassword } from './password';
+import { DASHBOARD_ALLOWED_ROLES, hasAnyRole } from './rbac';
 import { createSessionForUser } from './session';
 
 /**
@@ -24,6 +26,7 @@ export class AuthServiceError extends Error {
 
 const textEncoder = new TextEncoder();
 const DUMMY_PASSWORD_HASH = `pbkdf2_sha256$${AUTH_PBKDF2_DEFAULT_ITERATIONS}$AAECAwQFBgcICQoLDA0ODw$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA`;
+const LOCAL_DEV_FALLBACK_EMAIL = 'dev@localhost.playims';
 let hasWarnedPasswordPepperFallback = false;
 
 const constantTimeStringEqual = (a: string, b: string): boolean => {
@@ -106,7 +109,10 @@ const throwRegistrationDenied = (): never => {
 	);
 };
 
-const resolveLoginMembership = async (dbOps: DatabaseOperations, user: { id: string; clientId: string | null; role: string | null; status: string | null; }) => {
+const resolveLoginMembership = async (
+	dbOps: DatabaseOperations,
+	user: { id: string; clientId: string | null; role: string | null; status: string | null }
+) => {
 	const legacyClientId = user.clientId?.trim();
 	if (legacyClientId) {
 		await dbOps.userClients.ensureMembership({
@@ -133,6 +139,119 @@ const resolveLoginMembership = async (dbOps: DatabaseOperations, user: { id: str
 		'AUTH_ACCOUNT_UNASSIGNED',
 		'Your account is not assigned to an organization.'
 	);
+};
+
+const pickPreferredLocalDevUserId = (
+	users: Array<{ id?: string | null; role?: string | null; status?: string | null }>
+) => {
+	const activeUsers = users.filter((user) => user.status === 'active' && user.id);
+	const dashboardUser = activeUsers.find((user) => hasAnyRole(user.role, DASHBOARD_ALLOWED_ROLES));
+	if (dashboardUser?.id) {
+		return dashboardUser.id;
+	}
+
+	return activeUsers[0]?.id ?? null;
+};
+
+const resolveLocalDevLoginUser = async (dbOps: DatabaseOperations) => {
+	await ensureDefaultClient(dbOps);
+
+	const defaultClientUsers = await dbOps.users.getByClientId(DEFAULT_CLIENT.id);
+	const preferredUserId = pickPreferredLocalDevUserId(defaultClientUsers ?? []);
+	if (preferredUserId) {
+		const preferredUser = await dbOps.users.getAuthById(preferredUserId);
+		if (preferredUser && preferredUser.status === 'active') {
+			return preferredUser;
+		}
+	}
+
+	let fallbackUser = await dbOps.users.getAuthByEmail(LOCAL_DEV_FALLBACK_EMAIL);
+	if (!fallbackUser) {
+		try {
+			fallbackUser = await dbOps.users.createAuthUser({
+				clientId: DEFAULT_CLIENT.id,
+				email: LOCAL_DEV_FALLBACK_EMAIL,
+				passwordHash: DUMMY_PASSWORD_HASH,
+				role: 'manager',
+				firstName: 'Local',
+				lastName: 'Developer',
+				status: 'active'
+			});
+		} catch {
+			fallbackUser = await dbOps.users.getAuthByEmail(LOCAL_DEV_FALLBACK_EMAIL);
+		}
+	}
+
+	if (!fallbackUser || fallbackUser.status !== 'active') {
+		throw new AuthServiceError(
+			403,
+			'AUTH_ACCOUNT_UNASSIGNED',
+			'Your account is not assigned to an organization.'
+		);
+	}
+
+	await dbOps.userClients.ensureMembership({
+		userId: fallbackUser.id,
+		clientId: DEFAULT_CLIENT.id,
+		role: 'manager',
+		status: 'active',
+		isDefault: true
+	});
+
+	const refreshedFallbackUser = await dbOps.users.getAuthById(fallbackUser.id);
+	if (!refreshedFallbackUser || refreshedFallbackUser.status !== 'active') {
+		throw new AuthServiceError(
+			403,
+			'AUTH_ACCOUNT_UNASSIGNED',
+			'Your account is not assigned to an organization.'
+		);
+	}
+
+	return refreshedFallbackUser;
+};
+
+const isMissingUserClientsTableError = (error: unknown): boolean => {
+	if (!(error instanceof Error)) {
+		return false;
+	}
+
+	return /no such table:\s*user_clients/i.test(error.message);
+};
+
+export const loginWithLocalDevCredentials = async (
+	event: RequestEvent,
+	dbOps: DatabaseOperations
+) => {
+	if (!isLocalhostRequest(event)) {
+		throw new AuthServiceError(401, 'AUTH_INVALID_CREDENTIALS', 'Invalid email or password.');
+	}
+
+	try {
+		const sessionSecret = requireSessionSecret(event);
+		const localDevUser = await resolveLocalDevLoginUser(dbOps);
+		const membership = await resolveLoginMembership(dbOps, localDevUser);
+		const loginMarkedUser = await dbOps.users.markLoginSuccess(localDevUser.id);
+		const userForSession = loginMarkedUser ?? localDevUser;
+
+		return await createSessionForUser(event, dbOps, userForSession, sessionSecret, {
+			activeClientId: membership.clientId,
+			activeRole: membership.role
+		});
+	} catch (error) {
+		if (error instanceof AuthServiceError) {
+			throw error;
+		}
+
+		if (isMissingUserClientsTableError(error)) {
+			throw new AuthServiceError(
+				500,
+				'AUTH_LOCAL_DEV_DB_OUTDATED',
+				'Local auth DB is outdated. Run `pnpm db:migrate:local` and try again.'
+			);
+		}
+
+		throw error;
+	}
 };
 
 /**

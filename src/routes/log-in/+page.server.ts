@@ -1,6 +1,11 @@
 import { DatabaseOperations } from '$lib/database';
 import { DASHBOARD_ALLOWED_ROLES, hasAnyRole } from '$lib/server/auth/rbac';
-import { AuthServiceError, loginWithPassword } from '$lib/server/auth/service';
+import { isLocalDevCredentialPair, isLocalhostHostname } from '$lib/server/auth/local-dev';
+import {
+	AuthServiceError,
+	loginWithLocalDevCredentials,
+	loginWithPassword
+} from '$lib/server/auth/service';
 import { loginSchema } from '$lib/server/auth/validation';
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
@@ -45,7 +50,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	}
 
 	return {
-		next: sanitizeNextPath(url.searchParams.get('next')) ?? '/dashboard'
+		next: sanitizeNextPath(url.searchParams.get('next')) ?? '/dashboard',
+		allowLocalDevLogin: isLocalhostHostname(url.hostname)
 	};
 };
 
@@ -57,9 +63,35 @@ export const actions: Actions = {
 
 		const formData = await event.request.formData();
 		const nextPath = sanitizeNextPath(formData.get('next')?.toString()) ?? '/dashboard';
+		const emailInput = formData.get('email')?.toString() ?? '';
+		const passwordInput = formData.get('password')?.toString() ?? '';
+
+		if (isLocalDevCredentialPair(emailInput, passwordInput)) {
+			try {
+				const dbOps = new DatabaseOperations(event.platform as App.Platform);
+				await loginWithLocalDevCredentials(event, dbOps);
+			} catch (error) {
+				if (error instanceof AuthServiceError) {
+					return fail(error.status, {
+						error: error.clientMessage,
+						next: nextPath,
+						email: emailInput
+					});
+				}
+
+				return fail(500, {
+					error: 'Unable to log in right now.',
+					next: nextPath,
+					email: emailInput
+				});
+			}
+
+			throw redirect(303, nextPath);
+		}
+
 		const parsed = loginSchema.safeParse({
-			email: formData.get('email')?.toString(),
-			password: formData.get('password')?.toString(),
+			email: emailInput,
+			password: passwordInput,
 			next: nextPath
 		});
 
@@ -67,7 +99,7 @@ export const actions: Actions = {
 			return fail(400, {
 				error: getValidationMessage(parsed.error.issues),
 				next: nextPath,
-				email: formData.get('email')?.toString() ?? ''
+				email: emailInput
 			});
 		}
 
