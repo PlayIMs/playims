@@ -136,7 +136,7 @@
 		highlightedLeagueRowId = rowId;
 		highlightTimeout = setTimeout(() => {
 			if (highlightedLeagueRowId === rowId) highlightedLeagueRowId = null;
-		}, 2000);
+		}, 3000);
 	}
 
 	onDestroy(() => {
@@ -1262,34 +1262,20 @@
 </div>
 
 <style>
-	:global(tr.league-row-highlight.bg-neutral-25 > th),
-	:global(tr.league-row-highlight.bg-neutral-25 > td) {
-		animation: league-row-highlight-fade-even 2s ease-out;
+	:global(tr.league-row-highlight > th),
+	:global(tr.league-row-highlight > td) {
+		animation: league-row-highlight-fade 3s linear;
 	}
 
-	:global(tr.league-row-highlight.bg-neutral-05 > th),
-	:global(tr.league-row-highlight.bg-neutral-05 > td) {
-		animation: league-row-highlight-fade-odd 2s ease-out;
-	}
-
-	@keyframes league-row-highlight-fade-even {
+	@keyframes league-row-highlight-fade {
 		0% {
-			background-color: var(--color-neutral-75);
-		}
-		60% {
-			background-color: var(--color-neutral-50);
-		}
-		100% {
 			background-color: transparent;
 		}
-	}
-
-	@keyframes league-row-highlight-fade-odd {
-		0% {
-			background-color: var(--color-neutral-50);
+		4% {
+			background-color: rgb(0 0 0 / 0.2);
 		}
-		60% {
-			background-color: var(--color-neutral-25);
+		37% {
+			background-color: rgb(0 0 0 / 0.2);
 		}
 		100% {
 			background-color: transparent;
