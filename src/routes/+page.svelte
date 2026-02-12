@@ -1,9 +1,5 @@
 <script lang="ts">
-	import type { Client, User } from '$lib/database/schema';
-
 	export let data: {
-		clients: Client[];
-		users: User[];
 		isDevelopment: boolean;
 		environment: string;
 		dbName?: string;
@@ -98,18 +94,18 @@
 					existing solutions. Designed for both administrators and players who deserve better.
 				</p>
 				<div class="flex flex-col sm:flex-row gap-4 justify-center">
-					<button
-						class="button-primary-outlined border-0 bg-white text-primary-950 hover:bg-primary-50 px-8 text-lg"
-						disabled
+					<a
+						href="/log-in"
+						class="button-secondary-outlined bg-neutral-500 text-primary-950 hover:bg-primary-50 px-8 text-lg"
 					>
-						Get Started
-					</button>
-					<button
-						class="button-primary-outlined border-white bg-transparent text-white hover:bg-white hover:text-primary-950 px-8 text-lg"
-						disabled
+						Login
+					</a>
+					<a
+						href="/register"
+						class="button-secondary-outlined bg-neutral-500 text-primary-950 hover:bg-primary-50 px-8 text-lg"
 					>
-						Learn More
-					</button>
+						Register
+					</a>
 				</div>
 			</div>
 		</div>
@@ -287,18 +283,18 @@
 				checklists.
 			</p>
 			<div class="flex flex-col sm:flex-row gap-4 justify-center mb-6">
-				<button
+				<a
+					href="/log-in"
 					class="button-primary-outlined border-0 bg-white text-primary-950 hover:bg-secondary-50 px-8 text-lg"
-					disabled
 				>
-					Get Early Access
-				</button>
-				<button
+					Login
+				</a>
+				<a
+					href="/register"
 					class="button-primary-outlined border-white bg-transparent text-white hover:bg-white hover:text-primary-950 px-8 text-lg"
-					disabled
 				>
-					Contact Sales
-				</button>
+					Register
+				</a>
 			</div>
 			<p class="text-base text-primary-100">Currently in early development.</p>
 		</div>

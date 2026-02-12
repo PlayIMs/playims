@@ -6,6 +6,8 @@
 	"packageManager": "pnpm@10.29.1",
 	"scripts": {
 		"dev": "vite dev --open",
+		"dev:pages": "pnpm build && pnpm exec wrangler pages dev .svelte-kit/cloudflare --port 8788",
+		"catch-up": "node scripts/catch-up.mjs",
 		"updates": "ncu --interactive --format group",
 		"db:generate": "drizzle-kit generate --config=drizzle.config.ts",
 		"db:migrate:local": "wrangler d1 migrations apply playims-central-db-dev --local",
@@ -16,7 +18,8 @@
 		"pwa-assets": "pwa-assets-generator",
 		"build": "vite build",
 		"preview": "vite preview",
-		"check": "svelte-check"
+		"check": "svelte-check",
+		"test:auth": "vitest run tests/auth"
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^4.20260207.0",
@@ -47,6 +50,7 @@
 		"typescript": "^5.9.3",
 		"typescript-eslint": "^8.54.0",
 		"vite": "^7.3.1",
+		"vitest": "2.1.8",
 		"wrangler": "^4.63.0"
 	},
 	"dependencies": {

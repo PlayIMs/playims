@@ -78,6 +78,20 @@
       "when": 1770512151115,
       "tag": "0010_elite_tinkerer",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1770602867044,
+      "tag": "0011_abnormal_shinobi_shaw",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1770781121552,
+      "tag": "0012_furry_hawkeye",
+      "breakpoints": true
     }
   ]
 }

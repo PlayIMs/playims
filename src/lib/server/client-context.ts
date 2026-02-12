@@ -1,11 +1,8 @@
 import type { DatabaseOperations } from '$lib/database';
 
 /**
- * Default "organization" client used for admin/dev testing until auth is implemented.
- *
- * Future-proofing:
- * - Once login is added, `locals.user.clientId` will become the source of truth.
- * - Until then, all admin pages should use this default client (and NEVER show a client selector).
+ * Default organization used for controlled bootstrap flows (for example invite-key signup).
+ * Authenticated routes must use `requireAuthenticatedClientId` instead of default fallback.
  */
 export const DEFAULT_CLIENT = {
 	id: '6eb657af-4ab8-4a13-980a-add993f78d65',
@@ -14,7 +11,26 @@ export const DEFAULT_CLIENT = {
 } as const;
 
 export function resolveClientId(locals: App.Locals): string {
-	return locals.user?.clientId ?? DEFAULT_CLIENT.id;
+	return locals.session?.activeClientId ?? locals.session?.clientId ?? locals.user?.clientId ?? DEFAULT_CLIENT.id;
+}
+
+export function requireAuthenticatedClientId(locals: App.Locals): string {
+	const clientId =
+		locals.session?.activeClientId?.trim() ??
+		locals.session?.clientId?.trim() ??
+		locals.user?.clientId?.trim();
+	if (!clientId) {
+		throw new Error('AUTH_CLIENT_CONTEXT_REQUIRED');
+	}
+	return clientId;
+}
+
+export function requireAuthenticatedUserId(locals: App.Locals): string {
+	const userId = locals.user?.id?.trim();
+	if (!userId) {
+		throw new Error('AUTH_USER_CONTEXT_REQUIRED');
+	}
+	return userId;
 }
 
 /**
@@ -34,9 +50,5 @@ export async function ensureDefaultClient(dbOps: DatabaseOperations) {
 		updatedUser: undefined
 	});
 
-	// If the clients.create implementation ever changes (it currently generates an ID),
-	// we still want the default client to be stable. Fall back to first existing client.
-	// NOTE: Once auth is implemented, this can be removed.
-	return created ?? (await dbOps.clients.getAll())[0] ?? null;
+	return created ?? (await dbOps.clients.getById(DEFAULT_CLIENT.id));
 }
-

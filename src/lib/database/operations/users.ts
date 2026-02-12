@@ -1,7 +1,7 @@
 // User operations - Drizzle ORM
-import { eq, desc, like, count } from 'drizzle-orm';
+import { and, desc, eq, or, sql } from 'drizzle-orm';
 import type { DrizzleClient } from '../drizzle.js';
-import { users, clients, type User, type Client } from '../schema/index.js';
+import { userClients, users, clients, type User, type Client } from '../schema/index.js';
 
 export class UserOperations {
 	constructor(private db: DrizzleClient) {}
@@ -13,45 +13,6 @@ export class UserOperations {
 		};
 	}
 
-	async getAll(): Promise<any[]> {
-		const result = await this.db
-			.select({
-				user: users,
-				client: clients
-			})
-			.from(users)
-			.leftJoin(clients, eq(users.clientId, clients.id))
-			.orderBy(desc(users.createdAt));
-			
-		return result.map(this.mapResult);
-	}
-
-	async getById(id: string): Promise<any | null> {
-		const result = await this.db
-			.select({
-				user: users,
-				client: clients
-			})
-			.from(users)
-			.leftJoin(clients, eq(users.clientId, clients.id))
-			.where(eq(users.id, id));
-			
-		return result[0] ? this.mapResult(result[0]) : null;
-	}
-
-	async getByEmail(email: string): Promise<any | null> {
-		const result = await this.db
-			.select({
-				user: users,
-				client: clients
-			})
-			.from(users)
-			.leftJoin(clients, eq(users.clientId, clients.id))
-			.where(eq(users.email, email));
-			
-		return result[0] ? this.mapResult(result[0]) : null;
-	}
-
 	async getByClientId(clientId: string): Promise<any[]> {
 		const result = await this.db
 			.select({
@@ -60,110 +21,278 @@ export class UserOperations {
 			})
 			.from(users)
 			.leftJoin(clients, eq(users.clientId, clients.id))
-			.where(eq(users.clientId, clientId))
+			.leftJoin(userClients, eq(userClients.userId, users.id))
+			.where(
+				or(
+					eq(users.clientId, clientId),
+					and(eq(userClients.clientId, clientId), eq(userClients.status, 'active'))
+				)
+			)
 			.orderBy(desc(users.createdAt));
-			
+
 		return result.map(this.mapResult);
 	}
 
-	async create(data: {
+	async getAuthByEmail(email: string): Promise<User | null> {
+		const normalizedEmail = email.trim().toLowerCase();
+		const result = await this.db
+			.select()
+			.from(users)
+			.where(sql`lower(trim(${users.email})) = ${normalizedEmail}`)
+			.limit(1);
+		return result[0] ?? null;
+	}
+
+	// Auth lookups should use this helper instead of broad list queries.
+	async getAuthById(userId: string): Promise<User | null> {
+		const result = await this.db.select().from(users).where(eq(users.id, userId)).limit(1);
+		return result[0] ?? null;
+	}
+
+	// Account self-service queries must stay scoped to authenticated tenant + user.
+	async getAuthByIdForClient(userId: string, clientId: string): Promise<User | null> {
+		const result = await this.db
+			.select()
+			.from(users)
+			.where(
+				and(
+					eq(users.id, userId),
+					or(
+						eq(users.clientId, clientId),
+						sql`exists (
+							select 1
+							from ${userClients}
+							where ${userClients.userId} = ${users.id}
+								and ${userClients.clientId} = ${clientId}
+								and ${userClients.status} = 'active'
+						)`
+					)
+				)
+			)
+			.limit(1);
+		return result[0] ?? null;
+	}
+
+	// Creates an auth-ready user row with normalized email and security fields.
+	async createAuthUser(data: {
 		clientId: string;
 		email: string;
-		firstName?: string;
-		lastName?: string;
-		role?: string;
-		createdUser?: string;
-		updatedUser?: string;
+		passwordHash: string;
+		role: 'admin' | 'manager' | 'player';
+		firstName?: string | null;
+		lastName?: string | null;
+		cellPhone?: string | null;
+		status?: string;
+		createdUser?: string | null;
+		updatedUser?: string | null;
 	}): Promise<User | null> {
 		const now = new Date().toISOString();
-		const id = crypto.randomUUID();
-
+		const normalizedEmail = data.email.trim().toLowerCase();
 		const result = await this.db
 			.insert(users)
 			.values({
-				id,
+				id: crypto.randomUUID(),
 				clientId: data.clientId,
-				email: data.email,
-				firstName: data.firstName || null,
-				lastName: data.lastName || null,
-				role: data.role || 'player',
-				status: 'active',
+				email: normalizedEmail,
+				passwordHash: data.passwordHash,
+				role: data.role,
+				firstName: data.firstName ?? null,
+				lastName: data.lastName ?? null,
+				cellPhone: data.cellPhone ?? null,
+				status: data.status ?? 'active',
 				createdAt: now,
 				updatedAt: now,
-				createdUser: data.createdUser || null,
-				updatedUser: data.updatedUser || data.createdUser || null
+				createdUser: data.createdUser ?? null,
+				updatedUser: data.updatedUser ?? data.createdUser ?? null,
+				firstLoginAt: null,
+				lastLoginAt: null,
+				lastActiveAt: null,
+				sessionCount: 0
 			})
 			.returning();
-			
-		return result[0] || null;
+
+		return result[0] ?? null;
 	}
 
-	async update(
-		id: string,
-		data: Partial<{
-			email: string;
-			firstName: string;
-			lastName: string;
-			avatarUrl: string;
-			status: string;
-			role: string;
-			timezone: string;
-			preferences: string;
-			notes: string;
-			updatedUser: string;
-		}>
-	): Promise<User | null> {
+	// Updates login audit metadata after successful authentication.
+	async markLoginSuccess(userId: string): Promise<User | null> {
 		const now = new Date().toISOString();
-		
-		const result = await this.db
-			.update(users)
-			.set({
-				...data,
-				updatedAt: now
-			})
-			.where(eq(users.id, id))
-			.returning();
-			
-		return result[0] || null;
-	}
-
-	async delete(id: string): Promise<boolean> {
-		const result = await this.db.delete(users).where(eq(users.id, id)).returning();
-		return result.length > 0;
-	}
-
-	async updateLastLogin(id: string): Promise<User | null> {
-		const now = new Date().toISOString();
-
 		const result = await this.db
 			.update(users)
 			.set({
 				lastLoginAt: now,
 				lastActiveAt: now,
+				firstLoginAt: sql`coalesce(${users.firstLoginAt}, ${now})`,
+				sessionCount: sql`coalesce(${users.sessionCount}, 0) + 1`,
 				updatedAt: now
 			})
-			.where(eq(users.id, id))
+			.where(and(eq(users.id, userId), eq(users.status, 'active')))
 			.returning();
-			
-		return result[0] || null;
+
+		return result[0] ?? null;
 	}
 
-	async search(searchTerm: string): Promise<any[]> {
+	// Lightweight per-request activity touch for active sessions.
+	async touchLastActive(userId: string): Promise<User | null> {
+		const now = new Date().toISOString();
 		const result = await this.db
-			.select({
-				user: users,
-				client: clients
+			.update(users)
+			.set({
+				lastActiveAt: now,
+				updatedAt: now
 			})
-			.from(users)
-			.leftJoin(clients, eq(users.clientId, clients.id))
-			.where(like(users.email, `%${searchTerm}%`))
-			.orderBy(desc(users.createdAt));
-			
-		return result.map(this.mapResult);
+			.where(and(eq(users.id, userId), eq(users.status, 'active')))
+			.returning();
+
+		return result[0] ?? null;
 	}
 
-	async count(): Promise<number> {
-		const result = await this.db.select({ count: count() }).from(users);
-		return result[0]?.count || 0;
+	async updateSelfProfile(input: {
+		userId: string;
+		clientId: string;
+		firstName: string | null;
+		lastName: string | null;
+		cellPhone: string | null;
+		avatarUrl: string | null;
+		timezone: string | null;
+		updatedUser: string | null;
+	}): Promise<User | null> {
+		const now = new Date().toISOString();
+		const result = await this.db
+			.update(users)
+			.set({
+				firstName: input.firstName,
+				lastName: input.lastName,
+				cellPhone: input.cellPhone,
+				avatarUrl: input.avatarUrl,
+				timezone: input.timezone,
+				updatedAt: now,
+				updatedUser: input.updatedUser
+			})
+			.where(
+				and(
+					eq(users.id, input.userId),
+					or(
+						eq(users.clientId, input.clientId),
+						sql`exists (
+							select 1
+							from ${userClients}
+							where ${userClients.userId} = ${users.id}
+								and ${userClients.clientId} = ${input.clientId}
+								and ${userClients.status} = 'active'
+						)`
+					),
+					eq(users.status, 'active')
+				)
+			)
+			.returning();
+
+		return result[0] ?? null;
+	}
+
+	async updateSelfPreferences(input: {
+		userId: string;
+		clientId: string;
+		preferences: string | null;
+		notes: string | null;
+		updatedUser: string | null;
+	}): Promise<User | null> {
+		const now = new Date().toISOString();
+		const result = await this.db
+			.update(users)
+			.set({
+				preferences: input.preferences,
+				notes: input.notes,
+				updatedAt: now,
+				updatedUser: input.updatedUser
+			})
+			.where(
+				and(
+					eq(users.id, input.userId),
+					or(
+						eq(users.clientId, input.clientId),
+						sql`exists (
+							select 1
+							from ${userClients}
+							where ${userClients.userId} = ${users.id}
+								and ${userClients.clientId} = ${input.clientId}
+								and ${userClients.status} = 'active'
+						)`
+					),
+					eq(users.status, 'active')
+				)
+			)
+			.returning();
+
+		return result[0] ?? null;
+	}
+
+	async updateSelfPasswordHash(input: {
+		userId: string;
+		clientId: string;
+		passwordHash: string;
+		updatedUser: string | null;
+	}): Promise<User | null> {
+		const now = new Date().toISOString();
+		const result = await this.db
+			.update(users)
+			.set({
+				passwordHash: input.passwordHash,
+				updatedAt: now,
+				updatedUser: input.updatedUser
+			})
+			.where(
+				and(
+					eq(users.id, input.userId),
+					or(
+						eq(users.clientId, input.clientId),
+						sql`exists (
+							select 1
+							from ${userClients}
+							where ${userClients.userId} = ${users.id}
+								and ${userClients.clientId} = ${input.clientId}
+								and ${userClients.status} = 'active'
+						)`
+					),
+					eq(users.status, 'active')
+				)
+			)
+			.returning();
+
+		return result[0] ?? null;
+	}
+
+	async archiveSelf(input: {
+		userId: string;
+		clientId: string;
+		updatedUser: string | null;
+	}): Promise<User | null> {
+		const now = new Date().toISOString();
+		const result = await this.db
+			.update(users)
+			.set({
+				status: 'archived',
+				updatedAt: now,
+				updatedUser: input.updatedUser
+			})
+			.where(
+				and(
+					eq(users.id, input.userId),
+					or(
+						eq(users.clientId, input.clientId),
+						sql`exists (
+							select 1
+							from ${userClients}
+							where ${userClients.userId} = ${users.id}
+								and ${userClients.clientId} = ${input.clientId}
+								and ${userClients.status} = 'active'
+						)`
+					),
+					eq(users.status, 'active')
+				)
+			)
+			.returning();
+
+		return result[0] ?? null;
 	}
 }

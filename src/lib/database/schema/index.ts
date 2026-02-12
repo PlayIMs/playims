@@ -17,3 +17,5 @@ export * from './announcements';
 export * from './notifications';
 export * from './audit-logs';
 export * from './themes';
+export * from './sessions';
+export * from './user-clients';

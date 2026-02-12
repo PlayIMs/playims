@@ -1,25 +1,13 @@
 import { json } from '@sveltejs/kit';
 import { DatabaseOperations } from '$lib/database';
-import { ensureDefaultClient, resolveClientId } from '$lib/server/client-context';
+import {
+	requireAuthenticatedClientId,
+	requireAuthenticatedUserId
+} from '$lib/server/client-context';
+import { createSavedThemeSchema } from '$lib/server/theme-validation';
 import type { RequestHandler } from './$types';
 
 const MAX_SAVED_THEMES = 15;
-
-const normalizeHex = (hex: string) => hex.replace('#', '').toUpperCase();
-
-const getColorsFromBody = (body: Record<string, unknown>) => {
-	const colors = (body.colors as Record<string, string>) || body;
-	const primary = typeof colors.primary === 'string' ? normalizeHex(colors.primary) : null;
-	const secondary = typeof colors.secondary === 'string' ? normalizeHex(colors.secondary) : null;
-	const accent = typeof colors.accent === 'string' ? normalizeHex(colors.accent) : null;
-	const neutral = typeof colors.neutral === 'string' ? normalizeHex(colors.neutral) : '';
-
-	if (!primary || !secondary || !accent) {
-		return null;
-	}
-
-	return { primary, secondary, neutral, accent };
-};
 
 const slugify = (value: string) =>
 	value
@@ -31,11 +19,10 @@ const slugify = (value: string) =>
 export const GET: RequestHandler = async ({ platform, locals }) => {
 	try {
 		const dbOps = new DatabaseOperations(platform as App.Platform);
-		await ensureDefaultClient(dbOps);
-		const clientId = resolveClientId(locals);
+		const clientId = requireAuthenticatedClientId(locals);
 		const themes = await dbOps.themes.getSaved(clientId);
 		return json({ success: true, data: themes });
-	} catch (error) {
+	} catch {
 		return json({ success: false, error: 'Failed to load themes' }, { status: 500 });
 	}
 };
@@ -43,25 +30,26 @@ export const GET: RequestHandler = async ({ platform, locals }) => {
 export const POST: RequestHandler = async ({ request, platform, locals }) => {
 	try {
 		const dbOps = new DatabaseOperations(platform as App.Platform);
-		await ensureDefaultClient(dbOps);
-		const clientId = resolveClientId(locals);
-		const userId = locals.user?.id;
-		const body = (await request.json()) as Record<string, unknown>;
-		const name = typeof body.name === 'string' ? body.name.trim() : '';
-
-		if (!name) {
-			return json({ success: false, error: 'Theme name is required' }, { status: 400 });
+		const clientId = requireAuthenticatedClientId(locals);
+		const userId = requireAuthenticatedUserId(locals);
+		let body: unknown;
+		try {
+			body = (await request.json()) as unknown;
+		} catch {
+			return json({ success: false, error: 'Invalid request payload' }, { status: 400 });
 		}
-
-		const colors = getColorsFromBody(body);
-		if (!colors) {
-			return json({ success: false, error: 'Theme colors are required' }, { status: 400 });
+		const parsed = createSavedThemeSchema.safeParse(body);
+		if (!parsed.success) {
+			return json({ success: false, error: 'Invalid request payload' }, { status: 400 });
 		}
 
 		const total = await dbOps.themes.countSaved(clientId);
 		if (total >= MAX_SAVED_THEMES) {
 			return json({ success: false, error: 'MAX_THEMES' }, { status: 409 });
 		}
+
+		const name = parsed.data.name;
+		const colors = parsed.data.colors;
 
 		let baseSlug = slugify(name);
 		if (!baseSlug) {
@@ -91,7 +79,7 @@ export const POST: RequestHandler = async ({ request, platform, locals }) => {
 		});
 
 		return json({ success: true, data: theme });
-	} catch (error) {
+	} catch {
 		return json({ success: false, error: 'Failed to save theme' }, { status: 500 });
 	}
 };

@@ -6,16 +6,12 @@ import { facilities, type Facility } from '../schema/index.js';
 export class FacilityOperations {
 	constructor(private db: DrizzleClient) {}
 
-	async getAll(clientId?: string): Promise<Facility[]> {
-		if (clientId) {
-			return await this.db
-				.select()
-				.from(facilities)
-				.where(eq(facilities.clientId, clientId))
-				.orderBy(desc(facilities.createdAt));
-		}
-
-		return await this.db.select().from(facilities).orderBy(desc(facilities.createdAt));
+	async getAll(clientId: string): Promise<Facility[]> {
+		return await this.db
+			.select()
+			.from(facilities)
+			.where(eq(facilities.clientId, clientId))
+			.orderBy(desc(facilities.createdAt));
 	}
 
 	async getById(id: string): Promise<Facility | null> {
@@ -24,7 +20,7 @@ export class FacilityOperations {
 	}
 
 	async create(data: {
-		clientId?: string;
+		clientId: string;
 		name: string;
 		slug: string;
 		addressLine1?: string;
@@ -46,7 +42,7 @@ export class FacilityOperations {
 			.insert(facilities)
 			.values({
 				id: crypto.randomUUID(),
-				clientId: data.clientId || null,
+				clientId: data.clientId,
 				name: data.name,
 				slug: data.slug,
 				addressLine1: data.addressLine1 || null,

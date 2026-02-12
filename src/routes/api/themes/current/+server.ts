@@ -1,6 +1,10 @@
 import { json } from '@sveltejs/kit';
 import { DatabaseOperations } from '$lib/database';
-import { ensureDefaultClient, resolveClientId } from '$lib/server/client-context';
+import {
+	requireAuthenticatedClientId,
+	requireAuthenticatedUserId
+} from '$lib/server/client-context';
+import { updateCurrentThemeSchema } from '$lib/server/theme-validation';
 import type { RequestHandler } from './$types';
 
 const buildEtag = (
@@ -29,27 +33,10 @@ const buildEtag = (
 	return `W/"${parts.join('|')}"`;
 };
 
-const normalizeHex = (hex: string) => hex.replace('#', '').toUpperCase();
-
-const getColorsFromBody = (body: Record<string, unknown>) => {
-	const colors = (body.colors as Record<string, string>) || body;
-	const primary = typeof colors.primary === 'string' ? normalizeHex(colors.primary) : null;
-	const secondary = typeof colors.secondary === 'string' ? normalizeHex(colors.secondary) : null;
-	const accent = typeof colors.accent === 'string' ? normalizeHex(colors.accent) : null;
-	const neutral = typeof colors.neutral === 'string' ? normalizeHex(colors.neutral) : '';
-
-	if (!primary || !secondary || !accent) {
-		return null;
-	}
-
-	return { primary, secondary, neutral, accent };
-};
-
 export const GET: RequestHandler = async ({ platform, locals, request }) => {
 	try {
 		const dbOps = new DatabaseOperations(platform as App.Platform);
-		await ensureDefaultClient(dbOps);
-		const clientId = resolveClientId(locals);
+		const clientId = requireAuthenticatedClientId(locals);
 		const theme = await dbOps.themes.getBySlug(clientId, 'current');
 
 		const etag = buildEtag(theme);
@@ -59,7 +46,7 @@ export const GET: RequestHandler = async ({ platform, locals, request }) => {
 				status: 304,
 				headers: {
 					ETag: etag,
-					'Cache-Control': 'no-cache'
+					'Cache-Control': 'no-store'
 				}
 			});
 		}
@@ -69,11 +56,11 @@ export const GET: RequestHandler = async ({ platform, locals, request }) => {
 			{
 				headers: {
 					ETag: etag,
-					'Cache-Control': 'no-cache'
+					'Cache-Control': 'no-store'
 				}
 			}
 		);
-	} catch (error) {
+	} catch {
 		return json({ success: false, error: 'Failed to load current theme' }, { status: 500 });
 	}
 };
@@ -81,15 +68,19 @@ export const GET: RequestHandler = async ({ platform, locals, request }) => {
 export const PUT: RequestHandler = async ({ request, platform, locals }) => {
 	try {
 		const dbOps = new DatabaseOperations(platform as App.Platform);
-		await ensureDefaultClient(dbOps);
-		const clientId = resolveClientId(locals);
-		const userId = locals.user?.id;
-		const body = (await request.json()) as Record<string, unknown>;
-		const colors = getColorsFromBody(body);
-
-		if (!colors) {
-			return json({ success: false, error: 'Theme colors are required' }, { status: 400 });
+		const clientId = requireAuthenticatedClientId(locals);
+		const userId = requireAuthenticatedUserId(locals);
+		let body: unknown;
+		try {
+			body = (await request.json()) as unknown;
+		} catch {
+			return json({ success: false, error: 'Invalid request payload' }, { status: 400 });
 		}
+		const parsed = updateCurrentThemeSchema.safeParse(body);
+		if (!parsed.success) {
+			return json({ success: false, error: 'Invalid request payload' }, { status: 400 });
+		}
+		const colors = parsed.data.colors;
 
 		const theme = await dbOps.themes.upsertCurrent({
 			clientId,
@@ -110,7 +101,7 @@ export const PUT: RequestHandler = async ({ request, platform, locals }) => {
 				}
 			}
 		);
-	} catch (error) {
+	} catch {
 		return json({ success: false, error: 'Failed to update current theme' }, { status: 500 });
 	}
 };

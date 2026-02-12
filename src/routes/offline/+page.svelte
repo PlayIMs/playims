@@ -1,6 +1,4 @@
 <script lang="ts">
-	export const prerender = true;
-
 	import ErrorView from '$lib/components/ErrorView.svelte';
 
 	const statusText = 'OFFLINE';

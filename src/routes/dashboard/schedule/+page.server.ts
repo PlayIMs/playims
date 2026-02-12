@@ -1,5 +1,5 @@
 import { DatabaseOperations } from '$lib/database';
-import { ensureDefaultClient, resolveClientId } from '$lib/server/client-context';
+import { requireAuthenticatedClientId } from '$lib/server/client-context';
 import type { Event } from '$lib/database/schema/events';
 import type { Facility } from '$lib/database/schema/facilities';
 import type { FacilityArea } from '$lib/database/schema/facility-areas';
@@ -189,31 +189,24 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 	}
 
 	const db = new DatabaseOperations(platform);
-	await ensureDefaultClient(db);
-	const clientId = resolveClientId(locals);
+	const clientId = requireAuthenticatedClientId(locals);
 
 	try {
-		const [events, teams, offerings, leagues, divisions, facilities, facilityAreas] =
-			await Promise.all([
-				db.events.getAll(clientId),
-				db.teams.getAll(),
-				db.offerings.getByClientId(clientId),
-				db.leagues.getByClientId(clientId),
-				db.divisions.getAll(),
-				db.facilities.getAll(clientId),
-				db.facilityAreas.getAll(clientId)
-			]);
+		const [events, teams, offerings, leagues, facilities, facilityAreas] = await Promise.all([
+			db.events.getByClientId(clientId),
+			db.teams.getByClientId(clientId),
+			db.offerings.getByClientId(clientId),
+			db.leagues.getByClientId(clientId),
+			db.facilities.getAll(clientId),
+			db.facilityAreas.getAll(clientId)
+		]);
 
-		const clientTeams = teams.filter((team) => team.clientId === clientId);
-		const clientDivisionIds = new Set(clientTeams.map((team) => team.divisionId));
-		const clientDivisions = divisions.filter((division) => {
-			if (!division.id) return false;
-			if (division.leagueId && leagues.some((league) => league.id === division.leagueId))
-				return true;
-			return clientDivisionIds.has(division.id);
-		});
+		const leagueIds = leagues
+			.map((league) => league.id)
+			.filter((leagueId): leagueId is string => Boolean(leagueId));
+		const divisions = await db.divisions.getByLeagueIds(leagueIds);
 
-		const teamsById = mapById(clientTeams);
+		const teamsById = mapById(teams);
 		const offeringsById = mapById(
 			offerings.filter((offering): offering is Offering & { id: string } => Boolean(offering.id))
 		);
@@ -221,9 +214,7 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 			leagues.filter((league): league is League & { id: string } => Boolean(league.id))
 		);
 		const divisionsById = mapById(
-			clientDivisions.filter((division): division is Division & { id: string } =>
-				Boolean(division.id)
-			)
+			divisions.filter((division): division is Division & { id: string } => Boolean(division.id))
 		);
 		const facilitiesById = mapById(
 			facilities.filter((facility): facility is Facility & { id: string } => Boolean(facility.id))
