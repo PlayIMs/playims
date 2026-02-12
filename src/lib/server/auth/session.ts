@@ -4,6 +4,7 @@ import type { User } from '$lib/database/schema/users';
 import type { RequestEvent } from '@sveltejs/kit';
 import {
 	AUTH_PASSWORD_PROVIDER,
+	AUTH_SESSION_ABSOLUTE_TTL_MS,
 	AUTH_SESSION_COOKIE_NAME,
 	AUTH_SESSION_RENEW_WINDOW_MS,
 	AUTH_SESSION_TTL_MS,
@@ -41,6 +42,15 @@ const toHex = (bytes: Uint8Array): string =>
 		.join('');
 
 const toIsoWithOffset = (offsetMs: number) => new Date(Date.now() + offsetMs).toISOString();
+
+const toAbsoluteSessionExpiryMs = (createdAt: string) => {
+	const createdAtMs = Date.parse(createdAt);
+	if (!Number.isFinite(createdAtMs)) {
+		return null;
+	}
+
+	return createdAtMs + AUTH_SESSION_ABSOLUTE_TTL_MS;
+};
 
 const resolveCookieSecure = (event: RequestEvent) => {
 	if (dev) {
@@ -204,19 +214,27 @@ export const resolveSessionFromRequest = async (
 		return null;
 	}
 
-	const expiresAtMs = Date.parse(found.session.expiresAt);
-	if (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) {
+	const nowMs = Date.now();
+	const absoluteExpiryMs = toAbsoluteSessionExpiryMs(found.session.createdAt);
+	if (absoluteExpiryMs === null || absoluteExpiryMs <= nowMs) {
 		await dbOps.sessions.revokeById(found.session.id);
 		clearSessionCookie(event);
 		return null;
 	}
 
-	const nowMs = Date.now();
+	const expiresAtMs = Date.parse(found.session.expiresAt);
+	if (!Number.isFinite(expiresAtMs) || expiresAtMs <= nowMs) {
+		await dbOps.sessions.revokeById(found.session.id);
+		clearSessionCookie(event);
+		return null;
+	}
+
 	const shouldExtend = expiresAtMs - nowMs <= AUTH_SESSION_RENEW_WINDOW_MS;
 	let effectiveExpiresAt = found.session.expiresAt;
 
 	if (shouldExtend) {
-		const nextExpiresAt = toIsoWithOffset(AUTH_SESSION_TTL_MS);
+		const nextExpiresAtMs = Math.min(nowMs + AUTH_SESSION_TTL_MS, absoluteExpiryMs);
+		const nextExpiresAt = new Date(nextExpiresAtMs).toISOString();
 		const extended = await dbOps.sessions.extend(found.session.id, {
 			expiresAt: nextExpiresAt,
 			lastSeenAt: new Date(nowMs).toISOString()

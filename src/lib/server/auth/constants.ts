@@ -10,6 +10,9 @@ export const AUTH_SESSION_TTL_SECONDS = AUTH_SESSION_TTL_HOURS * 60 * 60;
 export const AUTH_SESSION_TTL_MS = AUTH_SESSION_TTL_SECONDS * 1000;
 // Session is renewed when less than 6h remain (sliding session window).
 export const AUTH_SESSION_RENEW_WINDOW_MS = 6 * 60 * 60 * 1000;
+// Absolute cap from initial session creation; sessions cannot outlive this.
+export const AUTH_SESSION_ABSOLUTE_TTL_DAYS = 14;
+export const AUTH_SESSION_ABSOLUTE_TTL_MS = AUTH_SESSION_ABSOLUTE_TTL_DAYS * 24 * 60 * 60 * 1000;
 export const AUTH_PASSWORD_PROVIDER = 'password';
 
 // PBKDF2 defaults for password hashing in Cloudflare-compatible runtime.
