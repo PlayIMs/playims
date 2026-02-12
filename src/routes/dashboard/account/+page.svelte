@@ -625,7 +625,7 @@
 			<div class="space-y-6">
 				<section class="border-2 border-secondary-300 bg-neutral">
 					<div
-						class="p-4 border-b border-secondary-300 bg-secondary-100 flex items-center justify-between gap-4"
+						class="p-4 border-b border-secondary-300 bg-neutral-600/66 flex items-center justify-between gap-4"
 					>
 						<div class="flex items-center gap-3">
 							<div class="bg-secondary text-white p-2">
@@ -659,7 +659,12 @@
 							</p>
 						{/if}
 
-						<form method="POST" action="?/updateProfile" class="space-y-4" use:enhance={enhanceNoJump}>
+						<form
+							method="POST"
+							action="?/updateProfile"
+							class="space-y-4"
+							use:enhance={enhanceNoJump}
+						>
 							<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 								<label class="block">
 									<span
@@ -693,7 +698,9 @@
 
 							<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
 								<label class="block">
-									<span class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1">
+									<span
+										class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1"
+									>
 										Email (locked)
 									</span>
 									<div class="relative flex-1">
@@ -714,7 +721,8 @@
 								</label>
 
 								<label class="block">
-									<span class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1"
+									<span
+										class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1"
 										>Cell phone</span
 									>
 									<div class="flex">
@@ -728,9 +736,9 @@
 											{/each}
 										</select>
 										<input
-											class={`input-secondary border-l-0 flex-1 ${showCellPhoneError
-												? 'border-red-600 focus:border-red-700'
-												: ''}`}
+											class={`input-secondary border-l-0 flex-1 ${
+												showCellPhoneError ? 'border-red-600 focus:border-red-700' : ''
+											}`}
 											type="tel"
 											name="cellPhone"
 											placeholder="(555) 555-5555"
@@ -817,7 +825,7 @@
 				</section>
 
 				<section class="border-2 border-secondary-300 bg-neutral">
-					<div class="p-4 border-b border-secondary-300 bg-secondary-100">
+					<div class="p-4 border-b border-secondary-300 bg-neutral-600/66">
 						<h2 class="text-xl font-bold font-serif text-neutral-950">Preferences and Notes</h2>
 						<p class="text-xs text-neutral-950 mt-1">
 							Capture personal defaults, reminders, and private account context.
@@ -838,7 +846,12 @@
 							</p>
 						{/if}
 
-						<form method="POST" action="?/updateDetails" class="space-y-4" use:enhance={enhanceNoJump}>
+						<form
+							method="POST"
+							action="?/updateDetails"
+							class="space-y-4"
+							use:enhance={enhanceNoJump}
+						>
 							<label class="block">
 								<span class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1">
 									Preferences
@@ -883,7 +896,7 @@
 				</section>
 
 				<section class="border-2 border-secondary-300 bg-neutral">
-					<div class="p-4 border-b border-secondary-300 bg-secondary-100">
+					<div class="p-4 border-b border-secondary-300 bg-neutral-600/66">
 						<h2 class="text-xl font-bold font-serif text-neutral-950">Password and Access</h2>
 						<p class="text-xs text-neutral-950 mt-1">
 							Changing your password signs out your other active sessions for safety.
@@ -904,7 +917,12 @@
 							</p>
 						{/if}
 
-						<form method="POST" action="?/changePassword" class="space-y-4" use:enhance={enhanceNoJump}>
+						<form
+							method="POST"
+							action="?/changePassword"
+							class="space-y-4"
+							use:enhance={enhanceNoJump}
+						>
 							<label class="block">
 								<span class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1">
 									Current password
@@ -1036,27 +1054,32 @@
 					</div>
 				</section>
 
-				<section class="border-2 border-accent-500 bg-accent-100">
-					<div class="p-4 border-b border-accent-500 bg-accent-200">
-						<h2 class="text-xl font-bold font-serif text-accent-900">Danger Zone</h2>
-						<p class="text-xs text-accent-900 mt-1">
+				<section class="border-2 border-error-500 bg-error-100">
+					<div class="p-4 border-b border-accent-500 bg-error-500">
+						<h2 class="text-xl font-bold font-serif text-error-950">Danger Zone</h2>
+						<p class="text-xs text-error-950 mt-1">
 							Archive account keeps your row in the database and immediately revokes all sessions.
 						</p>
 					</div>
 					<div class="p-4 space-y-4">
 						{#if actionName === 'archiveAccount' && actionError}
-							<p class="text-sm border border-accent-700 bg-accent-200 text-accent-950 px-3 py-2">
+							<p class="text-sm border border-error-700 bg-error-200 text-error-950 px-3 py-2">
 								{actionError}
 							</p>
 						{/if}
 
-						<form method="POST" action="?/archiveAccount" class="space-y-4" use:enhance={enhanceNoJump}>
+						<form
+							method="POST"
+							action="?/archiveAccount"
+							class="space-y-4"
+							use:enhance={enhanceNoJump}
+						>
 							<label class="block">
-								<span class="block text-xs uppercase tracking-wide text-accent-900 font-bold mb-1">
+								<span class="block text-xs uppercase tracking-wide text-error-950 font-bold mb-1">
 									Type ARCHIVE
 								</span>
 								<input
-									class="input-accent"
+									class="input-error"
 									type="text"
 									name="confirmation"
 									autocomplete="off"
@@ -1066,12 +1089,12 @@
 							</label>
 
 							<label class="block">
-								<span class="block text-xs uppercase tracking-wide text-accent-900 font-bold mb-1">
+								<span class="block text-xs uppercase tracking-wide text-error-950 font-bold mb-1">
 									Current password
 								</span>
 								<div class="relative">
 									<input
-										class="input-accent pr-10"
+										class="input-error pr-10"
 										type={showArchivePassword ? 'text' : 'password'}
 										name="currentPassword"
 										autocomplete="off"
@@ -1080,7 +1103,7 @@
 									/>
 									<button
 										type="button"
-										class="absolute right-3 top-1/2 -translate-y-1/2 text-accent-900 hover:text-accent-950 cursor-pointer"
+										class="absolute right-3 top-1/2 -translate-y-1/2 text-error-950 hover:text-error-950 cursor-pointer"
 										aria-label={showArchivePassword
 											? 'Hide archive password'
 											: 'Show archive password'}
@@ -1097,14 +1120,14 @@
 								</div>
 							</label>
 
-							<div class="border border-accent-500 bg-white px-3 py-2 text-xs text-accent-900">
+							<div class="border border-error-500 bg-white px-3 py-2 text-xs text-error-950">
 								Archiving deactivates this account but preserves historical data in the database.
 							</div>
 
 							<div class="flex justify-end">
 								<button
 									type="submit"
-									class="button-accent px-4 py-2 text-xs font-bold uppercase tracking-wide disabled:opacity-50 disabled:cursor-not-allowed"
+									class="button-error px-4 py-2 text-xs font-bold uppercase tracking-wide disabled:opacity-50 disabled:cursor-not-allowed"
 									disabled={!archiveCanSubmit}
 								>
 									Archive Account
@@ -1117,7 +1140,7 @@
 
 			<aside class="space-y-6">
 				<section class="border-2 border-secondary-300 bg-neutral">
-					<div class="p-4 border-b border-secondary-300 bg-secondary-100">
+					<div class="p-4 border-b border-secondary-300 bg-neutral-600/66">
 						<h2 class="text-xl font-bold font-serif text-neutral-950">Account Snapshot</h2>
 					</div>
 					<div class="p-4 space-y-3 text-sm">
@@ -1204,7 +1227,7 @@
 				</section>
 
 				<section class="border-2 border-secondary-300 bg-neutral">
-					<div class="p-4 border-b border-secondary-300 bg-secondary-100">
+					<div class="p-4 border-b border-secondary-300 bg-neutral-600/66">
 						<h2 class="text-xl font-bold font-serif text-neutral-950">Session Controls</h2>
 					</div>
 					<div class="p-4 space-y-3">
@@ -1237,7 +1260,7 @@
 				</section>
 
 				<section class="border-2 border-secondary-300 bg-neutral">
-					<div class="p-4 border-b border-secondary-300 bg-secondary-100">
+					<div class="p-4 border-b border-secondary-300 bg-neutral-600/66">
 						<h2 class="text-xl font-bold font-serif text-neutral-950">Activity Highlights</h2>
 					</div>
 					<div class="p-4 space-y-2 text-sm">

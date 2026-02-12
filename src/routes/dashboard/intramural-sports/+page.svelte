@@ -112,7 +112,9 @@
 
 		if (
 			!rowElement &&
-			concludedOfferings.some((offering) => offering.leagues.some((league) => league.id === leagueId))
+			concludedOfferings.some((offering) =>
+				offering.leagues.some((league) => league.id === leagueId)
+			)
 		) {
 			showConcludedSeasons = true;
 			await tick();
@@ -459,7 +461,9 @@
 			if (!bucket) continue;
 
 			const offeringName = activity.offeringName?.trim() || 'General Recreation';
-			const offeringKey = splitByOfferingType ? `${offeringName}::${activity.offeringType}` : offeringName;
+			const offeringKey = splitByOfferingType
+				? `${offeringName}::${activity.offeringType}`
+				: offeringName;
 			if (!bucket.offerings.has(offeringKey)) {
 				bucket.offerings.set(offeringKey, {
 					offeringName,
@@ -528,7 +532,10 @@
 					.sort(sortOfferingsByName);
 
 				const openCount = offerings.reduce((sum, offering) => sum + offering.openCount, 0);
-				const waitlistedCount = offerings.reduce((sum, offering) => sum + offering.waitlistedCount, 0);
+				const waitlistedCount = offerings.reduce(
+					(sum, offering) => sum + offering.waitlistedCount,
+					0
+				);
 				const closedCount = offerings.reduce((sum, offering) => sum + offering.closedCount, 0);
 				const totalLeagues = offerings.reduce((sum, offering) => sum + offering.leagues.length, 0);
 				const totalDivisions = offerings.reduce((sum, offering) => sum + offering.divisionCount, 0);
@@ -806,7 +813,7 @@
 	{:else}
 		<div class="grid grid-cols-1 xl:grid-cols-[1.6fr_0.7fr] gap-6">
 			<section class="border-2 border-secondary-300 bg-neutral">
-				<div class="p-4 border-b border-secondary-300 bg-neutral-500 space-y-3">
+				<div class="p-4 border-b border-secondary-300 bg-neutral-600/66 space-y-3">
 					<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
 						<div class="flex items-center gap-2">
 							<h2 class="text-2xl font-bold font-serif text-neutral-950">
@@ -1173,7 +1180,9 @@
 
 			<aside class="space-y-6">
 				<section class="border-2 border-secondary-300 bg-neutral">
-					<div class="p-4 border-b border-secondary-300 flex items-center justify-between">
+					<div
+						class="p-4 border-b border-secondary-300 bg-neutral-600/66 flex items-center justify-between"
+					>
 						<h2 class="text-xl font-bold font-serif text-neutral-950">Upcoming Deadlines</h2>
 						<IconCalendar class="w-5 h-5 text-secondary-700" />
 					</div>
@@ -1208,7 +1217,7 @@
 				</section>
 
 				<section class="border-2 border-secondary-300 bg-neutral">
-					<div class="p-4 border-b border-secondary-300">
+					<div class="p-4 border-b border-secondary-300 bg-neutral-600/66">
 						<h2 class="text-xl font-bold font-serif text-neutral-950">Semester Snapshot</h2>
 					</div>
 					<div class="p-4 grid grid-cols-3 gap-2">
@@ -1282,5 +1291,3 @@
 		}
 	}
 </style>
-
-
