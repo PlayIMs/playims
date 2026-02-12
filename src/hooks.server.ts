@@ -64,7 +64,11 @@ const API_ROUTE_POLICIES: ApiRoutePolicy[] = [
 		pattern: /^\/api\/themes\/current$/,
 		policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES }
 	},
-	{ pattern: /^\/api\/themes\/[^/]+$/, policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES } }
+	{ pattern: /^\/api\/themes\/[^/]+$/, policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES } },
+	{
+		pattern: /^\/api\/intramural-sports\/offerings$/,
+		policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES }
+	}
 ];
 
 const LOGIN_RATE_LIMIT: RateLimitConfig = {
@@ -90,6 +94,11 @@ const THEMES_RATE_LIMIT: RateLimitConfig = {
 const AUTH_READ_RATE_LIMIT: RateLimitConfig = {
 	windowMs: 60_000,
 	maxRequests: 120
+};
+
+const INTRAMURAL_OFFERINGS_RATE_LIMIT: RateLimitConfig = {
+	windowMs: 60_000,
+	maxRequests: 60
 };
 
 // In-memory limiter is intentionally simple for this phase/local scale.
@@ -124,6 +133,10 @@ const resolveRateLimitConfig = (pathname: string): RateLimitConfig | null => {
 
 	if (pathname === '/api/themes' || pathname.startsWith('/api/themes/')) {
 		return THEMES_RATE_LIMIT;
+	}
+
+	if (pathname === '/api/intramural-sports/offerings') {
+		return INTRAMURAL_OFFERINGS_RATE_LIMIT;
 	}
 
 	if (
