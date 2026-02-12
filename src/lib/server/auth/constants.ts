@@ -24,5 +24,6 @@ export const AUTH_PBKDF2_DEFAULT_ITERATIONS = 210_000;
 export const AUTH_ENV_KEYS = {
 	sessionSecret: 'AUTH_SESSION_SECRET',
 	signupInviteKey: 'AUTH_SIGNUP_INVITE_KEY',
-	passwordIterations: 'AUTH_PASSWORD_PBKDF2_ITERATIONS'
+	passwordIterations: 'AUTH_PASSWORD_PBKDF2_ITERATIONS',
+	passwordPepper: 'AUTH_PASSWORD_PEPPER'
 } as const;

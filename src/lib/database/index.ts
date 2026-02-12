@@ -42,7 +42,9 @@ export type {
 	Theme,
 	NewTheme,
 	Session,
-	NewSession
+	NewSession,
+	UserClient,
+	NewUserClient
 } from './schema/index.js';
 
 /**

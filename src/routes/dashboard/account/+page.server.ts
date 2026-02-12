@@ -6,7 +6,7 @@ import {
 import { AUTH_ENV_KEYS } from '$lib/server/auth/constants';
 import { hashPassword, normalizeIterations, verifyPassword } from '$lib/server/auth/password';
 import { clearSessionCookie, revokeCurrentSession } from '$lib/server/auth/session';
-import { requireSessionSecret } from '$lib/server/auth/service';
+import { resolvePasswordPepper } from '$lib/server/auth/service';
 import {
 	accountArchiveSchema,
 	accountPasswordChangeSchema,
@@ -306,9 +306,9 @@ export const actions: Actions = {
 			});
 		}
 
-		let sessionSecret: string;
+		let passwordPepper: string;
 		try {
-			sessionSecret = requireSessionSecret(event);
+			passwordPepper = resolvePasswordPepper(event);
 		} catch {
 			return fail(500, {
 				action: 'changePassword',
@@ -318,7 +318,7 @@ export const actions: Actions = {
 
 		const validCurrentPassword = await verifyPassword({
 			password: parsed.data.currentPassword,
-			pepper: sessionSecret,
+			pepper: passwordPepper,
 			storedHash: user.passwordHash
 		});
 		if (!validCurrentPassword) {
@@ -330,7 +330,7 @@ export const actions: Actions = {
 
 		const newPasswordHash = await hashPassword({
 			password: parsed.data.newPassword,
-			pepper: sessionSecret,
+			pepper: passwordPepper,
 			iterations: resolvePasswordIterations(event)
 		});
 
@@ -422,9 +422,9 @@ export const actions: Actions = {
 			});
 		}
 
-		let sessionSecret: string;
+		let passwordPepper: string;
 		try {
-			sessionSecret = requireSessionSecret(event);
+			passwordPepper = resolvePasswordPepper(event);
 		} catch {
 			return fail(500, {
 				action: 'archiveAccount',
@@ -434,7 +434,7 @@ export const actions: Actions = {
 
 		const validPassword = await verifyPassword({
 			password: parsed.data.currentPassword,
-			pepper: sessionSecret,
+			pepper: passwordPepper,
 			storedHash: user.passwordHash
 		});
 		if (!validPassword) {

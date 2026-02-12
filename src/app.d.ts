@@ -22,6 +22,7 @@ declare global {
 				id: string;
 				userId: string;
 				clientId: string;
+				activeClientId: string;
 				role: 'admin' | 'manager' | 'player';
 				authProvider: 'password' | string;
 				expiresAt: string;
@@ -44,6 +45,7 @@ declare global {
 				AUTH_SIGNUP_INVITE_KEY?: string;
 				AUTH_SESSION_SECRET?: string;
 				AUTH_PASSWORD_PBKDF2_ITERATIONS?: string;
+				AUTH_PASSWORD_PEPPER?: string;
 			};
 			context: {
 				waitUntil(promise: Promise<any>): void;

@@ -46,7 +46,7 @@ export const GET: RequestHandler = async ({ platform, locals, request }) => {
 				status: 304,
 				headers: {
 					ETag: etag,
-					'Cache-Control': 'no-cache'
+					'Cache-Control': 'no-store'
 				}
 			});
 		}
@@ -56,7 +56,7 @@ export const GET: RequestHandler = async ({ platform, locals, request }) => {
 			{
 				headers: {
 					ETag: etag,
-					'Cache-Control': 'no-cache'
+					'Cache-Control': 'no-store'
 				}
 			}
 		);

@@ -144,6 +144,10 @@ export const logoutSchema = z
 	.partial()
 	.default({});
 
+export const switchClientSchema = z.object({
+	clientId: z.string().trim().uuid('Please provide a valid client ID.')
+});
+
 export const accountProfileSchema = z.object({
 	firstName: nameSchema,
 	lastName: nameSchema,
@@ -195,3 +199,4 @@ export type AccountProfileInput = z.infer<typeof accountProfileSchema>;
 export type AccountPreferencesInput = z.infer<typeof accountPreferencesSchema>;
 export type AccountPasswordChangeInput = z.infer<typeof accountPasswordChangeSchema>;
 export type AccountArchiveInput = z.infer<typeof accountArchiveSchema>;
+export type SwitchClientInput = z.infer<typeof switchClientSchema>;

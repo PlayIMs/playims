@@ -24,6 +24,7 @@ export class AuthServiceError extends Error {
 
 const textEncoder = new TextEncoder();
 const DUMMY_PASSWORD_HASH = `pbkdf2_sha256$${AUTH_PBKDF2_DEFAULT_ITERATIONS}$AAECAwQFBgcICQoLDA0ODw$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA`;
+let hasWarnedPasswordPepperFallback = false;
 
 const constantTimeStringEqual = (a: string, b: string): boolean => {
 	const aBytes = textEncoder.encode(a);
@@ -55,7 +56,7 @@ const readAuthEnv = (event: RequestEvent, key: string): string | undefined => {
 };
 
 /**
- * Required secret used for session token hashing and password peppering.
+ * Required secret used for session token hashing.
  */
 export const requireSessionSecret = (event: RequestEvent): string => {
 	const value = readAuthEnv(event, AUTH_ENV_KEYS.sessionSecret);
@@ -63,6 +64,27 @@ export const requireSessionSecret = (event: RequestEvent): string => {
 		throw new AuthServiceError(500, 'AUTH_CONFIG_MISSING', 'Authentication is not configured.');
 	}
 	return value;
+};
+
+/**
+ * Password pepper is split from session secret.
+ * Temporary fallback keeps compatibility while environments rotate to AUTH_PASSWORD_PEPPER.
+ */
+export const resolvePasswordPepper = (event: RequestEvent): string => {
+	const pepper = readAuthEnv(event, AUTH_ENV_KEYS.passwordPepper);
+	if (pepper) {
+		return pepper;
+	}
+
+	const fallback = requireSessionSecret(event);
+	if (!hasWarnedPasswordPepperFallback) {
+		hasWarnedPasswordPepperFallback = true;
+		console.warn(
+			'[auth] AUTH_PASSWORD_PEPPER is not configured; falling back to AUTH_SESSION_SECRET. Configure AUTH_PASSWORD_PEPPER to complete rotation.'
+		);
+	}
+
+	return fallback;
 };
 
 const requireSignupInviteKey = (event: RequestEvent): string => {
@@ -84,6 +106,35 @@ const throwRegistrationDenied = (): never => {
 	);
 };
 
+const resolveLoginMembership = async (dbOps: DatabaseOperations, user: { id: string; clientId: string | null; role: string | null; status: string | null; }) => {
+	const legacyClientId = user.clientId?.trim();
+	if (legacyClientId) {
+		await dbOps.userClients.ensureMembership({
+			userId: user.id,
+			clientId: legacyClientId,
+			role: user.role ?? 'player',
+			status: user.status ?? 'active',
+			isDefault: true
+		});
+	}
+
+	const defaultMembership = await dbOps.userClients.getDefaultActiveForUser(user.id);
+	if (defaultMembership) {
+		return defaultMembership;
+	}
+
+	const fallbackMembership = await dbOps.userClients.getFirstActiveForUser(user.id);
+	if (fallbackMembership) {
+		return fallbackMembership;
+	}
+
+	throw new AuthServiceError(
+		403,
+		'AUTH_ACCOUNT_UNASSIGNED',
+		'Your account is not assigned to an organization.'
+	);
+};
+
 /**
  * Password login flow:
  * 1) look up user by normalized email
@@ -100,13 +151,14 @@ export const loginWithPassword = async (
 	}
 ) => {
 	const sessionSecret = requireSessionSecret(event);
+	const passwordPepper = resolvePasswordPepper(event);
 	const normalizedEmail = input.email.trim().toLowerCase();
 	const existingUser = await dbOps.users.getAuthByEmail(normalizedEmail);
 	if (!existingUser || !existingUser.passwordHash) {
 		// Keep per-request timing closer to "real" verification to reduce user-enumeration signals.
 		await verifyPassword({
 			password: input.password,
-			pepper: sessionSecret,
+			pepper: passwordPepper,
 			storedHash: DUMMY_PASSWORD_HASH
 		});
 		throw new AuthServiceError(401, 'AUTH_INVALID_CREDENTIALS', 'Invalid email or password.');
@@ -114,7 +166,7 @@ export const loginWithPassword = async (
 
 	const verified = await verifyPassword({
 		password: input.password,
-		pepper: sessionSecret,
+		pepper: passwordPepper,
 		storedHash: existingUser.passwordHash
 	});
 	if (!verified) {
@@ -127,7 +179,11 @@ export const loginWithPassword = async (
 
 	const loginMarkedUser = await dbOps.users.markLoginSuccess(existingUser.id);
 	const userForSession = loginMarkedUser ?? existingUser;
-	return await createSessionForUser(event, dbOps, userForSession, sessionSecret);
+	const membership = await resolveLoginMembership(dbOps, userForSession);
+	return await createSessionForUser(event, dbOps, userForSession, sessionSecret, {
+		activeClientId: membership.clientId,
+		activeRole: membership.role
+	});
 };
 
 /**
@@ -146,6 +202,7 @@ export const registerWithPassword = async (
 	}
 ) => {
 	const sessionSecret = requireSessionSecret(event);
+	const passwordPepper = resolvePasswordPepper(event);
 	const expectedInviteKey = requireSignupInviteKey(event);
 	const providedInviteKey = input.inviteKey.trim();
 
@@ -163,25 +220,41 @@ export const registerWithPassword = async (
 
 	const passwordHash = await hashPassword({
 		password: input.password,
-		pepper: sessionSecret,
+		pepper: passwordPepper,
 		iterations: getPasswordIterations(event)
 	});
 
-	const createdUser = await dbOps.users.createAuthUser({
-		clientId: DEFAULT_CLIENT.id,
-		email: normalizedEmail,
-		passwordHash,
-		role: 'manager',
-		firstName: input.firstName?.trim() || null,
-		lastName: input.lastName?.trim() || null,
-		status: 'active'
-	});
+	let createdUser: Awaited<ReturnType<typeof dbOps.users.createAuthUser>> | null = null;
+	try {
+		createdUser = await dbOps.users.createAuthUser({
+			clientId: DEFAULT_CLIENT.id,
+			email: normalizedEmail,
+			passwordHash,
+			role: 'manager',
+			firstName: input.firstName?.trim() || null,
+			lastName: input.lastName?.trim() || null,
+			status: 'active'
+		});
+	} catch {
+		throwRegistrationDenied();
+	}
 
 	if (!createdUser) {
 		throw new AuthServiceError(500, 'AUTH_CREATE_FAILED', 'Failed to create your account.');
 	}
 
+	await dbOps.userClients.ensureMembership({
+		userId: createdUser.id,
+		clientId: DEFAULT_CLIENT.id,
+		role: 'manager',
+		status: 'active',
+		isDefault: true
+	});
+
 	const loginMarkedUser = await dbOps.users.markLoginSuccess(createdUser.id);
 	const userForSession = loginMarkedUser ?? createdUser;
-	return await createSessionForUser(event, dbOps, userForSession, sessionSecret);
+	return await createSessionForUser(event, dbOps, userForSession, sessionSecret, {
+		activeClientId: DEFAULT_CLIENT.id,
+		activeRole: 'manager'
+	});
 };

@@ -86,6 +86,24 @@ export class SessionOperations {
 		return result[0] ?? null;
 	}
 
+	async updateClientContext(
+		sessionId: string,
+		clientId: string,
+		lastSeenAt: string
+	): Promise<Session | null> {
+		const result = await this.db
+			.update(sessions)
+			.set({
+				clientId,
+				lastSeenAt,
+				updatedAt: lastSeenAt
+			})
+			.where(and(eq(sessions.id, sessionId), isNull(sessions.revokedAt)))
+			.returning();
+
+		return result[0] ?? null;
+	}
+
 	// Single-session logout/revocation.
 	async revokeById(sessionId: string): Promise<boolean> {
 		const now = new Date().toISOString();

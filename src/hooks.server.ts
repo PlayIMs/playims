@@ -54,6 +54,7 @@ const API_ROUTE_POLICIES: ApiRoutePolicy[] = [
 	{ pattern: /^\/api\/auth\/register$/, policy: { access: 'public' } },
 	{ pattern: /^\/api\/auth\/logout$/, policy: { access: 'authenticated' } },
 	{ pattern: /^\/api\/auth\/session$/, policy: { access: 'authenticated' } },
+	{ pattern: /^\/api\/auth\/switch-client$/, policy: { access: 'authenticated' } },
 	{
 		pattern: /^\/api\/address-suggest$/,
 		policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES }
@@ -105,7 +106,15 @@ const resolveRateLimitConfig = (pathname: string): RateLimitConfig | null => {
 		return LOGIN_RATE_LIMIT;
 	}
 
+	if (pathname === '/log-in') {
+		return LOGIN_RATE_LIMIT;
+	}
+
 	if (pathname === '/api/auth/register') {
+		return REGISTER_RATE_LIMIT;
+	}
+
+	if (pathname === '/register') {
 		return REGISTER_RATE_LIMIT;
 	}
 
@@ -117,7 +126,11 @@ const resolveRateLimitConfig = (pathname: string): RateLimitConfig | null => {
 		return THEMES_RATE_LIMIT;
 	}
 
-	if (pathname === '/api/auth/session' || pathname === '/api/auth/logout') {
+	if (
+		pathname === '/api/auth/session' ||
+		pathname === '/api/auth/logout' ||
+		pathname === '/api/auth/switch-client'
+	) {
 		return AUTH_READ_RATE_LIMIT;
 	}
 
@@ -268,12 +281,17 @@ const toApiErrorResponse = (
 	);
 };
 
-const toPageErrorResponse = (status: number, message: string) =>
+const toPageErrorResponse = (
+	status: number,
+	message: string,
+	extraHeaders?: Record<string, string>
+) =>
 	new Response(message, {
 		status,
 		headers: {
 			'content-type': 'text/plain; charset=utf-8',
-			'cache-control': 'no-store'
+			'cache-control': 'no-store',
+			...extraHeaders
 		}
 	});
 
@@ -415,6 +433,36 @@ export const handle: Handle = async ({ event, resolve }) => {
 			requestId: event.locals.requestId,
 			isApiRequest
 		});
+	}
+
+	if (isSsrRequest && isMutatingRequest && (pathname === '/log-in' || pathname === '/register')) {
+		const rateLimitConfig = resolveRateLimitConfig(pathname);
+		if (rateLimitConfig) {
+			const now = Date.now();
+			const clientAddress = getClientAddress(event);
+			const key = `${clientAddress}:${pathname}:${method}`;
+			const result = consumeRateLimit(key, rateLimitConfig, now);
+			if (!result.allowed) {
+				const retryAfterSeconds = Math.max(1, Math.ceil((result.resetAt - now) / 1000));
+				const response = toPageErrorResponse(429, 'Too many requests. Please try again later.', {
+					'retry-after': String(retryAfterSeconds)
+				});
+				logRequestSummary({
+					scope: 'SSR',
+					method,
+					endpoint,
+					table,
+					recordCount: 0,
+					status: 429,
+					durationMs: nowMs() - startedAt,
+					error: 'Rate limit exceeded'
+				});
+				return withSecurityHeaders(response, {
+					requestId: event.locals.requestId,
+					isApiRequest: false
+				});
+			}
+		}
 	}
 
 	if (isApiRequest) {
@@ -681,6 +729,20 @@ export const handle: Handle = async ({ event, resolve }) => {
 			} catch {
 				// Ignore invalid JSON payloads from downstream handlers.
 			}
+		}
+
+		if (
+			!isApiRequest &&
+			(isProtectedPagePath(pathname) || Boolean(event.locals.user && event.locals.session)) &&
+			!response.headers.has('cache-control')
+		) {
+			const headers = new Headers(response.headers);
+			headers.set('cache-control', 'no-store');
+			response = new Response(response.body, {
+				status: response.status,
+				statusText: response.statusText,
+				headers
+			});
 		}
 
 		const requestLogMeta = event.locals.requestLogMeta;

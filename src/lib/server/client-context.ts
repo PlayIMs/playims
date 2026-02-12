@@ -11,11 +11,14 @@ export const DEFAULT_CLIENT = {
 } as const;
 
 export function resolveClientId(locals: App.Locals): string {
-	return locals.user?.clientId ?? DEFAULT_CLIENT.id;
+	return locals.session?.activeClientId ?? locals.session?.clientId ?? locals.user?.clientId ?? DEFAULT_CLIENT.id;
 }
 
 export function requireAuthenticatedClientId(locals: App.Locals): string {
-	const clientId = locals.user?.clientId?.trim();
+	const clientId =
+		locals.session?.activeClientId?.trim() ??
+		locals.session?.clientId?.trim() ??
+		locals.user?.clientId?.trim();
 	if (!clientId) {
 		throw new Error('AUTH_CLIENT_CONTEXT_REQUIRED');
 	}

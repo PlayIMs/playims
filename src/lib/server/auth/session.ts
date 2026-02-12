@@ -137,6 +137,23 @@ export const buildSafeUser = (user: User) => ({
 	status: user.status ?? null
 });
 
+const buildSafeUserWithContext = (
+	user: User,
+	context: {
+		activeClientId: string;
+		activeRole: string | null | undefined;
+	}
+) => ({
+	id: user.id,
+	clientId: context.activeClientId,
+	email: user.email ?? '',
+	firstName: user.firstName ?? null,
+	lastName: user.lastName ?? null,
+	cellPhone: user.cellPhone ?? null,
+	role: normalizeRole(context.activeRole),
+	status: user.status ?? null
+});
+
 /**
  * Creates a DB session row + cookie for a validated user login/register flow.
  */
@@ -144,9 +161,13 @@ export const createSessionForUser = async (
 	event: RequestEvent,
 	dbOps: DatabaseOperations,
 	user: User,
-	sessionSecret: string
+	sessionSecret: string,
+	context?: {
+		activeClientId: string;
+		activeRole?: string | null;
+	}
 ) => {
-	const clientId = user.clientId?.trim();
+	const clientId = context?.activeClientId?.trim() ?? user.clientId?.trim();
 	if (!clientId) {
 		throw new Error('AUTH_USER_MISSING_CLIENT');
 	}
@@ -177,11 +198,15 @@ export const createSessionForUser = async (
 			id: createdSession.id,
 			userId: user.id,
 			clientId,
-			role: normalizeRole(user.role),
+			activeClientId: clientId,
+			role: normalizeRole(context?.activeRole ?? user.role),
 			authProvider: createdSession.authProvider ?? AUTH_PASSWORD_PROVIDER,
 			expiresAt: createdSession.expiresAt
 		},
-		user: buildSafeUser(user)
+		user: buildSafeUserWithContext(user, {
+			activeClientId: clientId,
+			activeRole: context?.activeRole ?? user.role
+		})
 	};
 };
 
@@ -207,8 +232,15 @@ export const resolveSessionFromRequest = async (
 		return null;
 	}
 
-	const clientId = found.user.clientId?.trim();
+	const clientId = found.session.clientId?.trim();
 	if (!clientId || found.user.status !== 'active') {
+		await dbOps.sessions.revokeById(found.session.id);
+		clearSessionCookie(event);
+		return null;
+	}
+
+	const activeMembership = await dbOps.userClients.getActiveMembership(found.user.id, clientId);
+	if (!activeMembership) {
 		await dbOps.sessions.revokeById(found.session.id);
 		clearSessionCookie(event);
 		return null;
@@ -252,11 +284,15 @@ export const resolveSessionFromRequest = async (
 			id: found.session.id,
 			userId: found.user.id,
 			clientId,
-			role: normalizeRole(found.user.role),
+			activeClientId: clientId,
+			role: normalizeRole(activeMembership.role),
 			authProvider: found.session.authProvider ?? AUTH_PASSWORD_PROVIDER,
 			expiresAt: effectiveExpiresAt
 		},
-		user: buildSafeUser(found.user)
+		user: buildSafeUserWithContext(found.user, {
+			activeClientId: clientId,
+			activeRole: activeMembership.role
+		})
 	};
 };
 

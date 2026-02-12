@@ -1,7 +1,7 @@
 // User operations - Drizzle ORM
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, or, sql } from 'drizzle-orm';
 import type { DrizzleClient } from '../drizzle.js';
-import { users, clients, type User, type Client } from '../schema/index.js';
+import { userClients, users, clients, type User, type Client } from '../schema/index.js';
 
 export class UserOperations {
 	constructor(private db: DrizzleClient) {}
@@ -21,7 +21,13 @@ export class UserOperations {
 			})
 			.from(users)
 			.leftJoin(clients, eq(users.clientId, clients.id))
-			.where(eq(users.clientId, clientId))
+			.leftJoin(userClients, eq(userClients.userId, users.id))
+			.where(
+				or(
+					eq(users.clientId, clientId),
+					and(eq(userClients.clientId, clientId), eq(userClients.status, 'active'))
+				)
+			)
 			.orderBy(desc(users.createdAt));
 
 		return result.map(this.mapResult);
@@ -32,7 +38,7 @@ export class UserOperations {
 		const result = await this.db
 			.select()
 			.from(users)
-			.where(eq(users.email, normalizedEmail))
+			.where(sql`lower(trim(${users.email})) = ${normalizedEmail}`)
 			.limit(1);
 		return result[0] ?? null;
 	}
@@ -48,7 +54,21 @@ export class UserOperations {
 		const result = await this.db
 			.select()
 			.from(users)
-			.where(and(eq(users.id, userId), eq(users.clientId, clientId)))
+			.where(
+				and(
+					eq(users.id, userId),
+					or(
+						eq(users.clientId, clientId),
+						sql`exists (
+							select 1
+							from ${userClients}
+							where ${userClients.userId} = ${users.id}
+								and ${userClients.clientId} = ${clientId}
+								and ${userClients.status} = 'active'
+						)`
+					)
+				)
+			)
 			.limit(1);
 		return result[0] ?? null;
 	}
@@ -152,7 +172,16 @@ export class UserOperations {
 			.where(
 				and(
 					eq(users.id, input.userId),
-					eq(users.clientId, input.clientId),
+					or(
+						eq(users.clientId, input.clientId),
+						sql`exists (
+							select 1
+							from ${userClients}
+							where ${userClients.userId} = ${users.id}
+								and ${userClients.clientId} = ${input.clientId}
+								and ${userClients.status} = 'active'
+						)`
+					),
 					eq(users.status, 'active')
 				)
 			)
@@ -180,7 +209,16 @@ export class UserOperations {
 			.where(
 				and(
 					eq(users.id, input.userId),
-					eq(users.clientId, input.clientId),
+					or(
+						eq(users.clientId, input.clientId),
+						sql`exists (
+							select 1
+							from ${userClients}
+							where ${userClients.userId} = ${users.id}
+								and ${userClients.clientId} = ${input.clientId}
+								and ${userClients.status} = 'active'
+						)`
+					),
 					eq(users.status, 'active')
 				)
 			)
@@ -206,7 +244,16 @@ export class UserOperations {
 			.where(
 				and(
 					eq(users.id, input.userId),
-					eq(users.clientId, input.clientId),
+					or(
+						eq(users.clientId, input.clientId),
+						sql`exists (
+							select 1
+							from ${userClients}
+							where ${userClients.userId} = ${users.id}
+								and ${userClients.clientId} = ${input.clientId}
+								and ${userClients.status} = 'active'
+						)`
+					),
 					eq(users.status, 'active')
 				)
 			)
@@ -231,7 +278,16 @@ export class UserOperations {
 			.where(
 				and(
 					eq(users.id, input.userId),
-					eq(users.clientId, input.clientId),
+					or(
+						eq(users.clientId, input.clientId),
+						sql`exists (
+							select 1
+							from ${userClients}
+							where ${userClients.userId} = ${users.id}
+								and ${userClients.clientId} = ${input.clientId}
+								and ${userClients.status} = 'active'
+						)`
+					),
 					eq(users.status, 'active')
 				)
 			)
