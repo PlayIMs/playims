@@ -55,7 +55,8 @@ process.stderr.write = function patchedStderrWrite(chunk, encoding, callback) {
 const summary = {
 	errors: [],
 	warnings: [],
-	actions: []
+	actions: [],
+	localProcessedMigrations: []
 };
 const checkTimeline = [];
 const toolingVersions = [];
@@ -222,6 +223,24 @@ function runCommandCapture(command, args, options = {}) {
 		status: result.status,
 		error: result.error
 	};
+}
+
+function extractJsonPayload(stdout) {
+	if (!stdout) {
+		return null;
+	}
+
+	const startIndex = stdout.indexOf('[');
+	if (startIndex === -1) {
+		return null;
+	}
+
+	const jsonText = stdout.slice(startIndex).trim();
+	try {
+		return JSON.parse(jsonText);
+	} catch {
+		return null;
+	}
 }
 
 function parseEnvFile(filePath) {
@@ -764,6 +783,73 @@ function verifyLocalD1State() {
 	}
 }
 
+function getLocalMigrationDatabaseName() {
+	if (!packageJson?.scripts || typeof packageJson.scripts !== 'object') {
+		return '';
+	}
+
+	const localMigrationScript = packageJson.scripts['db:migrate:local'];
+	if (typeof localMigrationScript !== 'string') {
+		return '';
+	}
+
+	const match = localMigrationScript.match(
+		/wrangler\s+d1\s+migrations\s+apply\s+(".*?"|'.*?'|[^\s]+)\s+--local/
+	);
+	if (!match) {
+		return '';
+	}
+
+	return match[1].replace(/^['"]|['"]$/g, '');
+}
+
+function collectLocalProcessedMigrations() {
+	const databaseName = getLocalMigrationDatabaseName();
+	if (!databaseName) {
+		addWarning(
+			'Could not determine local D1 database name from package.json script "db:migrate:local".',
+			'Update scripts.db:migrate:local to follow: wrangler d1 migrations apply <db-name> --local'
+		);
+		return;
+	}
+
+	const queryResult = runCommandCapture(
+		pnpmBin,
+		[
+			'exec',
+			'wrangler',
+			'd1',
+			'execute',
+			databaseName,
+			'--local',
+			'--command',
+			'"SELECT name FROM d1_migrations ORDER BY name;"'
+		]
+	);
+
+	if (!queryResult.ok) {
+		addWarning(
+			'Unable to query local processed migrations from d1_migrations.',
+			'Run: pnpm exec wrangler d1 execute <db-name> --local --command "SELECT name FROM d1_migrations ORDER BY name;"'
+		);
+		return;
+	}
+
+	const payload = extractJsonPayload(queryResult.stdout);
+	if (!Array.isArray(payload) || !Array.isArray(payload[0]?.results)) {
+		addWarning(
+			'Unexpected response while reading local processed migrations.',
+			'Verify wrangler output format for d1 execute and update catch-up parser if needed.'
+		);
+		return;
+	}
+
+	const processedFiles = payload[0].results
+		.map((row) => (typeof row?.name === 'string' ? row.name : ''))
+		.filter((name) => name.length > 0);
+	summary.localProcessedMigrations = processedFiles;
+}
+
 function printSummary() {
 	section('Summary');
 
@@ -812,6 +898,16 @@ function printSummary() {
 		console.log(`${index + 1}. ${checkIcon(check.status)} ${statusVisual(check.status)} ${check.name}`);
 		if (check.details.length > 0) {
 			console.log(`   ${colorize('->', ansi.gray)} ${check.details.join(' | ')}`);
+		}
+	}
+
+	console.log(`\n${colorize('Local SQLite migrations processed:', ansi.bold, ansi.cyan)}`);
+	console.log(`- Total processed: ${summary.localProcessedMigrations.length}`);
+	if (summary.localProcessedMigrations.length === 0) {
+		console.log('- No processed migration files were found in local d1_migrations.');
+	} else {
+		for (const fileName of summary.localProcessedMigrations) {
+			console.log(`- ${fileName}`);
 		}
 	}
 }
@@ -866,6 +962,7 @@ if (!installOk) {
 		finishCheck(migrationCheck, { ok: false });
 	} else {
 		verifyLocalD1State();
+		collectLocalProcessedMigrations();
 		finishCheck(migrationCheck);
 	}
 
