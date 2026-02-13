@@ -103,9 +103,10 @@ export const load: PageServerLoad = async (event) => {
 	const userId = requireAuthenticatedUserId(locals);
 	const nowIso = new Date().toISOString();
 
-	const [user, activeSessionCount] = await Promise.all([
+	const [user, activeSessionCount, activeSessions] = await Promise.all([
 		dbOps.users.getAuthByIdForClient(userId, clientId),
-		dbOps.sessions.countActiveForUserInClient(userId, clientId, nowIso)
+		dbOps.sessions.countActiveForUserInClient(userId, clientId, nowIso),
+		dbOps.sessions.getActiveForUserInClient(userId, clientId, nowIso)
 	]);
 
 	locals.requestLogMeta = {
@@ -160,6 +161,15 @@ export const load: PageServerLoad = async (event) => {
 			sessionCount: user.sessionCount ?? 0,
 			currentSessionExpiresAt: locals.session?.expiresAt ?? null,
 			activeSessionCount,
+			activeSessions: activeSessions.map((session) => ({
+				id: session.id,
+				userAgent: session.userAgent ?? null,
+				ipAddress: session.ipAddress ?? null,
+				lastSeenAt: session.lastSeenAt,
+				createdAt: session.createdAt,
+				expiresAt: session.expiresAt,
+				isCurrent: session.id === locals.session?.id
+			})),
 			profileCompletionPercent,
 			accountAgeDays: toAccountAgeDays(user.createdAt)
 		}
@@ -370,6 +380,58 @@ export const actions: Actions = {
 		const dbOps = new DatabaseOperations(event.platform as App.Platform);
 		await revokeCurrentSession(event, dbOps);
 		throw redirect(303, '/log-in');
+	},
+
+	signOutSession: async (event) => {
+		if (!event.platform?.env?.DB) {
+			return fail(500, { action: 'signOutSession', error: 'Authentication is unavailable.' });
+		}
+
+		const formData = await event.request.formData();
+		const rawSessionId = formData.get('sessionId');
+		const sessionId = typeof rawSessionId === 'string' ? rawSessionId.trim() : '';
+		if (!sessionId) {
+			return fail(400, {
+				action: 'signOutSession',
+				error: 'Session id is required.'
+			});
+		}
+
+		const dbOps = new DatabaseOperations(event.platform as App.Platform);
+		const userId = requireAuthenticatedUserId(event.locals);
+		const clientId = requireAuthenticatedClientId(event.locals);
+		const nowIso = new Date().toISOString();
+		const session = await dbOps.sessions.getActiveByIdForUserInClient(
+			sessionId,
+			userId,
+			clientId,
+			nowIso
+		);
+
+		if (!session) {
+			return fail(404, {
+				action: 'signOutSession',
+				error: 'Session not found.'
+			});
+		}
+
+		if (session.id === event.locals.session?.id) {
+			await revokeCurrentSession(event, dbOps);
+			throw redirect(303, '/log-in');
+		}
+
+		const revoked = await dbOps.sessions.revokeById(session.id);
+		if (!revoked) {
+			return fail(500, {
+				action: 'signOutSession',
+				error: 'Unable to sign out that session.'
+			});
+		}
+
+		return {
+			action: 'signOutSession',
+			success: 'Session signed out.'
+		};
 	},
 
 	signOutEverywhere: async (event) => {

@@ -1,4 +1,4 @@
-import { and, eq, gt, isNull, ne, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, isNull, ne, sql } from 'drizzle-orm';
 import type { DrizzleClient } from '../drizzle.js';
 import { sessions, users, type Session, type User } from '../schema/index.js';
 
@@ -191,5 +191,43 @@ export class SessionOperations {
 			);
 
 		return Number(result[0]?.count ?? 0);
+	}
+
+	async getActiveForUserInClient(userId: string, clientId: string, nowIso: string): Promise<Session[]> {
+		return await this.db
+			.select()
+			.from(sessions)
+			.where(
+				and(
+					eq(sessions.userId, userId),
+					eq(sessions.clientId, clientId),
+					isNull(sessions.revokedAt),
+					gt(sessions.expiresAt, nowIso)
+				)
+			)
+			.orderBy(desc(sessions.lastSeenAt), desc(sessions.createdAt));
+	}
+
+	async getActiveByIdForUserInClient(
+		sessionId: string,
+		userId: string,
+		clientId: string,
+		nowIso: string
+	): Promise<Session | null> {
+		const result = await this.db
+			.select()
+			.from(sessions)
+			.where(
+				and(
+					eq(sessions.id, sessionId),
+					eq(sessions.userId, userId),
+					eq(sessions.clientId, clientId),
+					isNull(sessions.revokedAt),
+					gt(sessions.expiresAt, nowIso)
+				)
+			)
+			.limit(1);
+
+		return result[0] ?? null;
 	}
 }

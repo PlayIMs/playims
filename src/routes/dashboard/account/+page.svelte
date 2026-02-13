@@ -23,6 +23,16 @@
 	import IconUser from '@tabler/icons-svelte/icons/user';
 	import IconWorld from '@tabler/icons-svelte/icons/world';
 
+	type ActiveSessionData = {
+		id: string;
+		userAgent: string | null;
+		ipAddress: string | null;
+		lastSeenAt: string;
+		createdAt: string;
+		expiresAt: string;
+		isCurrent: boolean;
+	};
+
 	type AccountData = {
 		id: string;
 		email: string;
@@ -44,6 +54,7 @@
 		sessionCount: number;
 		currentSessionExpiresAt: string | null;
 		activeSessionCount: number;
+		activeSessions: ActiveSessionData[];
 		profileCompletionPercent: number;
 		accountAgeDays: number | null;
 	};
@@ -467,6 +478,25 @@
 		});
 	};
 
+	const formatSessionDateTime = (value: string | null | undefined) => {
+		if (!value) {
+			return 'Not available';
+		}
+
+		const parsed = new Date(value);
+		if (Number.isNaN(parsed.getTime())) {
+			return 'Not available';
+		}
+
+		return parsed.toLocaleString('en-US', {
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric',
+			hour: 'numeric',
+			minute: '2-digit'
+		});
+	};
+
 	const formatCellPhone = (value: string | null | undefined) => {
 		if (!value) {
 			return 'Not set';
@@ -479,6 +509,78 @@
 
 		return value;
 	};
+
+	const getDeviceLabel = (userAgent: string | null | undefined) => {
+		const ua = (userAgent ?? '').toLowerCase();
+		if (!ua) return 'Unknown device';
+		if (ua.includes('iphone')) return 'iPhone';
+		if (ua.includes('ipad')) return 'iPad';
+		if (ua.includes('android')) return 'Android device';
+		if (ua.includes('macintosh') || ua.includes('mac os')) return 'Mac';
+		if (ua.includes('windows')) return 'Windows PC';
+		if (ua.includes('linux')) return 'Linux device';
+		return 'Device';
+	};
+
+	const getBrowserLabel = (userAgent: string | null | undefined) => {
+		const ua = (userAgent ?? '').toLowerCase();
+		if (!ua) return 'Unknown browser';
+		if (ua.includes('edg/')) return 'Microsoft Edge';
+		if (ua.includes('opr/') || ua.includes('opera')) return 'Opera';
+		if (ua.includes('firefox/')) return 'Firefox';
+		if (ua.includes('safari/') && !ua.includes('chrome/')) return 'Safari';
+		if (ua.includes('chrome/')) return 'Chrome';
+		return 'Browser';
+	};
+
+	const formatIpAddress = (value: string | null | undefined) => {
+		const trimmed = value?.trim() ?? '';
+		if (!trimmed) {
+			return 'Unknown IP';
+		}
+
+		const normalized = trimmed.toLowerCase();
+		if (
+			normalized === 'localhost' ||
+			normalized.startsWith('localhost:') ||
+			normalized === '127.0.0.1' ||
+			normalized.startsWith('127.0.0.1:') ||
+			normalized === '::1' ||
+			normalized === '[::1]' ||
+			normalized === '::ffff:127.0.0.1'
+		) {
+			return 'localhost';
+		}
+
+		return trimmed;
+	};
+
+	const toSortableTimestamp = (value: string | null | undefined) => {
+		const timestamp = Date.parse(value ?? '');
+		return Number.isFinite(timestamp) ? timestamp : 0;
+	};
+
+	let orderedActiveSessions = $derived.by(() => {
+		if (!account || account.activeSessions.length === 0) {
+			return [];
+		}
+
+		const sortedCurrent: ActiveSessionData[] = account.activeSessions
+			.filter((session: ActiveSessionData) => session.isCurrent)
+			.toSorted(
+				(a: ActiveSessionData, b: ActiveSessionData) =>
+					toSortableTimestamp(b.lastSeenAt) - toSortableTimestamp(a.lastSeenAt)
+			);
+
+		const sortedNonCurrent: ActiveSessionData[] = account.activeSessions
+			.filter((session: ActiveSessionData) => !session.isCurrent)
+			.toSorted(
+				(a: ActiveSessionData, b: ActiveSessionData) =>
+					toSortableTimestamp(b.lastSeenAt) - toSortableTimestamp(a.lastSeenAt)
+			);
+
+		return [...sortedCurrent, ...sortedNonCurrent];
+	});
 
 	async function copyUserId() {
 		if (!account?.id || typeof navigator === 'undefined' || !navigator.clipboard) {
@@ -1160,7 +1262,7 @@
 								<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">
 									Last active
 								</p>
-								<p class="text-neutral-950">{formatDateTime(account.lastActiveAt)}</p>
+								<p class="text-neutral-950">{formatSessionDateTime(account.lastActiveAt)}</p>
 							</div>
 						</div>
 
@@ -1171,7 +1273,7 @@
 									Current session
 								</p>
 								<p class="text-neutral-950">
-									Expires {formatDateTime(account.currentSessionExpiresAt)}
+									Expires {formatSessionDateTime(account.currentSessionExpiresAt)}
 								</p>
 							</div>
 						</div>
@@ -1231,30 +1333,87 @@
 						<h2 class="text-xl font-bold font-serif text-neutral-950">Session Controls</h2>
 					</div>
 					<div class="p-4 space-y-3">
-						<form method="POST" action="?/signOut" use:enhance={enhanceNoJump}>
-							<button
-								type="submit"
-								class="button-secondary w-full px-4 py-3 text-xs font-bold uppercase tracking-wide flex items-center justify-center gap-2"
+						{#if actionName === 'signOutSession' && actionError}
+							<p class="text-sm border border-accent-500 bg-accent-100 text-accent-900 px-3 py-2">
+								{actionError}
+							</p>
+						{/if}
+						{#if actionName === 'signOutSession' && actionSuccess}
+							<p
+								class="text-sm border border-primary-500 bg-primary-100 text-primary-900 px-3 py-2"
 							>
-								<IconLogout class="w-4 h-4" />
-								Sign Out
-							</button>
-						</form>
+								{actionSuccess}
+							</p>
+						{/if}
 
-						<form method="POST" action="?/signOutEverywhere" use:enhance={enhanceNoJump}>
-							<button
-								type="submit"
-								class="button-secondary-outlined w-full px-4 py-3 text-xs font-bold uppercase tracking-wide flex items-center justify-center gap-2"
-							>
-								<IconDeviceLaptop class="w-4 h-4" />
-								Sign Out Everywhere
-							</button>
-						</form>
+						<div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+							<form method="POST" action="?/signOut" use:enhance={enhanceNoJump}>
+								<button
+									type="submit"
+									class="button-primary w-full px-4 py-3 text-xs font-bold uppercase tracking-wide flex items-center justify-center gap-2"
+								>
+									<IconLogout class="w-4 h-4" />
+									Sign Out
+								</button>
+							</form>
 
-						<div
-							class="border border-secondary-300 bg-secondary-50 px-3 py-2 text-xs text-neutral-950"
-						>
-							Use "Sign Out Everywhere" if you suspect your account is open on another device.
+							<form method="POST" action="?/signOutEverywhere" use:enhance={enhanceNoJump}>
+								<button
+									type="submit"
+									class="button-secondary-outlined w-full px-4 py-3 text-xs font-bold uppercase tracking-wide flex items-center justify-center gap-2"
+								>
+									<IconDeviceLaptop class="w-4 h-4" />
+									Sign Out Everywhere
+								</button>
+							</form>
+						</div>
+
+						<div class="border border-secondary-300 bg-white p-3 space-y-2">
+							<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">
+								Logged-in Devices
+							</p>
+							{#if orderedActiveSessions.length === 0}
+								<p class="text-xs text-neutral-950">No active sessions found.</p>
+							{:else}
+								<div class="space-y-2">
+									{#each orderedActiveSessions as session (session.id)}
+										<div class="border border-secondary-300 bg-neutral p-2 text-xs">
+											<div class="flex items-center justify-between gap-2">
+												<div class="flex items-center gap-2">
+													<IconDeviceLaptop class="w-4 h-4 text-secondary-700" />
+													<span class="font-bold text-neutral-950">
+														{getDeviceLabel(session.userAgent)} - {getBrowserLabel(session.userAgent)}
+													</span>
+													{#if session.isCurrent}
+														<span
+															class="border border-primary-500 bg-primary-100 text-primary-900 px-2 py-0.5 text-[10px] uppercase tracking-wide font-bold"
+														>
+															Current
+														</span>
+													{/if}
+												</div>
+												<form method="POST" action="?/signOutSession" use:enhance={enhanceNoJump}>
+													<input type="hidden" name="sessionId" value={session.id} />
+													<button
+														type="submit"
+														class="text-[10px] uppercase tracking-wide font-bold text-secondary-800 hover:text-secondary-950 hover:underline cursor-pointer"
+														title="Sign out this session"
+													>
+														Sign out
+													</button>
+												</form>
+											</div>
+											<p class="mt-1 text-neutral-950">IP: {formatIpAddress(session.ipAddress)}</p>
+											<p class="text-neutral-950">
+												Last active: {formatSessionDateTime(session.lastSeenAt)}
+											</p>
+											<p class="text-neutral-950">
+												Expires: {formatSessionDateTime(session.expiresAt)}
+											</p>
+										</div>
+									{/each}
+								</div>
+							{/if}
 						</div>
 					</div>
 				</section>
