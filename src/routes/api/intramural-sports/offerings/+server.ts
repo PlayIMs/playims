@@ -26,8 +26,8 @@ const mapActivity = (input: {
 	leagueName: string;
 	season: string;
 	year: number;
-	gender: string;
-	skillLevel: string;
+	gender: string | null;
+	skillLevel: string | null;
 	registrationStart: string;
 	registrationEnd: string;
 	seasonStart: string;
@@ -113,27 +113,40 @@ export const POST: RequestHandler = async (event) => {
 	const clientId = requireAuthenticatedClientId(event.locals);
 	const userId = requireAuthenticatedUserId(event.locals);
 
-	try {
-		const [existingOfferingSlug, existingLeagueSlug] = await Promise.all([
-			dbOps.offerings.getByClientIdAndSlug(clientId, input.offering.slug),
-			dbOps.leagues.getByClientIdAndSlug(clientId, input.league.slug)
-		]);
+	let createdOfferingId: string | null = null;
 
-		if (existingOfferingSlug || existingLeagueSlug) {
-			const issues: Array<{ path: Array<string | number>; message: string }> = [];
-			if (existingOfferingSlug) {
+	try {
+		const issues: Array<{ path: Array<string | number>; message: string }> = [];
+		const existingOfferingSlug = await dbOps.offerings.getByClientIdAndSlug(
+			clientId,
+			input.offering.slug
+		);
+		if (existingOfferingSlug) {
+			issues.push({
+				path: ['offering', 'slug'],
+				message: 'An offering with this slug already exists.'
+			});
+		}
+
+		if (input.leagues.length > 0) {
+			const existingLeaguesBySlug = await Promise.all(
+				input.leagues.map((league, index) =>
+					dbOps.leagues
+						.getByClientIdAndSlug(clientId, league.slug)
+						.then((existing) => ({ index, existing }))
+				)
+			);
+
+			for (const check of existingLeaguesBySlug) {
+				if (!check.existing) continue;
 				issues.push({
-					path: ['offering', 'slug'],
-					message: 'An offering with this slug already exists.'
-				});
-			}
-			if (existingLeagueSlug) {
-				issues.push({
-					path: ['league', 'slug'],
+					path: ['leagues', check.index, 'slug'],
 					message: 'A league with this slug already exists.'
 				});
 			}
+		}
 
+		if (issues.length > 0) {
 			return json(
 				{
 					success: false,
@@ -170,76 +183,87 @@ export const POST: RequestHandler = async (event) => {
 			);
 		}
 
+		createdOfferingId = createdOffering.id;
 		const autoYear = new Date().getFullYear();
-		const createdLeague = await dbOps.leagues.create({
-			clientId,
-			offeringId: createdOffering.id,
-			name: input.league.name,
-			slug: input.league.slug,
-			description: input.league.description,
-			year: autoYear,
-			season: input.league.season,
-			gender: input.league.gender,
-			skillLevel: input.league.skillLevel,
-			regStartDate: input.league.regStartDate,
-			regEndDate: input.league.regEndDate,
-			seasonStartDate: input.league.seasonStartDate,
-			seasonEndDate: input.league.seasonEndDate,
-			hasPostseason: input.league.hasPostseason ? 1 : 0,
-			postseasonStartDate: input.league.hasPostseason ? input.league.postseasonStartDate : null,
-			postseasonEndDate: input.league.hasPostseason ? input.league.postseasonEndDate : null,
-			hasPreseason: input.league.hasPreseason ? 1 : 0,
-			preseasonStartDate: input.league.hasPreseason ? input.league.preseasonStartDate : null,
-			preseasonEndDate: input.league.hasPreseason ? input.league.preseasonEndDate : null,
-			isActive: input.league.isActive ? 1 : 0,
-			isLocked: input.league.isLocked ? 1 : 0,
-			imageUrl: input.league.imageUrl,
-			createdUser: userId,
-			updatedUser: userId
-		});
+		const createdActivities: CreatedIntramuralActivity[] = [];
+		const createdLeagueIds: string[] = [];
 
-		if (!createdLeague?.id) {
-			await dbOps.offerings.deleteById(createdOffering.id);
-			return json(
-				{
-					success: false,
-					error: 'Unable to save league right now.'
-				},
-				{ status: 500 }
+		for (const leagueInput of input.leagues) {
+			const createdLeague = await dbOps.leagues.create({
+				clientId,
+				offeringId: createdOffering.id,
+				name: leagueInput.name,
+				slug: leagueInput.slug,
+				description: leagueInput.description,
+				year: autoYear,
+				season: leagueInput.season,
+				gender: leagueInput.gender,
+				skillLevel: leagueInput.skillLevel,
+				regStartDate: leagueInput.regStartDate,
+				regEndDate: leagueInput.regEndDate,
+				seasonStartDate: leagueInput.seasonStartDate,
+				seasonEndDate: leagueInput.seasonEndDate,
+				hasPostseason: leagueInput.hasPostseason ? 1 : 0,
+				postseasonStartDate: leagueInput.hasPostseason ? leagueInput.postseasonStartDate : null,
+				postseasonEndDate: leagueInput.hasPostseason ? leagueInput.postseasonEndDate : null,
+				hasPreseason: leagueInput.hasPreseason ? 1 : 0,
+				preseasonStartDate: leagueInput.hasPreseason ? leagueInput.preseasonStartDate : null,
+				preseasonEndDate: leagueInput.hasPreseason ? leagueInput.preseasonEndDate : null,
+				isActive: leagueInput.isActive ? 1 : 0,
+				isLocked: leagueInput.isLocked ? 1 : 0,
+				imageUrl: leagueInput.imageUrl,
+				createdUser: userId,
+				updatedUser: userId
+			});
+
+			if (!createdLeague?.id) {
+				throw new Error('Unable to save league right now.');
+			}
+
+			createdLeagueIds.push(createdLeague.id);
+			createdActivities.push(
+				mapActivity({
+					offeringId: createdOffering.id,
+					leagueId: createdLeague.id,
+					offeringName: createdOffering.name?.trim() || 'General Recreation',
+					offeringType: createdOffering.type,
+					leagueName: createdLeague.name?.trim() || 'Untitled League',
+					season: createdLeague.season?.trim() || leagueInput.season,
+					year: createdLeague.year ?? autoYear,
+					gender: createdLeague.gender?.trim() || leagueInput.gender,
+					skillLevel: createdLeague.skillLevel?.trim() || leagueInput.skillLevel,
+					registrationStart: createdLeague.regStartDate ?? leagueInput.regStartDate,
+					registrationEnd: createdLeague.regEndDate ?? leagueInput.regEndDate,
+					seasonStart: createdLeague.seasonStartDate ?? leagueInput.seasonStartDate,
+					seasonEnd: createdLeague.seasonEndDate ?? leagueInput.seasonEndDate,
+					isLocked: createdLeague.isLocked === 1,
+					isActive: createdLeague.isActive !== 0
+				})
 			);
 		}
-
-		const activity = mapActivity({
-			offeringId: createdOffering.id,
-			leagueId: createdLeague.id,
-			offeringName: createdOffering.name?.trim() || 'General Recreation',
-			offeringType: createdOffering.type,
-			leagueName: createdLeague.name?.trim() || 'Untitled League',
-			season: createdLeague.season?.trim() || input.league.season,
-			year: createdLeague.year ?? autoYear,
-			gender: createdLeague.gender?.trim() || input.league.gender,
-			skillLevel: createdLeague.skillLevel?.trim() || input.league.skillLevel,
-			registrationStart: createdLeague.regStartDate ?? input.league.regStartDate,
-			registrationEnd: createdLeague.regEndDate ?? input.league.regEndDate,
-			seasonStart: createdLeague.seasonStartDate ?? input.league.seasonStartDate,
-			seasonEnd: createdLeague.seasonEndDate ?? input.league.seasonEndDate,
-			isLocked: createdLeague.isLocked === 1,
-			isActive: createdLeague.isActive !== 0
-		});
 
 		return json(
 			{
 				success: true,
 				data: {
 					offeringId: createdOffering.id,
-					leagueId: createdLeague.id,
-					activity
+					leagueIds: createdLeagueIds,
+					activities: createdActivities
 				}
 			},
 			{ status: 201 }
 		);
 	} catch (error) {
-		console.error('Failed to create intramural offering and league:', error);
+		if (createdOfferingId) {
+			try {
+				await dbOps.leagues.deleteByOfferingId(createdOfferingId);
+				await dbOps.offerings.deleteById(createdOfferingId);
+			} catch (cleanupError) {
+				console.error('Failed to rollback intramural offering create:', cleanupError);
+			}
+		}
+
+		console.error('Failed to create intramural offering and leagues:', error);
 		return json(
 			{
 				success: false,

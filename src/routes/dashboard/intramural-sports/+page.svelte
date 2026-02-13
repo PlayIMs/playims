@@ -12,11 +12,14 @@
 	import IconCalendar from '@tabler/icons-svelte/icons/calendar';
 	import IconChevronDown from '@tabler/icons-svelte/icons/chevron-down';
 	import IconChevronUp from '@tabler/icons-svelte/icons/chevron-up';
+	import IconCopy from '@tabler/icons-svelte/icons/copy';
 	import IconCrosshair from '@tabler/icons-svelte/icons/crosshair';
+	import IconPencil from '@tabler/icons-svelte/icons/pencil';
 	import IconPlus from '@tabler/icons-svelte/icons/plus';
 	import IconSearch from '@tabler/icons-svelte/icons/search';
 	import IconShip from '@tabler/icons-svelte/icons/ship';
 	import IconTarget from '@tabler/icons-svelte/icons/target';
+	import IconTrash from '@tabler/icons-svelte/icons/trash';
 	import IconX from '@tabler/icons-svelte/icons/x';
 
 	type Activity = PageData['activities'][number];
@@ -79,6 +82,9 @@
 	type RegistrationWindowState = 'upcoming' | 'open' | 'closed';
 	type OfferingView = 'leagues' | 'tournaments' | 'all';
 	type WizardStep = 1 | 2 | 3 | 4 | 5;
+	type LeagueChoice = 'yes' | 'no';
+	type LeagueGender = '' | 'male' | 'female' | 'mixed';
+	type LeagueSkillLevel = '' | 'competitive' | 'intermediate' | 'recreational' | 'all';
 
 	interface WizardOfferingInput {
 		name: string;
@@ -98,8 +104,8 @@
 		slug: string;
 		description: string;
 		season: string;
-		gender: 'mens' | 'womens' | 'corec' | 'unified';
-		skillLevel: 'competitive' | 'intermediate' | 'recreational' | 'all';
+		gender: LeagueGender;
+		skillLevel: LeagueSkillLevel;
 		regStartDate: string;
 		regEndDate: string;
 		seasonStartDate: string;
@@ -117,15 +123,17 @@
 
 	interface WizardFormState {
 		offering: WizardOfferingInput;
+		addLeagues: LeagueChoice;
 		league: WizardLeagueInput;
+		leagues: WizardLeagueInput[];
 	}
 
 	interface CreateOfferingApiResponse {
 		success: boolean;
 		data?: {
 			offeringId: string;
-			leagueId: string;
-			activity: Activity;
+			leagueIds: string[];
+			activities: Activity[];
 		};
 		error?: string;
 		fieldErrors?: Record<string, string[] | undefined>;
@@ -138,47 +146,17 @@
 		winter: 3
 	};
 	const OFFERING_VIEW_STORAGE_KEY = 'intramural-offerings-view-mode';
-	const SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 	const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+	const DATE_TIME_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
 	const currentYear = new Date().getFullYear();
 	const seasonPlaceholder =
 		new Date().getMonth() <= 5 ? `Spring ${currentYear}` : `Fall ${currentYear}`;
 	const WIZARD_STEP_TITLES: Record<WizardStep, string> = {
 		1: 'Offering Basics',
 		2: 'Offering Setup',
-		3: 'League Basics',
+		3: 'League Options',
 		4: 'League Schedule',
 		5: 'Review & Create'
-	};
-	const WIZARD_STEP_FIELDS: Record<WizardStep, string[]> = {
-		1: ['offering.name', 'offering.slug', 'offering.sport', 'offering.type', 'offering.description'],
-		2: [
-			'offering.imageUrl',
-			'offering.minPlayers',
-			'offering.maxPlayers',
-			'offering.rulebookUrl'
-		],
-		3: [
-			'league.name',
-			'league.slug',
-			'league.description',
-			'league.season',
-			'league.gender',
-			'league.skillLevel'
-		],
-		4: [
-			'league.regStartDate',
-			'league.regEndDate',
-			'league.seasonStartDate',
-			'league.seasonEndDate',
-			'league.preseasonStartDate',
-			'league.preseasonEndDate',
-			'league.postseasonStartDate',
-			'league.postseasonEndDate',
-			'league.imageUrl',
-			'league.scheduleRange'
-		],
-		5: []
 	};
 
 	let { data } = $props<{ data: PageData }>();
@@ -197,29 +175,38 @@
 	let createSuccessMessage = $state('');
 	let offeringSlugTouched = $state(false);
 	let leagueSlugTouched = $state(false);
+	let leagueEditingIndex = $state<number | null>(null);
+	let leagueDraftActive = $state(false);
+	let expandedReviewLeagueIndex = $state<number | null>(null);
 	let serverFieldErrors = $state<Record<string, string>>({});
-	let createForm = $state<WizardFormState>({
-		offering: {
-			name: '',
-			slug: '',
-			isActive: true,
-			imageUrl: '',
-			minPlayers: 0,
-			maxPlayers: 0,
-			rulebookUrl: '',
-			sport: '',
-			type: 'league',
-			description: ''
-		},
-		league: {
+
+	function padTwo(value: number): string {
+		return String(value).padStart(2, '0');
+	}
+
+	function todayDateString(): string {
+		const now = new Date();
+		return `${now.getFullYear()}-${padTwo(now.getMonth() + 1)}-${padTwo(now.getDate())}`;
+	}
+
+	function defaultDateTimeValue(type: 'start' | 'end'): string {
+		return `${todayDateString()}T${type === 'start' ? '00:00' : '23:59'}`;
+	}
+
+	function defaultLeagueSlug(leagueName: string, offeringName: string): string {
+		return slugifyFinal(`${leagueName} ${offeringName}`);
+	}
+
+	function createEmptyLeague(): WizardLeagueInput {
+		return {
 			name: '',
 			slug: '',
 			description: '',
 			season: '',
-			gender: 'mens',
-			skillLevel: 'competitive',
-			regStartDate: '',
-			regEndDate: '',
+			gender: '',
+			skillLevel: '',
+			regStartDate: defaultDateTimeValue('start'),
+			regEndDate: defaultDateTimeValue('end'),
 			seasonStartDate: '',
 			seasonEndDate: '',
 			hasPostseason: false,
@@ -231,8 +218,30 @@
 			isActive: true,
 			isLocked: false,
 			imageUrl: ''
-		}
-	});
+		};
+	}
+
+	function createEmptyCreateForm(): WizardFormState {
+		return {
+			offering: {
+				name: '',
+				slug: '',
+				isActive: true,
+				imageUrl: '',
+				minPlayers: 0,
+				maxPlayers: 0,
+				rulebookUrl: '',
+				sport: '',
+				type: 'league',
+				description: ''
+			},
+			addLeagues: 'no',
+			league: createEmptyLeague(),
+			leagues: []
+		};
+	}
+
+	let createForm = $state<WizardFormState>(createEmptyCreateForm());
 
 	function getLeagueRowId(offeringSlug: string, leagueId: string): string {
 		return `league-row-${offeringSlug}-${leagueId}`;
@@ -318,42 +327,11 @@
 		createFormError = '';
 		offeringSlugTouched = false;
 		leagueSlugTouched = false;
+		leagueEditingIndex = null;
+		leagueDraftActive = false;
+		expandedReviewLeagueIndex = null;
 		serverFieldErrors = {};
-		createForm = {
-			offering: {
-				name: '',
-				slug: '',
-				isActive: true,
-				imageUrl: '',
-				minPlayers: 0,
-				maxPlayers: 0,
-				rulebookUrl: '',
-				sport: '',
-				type: 'league',
-				description: ''
-			},
-			league: {
-				name: '',
-				slug: '',
-				description: '',
-				season: '',
-				gender: 'mens',
-				skillLevel: 'competitive',
-				regStartDate: '',
-				regEndDate: '',
-				seasonStartDate: '',
-				seasonEndDate: '',
-				hasPostseason: false,
-				postseasonStartDate: '',
-				postseasonEndDate: '',
-				hasPreseason: false,
-				preseasonStartDate: '',
-				preseasonEndDate: '',
-				isActive: true,
-				isLocked: false,
-				imageUrl: ''
-			}
-		};
+		createForm = createEmptyCreateForm();
 	}
 
 	function openCreateWizard(): void {
@@ -366,6 +344,72 @@
 		resetCreateWizard();
 	}
 
+	function hasOfferingDraftData(values: WizardOfferingInput): boolean {
+		return (
+			values.name.trim().length > 0 ||
+			values.slug.trim().length > 0 ||
+			values.imageUrl.trim().length > 0 ||
+			values.minPlayers > 0 ||
+			values.maxPlayers > 0 ||
+			values.rulebookUrl.trim().length > 0 ||
+			values.sport.trim().length > 0 ||
+			values.type !== 'league' ||
+			values.description.trim().length > 0 ||
+			!values.isActive
+		);
+	}
+
+	function hasLeagueDraftData(values: WizardLeagueInput): boolean {
+		return (
+			values.name.trim().length > 0 ||
+			values.slug.trim().length > 0 ||
+			values.description.trim().length > 0 ||
+			values.season.trim().length > 0 ||
+			values.gender.length > 0 ||
+			values.skillLevel.length > 0 ||
+			values.regStartDate.trim().length > 0 ||
+			values.regEndDate.trim().length > 0 ||
+			values.seasonStartDate.trim().length > 0 ||
+			values.seasonEndDate.trim().length > 0 ||
+			values.hasPreseason ||
+			values.preseasonStartDate.trim().length > 0 ||
+			values.preseasonEndDate.trim().length > 0 ||
+			values.hasPostseason ||
+			values.postseasonStartDate.trim().length > 0 ||
+			values.postseasonEndDate.trim().length > 0 ||
+			!values.isActive ||
+			values.isLocked ||
+			values.imageUrl.trim().length > 0
+		);
+	}
+
+	function hasUnsavedCreateWizardChanges(): boolean {
+		return (
+			hasOfferingDraftData(createForm.offering) ||
+			leagueDraftActive ||
+			(leagueDraftActive && hasLeagueDraftData(createForm.league)) ||
+			createForm.leagues.length > 0
+		);
+	}
+
+	function requestCloseCreateWizard(): void {
+		if (!isCreateModalOpen) return;
+		if (createSubmitting) return;
+		if (!hasUnsavedCreateWizardChanges()) {
+			closeCreateWizard();
+			return;
+		}
+
+		if (typeof window !== 'undefined') {
+			const confirmed = window.confirm(
+				'You have unsaved changes in this wizard. Close without saving?'
+			);
+			if (!confirmed) return;
+		}
+
+		closeCreateWizard();
+	}
+
 	function clearCreateApiErrors(): void {
 		if (Object.keys(serverFieldErrors).length > 0) {
 			serverFieldErrors = {};
@@ -375,10 +419,39 @@
 		}
 	}
 
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		if (!isCreateModalOpen || !hasUnsavedCreateWizardChanges()) return;
+
+		const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+			event.preventDefault();
+			event.returnValue = '';
+		};
+
+		window.addEventListener('beforeunload', handleBeforeUnload);
+		return () => {
+			window.removeEventListener('beforeunload', handleBeforeUnload);
+		};
+	});
+
 	function toDateMs(value: string): number | null {
-		if (!DATE_REGEX.test(value)) return null;
-		const parsed = new Date(`${value}T00:00:00.000Z`).getTime();
-		return Number.isNaN(parsed) ? null : parsed;
+		const normalized = value.trim();
+		if (DATE_REGEX.test(normalized)) {
+			const parsed = new Date(`${normalized}T00:00:00`).getTime();
+			return Number.isNaN(parsed) ? null : parsed;
+		}
+		if (DATE_TIME_REGEX.test(normalized)) {
+			const parsed = new Date(normalized).getTime();
+			return Number.isNaN(parsed) ? null : parsed;
+		}
+		return null;
+	}
+
+	function toDateOnlyMs(value: string): number | null {
+		const normalized = value.trim();
+		if (DATE_REGEX.test(normalized)) return toDateMs(normalized);
+		if (!DATE_TIME_REGEX.test(normalized)) return null;
+		return toDateMs(normalized.slice(0, 10));
 	}
 
 	function isValidUrl(value: string): boolean {
@@ -390,175 +463,278 @@
 		}
 	}
 
-	function getClientFieldErrors(values: WizardFormState): Record<string, string> {
-		const errors: Record<string, string> = {};
-		const offeringName = values.offering.name.trim();
-		const offeringSlug = values.offering.slug.trim();
-		const offeringSport = values.offering.sport.trim();
-		const offeringImageUrl = values.offering.imageUrl.trim();
-		const offeringRulebookUrl = values.offering.rulebookUrl.trim();
-		const offeringDescription = values.offering.description.trim();
-		const leagueName = values.league.name.trim();
-		const leagueSlug = values.league.slug.trim();
-		const leagueDescription = values.league.description.trim();
-		const leagueSeason = values.league.season.trim();
-		const leagueImageUrl = values.league.imageUrl.trim();
-
-		if (!offeringName) errors['offering.name'] = 'Offering name is required.';
-		if (!offeringSlug) {
-			errors['offering.slug'] = 'Offering slug is required.';
-		} else if (!SLUG_REGEX.test(offeringSlug)) {
-			errors['offering.slug'] = 'Use lowercase letters, numbers, and dashes only.';
+	function pickFieldErrors(
+		errors: Record<string, string>,
+		fieldKeys: string[]
+	): Record<string, string> {
+		const subset: Record<string, string> = {};
+		for (const key of fieldKeys) {
+			if (errors[key]) subset[key] = errors[key];
 		}
-		if (!offeringSport) errors['offering.sport'] = 'Sport is required.';
-		if (!values.offering.type) errors['offering.type'] = 'Offering type is required.';
-		if (!offeringDescription) errors['offering.description'] = 'Offering description is required.';
-		if (!offeringImageUrl) {
-			errors['offering.imageUrl'] = 'Offering image URL is required.';
-		} else if (!isValidUrl(offeringImageUrl)) {
+		return subset;
+	}
+
+	function getOfferingFieldErrors(values: WizardOfferingInput): Record<string, string> {
+		const errors: Record<string, string> = {};
+		const name = values.name.trim();
+		const slug = slugifyFinal(values.slug);
+		const sport = values.sport.trim();
+		const imageUrl = values.imageUrl.trim();
+		const rulebookUrl = values.rulebookUrl.trim();
+
+		if (!name) errors['offering.name'] = 'Offering name is required.';
+		if (!slug) errors['offering.slug'] = 'Offering slug is required.';
+		if (!sport) errors['offering.sport'] = 'Sport is required.';
+		if (!values.type) errors['offering.type'] = 'Type is required.';
+
+		if (imageUrl && !isValidUrl(imageUrl)) {
 			errors['offering.imageUrl'] = 'Enter a valid image URL.';
 		}
 
-		if (!Number.isInteger(values.offering.minPlayers) || values.offering.minPlayers < 1) {
-			errors['offering.minPlayers'] = 'Minimum players must be at least 1.';
-		}
-
-		if (!Number.isInteger(values.offering.maxPlayers) || values.offering.maxPlayers < 1) {
-			errors['offering.maxPlayers'] = 'Maximum players must be at least 1.';
-		}
-
-		if (
-			Number.isInteger(values.offering.minPlayers) &&
-			Number.isInteger(values.offering.maxPlayers) &&
-			values.offering.minPlayers > values.offering.maxPlayers
-		) {
-			errors['offering.maxPlayers'] = 'Maximum players must be greater than or equal to minimum players.';
-		}
-
-		if (!offeringRulebookUrl) {
-			errors['offering.rulebookUrl'] = 'Rulebook URL is required.';
-		} else if (!isValidUrl(offeringRulebookUrl)) {
+		if (rulebookUrl && !isValidUrl(rulebookUrl)) {
 			errors['offering.rulebookUrl'] = 'Enter a valid rulebook URL.';
 		}
 
-		if (!leagueName) errors['league.name'] = 'League name is required.';
-		if (!leagueSlug) {
-			errors['league.slug'] = 'League slug is required.';
-		} else if (!SLUG_REGEX.test(leagueSlug)) {
-			errors['league.slug'] = 'Use lowercase letters, numbers, and dashes only.';
+		const hasMinPlayers = values.minPlayers > 0;
+		const hasMaxPlayers = values.maxPlayers > 0;
+
+		if (hasMinPlayers && (!Number.isInteger(values.minPlayers) || values.minPlayers < 1)) {
+			errors['offering.minPlayers'] = 'Min Players must be at least 1.';
 		}
-		if (!leagueDescription) errors['league.description'] = 'League description is required.';
-		if (!leagueSeason) errors['league.season'] = 'Season is required.';
-		if (!values.league.gender) errors['league.gender'] = 'Gender is required.';
-		if (!values.league.skillLevel) errors['league.skillLevel'] = 'Skill level is required.';
 
-		const regStartMs = toDateMs(values.league.regStartDate);
-		const regEndMs = toDateMs(values.league.regEndDate);
-		const seasonStartMs = toDateMs(values.league.seasonStartDate);
-		const seasonEndMs = toDateMs(values.league.seasonEndDate);
+		if (hasMaxPlayers && (!Number.isInteger(values.maxPlayers) || values.maxPlayers < 1)) {
+			errors['offering.maxPlayers'] = 'Max Players must be at least 1.';
+		}
 
-		if (!values.league.regStartDate) {
-			errors['league.regStartDate'] = 'Registration start date is required.';
+		if (hasMinPlayers && hasMaxPlayers && values.minPlayers > values.maxPlayers) {
+			errors['offering.maxPlayers'] = 'Max Players must be greater than or equal to Min Players.';
+		}
+
+		return errors;
+	}
+
+	function getLeagueFieldErrors(
+		values: WizardLeagueInput,
+		prefix = 'league'
+	): Record<string, string> {
+		const errors: Record<string, string> = {};
+		const leagueName = values.name.trim();
+		const leagueSlug = slugifyFinal(values.slug);
+		const leagueSeason = values.season.trim();
+		const leagueImageUrl = values.imageUrl.trim();
+
+		if (!leagueName) errors[`${prefix}.name`] = 'League name is required.';
+		if (!leagueSlug) errors[`${prefix}.slug`] = 'League slug is required.';
+		if (!leagueSeason) errors[`${prefix}.season`] = 'Season is required.';
+
+		const regStartMs = toDateMs(values.regStartDate);
+		const regEndMs = toDateMs(values.regEndDate);
+		const regEndDateOnlyMs = toDateOnlyMs(values.regEndDate);
+		const seasonStartMs = toDateMs(values.seasonStartDate);
+		const seasonEndMs = toDateMs(values.seasonEndDate);
+
+		if (!values.regStartDate.trim()) {
+			errors[`${prefix}.regStartDate`] = 'Registration start date is required.';
 		} else if (regStartMs === null) {
-			errors['league.regStartDate'] = 'Use YYYY-MM-DD format.';
+			errors[`${prefix}.regStartDate`] = 'Use YYYY-MM-DDTHH:mm format.';
 		}
 
-		if (!values.league.regEndDate) {
-			errors['league.regEndDate'] = 'Registration end date is required.';
+		if (!values.regEndDate.trim()) {
+			errors[`${prefix}.regEndDate`] = 'Registration end date is required.';
 		} else if (regEndMs === null) {
-			errors['league.regEndDate'] = 'Use YYYY-MM-DD format.';
+			errors[`${prefix}.regEndDate`] = 'Use YYYY-MM-DDTHH:mm format.';
 		}
 
-		if (!values.league.seasonStartDate) {
-			errors['league.seasonStartDate'] = 'Season start date is required.';
+		if (!values.seasonStartDate.trim()) {
+			errors[`${prefix}.seasonStartDate`] = 'Season start date is required.';
 		} else if (seasonStartMs === null) {
-			errors['league.seasonStartDate'] = 'Use YYYY-MM-DD format.';
+			errors[`${prefix}.seasonStartDate`] = 'Use YYYY-MM-DD format.';
 		}
 
-		if (!values.league.seasonEndDate) {
-			errors['league.seasonEndDate'] = 'Season end date is required.';
+		if (!values.seasonEndDate.trim()) {
+			errors[`${prefix}.seasonEndDate`] = 'Season end date is required.';
 		} else if (seasonEndMs === null) {
-			errors['league.seasonEndDate'] = 'Use YYYY-MM-DD format.';
+			errors[`${prefix}.seasonEndDate`] = 'Use YYYY-MM-DD format.';
 		}
 
 		if (regStartMs !== null && regEndMs !== null && regStartMs > regEndMs) {
-			errors['league.scheduleRange'] =
-				'Registration end date must be on or after registration start date.';
+			errors[`${prefix}.scheduleRange`] =
+				'Registration deadline must be on or after registration start.';
 		}
 
-		if (regEndMs !== null && seasonStartMs !== null && regEndMs > seasonStartMs) {
-			errors['league.scheduleRange'] =
-				'Season start date must be on or after registration end date.';
+		if (regEndDateOnlyMs !== null && seasonStartMs !== null && regEndDateOnlyMs > seasonStartMs) {
+			errors[`${prefix}.scheduleRange`] =
+				'Season start date must be on or after registration deadline.';
 		}
 
 		if (seasonStartMs !== null && seasonEndMs !== null && seasonStartMs > seasonEndMs) {
-			errors['league.scheduleRange'] = 'Season end date must be on or after season start date.';
+			errors[`${prefix}.scheduleRange`] = 'Season end date must be on or after season start date.';
 		}
 
-		const preseasonStartMs = toDateMs(values.league.preseasonStartDate);
-		const preseasonEndMs = toDateMs(values.league.preseasonEndDate);
-		if (values.league.hasPreseason) {
-			if (!values.league.preseasonStartDate) {
-				errors['league.preseasonStartDate'] = 'Preseason start date is required.';
+		const preseasonStartMs = toDateMs(values.preseasonStartDate);
+		const preseasonEndMs = toDateMs(values.preseasonEndDate);
+		if (values.hasPreseason) {
+			if (!values.preseasonStartDate.trim()) {
+				errors[`${prefix}.preseasonStartDate`] = 'Preseason start date is required.';
 			}
-			if (!values.league.preseasonEndDate) {
-				errors['league.preseasonEndDate'] = 'Preseason end date is required.';
+			if (!values.preseasonEndDate.trim()) {
+				errors[`${prefix}.preseasonEndDate`] = 'Preseason end date is required.';
 			}
 			if (
 				preseasonStartMs !== null &&
 				preseasonEndMs !== null &&
 				preseasonStartMs > preseasonEndMs
 			) {
-				errors['league.preseasonEndDate'] =
+				errors[`${prefix}.preseasonEndDate`] =
 					'Preseason end date must be on or after preseason start date.';
 			}
 			if (preseasonEndMs !== null && seasonStartMs !== null && preseasonEndMs > seasonStartMs) {
-				errors['league.preseasonEndDate'] = 'Preseason must end on or before season start date.';
+				errors[`${prefix}.preseasonEndDate`] = 'Preseason must end on or before season start date.';
 			}
 		}
 
-		const postseasonStartMs = toDateMs(values.league.postseasonStartDate);
-		const postseasonEndMs = toDateMs(values.league.postseasonEndDate);
-		if (values.league.hasPostseason) {
-			if (!values.league.postseasonStartDate) {
-				errors['league.postseasonStartDate'] = 'Postseason start date is required.';
+		const postseasonStartMs = toDateMs(values.postseasonStartDate);
+		const postseasonEndMs = toDateMs(values.postseasonEndDate);
+		if (values.hasPostseason) {
+			if (!values.postseasonStartDate.trim()) {
+				errors[`${prefix}.postseasonStartDate`] = 'Postseason start date is required.';
 			}
-			if (!values.league.postseasonEndDate) {
-				errors['league.postseasonEndDate'] = 'Postseason end date is required.';
+			if (!values.postseasonEndDate.trim()) {
+				errors[`${prefix}.postseasonEndDate`] = 'Postseason end date is required.';
 			}
 			if (
 				postseasonStartMs !== null &&
 				postseasonEndMs !== null &&
 				postseasonStartMs > postseasonEndMs
 			) {
-				errors['league.postseasonEndDate'] =
+				errors[`${prefix}.postseasonEndDate`] =
 					'Postseason end date must be on or after postseason start date.';
 			}
 			if (seasonEndMs !== null && postseasonStartMs !== null && postseasonStartMs < seasonEndMs) {
-				errors['league.postseasonStartDate'] = 'Postseason must start on or after season end date.';
+				errors[`${prefix}.postseasonStartDate`] =
+					'Postseason must start on or after season end date.';
 			}
 		}
 
-		if (!leagueImageUrl) {
-			errors['league.imageUrl'] = 'League image URL is required.';
-		} else if (!isValidUrl(leagueImageUrl)) {
-			errors['league.imageUrl'] = 'Enter a valid image URL.';
+		if (leagueImageUrl && !isValidUrl(leagueImageUrl)) {
+			errors[`${prefix}.imageUrl`] = 'Enter a valid image URL.';
+		}
+
+		return errors;
+	}
+
+	function getCurrentStepClientErrors(
+		values: WizardFormState,
+		step: WizardStep
+	): Record<string, string> {
+		if (step === 1) {
+			return pickFieldErrors(getOfferingFieldErrors(values.offering), [
+				'offering.name',
+				'offering.slug',
+				'offering.sport',
+				'offering.type',
+				'offering.description'
+			]);
+		}
+
+		if (step === 2) {
+			return pickFieldErrors(getOfferingFieldErrors(values.offering), [
+				'offering.imageUrl',
+				'offering.minPlayers',
+				'offering.maxPlayers',
+				'offering.rulebookUrl'
+			]);
+		}
+
+		if (step === 3) {
+			if (!leagueDraftActive) return {};
+			return pickFieldErrors(getLeagueFieldErrors(values.league), [
+				'league.name',
+				'league.slug',
+				'league.description',
+				'league.season',
+				'league.gender',
+				'league.skillLevel'
+			]);
+		}
+
+		if (step === 4) {
+			if (!leagueDraftActive) return {};
+			return pickFieldErrors(getLeagueFieldErrors(values.league), [
+				'league.regStartDate',
+				'league.regEndDate',
+				'league.seasonStartDate',
+				'league.seasonEndDate',
+				'league.preseasonStartDate',
+				'league.preseasonEndDate',
+				'league.postseasonStartDate',
+				'league.postseasonEndDate',
+				'league.imageUrl',
+				'league.scheduleRange'
+			]);
+		}
+
+		return getSubmitClientErrors(values);
+	}
+
+	function getSubmitClientErrors(values: WizardFormState): Record<string, string> {
+		const errors: Record<string, string> = {
+			...getOfferingFieldErrors(values.offering)
+		};
+
+		if (values.leagues.length > 0) {
+			values.leagues.forEach((league, index) => {
+				Object.assign(errors, getLeagueFieldErrors(league, `leagues.${index}`));
+			});
 		}
 
 		return errors;
 	}
 
 	function firstInvalidStep(errors: Record<string, string>): WizardStep {
-		for (const step of [1, 2, 3, 4] as const) {
-			const fields = WIZARD_STEP_FIELDS[step];
-			if (fields.some((field) => Boolean(errors[field]))) return step;
+		const keys = Object.keys(errors);
+		if (
+			keys.some((key) =>
+				['offering.name', 'offering.slug', 'offering.sport', 'offering.type'].includes(key)
+			)
+		) {
+			return 1;
+		}
+		if (
+			keys.some((key) =>
+				[
+					'offering.imageUrl',
+					'offering.minPlayers',
+					'offering.maxPlayers',
+					'offering.rulebookUrl'
+				].includes(key)
+			)
+		) {
+			return 2;
+		}
+		if (
+			keys.some((key) =>
+				[
+					'league.name',
+					'league.slug',
+					'league.description',
+					'league.season',
+					'league.gender',
+					'league.skillLevel'
+				].includes(key)
+			)
+		) {
+			return 3;
+		}
+		if (keys.some((key) => key.startsWith('league.'))) {
+			return 4;
 		}
 		return 5;
 	}
 
-	function stepHasErrors(step: WizardStep, errors: Record<string, string>): boolean {
-		if (step === 5) return Object.keys(errors).length > 0;
-		return WIZARD_STEP_FIELDS[step].some((field) => Boolean(errors[field]));
+	function isRequiredFieldMessage(message: string): boolean {
+		const normalized = message.trim().toLowerCase();
+		return normalized.endsWith(' is required.') || normalized === 'required.';
 	}
 
 	function toServerFieldErrorMap(
@@ -580,8 +756,177 @@
 		return value.trim();
 	}
 
+	function normalizeOptionalTextForRequest(value: string): string | null {
+		const normalized = value.trim();
+		return normalized.length > 0 ? normalized : null;
+	}
+
+	function normalizeOptionalUrlForRequest(value: string): string | null {
+		const normalized = value.trim();
+		return normalized.length > 0 ? normalized : null;
+	}
+
+	function normalizePlayerCountForRequest(value: number): number | null {
+		return Number.isInteger(value) && value > 0 ? value : null;
+	}
+
+	function mapLeagueForRequest(league: WizardLeagueInput) {
+		return {
+			name: league.name.trim(),
+			slug: slugifyFinal(league.slug),
+			description: normalizeOptionalTextForRequest(league.description),
+			season: league.season.trim(),
+			gender: league.gender || null,
+			skillLevel: league.skillLevel || null,
+			regStartDate: normalizeDateForRequest(league.regStartDate),
+			regEndDate: normalizeDateForRequest(league.regEndDate),
+			seasonStartDate: normalizeDateForRequest(league.seasonStartDate),
+			seasonEndDate: normalizeDateForRequest(league.seasonEndDate),
+			hasPostseason: league.hasPostseason,
+			postseasonStartDate: league.hasPostseason
+				? normalizeDateForRequest(league.postseasonStartDate)
+				: null,
+			postseasonEndDate: league.hasPostseason
+				? normalizeDateForRequest(league.postseasonEndDate)
+				: null,
+			hasPreseason: league.hasPreseason,
+			preseasonStartDate: league.hasPreseason
+				? normalizeDateForRequest(league.preseasonStartDate)
+				: null,
+			preseasonEndDate: league.hasPreseason
+				? normalizeDateForRequest(league.preseasonEndDate)
+				: null,
+			isActive: league.isActive,
+			isLocked: league.isLocked,
+			imageUrl: normalizeOptionalUrlForRequest(league.imageUrl)
+		};
+	}
+
+	function addOrUpdateDraftLeague(): boolean {
+		const draftErrors = {
+			...getCurrentStepClientErrors(createForm, 3),
+			...getCurrentStepClientErrors(createForm, 4)
+		};
+		if (Object.keys(draftErrors).length > 0) {
+			createStep = firstInvalidStep(draftErrors);
+			return false;
+		}
+
+		const normalizedLeague: WizardLeagueInput = {
+			...createForm.league,
+			name: createForm.league.name.trim(),
+			slug: slugifyFinal(createForm.league.slug),
+			description: createForm.league.description.trim(),
+			season: createForm.league.season.trim(),
+			regStartDate: createForm.league.regStartDate.trim(),
+			regEndDate: createForm.league.regEndDate.trim(),
+			seasonStartDate: createForm.league.seasonStartDate.trim(),
+			seasonEndDate: createForm.league.seasonEndDate.trim(),
+			preseasonStartDate: createForm.league.preseasonStartDate.trim(),
+			preseasonEndDate: createForm.league.preseasonEndDate.trim(),
+			postseasonStartDate: createForm.league.postseasonStartDate.trim(),
+			postseasonEndDate: createForm.league.postseasonEndDate.trim(),
+			imageUrl: createForm.league.imageUrl.trim()
+		};
+
+		if (leagueEditingIndex === null) {
+			createForm.leagues = [...createForm.leagues, normalizedLeague];
+			expandedReviewLeagueIndex = createForm.leagues.length - 1;
+		} else {
+			createForm.leagues = createForm.leagues.map((league, index) =>
+				index === leagueEditingIndex ? normalizedLeague : league
+			);
+			expandedReviewLeagueIndex = leagueEditingIndex;
+		}
+
+		createForm.league = createEmptyLeague();
+		createForm.addLeagues = createForm.leagues.length > 0 ? 'yes' : 'no';
+		leagueEditingIndex = null;
+		leagueSlugTouched = false;
+		leagueDraftActive = false;
+		return true;
+	}
+
+	function startAddingLeague(): void {
+		clearCreateApiErrors();
+		leagueEditingIndex = null;
+		leagueSlugTouched = false;
+		createForm.league = createEmptyLeague();
+		createForm.addLeagues = 'yes';
+		leagueDraftActive = true;
+		createStep = 3;
+	}
+
+	function cancelLeagueDraft(): void {
+		leagueEditingIndex = null;
+		leagueSlugTouched = false;
+		leagueDraftActive = false;
+		createForm.league = createEmptyLeague();
+		if (createForm.leagues.length === 0) {
+			createForm.addLeagues = 'no';
+		}
+	}
+
+	function startEditingLeague(index: number): void {
+		if (!createForm.leagues[index]) return;
+		clearCreateApiErrors();
+		leagueEditingIndex = index;
+		expandedReviewLeagueIndex = index;
+		leagueSlugTouched = true;
+		createForm.league = { ...createForm.leagues[index] };
+		createForm.addLeagues = 'yes';
+		leagueDraftActive = true;
+		createStep = 3;
+	}
+
+	function duplicateLeague(index: number): void {
+		if (!createForm.leagues[index]) return;
+		const source = createForm.leagues[index];
+		const baseName = source.name.trim() || 'League';
+		const baseSlug = slugifyFinal(source.slug || source.name || 'league');
+		let copyNumber = 1;
+		let nextName = `${baseName} Copy`;
+		let nextSlug = `${baseSlug}-copy`;
+		const existingNames = new Set(
+			createForm.leagues.map((league) => league.name.trim().toLowerCase())
+		);
+		const existingSlugs = new Set(createForm.leagues.map((league) => slugifyFinal(league.slug)));
+		while (existingNames.has(nextName.toLowerCase()) || existingSlugs.has(nextSlug)) {
+			copyNumber += 1;
+			nextName = `${baseName} Copy ${copyNumber}`;
+			nextSlug = `${baseSlug}-copy-${copyNumber}`;
+		}
+
+		const duplicate: WizardLeagueInput = {
+			...source,
+			name: nextName,
+			slug: nextSlug
+		};
+		createForm.addLeagues = 'yes';
+		createForm.leagues = [...createForm.leagues, duplicate];
+		expandedReviewLeagueIndex = createForm.leagues.length - 1;
+	}
+
+	function removeLeague(index: number): void {
+		if (!createForm.leagues[index]) return;
+		createForm.leagues = createForm.leagues.filter((_, leagueIndex) => leagueIndex !== index);
+		if (leagueEditingIndex === index) {
+			cancelLeagueDraft();
+		}
+		if (createForm.leagues.length === 0) {
+			createForm.addLeagues = 'no';
+			expandedReviewLeagueIndex = null;
+		} else if (expandedReviewLeagueIndex !== null) {
+			if (expandedReviewLeagueIndex === index) {
+				expandedReviewLeagueIndex = null;
+			} else if (expandedReviewLeagueIndex > index) {
+				expandedReviewLeagueIndex -= 1;
+			}
+		}
+	}
+
 	async function submitCreateWizard(): Promise<void> {
-		const clientErrors = getClientFieldErrors(createForm);
+		const clientErrors = getSubmitClientErrors(createForm);
 		if (Object.keys(clientErrors).length > 0) {
 			createStep = firstInvalidStep(clientErrors);
 			return;
@@ -595,45 +940,17 @@
 		const payload = {
 			offering: {
 				name: createForm.offering.name.trim(),
-				slug: createForm.offering.slug.trim(),
+				slug: slugifyFinal(createForm.offering.slug),
 				isActive: createForm.offering.isActive,
-				imageUrl: createForm.offering.imageUrl.trim(),
-				minPlayers: createForm.offering.minPlayers,
-				maxPlayers: createForm.offering.maxPlayers,
-				rulebookUrl: createForm.offering.rulebookUrl.trim(),
+				imageUrl: normalizeOptionalUrlForRequest(createForm.offering.imageUrl),
+				minPlayers: normalizePlayerCountForRequest(createForm.offering.minPlayers),
+				maxPlayers: normalizePlayerCountForRequest(createForm.offering.maxPlayers),
+				rulebookUrl: normalizeOptionalUrlForRequest(createForm.offering.rulebookUrl),
 				sport: createForm.offering.sport.trim(),
 				type: createForm.offering.type,
-				description: createForm.offering.description.trim()
+				description: normalizeOptionalTextForRequest(createForm.offering.description)
 			},
-			league: {
-				name: createForm.league.name.trim(),
-				slug: createForm.league.slug.trim(),
-				description: createForm.league.description.trim(),
-				season: createForm.league.season.trim(),
-				gender: createForm.league.gender,
-				skillLevel: createForm.league.skillLevel,
-				regStartDate: normalizeDateForRequest(createForm.league.regStartDate),
-				regEndDate: normalizeDateForRequest(createForm.league.regEndDate),
-				seasonStartDate: normalizeDateForRequest(createForm.league.seasonStartDate),
-				seasonEndDate: normalizeDateForRequest(createForm.league.seasonEndDate),
-				hasPostseason: createForm.league.hasPostseason,
-				postseasonStartDate: createForm.league.hasPostseason
-					? normalizeDateForRequest(createForm.league.postseasonStartDate)
-					: null,
-				postseasonEndDate: createForm.league.hasPostseason
-					? normalizeDateForRequest(createForm.league.postseasonEndDate)
-					: null,
-				hasPreseason: createForm.league.hasPreseason,
-				preseasonStartDate: createForm.league.hasPreseason
-					? normalizeDateForRequest(createForm.league.preseasonStartDate)
-					: null,
-				preseasonEndDate: createForm.league.hasPreseason
-					? normalizeDateForRequest(createForm.league.preseasonEndDate)
-					: null,
-				isActive: createForm.league.isActive,
-				isLocked: createForm.league.isLocked,
-				imageUrl: createForm.league.imageUrl.trim()
-			}
+			leagues: createForm.leagues.map(mapLeagueForRequest)
 		};
 
 		try {
@@ -652,10 +969,10 @@
 				body = null;
 			}
 
-			if (!response.ok || !body?.success || !body.data?.activity) {
+			if (!response.ok || !body?.success || !body?.data) {
 				serverFieldErrors = toServerFieldErrorMap(body?.fieldErrors);
 				const combinedErrors = {
-					...getClientFieldErrors(createForm),
+					...getSubmitClientErrors(createForm),
 					...serverFieldErrors
 				};
 				createStep = firstInvalidStep(combinedErrors);
@@ -663,10 +980,14 @@
 				return;
 			}
 
-			activities = [body.data.activity, ...activities];
+			activities = [...body.data.activities, ...activities];
 			offeringView = 'all';
 			searchQuery = '';
-			createSuccessMessage = 'Offering and league created successfully.';
+			const createdLeagueCount = body.data.leagueIds.length;
+			createSuccessMessage =
+				createdLeagueCount > 0
+					? `Offering and ${createdLeagueCount} ${pluralize(createdLeagueCount, 'league', 'leagues')} created successfully.`
+					: 'Offering created successfully.';
 			closeCreateWizard();
 		} catch {
 			createFormError = 'Unable to save offering right now.';
@@ -689,7 +1010,7 @@
 			.join(' ');
 	}
 
-	function slugify(value: string): string {
+	function slugifyFinal(value: string): string {
 		return value
 			.toLowerCase()
 			.trim()
@@ -698,6 +1019,46 @@
 			.replace(/[^a-z0-9-]/g, '')
 			.replace(/-+/g, '-')
 			.replace(/^-|-$/g, '');
+	}
+
+	function slugifyLiveWithCursor(
+		input: string,
+		cursorIndex: number
+	): { value: string; cursor: number } {
+		let output = '';
+		let outputCursor = 0;
+
+		for (let index = 0; index < input.length; index++) {
+			const character = input[index] ?? '';
+			const beforeCursor = index < cursorIndex;
+
+			let next = '';
+			if (/[A-Za-z0-9]/.test(character)) next = character.toLowerCase();
+			else if (character === ' ' || character === '-') next = '-';
+
+			if (next === '-') {
+				if (output.length === 0) {
+					next = '';
+				} else if (output.endsWith('-')) {
+					next = '';
+				}
+			}
+
+			if (next) {
+				output += next;
+				if (beforeCursor) outputCursor += next.length;
+			}
+		}
+
+		return { value: output, cursor: outputCursor };
+	}
+
+	function applyLiveSlugInput(element: HTMLInputElement): string {
+		const cursor = element.selectionStart ?? element.value.length;
+		const { value, cursor: nextCursor } = slugifyLiveWithCursor(element.value, cursor);
+		element.value = value;
+		element.setSelectionRange(nextCursor, nextCursor);
+		return value;
 	}
 
 	function normalizeSearch(value: string): string {
@@ -727,12 +1088,13 @@
 		if (!parsed) return 'TBD';
 		const currentYear = new Date().getFullYear();
 		const includeYear = parsed.getFullYear() !== currentYear;
-		const datePortion = parsed.toLocaleDateString('en-US', {
+		return parsed.toLocaleString('en-US', {
 			month: 'short',
 			day: 'numeric',
-			...(includeYear ? { year: 'numeric' } : {})
+			...(includeYear ? { year: 'numeric' } : {}),
+			hour: 'numeric',
+			minute: '2-digit'
 		});
-		return `${datePortion}, 11:59 PM`;
 	}
 
 	function formatRange(start: string | null, end: string | null): string {
@@ -760,20 +1122,46 @@
 		return 'Season dates TBD';
 	}
 
+	function formatReviewDate(value: string | null, withTime = false): string {
+		const parsed = parseDate(value);
+		if (!parsed) return 'TBD';
+		if (withTime) {
+			return parsed.toLocaleString('en-GB', {
+				day: 'numeric',
+				month: 'short',
+				year: 'numeric',
+				hour: 'numeric',
+				minute: '2-digit'
+			});
+		}
+		return parsed.toLocaleDateString('en-GB', {
+			day: 'numeric',
+			month: 'short',
+			year: 'numeric'
+		});
+	}
+
+	function formatReviewRange(start: string | null, end: string | null, withTime = false): string {
+		const startLabel = formatReviewDate(start, withTime);
+		const endLabel = formatReviewDate(end, withTime);
+		return `${startLabel} - ${endLabel}`;
+	}
+
 	function normalizeGender(value: string | null): string | null {
 		if (!value) return null;
 		const normalized = value.trim().toLowerCase();
-		if (normalized === 'mens' || normalized === 'men' || normalized === 'male') return "Men's";
-		if (normalized === 'womens' || normalized === 'women' || normalized === 'female')
-			return "Women's";
+		if (normalized === 'male' || normalized === 'mens' || normalized === 'men') return 'Male';
+		if (normalized === 'female' || normalized === 'womens' || normalized === 'women')
+			return 'Female';
 		if (
+			normalized === 'mixed' ||
 			normalized === 'coed' ||
 			normalized === 'co-ed' ||
 			normalized === 'corec' ||
-			normalized === 'co-rec'
+			normalized === 'co-rec' ||
+			normalized === 'unified'
 		)
-			return 'CoRec';
-		if (normalized === 'unified') return 'Unified';
+			return 'Mixed';
 		if (normalized === 'open') return 'Open';
 		return toTitleCase(value);
 	}
@@ -973,7 +1361,7 @@
 			if (!bucket.offerings.has(offeringKey)) {
 				bucket.offerings.set(offeringKey, {
 					offeringName,
-					offeringSlug: `offering-${slugify(offeringName)}-${activity.offeringType}-${semester.key}`,
+					offeringSlug: `offering-${slugifyFinal(offeringName)}-${activity.offeringType}-${semester.key}`,
 					offeringType: activity.offeringType,
 					divisionCount: 0,
 					openCount: 0,
@@ -1241,26 +1629,65 @@
 	const concludedOfferings = $derived.by(() =>
 		visibleOfferings.filter((offering) => isOfferingConcluded(offering))
 	);
-	const clientCreateFieldErrors = $derived.by(() => getClientFieldErrors(createForm));
-	const createFieldErrors = $derived.by(() => ({
+	const clientCreateFieldErrors = $derived.by(() =>
+		getCurrentStepClientErrors(createForm, createStep)
+	);
+	const rawCreateFieldErrors = $derived.by(() => ({
 		...clientCreateFieldErrors,
 		...serverFieldErrors
 	}));
-	const canGoNextStep = $derived.by(() => !stepHasErrors(createStep, createFieldErrors));
+	const createFieldErrors = $derived.by(() => {
+		const visibleErrors: Record<string, string> = {};
+		for (const [key, value] of Object.entries(rawCreateFieldErrors)) {
+			if (!isRequiredFieldMessage(value)) {
+				visibleErrors[key] = value;
+			}
+		}
+		return visibleErrors;
+	});
+	const canGoNextStep = $derived.by(
+		() => createStep < 5 && Object.keys(clientCreateFieldErrors).length === 0 && !createSubmitting
+	);
 	const canSubmitCreate = $derived.by(
-		() => createStep === 5 && Object.keys(createFieldErrors).length === 0 && !createSubmitting
+		() =>
+			createStep === 5 &&
+			Object.keys(getSubmitClientErrors(createForm)).length === 0 &&
+			Object.keys(serverFieldErrors).length === 0 &&
+			!createSubmitting
 	);
 	const createStepProgress = $derived.by(() => Math.round((createStep / 5) * 100));
 
 	function nextCreateStep(): void {
 		clearCreateApiErrors();
 		if (createStep === 5 || !canGoNextStep) return;
+
+		if (createStep === 3) {
+			createStep = leagueDraftActive ? 4 : 5;
+			return;
+		}
+
+		if (createStep === 4) {
+			if (!leagueDraftActive) {
+				createStep = 5;
+				return;
+			}
+			if (!addOrUpdateDraftLeague()) return;
+			createStep = 5;
+			return;
+		}
+
 		createStep = (createStep + 1) as WizardStep;
 	}
 
 	function previousCreateStep(): void {
 		clearCreateApiErrors();
 		if (createStep === 1) return;
+
+		if (createStep === 5) {
+			createStep = leagueDraftActive ? 4 : 3;
+			return;
+		}
+
 		createStep = (createStep - 1) as WizardStep;
 	}
 
@@ -1817,9 +2244,9 @@
 {#if isCreateModalOpen}
 	<div
 		class="fixed inset-0 bg-black/55 z-50 flex items-start justify-center p-5 lg:p-8 overflow-y-auto"
-		onclick={closeCreateWizard}
+		onclick={requestCloseCreateWizard}
 		onkeydown={(event) => {
-			if (event.key === 'Escape') closeCreateWizard();
+			if (event.key === 'Escape') requestCloseCreateWizard();
 		}}
 		role="button"
 		tabindex="0"
@@ -1841,7 +2268,7 @@
 					<button
 						type="button"
 						class="button-secondary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer"
-						onclick={closeCreateWizard}
+						onclick={requestCloseCreateWizard}
 					>
 						Close
 					</button>
@@ -1869,7 +2296,7 @@
 					<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
 						<div>
 							<label for="offering-name" class="block text-sm font-sans text-neutral-950 mb-1"
-								>Offering name</label
+								>Name <span class="text-error-700">*</span></label
 							>
 							<input
 								id="offering-name"
@@ -1881,7 +2308,7 @@
 									const value = (event.currentTarget as HTMLInputElement).value;
 									createForm.offering.name = value;
 									if (!offeringSlugTouched) {
-										createForm.offering.slug = slugify(value);
+										createForm.offering.slug = slugifyFinal(value);
 									}
 								}}
 								autocomplete="off"
@@ -1893,7 +2320,7 @@
 
 						<div>
 							<label for="offering-slug" class="block text-sm font-sans text-neutral-950 mb-1"
-								>Offering slug</label
+								>Slug <span class="text-error-700">*</span></label
 							>
 							<input
 								id="offering-slug"
@@ -1903,8 +2330,8 @@
 								placeholder="basketball"
 								oninput={(event) => {
 									offeringSlugTouched = true;
-									createForm.offering.slug = slugify(
-										(event.currentTarget as HTMLInputElement).value
+									createForm.offering.slug = applyLiveSlugInput(
+										event.currentTarget as HTMLInputElement
 									);
 								}}
 								autocomplete="off"
@@ -1916,7 +2343,7 @@
 
 						<div>
 							<label for="offering-sport" class="block text-sm font-sans text-neutral-950 mb-1"
-								>Sport</label
+								>Sport <span class="text-error-700">*</span></label
 							>
 							<input
 								id="offering-sport"
@@ -1933,7 +2360,7 @@
 
 						<div>
 							<label for="offering-type" class="block text-sm font-sans text-neutral-950 mb-1"
-								>Offering type</label
+								>Type <span class="text-error-700">*</span></label
 							>
 							<select
 								id="offering-type"
@@ -1949,8 +2376,9 @@
 						</div>
 
 						<div class="lg:col-span-2">
-							<label for="offering-description" class="block text-sm font-sans text-neutral-950 mb-1"
-								>Offering description</label
+							<label
+								for="offering-description"
+								class="block text-sm font-sans text-neutral-950 mb-1">Description</label
 							>
 							<textarea
 								id="offering-description"
@@ -1959,498 +2387,791 @@
 								placeholder="Describe this offering."
 							></textarea>
 							{#if createFieldErrors['offering.description']}
-								<p class="text-xs text-error-700 mt-1">{createFieldErrors['offering.description']}</p>
+								<p class="text-xs text-error-700 mt-1">
+									{createFieldErrors['offering.description']}
+								</p>
 							{/if}
 						</div>
 					</div>
 				{/if}
 
 				{#if createStep === 2}
-					<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-						<div>
-							<label for="offering-min-players" class="block text-sm font-sans text-neutral-950 mb-1"
-								>Minimum players</label
-							>
-							<input
-								id="offering-min-players"
-								type="number"
-								class="input-secondary"
-								min="1"
-								step="1"
-								value={createForm.offering.minPlayers > 0
-									? String(createForm.offering.minPlayers)
-									: ''}
-								oninput={(event) => {
-									const parsed = Number.parseInt(
-										(event.currentTarget as HTMLInputElement).value,
-										10
-									);
-									createForm.offering.minPlayers = Number.isNaN(parsed) ? 0 : parsed;
-								}}
-							/>
-							{#if createFieldErrors['offering.minPlayers']}
-								<p class="text-xs text-error-700 mt-1">{createFieldErrors['offering.minPlayers']}</p>
-							{/if}
+					<div class="space-y-4">
+						<div class="grid grid-cols-1 lg:grid-cols-[15rem_minmax(0,1fr)] gap-5">
+							<div class="space-y-4 max-w-60">
+								<div>
+									<label
+										for="offering-min-players"
+										class="block text-sm font-sans text-neutral-950 mb-1">Min Players</label
+									>
+									<input
+										id="offering-min-players"
+										type="number"
+										class="input-secondary"
+										min="1"
+										step="1"
+										value={createForm.offering.minPlayers > 0
+											? String(createForm.offering.minPlayers)
+											: ''}
+										oninput={(event) => {
+											const parsed = Number.parseInt(
+												(event.currentTarget as HTMLInputElement).value,
+												10
+											);
+											createForm.offering.minPlayers = Number.isNaN(parsed) ? 0 : parsed;
+										}}
+									/>
+									{#if createFieldErrors['offering.minPlayers']}
+										<p class="text-xs text-error-700 mt-1">
+											{createFieldErrors['offering.minPlayers']}
+										</p>
+									{/if}
+								</div>
+
+								<div>
+									<label
+										for="offering-max-players"
+										class="block text-sm font-sans text-neutral-950 mb-1">Max Players</label
+									>
+									<input
+										id="offering-max-players"
+										type="number"
+										class="input-secondary"
+										min="1"
+										step="1"
+										value={createForm.offering.maxPlayers > 0
+											? String(createForm.offering.maxPlayers)
+											: ''}
+										oninput={(event) => {
+											const parsed = Number.parseInt(
+												(event.currentTarget as HTMLInputElement).value,
+												10
+											);
+											createForm.offering.maxPlayers = Number.isNaN(parsed) ? 0 : parsed;
+										}}
+									/>
+									{#if createFieldErrors['offering.maxPlayers']}
+										<p class="text-xs text-error-700 mt-1">
+											{createFieldErrors['offering.maxPlayers']}
+										</p>
+									{/if}
+								</div>
+							</div>
+
+							<div class="space-y-4 max-w-3xl">
+								<div>
+									<label
+										for="offering-image-url"
+										class="block text-sm font-sans text-neutral-950 mb-1">Image URL</label
+									>
+									<input
+										id="offering-image-url"
+										type="url"
+										class="input-secondary"
+										bind:value={createForm.offering.imageUrl}
+										placeholder="https://example.com/offering-image.jpg"
+										autocomplete="off"
+									/>
+									{#if createFieldErrors['offering.imageUrl']}
+										<p class="text-xs text-error-700 mt-1">
+											{createFieldErrors['offering.imageUrl']}
+										</p>
+									{/if}
+								</div>
+
+								<div>
+									<label
+										for="offering-rulebook-url"
+										class="block text-sm font-sans text-neutral-950 mb-1">Rulebook URL</label
+									>
+									<input
+										id="offering-rulebook-url"
+										type="url"
+										class="input-secondary"
+										bind:value={createForm.offering.rulebookUrl}
+										placeholder="https://example.com/rules"
+										autocomplete="off"
+									/>
+									{#if createFieldErrors['offering.rulebookUrl']}
+										<p class="text-xs text-error-700 mt-1">
+											{createFieldErrors['offering.rulebookUrl']}
+										</p>
+									{/if}
+								</div>
+							</div>
 						</div>
 
-						<div>
-							<label for="offering-max-players" class="block text-sm font-sans text-neutral-950 mb-1"
-								>Maximum players</label
-							>
-							<input
-								id="offering-max-players"
-								type="number"
-								class="input-secondary"
-								min="1"
-								step="1"
-								value={createForm.offering.maxPlayers > 0
-									? String(createForm.offering.maxPlayers)
-									: ''}
-								oninput={(event) => {
-									const parsed = Number.parseInt(
-										(event.currentTarget as HTMLInputElement).value,
-										10
-									);
-									createForm.offering.maxPlayers = Number.isNaN(parsed) ? 0 : parsed;
-								}}
-							/>
-							{#if createFieldErrors['offering.maxPlayers']}
-								<p class="text-xs text-error-700 mt-1">{createFieldErrors['offering.maxPlayers']}</p>
-							{/if}
-						</div>
-
-						<div>
-							<label for="offering-image-url" class="block text-sm font-sans text-neutral-950 mb-1"
-								>Offering image URL</label
-							>
-							<input
-								id="offering-image-url"
-								type="url"
-								class="input-secondary"
-								bind:value={createForm.offering.imageUrl}
-								placeholder="https://example.com/offering-image.jpg"
-								autocomplete="off"
-							/>
-							{#if createFieldErrors['offering.imageUrl']}
-								<p class="text-xs text-error-700 mt-1">{createFieldErrors['offering.imageUrl']}</p>
-							{/if}
-						</div>
-
-						<div>
-							<label for="offering-rulebook-url" class="block text-sm font-sans text-neutral-950 mb-1"
-								>Rulebook URL</label
-							>
-							<input
-								id="offering-rulebook-url"
-								type="url"
-								class="input-secondary"
-								bind:value={createForm.offering.rulebookUrl}
-								placeholder="https://example.com/rules"
-								autocomplete="off"
-							/>
-							{#if createFieldErrors['offering.rulebookUrl']}
-								<p class="text-xs text-error-700 mt-1">{createFieldErrors['offering.rulebookUrl']}</p>
-							{/if}
-						</div>
-
-						<div class="lg:col-span-2 border border-secondary-300 bg-white p-3">
+						<div class="border border-secondary-300 bg-white p-3">
 							<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
 								<input
 									type="checkbox"
 									class="toggle-secondary"
 									bind:checked={createForm.offering.isActive}
 								/>
-								Offering is active
+								Active
 							</label>
 						</div>
 					</div>
 				{/if}
 
 				{#if createStep === 3}
-					<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-						<div>
-							<label for="league-name" class="block text-sm font-sans text-neutral-950 mb-1"
-								>League name</label
-							>
-							<input
-								id="league-name"
-								type="text"
-								class="input-secondary"
-								value={createForm.league.name}
-								placeholder="Men's"
-								oninput={(event) => {
-									const value = (event.currentTarget as HTMLInputElement).value;
-									createForm.league.name = value;
-									if (!leagueSlugTouched) {
-										createForm.league.slug = slugify(value);
-									}
-								}}
-								autocomplete="off"
-							/>
-							{#if createFieldErrors['league.name']}
-								<p class="text-xs text-error-700 mt-1">{createFieldErrors['league.name']}</p>
+					<div class="space-y-4">
+						<div class="border border-secondary-300 bg-white p-3 space-y-3">
+							<div class="flex items-center justify-between gap-2">
+								<h3 class="text-sm font-bold font-sans text-neutral-950 uppercase tracking-wide">
+									Leagues ({createForm.leagues.length})
+								</h3>
+								<button
+									type="button"
+									class="button-secondary-outlined p-1.5 cursor-pointer"
+									aria-label="Add league"
+									title="Add league"
+									onclick={startAddingLeague}
+								>
+									<IconPlus class="w-4 h-4" />
+								</button>
+							</div>
+
+							{#if createForm.leagues.length === 0 && !leagueDraftActive}
+								<p class="text-sm text-neutral-950 font-sans">
+									No leagues added yet. Use the plus button to add one, or continue without leagues.
+								</p>
+							{:else if createForm.leagues.length > 0}
+								<div class="space-y-2">
+									{#each createForm.leagues as league, leagueIndex}
+										<div class="border border-secondary-300 bg-neutral">
+											<button
+												type="button"
+												class="w-full px-3 py-2 flex items-center justify-between gap-3 text-left cursor-pointer"
+												onclick={() => {
+													expandedReviewLeagueIndex =
+														expandedReviewLeagueIndex === leagueIndex ? null : leagueIndex;
+												}}
+												aria-expanded={expandedReviewLeagueIndex === leagueIndex}
+											>
+												<div>
+													<p class="text-sm font-semibold text-neutral-950">{league.name}</p>
+													<p class="text-xs text-neutral-900">
+														Slug: {league.slug}
+														{#if league.season.trim()}
+															| Season: {league.season}
+														{/if}
+													</p>
+												</div>
+												{#if expandedReviewLeagueIndex === leagueIndex}
+													<IconChevronUp class="w-4 h-4 text-neutral-950" />
+												{:else}
+													<IconChevronDown class="w-4 h-4 text-neutral-950" />
+												{/if}
+											</button>
+											{#if expandedReviewLeagueIndex === leagueIndex}
+												<div class="px-3 pb-3 pt-1 border-t border-secondary-300">
+													<div class="flex items-center gap-2 justify-end">
+														<button
+															type="button"
+															class="button-secondary-outlined p-1.5 cursor-pointer"
+															aria-label="Copy league"
+															title="Copy"
+															onclick={() => {
+																duplicateLeague(leagueIndex);
+															}}
+														>
+															<IconCopy class="w-4 h-4" />
+														</button>
+														<button
+															type="button"
+															class="button-secondary-outlined p-1.5 cursor-pointer"
+															aria-label="Edit league"
+															title="Edit"
+															onclick={() => {
+																startEditingLeague(leagueIndex);
+															}}
+														>
+															<IconPencil class="w-4 h-4" />
+														</button>
+														<button
+															type="button"
+															class="button-secondary-outlined p-1.5 cursor-pointer"
+															aria-label="Remove league"
+															title="Remove"
+															onclick={() => {
+																removeLeague(leagueIndex);
+															}}
+														>
+															<IconTrash class="w-4 h-4" />
+														</button>
+													</div>
+												</div>
+											{/if}
+										</div>
+									{/each}
+								</div>
 							{/if}
 						</div>
 
-						<div>
-							<label for="league-slug" class="block text-sm font-sans text-neutral-950 mb-1"
-								>League slug</label
-							>
-							<input
-								id="league-slug"
-								type="text"
-								class="input-secondary"
-								value={createForm.league.slug}
-								placeholder="basketball-mens-spring-2026"
-								oninput={(event) => {
-									leagueSlugTouched = true;
-									createForm.league.slug = slugify(
-										(event.currentTarget as HTMLInputElement).value
-									);
-								}}
-								autocomplete="off"
-							/>
-							{#if createFieldErrors['league.slug']}
-								<p class="text-xs text-error-700 mt-1">{createFieldErrors['league.slug']}</p>
-							{/if}
-						</div>
+						{#if leagueDraftActive}
+							<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+								<div>
+									<label for="league-name" class="block text-sm font-sans text-neutral-950 mb-1"
+										>Name <span class="text-error-700">*</span></label
+									>
+									<input
+										id="league-name"
+										type="text"
+										class="input-secondary"
+										value={createForm.league.name}
+										placeholder="Men's"
+										oninput={(event) => {
+											const value = (event.currentTarget as HTMLInputElement).value;
+											createForm.league.name = value;
+											if (!leagueSlugTouched) {
+												createForm.league.slug = defaultLeagueSlug(value, createForm.offering.name);
+											}
+										}}
+										autocomplete="off"
+									/>
+									{#if createFieldErrors['league.name']}
+										<p class="text-xs text-error-700 mt-1">{createFieldErrors['league.name']}</p>
+									{/if}
+								</div>
 
-						<div>
-							<label for="league-season" class="block text-sm font-sans text-neutral-950 mb-1"
-								>Season</label
-							>
-							<input
-								id="league-season"
-								type="text"
-								class="input-secondary"
-								bind:value={createForm.league.season}
-								placeholder={seasonPlaceholder}
-								autocomplete="off"
-							/>
-							<p class="text-xs text-neutral-950 mt-1">
-								Short answer text. Example: <span class="font-semibold">{seasonPlaceholder}</span>.
-							</p>
-							{#if createFieldErrors['league.season']}
-								<p class="text-xs text-error-700 mt-1">{createFieldErrors['league.season']}</p>
-							{/if}
-						</div>
+								<div>
+									<label for="league-slug" class="block text-sm font-sans text-neutral-950 mb-1"
+										>Slug <span class="text-error-700">*</span></label
+									>
+									<input
+										id="league-slug"
+										type="text"
+										class="input-secondary"
+										value={createForm.league.slug}
+										placeholder="mens-soccer"
+										oninput={(event) => {
+											leagueSlugTouched = true;
+											createForm.league.slug = applyLiveSlugInput(
+												event.currentTarget as HTMLInputElement
+											);
+										}}
+										autocomplete="off"
+									/>
+									{#if createFieldErrors['league.slug']}
+										<p class="text-xs text-error-700 mt-1">{createFieldErrors['league.slug']}</p>
+									{/if}
+								</div>
 
-						<div>
-							<label for="league-gender" class="block text-sm font-sans text-neutral-950 mb-1"
-								>Gender</label
-							>
-							<select
-								id="league-gender"
-								class="select-secondary"
-								bind:value={createForm.league.gender}
-							>
-								<option value="mens">Men's</option>
-								<option value="womens">Women's</option>
-								<option value="corec">CoRec</option>
-								<option value="unified">Unified</option>
-							</select>
-							{#if createFieldErrors['league.gender']}
-								<p class="text-xs text-error-700 mt-1">{createFieldErrors['league.gender']}</p>
-							{/if}
-						</div>
+								<div>
+									<label for="league-season" class="block text-sm font-sans text-neutral-950 mb-1"
+										>Season <span class="text-error-700">*</span></label
+									>
+									<input
+										id="league-season"
+										type="text"
+										class="input-secondary"
+										bind:value={createForm.league.season}
+										placeholder={seasonPlaceholder}
+										autocomplete="off"
+									/>
+									{#if createFieldErrors['league.season']}
+										<p class="text-xs text-error-700 mt-1">{createFieldErrors['league.season']}</p>
+									{/if}
+								</div>
 
-						<div>
-							<label for="league-skill-level" class="block text-sm font-sans text-neutral-950 mb-1"
-								>Skill level</label
-							>
-							<select
-								id="league-skill-level"
-								class="select-secondary"
-								bind:value={createForm.league.skillLevel}
-							>
-								<option value="competitive">Competitive</option>
-								<option value="intermediate">Intermediate</option>
-								<option value="recreational">Recreational</option>
-								<option value="all">All</option>
-							</select>
-							{#if createFieldErrors['league.skillLevel']}
-								<p class="text-xs text-error-700 mt-1">{createFieldErrors['league.skillLevel']}</p>
-							{/if}
-						</div>
+								<div>
+									<label for="league-gender" class="block text-sm font-sans text-neutral-950 mb-1"
+										>Gender</label
+									>
+									<select
+										id="league-gender"
+										class="select-secondary"
+										bind:value={createForm.league.gender}
+									>
+										<option value="">Select...</option>
+										<option value="male">Male</option>
+										<option value="female">Female</option>
+										<option value="mixed">Mixed</option>
+									</select>
+								</div>
 
-						<div class="lg:col-span-2">
-							<label for="league-description" class="block text-sm font-sans text-neutral-950 mb-1"
-								>League description</label
-							>
-							<textarea
-								id="league-description"
-								class="textarea-secondary min-h-28"
-								bind:value={createForm.league.description}
-								placeholder="Describe this league."
-							></textarea>
-							{#if createFieldErrors['league.description']}
-								<p class="text-xs text-error-700 mt-1">{createFieldErrors['league.description']}</p>
-							{/if}
-						</div>
+								<div>
+									<label
+										for="league-skill-level"
+										class="block text-sm font-sans text-neutral-950 mb-1">Skill Level</label
+									>
+									<select
+										id="league-skill-level"
+										class="select-secondary"
+										bind:value={createForm.league.skillLevel}
+									>
+										<option value="">Select...</option>
+										<option value="competitive">Competitive</option>
+										<option value="intermediate">Intermediate</option>
+										<option value="recreational">Recreational</option>
+										<option value="all">All</option>
+									</select>
+								</div>
+
+								<div class="lg:col-span-2">
+									<label
+										for="league-description"
+										class="block text-sm font-sans text-neutral-950 mb-1">Description</label
+									>
+									<textarea
+										id="league-description"
+										class="textarea-secondary min-h-28"
+										bind:value={createForm.league.description}
+										placeholder="Describe this league."
+									></textarea>
+								</div>
+							</div>
+
+							<div class="flex items-center justify-end gap-2">
+								<button
+									type="button"
+									class="button-secondary-outlined cursor-pointer"
+									onclick={cancelLeagueDraft}
+								>
+									Cancel League
+								</button>
+							</div>
+						{:else if createForm.leagues.length > 0}
+							<div class="flex justify-end">
+								<button
+									type="button"
+									class="button-secondary-outlined p-1.5 cursor-pointer"
+									aria-label="Add another league"
+									title="Add another league"
+									onclick={startAddingLeague}
+								>
+									<IconPlus class="w-4 h-4" />
+								</button>
+							</div>
+						{/if}
 					</div>
 				{/if}
 
 				{#if createStep === 4}
 					<div class="space-y-4">
-						<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-							<div>
-								<label for="league-reg-start" class="block text-sm font-sans text-neutral-950 mb-1"
-									>Registration start date</label
-								>
-								<input
-									id="league-reg-start"
-									type="date"
-									class="input-secondary"
-									bind:value={createForm.league.regStartDate}
-								/>
-								{#if createFieldErrors['league.regStartDate']}
-									<p class="text-xs text-error-700 mt-1">{createFieldErrors['league.regStartDate']}</p>
-								{/if}
+						{#if !leagueDraftActive}
+							<div class="border border-secondary-300 bg-white p-4">
+								<p class="text-sm font-sans text-neutral-950">
+									No league draft is open. Go back to League Options and click the plus button to
+									add one.
+								</p>
 							</div>
-							<div>
-								<label for="league-reg-end" class="block text-sm font-sans text-neutral-950 mb-1"
-									>Registration end date</label
-								>
-								<input
-									id="league-reg-end"
-									type="date"
-									class="input-secondary"
-									bind:value={createForm.league.regEndDate}
-								/>
-								{#if createFieldErrors['league.regEndDate']}
-									<p class="text-xs text-error-700 mt-1">{createFieldErrors['league.regEndDate']}</p>
-								{/if}
+						{:else}
+							<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+								<div>
+									<label
+										for="league-reg-start"
+										class="block text-sm font-sans text-neutral-950 mb-1"
+										>Registration Opens <span class="text-error-700">*</span></label
+									>
+									<input
+										id="league-reg-start"
+										type="datetime-local"
+										class="input-secondary"
+										bind:value={createForm.league.regStartDate}
+										onfocus={() => {
+											if (!createForm.league.regStartDate.trim()) {
+												createForm.league.regStartDate = defaultDateTimeValue('start');
+											}
+										}}
+									/>
+									{#if createFieldErrors['league.regStartDate']}
+										<p class="text-xs text-error-700 mt-1">
+											{createFieldErrors['league.regStartDate']}
+										</p>
+									{/if}
+								</div>
+								<div>
+									<label for="league-reg-end" class="block text-sm font-sans text-neutral-950 mb-1"
+										>Registration Deadline <span class="text-error-700">*</span></label
+									>
+									<input
+										id="league-reg-end"
+										type="datetime-local"
+										class="input-secondary"
+										bind:value={createForm.league.regEndDate}
+										onfocus={() => {
+											if (!createForm.league.regEndDate.trim()) {
+												createForm.league.regEndDate = defaultDateTimeValue('end');
+											}
+										}}
+									/>
+									{#if createFieldErrors['league.regEndDate']}
+										<p class="text-xs text-error-700 mt-1">
+											{createFieldErrors['league.regEndDate']}
+										</p>
+									{/if}
+								</div>
+								<div>
+									<label
+										for="league-season-start"
+										class="block text-sm font-sans text-neutral-950 mb-1"
+										>Season Start Date <span class="text-error-700">*</span></label
+									>
+									<input
+										id="league-season-start"
+										type="date"
+										class="input-secondary"
+										bind:value={createForm.league.seasonStartDate}
+									/>
+									{#if createFieldErrors['league.seasonStartDate']}
+										<p class="text-xs text-error-700 mt-1">
+											{createFieldErrors['league.seasonStartDate']}
+										</p>
+									{/if}
+								</div>
+								<div>
+									<label
+										for="league-season-end"
+										class="block text-sm font-sans text-neutral-950 mb-1"
+										>Season End Date <span class="text-error-700">*</span></label
+									>
+									<input
+										id="league-season-end"
+										type="date"
+										class="input-secondary"
+										bind:value={createForm.league.seasonEndDate}
+									/>
+									{#if createFieldErrors['league.seasonEndDate']}
+										<p class="text-xs text-error-700 mt-1">
+											{createFieldErrors['league.seasonEndDate']}
+										</p>
+									{/if}
+								</div>
 							</div>
-							<div>
-								<label for="league-season-start" class="block text-sm font-sans text-neutral-950 mb-1"
-									>Season start date</label
-								>
-								<input
-									id="league-season-start"
-									type="date"
-									class="input-secondary"
-									bind:value={createForm.league.seasonStartDate}
-								/>
-								{#if createFieldErrors['league.seasonStartDate']}
-									<p class="text-xs text-error-700 mt-1">
-										{createFieldErrors['league.seasonStartDate']}
-									</p>
-								{/if}
-							</div>
-							<div>
-								<label for="league-season-end" class="block text-sm font-sans text-neutral-950 mb-1"
-									>Season end date</label
-								>
-								<input
-									id="league-season-end"
-									type="date"
-									class="input-secondary"
-									bind:value={createForm.league.seasonEndDate}
-								/>
-								{#if createFieldErrors['league.seasonEndDate']}
-									<p class="text-xs text-error-700 mt-1">{createFieldErrors['league.seasonEndDate']}</p>
-								{/if}
-							</div>
-						</div>
 
-						{#if createFieldErrors['league.scheduleRange']}
-							<p class="text-xs text-error-700">{createFieldErrors['league.scheduleRange']}</p>
+							{#if createFieldErrors['league.scheduleRange']}
+								<p class="text-xs text-error-700">{createFieldErrors['league.scheduleRange']}</p>
+							{/if}
+
+							<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+								<div class="border border-secondary-300 bg-white p-3 space-y-3">
+									<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
+										<input
+											type="checkbox"
+											class="toggle-secondary"
+											bind:checked={createForm.league.hasPreseason}
+											onchange={() => {
+												if (!createForm.league.hasPreseason) {
+													createForm.league.preseasonStartDate = '';
+													createForm.league.preseasonEndDate = '';
+												}
+											}}
+										/>
+										Has Preseason
+									</label>
+									{#if createForm.league.hasPreseason}
+										<div class="space-y-3">
+											<div>
+												<label
+													for="league-preseason-start"
+													class="block text-sm font-sans text-neutral-950 mb-1"
+													>Preseason Start</label
+												>
+												<input
+													id="league-preseason-start"
+													type="date"
+													class="input-secondary"
+													bind:value={createForm.league.preseasonStartDate}
+												/>
+												{#if createFieldErrors['league.preseasonStartDate']}
+													<p class="text-xs text-error-700 mt-1">
+														{createFieldErrors['league.preseasonStartDate']}
+													</p>
+												{/if}
+											</div>
+											<div>
+												<label
+													for="league-preseason-end"
+													class="block text-sm font-sans text-neutral-950 mb-1">Preseason End</label
+												>
+												<input
+													id="league-preseason-end"
+													type="date"
+													class="input-secondary"
+													bind:value={createForm.league.preseasonEndDate}
+												/>
+												{#if createFieldErrors['league.preseasonEndDate']}
+													<p class="text-xs text-error-700 mt-1">
+														{createFieldErrors['league.preseasonEndDate']}
+													</p>
+												{/if}
+											</div>
+										</div>
+									{/if}
+								</div>
+
+								<div class="border border-secondary-300 bg-white p-3 space-y-3">
+									<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
+										<input
+											type="checkbox"
+											class="toggle-secondary"
+											bind:checked={createForm.league.hasPostseason}
+											onchange={() => {
+												if (!createForm.league.hasPostseason) {
+													createForm.league.postseasonStartDate = '';
+													createForm.league.postseasonEndDate = '';
+												}
+											}}
+										/>
+										Has Postseason
+									</label>
+									{#if createForm.league.hasPostseason}
+										<div class="space-y-3">
+											<div>
+												<label
+													for="league-postseason-start"
+													class="block text-sm font-sans text-neutral-950 mb-1"
+													>Postseason Start</label
+												>
+												<input
+													id="league-postseason-start"
+													type="date"
+													class="input-secondary"
+													bind:value={createForm.league.postseasonStartDate}
+												/>
+												{#if createFieldErrors['league.postseasonStartDate']}
+													<p class="text-xs text-error-700 mt-1">
+														{createFieldErrors['league.postseasonStartDate']}
+													</p>
+												{/if}
+											</div>
+											<div>
+												<label
+													for="league-postseason-end"
+													class="block text-sm font-sans text-neutral-950 mb-1"
+													>Postseason End</label
+												>
+												<input
+													id="league-postseason-end"
+													type="date"
+													class="input-secondary"
+													bind:value={createForm.league.postseasonEndDate}
+												/>
+												{#if createFieldErrors['league.postseasonEndDate']}
+													<p class="text-xs text-error-700 mt-1">
+														{createFieldErrors['league.postseasonEndDate']}
+													</p>
+												{/if}
+											</div>
+										</div>
+									{/if}
+								</div>
+							</div>
+
+							<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+								<div class="border border-secondary-300 bg-white p-3">
+									<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
+										<input
+											type="checkbox"
+											class="toggle-secondary"
+											bind:checked={createForm.league.isActive}
+										/>
+										Active
+									</label>
+								</div>
+								<div class="border border-secondary-300 bg-white p-3">
+									<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
+										<input
+											type="checkbox"
+											class="toggle-secondary"
+											bind:checked={createForm.league.isLocked}
+										/>
+										Locked
+									</label>
+								</div>
+							</div>
+
+							<div>
+								<label for="league-image-url" class="block text-sm font-sans text-neutral-950 mb-1"
+									>Image URL</label
+								>
+								<input
+									id="league-image-url"
+									type="url"
+									class="input-secondary"
+									bind:value={createForm.league.imageUrl}
+									placeholder="https://example.com/league-image.jpg"
+									autocomplete="off"
+								/>
+								{#if createFieldErrors['league.imageUrl']}
+									<p class="text-xs text-error-700 mt-1">{createFieldErrors['league.imageUrl']}</p>
+								{/if}
+							</div>
 						{/if}
+					</div>
+				{/if}
 
-						<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-							<div class="border border-secondary-300 bg-white p-3 space-y-3">
-								<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-									<input
-										type="checkbox"
-										class="toggle-secondary"
-										bind:checked={createForm.league.hasPreseason}
-										onchange={() => {
-											if (!createForm.league.hasPreseason) {
-												createForm.league.preseasonStartDate = '';
-												createForm.league.preseasonEndDate = '';
-											}
-										}}
-									/>
-									Has preseason
-								</label>
-								{#if createForm.league.hasPreseason}
-									<div class="space-y-3">
-										<div>
-											<label
-												for="league-preseason-start"
-												class="block text-sm font-sans text-neutral-950 mb-1">Preseason start</label
-											>
-											<input
-												id="league-preseason-start"
-												type="date"
-												class="input-secondary"
-												bind:value={createForm.league.preseasonStartDate}
-											/>
-											{#if createFieldErrors['league.preseasonStartDate']}
-												<p class="text-xs text-error-700 mt-1">
-													{createFieldErrors['league.preseasonStartDate']}
-												</p>
-											{/if}
-										</div>
-										<div>
-											<label
-												for="league-preseason-end"
-												class="block text-sm font-sans text-neutral-950 mb-1">Preseason end</label
-											>
-											<input
-												id="league-preseason-end"
-												type="date"
-												class="input-secondary"
-												bind:value={createForm.league.preseasonEndDate}
-											/>
-											{#if createFieldErrors['league.preseasonEndDate']}
-												<p class="text-xs text-error-700 mt-1">
-													{createFieldErrors['league.preseasonEndDate']}
-												</p>
-											{/if}
-										</div>
-									</div>
-								{/if}
-							</div>
-
-							<div class="border border-secondary-300 bg-white p-3 space-y-3">
-								<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-									<input
-										type="checkbox"
-										class="toggle-secondary"
-										bind:checked={createForm.league.hasPostseason}
-										onchange={() => {
-											if (!createForm.league.hasPostseason) {
-												createForm.league.postseasonStartDate = '';
-												createForm.league.postseasonEndDate = '';
-											}
-										}}
-									/>
-									Has postseason
-								</label>
-								{#if createForm.league.hasPostseason}
-									<div class="space-y-3">
-										<div>
-											<label
-												for="league-postseason-start"
-												class="block text-sm font-sans text-neutral-950 mb-1">Postseason start</label
-											>
-											<input
-												id="league-postseason-start"
-												type="date"
-												class="input-secondary"
-												bind:value={createForm.league.postseasonStartDate}
-											/>
-											{#if createFieldErrors['league.postseasonStartDate']}
-												<p class="text-xs text-error-700 mt-1">
-													{createFieldErrors['league.postseasonStartDate']}
-												</p>
-											{/if}
-										</div>
-										<div>
-											<label
-												for="league-postseason-end"
-												class="block text-sm font-sans text-neutral-950 mb-1">Postseason end</label
-											>
-											<input
-												id="league-postseason-end"
-												type="date"
-												class="input-secondary"
-												bind:value={createForm.league.postseasonEndDate}
-											/>
-											{#if createFieldErrors['league.postseasonEndDate']}
-												<p class="text-xs text-error-700 mt-1">
-													{createFieldErrors['league.postseasonEndDate']}
-												</p>
-											{/if}
-										</div>
-									</div>
-								{/if}
-							</div>
+				{#if createStep === 5}
+					<div class="space-y-4">
+						<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
+							<h3 class="text-lg font-bold font-serif text-neutral-950">Offering</h3>
+							<p class="text-sm text-neutral-950">
+								<span class="font-semibold">Name:</span>
+								{createForm.offering.name}
+								<span class="ml-3 font-semibold">Slug:</span>
+								{slugifyFinal(createForm.offering.slug)}
+							</p>
+							<p class="text-sm text-neutral-950">
+								<span class="font-semibold">Sport:</span>
+								{createForm.offering.sport}
+								<span class="ml-3 font-semibold">Type:</span>
+								{createForm.offering.type === 'tournament' ? 'Tournament' : 'League'}
+							</p>
+							{#if createForm.offering.description.trim()}
+								<p class="text-sm text-neutral-950">
+									<span class="font-semibold">Description:</span>
+									{createForm.offering.description.trim()}
+								</p>
+							{/if}
+							{#if createForm.offering.minPlayers > 0 || createForm.offering.maxPlayers > 0}
+								<p class="text-sm text-neutral-950">
+									<span class="font-semibold">Players:</span>
+									{createForm.offering.minPlayers > 0 ? createForm.offering.minPlayers : 'N/A'} -
+									{createForm.offering.maxPlayers > 0 ? createForm.offering.maxPlayers : 'N/A'}
+								</p>
+							{/if}
 						</div>
 
-						<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-							<div class="border border-secondary-300 bg-white p-3">
-								<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-									<input type="checkbox" class="toggle-secondary" bind:checked={createForm.league.isActive} />
-									League is active
-								</label>
+						<div class="border-2 border-secondary-300 bg-white p-4 space-y-3">
+							<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+								<div class="flex items-center gap-2">
+									<h3 class="text-lg font-bold font-serif text-neutral-950">
+										Leagues ({createForm.leagues.length})
+									</h3>
+									<button
+										type="button"
+										class="button-secondary-outlined p-1.5 cursor-pointer"
+										aria-label="Add league"
+										title="Add league"
+										onclick={startAddingLeague}
+									>
+										<IconPlus class="w-4 h-4" />
+									</button>
+								</div>
 							</div>
-							<div class="border border-secondary-300 bg-white p-3">
-								<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-									<input type="checkbox" class="toggle-secondary" bind:checked={createForm.league.isLocked} />
-									League is locked
-								</label>
-							</div>
-						</div>
 
-						<div>
-							<label for="league-image-url" class="block text-sm font-sans text-neutral-950 mb-1"
-								>League image URL</label
-							>
-							<input
-								id="league-image-url"
-								type="url"
-								class="input-secondary"
-								bind:value={createForm.league.imageUrl}
-								placeholder="https://example.com/league-image.jpg"
-								autocomplete="off"
-							/>
-							{#if createFieldErrors['league.imageUrl']}
-								<p class="text-xs text-error-700 mt-1">{createFieldErrors['league.imageUrl']}</p>
+							{#if createFieldErrors['leagues']}
+								<p class="text-xs text-error-700">{createFieldErrors['leagues']}</p>
+							{/if}
+
+							{#if createForm.leagues.length === 0}
+								<p class="text-sm text-neutral-950 font-sans">No leagues will be created.</p>
+							{:else}
+								<div class="space-y-3">
+									{#each createForm.leagues as league, leagueIndex}
+										<div class="border border-secondary-300 bg-neutral">
+											<div class="px-3 py-2 flex items-start justify-between gap-3">
+												<button
+													type="button"
+													class="text-left cursor-pointer flex-1"
+													onclick={() => {
+														expandedReviewLeagueIndex =
+															expandedReviewLeagueIndex === leagueIndex ? null : leagueIndex;
+													}}
+													aria-expanded={expandedReviewLeagueIndex === leagueIndex}
+												>
+													<p class="text-sm text-neutral-950">
+														<span class="font-semibold">Name:</span>
+														{league.name}
+														<span class="ml-3 font-semibold">Slug:</span>
+														{league.slug}
+													</p>
+													<p class="text-sm text-neutral-950 mt-1">
+														<span class="font-semibold">Season:</span>
+														{league.season}
+														<span class="ml-3 font-semibold">Gender:</span>
+														{normalizeGender(league.gender) ?? 'Unspecified'}
+													</p>
+												</button>
+												<div class="flex items-center gap-1">
+													<button
+														type="button"
+														class="button-secondary-outlined p-1.5 cursor-pointer"
+														aria-label="Copy league"
+														title="Copy"
+														onclick={() => {
+															duplicateLeague(leagueIndex);
+														}}
+													>
+														<IconCopy class="w-4 h-4" />
+													</button>
+													<button
+														type="button"
+														class="button-secondary-outlined p-1.5 cursor-pointer"
+														aria-label="Edit league"
+														title="Edit"
+														onclick={() => {
+															startEditingLeague(leagueIndex);
+														}}
+													>
+														<IconPencil class="w-4 h-4" />
+													</button>
+													<button
+														type="button"
+														class="button-secondary-outlined p-1.5 cursor-pointer"
+														aria-label="Remove league"
+														title="Remove"
+														onclick={() => {
+															removeLeague(leagueIndex);
+														}}
+													>
+														<IconTrash class="w-4 h-4" />
+													</button>
+													{#if expandedReviewLeagueIndex === leagueIndex}
+														<IconChevronUp class="w-4 h-4 text-neutral-950 ml-1" />
+													{:else}
+														<IconChevronDown class="w-4 h-4 text-neutral-950 ml-1" />
+													{/if}
+												</div>
+											</div>
+											{#if expandedReviewLeagueIndex === leagueIndex}
+												<div class="px-3 pb-3 border-t border-secondary-300 space-y-1">
+													<p class="text-sm text-neutral-950 pt-2">
+														<span class="font-semibold">Registration:</span>
+														{formatReviewRange(league.regStartDate, league.regEndDate, true)}
+													</p>
+													<p class="text-sm text-neutral-950">
+														<span class="font-semibold">Season Dates:</span>
+														{formatReviewRange(league.seasonStartDate, league.seasonEndDate)}
+													</p>
+													{#if league.skillLevel}
+														<p class="text-sm text-neutral-950">
+															<span class="font-semibold">Skill Level:</span>
+															{toTitleCase(league.skillLevel)}
+														</p>
+													{/if}
+													{#if league.description.trim()}
+														<p class="text-sm text-neutral-950">
+															<span class="font-semibold">Description:</span>
+															{league.description.trim()}
+														</p>
+													{/if}
+												</div>
+											{/if}
+											{#if league.description.trim() && expandedReviewLeagueIndex !== leagueIndex}
+												<p class="text-sm text-neutral-950">
+													<span class="font-semibold">Description:</span>
+													{league.description.trim()}
+												</p>
+											{/if}
+										</div>
+									{/each}
+								</div>
 							{/if}
 						</div>
 					</div>
 				{/if}
 
-				{#if createStep === 5}
-					<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-						<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
-							<h3 class="text-lg font-bold font-serif text-neutral-950">Offering</h3>
-							<p class="text-sm text-neutral-950"><span class="font-semibold">Name:</span> {createForm.offering.name}</p>
-							<p class="text-sm text-neutral-950"><span class="font-semibold">Slug:</span> {createForm.offering.slug}</p>
-							<p class="text-sm text-neutral-950"><span class="font-semibold">Sport:</span> {createForm.offering.sport}</p>
-							<p class="text-sm text-neutral-950">
-								<span class="font-semibold">Type:</span>
-								{createForm.offering.type === 'tournament' ? 'Tournament' : 'League'}
-							</p>
-							<p class="text-sm text-neutral-950">
-								<span class="font-semibold">Players:</span>
-								{createForm.offering.minPlayers} - {createForm.offering.maxPlayers}
-							</p>
-							<p class="text-sm text-neutral-950">
-								<span class="font-semibold">Year:</span>
-								Auto: {currentYear}
-							</p>
-						</div>
-						<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
-							<h3 class="text-lg font-bold font-serif text-neutral-950">League</h3>
-							<p class="text-sm text-neutral-950"><span class="font-semibold">Name:</span> {createForm.league.name}</p>
-							<p class="text-sm text-neutral-950"><span class="font-semibold">Slug:</span> {createForm.league.slug}</p>
-							<p class="text-sm text-neutral-950">
-								<span class="font-semibold">Season:</span>
-								{createForm.league.season}
-							</p>
-							<p class="text-sm text-neutral-950">
-								<span class="font-semibold">Gender / Skill:</span>
-								{normalizeGender(createForm.league.gender) ?? createForm.league.gender} / {toTitleCase(
-									createForm.league.skillLevel
-								)}
-							</p>
-							<p class="text-sm text-neutral-950">
-								<span class="font-semibold">Registration:</span>
-								{createForm.league.regStartDate} to {createForm.league.regEndDate}
-							</p>
-							<p class="text-sm text-neutral-950">
-								<span class="font-semibold">Season range:</span>
-								{createForm.league.seasonStartDate} to {createForm.league.seasonEndDate}
-							</p>
-						</div>
-					</div>
-				{/if}
-
-				<div class="pt-2 border-t border-secondary-300 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-					<button type="button" class="button-secondary cursor-pointer" onclick={closeCreateWizard}>
+				<div
+					class="pt-2 border-t border-secondary-300 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+				>
+					<button
+						type="button"
+						class="button-secondary cursor-pointer"
+						onclick={requestCloseCreateWizard}
+					>
 						Cancel
 					</button>
 					<div class="flex items-center gap-2 justify-end">
@@ -2470,16 +3191,21 @@
 								onclick={nextCreateStep}
 								disabled={!canGoNextStep}
 							>
-								Next
+								{#if createStep === 3 && !leagueDraftActive}
+									Skip to Review
+								{:else if createStep === 4 && leagueDraftActive}
+									{leagueEditingIndex === null ? 'Add League' : 'Update League'}
+								{:else}
+									Next
+								{/if}
 							</button>
 						{:else}
 							<button
 								type="submit"
-								class="button-accent cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+								class="button-accent cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
 								disabled={!canSubmitCreate}
 							>
-								<IconPlus class="w-4 h-4" />
-								{createSubmitting ? 'Creating...' : 'Create Offering'}
+								{createSubmitting ? 'Creating...' : 'Create'}
 							</button>
 						{/if}
 					</div>

@@ -29,11 +29,11 @@ export class LeagueOperations {
 		offeringId: string;
 		name: string;
 		slug: string;
-		description: string;
+		description: string | null;
 		year: number;
 		season: string;
-		gender: 'mens' | 'womens' | 'corec' | 'unified';
-		skillLevel: 'competitive' | 'intermediate' | 'recreational' | 'all';
+		gender: 'male' | 'female' | 'mixed' | null;
+		skillLevel: 'competitive' | 'intermediate' | 'recreational' | 'all' | null;
 		regStartDate: string;
 		regEndDate: string;
 		seasonStartDate: string;
@@ -46,7 +46,7 @@ export class LeagueOperations {
 		preseasonEndDate: string | null;
 		isActive: number;
 		isLocked: number;
-		imageUrl: string;
+		imageUrl: string | null;
 		createdUser?: string | null;
 		updatedUser?: string | null;
 	}): Promise<League | null> {
@@ -86,5 +86,13 @@ export class LeagueOperations {
 			.returning();
 
 		return result[0] ?? null;
+	}
+
+	async deleteByOfferingId(offeringId: string): Promise<number> {
+		const result = await this.db
+			.delete(leagues)
+			.where(eq(leagues.offeringId, offeringId))
+			.returning({ id: leagues.id });
+		return result.length;
 	}
 }

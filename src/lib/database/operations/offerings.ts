@@ -29,13 +29,13 @@ export class OfferingOperations {
 		name: string;
 		slug: string;
 		isActive: number;
-		imageUrl: string;
-		minPlayers: number;
-		maxPlayers: number;
-		rulebookUrl: string;
+		imageUrl: string | null;
+		minPlayers: number | null;
+		maxPlayers: number | null;
+		rulebookUrl: string | null;
 		sport: string;
 		type: 'league' | 'tournament';
-		description: string;
+		description: string | null;
 		createdUser?: string | null;
 		updatedUser?: string | null;
 	}): Promise<Offering | null> {
