@@ -25,6 +25,8 @@ export const sessions = sqliteTable(
 		revokedAt: text('revoked_at'),
 		ipAddress: text('ip_address'),
 		userAgent: text('user_agent'),
+		locationCity: text('location_city'),
+		locationStation: text('location_station'),
 		sessionVersion: integer('session_version').default(1).notNull()
 	},
 	(table) => [

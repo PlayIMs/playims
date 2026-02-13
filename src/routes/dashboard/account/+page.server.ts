@@ -165,6 +165,8 @@ export const load: PageServerLoad = async (event) => {
 				id: session.id,
 				userAgent: session.userAgent ?? null,
 				ipAddress: session.ipAddress ?? null,
+				locationCity: session.locationCity ?? null,
+				locationStation: session.locationStation ?? null,
 				lastSeenAt: session.lastSeenAt,
 				createdAt: session.createdAt,
 				expiresAt: session.expiresAt,

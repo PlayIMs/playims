@@ -1,6 +1,7 @@
 import { dev } from '$app/environment';
 import type { DatabaseOperations } from '$lib/database';
 import type { User } from '$lib/database/schema/users';
+import type { IncomingRequestCfProperties } from '@cloudflare/workers-types';
 import type { RequestEvent } from '@sveltejs/kit';
 import {
 	AUTH_PASSWORD_PROVIDER,
@@ -126,6 +127,47 @@ const getClientAddress = (event: RequestEvent) => {
 	}
 };
 
+const normalizeLocationValue = (value: string | null | undefined, maxLength: number) => {
+	const trimmed = value?.trim() ?? '';
+	if (trimmed.length === 0) {
+		return null;
+	}
+
+	const normalized = trimmed.replace(/\s+/g, ' ').slice(0, maxLength);
+	return normalized.length > 0 ? normalized : null;
+};
+
+const extractStationFromCfRay = (cfRayHeader: string | null): string | null => {
+	const suffix = cfRayHeader?.split('-').at(-1)?.trim().toUpperCase() ?? '';
+	if (!suffix || !/^[A-Z0-9]{3,6}$/.test(suffix)) {
+		return null;
+	}
+
+	return suffix;
+};
+
+const getClientLocation = (event: RequestEvent): {
+	locationCity: string | null;
+	locationStation: string | null;
+} => {
+	const requestWithCf = event.request as Request & { cf?: IncomingRequestCfProperties };
+	const cf = requestWithCf.cf;
+
+	const locationCity = normalizeLocationValue(
+		cf?.city ?? event.request.headers.get('cf-ipcity'),
+		120
+	);
+	const locationStation = normalizeLocationValue(
+		cf?.colo ?? extractStationFromCfRay(event.request.headers.get('cf-ray')),
+		16
+	);
+
+	return {
+		locationCity,
+		locationStation
+	};
+};
+
 export const buildSafeUser = (user: User) => ({
 	id: user.id,
 	clientId: user.clientId ?? '',
@@ -176,6 +218,7 @@ export const createSessionForUser = async (
 	const tokenHash = await hashSessionToken(token, sessionSecret);
 	const nowIso = new Date().toISOString();
 	const expiresAt = toIsoWithOffset(AUTH_SESSION_TTL_MS);
+	const location = getClientLocation(event);
 	const createdSession = await dbOps.sessions.create({
 		userId: user.id,
 		clientId,
@@ -184,7 +227,9 @@ export const createSessionForUser = async (
 		expiresAt,
 		lastSeenAt: nowIso,
 		ipAddress: getClientAddress(event),
-		userAgent: event.request.headers.get('user-agent')
+		userAgent: event.request.headers.get('user-agent'),
+		locationCity: location.locationCity,
+		locationStation: location.locationStation
 	});
 
 	if (!createdSession) {

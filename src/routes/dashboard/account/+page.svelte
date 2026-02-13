@@ -27,6 +27,8 @@
 		id: string;
 		userAgent: string | null;
 		ipAddress: string | null;
+		locationCity: string | null;
+		locationStation: string | null;
 		lastSeenAt: string;
 		createdAt: string;
 		expiresAt: string;
@@ -553,6 +555,28 @@
 		}
 
 		return trimmed;
+	};
+
+	const formatSessionLocation = (
+		locationCity: string | null | undefined,
+		locationStation: string | null | undefined
+	) => {
+		const city = locationCity?.trim() ?? '';
+		const station = locationStation?.trim() ?? '';
+
+		if (city && station) {
+			return `${city} (${station})`;
+		}
+
+		if (city) {
+			return city;
+		}
+
+		if (station) {
+			return station;
+		}
+
+		return 'Unknown location';
 	};
 
 	const toSortableTimestamp = (value: string | null | undefined) => {
@@ -1404,6 +1428,9 @@
 												</form>
 											</div>
 											<p class="mt-1 text-neutral-950">IP: {formatIpAddress(session.ipAddress)}</p>
+											<p class="text-neutral-950">
+												Location: {formatSessionLocation(session.locationCity, session.locationStation)}
+											</p>
 											<p class="text-neutral-950">
 												Last active: {formatSessionDateTime(session.lastSeenAt)}
 											</p>

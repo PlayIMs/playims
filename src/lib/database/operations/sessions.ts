@@ -22,6 +22,8 @@ export class SessionOperations {
 		lastSeenAt: string;
 		ipAddress?: string | null;
 		userAgent?: string | null;
+		locationCity?: string | null;
+		locationStation?: string | null;
 	}): Promise<Session | null> {
 		const now = new Date().toISOString();
 		const result = await this.db
@@ -39,6 +41,8 @@ export class SessionOperations {
 				revokedAt: null,
 				ipAddress: data.ipAddress ?? null,
 				userAgent: data.userAgent ?? null,
+				locationCity: data.locationCity ?? null,
+				locationStation: data.locationStation ?? null,
 				sessionVersion: 1
 			})
 			.returning();
