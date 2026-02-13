@@ -129,6 +129,7 @@ const offeringInputSchema = z.object({
 const leagueInputSchema = z.object({
 	name: requiredText('League name', 140),
 	slug: slugField('League slug'),
+	stackOrder: z.number().int('League order must be a whole number.').min(1),
 	description: optionalText('League description', 2000),
 	season: requiredText('Season', 80),
 	gender: z.union([z.enum(['male', 'female', 'mixed']), z.null()]),
@@ -165,6 +166,7 @@ export const createIntramuralOfferingWithLeagueSchema = z
 		}
 
 		const seenLeagueSlugs = new Map<string, number>();
+		const seenLeagueStackOrders = new Map<number, number>();
 		payload.leagues.forEach((league, index) => {
 			const previousIndex = seenLeagueSlugs.get(league.slug);
 			if (previousIndex !== undefined) {
@@ -176,6 +178,17 @@ export const createIntramuralOfferingWithLeagueSchema = z
 				return;
 			}
 			seenLeagueSlugs.set(league.slug, index);
+
+			const previousStackOrderIndex = seenLeagueStackOrders.get(league.stackOrder);
+			if (previousStackOrderIndex !== undefined) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					path: ['leagues', index, 'stackOrder'],
+					message: 'League order must be unique within this request.'
+				});
+				return;
+			}
+			seenLeagueStackOrders.set(league.stackOrder, index);
 		});
 
 		payload.leagues.forEach((league, index) => {
@@ -325,6 +338,7 @@ export type CreatedIntramuralActivity = {
 	id: string;
 	offeringId: string | null;
 	leagueId: string | null;
+	stackOrder: number | null;
 	offeringType: 'league' | 'tournament';
 	offeringName: string;
 	leagueName: string;

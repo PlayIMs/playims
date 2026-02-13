@@ -32,6 +32,7 @@ export class FacilityAreaOperations {
 		facilityId: string;
 		name: string;
 		slug?: string;
+		description?: string;
 		isActive?: number;
 		metadata?: string;
 		createdUser?: string;
@@ -47,6 +48,7 @@ export class FacilityAreaOperations {
 				facilityId: data.facilityId,
 				name: data.name,
 				slug: data.slug || null,
+				description: data.description || null,
 				isActive: data.isActive ?? 1,
 				metadata: data.metadata || null,
 				createdAt: now,
@@ -65,6 +67,7 @@ export class FacilityAreaOperations {
 			facilityId: string;
 			name: string;
 			slug: string;
+			description: string | null;
 			isActive: number;
 			metadata: string;
 			updatedUser: string;

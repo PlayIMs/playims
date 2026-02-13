@@ -11,6 +11,7 @@ interface ActivityCard {
 	id: string;
 	offeringId: string | null;
 	leagueId: string | null;
+	stackOrder: number | null;
 	offeringType: ActivityType;
 	offeringName: string;
 	leagueName: string;
@@ -107,6 +108,7 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 					id: resolvedId,
 					offeringId: league.offeringId ?? null,
 					leagueId: league.id ?? null,
+					stackOrder: league.stackOrder ?? null,
 					offeringType,
 					offeringName,
 					leagueName: league.name?.trim() || 'Untitled League',
@@ -128,6 +130,9 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 			.sort((a, b) => {
 				const nameDiff = a.offeringName.localeCompare(b.offeringName);
 				if (nameDiff !== 0) return nameDiff;
+				const aStackOrder = a.stackOrder ?? Number.MAX_SAFE_INTEGER;
+				const bStackOrder = b.stackOrder ?? Number.MAX_SAFE_INTEGER;
+				if (aStackOrder !== bStackOrder) return aStackOrder - bStackOrder;
 				return a.leagueName.localeCompare(b.leagueName);
 			});
 

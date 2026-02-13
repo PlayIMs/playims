@@ -49,6 +49,54 @@ function normalizeName(raw: string | null): string | null {
 	return trimmed.length ? trimmed.toLowerCase() : null;
 }
 
+interface FacilityAreaWizardInput {
+	name: string;
+	slug: string;
+	description?: string;
+}
+
+function parseFacilityAreaWizardPayload(raw: FormDataEntryValue | null): FacilityAreaWizardInput[] | null {
+	if (typeof raw !== 'string') return [];
+	const trimmed = raw.trim();
+	if (!trimmed) return [];
+
+	try {
+		const parsed = JSON.parse(trimmed) as unknown;
+		if (!Array.isArray(parsed)) return null;
+
+		const areas: FacilityAreaWizardInput[] = [];
+		const seenNames = new Set<string>();
+		const seenSlugs = new Set<string>();
+
+		for (const entry of parsed) {
+			if (!entry || typeof entry !== 'object') return null;
+			const input = entry as Record<string, unknown>;
+			const name = typeof input.name === 'string' ? input.name.trim() : '';
+			const slug = normalizeSlugAllowTrailing(
+				typeof input.slug === 'string' ? input.slug : null
+			);
+			const description =
+				typeof input.description === 'string' && input.description.trim().length > 0
+					? input.description.trim()
+					: undefined;
+
+			if (!name || !slug) return null;
+
+			const nameKey = normalizeName(name);
+			if (!nameKey) return null;
+			if (seenNames.has(nameKey) || seenSlugs.has(slug)) return null;
+
+			seenNames.add(nameKey);
+			seenSlugs.add(slug);
+			areas.push({ name, slug, description });
+		}
+
+		return areas;
+	} catch {
+		return null;
+	}
+}
+
 export const load: PageServerLoad = async ({ platform, url, locals }) => {
 	if (!platform) throw error(500, 'Platform not available');
 
@@ -70,6 +118,109 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
 };
 
 export const actions: Actions = {
+	createFacilityWithAreas: async ({ request, platform, locals }) => {
+		if (!platform) throw error(500, 'Platform not available');
+		const form = await request.formData();
+
+		const clientId = requireAuthenticatedClientId(locals);
+		const actorUserId = requireAuthenticatedUserId(locals);
+		const name = asTrimmedString(form.get('name'));
+		const slug = normalizeSlugAllowTrailing(asTrimmedString(form.get('slug')));
+		const areas = parseFacilityAreaWizardPayload(form.get('areasJson'));
+
+		if (!name) {
+			return fail(400, {
+				message: 'Facility name is required.',
+				action: 'createFacilityWithAreas'
+			});
+		}
+		if (!slug) {
+			return fail(400, {
+				message: 'Facility slug is required.',
+				action: 'createFacilityWithAreas'
+			});
+		}
+		if (areas === null) {
+			return fail(400, {
+				message: 'Facility areas data is invalid. Please review area entries and try again.',
+				action: 'createFacilityWithAreas'
+			});
+		}
+
+		const dbOps = new DatabaseOperations(platform as App.Platform);
+
+		// Prevent duplicates by name or slug (within the client), including archived records.
+		const existingFacilities = await dbOps.facilities.getAll(clientId);
+		const nameKey = normalizeName(name);
+		const duplicate = existingFacilities.find((facility) => {
+			const facilityName = normalizeName(facility.name ?? null);
+			const facilitySlug = normalizeSlug(facility.slug ?? null);
+			return (nameKey && facilityName === nameKey) || facilitySlug === slug;
+		});
+		if (duplicate) {
+			const isArchived = duplicate.isActive === 0;
+			if (isArchived) {
+				return fail(400, {
+					message: `An archived facility with that name/slug already exists. Please restore or delete it before creating one with the same name/slug.`,
+					action: 'createFacilityWithAreas',
+					archivedFacilityId: duplicate.id,
+					duplicateType: 'archived'
+				});
+			}
+			return fail(400, {
+				message: 'A facility with that name/slug already exists.',
+				action: 'createFacilityWithAreas'
+			});
+		}
+
+		const createdFacility = await dbOps.facilities.create({
+			clientId,
+			name,
+			slug,
+			addressLine1: asTrimmedString(form.get('addressLine1')) || undefined,
+			addressLine2: asTrimmedString(form.get('addressLine2')) || undefined,
+			city: asTrimmedString(form.get('city')) || undefined,
+			state: asTrimmedString(form.get('state')) || undefined,
+			postalCode: asTrimmedString(form.get('postalCode')) || undefined,
+			country: asTrimmedString(form.get('country')) || undefined,
+			timezone: asTrimmedString(form.get('timezone')) || undefined,
+			description: asTrimmedString(form.get('description')) || undefined,
+			metadata: asTrimmedString(form.get('metadata')) || undefined,
+			isActive: 1,
+			createdUser: actorUserId || undefined,
+			updatedUser: actorUserId || undefined
+		});
+
+		if (!createdFacility?.id) {
+			return fail(500, {
+				message: 'Failed to create facility.',
+				action: 'createFacilityWithAreas'
+			});
+		}
+
+		for (const area of areas) {
+			const createdArea = await dbOps.facilityAreas.create({
+				clientId,
+				facilityId: createdFacility.id,
+				name: area.name,
+				slug: area.slug,
+				description: area.description,
+				isActive: 1,
+				createdUser: actorUserId || undefined,
+				updatedUser: actorUserId || undefined
+			});
+
+			if (!createdArea?.id) {
+				return fail(500, {
+					message: 'Facility created, but one or more facility areas failed to save.',
+					action: 'createFacilityWithAreas'
+				});
+			}
+		}
+
+		throw redirect(303, `/dashboard/facilities?facilityId=${encodeURIComponent(createdFacility.id)}`);
+	},
+
 	createFacility: async ({ request, platform, locals }) => {
 		if (!platform) throw error(500, 'Platform not available');
 		const form = await request.formData();
@@ -303,6 +454,7 @@ export const actions: Actions = {
 			facilityId,
 			name,
 			slug,
+			description: asTrimmedString(form.get('description')) || undefined,
 			isActive: 1,
 			metadata: asTrimmedString(form.get('metadata')) || undefined,
 			createdUser: actorUserId || undefined,
@@ -336,11 +488,17 @@ export const actions: Actions = {
 		// Normalize inputs
 		const slugUpdate = normalizeSlugAllowTrailing(asTrimmedString(form.get('slug')));
 		const nameUpdate = asTrimmedString(form.get('name'));
+		const descriptionInput = form.get('description');
+		const descriptionUpdate =
+			typeof descriptionInput === 'string'
+				? (descriptionInput.trim().length > 0 ? descriptionInput.trim() : null)
+				: (existing.description ?? null);
 
 		// Check for actual changes
 		const hasChanges =
 			(nameUpdate !== undefined && nameUpdate !== existing.name) ||
-			(slugUpdate !== undefined && slugUpdate !== existing.slug);
+			(slugUpdate !== undefined && slugUpdate !== existing.slug) ||
+			descriptionUpdate !== (existing.description ?? null);
 
 		if (!hasChanges) {
 			return { ok: true, facilityAreaId, noChange: true };
@@ -377,6 +535,7 @@ export const actions: Actions = {
 		const updated = await dbOps.facilityAreas.update(facilityAreaId, {
 			name: nameUpdate ?? undefined,
 			slug: slugUpdate ?? undefined,
+			description: descriptionUpdate,
 			metadata: asTrimmedString(form.get('metadata')) ?? undefined,
 			updatedUser: actorUserId || undefined
 		});

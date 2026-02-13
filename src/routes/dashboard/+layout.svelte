@@ -47,7 +47,7 @@
 		{ id: 'Settings', label: 'Settings', icon: IconSettings, href: '#' }
 	] as const;
 
-	const menuWidth = $derived.by(() => (isSidebarOpen ? 'w-66' : 'w-16'));
+	const menuWidth = $derived.by(() => (isSidebarOpen ? 'w-64 xl:w-66' : 'w-14 xl:w-16'));
 	const navBottomPadding = $derived.by(() => (isSidebarOpen ? 'pb-40' : 'pb-36'));
 
 	function toggleSidebar() {
@@ -109,14 +109,14 @@
 			class="flex-1 p-2 {navBottomPadding} overflow-y-auto scrollbar-thin scrollbar-thumb-primary-700 scrollbar-track-primary-400 scrollbar-corner-primary-500 hover:scrollbar-thumb-primary-700 active:scrollbar-thumb-primary-700 scrollbar-hover:scrollbar-thumb-primary-800 scrollbar-active:scrollbar-thumb-primary-700"
 			aria-label="Dashboard navigation"
 		>
-			<ul class="space-y-1.5">
+			<ul class="space-y-1.5 md:space-y-1 xl:space-y-1.5">
 				{#each menuItems as item}
 					<li>
 						<a
 							href={item.href}
 							class="w-full whitespace-nowrap {isSidebarOpen
-								? 'px-4 py-3 flex items-center gap-3'
-								: 'px-2 py-3 flex items-center justify-center'} transition-colors duration-150 cursor-pointer {activePath ===
+								? 'px-4 py-3 md:px-3 md:py-2.5 md:gap-2.5 xl:px-4 xl:py-3 xl:gap-3 flex items-center text-base md:text-sm xl:text-base'
+								: 'px-2 py-3 md:px-1.5 md:py-2.5 xl:px-2 xl:py-3 flex items-center justify-center'} transition-colors duration-150 cursor-pointer {activePath ===
 							item.href
 								? 'bg-primary-600 border-l-4 border-neutral-500 text-white'
 								: 'text-primary-100 hover:bg-primary-600 hover:text-white border-l-4 border-transparent'} {item.href ===
@@ -126,7 +126,7 @@
 							title={isSidebarOpen ? '' : item.label}
 							aria-current={activePath === item.href ? 'page' : undefined}
 						>
-							<item.icon class="w-5 h-5 shrink-0" />
+							<item.icon class="w-5 h-5 md:w-4 md:h-4 xl:w-5 xl:h-5 shrink-0" />
 							{#if isSidebarOpen}
 								<span>{item.label}</span>
 							{/if}

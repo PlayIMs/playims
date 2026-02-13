@@ -21,6 +21,7 @@ const formatSeasonLabel = (season: string, year: number) => `${season} ${year}`;
 const mapActivity = (input: {
 	offeringId: string;
 	leagueId: string;
+	stackOrder: number | null;
 	offeringName: string;
 	offeringType: string | null | undefined;
 	leagueName: string;
@@ -38,6 +39,7 @@ const mapActivity = (input: {
 	id: input.leagueId,
 	offeringId: input.offeringId,
 	leagueId: input.leagueId,
+	stackOrder: input.stackOrder,
 	offeringType: toActivityType(input.offeringType),
 	offeringName: input.offeringName,
 	leagueName: input.leagueName,
@@ -194,6 +196,7 @@ export const POST: RequestHandler = async (event) => {
 				offeringId: createdOffering.id,
 				name: leagueInput.name,
 				slug: leagueInput.slug,
+				stackOrder: leagueInput.stackOrder,
 				description: leagueInput.description,
 				year: autoYear,
 				season: leagueInput.season,
@@ -225,6 +228,7 @@ export const POST: RequestHandler = async (event) => {
 				mapActivity({
 					offeringId: createdOffering.id,
 					leagueId: createdLeague.id,
+					stackOrder: createdLeague.stackOrder ?? leagueInput.stackOrder,
 					offeringName: createdOffering.name?.trim() || 'General Recreation',
 					offeringType: createdOffering.type,
 					leagueName: createdLeague.name?.trim() || 'Untitled League',

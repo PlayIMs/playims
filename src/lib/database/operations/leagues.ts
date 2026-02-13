@@ -1,5 +1,5 @@
 // League operations - Drizzle ORM
-import { and, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import type { DrizzleClient } from '../drizzle.js';
 import { leagues, type League } from '../schema/index.js';
 
@@ -11,7 +11,7 @@ export class LeagueOperations {
 			.select()
 			.from(leagues)
 			.where(eq(leagues.clientId, clientId))
-			.orderBy(desc(leagues.year), desc(leagues.createdAt));
+			.orderBy(desc(leagues.year), asc(leagues.stackOrder), desc(leagues.createdAt));
 	}
 
 	async getByClientIdAndSlug(clientId: string, slug: string): Promise<League | null> {
@@ -29,6 +29,7 @@ export class LeagueOperations {
 		offeringId: string;
 		name: string;
 		slug: string;
+		stackOrder: number;
 		description: string | null;
 		year: number;
 		season: string;
@@ -60,6 +61,7 @@ export class LeagueOperations {
 				offeringId: data.offeringId,
 				name: data.name,
 				slug: data.slug,
+				stackOrder: data.stackOrder,
 				description: data.description,
 				year: data.year,
 				season: data.season,

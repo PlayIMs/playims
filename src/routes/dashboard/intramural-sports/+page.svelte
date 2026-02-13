@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { replaceState } from '$app/navigation';
+	import { flip } from 'svelte/animate';
+	import { cubicOut } from 'svelte/easing';
 	import { onDestroy, tick } from 'svelte';
 	import type { PageData } from './$types';
 	import IconAlertTriangle from '@tabler/icons-svelte/icons/alert-triangle';
@@ -9,9 +11,11 @@
 	import IconBallFootball from '@tabler/icons-svelte/icons/ball-football';
 	import IconBallTennis from '@tabler/icons-svelte/icons/ball-tennis';
 	import IconBallVolleyball from '@tabler/icons-svelte/icons/ball-volleyball';
-	import IconCalendar from '@tabler/icons-svelte/icons/calendar';
+	import IconArrowDown from '@tabler/icons-svelte/icons/arrow-down';
+	import IconArrowUp from '@tabler/icons-svelte/icons/arrow-up';
 	import IconChevronDown from '@tabler/icons-svelte/icons/chevron-down';
 	import IconChevronUp from '@tabler/icons-svelte/icons/chevron-up';
+	import IconCalendar from '@tabler/icons-svelte/icons/calendar';
 	import IconCopy from '@tabler/icons-svelte/icons/copy';
 	import IconCrosshair from '@tabler/icons-svelte/icons/crosshair';
 	import IconPencil from '@tabler/icons-svelte/icons/pencil';
@@ -28,6 +32,7 @@
 	interface LeagueOffering {
 		id: string;
 		leagueName: string;
+		stackOrder: number;
 		categoryLabel: string;
 		divisionCount: number;
 		status: OfferingStatus;
@@ -100,8 +105,11 @@
 	}
 
 	interface WizardLeagueInput {
+		draftId: string;
 		name: string;
 		slug: string;
+		stackOrder: number;
+		isSlugManual: boolean;
 		description: string;
 		season: string;
 		gender: LeagueGender;
@@ -177,8 +185,20 @@
 	let leagueSlugTouched = $state(false);
 	let leagueEditingIndex = $state<number | null>(null);
 	let leagueDraftActive = $state(false);
-	let expandedReviewLeagueIndex = $state<number | null>(null);
+	let createModalPointerDownStartedInside = $state(false);
 	let serverFieldErrors = $state<Record<string, string>>({});
+
+	$effect(() => {
+		if (typeof document === 'undefined') return;
+		if (!isCreateModalOpen) return;
+
+		const previousOverflow = document.body.style.overflow;
+		document.body.style.overflow = 'hidden';
+
+		return () => {
+			document.body.style.overflow = previousOverflow;
+		};
+	});
 
 	function padTwo(value: number): string {
 		return String(value).padStart(2, '0');
@@ -197,10 +217,20 @@
 		return slugifyFinal(`${leagueName} ${offeringName}`);
 	}
 
+	function createLeagueDraftId(): string {
+		if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+			return crypto.randomUUID();
+		}
+		return `league-draft-${Math.random().toString(36).slice(2, 10)}`;
+	}
+
 	function createEmptyLeague(): WizardLeagueInput {
 		return {
+			draftId: createLeagueDraftId(),
 			name: '',
 			slug: '',
+			stackOrder: 1,
+			isSlugManual: false,
 			description: '',
 			season: '',
 			gender: '',
@@ -242,6 +272,32 @@
 	}
 
 	let createForm = $state<WizardFormState>(createEmptyCreateForm());
+
+	function isTournamentWizard(): boolean {
+		return createForm.offering.type === 'tournament';
+	}
+
+	function wizardUnitSingular(): 'league' | 'group' {
+		return isTournamentWizard() ? 'group' : 'league';
+	}
+
+	function wizardUnitPlural(): 'leagues' | 'groups' {
+		return isTournamentWizard() ? 'groups' : 'leagues';
+	}
+
+	function wizardUnitTitleSingular(): 'League' | 'Group' {
+		return isTournamentWizard() ? 'Group' : 'League';
+	}
+
+	function wizardUnitTitlePlural(): 'Leagues' | 'Groups' {
+		return isTournamentWizard() ? 'Groups' : 'Leagues';
+	}
+
+	function wizardStepTitle(step: WizardStep): string {
+		if (step === 3) return isTournamentWizard() ? 'Tournament Groups' : 'League Options';
+		if (step === 4) return isTournamentWizard() ? 'Tournament Schedule' : 'League Schedule';
+		return WIZARD_STEP_TITLES[step];
+	}
 
 	function getLeagueRowId(offeringSlug: string, leagueId: string): string {
 		return `league-row-${offeringSlug}-${leagueId}`;
@@ -329,7 +385,6 @@
 		leagueSlugTouched = false;
 		leagueEditingIndex = null;
 		leagueDraftActive = false;
-		expandedReviewLeagueIndex = null;
 		serverFieldErrors = {};
 		createForm = createEmptyCreateForm();
 	}
@@ -341,6 +396,7 @@
 
 	function closeCreateWizard(): void {
 		isCreateModalOpen = false;
+		createModalPointerDownStartedInside = false;
 		resetCreateWizard();
 	}
 
@@ -408,6 +464,19 @@
 		}
 
 		closeCreateWizard();
+	}
+
+	function handleCreateModalPointerDown(event: PointerEvent): void {
+		createModalPointerDownStartedInside = event.target !== event.currentTarget;
+	}
+
+	function handleCreateModalBackdropClick(event: MouseEvent): void {
+		if (event.target !== event.currentTarget) return;
+		if (createModalPointerDownStartedInside) {
+			createModalPointerDownStartedInside = false;
+			return;
+		}
+		requestCloseCreateWizard();
 	}
 
 	function clearCreateApiErrors(): void {
@@ -770,10 +839,19 @@
 		return Number.isInteger(value) && value > 0 ? value : null;
 	}
 
+	function normalizeLeagueStackOrder(leagues: WizardLeagueInput[]): WizardLeagueInput[] {
+		return leagues.map((league, index) => ({
+			...league,
+			stackOrder: index + 1
+		}));
+	}
+
 	function mapLeagueForRequest(league: WizardLeagueInput) {
 		return {
 			name: league.name.trim(),
 			slug: slugifyFinal(league.slug),
+			stackOrder:
+				Number.isInteger(league.stackOrder) && league.stackOrder > 0 ? league.stackOrder : 1,
 			description: normalizeOptionalTextForRequest(league.description),
 			season: league.season.trim(),
 			gender: league.gender || null,
@@ -816,6 +894,11 @@
 			...createForm.league,
 			name: createForm.league.name.trim(),
 			slug: slugifyFinal(createForm.league.slug),
+			stackOrder:
+				leagueEditingIndex === null
+					? createForm.leagues.length + 1
+					: (createForm.leagues[leagueEditingIndex]?.stackOrder ?? createForm.league.stackOrder),
+			isSlugManual: leagueSlugTouched,
 			description: createForm.league.description.trim(),
 			season: createForm.league.season.trim(),
 			regStartDate: createForm.league.regStartDate.trim(),
@@ -830,13 +913,13 @@
 		};
 
 		if (leagueEditingIndex === null) {
-			createForm.leagues = [...createForm.leagues, normalizedLeague];
-			expandedReviewLeagueIndex = createForm.leagues.length - 1;
+			createForm.leagues = normalizeLeagueStackOrder([...createForm.leagues, normalizedLeague]);
 		} else {
-			createForm.leagues = createForm.leagues.map((league, index) =>
-				index === leagueEditingIndex ? normalizedLeague : league
+			createForm.leagues = normalizeLeagueStackOrder(
+				createForm.leagues.map((league, index) =>
+					index === leagueEditingIndex ? normalizedLeague : league
+				)
 			);
-			expandedReviewLeagueIndex = leagueEditingIndex;
 		}
 
 		createForm.league = createEmptyLeague();
@@ -851,7 +934,10 @@
 		clearCreateApiErrors();
 		leagueEditingIndex = null;
 		leagueSlugTouched = false;
-		createForm.league = createEmptyLeague();
+		createForm.league = {
+			...createEmptyLeague(),
+			stackOrder: createForm.leagues.length + 1
+		};
 		createForm.addLeagues = 'yes';
 		leagueDraftActive = true;
 		createStep = 3;
@@ -871,11 +957,29 @@
 		if (!createForm.leagues[index]) return;
 		clearCreateApiErrors();
 		leagueEditingIndex = index;
-		expandedReviewLeagueIndex = index;
-		leagueSlugTouched = true;
-		createForm.league = { ...createForm.leagues[index] };
+		const sourceLeague = createForm.leagues[index];
+		const inferredManualSlug =
+			typeof sourceLeague.isSlugManual === 'boolean'
+				? sourceLeague.isSlugManual
+				: slugifyFinal(sourceLeague.slug) !==
+					defaultLeagueSlug(sourceLeague.name, createForm.offering.name);
+		leagueSlugTouched = inferredManualSlug;
+		createForm.league = {
+			...sourceLeague,
+			isSlugManual: inferredManualSlug
+		};
 		createForm.addLeagues = 'yes';
 		leagueDraftActive = true;
+		createStep = 3;
+	}
+
+	function startEditingOffering(): void {
+		clearCreateApiErrors();
+		createStep = 1;
+	}
+
+	function startEditingLeagues(): void {
+		clearCreateApiErrors();
 		createStep = 3;
 	}
 
@@ -899,29 +1003,65 @@
 
 		const duplicate: WizardLeagueInput = {
 			...source,
+			draftId: createLeagueDraftId(),
 			name: nextName,
-			slug: nextSlug
+			slug: nextSlug,
+			isSlugManual: false
 		};
 		createForm.addLeagues = 'yes';
-		createForm.leagues = [...createForm.leagues, duplicate];
-		expandedReviewLeagueIndex = createForm.leagues.length - 1;
+		const nextLeagues = [...createForm.leagues];
+		nextLeagues.splice(index + 1, 0, duplicate);
+		createForm.leagues = normalizeLeagueStackOrder(nextLeagues);
+		if (leagueEditingIndex !== null && leagueEditingIndex > index) {
+			leagueEditingIndex += 1;
+		}
+	}
+
+	function moveLeague(index: number, direction: 'up' | 'down'): void {
+		const targetIndex = direction === 'up' ? index - 1 : index + 1;
+		if (
+			index < 0 ||
+			targetIndex < 0 ||
+			index >= createForm.leagues.length ||
+			targetIndex >= createForm.leagues.length
+		) {
+			return;
+		}
+
+		const reordered = [...createForm.leagues];
+		const current = reordered[index];
+		const target = reordered[targetIndex];
+		if (!current || !target) return;
+
+		reordered[index] = target;
+		reordered[targetIndex] = current;
+		createForm.leagues = normalizeLeagueStackOrder(reordered);
+
+		if (leagueEditingIndex !== null) {
+			if (leagueEditingIndex === index) {
+				leagueEditingIndex = targetIndex;
+			} else if (leagueEditingIndex === targetIndex) {
+				leagueEditingIndex = index;
+			}
+		}
 	}
 
 	function removeLeague(index: number): void {
 		if (!createForm.leagues[index]) return;
-		createForm.leagues = createForm.leagues.filter((_, leagueIndex) => leagueIndex !== index);
-		if (leagueEditingIndex === index) {
-			cancelLeagueDraft();
+		createForm.leagues = normalizeLeagueStackOrder(
+			createForm.leagues.filter((_, leagueIndex) => leagueIndex !== index)
+		);
+		if (leagueEditingIndex !== null) {
+			if (leagueEditingIndex === index) {
+				cancelLeagueDraft();
+				return;
+			}
+			if (leagueEditingIndex > index) {
+				leagueEditingIndex -= 1;
+			}
 		}
 		if (createForm.leagues.length === 0) {
 			createForm.addLeagues = 'no';
-			expandedReviewLeagueIndex = null;
-		} else if (expandedReviewLeagueIndex !== null) {
-			if (expandedReviewLeagueIndex === index) {
-				expandedReviewLeagueIndex = null;
-			} else if (expandedReviewLeagueIndex > index) {
-				expandedReviewLeagueIndex -= 1;
-			}
 		}
 	}
 
@@ -1079,7 +1219,8 @@
 			day: 'numeric',
 			...(includeYear ? { year: 'numeric' } : {}),
 			hour: 'numeric',
-			minute: '2-digit'
+			minute: '2-digit',
+			hour12: true
 		});
 	}
 
@@ -1093,7 +1234,8 @@
 			day: 'numeric',
 			...(includeYear ? { year: 'numeric' } : {}),
 			hour: 'numeric',
-			minute: '2-digit'
+			minute: '2-digit',
+			hour12: true
 		});
 	}
 
@@ -1126,15 +1268,16 @@
 		const parsed = parseDate(value);
 		if (!parsed) return 'TBD';
 		if (withTime) {
-			return parsed.toLocaleString('en-GB', {
+			return parsed.toLocaleString('en-US', {
 				day: 'numeric',
 				month: 'short',
 				year: 'numeric',
 				hour: 'numeric',
-				minute: '2-digit'
+				minute: '2-digit',
+				hour12: true
 			});
 		}
-		return parsed.toLocaleDateString('en-GB', {
+		return parsed.toLocaleDateString('en-US', {
 			day: 'numeric',
 			month: 'short',
 			year: 'numeric'
@@ -1167,9 +1310,11 @@
 	}
 
 	function buildCategoryLabel(activity: Activity): string {
+		const leagueName = activity.leagueName?.trim();
+		if (leagueName) return leagueName;
 		const gender = normalizeGender(activity.gender ?? null);
 		if (gender) return gender;
-		return activity.leagueName;
+		return 'Untitled League';
 	}
 
 	function getSemesterMeta(activity: Activity): {
@@ -1383,6 +1528,7 @@
 			const leagueOffering: LeagueOffering = {
 				id: activity.id,
 				leagueName: activity.leagueName,
+				stackOrder: activity.stackOrder ?? Number.MAX_SAFE_INTEGER,
 				categoryLabel,
 				divisionCount: activity.divisionCount ?? 0,
 				status,
@@ -1410,6 +1556,7 @@
 					.map((offering) => ({
 						...offering,
 						leagues: offering.leagues.sort((a, b) => {
+							if (a.stackOrder !== b.stackOrder) return a.stackOrder - b.stackOrder;
 							const category = a.categoryLabel.localeCompare(b.categoryLabel);
 							if (category !== 0) return category;
 
@@ -1668,11 +1815,11 @@
 
 		if (createStep === 4) {
 			if (!leagueDraftActive) {
-				createStep = 5;
+				createStep = 3;
 				return;
 			}
 			if (!addOrUpdateDraftLeague()) return;
-			createStep = 5;
+			createStep = 3;
 			return;
 		}
 
@@ -1689,6 +1836,15 @@
 		}
 
 		createStep = (createStep - 1) as WizardStep;
+	}
+
+	function handleCreateBackAction(): void {
+		if (leagueDraftActive && (createStep === 3 || createStep === 4)) {
+			cancelLeagueDraft();
+			createStep = 3;
+			return;
+		}
+		previousCreateStep();
 	}
 
 	function statusClass(status: OfferingStatus): string {
@@ -1709,30 +1865,16 @@
 
 <div class="p-6 lg:p-8 space-y-6">
 	<header class="border-2 border-secondary-300 bg-neutral p-5 space-y-4">
-		<div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-			<div class="flex items-start gap-4">
-				<div
-					class="bg-primary text-white w-[2.75rem] h-[2.75rem] lg:w-[3.4rem] lg:h-[3.4rem] flex items-center justify-center"
-					aria-hidden="true"
-				>
-					<IconBallFootball class="w-7 h-7 lg:w-8 lg:h-8" />
-				</div>
-				<div>
-					<h1 class="text-5xl lg:text-6xl leading-[0.9] font-bold font-serif text-neutral-950">
-						Intramural Sports
-					</h1>
-				</div>
+		<div class="flex items-start gap-4">
+			<div
+				class="bg-primary text-white w-[2.75rem] h-[2.75rem] lg:w-[3.4rem] lg:h-[3.4rem] flex items-center justify-center"
+				aria-hidden="true"
+			>
+				<IconBallFootball class="w-7 h-7 lg:w-8 lg:h-8" />
 			</div>
-			<div class="flex items-center justify-start xl:justify-end">
-				<button
-					type="button"
-					class="button-accent px-3 py-2 text-xs font-bold uppercase tracking-wide flex items-center gap-2 cursor-pointer"
-					onclick={openCreateWizard}
-				>
-					<IconPlus class="w-4 h-4" />
-					Add offering
-				</button>
-			</div>
+			<h1 class="text-5xl lg:text-6xl leading-[0.9] font-bold font-serif text-neutral-950">
+				Intramural Sports
+			</h1>
 		</div>
 	</header>
 
@@ -1765,6 +1907,15 @@
 				<p class="text-sm text-neutral-950 font-sans mt-1">
 					Add or enable leagues/tournaments to populate this view.
 				</p>
+				<div class="mt-4">
+					<button
+						type="button"
+						class="button-primary-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer"
+						onclick={openCreateWizard}
+					>
+						+ ADD
+					</button>
+				</div>
 			</div>
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-4" aria-hidden="true">
 				<div class="border border-secondary-300 bg-white p-4 space-y-3">
@@ -1810,6 +1961,13 @@
 								{badgeLeagueOrGroupCount}
 								{badgeLeagueOrGroupLabel}
 							</span>
+							<button
+								type="button"
+								class="button-primary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer"
+								onclick={openCreateWizard}
+							>
+								+ ADD
+							</button>
 						</div>
 					</div>
 					<div class="relative">
@@ -2243,8 +2401,9 @@
 
 {#if isCreateModalOpen}
 	<div
-		class="fixed inset-0 bg-black/55 z-50 flex items-start justify-center p-5 lg:p-8 overflow-y-auto"
-		onclick={requestCloseCreateWizard}
+		class="fixed inset-0 bg-black/55 z-50 flex items-center justify-center p-4 lg:p-6 overflow-hidden"
+		onpointerdown={handleCreateModalPointerDown}
+		onclick={handleCreateModalBackdropClick}
 		onkeydown={(event) => {
 			if (event.key === 'Escape') requestCloseCreateWizard();
 		}}
@@ -2253,7 +2412,7 @@
 		aria-label="Close create offering modal"
 	>
 		<div
-			class="w-full max-w-5xl border-4 border-secondary bg-neutral-400"
+			class="w-full max-w-5xl max-h-[calc(100vh-2rem)] lg:max-h-[calc(100vh-3rem)] border-4 border-secondary bg-neutral-400 overflow-hidden flex flex-col"
 			onclick={(event) => event.stopPropagation()}
 			role="presentation"
 		>
@@ -2262,15 +2421,16 @@
 					<div>
 						<h2 class="text-3xl font-bold font-serif text-neutral-950">New Intramural Offering</h2>
 						<p class="text-sm font-sans text-neutral-950">
-							Step {createStep} of 5: {WIZARD_STEP_TITLES[createStep]}
+							Step {createStep} of 5: {wizardStepTitle(createStep)}
 						</p>
 					</div>
 					<button
 						type="button"
-						class="button-secondary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer"
+						class="p-1 text-neutral-950 hover:text-secondary-900 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-500"
+						aria-label="Close create offering modal"
 						onclick={requestCloseCreateWizard}
 					>
-						Close
+						<IconX class="w-6 h-6" />
 					</button>
 				</div>
 				<div class="border border-secondary-300 bg-white h-3">
@@ -2279,7 +2439,7 @@
 			</div>
 
 			<form
-				class="p-4 space-y-5"
+				class="p-4 space-y-5 flex-1 min-h-0 overflow-y-auto"
 				onsubmit={(event) => {
 					event.preventDefault();
 					void submitCreateWizard();
@@ -2516,72 +2676,77 @@
 
 				{#if createStep === 3}
 					<div class="space-y-4">
-						<div class="border border-secondary-300 bg-white p-3 space-y-3">
-							<div class="flex items-center justify-between gap-2">
-								<h3 class="text-sm font-bold font-sans text-neutral-950 uppercase tracking-wide">
-									Leagues ({createForm.leagues.length})
-								</h3>
-								<button
-									type="button"
-									class="button-secondary-outlined p-1.5 cursor-pointer"
-									aria-label="Add league"
-									title="Add league"
-									onclick={startAddingLeague}
-								>
-									<IconPlus class="w-4 h-4" />
-								</button>
-							</div>
+						{#if !leagueDraftActive}
+							<div class="border border-secondary-300 bg-white p-3 space-y-3">
+								<div class="flex items-center justify-between gap-2">
+									<h3 class="text-sm font-bold font-sans text-neutral-950 uppercase tracking-wide">
+										{isTournamentWizard() ? 'Tournament Groups' : 'Leagues'}
+									</h3>
+									<button
+										type="button"
+										class="button-secondary-outlined p-1.5 cursor-pointer"
+										aria-label={`Add ${wizardUnitSingular()}`}
+										title={`Add ${wizardUnitSingular()}`}
+										onclick={startAddingLeague}
+									>
+										<IconPlus class="w-4 h-4" />
+									</button>
+								</div>
 
-							{#if createForm.leagues.length === 0 && !leagueDraftActive}
-								<p class="text-sm text-neutral-950 font-sans">
-									No leagues added yet. Use the plus button to add one, or continue without leagues.
-								</p>
-							{:else if createForm.leagues.length > 0}
-								<div class="space-y-2">
-									{#each createForm.leagues as league, leagueIndex}
-										<div class="border border-secondary-300 bg-neutral">
-											<button
-												type="button"
-												class="w-full px-3 py-2 flex items-center justify-between gap-3 text-left cursor-pointer"
-												onclick={() => {
-													expandedReviewLeagueIndex =
-														expandedReviewLeagueIndex === leagueIndex ? null : leagueIndex;
-												}}
-												aria-expanded={expandedReviewLeagueIndex === leagueIndex}
+								{#if createForm.leagues.length === 0 && !leagueDraftActive}
+									<p class="text-sm text-neutral-950 font-sans">
+										No {wizardUnitPlural()} added yet. Use the plus button to add one, or continue without
+										{wizardUnitPlural()}.
+									</p>
+								{:else if createForm.leagues.length > 0}
+									<div
+										class="space-y-2 max-h-[61vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 scrollbar-track-secondary-400 scrollbar-corner-secondary-500 hover:scrollbar-thumb-secondary-700 active:scrollbar-thumb-secondary-700 scrollbar-hover:scrollbar-thumb-secondary-800 scrollbar-active:scrollbar-thumb-secondary-700"
+									>
+										{#each createForm.leagues as league, leagueIndex (league.draftId)}
+											<div
+												class="border border-secondary-300 bg-neutral p-3 space-y-2"
+												animate:flip={{ duration: 180, easing: cubicOut }}
 											>
-												<div>
-													<p class="text-sm font-semibold text-neutral-950">{league.name}</p>
-													<p class="text-xs text-neutral-900">
-														Slug: {league.slug}
-														{#if league.season.trim()}
-															| Season: {league.season}
+												<div class="flex items-start justify-between gap-3">
+													<div>
+														<p class="text-sm font-semibold text-neutral-950">
+															{league.name.trim() || 'Untitled League'}
+														</p>
+														<p class="text-xs text-neutral-900">Slug: {league.slug || 'TBD'}</p>
+													</div>
+													<div class="flex items-center gap-1">
+														{#if createForm.leagues.length > 1}
+															{#if leagueIndex > 0}
+																<button
+																	type="button"
+																	class="button-secondary-outlined p-1.5 cursor-pointer"
+																	aria-label={`Move ${wizardUnitSingular()} up`}
+																	title="Move up"
+																	onclick={() => {
+																		moveLeague(leagueIndex, 'up');
+																	}}
+																>
+																	<IconArrowUp class="w-4 h-4" />
+																</button>
+															{/if}
+															{#if leagueIndex < createForm.leagues.length - 1}
+																<button
+																	type="button"
+																	class="button-secondary-outlined p-1.5 cursor-pointer"
+																	aria-label={`Move ${wizardUnitSingular()} down`}
+																	title="Move down"
+																	onclick={() => {
+																		moveLeague(leagueIndex, 'down');
+																	}}
+																>
+																	<IconArrowDown class="w-4 h-4" />
+																</button>
+															{/if}
 														{/if}
-													</p>
-												</div>
-												{#if expandedReviewLeagueIndex === leagueIndex}
-													<IconChevronUp class="w-4 h-4 text-neutral-950" />
-												{:else}
-													<IconChevronDown class="w-4 h-4 text-neutral-950" />
-												{/if}
-											</button>
-											{#if expandedReviewLeagueIndex === leagueIndex}
-												<div class="px-3 pb-3 pt-1 border-t border-secondary-300">
-													<div class="flex items-center gap-2 justify-end">
 														<button
 															type="button"
 															class="button-secondary-outlined p-1.5 cursor-pointer"
-															aria-label="Copy league"
-															title="Copy"
-															onclick={() => {
-																duplicateLeague(leagueIndex);
-															}}
-														>
-															<IconCopy class="w-4 h-4" />
-														</button>
-														<button
-															type="button"
-															class="button-secondary-outlined p-1.5 cursor-pointer"
-															aria-label="Edit league"
+															aria-label={`Edit ${wizardUnitSingular()}`}
 															title="Edit"
 															onclick={() => {
 																startEditingLeague(leagueIndex);
@@ -2592,24 +2757,84 @@
 														<button
 															type="button"
 															class="button-secondary-outlined p-1.5 cursor-pointer"
-															aria-label="Remove league"
+															aria-label={`Copy ${wizardUnitSingular()}`}
+															title="Copy"
+															onclick={() => {
+																duplicateLeague(leagueIndex);
+															}}
+														>
+															<IconCopy class="w-4 h-4" />
+														</button>
+														<button
+															type="button"
+															class="button-secondary-outlined p-1.5 cursor-pointer"
+															aria-label={`Remove ${wizardUnitSingular()}`}
 															title="Remove"
 															onclick={() => {
 																removeLeague(leagueIndex);
 															}}
 														>
-															<IconTrash class="w-4 h-4" />
+															<IconTrash class="w-4 h-4 text-error-500" />
 														</button>
 													</div>
 												</div>
-											{/if}
-										</div>
-									{/each}
-								</div>
-							{/if}
-						</div>
-
-						{#if leagueDraftActive}
+												<div
+													class="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-xs text-neutral-950"
+												>
+													<p><span class="font-semibold">Season:</span> {league.season || 'TBD'}</p>
+													<p>
+														<span class="font-semibold">Gender:</span>
+														{normalizeGender(league.gender) ?? 'Unspecified'}
+													</p>
+													<p>
+														<span class="font-semibold">Skill Level:</span>
+														{league.skillLevel ? toTitleCase(league.skillLevel) : 'Unspecified'}
+													</p>
+													<p>
+														<span class="font-semibold">Status:</span>
+														{league.isActive ? 'Active' : 'Inactive'} | {league.isLocked
+															? 'Locked'
+															: 'Unlocked'}
+													</p>
+													<p class="sm:col-span-2">
+														<span class="font-semibold">Registration:</span>
+														{formatReviewRange(league.regStartDate, league.regEndDate, true)}
+													</p>
+													<p class="sm:col-span-2">
+														<span class="font-semibold">Season Dates:</span>
+														{formatReviewRange(league.seasonStartDate, league.seasonEndDate)}
+													</p>
+													{#if league.hasPreseason}
+														<p class="sm:col-span-2">
+															<span class="font-semibold">Preseason:</span>
+															{formatReviewRange(
+																league.preseasonStartDate,
+																league.preseasonEndDate
+															)}
+														</p>
+													{/if}
+													{#if league.hasPostseason}
+														<p class="sm:col-span-2">
+															<span class="font-semibold">Postseason:</span>
+															{formatReviewRange(
+																league.postseasonStartDate,
+																league.postseasonEndDate
+															)}
+														</p>
+													{/if}
+												</div>
+												{#if league.description.trim()}
+													<p class="text-xs text-neutral-950">
+														<span class="font-semibold">Description:</span>
+														{league.description.trim()}
+													</p>
+												{/if}
+											</div>
+										{/each}
+									</div>
+								{/if}
+							</div>
+						{:else}
 							<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
 								<div>
 									<label for="league-name" class="block text-sm font-sans text-neutral-950 mb-1"
@@ -2626,6 +2851,7 @@
 											createForm.league.name = value;
 											if (!leagueSlugTouched) {
 												createForm.league.slug = defaultLeagueSlug(value, createForm.offering.name);
+												createForm.league.isSlugManual = false;
 											}
 										}}
 										autocomplete="off"
@@ -2647,6 +2873,7 @@
 										placeholder="mens-soccer"
 										oninput={(event) => {
 											leagueSlugTouched = true;
+											createForm.league.isSlugManual = true;
 											createForm.league.slug = applyLiveSlugInput(
 												event.currentTarget as HTMLInputElement
 											);
@@ -2718,31 +2945,9 @@
 										id="league-description"
 										class="textarea-secondary min-h-28"
 										bind:value={createForm.league.description}
-										placeholder="Describe this league."
+										placeholder={`Describe this ${wizardUnitSingular()}.`}
 									></textarea>
 								</div>
-							</div>
-
-							<div class="flex items-center justify-end gap-2">
-								<button
-									type="button"
-									class="button-secondary-outlined cursor-pointer"
-									onclick={cancelLeagueDraft}
-								>
-									Cancel League
-								</button>
-							</div>
-						{:else if createForm.leagues.length > 0}
-							<div class="flex justify-end">
-								<button
-									type="button"
-									class="button-secondary-outlined p-1.5 cursor-pointer"
-									aria-label="Add another league"
-									title="Add another league"
-									onclick={startAddingLeague}
-								>
-									<IconPlus class="w-4 h-4" />
-								</button>
 							</div>
 						{/if}
 					</div>
@@ -2753,8 +2958,8 @@
 						{#if !leagueDraftActive}
 							<div class="border border-secondary-300 bg-white p-4">
 								<p class="text-sm font-sans text-neutral-950">
-									No league draft is open. Go back to League Options and click the plus button to
-									add one.
+									No {wizardUnitSingular()} draft is open. Go back to {wizardStepTitle(3)} and click the
+									plus button to add one.
 								</p>
 							</div>
 						{:else}
@@ -3006,7 +3211,18 @@
 				{#if createStep === 5}
 					<div class="space-y-4">
 						<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
-							<h3 class="text-lg font-bold font-serif text-neutral-950">Offering</h3>
+							<div class="flex items-start justify-between gap-2">
+								<h3 class="text-lg font-bold font-serif text-neutral-950">Offering</h3>
+								<button
+									type="button"
+									class="button-secondary-outlined p-1.5 cursor-pointer"
+									aria-label="Edit offering"
+									title="Edit offering"
+									onclick={startEditingOffering}
+								>
+									<IconPencil class="w-4 h-4" />
+								</button>
+							</div>
 							<p class="text-sm text-neutral-950">
 								<span class="font-semibold">Name:</span>
 								{createForm.offering.name}
@@ -3035,21 +3251,19 @@
 						</div>
 
 						<div class="border-2 border-secondary-300 bg-white p-4 space-y-3">
-							<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-								<div class="flex items-center gap-2">
-									<h3 class="text-lg font-bold font-serif text-neutral-950">
-										Leagues ({createForm.leagues.length})
-									</h3>
-									<button
-										type="button"
-										class="button-secondary-outlined p-1.5 cursor-pointer"
-										aria-label="Add league"
-										title="Add league"
-										onclick={startAddingLeague}
-									>
-										<IconPlus class="w-4 h-4" />
-									</button>
-								</div>
+							<div class="flex items-start justify-between gap-2">
+								<h3 class="text-lg font-bold font-serif text-neutral-950">
+									{wizardUnitTitlePlural()}
+								</h3>
+								<button
+									type="button"
+									class="button-secondary-outlined p-1.5 cursor-pointer"
+									aria-label={`Edit ${wizardUnitPlural()}`}
+									title={`Edit ${wizardUnitPlural()}`}
+									onclick={startEditingLeagues}
+								>
+									<IconPencil class="w-4 h-4" />
+								</button>
 							</div>
 
 							{#if createFieldErrors['leagues']}
@@ -3057,101 +3271,67 @@
 							{/if}
 
 							{#if createForm.leagues.length === 0}
-								<p class="text-sm text-neutral-950 font-sans">No leagues will be created.</p>
+								<p class="text-sm text-neutral-950 font-sans">
+									No {wizardUnitPlural()} will be created.
+								</p>
 							{:else}
-								<div class="space-y-3">
-									{#each createForm.leagues as league, leagueIndex}
-										<div class="border border-secondary-300 bg-neutral">
-											<div class="px-3 py-2 flex items-start justify-between gap-3">
-												<button
-													type="button"
-													class="text-left cursor-pointer flex-1"
-													onclick={() => {
-														expandedReviewLeagueIndex =
-															expandedReviewLeagueIndex === leagueIndex ? null : leagueIndex;
-													}}
-													aria-expanded={expandedReviewLeagueIndex === leagueIndex}
-												>
-													<p class="text-sm text-neutral-950">
-														<span class="font-semibold">Name:</span>
-														{league.name}
-														<span class="ml-3 font-semibold">Slug:</span>
-														{league.slug}
+								<div
+									class="space-y-3 max-h-[45vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 scrollbar-track-secondary-400 scrollbar-corner-secondary-500 hover:scrollbar-thumb-secondary-700 active:scrollbar-thumb-secondary-700 scrollbar-hover:scrollbar-thumb-secondary-800 scrollbar-active:scrollbar-thumb-secondary-700"
+								>
+									{#each createForm.leagues as league}
+										<div class="border border-secondary-300 bg-neutral p-3 space-y-2">
+											<div>
+												<div>
+													<p class="text-sm font-semibold text-neutral-950">
+														{league.name.trim() || 'Untitled League'}
 													</p>
-													<p class="text-sm text-neutral-950 mt-1">
-														<span class="font-semibold">Season:</span>
-														{league.season}
-														<span class="ml-3 font-semibold">Gender:</span>
-														{normalizeGender(league.gender) ?? 'Unspecified'}
-													</p>
-												</button>
-												<div class="flex items-center gap-1">
-													<button
-														type="button"
-														class="button-secondary-outlined p-1.5 cursor-pointer"
-														aria-label="Copy league"
-														title="Copy"
-														onclick={() => {
-															duplicateLeague(leagueIndex);
-														}}
-													>
-														<IconCopy class="w-4 h-4" />
-													</button>
-													<button
-														type="button"
-														class="button-secondary-outlined p-1.5 cursor-pointer"
-														aria-label="Edit league"
-														title="Edit"
-														onclick={() => {
-															startEditingLeague(leagueIndex);
-														}}
-													>
-														<IconPencil class="w-4 h-4" />
-													</button>
-													<button
-														type="button"
-														class="button-secondary-outlined p-1.5 cursor-pointer"
-														aria-label="Remove league"
-														title="Remove"
-														onclick={() => {
-															removeLeague(leagueIndex);
-														}}
-													>
-														<IconTrash class="w-4 h-4" />
-													</button>
-													{#if expandedReviewLeagueIndex === leagueIndex}
-														<IconChevronUp class="w-4 h-4 text-neutral-950 ml-1" />
-													{:else}
-														<IconChevronDown class="w-4 h-4 text-neutral-950 ml-1" />
-													{/if}
+													<p class="text-xs text-neutral-900">Slug: {league.slug || 'TBD'}</p>
 												</div>
 											</div>
-											{#if expandedReviewLeagueIndex === leagueIndex}
-												<div class="px-3 pb-3 border-t border-secondary-300 space-y-1">
-													<p class="text-sm text-neutral-950 pt-2">
-														<span class="font-semibold">Registration:</span>
-														{formatReviewRange(league.regStartDate, league.regEndDate, true)}
+											<div
+												class="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-xs text-neutral-950"
+											>
+												<p><span class="font-semibold">Season:</span> {league.season || 'TBD'}</p>
+												<p>
+													<span class="font-semibold">Gender:</span>
+													{normalizeGender(league.gender) ?? 'Unspecified'}
+												</p>
+												<p>
+													<span class="font-semibold">Skill Level:</span>
+													{league.skillLevel ? toTitleCase(league.skillLevel) : 'Unspecified'}
+												</p>
+												<p>
+													<span class="font-semibold">Status:</span>
+													{league.isActive ? 'Active' : 'Inactive'} | {league.isLocked
+														? 'Locked'
+														: 'Unlocked'}
+												</p>
+												<p class="sm:col-span-2">
+													<span class="font-semibold">Registration:</span>
+													{formatReviewRange(league.regStartDate, league.regEndDate, true)}
+												</p>
+												<p class="sm:col-span-2">
+													<span class="font-semibold">Season Dates:</span>
+													{formatReviewRange(league.seasonStartDate, league.seasonEndDate)}
+												</p>
+												{#if league.hasPreseason}
+													<p class="sm:col-span-2">
+														<span class="font-semibold">Preseason:</span>
+														{formatReviewRange(league.preseasonStartDate, league.preseasonEndDate)}
 													</p>
-													<p class="text-sm text-neutral-950">
-														<span class="font-semibold">Season Dates:</span>
-														{formatReviewRange(league.seasonStartDate, league.seasonEndDate)}
+												{/if}
+												{#if league.hasPostseason}
+													<p class="sm:col-span-2">
+														<span class="font-semibold">Postseason:</span>
+														{formatReviewRange(
+															league.postseasonStartDate,
+															league.postseasonEndDate
+														)}
 													</p>
-													{#if league.skillLevel}
-														<p class="text-sm text-neutral-950">
-															<span class="font-semibold">Skill Level:</span>
-															{toTitleCase(league.skillLevel)}
-														</p>
-													{/if}
-													{#if league.description.trim()}
-														<p class="text-sm text-neutral-950">
-															<span class="font-semibold">Description:</span>
-															{league.description.trim()}
-														</p>
-													{/if}
-												</div>
-											{/if}
-											{#if league.description.trim() && expandedReviewLeagueIndex !== leagueIndex}
-												<p class="text-sm text-neutral-950">
+												{/if}
+											</div>
+											{#if league.description.trim()}
+												<p class="text-xs text-neutral-950">
 													<span class="font-semibold">Description:</span>
 													{league.description.trim()}
 												</p>
@@ -3164,22 +3344,13 @@
 					</div>
 				{/if}
 
-				<div
-					class="pt-2 border-t border-secondary-300 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-				>
-					<button
-						type="button"
-						class="button-secondary cursor-pointer"
-						onclick={requestCloseCreateWizard}
-					>
-						Cancel
-					</button>
+				<div class="pt-2 border-t border-secondary-300 flex justify-end">
 					<div class="flex items-center gap-2 justify-end">
 						{#if createStep > 1}
 							<button
 								type="button"
 								class="button-secondary-outlined cursor-pointer"
-								onclick={previousCreateStep}
+								onclick={handleCreateBackAction}
 							>
 								Back
 							</button>
@@ -3192,9 +3363,11 @@
 								disabled={!canGoNextStep}
 							>
 								{#if createStep === 3 && !leagueDraftActive}
-									Skip to Review
+									{createForm.leagues.length === 0 ? 'Skip to Review' : 'Review'}
 								{:else if createStep === 4 && leagueDraftActive}
-									{leagueEditingIndex === null ? 'Add League' : 'Update League'}
+									{leagueEditingIndex === null
+										? `Add ${wizardUnitTitleSingular()}`
+										: `Update ${wizardUnitTitleSingular()}`}
 								{:else}
 									Next
 								{/if}
