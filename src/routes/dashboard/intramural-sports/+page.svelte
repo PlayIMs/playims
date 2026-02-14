@@ -1,8 +1,22 @@
 <script lang="ts">
 	import { replaceState } from '$app/navigation';
-	import { flip } from 'svelte/animate';
-	import { cubicOut } from 'svelte/easing';
 	import { onDestroy, tick } from 'svelte';
+	import {
+		adjustEditingIndexOnRemove,
+		adjustEditingIndexOnReorder,
+		duplicateCollectionItem,
+		moveCollectionItemByOffset,
+		removeCollectionItem,
+		applyLiveSlugInput,
+		isRequiredFieldMessage,
+		pickFieldErrors,
+		slugifyFinal,
+		toServerFieldErrorMap,
+		WizardDraftCollection,
+		WizardStepFooter
+	} from '$lib/components/wizard';
+	import CreateLeagueWizard from './_wizards/CreateLeagueWizard.svelte';
+	import CreateOfferingWizard from './_wizards/CreateOfferingWizard.svelte';
 	import type { PageData } from './$types';
 	import IconAlertTriangle from '@tabler/icons-svelte/icons/alert-triangle';
 	import IconBallAmericanFootball from '@tabler/icons-svelte/icons/ball-american-football';
@@ -11,8 +25,6 @@
 	import IconBallFootball from '@tabler/icons-svelte/icons/ball-football';
 	import IconBallTennis from '@tabler/icons-svelte/icons/ball-tennis';
 	import IconBallVolleyball from '@tabler/icons-svelte/icons/ball-volleyball';
-	import IconArrowDown from '@tabler/icons-svelte/icons/arrow-down';
-	import IconArrowUp from '@tabler/icons-svelte/icons/arrow-up';
 	import IconChevronDown from '@tabler/icons-svelte/icons/chevron-down';
 	import IconChevronUp from '@tabler/icons-svelte/icons/chevron-up';
 	import IconCalendar from '@tabler/icons-svelte/icons/calendar';
@@ -188,6 +200,7 @@
 	let addActionMenuOpen = $state(false);
 	let addActionMenuContainer = $state<HTMLDivElement | null>(null);
 	let isCreateModalOpen = $state(false);
+	let createWizardUnsavedConfirmOpen = $state(false);
 	let createStep = $state<WizardStep>(1);
 	let createSubmitting = $state(false);
 	let createFormError = $state('');
@@ -196,9 +209,9 @@
 	let leagueSlugTouched = $state(false);
 	let leagueEditingIndex = $state<number | null>(null);
 	let leagueDraftActive = $state(false);
-	let createModalPointerDownStartedInside = $state(false);
 	let serverFieldErrors = $state<Record<string, string>>({});
 	let isCreateLeagueModalOpen = $state(false);
+	let createLeagueWizardUnsavedConfirmOpen = $state(false);
 	let createLeagueStep = $state<LeagueWizardStep>(1);
 	let createLeagueSubmitting = $state(false);
 	let createLeagueFormError = $state('');
@@ -207,21 +220,8 @@
 	let createLeagueDraftActive = $state(false);
 	let createLeagueSlugTouched = $state(false);
 	let createLeagueCopiedFromExisting = $state(false);
-	let createLeagueModalPointerDownStartedInside = $state(false);
 	let createLeagueServerFieldErrors = $state<Record<string, string>>({});
 	let createLeagueForm = $state<LeagueWizardFormState>(createEmptyCreateLeagueForm());
-
-	$effect(() => {
-		if (typeof document === 'undefined') return;
-		if (!isCreateModalOpen && !isCreateLeagueModalOpen) return;
-
-		const previousOverflow = document.body.style.overflow;
-		document.body.style.overflow = 'hidden';
-
-		return () => {
-			document.body.style.overflow = previousOverflow;
-		};
-	});
 
 	function padTwo(value: number): string {
 		return String(value).padStart(2, '0');
@@ -495,6 +495,7 @@
 		createStep = 1;
 		createSubmitting = false;
 		createFormError = '';
+		createWizardUnsavedConfirmOpen = false;
 		offeringSlugTouched = false;
 		leagueSlugTouched = false;
 		leagueEditingIndex = null;
@@ -507,6 +508,7 @@
 		createLeagueStep = 1;
 		createLeagueSubmitting = false;
 		createLeagueFormError = '';
+		createLeagueWizardUnsavedConfirmOpen = false;
 		createLeagueEditingIndex = null;
 		createLeagueDraftActive = false;
 		createLeagueSlugTouched = false;
@@ -531,13 +533,13 @@
 
 	function closeCreateWizard(): void {
 		isCreateModalOpen = false;
-		createModalPointerDownStartedInside = false;
+		createWizardUnsavedConfirmOpen = false;
 		resetCreateWizard();
 	}
 
 	function closeCreateLeagueWizard(): void {
 		isCreateLeagueModalOpen = false;
-		createLeagueModalPointerDownStartedInside = false;
+		createLeagueWizardUnsavedConfirmOpen = false;
 		resetCreateLeagueWizard();
 	}
 
@@ -605,15 +607,7 @@
 			closeCreateWizard();
 			return;
 		}
-
-		if (typeof window !== 'undefined') {
-			const confirmed = window.confirm(
-				'You have unsaved changes in this wizard. Close without saving?'
-			);
-			if (!confirmed) return;
-		}
-
-		closeCreateWizard();
+		createWizardUnsavedConfirmOpen = true;
 	}
 
 	function requestCloseCreateLeagueWizard(): void {
@@ -623,41 +617,25 @@
 			closeCreateLeagueWizard();
 			return;
 		}
+		createLeagueWizardUnsavedConfirmOpen = true;
+	}
 
-		if (typeof window !== 'undefined') {
-			const confirmed = window.confirm(
-				'You have unsaved changes in this wizard. Close without saving?'
-			);
-			if (!confirmed) return;
-		}
+	function confirmDiscardCreateWizard(): void {
+		createWizardUnsavedConfirmOpen = false;
+		closeCreateWizard();
+	}
 
+	function cancelDiscardCreateWizard(): void {
+		createWizardUnsavedConfirmOpen = false;
+	}
+
+	function confirmDiscardCreateLeagueWizard(): void {
+		createLeagueWizardUnsavedConfirmOpen = false;
 		closeCreateLeagueWizard();
 	}
 
-	function handleCreateModalPointerDown(event: PointerEvent): void {
-		createModalPointerDownStartedInside = event.target !== event.currentTarget;
-	}
-
-	function handleCreateModalBackdropClick(event: MouseEvent): void {
-		if (event.target !== event.currentTarget) return;
-		if (createModalPointerDownStartedInside) {
-			createModalPointerDownStartedInside = false;
-			return;
-		}
-		requestCloseCreateWizard();
-	}
-
-	function handleCreateLeagueModalPointerDown(event: PointerEvent): void {
-		createLeagueModalPointerDownStartedInside = event.target !== event.currentTarget;
-	}
-
-	function handleCreateLeagueModalBackdropClick(event: MouseEvent): void {
-		if (event.target !== event.currentTarget) return;
-		if (createLeagueModalPointerDownStartedInside) {
-			createLeagueModalPointerDownStartedInside = false;
-			return;
-		}
-		requestCloseCreateLeagueWizard();
+	function cancelDiscardCreateLeagueWizard(): void {
+		createLeagueWizardUnsavedConfirmOpen = false;
 	}
 
 	function clearCreateApiErrors(): void {
@@ -723,17 +701,6 @@
 		} catch {
 			return false;
 		}
-	}
-
-	function pickFieldErrors(
-		errors: Record<string, string>,
-		fieldKeys: string[]
-	): Record<string, string> {
-		const subset: Record<string, string> = {};
-		for (const key of fieldKeys) {
-			if (errors[key]) subset[key] = errors[key];
-		}
-		return subset;
 	}
 
 	function getOfferingFieldErrors(values: WizardOfferingInput): Record<string, string> {
@@ -994,26 +961,6 @@
 		return 5;
 	}
 
-	function isRequiredFieldMessage(message: string): boolean {
-		const normalized = message.trim().toLowerCase();
-		return normalized.endsWith(' is required.') || normalized === 'required.';
-	}
-
-	function toServerFieldErrorMap(
-		fieldErrors: Record<string, string[] | undefined> | undefined
-	): Record<string, string> {
-		const flattened: Record<string, string> = {};
-		if (!fieldErrors) return flattened;
-
-		for (const [key, value] of Object.entries(fieldErrors)) {
-			if (Array.isArray(value) && value.length > 0 && value[0]) {
-				flattened[key] = value[0];
-			}
-		}
-
-		return flattened;
-	}
-
 	function normalizeDateForRequest(value: string): string {
 		return value.trim();
 	}
@@ -1202,9 +1149,9 @@
 			isSlugManual: false
 		};
 		createForm.addLeagues = 'yes';
-		const nextLeagues = [...createForm.leagues];
-		nextLeagues.splice(index + 1, 0, duplicate);
-		createForm.leagues = normalizeLeagueStackOrder(nextLeagues);
+		createForm.leagues = normalizeLeagueStackOrder(
+			duplicateCollectionItem(createForm.leagues, index, () => duplicate)
+		);
 		if (leagueEditingIndex !== null && leagueEditingIndex > index) {
 			leagueEditingIndex += 1;
 		}
@@ -1221,37 +1168,20 @@
 			return;
 		}
 
-		const reordered = [...createForm.leagues];
-		const current = reordered[index];
-		const target = reordered[targetIndex];
-		if (!current || !target) return;
-
-		reordered[index] = target;
-		reordered[targetIndex] = current;
-		createForm.leagues = normalizeLeagueStackOrder(reordered);
-
-		if (leagueEditingIndex !== null) {
-			if (leagueEditingIndex === index) {
-				leagueEditingIndex = targetIndex;
-			} else if (leagueEditingIndex === targetIndex) {
-				leagueEditingIndex = index;
-			}
-		}
+		createForm.leagues = normalizeLeagueStackOrder(
+			moveCollectionItemByOffset(createForm.leagues, index, direction === 'up' ? -1 : 1)
+		);
+		leagueEditingIndex = adjustEditingIndexOnReorder(leagueEditingIndex, index, targetIndex);
 	}
 
 	function removeLeague(index: number): void {
 		if (!createForm.leagues[index]) return;
-		createForm.leagues = normalizeLeagueStackOrder(
-			createForm.leagues.filter((_, leagueIndex) => leagueIndex !== index)
-		);
-		if (leagueEditingIndex !== null) {
-			if (leagueEditingIndex === index) {
-				cancelLeagueDraft();
-				return;
-			}
-			if (leagueEditingIndex > index) {
-				leagueEditingIndex -= 1;
-			}
+		const wasEditingRemoved = leagueEditingIndex === index;
+		createForm.leagues = normalizeLeagueStackOrder(removeCollectionItem(createForm.leagues, index));
+		leagueEditingIndex = adjustEditingIndexOnRemove(leagueEditingIndex, index);
+		if (wasEditingRemoved) {
+			cancelLeagueDraft();
+			return;
 		}
 		if (createForm.leagues.length === 0) {
 			createForm.addLeagues = 'no';
@@ -1558,9 +1488,9 @@
 			slug: nextSlug,
 			isSlugManual: false
 		};
-		const nextLeagues = [...createLeagueForm.leagues];
-		nextLeagues.splice(index + 1, 0, duplicate);
-		createLeagueForm.leagues = normalizeLeagueStackOrder(nextLeagues);
+		createLeagueForm.leagues = normalizeLeagueStackOrder(
+			duplicateCollectionItem(createLeagueForm.leagues, index, () => duplicate)
+		);
 		if (createLeagueEditingIndex !== null && createLeagueEditingIndex > index) {
 			createLeagueEditingIndex += 1;
 		}
@@ -1577,40 +1507,29 @@
 			return;
 		}
 
-		const reordered = [...createLeagueForm.leagues];
-		const current = reordered[index];
-		const target = reordered[targetIndex];
-		if (!current || !target) return;
-
-		reordered[index] = target;
-		reordered[targetIndex] = current;
-		createLeagueForm.leagues = normalizeLeagueStackOrder(reordered);
-
-		if (createLeagueEditingIndex !== null) {
-			if (createLeagueEditingIndex === index) {
-				createLeagueEditingIndex = targetIndex;
-			} else if (createLeagueEditingIndex === targetIndex) {
-				createLeagueEditingIndex = index;
-			}
-		}
+		createLeagueForm.leagues = normalizeLeagueStackOrder(
+			moveCollectionItemByOffset(createLeagueForm.leagues, index, direction === 'up' ? -1 : 1)
+		);
+		createLeagueEditingIndex = adjustEditingIndexOnReorder(
+			createLeagueEditingIndex,
+			index,
+			targetIndex
+		);
 	}
 
 	function removeCreateLeague(index: number): void {
 		if (!createLeagueForm.leagues[index]) return;
+		const wasEditingRemoved = createLeagueEditingIndex === index;
 		createLeagueForm.leagues = normalizeLeagueStackOrder(
-			createLeagueForm.leagues.filter((_, leagueIndex) => leagueIndex !== index)
+			removeCollectionItem(createLeagueForm.leagues, index)
 		);
 		if (createLeagueForm.leagues.length === 0) {
 			createLeagueCopiedFromExisting = false;
 		}
-		if (createLeagueEditingIndex !== null) {
-			if (createLeagueEditingIndex === index) {
-				cancelCreateLeagueDraft();
-				return;
-			}
-			if (createLeagueEditingIndex > index) {
-				createLeagueEditingIndex -= 1;
-			}
+		createLeagueEditingIndex = adjustEditingIndexOnRemove(createLeagueEditingIndex, index);
+		if (wasEditingRemoved) {
+			cancelCreateLeagueDraft();
+			return;
 		}
 	}
 
@@ -1853,57 +1772,6 @@
 			.filter(Boolean)
 			.map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
 			.join(' ');
-	}
-
-	function slugifyFinal(value: string): string {
-		return value
-			.toLowerCase()
-			.trim()
-			.replace(/['"]/g, '')
-			.replace(/\s+/g, '-')
-			.replace(/[^a-z0-9-]/g, '')
-			.replace(/-+/g, '-')
-			.replace(/^-|-$/g, '');
-	}
-
-	function slugifyLiveWithCursor(
-		input: string,
-		cursorIndex: number
-	): { value: string; cursor: number } {
-		let output = '';
-		let outputCursor = 0;
-
-		for (let index = 0; index < input.length; index++) {
-			const character = input[index] ?? '';
-			const beforeCursor = index < cursorIndex;
-
-			let next = '';
-			if (/[A-Za-z0-9]/.test(character)) next = character.toLowerCase();
-			else if (character === ' ' || character === '-') next = '-';
-
-			if (next === '-') {
-				if (output.length === 0) {
-					next = '';
-				} else if (output.endsWith('-')) {
-					next = '';
-				}
-			}
-
-			if (next) {
-				output += next;
-				if (beforeCursor) outputCursor += next.length;
-			}
-		}
-
-		return { value: output, cursor: outputCursor };
-	}
-
-	function applyLiveSlugInput(element: HTMLInputElement): string {
-		const cursor = element.selectionStart ?? element.value.length;
-		const { value, cursor: nextCursor } = slugifyLiveWithCursor(element.value, cursor);
-		element.value = value;
-		element.setSelectionRange(nextCursor, nextCursor);
-		return value;
 	}
 
 	function normalizeSearch(value: string): string {
@@ -3245,63 +3113,25 @@
 	{/if}
 </div>
 
-{#if isCreateLeagueModalOpen}
-	<div
-		class="fixed inset-0 bg-black/55 z-50 flex items-center justify-center p-4 lg:p-6 overflow-hidden"
-		onpointerdown={handleCreateLeagueModalPointerDown}
-		onclick={handleCreateLeagueModalBackdropClick}
-		onkeydown={(event) => {
-			if (event.key === 'Escape') requestCloseCreateLeagueWizard();
-		}}
-		role="button"
-		tabindex="0"
-		aria-label="Close create league modal"
-	>
-		<div
-			class="w-full max-w-4xl max-h-[calc(100vh-2rem)] lg:max-h-[calc(100vh-3rem)] border-4 border-secondary bg-neutral-400 overflow-hidden flex flex-col"
-			onclick={(event) => event.stopPropagation()}
-			role="presentation"
-		>
-			<div class="p-4 border-b border-secondary space-y-3">
-				<div class="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
-					<div>
-						<h2 class="text-3xl font-bold font-serif text-neutral-950">
-							New {wizardEntryUnitTitleSingular()}
-						</h2>
-						<p class="text-sm font-sans text-neutral-950">
-							Step {createLeagueStep} of 4: {createLeagueStepTitle(createLeagueStep)}
-						</p>
-					</div>
-					<button
-						type="button"
-						class="p-1 text-neutral-950 hover:text-secondary-900 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-500"
-						aria-label="Close create league modal"
-						onclick={requestCloseCreateLeagueWizard}
-					>
-						<IconX class="w-6 h-6" />
-					</button>
-				</div>
-				<div class="border border-secondary-300 bg-white h-3">
-					<div class="h-full bg-secondary" style={`width: ${createLeagueStepProgress}%`}></div>
-				</div>
-			</div>
-
-			<form
-				class={`p-4 space-y-5 flex-1 min-h-0 ${
-					createLeagueStep === 2 && !createLeagueDraftActive ? 'overflow-hidden' : 'overflow-y-auto'
-				}`}
-				onsubmit={(event) => {
-					event.preventDefault();
-					void submitCreateLeagueWizard();
-				}}
-				oninput={clearCreateLeagueApiErrors}
-			>
-				{#if createLeagueFormError}
-					<div class="border-2 border-error-300 bg-error-50 p-3">
-						<p class="text-error-800 text-sm font-sans">{createLeagueFormError}</p>
-					</div>
-				{/if}
-
+<CreateLeagueWizard
+	open={isCreateLeagueModalOpen}
+	step={createLeagueStep}
+	stepTitle={createLeagueStepTitle(createLeagueStep)}
+	stepProgress={createLeagueStepProgress}
+	formError={createLeagueFormError}
+	title={`New ${wizardEntryUnitTitleSingular()}`}
+	unsavedConfirmOpen={createLeagueWizardUnsavedConfirmOpen}
+	formClass={`p-4 space-y-5 flex-1 min-h-0 ${
+		createLeagueStep === 2 && !createLeagueDraftActive ? 'overflow-hidden' : 'overflow-y-auto'
+	}`}
+	onRequestClose={requestCloseCreateLeagueWizard}
+	onSubmit={() => {
+		void submitCreateLeagueWizard();
+	}}
+	onInput={clearCreateLeagueApiErrors}
+	onUnsavedConfirm={confirmDiscardCreateLeagueWizard}
+	onUnsavedCancel={cancelDiscardCreateLeagueWizard}
+>
 				{#if createLeagueStep === 1}
 					<div class="space-y-4">
 						{#if createLeagueOfferingOptions.length === 0}
@@ -3440,166 +3270,74 @@
 							</div>
 						{/if}
 						{#if !createLeagueDraftActive}
-							<div class="border border-secondary-300 bg-white p-3 space-y-3">
-								<div class="flex items-center justify-between gap-2">
-									<h3 class="text-sm font-bold font-sans text-neutral-950 uppercase tracking-wide">
-										{wizardEntryType() === 'tournament' ? 'Tournament Groups' : 'Leagues'}
-									</h3>
-									<button
-										type="button"
-										class="button-secondary-outlined p-1.5 cursor-pointer"
-										aria-label={`Add ${wizardEntryUnitSingular()}`}
-										title={`Add ${wizardEntryUnitSingular()}`}
-										onclick={startAddingCreateLeagueDraft}
-									>
-										<IconPlus class="w-4 h-4" />
-									</button>
-								</div>
-
+							<div class="space-y-2">
 								{#if createLeagueFieldErrors['leagues']}
 									<p class="text-xs text-error-700">{createLeagueFieldErrors['leagues']}</p>
 								{/if}
-
-								{#if createLeagueForm.leagues.length === 0 && !createLeagueDraftActive}
-									<p class="text-sm text-neutral-950 font-sans">
-										No {wizardEntryUnitPlural()} added yet. Use the plus button to add one, or continue
-										without {wizardEntryUnitPlural()}.
-									</p>
-								{:else if createLeagueForm.leagues.length > 0}
-									<div
-										class="space-y-2 max-h-[52vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 scrollbar-track-secondary-400 scrollbar-corner-secondary-500 hover:scrollbar-thumb-secondary-700 active:scrollbar-thumb-secondary-700 scrollbar-hover:scrollbar-thumb-secondary-800 scrollbar-active:scrollbar-thumb-secondary-700"
-									>
-										{#each createLeagueForm.leagues as league, leagueIndex (league.draftId)}
-											<div
-												class="border border-secondary-300 bg-neutral p-3 space-y-2"
-												animate:flip={{ duration: 180, easing: cubicOut }}
-											>
-												<div class="flex items-start justify-between gap-3">
-													<div>
-														<p class="text-sm font-semibold text-neutral-950">
-															{league.name.trim() || `Untitled ${wizardEntryUnitTitleSingular()}`}
-														</p>
-														<p class="text-xs text-neutral-900">Slug: {league.slug || 'TBD'}</p>
-													</div>
-													<div class="flex items-center gap-1">
-														{#if createLeagueForm.leagues.length > 1}
-															{#if leagueIndex > 0}
-																<button
-																	type="button"
-																	class="button-secondary-outlined p-1.5 cursor-pointer"
-																	aria-label={`Move ${wizardEntryUnitSingular()} up`}
-																	title="Move up"
-																	onclick={() => {
-																		moveCreateLeague(leagueIndex, 'up');
-																	}}
-																>
-																	<IconArrowUp class="w-4 h-4" />
-																</button>
-															{/if}
-															{#if leagueIndex < createLeagueForm.leagues.length - 1}
-																<button
-																	type="button"
-																	class="button-secondary-outlined p-1.5 cursor-pointer"
-																	aria-label={`Move ${wizardEntryUnitSingular()} down`}
-																	title="Move down"
-																	onclick={() => {
-																		moveCreateLeague(leagueIndex, 'down');
-																	}}
-																>
-																	<IconArrowDown class="w-4 h-4" />
-																</button>
-															{/if}
-														{/if}
-														<button
-															type="button"
-															class="button-secondary-outlined p-1.5 cursor-pointer"
-															aria-label={`Edit ${wizardEntryUnitSingular()}`}
-															title="Edit"
-															onclick={() => {
-																startEditingCreateLeague(leagueIndex);
-															}}
-														>
-															<IconPencil class="w-4 h-4" />
-														</button>
-														<button
-															type="button"
-															class="button-secondary-outlined p-1.5 cursor-pointer"
-															aria-label={`Copy ${wizardEntryUnitSingular()}`}
-															title="Copy"
-															onclick={() => {
-																duplicateCreateLeague(leagueIndex);
-															}}
-														>
-															<IconCopy class="w-4 h-4" />
-														</button>
-														<button
-															type="button"
-															class="button-secondary-outlined p-1.5 cursor-pointer"
-															aria-label={`Remove ${wizardEntryUnitSingular()}`}
-															title="Remove"
-															onclick={() => {
-																removeCreateLeague(leagueIndex);
-															}}
-														>
-															<IconTrash class="w-4 h-4 text-error-500" />
-														</button>
-													</div>
-												</div>
-												<div
-													class="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-xs text-neutral-950"
-												>
-													<p><span class="font-semibold">Season:</span> {league.season || 'TBD'}</p>
-													<p>
-														<span class="font-semibold">Gender:</span>
-														{normalizeGender(league.gender) ?? 'Unspecified'}
-													</p>
-													<p>
-														<span class="font-semibold">Skill Level:</span>
-														{league.skillLevel ? toTitleCase(league.skillLevel) : 'Unspecified'}
-													</p>
-													<p>
-														<span class="font-semibold">Status:</span>
-														{league.isActive ? 'Active' : 'Inactive'} | {league.isLocked
-															? 'Locked'
-															: 'Unlocked'}
-													</p>
-													<p class="sm:col-span-2">
-														<span class="font-semibold">Registration:</span>
-														{formatReviewRange(league.regStartDate, league.regEndDate, true)}
-													</p>
-													<p class="sm:col-span-2">
-														<span class="font-semibold">Season Dates:</span>
-														{formatReviewRange(league.seasonStartDate, league.seasonEndDate)}
-													</p>
-													{#if league.hasPreseason}
-														<p class="sm:col-span-2">
-															<span class="font-semibold">Preseason:</span>
-															{formatReviewRange(
-																league.preseasonStartDate,
-																league.preseasonEndDate
-															)}
-														</p>
-													{/if}
-													{#if league.hasPostseason}
-														<p class="sm:col-span-2">
-															<span class="font-semibold">Postseason:</span>
-															{formatReviewRange(
-																league.postseasonStartDate,
-																league.postseasonEndDate
-															)}
-														</p>
-													{/if}
-												</div>
-												{#if league.description.trim()}
-													<p class="text-xs text-neutral-950">
-														<span class="font-semibold">Description:</span>
-														{league.description.trim()}
-													</p>
-												{/if}
-											</div>
-										{/each}
-									</div>
-								{/if}
+								<WizardDraftCollection
+									title={wizardEntryType() === 'tournament' ? 'Tournament Groups' : 'Leagues'}
+									itemSingular={wizardEntryUnitSingular()}
+									itemPlural={wizardEntryUnitPlural()}
+									items={createLeagueForm.leagues}
+									draftActive={createLeagueDraftActive}
+									emptyMessage={`No ${wizardEntryUnitPlural()} added yet. Use the plus button to add one, or continue without ${wizardEntryUnitPlural()}.`}
+									onAdd={startAddingCreateLeagueDraft}
+									onEdit={startEditingCreateLeague}
+									onCopy={duplicateCreateLeague}
+									onMoveUp={(index) => moveCreateLeague(index, 'up')}
+									onMoveDown={(index) => moveCreateLeague(index, 'down')}
+									onRemove={removeCreateLeague}
+									getItemName={(item) => (item as WizardLeagueInput).name}
+									getItemSlug={(item) => (item as WizardLeagueInput).slug}
+									listClass="space-y-2 max-h-[52vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 scrollbar-track-secondary-400 scrollbar-corner-secondary-500 hover:scrollbar-thumb-secondary-700 active:scrollbar-thumb-secondary-700 scrollbar-hover:scrollbar-thumb-secondary-800 scrollbar-active:scrollbar-thumb-secondary-700"
+								>
+									{#snippet itemBody(item)}
+										{@const league = item as WizardLeagueInput}
+										<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-xs text-neutral-950">
+											<p><span class="font-semibold">Season:</span> {league.season || 'TBD'}</p>
+											<p>
+												<span class="font-semibold">Gender:</span>
+												{normalizeGender(league.gender) ?? 'Unspecified'}
+											</p>
+											<p>
+												<span class="font-semibold">Skill Level:</span>
+												{league.skillLevel ? toTitleCase(league.skillLevel) : 'Unspecified'}
+											</p>
+											<p>
+												<span class="font-semibold">Status:</span>
+												{league.isActive ? 'Active' : 'Inactive'} | {league.isLocked
+													? 'Locked'
+													: 'Unlocked'}
+											</p>
+											<p class="sm:col-span-2">
+												<span class="font-semibold">Registration:</span>
+												{formatReviewRange(league.regStartDate, league.regEndDate, true)}
+											</p>
+											<p class="sm:col-span-2">
+												<span class="font-semibold">Season Dates:</span>
+												{formatReviewRange(league.seasonStartDate, league.seasonEndDate)}
+											</p>
+											{#if league.hasPreseason}
+												<p class="sm:col-span-2">
+													<span class="font-semibold">Preseason:</span>
+													{formatReviewRange(league.preseasonStartDate, league.preseasonEndDate)}
+												</p>
+											{/if}
+											{#if league.hasPostseason}
+												<p class="sm:col-span-2">
+													<span class="font-semibold">Postseason:</span>
+													{formatReviewRange(league.postseasonStartDate, league.postseasonEndDate)}
+												</p>
+											{/if}
+										</div>
+										{#if league.description.trim()}
+											<p class="text-xs text-neutral-950">
+												<span class="font-semibold">Description:</span>
+												{league.description.trim()}
+											</p>
+										{/if}
+									{/snippet}
+								</WizardDraftCollection>
 							</div>
 						{:else}
 							<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -4101,104 +3839,46 @@
 						</div>
 					</div>
 				{/if}
+	{#snippet footer()}
+		<WizardStepFooter
+			step={createLeagueStep}
+			lastStep={4}
+			showBack={createLeagueStep > 1}
+			canGoNext={canGoNextCreateLeagueStep}
+			canSubmit={canSubmitCreateLeague}
+			nextLabel={createLeagueStep === 2 && !createLeagueDraftActive
+				? createLeagueForm.leagues.length === 0
+					? 'Skip to Review'
+					: 'Review'
+				: createLeagueStep === 3 && createLeagueDraftActive
+					? createLeagueEditingIndex === null
+						? `Add ${wizardEntryUnitTitleSingular()}`
+						: `Update ${wizardEntryUnitTitleSingular()}`
+					: 'Next'}
+			submitLabel="Create"
+			submittingLabel="Creating..."
+			isSubmitting={createLeagueSubmitting}
+			on:back={handleCreateLeagueBackAction}
+			on:next={nextCreateLeagueStep}
+		/>
+	{/snippet}
+</CreateLeagueWizard>
 
-				<div class="pt-2 border-t border-secondary-300 flex justify-end">
-					<div class="flex items-center gap-2 justify-end">
-						{#if createLeagueStep > 1}
-							<button
-								type="button"
-								class="button-secondary-outlined cursor-pointer"
-								onclick={handleCreateLeagueBackAction}
-							>
-								Back
-							</button>
-						{/if}
-						{#if createLeagueStep < 4}
-							<button
-								type="button"
-								class="button-accent cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-								onclick={nextCreateLeagueStep}
-								disabled={!canGoNextCreateLeagueStep}
-							>
-								{#if createLeagueStep === 2 && !createLeagueDraftActive}
-									{createLeagueForm.leagues.length === 0 ? 'Skip to Review' : 'Review'}
-								{:else if createLeagueStep === 3 && createLeagueDraftActive}
-									{createLeagueEditingIndex === null
-										? `Add ${wizardEntryUnitTitleSingular()}`
-										: `Update ${wizardEntryUnitTitleSingular()}`}
-								{:else}
-									Next
-								{/if}
-							</button>
-						{:else}
-							<button
-								type="submit"
-								class="button-accent cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-								disabled={!canSubmitCreateLeague}
-							>
-								{createLeagueSubmitting ? 'Creating...' : 'Create'}
-							</button>
-						{/if}
-					</div>
-				</div>
-			</form>
-		</div>
-	</div>
-{/if}
-
-{#if isCreateModalOpen}
-	<div
-		class="fixed inset-0 bg-black/55 z-50 flex items-center justify-center p-4 lg:p-6 overflow-hidden"
-		onpointerdown={handleCreateModalPointerDown}
-		onclick={handleCreateModalBackdropClick}
-		onkeydown={(event) => {
-			if (event.key === 'Escape') requestCloseCreateWizard();
-		}}
-		role="button"
-		tabindex="0"
-		aria-label="Close create offering modal"
-	>
-		<div
-			class="w-full max-w-5xl max-h-[calc(100vh-2rem)] lg:max-h-[calc(100vh-3rem)] border-4 border-secondary bg-neutral-400 overflow-hidden flex flex-col"
-			onclick={(event) => event.stopPropagation()}
-			role="presentation"
-		>
-			<div class="p-4 border-b border-secondary space-y-3">
-				<div class="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
-					<div>
-						<h2 class="text-3xl font-bold font-serif text-neutral-950">New Intramural Offering</h2>
-						<p class="text-sm font-sans text-neutral-950">
-							Step {createStep} of 5: {wizardStepTitle(createStep)}
-						</p>
-					</div>
-					<button
-						type="button"
-						class="p-1 text-neutral-950 hover:text-secondary-900 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-500"
-						aria-label="Close create offering modal"
-						onclick={requestCloseCreateWizard}
-					>
-						<IconX class="w-6 h-6" />
-					</button>
-				</div>
-				<div class="border border-secondary-300 bg-white h-3">
-					<div class="h-full bg-secondary" style={`width: ${createStepProgress}%`}></div>
-				</div>
-			</div>
-
-			<form
-				class="p-4 space-y-5 flex-1 min-h-0 overflow-y-auto"
-				onsubmit={(event) => {
-					event.preventDefault();
-					void submitCreateWizard();
-				}}
-				oninput={clearCreateApiErrors}
-			>
-				{#if createFormError}
-					<div class="border-2 border-error-300 bg-error-50 p-3">
-						<p class="text-error-800 text-sm font-sans">{createFormError}</p>
-					</div>
-				{/if}
-
+<CreateOfferingWizard
+	open={isCreateModalOpen}
+	step={createStep}
+	stepTitle={wizardStepTitle(createStep)}
+	stepProgress={createStepProgress}
+	formError={createFormError}
+	unsavedConfirmOpen={createWizardUnsavedConfirmOpen}
+	onRequestClose={requestCloseCreateWizard}
+	onSubmit={() => {
+		void submitCreateWizard();
+	}}
+	onInput={clearCreateApiErrors}
+	onUnsavedConfirm={confirmDiscardCreateWizard}
+	onUnsavedCancel={cancelDiscardCreateWizard}
+>
 				{#if createStep === 1}
 					<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
 						<div>
@@ -4424,163 +4104,69 @@
 				{#if createStep === 3}
 					<div class="space-y-4">
 						{#if !leagueDraftActive}
-							<div class="border border-secondary-300 bg-white p-3 space-y-3">
-								<div class="flex items-center justify-between gap-2">
-									<h3 class="text-sm font-bold font-sans text-neutral-950 uppercase tracking-wide">
-										{isTournamentWizard() ? 'Tournament Groups' : 'Leagues'}
-									</h3>
-									<button
-										type="button"
-										class="button-secondary-outlined p-1.5 cursor-pointer"
-										aria-label={`Add ${wizardUnitSingular()}`}
-										title={`Add ${wizardUnitSingular()}`}
-										onclick={startAddingLeague}
-									>
-										<IconPlus class="w-4 h-4" />
-									</button>
-								</div>
-
-								{#if createForm.leagues.length === 0 && !leagueDraftActive}
-									<p class="text-sm text-neutral-950 font-sans">
-										No {wizardUnitPlural()} added yet. Use the plus button to add one, or continue without
-										{wizardUnitPlural()}.
-									</p>
-								{:else if createForm.leagues.length > 0}
-									<div
-										class="space-y-2 max-h-[61vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 scrollbar-track-secondary-400 scrollbar-corner-secondary-500 hover:scrollbar-thumb-secondary-700 active:scrollbar-thumb-secondary-700 scrollbar-hover:scrollbar-thumb-secondary-800 scrollbar-active:scrollbar-thumb-secondary-700"
-									>
-										{#each createForm.leagues as league, leagueIndex (league.draftId)}
-											<div
-												class="border border-secondary-300 bg-neutral p-3 space-y-2"
-												animate:flip={{ duration: 180, easing: cubicOut }}
-											>
-												<div class="flex items-start justify-between gap-3">
-													<div>
-														<p class="text-sm font-semibold text-neutral-950">
-															{league.name.trim() || 'Untitled League'}
-														</p>
-														<p class="text-xs text-neutral-900">Slug: {league.slug || 'TBD'}</p>
-													</div>
-													<div class="flex items-center gap-1">
-														{#if createForm.leagues.length > 1}
-															{#if leagueIndex > 0}
-																<button
-																	type="button"
-																	class="button-secondary-outlined p-1.5 cursor-pointer"
-																	aria-label={`Move ${wizardUnitSingular()} up`}
-																	title="Move up"
-																	onclick={() => {
-																		moveLeague(leagueIndex, 'up');
-																	}}
-																>
-																	<IconArrowUp class="w-4 h-4" />
-																</button>
-															{/if}
-															{#if leagueIndex < createForm.leagues.length - 1}
-																<button
-																	type="button"
-																	class="button-secondary-outlined p-1.5 cursor-pointer"
-																	aria-label={`Move ${wizardUnitSingular()} down`}
-																	title="Move down"
-																	onclick={() => {
-																		moveLeague(leagueIndex, 'down');
-																	}}
-																>
-																	<IconArrowDown class="w-4 h-4" />
-																</button>
-															{/if}
-														{/if}
-														<button
-															type="button"
-															class="button-secondary-outlined p-1.5 cursor-pointer"
-															aria-label={`Edit ${wizardUnitSingular()}`}
-															title="Edit"
-															onclick={() => {
-																startEditingLeague(leagueIndex);
-															}}
-														>
-															<IconPencil class="w-4 h-4" />
-														</button>
-														<button
-															type="button"
-															class="button-secondary-outlined p-1.5 cursor-pointer"
-															aria-label={`Copy ${wizardUnitSingular()}`}
-															title="Copy"
-															onclick={() => {
-																duplicateLeague(leagueIndex);
-															}}
-														>
-															<IconCopy class="w-4 h-4" />
-														</button>
-														<button
-															type="button"
-															class="button-secondary-outlined p-1.5 cursor-pointer"
-															aria-label={`Remove ${wizardUnitSingular()}`}
-															title="Remove"
-															onclick={() => {
-																removeLeague(leagueIndex);
-															}}
-														>
-															<IconTrash class="w-4 h-4 text-error-500" />
-														</button>
-													</div>
-												</div>
-												<div
-													class="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-xs text-neutral-950"
-												>
-													<p><span class="font-semibold">Season:</span> {league.season || 'TBD'}</p>
-													<p>
-														<span class="font-semibold">Gender:</span>
-														{normalizeGender(league.gender) ?? 'Unspecified'}
-													</p>
-													<p>
-														<span class="font-semibold">Skill Level:</span>
-														{league.skillLevel ? toTitleCase(league.skillLevel) : 'Unspecified'}
-													</p>
-													<p>
-														<span class="font-semibold">Status:</span>
-														{league.isActive ? 'Active' : 'Inactive'} | {league.isLocked
-															? 'Locked'
-															: 'Unlocked'}
-													</p>
-													<p class="sm:col-span-2">
-														<span class="font-semibold">Registration:</span>
-														{formatReviewRange(league.regStartDate, league.regEndDate, true)}
-													</p>
-													<p class="sm:col-span-2">
-														<span class="font-semibold">Season Dates:</span>
-														{formatReviewRange(league.seasonStartDate, league.seasonEndDate)}
-													</p>
-													{#if league.hasPreseason}
-														<p class="sm:col-span-2">
-															<span class="font-semibold">Preseason:</span>
-															{formatReviewRange(
-																league.preseasonStartDate,
-																league.preseasonEndDate
-															)}
-														</p>
-													{/if}
-													{#if league.hasPostseason}
-														<p class="sm:col-span-2">
-															<span class="font-semibold">Postseason:</span>
-															{formatReviewRange(
-																league.postseasonStartDate,
-																league.postseasonEndDate
-															)}
-														</p>
-													{/if}
-												</div>
-												{#if league.description.trim()}
-													<p class="text-xs text-neutral-950">
-														<span class="font-semibold">Description:</span>
-														{league.description.trim()}
-													</p>
-												{/if}
-											</div>
-										{/each}
+							<WizardDraftCollection
+								title={isTournamentWizard() ? 'Tournament Groups' : 'Leagues'}
+								itemSingular={wizardUnitSingular()}
+								itemPlural={wizardUnitPlural()}
+								items={createForm.leagues}
+								draftActive={leagueDraftActive}
+								emptyMessage={`No ${wizardUnitPlural()} added yet. Use the plus button to add one, or continue without ${wizardUnitPlural()}.`}
+								onAdd={startAddingLeague}
+								onEdit={startEditingLeague}
+								onCopy={duplicateLeague}
+								onMoveUp={(index) => moveLeague(index, 'up')}
+								onMoveDown={(index) => moveLeague(index, 'down')}
+								onRemove={removeLeague}
+								getItemName={(item) => (item as WizardLeagueInput).name}
+								getItemSlug={(item) => (item as WizardLeagueInput).slug}
+							>
+								{#snippet itemBody(item)}
+									{@const league = item as WizardLeagueInput}
+									<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-xs text-neutral-950">
+										<p><span class="font-semibold">Season:</span> {league.season || 'TBD'}</p>
+										<p>
+											<span class="font-semibold">Gender:</span>
+											{normalizeGender(league.gender) ?? 'Unspecified'}
+										</p>
+										<p>
+											<span class="font-semibold">Skill Level:</span>
+											{league.skillLevel ? toTitleCase(league.skillLevel) : 'Unspecified'}
+										</p>
+										<p>
+											<span class="font-semibold">Status:</span>
+											{league.isActive ? 'Active' : 'Inactive'} | {league.isLocked
+												? 'Locked'
+												: 'Unlocked'}
+										</p>
+										<p class="sm:col-span-2">
+											<span class="font-semibold">Registration:</span>
+											{formatReviewRange(league.regStartDate, league.regEndDate, true)}
+										</p>
+										<p class="sm:col-span-2">
+											<span class="font-semibold">Season Dates:</span>
+											{formatReviewRange(league.seasonStartDate, league.seasonEndDate)}
+										</p>
+										{#if league.hasPreseason}
+											<p class="sm:col-span-2">
+												<span class="font-semibold">Preseason:</span>
+												{formatReviewRange(league.preseasonStartDate, league.preseasonEndDate)}
+											</p>
+										{/if}
+										{#if league.hasPostseason}
+											<p class="sm:col-span-2">
+												<span class="font-semibold">Postseason:</span>
+												{formatReviewRange(league.postseasonStartDate, league.postseasonEndDate)}
+											</p>
+										{/if}
 									</div>
-								{/if}
-							</div>
+									{#if league.description.trim()}
+										<p class="text-xs text-neutral-950">
+											<span class="font-semibold">Description:</span>
+											{league.description.trim()}
+										</p>
+									{/if}
+								{/snippet}
+							</WizardDraftCollection>
 						{:else}
 							<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
 								<div>
@@ -5091,49 +4677,30 @@
 					</div>
 				{/if}
 
-				<div class="pt-2 border-t border-secondary-300 flex justify-end">
-					<div class="flex items-center gap-2 justify-end">
-						{#if createStep > 1}
-							<button
-								type="button"
-								class="button-secondary-outlined cursor-pointer"
-								onclick={handleCreateBackAction}
-							>
-								Back
-							</button>
-						{/if}
-						{#if createStep < 5}
-							<button
-								type="button"
-								class="button-accent cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-								onclick={nextCreateStep}
-								disabled={!canGoNextStep}
-							>
-								{#if createStep === 3 && !leagueDraftActive}
-									{createForm.leagues.length === 0 ? 'Skip to Review' : 'Review'}
-								{:else if createStep === 4 && leagueDraftActive}
-									{leagueEditingIndex === null
-										? `Add ${wizardUnitTitleSingular()}`
-										: `Update ${wizardUnitTitleSingular()}`}
-								{:else}
-									Next
-								{/if}
-							</button>
-						{:else}
-							<button
-								type="submit"
-								class="button-accent cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-								disabled={!canSubmitCreate}
-							>
-								{createSubmitting ? 'Creating...' : 'Create'}
-							</button>
-						{/if}
-					</div>
-				</div>
-			</form>
-		</div>
-	</div>
-{/if}
+	{#snippet footer()}
+		<WizardStepFooter
+			step={createStep}
+			lastStep={5}
+			showBack={createStep > 1}
+			canGoNext={canGoNextStep}
+			canSubmit={canSubmitCreate}
+			nextLabel={createStep === 3 && !leagueDraftActive
+				? createForm.leagues.length === 0
+					? 'Skip to Review'
+					: 'Review'
+				: createStep === 4 && leagueDraftActive
+					? leagueEditingIndex === null
+						? `Add ${wizardUnitTitleSingular()}`
+						: `Update ${wizardUnitTitleSingular()}`
+					: 'Next'}
+			submitLabel="Create"
+			submittingLabel="Creating..."
+			isSubmitting={createSubmitting}
+			on:back={handleCreateBackAction}
+			on:next={nextCreateStep}
+		/>
+	{/snippet}
+</CreateOfferingWizard>
 
 <style>
 	:global(tr.league-row-highlight > th),

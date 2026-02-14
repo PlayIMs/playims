@@ -1,0 +1,4 @@
+interface:
+  display_name: "PlayIMs Wizard Builder"
+  short_description: "Build consistent PlayIMs dashboard wizards"
+  default_prompt: "Use $playims-wizard-builder to build a new PlayIMs dashboard wizard with shared components and parity-safe behavior."
