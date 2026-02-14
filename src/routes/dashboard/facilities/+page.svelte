@@ -2,6 +2,18 @@
 	import type { PageProps } from './$types';
 	import { enhance } from '$app/forms';
 	import { SvelteSet } from 'svelte/reactivity';
+	import ModalShell from '$lib/components/modals/ModalShell.svelte';
+	import CreateFacilityWizard from './_wizards/CreateFacilityWizard.svelte';
+	import {
+		adjustEditingIndexOnReorder,
+		applyLiveSlugInput,
+		isRequiredFieldMessage,
+		moveCollectionItemByOffset,
+		pickFieldErrors,
+		removeCollectionItem,
+		slugifyFinal,
+		toServerFieldErrorMap
+	} from '$lib/components/wizard';
 	import IconPlus from '@tabler/icons-svelte/icons/plus';
 	import IconPencil from '@tabler/icons-svelte/icons/pencil';
 	import IconArchive from '@tabler/icons-svelte/icons/archive';
@@ -89,7 +101,7 @@
 	let createFacilitySubmitting = $state(false);
 	let createFacilityFormError = $state('');
 	let createFacilitySuccessMessage = $state('');
-	let createFacilityModalPointerDownStartedInside = $state(false);
+	let createFacilityUnsavedConfirmOpen = $state(false);
 	let facilitySlugTouched = $state(false);
 	let wizardAreaSlugTouched = $state(false);
 	let areaDraftActive = $state(false);
@@ -204,69 +216,8 @@
 		return {};
 	}
 
-	function slugifyFinal(input: string) {
-		return input
-			.toLowerCase()
-			.trim()
-			.replace(/['"]/g, '')
-			.replace(/\s+/g, '-')
-			.replace(/[^a-z0-9-]/g, '')
-			.replace(/-+/g, '-')
-			.replace(/^-|-$/g, '');
-	}
-
-	function slugifyLiveWithCursor(input: string, cursorIndex: number) {
-		let out = '';
-		let outCursor = 0;
-
-		for (let i = 0; i < input.length; i++) {
-			const ch = input[i] ?? '';
-			const beforeCursor = i < cursorIndex;
-
-			let next: string;
-			if (/[A-Za-z0-9]/.test(ch)) next = ch.toLowerCase();
-			else if (ch === ' ') next = '-';
-			else if (ch === '-') next = '-';
-			else next = '';
-
-			if (next === '-') {
-				if (out.length === 0) {
-					next = '';
-				} else if (out.endsWith('-')) {
-					next = '';
-				}
-			}
-
-			if (next) {
-				out += next;
-				if (beforeCursor) outCursor += next.length;
-			}
-		}
-
-		return { value: out, cursor: outCursor };
-	}
-
-	function applyLiveSlugInput(el: HTMLInputElement) {
-		const cursor = el.selectionStart ?? el.value.length;
-		const { value, cursor: nextCursor } = slugifyLiveWithCursor(el.value, cursor);
-		el.value = value;
-		el.setSelectionRange(nextCursor, nextCursor);
-		return value;
-	}
-
 	function defaultAreaSlug(areaName: string): string {
 		return slugifyFinal(areaName);
-	}
-
-	function pickFieldErrors(
-		errors: Record<string, string>,
-		fieldKeys: string[]
-	): Record<string, string> {
-		const subset: Record<string, string> = {};
-		for (const key of fieldKeys) {
-			if (errors[key]) subset[key] = errors[key];
-		}
-		return subset;
 	}
 
 	function normalizeOptionalText(value: string): string | null {
@@ -276,25 +227,6 @@
 
 	function normalizeCapacityForRequest(value: number): number | null {
 		return Number.isInteger(value) && value >= 1 ? value : null;
-	}
-
-	function toServerFieldErrorMap(
-		fieldErrors: Record<string, string[] | undefined> | undefined
-	): Record<string, string> {
-		const flattened: Record<string, string> = {};
-		if (!fieldErrors) return flattened;
-
-		for (const [key, value] of Object.entries(fieldErrors)) {
-			if (Array.isArray(value) && value.length > 0 && value[0]) {
-				flattened[key] = value[0];
-			}
-		}
-		return flattened;
-	}
-
-	function isRequiredFieldMessage(message: string): boolean {
-		const normalized = message.trim().toLowerCase();
-		return normalized.endsWith(' is required.') || normalized === 'required.';
 	}
 
 	function clearCreateFacilityApiErrors(): void {
@@ -313,6 +245,7 @@
 		createFacilityFormError = '';
 		createFacilityServerFieldErrors = {};
 		createFacilityConflictMeta = {};
+		createFacilityUnsavedConfirmOpen = false;
 		facilitySlugTouched = false;
 		wizardAreaSlugTouched = false;
 		areaDraftActive = false;
@@ -327,7 +260,7 @@
 
 	function closeCreateFacility() {
 		isCreateFacilityOpen = false;
-		createFacilityModalPointerDownStartedInside = false;
+		createFacilityUnsavedConfirmOpen = false;
 		resetCreateFacilityWizard();
 	}
 
@@ -378,27 +311,16 @@
 			return;
 		}
 
-		if (typeof window !== 'undefined') {
-			const confirmed = window.confirm(
-				'You have unsaved changes in this wizard. Close without saving?'
-			);
-			if (!confirmed) return;
-		}
+		createFacilityUnsavedConfirmOpen = true;
+	}
 
+	function confirmDiscardCreateFacilityWizard(): void {
+		createFacilityUnsavedConfirmOpen = false;
 		closeCreateFacility();
 	}
 
-	function handleCreateFacilityModalPointerDown(event: PointerEvent): void {
-		createFacilityModalPointerDownStartedInside = event.target !== event.currentTarget;
-	}
-
-	function handleCreateFacilityModalBackdropClick(event: MouseEvent): void {
-		if (event.target !== event.currentTarget) return;
-		if (createFacilityModalPointerDownStartedInside) {
-			createFacilityModalPointerDownStartedInside = false;
-			return;
-		}
-		requestCloseCreateFacilityWizard();
+	function cancelDiscardCreateFacilityWizard(): void {
+		createFacilityUnsavedConfirmOpen = false;
 	}
 
 	function createStepTitle(step: FacilityCreateStep): string {
@@ -471,26 +393,15 @@
 	}
 
 	function removeWizardArea(index: number): void {
-		createFacilityForm.areas = createFacilityForm.areas.filter((_, areaIndex) => areaIndex !== index);
+		createFacilityForm.areas = removeCollectionItem(createFacilityForm.areas, index);
 	}
 
 	function moveWizardArea(index: number, direction: -1 | 1): void {
 		const targetIndex = index + direction;
 		if (targetIndex < 0 || targetIndex >= createFacilityForm.areas.length) return;
 
-		const reordered = [...createFacilityForm.areas];
-		const [movedArea] = reordered.splice(index, 1);
-		if (!movedArea) return;
-		reordered.splice(targetIndex, 0, movedArea);
-		createFacilityForm.areas = reordered;
-
-		if (areaEditingIndex !== null) {
-			if (areaEditingIndex === index) {
-				areaEditingIndex = targetIndex;
-			} else if (areaEditingIndex === targetIndex) {
-				areaEditingIndex = index;
-			}
-		}
+		createFacilityForm.areas = moveCollectionItemByOffset(createFacilityForm.areas, index, direction);
+		areaEditingIndex = adjustEditingIndexOnReorder(areaEditingIndex, index, targetIndex);
 	}
 
 	function getFacilityFieldErrors(values: FacilityWizardForm['facility']): Record<string, string> {
@@ -827,18 +738,6 @@
 	});
 
 	$effect(() => {
-		if (typeof document === 'undefined') return;
-		if (!isCreateFacilityOpen) return;
-
-		const previousOverflow = document.body.style.overflow;
-		document.body.style.overflow = 'hidden';
-
-		return () => {
-			document.body.style.overflow = previousOverflow;
-		};
-	});
-
-	$effect(() => {
 		if (typeof window === 'undefined') return;
 		if (!isCreateFacilityOpen || !hasUnsavedCreateFacilityChanges()) return;
 
@@ -1045,22 +944,7 @@
 		) as HTMLFormElement | null;
 		formEl?.requestSubmit();
 	}
-
-	// Handle escape key for modals
-	function handleKeydown(event: KeyboardEvent) {
-		if (event.key === 'Escape') {
-			if (confirmOpen) {
-				closeConfirm();
-			} else if (isCreateAreaOpen) {
-				closeCreateArea();
-			} else if (isCreateFacilityOpen) {
-				requestCloseCreateFacilityWizard();
-			}
-		}
-	}
 </script>
-
-<svelte:window onkeydown={handleKeydown} />
 
 <svelte:head>
 	<title>Facilities - PlayIMs</title>
@@ -1987,919 +1871,224 @@
 </datalist>
 
 <!-- Create Facility Modal -->
-{#if isCreateFacilityOpen}
-	<div
-		class="fixed inset-0 bg-black/55 z-50 flex items-center justify-center p-4 lg:p-6 overflow-hidden"
-		onpointerdown={handleCreateFacilityModalPointerDown}
-		onclick={handleCreateFacilityModalBackdropClick}
-		onkeydown={(event) => {
-			if (event.key === 'Escape') requestCloseCreateFacilityWizard();
-		}}
-		role="button"
-		tabindex="0"
-		aria-label="Close modal"
-	>
-		<div
-			class="w-full max-w-5xl max-h-[calc(100vh-2rem)] lg:max-h-[calc(100vh-3rem)] border-4 border-secondary bg-neutral-400 overflow-hidden flex flex-col"
-			onclick={(e) => e.stopPropagation()}
-			role="presentation"
-		>
-			<div class="p-4 border-b border-secondary space-y-3">
-				<div class="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
-					<div>
-						<h2 class="text-3xl font-bold font-serif text-neutral-950">New Facility</h2>
-						<p class="text-sm font-sans text-neutral-950">
-							Step {createFacilityStep} of 5: {createStepTitle(createFacilityStep)}
-						</p>
-					</div>
-					<button
-						type="button"
-						class="p-1 text-neutral-950 hover:text-secondary-900 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-500"
-						aria-label="Close create facility wizard"
-						onclick={requestCloseCreateFacilityWizard}
-					>
-						<IconX class="w-6 h-6" />
-					</button>
-				</div>
-				<div class="border border-secondary-300 bg-white h-3" aria-hidden="true">
-					<div class="h-full bg-secondary" style={`width: ${createFacilityStepProgress}%`}></div>
-				</div>
-			</div>
+<CreateFacilityWizard
+	open={isCreateFacilityOpen}
+	step={createFacilityStep}
+	formError={createFacilityFormError}
+	fieldErrors={createFacilityFieldErrors}
+	conflictMeta={createFacilityConflictMeta}
+	form={createFacilityForm}
+	facilitySlugTouched={facilitySlugTouched}
+	wizardAreaSlugTouched={wizardAreaSlugTouched}
+	areaDraftActive={areaDraftActive}
+	areaEditingIndex={areaEditingIndex}
+	stepProgress={createFacilityStepProgress}
+	canGoNext={canGoNextCreateFacilityStep}
+	canSubmit={canSubmitCreateFacility}
+	submitting={createFacilitySubmitting}
+	unsavedConfirmOpen={createFacilityUnsavedConfirmOpen}
+	stepTitle={createStepTitle}
+	onFacilitySlugTouchedChange={(value) => {
+		facilitySlugTouched = value;
+	}}
+	onWizardAreaSlugTouchedChange={(value) => {
+		wizardAreaSlugTouched = value;
+	}}
+	onRequestClose={requestCloseCreateFacilityWizard}
+	onSubmit={submitCreateFacilityWizard}
+	onInput={clearCreateFacilityApiErrors}
+	onNext={nextCreateFacilityStep}
+	onBack={handleCreateFacilityBackAction}
+	onUnsavedConfirm={confirmDiscardCreateFacilityWizard}
+	onUnsavedCancel={cancelDiscardCreateFacilityWizard}
+	onStartAreaDraft={startAreaDraft}
+	onStartEditArea={startEditingWizardArea}
+	onDuplicateArea={duplicateWizardArea}
+	onRemoveArea={removeWizardArea}
+	onMoveArea={moveWizardArea}
+	onStartEditFacility={startEditingFacilityDraft}
+	onStartEditAreas={startEditingAreasDraft}
+	onSubmitAction={submitAction}
+	onOpenArchivedFacilityDelete={(facilityId) => {
+		const archivedFacility = facilitiesData.find((facility) => facility.id === facilityId);
+		if (archivedFacility) {
+			openConfirm({
+				kind: 'facility-delete',
+				facilityId: archivedFacility.id,
+				slug: archivedFacility.slug || ''
+			});
+		}
+	}}
+	onOpenArchivedAreaDelete={(facilityAreaId) => {
+		const archivedArea = facilityAreasData.find((area) => area.id === facilityAreaId);
+		if (archivedArea) {
+			openConfirm({
+				kind: 'area-delete',
+				facilityAreaId: archivedArea.id,
+				slug: archivedArea.slug || ''
+			});
+		}
+	}}
+/>
 
-			<form
-				class="p-4 space-y-5 flex-1 min-h-0 overflow-y-auto"
-				onsubmit={(event) => {
-					event.preventDefault();
-					void submitCreateFacilityWizard();
-				}}
-				oninput={clearCreateFacilityApiErrors}
-			>
-				{#if createFacilityFormError}
-					<div class="border-2 border-error-300 bg-error-50 p-3 flex items-start gap-3">
-						<IconAlertCircle class="w-5 h-5 text-error-700 mt-0.5" />
-						<div class="flex-1">
-							<p class="text-error-800 font-sans">{createFacilityFormError}</p>
-							{#if createFacilityConflictMeta.duplicateType === 'archived' &&
-								createFacilityConflictMeta.archivedFacilityId}
-								<div class="flex items-center gap-2 mt-2">
-									<button
-										type="button"
-										class="button-secondary text-sm flex items-center gap-1"
-										onclick={() =>
-											submitAction('setFacilityArchived', {
-												facilityId: String(createFacilityConflictMeta.archivedFacilityId),
-												isActive: '1'
-											})}
-									>
-										<IconRestore class="w-4 h-4" />
-										Restore Facility
-									</button>
-									<button
-										type="button"
-										class="button-secondary-outlined text-sm flex items-center gap-1 border-error-500 text-error-700"
-										onclick={() => {
-											if (createFacilityConflictMeta.archivedFacilityId) {
-												const archivedFacility = facilitiesData.find(
-													(facility) =>
-														facility.id === createFacilityConflictMeta.archivedFacilityId
-												);
-												if (archivedFacility) {
-													openConfirm({
-														kind: 'facility-delete',
-														facilityId: archivedFacility.id,
-														slug: archivedFacility.slug || ''
-													});
-												}
-											}
-										}}
-									>
-										<IconTrash class="w-4 h-4 text-error-500" />
-										Delete Facility
-									</button>
-								</div>
-							{/if}
-							{#if createFacilityConflictMeta.duplicateType === 'archived' &&
-								createFacilityConflictMeta.archivedAreaId}
-								<div class="flex items-center gap-2 mt-2">
-									<button
-										type="button"
-										class="button-secondary text-sm flex items-center gap-1"
-										onclick={() =>
-											submitAction('setFacilityAreaArchived', {
-												facilityAreaId: String(createFacilityConflictMeta.archivedAreaId),
-												isActive: '1'
-											})}
-									>
-										<IconRestore class="w-4 h-4" />
-										Restore Area
-									</button>
-									<button
-										type="button"
-										class="button-secondary-outlined text-sm flex items-center gap-1 border-error-500 text-error-700"
-										onclick={() => {
-											if (createFacilityConflictMeta.archivedAreaId) {
-												const archivedArea = facilityAreasData.find(
-													(area) => area.id === createFacilityConflictMeta.archivedAreaId
-												);
-												if (archivedArea) {
-													openConfirm({
-														kind: 'area-delete',
-														facilityAreaId: archivedArea.id,
-														slug: archivedArea.slug || ''
-													});
-												}
-											}
-										}}
-									>
-										<IconTrash class="w-4 h-4 text-error-500" />
-										Delete Area
-									</button>
-								</div>
-							{/if}
-						</div>
-					</div>
-				{/if}
-
-				{#if createFacilityStep === 1}
-					<div class="space-y-4">
-						<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-							<div>
-								<label for="wizard-facility-name" class="block text-sm font-sans text-neutral-950 mb-1"
-									>Name <span class="text-error-700">*</span></label
-								>
-								<input
-									id="wizard-facility-name"
-									type="text"
-									use:autofocus
-									class="input-secondary"
-									placeholder="Intramural Fields"
-									value={createFacilityForm.facility.name}
-									oninput={(event) => {
-										const value = (event.currentTarget as HTMLInputElement).value;
-										createFacilityForm.facility.name = value;
-										if (!facilitySlugTouched) {
-											createFacilityForm.facility.slug = slugifyFinal(value);
-										}
-									}}
-									autocomplete="off"
-								/>
-								{#if createFacilityFieldErrors['facility.name']}
-									<p class="text-xs text-error-700 mt-1">
-										{createFacilityFieldErrors['facility.name']}
-									</p>
-								{/if}
-							</div>
-							<div>
-								<label for="wizard-facility-slug" class="block text-sm font-sans text-neutral-950 mb-1"
-									>Slug <span class="text-error-700">*</span></label
-								>
-								<input
-									id="wizard-facility-slug"
-									type="text"
-									class="input-secondary"
-									placeholder="intramural-fields"
-									value={createFacilityForm.facility.slug}
-									oninput={(event) => {
-										facilitySlugTouched = true;
-										createFacilityForm.facility.slug = applyLiveSlugInput(
-											event.currentTarget as HTMLInputElement
-										);
-									}}
-									autocomplete="off"
-								/>
-								<p class="text-xs font-sans text-neutral-950 mt-1">
-									Auto-formats to lowercase with dashes.
-								</p>
-								{#if createFacilityFieldErrors['facility.slug']}
-									<p class="text-xs text-error-700 mt-1">
-										{createFacilityFieldErrors['facility.slug']}
-									</p>
-								{/if}
-							</div>
-						</div>
-						<div>
-							<label for="wizard-facility-description" class="block text-sm font-sans text-neutral-950 mb-1"
-								>Description (optional)</label
-							>
-							<textarea
-								id="wizard-facility-description"
-								class="textarea-secondary min-h-28"
-								bind:value={createFacilityForm.facility.description}
-								placeholder="Add notes about this facility for staff and coordinators."
-							></textarea>
-						</div>
-					</div>
-				{/if}
-
-				{#if createFacilityStep === 2}
-					<div class="space-y-4">
-						<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-							<div>
-								<label
-									for="wizard-facility-address-line1"
-									class="block text-sm font-sans text-neutral-950 mb-1">Address line 1</label
-								>
-								<input
-									id="wizard-facility-address-line1"
-									type="text"
-									class="input-secondary"
-									bind:value={createFacilityForm.facility.addressLine1}
-									autocomplete="off"
-								/>
-							</div>
-							<div>
-								<label
-									for="wizard-facility-address-line2"
-									class="block text-sm font-sans text-neutral-950 mb-1">Address line 2</label
-								>
-								<input
-									id="wizard-facility-address-line2"
-									type="text"
-									class="input-secondary"
-									bind:value={createFacilityForm.facility.addressLine2}
-									autocomplete="off"
-								/>
-							</div>
-						</div>
-						<div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
-							<div class="lg:col-span-2">
-								<label for="wizard-facility-city" class="block text-sm font-sans text-neutral-950 mb-1"
-									>City</label
-								>
-								<input
-									id="wizard-facility-city"
-									type="text"
-									class="input-secondary"
-									bind:value={createFacilityForm.facility.city}
-									autocomplete="off"
-								/>
-							</div>
-							<div>
-								<label
-									for="wizard-facility-state"
-									class="block text-sm font-sans text-neutral-950 mb-1">State</label
-								>
-								<input
-									id="wizard-facility-state"
-									type="text"
-									class="input-secondary"
-									bind:value={createFacilityForm.facility.state}
-									autocomplete="off"
-								/>
-							</div>
-							<div>
-								<label
-									for="wizard-facility-postal-code"
-									class="block text-sm font-sans text-neutral-950 mb-1">Postal code</label
-								>
-								<input
-									id="wizard-facility-postal-code"
-									type="text"
-									class="input-secondary"
-									bind:value={createFacilityForm.facility.postalCode}
-									autocomplete="off"
-								/>
-							</div>
-						</div>
-						<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-							<div>
-								<label
-									for="wizard-facility-country"
-									class="block text-sm font-sans text-neutral-950 mb-1">Country</label
-								>
-								<input
-									id="wizard-facility-country"
-									type="text"
-									class="input-secondary"
-									bind:value={createFacilityForm.facility.country}
-									autocomplete="off"
-								/>
-							</div>
-							<div>
-								<label
-									for="wizard-facility-timezone"
-									class="block text-sm font-sans text-neutral-950 mb-1">Timezone</label
-								>
-								<input
-									id="wizard-facility-timezone"
-									type="text"
-									class="input-secondary"
-									list="timezone-options"
-									placeholder="America/New_York"
-									bind:value={createFacilityForm.facility.timezone}
-									autocomplete="off"
-								/>
-							</div>
-						</div>
-						<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-							<div>
-								<label
-									for="wizard-facility-capacity"
-									class="block text-sm font-sans text-neutral-950 mb-1">Capacity</label
-								>
-								<input
-									id="wizard-facility-capacity"
-									type="number"
-									class="input-secondary"
-									min="1"
-									step="1"
-									value={createFacilityForm.facility.capacity > 0
-										? String(createFacilityForm.facility.capacity)
-										: ''}
-									oninput={(event) => {
-										const parsed = Number.parseInt(
-											(event.currentTarget as HTMLInputElement).value,
-											10
-										);
-										createFacilityForm.facility.capacity = Number.isNaN(parsed) ? 0 : parsed;
-									}}
-									autocomplete="off"
-								/>
-								{#if createFacilityFieldErrors['facility.capacity']}
-									<p class="text-xs text-error-700 mt-1">
-										{createFacilityFieldErrors['facility.capacity']}
-									</p>
-								{/if}
-							</div>
-							<div class="border border-secondary-300 bg-white p-3 flex items-center">
-								<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-									<input
-										type="checkbox"
-										class="toggle-secondary"
-										bind:checked={createFacilityForm.facility.isActive}
-									/>
-									Active
-								</label>
-							</div>
-						</div>
-					</div>
-				{/if}
-
-				{#if createFacilityStep === 3}
-					<div class="space-y-4">
-						<div class="border border-secondary-300 bg-white p-3 space-y-3">
-							<div class="flex items-center justify-between gap-2">
-								<h3 class="text-sm font-bold font-sans text-neutral-950 uppercase tracking-wide">
-									Facility Areas
-								</h3>
-								<button
-									type="button"
-									class="button-secondary-outlined p-1.5 cursor-pointer"
-									aria-label="Add area"
-									title="Add area"
-									onclick={startAreaDraft}
-								>
-									<IconPlus class="w-4 h-4" />
-								</button>
-							</div>
-
-							{#if areaDraftActive}
-								<div class="border border-secondary-300 bg-secondary-50 p-2">
-									<p class="text-xs font-sans text-neutral-950">
-										Area draft is open. Continue to Step 4 to {areaEditingIndex === null
-											? 'add this area'
-											: 'update this area'}.
-									</p>
-								</div>
-							{/if}
-
-							{#if createFacilityForm.areas.length === 0}
-								<p class="text-sm text-neutral-950 font-sans">
-									No areas added yet. Use the plus button to add one, or continue without areas.
-								</p>
-							{:else}
-								<div
-									class="space-y-2 max-h-[61vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 scrollbar-track-secondary-400 scrollbar-corner-secondary-500 hover:scrollbar-thumb-secondary-700 active:scrollbar-thumb-secondary-700 scrollbar-hover:scrollbar-thumb-secondary-800 scrollbar-active:scrollbar-thumb-secondary-700"
-								>
-									{#each createFacilityForm.areas as area, areaIndex (area.draftId)}
-										<div class="border border-secondary-300 bg-neutral p-3 space-y-2">
-											<div class="flex items-start justify-between gap-3">
-												<div>
-													<p class="text-sm font-semibold text-neutral-950">
-														{area.name.trim() || 'Untitled Area'}
-													</p>
-													<p class="text-xs text-neutral-900">Slug: {area.slug || 'TBD'}</p>
-												</div>
-												<div class="flex items-center gap-1">
-													{#if createFacilityForm.areas.length > 1}
-														{#if areaIndex > 0}
-															<button
-																type="button"
-																class="button-secondary-outlined p-1.5 cursor-pointer"
-																aria-label="Move area up"
-																title="Move up"
-																onclick={() => moveWizardArea(areaIndex, -1)}
-															>
-																<IconChevronUp class="w-4 h-4" />
-															</button>
-														{/if}
-														{#if areaIndex < createFacilityForm.areas.length - 1}
-															<button
-																type="button"
-																class="button-secondary-outlined p-1.5 cursor-pointer"
-																aria-label="Move area down"
-																title="Move down"
-																onclick={() => moveWizardArea(areaIndex, 1)}
-															>
-																<IconChevronDown class="w-4 h-4" />
-															</button>
-														{/if}
-													{/if}
-													<button
-														type="button"
-														class="button-secondary-outlined p-1.5 cursor-pointer"
-														aria-label="Edit area"
-														title="Edit"
-														onclick={() => startEditingWizardArea(areaIndex)}
-													>
-														<IconPencil class="w-4 h-4" />
-													</button>
-													<button
-														type="button"
-														class="button-secondary-outlined p-1.5 cursor-pointer"
-														aria-label="Copy area"
-														title="Copy"
-														onclick={() => duplicateWizardArea(areaIndex)}
-													>
-														<IconCopy class="w-4 h-4" />
-													</button>
-													<button
-														type="button"
-														class="button-secondary-outlined p-1.5 cursor-pointer"
-														aria-label="Remove area"
-														title="Remove"
-														onclick={() => removeWizardArea(areaIndex)}
-													>
-														<IconTrash class="w-4 h-4 text-error-500" />
-													</button>
-												</div>
-											</div>
-											<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-xs text-neutral-950">
-												<p>
-													<span class="font-semibold">Capacity:</span>
-													{area.capacity > 0 ? area.capacity : 'N/A'}
-												</p>
-												<p>
-													<span class="font-semibold">Status:</span>
-													{area.isActive ? 'Active' : 'Inactive'}
-												</p>
-											</div>
-											{#if area.description.trim()}
-												<p class="text-xs text-neutral-950">
-													<span class="font-semibold">Description:</span>
-													{area.description.trim()}
-												</p>
-											{/if}
-										</div>
-									{/each}
-								</div>
-							{/if}
-						</div>
-					</div>
-				{/if}
-
-				{#if createFacilityStep === 4}
-					<div class="space-y-4">
-						{#if !areaDraftActive}
-							<div class="border border-secondary-300 bg-white p-4">
-								<p class="text-sm font-sans text-neutral-950">
-									No area draft is open. Go back to Facility Areas and click the plus button to add one.
-								</p>
-							</div>
-						{:else}
-							<div class="border border-secondary-300 bg-white p-3 space-y-4">
-								<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-									<div>
-										<label for="wizard-area-name" class="block text-sm font-sans text-neutral-950 mb-1"
-											>Name <span class="text-error-700">*</span></label
-										>
-										<input
-											id="wizard-area-name"
-											type="text"
-											use:autofocus
-											class="input-secondary"
-											value={createFacilityForm.areaDraft.name}
-											placeholder="Field 1"
-											oninput={(event) => {
-												const value = (event.currentTarget as HTMLInputElement).value;
-												createFacilityForm.areaDraft.name = value;
-												if (!wizardAreaSlugTouched) {
-													createFacilityForm.areaDraft.slug = defaultAreaSlug(value);
-													createFacilityForm.areaDraft.isSlugManual = false;
-												}
-											}}
-											autocomplete="off"
-										/>
-										{#if createFacilityFieldErrors['areaDraft.name']}
-											<p class="text-xs text-error-700 mt-1">{createFacilityFieldErrors['areaDraft.name']}</p>
-										{/if}
-									</div>
-									<div>
-										<label for="wizard-area-slug" class="block text-sm font-sans text-neutral-950 mb-1"
-											>Slug <span class="text-error-700">*</span></label
-										>
-										<input
-											id="wizard-area-slug"
-											type="text"
-											class="input-secondary"
-											value={createFacilityForm.areaDraft.slug}
-											placeholder="field-1"
-											oninput={(event) => {
-												wizardAreaSlugTouched = true;
-												createFacilityForm.areaDraft.isSlugManual = true;
-												createFacilityForm.areaDraft.slug = applyLiveSlugInput(
-													event.currentTarget as HTMLInputElement
-												);
-											}}
-											autocomplete="off"
-										/>
-										{#if createFacilityFieldErrors['areaDraft.slug']}
-											<p class="text-xs text-error-700 mt-1">{createFacilityFieldErrors['areaDraft.slug']}</p>
-										{/if}
-									</div>
-									<div class="lg:col-span-2">
-										<label
-											for="wizard-area-description"
-											class="block text-sm font-sans text-neutral-950 mb-1">Description</label
-										>
-										<textarea
-											id="wizard-area-description"
-											class="textarea-secondary min-h-28"
-											bind:value={createFacilityForm.areaDraft.description}
-											placeholder="Optional notes about this area."
-										></textarea>
-									</div>
-								</div>
-
-								<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-									<div class="border border-secondary-300 bg-white p-3">
-										<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-											<input
-												type="checkbox"
-												class="toggle-secondary"
-												bind:checked={createFacilityForm.areaDraft.isActive}
-											/>
-											Active
-										</label>
-									</div>
-									<div>
-										<label for="wizard-area-capacity" class="block text-sm font-sans text-neutral-950 mb-1"
-											>Capacity</label
-										>
-										<input
-											id="wizard-area-capacity"
-											type="number"
-											class="input-secondary"
-											min="1"
-											step="1"
-											value={createFacilityForm.areaDraft.capacity > 0
-												? String(createFacilityForm.areaDraft.capacity)
-												: ''}
-											oninput={(event) => {
-												const parsed = Number.parseInt(
-													(event.currentTarget as HTMLInputElement).value,
-													10
-												);
-												createFacilityForm.areaDraft.capacity = Number.isNaN(parsed) ? 0 : parsed;
-											}}
-											autocomplete="off"
-										/>
-										{#if createFacilityFieldErrors['areaDraft.capacity']}
-											<p class="text-xs text-error-700 mt-1">
-												{createFacilityFieldErrors['areaDraft.capacity']}
-											</p>
-										{/if}
-									</div>
-								</div>
-							</div>
-						{/if}
-					</div>
-				{/if}
-
-				{#if createFacilityStep === 5}
-					<div class="space-y-4">
-						<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
-							<div class="flex items-start justify-between gap-2">
-								<h3 class="text-lg font-bold font-serif text-neutral-950">Facility</h3>
-								<button
-									type="button"
-									class="button-secondary-outlined p-1.5 cursor-pointer"
-									aria-label="Edit facility"
-									title="Edit facility"
-									onclick={startEditingFacilityDraft}
-								>
-									<IconPencil class="w-4 h-4" />
-								</button>
-							</div>
-							<p class="text-sm text-neutral-950">
-								<span class="font-semibold">Name:</span>
-								{createFacilityForm.facility.name || 'TBD'}
-								<span class="ml-3 font-semibold">Slug:</span>
-								{slugifyFinal(createFacilityForm.facility.slug) || 'TBD'}
-							</p>
-							<p class="text-sm text-neutral-950">
-								<span class="font-semibold">Status:</span>
-								{createFacilityForm.facility.isActive ? 'Active' : 'Inactive'}
-								<span class="ml-3 font-semibold">Capacity:</span>
-								{createFacilityForm.facility.capacity > 0 ? createFacilityForm.facility.capacity : 'N/A'}
-							</p>
-							{#if createFacilityForm.facility.description.trim()}
-								<p class="text-sm text-neutral-950">
-									<span class="font-semibold">Description:</span>
-									{createFacilityForm.facility.description.trim()}
-								</p>
-							{/if}
-							{#if createFacilityForm.facility.addressLine1 || createFacilityForm.facility.city || createFacilityForm.facility.state || createFacilityForm.facility.postalCode || createFacilityForm.facility.country}
-								<p class="text-sm text-neutral-950">
-									<span class="font-semibold">Address:</span>
-									{[
-										createFacilityForm.facility.addressLine1,
-										createFacilityForm.facility.addressLine2,
-										createFacilityForm.facility.city,
-										createFacilityForm.facility.state,
-										createFacilityForm.facility.postalCode,
-										createFacilityForm.facility.country
-									]
-										.filter((part) => part.trim().length > 0)
-										.join(', ')}
-								</p>
-							{/if}
-							{#if createFacilityForm.facility.timezone.trim()}
-								<p class="text-sm text-neutral-950">
-									<span class="font-semibold">Timezone:</span>
-									{createFacilityForm.facility.timezone.trim()}
-								</p>
-							{/if}
-						</div>
-
-						<div class="border-2 border-secondary-300 bg-white p-4 space-y-3">
-							<div class="flex items-start justify-between gap-2">
-								<h3 class="text-lg font-bold font-serif text-neutral-950">Facility Areas</h3>
-								<button
-									type="button"
-									class="button-secondary-outlined p-1.5 cursor-pointer"
-									aria-label="Edit areas"
-									title="Edit areas"
-									onclick={startEditingAreasDraft}
-								>
-									<IconPencil class="w-4 h-4" />
-								</button>
-							</div>
-							{#if createFacilityForm.areas.length === 0}
-								<p class="text-sm text-neutral-950 font-sans">No areas will be created.</p>
-							{:else}
-								<div
-									class="space-y-3 max-h-[45vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 scrollbar-track-secondary-400 scrollbar-corner-secondary-500 hover:scrollbar-thumb-secondary-700 active:scrollbar-thumb-secondary-700 scrollbar-hover:scrollbar-thumb-secondary-800 scrollbar-active:scrollbar-thumb-secondary-700"
-								>
-									{#each createFacilityForm.areas as area (area.draftId)}
-										<div class="border border-secondary-300 bg-neutral p-3 space-y-1">
-											<p class="text-sm font-semibold text-neutral-950">{area.name || 'Untitled Area'}</p>
-											<p class="text-xs text-neutral-900">Slug: {slugifyFinal(area.slug) || 'TBD'}</p>
-											<p class="text-xs text-neutral-950">
-												<span class="font-semibold">Status:</span>
-												{area.isActive ? 'Active' : 'Inactive'}
-												<span class="ml-2 font-semibold">Capacity:</span>
-												{area.capacity > 0 ? area.capacity : 'N/A'}
-											</p>
-											{#if area.description.trim()}
-												<p class="text-xs text-neutral-950">
-													<span class="font-semibold">Description:</span>
-													{area.description.trim()}
-												</p>
-											{/if}
-										</div>
-									{/each}
-								</div>
-							{/if}
-						</div>
-					</div>
-				{/if}
-
-				<div class="pt-2 border-t border-secondary-300 flex justify-end">
-					<div class="flex items-center gap-2 justify-end">
-						{#if createFacilityStep > 1}
-							<button
-								type="button"
-								class="button-secondary-outlined cursor-pointer"
-								onclick={handleCreateFacilityBackAction}
-							>
-								Back
-							</button>
-						{/if}
-						{#if createFacilityStep < 5}
-							<button
-								type="button"
-								class="button-accent cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-								onclick={nextCreateFacilityStep}
-								disabled={!canGoNextCreateFacilityStep}
-							>
-								{#if createFacilityStep === 3 && !areaDraftActive}
-									{createFacilityForm.areas.length === 0 ? 'Skip to Review' : 'Review'}
-								{:else if createFacilityStep === 4 && areaDraftActive}
-									{areaEditingIndex === null ? 'Add Area' : 'Update Area'}
-								{:else}
-									Next
-								{/if}
-							</button>
-						{:else}
-							<button
-								type="submit"
-								class="button-accent flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-								disabled={!canSubmitCreateFacility}
-							>
-								<IconPlus class="w-5 h-5" />
-								<span>{createFacilitySubmitting ? 'Creating...' : 'Create Facility'}</span>
-							</button>
-						{/if}
-					</div>
-				</div>
-			</form>
-		</div>
-	</div>
-{/if}
 <!-- Create Area Modal -->
 {#if isCreateAreaOpen && creatingAreaForFacilityId}
-	<div
-		class="fixed inset-0 bg-black/50 z-50 flex items-start justify-center p-6"
-		onclick={closeCreateArea}
-		onkeydown={(e) => {
-			if (e.key === 'Escape') closeCreateArea();
-		}}
-		role="button"
-		tabindex="0"
-		aria-label="Close modal"
+	<ModalShell
+		open={isCreateAreaOpen && Boolean(creatingAreaForFacilityId)}
+		closeAriaLabel="Close create area modal"
+		backdropClass="bg-black/50"
+		alignmentClass="items-start"
+		paddingClass="p-6"
+		panelClass="w-full max-w-2xl bg-neutral-400 border-4 border-secondary"
+		on:requestClose={closeCreateArea}
 	>
-		<div
-			class="w-full max-w-2xl bg-neutral-400 border-4 border-secondary"
-			onclick={(e) => e.stopPropagation()}
-			role="presentation"
+		<div class="p-5 border-b border-secondary">
+			<h3 class="text-2xl font-bold font-serif text-neutral-950">New Area</h3>
+		</div>
+		<form
+			method="POST"
+			action="?/createFacilityArea"
+			use:enhance={() => {
+				return async ({ result, update }) => {
+					if (result.type === 'redirect' || result.type === 'success') closeCreateArea();
+					await update();
+				};
+			}}
+			class="p-5 space-y-5"
 		>
-			<div class="p-5 border-b border-secondary">
-				<h3 class="text-2xl font-bold font-serif text-neutral-950">New Area</h3>
-			</div>
-			<form
-				method="POST"
-				action="?/createFacilityArea"
-				use:enhance={() => {
-					return async ({ result, update }) => {
-						if (result.type === 'redirect' || result.type === 'success') closeCreateArea();
-						await update();
-					};
-				}}
-				class="p-5 space-y-5"
-			>
-				{#if form?.action === 'createFacilityArea' && form?.message}
-					<div class="border-2 border-error-300 bg-error-50 p-3 flex items-start gap-3">
-						<IconAlertCircle class="w-5 h-5 text-error-700 mt-0.5" />
-						<div class="flex-1">
-							<p class="text-error-800 font-sans">{form.message}</p>
-							{#if formData?.duplicateType === 'archived' && formData?.archivedAreaId}
-								{@const archivedArea = facilityAreasData.find(
-									(a) => a.id === formData.archivedAreaId
-								)}
-								<div class="flex items-center gap-2 mt-2">
-									<button
-										type="button"
-										class="button-secondary text-sm flex items-center gap-1"
-										onclick={() =>
-											submitAction('setFacilityAreaArchived', {
-												facilityAreaId: String(formData?.archivedAreaId),
-												isActive: '1'
-											})}
-									>
-										<IconRestore class="w-4 h-4" />
-										Restore
-									</button>
-									<button
-										type="button"
-										class="button-secondary-outlined text-sm flex items-center gap-1 border-error-500 text-error-700"
-										onclick={() => {
-											if (formData?.archivedAreaId && archivedArea) {
-												openConfirm({
-													kind: 'area-delete',
-													facilityAreaId: archivedArea.id,
-													slug: archivedArea.slug || ''
-												});
-											}
-										}}
-									>
-										<IconTrash class="w-4 h-4" />
-										Delete
-									</button>
-								</div>
-							{/if}
-						</div>
-					</div>
-				{/if}
-				<input type="hidden" name="facilityId" value={creatingAreaForFacilityId} />
-
-				<div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-					<div>
-						<label for="new-area-name" class="block text-sm font-sans text-neutral-950 mb-1"
-							>Name</label
-						>
-						<input
-							id="new-area-name"
-							name="name"
-							type="text"
-							use:autofocus
-							placeholder="Field 1"
-							bind:value={newAreaName}
-							oninput={(e) => {
-								const el = e.currentTarget as HTMLInputElement;
-								newAreaName = el.value;
-								if (!areaSlugTouched) newAreaCode = slugifyFinal(el.value);
-							}}
-							class="w-full input-secondary"
-							autocomplete="off"
-						/>
-					</div>
-					<div>
-						<label for="new-area-slug" class="block text-sm font-sans text-neutral-950 mb-1"
-							>Slug</label
-						>
-						<input
-							id="new-area-slug"
-							name="slug"
-							type="text"
-							placeholder="field-1"
-							bind:value={newAreaCode}
-							oninput={(e) => {
-								areaSlugTouched = true;
-								const el = e.currentTarget as HTMLInputElement;
-								newAreaCode = applyLiveSlugInput(el);
-							}}
-							class="w-full input-secondary"
-							autocomplete="off"
-						/>
-						<p class="text-xs font-sans text-neutral-950 mt-1">
-							Auto-formats to lowercase with dashes.
-						</p>
+			{#if form?.action === 'createFacilityArea' && form?.message}
+				<div class="border-2 border-error-300 bg-error-50 p-3 flex items-start gap-3">
+					<IconAlertCircle class="w-5 h-5 text-error-700 mt-0.5" />
+					<div class="flex-1">
+						<p class="text-error-800 font-sans">{form.message}</p>
+						{#if formData?.duplicateType === 'archived' && formData?.archivedAreaId}
+							{@const archivedArea = facilityAreasData.find((a) => a.id === formData.archivedAreaId)}
+							<div class="flex items-center gap-2 mt-2">
+								<button
+									type="button"
+									class="button-secondary text-sm flex items-center gap-1"
+									onclick={() =>
+										submitAction('setFacilityAreaArchived', {
+											facilityAreaId: String(formData?.archivedAreaId),
+											isActive: '1'
+										})}
+								>
+									<IconRestore class="w-4 h-4" />
+									Restore
+								</button>
+								<button
+									type="button"
+									class="button-secondary-outlined text-sm flex items-center gap-1 border-error-500 text-error-700"
+									onclick={() => {
+										if (formData?.archivedAreaId && archivedArea) {
+											openConfirm({
+												kind: 'area-delete',
+												facilityAreaId: archivedArea.id,
+												slug: archivedArea.slug || ''
+											});
+										}
+									}}
+								>
+									<IconTrash class="w-4 h-4" />
+									Delete
+								</button>
+							</div>
+						{/if}
 					</div>
 				</div>
+			{/if}
+			<input type="hidden" name="facilityId" value={creatingAreaForFacilityId} />
 
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-5">
 				<div>
-					<label for="new-area-capacity" class="block text-sm font-sans text-neutral-950 mb-1"
-						>Capacity</label
-					>
+					<label for="new-area-name" class="block text-sm font-sans text-neutral-950 mb-1">Name</label>
 					<input
-						id="new-area-capacity"
-						name="capacity"
-						type="number"
-						min="1"
-						step="1"
-						bind:value={newAreaCapacity}
+						id="new-area-name"
+						name="name"
+						type="text"
+						use:autofocus
+						placeholder="Field 1"
+						bind:value={newAreaName}
+						oninput={(e) => {
+							const el = e.currentTarget as HTMLInputElement;
+							newAreaName = el.value;
+							if (!areaSlugTouched) newAreaCode = slugifyFinal(el.value);
+						}}
 						class="w-full input-secondary"
 						autocomplete="off"
 					/>
 				</div>
-
 				<div>
-					<label for="new-area-description" class="block text-sm font-sans text-neutral-950 mb-1"
-						>Description (optional)</label
-					>
-					<textarea
-						id="new-area-description"
-						name="description"
-						bind:value={newAreaDescription}
-						rows="2"
-						class="w-full input-secondary resize-none"
+					<label for="new-area-slug" class="block text-sm font-sans text-neutral-950 mb-1">Slug</label>
+					<input
+						id="new-area-slug"
+						name="slug"
+						type="text"
+						placeholder="field-1"
+						bind:value={newAreaCode}
+						oninput={(e) => {
+							areaSlugTouched = true;
+							const el = e.currentTarget as HTMLInputElement;
+							newAreaCode = applyLiveSlugInput(el);
+						}}
+						class="w-full input-secondary"
 						autocomplete="off"
-					></textarea>
+					/>
+					<p class="text-xs font-sans text-neutral-950 mt-1">Auto-formats to lowercase with dashes.</p>
 				</div>
+			</div>
 
-				<div class="flex items-center justify-end gap-3">
-					<button type="button" class="button-secondary cursor-pointer" onclick={closeCreateArea}
-						>Cancel</button
-					>
-					<button type="submit" class="button-accent flex items-center gap-2 cursor-pointer">
-						<IconPlus class="w-5 h-5" />
-						<span>Create Area</span>
-					</button>
-				</div>
-			</form>
-		</div>
-	</div>
+			<div>
+				<label for="new-area-capacity" class="block text-sm font-sans text-neutral-950 mb-1">Capacity</label>
+				<input
+					id="new-area-capacity"
+					name="capacity"
+					type="number"
+					min="1"
+					step="1"
+					bind:value={newAreaCapacity}
+					class="w-full input-secondary"
+					autocomplete="off"
+				/>
+			</div>
+
+			<div>
+				<label for="new-area-description" class="block text-sm font-sans text-neutral-950 mb-1"
+					>Description (optional)</label
+				>
+				<textarea
+					id="new-area-description"
+					name="description"
+					bind:value={newAreaDescription}
+					rows="2"
+					class="w-full input-secondary resize-none"
+					autocomplete="off"
+				></textarea>
+			</div>
+
+			<div class="flex items-center justify-end gap-3">
+				<button type="button" class="button-secondary cursor-pointer" onclick={closeCreateArea}>Cancel</button>
+				<button type="submit" class="button-accent flex items-center gap-2 cursor-pointer">
+					<IconPlus class="w-5 h-5" />
+					<span>Create Area</span>
+				</button>
+			</div>
+		</form>
+	</ModalShell>
 {/if}
 
 <!-- Confirmation Modal -->
 {#if confirmOpen && confirmIntent}
-	<div
-		class="fixed inset-0 bg-black/50 z-50 flex items-start justify-center p-6"
-		onclick={closeConfirm}
-		onkeydown={(e) => {
-			if (e.key === 'Escape') closeConfirm();
-		}}
-		role="button"
-		tabindex="0"
-		aria-label="Close confirmation modal"
+	<ModalShell
+		open={confirmOpen && Boolean(confirmIntent)}
+		closeAriaLabel="Close confirmation modal"
+		backdropClass="bg-black/50"
+		alignmentClass="items-start"
+		paddingClass="p-6"
+		panelClass="w-full max-w-xl bg-neutral-400 border-4 border-secondary"
+		on:requestClose={closeConfirm}
 	>
-		<div
-			class="w-full max-w-xl bg-neutral-400 border-4 border-secondary"
-			onclick={(e) => e.stopPropagation()}
-			role="presentation"
-		>
-			{#if confirmIntent.kind === 'facility-delete' || confirmIntent.kind === 'area-delete'}
+		{#if confirmIntent.kind === 'facility-delete' || confirmIntent.kind === 'area-delete'}
 				<!-- Delete Modal -->
 				<div class="p-5 border-b border-secondary">
 					<h3 class="text-2xl font-bold font-serif text-neutral-950">Delete permanently?</h3>
@@ -2963,7 +2152,7 @@
 						</button>
 					</div>
 				</div>
-			{:else}
+		{:else}
 				<!-- Archive/Restore Modal -->
 				<div class="p-5 border-b border-secondary">
 					<h3 class="text-2xl font-bold font-serif text-neutral-950">
@@ -3021,7 +2210,8 @@
 						</button>
 					</div>
 				</div>
-			{/if}
-		</div>
-	</div>
+		{/if}
+	</ModalShell>
 {/if}
+
+

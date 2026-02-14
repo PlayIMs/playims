@@ -72,6 +72,10 @@ const API_ROUTE_POLICIES: ApiRoutePolicy[] = [
 	{
 		pattern: /^\/api\/intramural-sports\/leagues$/,
 		policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES }
+	},
+	{
+		pattern: /^\/api\/facilities$/,
+		policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES }
 	}
 ];
 
@@ -101,6 +105,11 @@ const AUTH_READ_RATE_LIMIT: RateLimitConfig = {
 };
 
 const INTRAMURAL_OFFERINGS_RATE_LIMIT: RateLimitConfig = {
+	windowMs: 60_000,
+	maxRequests: 60
+};
+
+const FACILITIES_RATE_LIMIT: RateLimitConfig = {
 	windowMs: 60_000,
 	maxRequests: 60
 };
@@ -145,6 +154,10 @@ const resolveRateLimitConfig = (pathname: string): RateLimitConfig | null => {
 
 	if (pathname === '/api/intramural-sports/leagues') {
 		return INTRAMURAL_OFFERINGS_RATE_LIMIT;
+	}
+
+	if (pathname === '/api/facilities') {
+		return FACILITIES_RATE_LIMIT;
 	}
 
 	if (
