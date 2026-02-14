@@ -109,7 +109,7 @@
 			class="flex-1 p-2 {navBottomPadding} overflow-y-auto scrollbar-thin scrollbar-thumb-primary-700 scrollbar-track-primary-400 scrollbar-corner-primary-500 hover:scrollbar-thumb-primary-700 active:scrollbar-thumb-primary-700 scrollbar-hover:scrollbar-thumb-primary-800 scrollbar-active:scrollbar-thumb-primary-700"
 			aria-label="Dashboard navigation"
 		>
-			<ul class="space-y-1.5 md:space-y-1 xl:space-y-1.5">
+			<ul class="space-y-1">
 				{#each menuItems as item}
 					<li>
 						<a
