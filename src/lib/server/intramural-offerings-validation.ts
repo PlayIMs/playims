@@ -149,6 +149,140 @@ const leagueInputSchema = z.object({
 	imageUrl: optionalUrl('League image URL')
 });
 
+const addLeagueDateValidationIssues = (
+	league: z.infer<typeof leagueInputSchema>,
+	pathPrefix: Array<string | number>,
+	ctx: z.RefinementCtx
+): void => {
+	const regStartMs = toDateMs(league.regStartDate);
+	const regEndMs = toDateMs(league.regEndDate);
+	const regEndDateOnlyMs = toDateOnlyMs(league.regEndDate);
+	const seasonStartMs = toDateMs(league.seasonStartDate);
+	const seasonEndMs = toDateMs(league.seasonEndDate);
+
+	if (regStartMs === null) {
+		ctx.addIssue({
+			code: z.ZodIssueCode.custom,
+			path: [...pathPrefix, 'regStartDate'],
+			message: 'Registration start date is invalid.'
+		});
+	}
+
+	if (regEndMs === null) {
+		ctx.addIssue({
+			code: z.ZodIssueCode.custom,
+			path: [...pathPrefix, 'regEndDate'],
+			message: 'Registration end date is invalid.'
+		});
+	}
+
+	if (seasonStartMs === null) {
+		ctx.addIssue({
+			code: z.ZodIssueCode.custom,
+			path: [...pathPrefix, 'seasonStartDate'],
+			message: 'Season start date is invalid.'
+		});
+	}
+
+	if (seasonEndMs === null) {
+		ctx.addIssue({
+			code: z.ZodIssueCode.custom,
+			path: [...pathPrefix, 'seasonEndDate'],
+			message: 'Season end date is invalid.'
+		});
+	}
+
+	if (regStartMs !== null && regEndMs !== null && regStartMs > regEndMs) {
+		ctx.addIssue({
+			code: z.ZodIssueCode.custom,
+			path: [...pathPrefix, 'regEndDate'],
+			message: 'Registration end date must be on or after registration start date.'
+		});
+	}
+
+	if (regEndDateOnlyMs !== null && seasonStartMs !== null && regEndDateOnlyMs > seasonStartMs) {
+		ctx.addIssue({
+			code: z.ZodIssueCode.custom,
+			path: [...pathPrefix, 'seasonStartDate'],
+			message: 'Season start date must be on or after registration end date.'
+		});
+	}
+
+	if (seasonStartMs !== null && seasonEndMs !== null && seasonStartMs > seasonEndMs) {
+		ctx.addIssue({
+			code: z.ZodIssueCode.custom,
+			path: [...pathPrefix, 'seasonEndDate'],
+			message: 'Season end date must be on or after season start date.'
+		});
+	}
+
+	const preseasonStartMs = toDateMs(league.preseasonStartDate);
+	const preseasonEndMs = toDateMs(league.preseasonEndDate);
+	if (league.hasPreseason) {
+		if (!league.preseasonStartDate) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: [...pathPrefix, 'preseasonStartDate'],
+				message: 'Preseason start date is required when preseason is enabled.'
+			});
+		}
+		if (!league.preseasonEndDate) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: [...pathPrefix, 'preseasonEndDate'],
+				message: 'Preseason end date is required when preseason is enabled.'
+			});
+		}
+		if (preseasonStartMs !== null && preseasonEndMs !== null && preseasonStartMs > preseasonEndMs) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: [...pathPrefix, 'preseasonEndDate'],
+				message: 'Preseason end date must be on or after preseason start date.'
+			});
+		}
+		if (preseasonEndMs !== null && seasonStartMs !== null && preseasonEndMs > seasonStartMs) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: [...pathPrefix, 'preseasonEndDate'],
+				message: 'Preseason must end on or before season start date.'
+			});
+		}
+	}
+
+	const postseasonStartMs = toDateMs(league.postseasonStartDate);
+	const postseasonEndMs = toDateMs(league.postseasonEndDate);
+	if (league.hasPostseason) {
+		if (!league.postseasonStartDate) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: [...pathPrefix, 'postseasonStartDate'],
+				message: 'Postseason start date is required when postseason is enabled.'
+			});
+		}
+		if (!league.postseasonEndDate) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: [...pathPrefix, 'postseasonEndDate'],
+				message: 'Postseason end date is required when postseason is enabled.'
+			});
+		}
+		if (postseasonStartMs !== null && postseasonEndMs !== null && postseasonStartMs > postseasonEndMs) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: [...pathPrefix, 'postseasonEndDate'],
+				message: 'Postseason end date must be on or after postseason start date.'
+			});
+		}
+		if (seasonEndMs !== null && postseasonStartMs !== null && postseasonStartMs < seasonEndMs) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: [...pathPrefix, 'postseasonStartDate'],
+				message: 'Postseason must start on or after season end date.'
+			});
+		}
+	}
+};
+
 export const createIntramuralOfferingWithLeagueSchema = z
 	.object({
 		offering: offeringInputSchema,
@@ -192,147 +326,52 @@ export const createIntramuralOfferingWithLeagueSchema = z
 		});
 
 		payload.leagues.forEach((league, index) => {
-			const regStartMs = toDateMs(league.regStartDate);
-			const regEndMs = toDateMs(league.regEndDate);
-			const regEndDateOnlyMs = toDateOnlyMs(league.regEndDate);
-			const seasonStartMs = toDateMs(league.seasonStartDate);
-			const seasonEndMs = toDateMs(league.seasonEndDate);
+			addLeagueDateValidationIssues(league, ['leagues', index], ctx);
+		});
+	});
 
-			if (regStartMs === null) {
+export const createIntramuralLeagueSchema = z
+	.object({
+		offeringId: requiredText('Offering', 120),
+		leagues: z.array(leagueInputSchema).min(1, 'Add at least one entry.')
+	})
+	.superRefine((payload, ctx) => {
+		const seenLeagueSlugs = new Map<string, number>();
+		const seenLeagueStackOrders = new Map<number, number>();
+		payload.leagues.forEach((league, index) => {
+			const previousIndex = seenLeagueSlugs.get(league.slug);
+			if (previousIndex !== undefined) {
 				ctx.addIssue({
 					code: z.ZodIssueCode.custom,
-					path: ['leagues', index, 'regStartDate'],
-					message: 'Registration start date is invalid.'
+					path: ['leagues', index, 'slug'],
+					message: 'League slug must be unique within this request.'
 				});
+				return;
 			}
+			seenLeagueSlugs.set(league.slug, index);
 
-			if (regEndMs === null) {
+			const previousStackOrderIndex = seenLeagueStackOrders.get(league.stackOrder);
+			if (previousStackOrderIndex !== undefined) {
 				ctx.addIssue({
 					code: z.ZodIssueCode.custom,
-					path: ['leagues', index, 'regEndDate'],
-					message: 'Registration end date is invalid.'
+					path: ['leagues', index, 'stackOrder'],
+					message: 'League order must be unique within this request.'
 				});
+				return;
 			}
+			seenLeagueStackOrders.set(league.stackOrder, index);
+		});
 
-			if (seasonStartMs === null) {
-				ctx.addIssue({
-					code: z.ZodIssueCode.custom,
-					path: ['leagues', index, 'seasonStartDate'],
-					message: 'Season start date is invalid.'
-				});
-			}
-
-			if (seasonEndMs === null) {
-				ctx.addIssue({
-					code: z.ZodIssueCode.custom,
-					path: ['leagues', index, 'seasonEndDate'],
-					message: 'Season end date is invalid.'
-				});
-			}
-
-			if (regStartMs !== null && regEndMs !== null && regStartMs > regEndMs) {
-				ctx.addIssue({
-					code: z.ZodIssueCode.custom,
-					path: ['leagues', index, 'regEndDate'],
-					message: 'Registration end date must be on or after registration start date.'
-				});
-			}
-
-			if (regEndDateOnlyMs !== null && seasonStartMs !== null && regEndDateOnlyMs > seasonStartMs) {
-				ctx.addIssue({
-					code: z.ZodIssueCode.custom,
-					path: ['leagues', index, 'seasonStartDate'],
-					message: 'Season start date must be on or after registration end date.'
-				});
-			}
-
-			if (seasonStartMs !== null && seasonEndMs !== null && seasonStartMs > seasonEndMs) {
-				ctx.addIssue({
-					code: z.ZodIssueCode.custom,
-					path: ['leagues', index, 'seasonEndDate'],
-					message: 'Season end date must be on or after season start date.'
-				});
-			}
-
-			const preseasonStartMs = toDateMs(league.preseasonStartDate);
-			const preseasonEndMs = toDateMs(league.preseasonEndDate);
-			if (league.hasPreseason) {
-				if (!league.preseasonStartDate) {
-					ctx.addIssue({
-						code: z.ZodIssueCode.custom,
-						path: ['leagues', index, 'preseasonStartDate'],
-						message: 'Preseason start date is required when preseason is enabled.'
-					});
-				}
-				if (!league.preseasonEndDate) {
-					ctx.addIssue({
-						code: z.ZodIssueCode.custom,
-						path: ['leagues', index, 'preseasonEndDate'],
-						message: 'Preseason end date is required when preseason is enabled.'
-					});
-				}
-				if (
-					preseasonStartMs !== null &&
-					preseasonEndMs !== null &&
-					preseasonStartMs > preseasonEndMs
-				) {
-					ctx.addIssue({
-						code: z.ZodIssueCode.custom,
-						path: ['leagues', index, 'preseasonEndDate'],
-						message: 'Preseason end date must be on or after preseason start date.'
-					});
-				}
-				if (preseasonEndMs !== null && seasonStartMs !== null && preseasonEndMs > seasonStartMs) {
-					ctx.addIssue({
-						code: z.ZodIssueCode.custom,
-						path: ['leagues', index, 'preseasonEndDate'],
-						message: 'Preseason must end on or before season start date.'
-					});
-				}
-			}
-
-			const postseasonStartMs = toDateMs(league.postseasonStartDate);
-			const postseasonEndMs = toDateMs(league.postseasonEndDate);
-			if (league.hasPostseason) {
-				if (!league.postseasonStartDate) {
-					ctx.addIssue({
-						code: z.ZodIssueCode.custom,
-						path: ['leagues', index, 'postseasonStartDate'],
-						message: 'Postseason start date is required when postseason is enabled.'
-					});
-				}
-				if (!league.postseasonEndDate) {
-					ctx.addIssue({
-						code: z.ZodIssueCode.custom,
-						path: ['leagues', index, 'postseasonEndDate'],
-						message: 'Postseason end date is required when postseason is enabled.'
-					});
-				}
-				if (
-					postseasonStartMs !== null &&
-					postseasonEndMs !== null &&
-					postseasonStartMs > postseasonEndMs
-				) {
-					ctx.addIssue({
-						code: z.ZodIssueCode.custom,
-						path: ['leagues', index, 'postseasonEndDate'],
-						message: 'Postseason end date must be on or after postseason start date.'
-					});
-				}
-				if (seasonEndMs !== null && postseasonStartMs !== null && postseasonStartMs < seasonEndMs) {
-					ctx.addIssue({
-						code: z.ZodIssueCode.custom,
-						path: ['leagues', index, 'postseasonStartDate'],
-						message: 'Postseason must start on or after season end date.'
-					});
-				}
-			}
+		payload.leagues.forEach((league, index) => {
+			addLeagueDateValidationIssues(league, ['leagues', index], ctx);
 		});
 	});
 
 export type CreateIntramuralOfferingWithLeagueInput = z.infer<
 	typeof createIntramuralOfferingWithLeagueSchema
 >;
+
+export type CreateIntramuralLeagueInput = z.infer<typeof createIntramuralLeagueSchema>;
 
 export type CreatedIntramuralActivity = {
 	id: string;
@@ -367,3 +406,5 @@ export type CreateIntramuralOfferingWithLeagueResponse = {
 	error?: string;
 	fieldErrors?: Record<string, string[] | undefined>;
 };
+
+export type CreateIntramuralLeagueResponse = CreateIntramuralOfferingWithLeagueResponse;

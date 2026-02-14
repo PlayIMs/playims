@@ -27,6 +27,8 @@
 	import IconX from '@tabler/icons-svelte/icons/x';
 
 	type Activity = PageData['activities'][number];
+	type LeagueOfferingOption = PageData['leagueOfferingOptions'][number];
+	type LeagueTemplate = PageData['leagueTemplates'][number];
 	type OfferingStatus = 'open' | 'waitlisted' | 'closed';
 
 	interface LeagueOffering {
@@ -87,6 +89,7 @@
 	type RegistrationWindowState = 'upcoming' | 'open' | 'closed';
 	type OfferingView = 'leagues' | 'tournaments' | 'all';
 	type WizardStep = 1 | 2 | 3 | 4 | 5;
+	type LeagueWizardStep = 1 | 2 | 3 | 4;
 	type LeagueChoice = 'yes' | 'no';
 	type LeagueGender = '' | 'male' | 'female' | 'mixed';
 	type LeagueSkillLevel = '' | 'competitive' | 'intermediate' | 'recreational' | 'all';
@@ -136,6 +139,12 @@
 		leagues: WizardLeagueInput[];
 	}
 
+	interface LeagueWizardFormState {
+		offeringId: string;
+		league: WizardLeagueInput;
+		leagues: WizardLeagueInput[];
+	}
+
 	interface CreateOfferingApiResponse {
 		success: boolean;
 		data?: {
@@ -166,16 +175,18 @@
 		4: 'League Schedule',
 		5: 'Review & Create'
 	};
-
 	let { data } = $props<{ data: PageData }>();
 
 	let activities = $state<Activity[]>([]);
+	let leagueTemplates = $state<LeagueTemplate[]>([]);
 	let searchQuery = $state('');
 	let showConcludedSeasons = $state(false);
 	let offeringView = $state<OfferingView>('all');
 	let offeringViewHydrated = $state(false);
 	let highlightedLeagueRowId = $state<string | null>(null);
 	let highlightTimeout: ReturnType<typeof setTimeout> | null = null;
+	let addActionMenuOpen = $state(false);
+	let addActionMenuContainer = $state<HTMLDivElement | null>(null);
 	let isCreateModalOpen = $state(false);
 	let createStep = $state<WizardStep>(1);
 	let createSubmitting = $state(false);
@@ -187,10 +198,22 @@
 	let leagueDraftActive = $state(false);
 	let createModalPointerDownStartedInside = $state(false);
 	let serverFieldErrors = $state<Record<string, string>>({});
+	let isCreateLeagueModalOpen = $state(false);
+	let createLeagueStep = $state<LeagueWizardStep>(1);
+	let createLeagueSubmitting = $state(false);
+	let createLeagueFormError = $state('');
+	let createLeagueOfferingFilter = $state<'league' | 'tournament' | 'all'>('all');
+	let createLeagueEditingIndex = $state<number | null>(null);
+	let createLeagueDraftActive = $state(false);
+	let createLeagueSlugTouched = $state(false);
+	let createLeagueCopiedFromExisting = $state(false);
+	let createLeagueModalPointerDownStartedInside = $state(false);
+	let createLeagueServerFieldErrors = $state<Record<string, string>>({});
+	let createLeagueForm = $state<LeagueWizardFormState>(createEmptyCreateLeagueForm());
 
 	$effect(() => {
 		if (typeof document === 'undefined') return;
-		if (!isCreateModalOpen) return;
+		if (!isCreateModalOpen && !isCreateLeagueModalOpen) return;
 
 		const previousOverflow = document.body.style.overflow;
 		document.body.style.overflow = 'hidden';
@@ -271,6 +294,14 @@
 		};
 	}
 
+	function createEmptyCreateLeagueForm(): LeagueWizardFormState {
+		return {
+			offeringId: '',
+			league: createEmptyLeague(),
+			leagues: []
+		};
+	}
+
 	let createForm = $state<WizardFormState>(createEmptyCreateForm());
 
 	function isTournamentWizard(): boolean {
@@ -297,6 +328,54 @@
 		if (step === 3) return isTournamentWizard() ? 'Tournament Groups' : 'League Options';
 		if (step === 4) return isTournamentWizard() ? 'Tournament Schedule' : 'League Schedule';
 		return WIZARD_STEP_TITLES[step];
+	}
+
+	function addEntryActionLabel(): 'Add League' | 'Add Group' | 'Add League/Group' {
+		if (offeringView === 'tournaments') return 'Add Group';
+		if (offeringView === 'all') return 'Add League/Group';
+		return 'Add League';
+	}
+
+	function wizardEntryType(): 'league' | 'tournament' | null {
+		const selectedOffering = getLeagueOfferingById(createLeagueForm.offeringId);
+		if (selectedOffering) return selectedOffering.type;
+		if (createLeagueOfferingFilter === 'all') return null;
+		return createLeagueOfferingFilter;
+	}
+
+	function wizardEntryUnitSingular(): 'league' | 'group' | 'league/group' {
+		const type = wizardEntryType();
+		if (type === 'tournament') return 'group';
+		if (type === 'league') return 'league';
+		return 'league/group';
+	}
+
+	function wizardEntryUnitPlural(): 'leagues' | 'groups' | 'leagues/groups' {
+		const type = wizardEntryType();
+		if (type === 'tournament') return 'groups';
+		if (type === 'league') return 'leagues';
+		return 'leagues/groups';
+	}
+
+	function wizardEntryUnitTitleSingular(): 'League' | 'Group' | 'League/Group' {
+		const type = wizardEntryType();
+		if (type === 'tournament') return 'Group';
+		if (type === 'league') return 'League';
+		return 'League/Group';
+	}
+
+	function wizardEntryUnitTitlePlural(): 'Leagues' | 'Groups' | 'Leagues/Groups' {
+		const type = wizardEntryType();
+		if (type === 'tournament') return 'Groups';
+		if (type === 'league') return 'Leagues';
+		return 'Leagues/Groups';
+	}
+
+	function wizardEntryStepTitle(step: LeagueWizardStep): string {
+		if (step === 1) return 'Choose Offering';
+		if (step === 2) return `${wizardEntryUnitTitleSingular()} Basics`;
+		if (step === 3) return `${wizardEntryUnitTitleSingular()} Schedule`;
+		return 'Review & Create';
 	}
 
 	function getLeagueRowId(offeringSlug: string, leagueId: string): string {
@@ -353,6 +432,10 @@
 		activities = [...(data.activities ?? [])];
 	});
 
+	$effect(() => {
+		leagueTemplates = [...(data.leagueTemplates ?? [])];
+	});
+
 	function isOfferingView(value: string | null): value is OfferingView {
 		return value === 'leagues' || value === 'tournaments' || value === 'all';
 	}
@@ -377,6 +460,37 @@
 		}
 	}
 
+	function closeAddActionMenu(): void {
+		addActionMenuOpen = false;
+	}
+
+	function toggleAddActionMenu(): void {
+		addActionMenuOpen = !addActionMenuOpen;
+	}
+
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		if (!addActionMenuOpen) return;
+
+		const handlePointerDown = (event: PointerEvent) => {
+			const target = event.target as Node | null;
+			if (!target) return;
+			if (addActionMenuContainer?.contains(target)) return;
+			closeAddActionMenu();
+		};
+
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (event.key === 'Escape') closeAddActionMenu();
+		};
+
+		window.addEventListener('pointerdown', handlePointerDown);
+		window.addEventListener('keydown', handleKeyDown);
+		return () => {
+			window.removeEventListener('pointerdown', handlePointerDown);
+			window.removeEventListener('keydown', handleKeyDown);
+		};
+	});
+
 	function resetCreateWizard(): void {
 		createStep = 1;
 		createSubmitting = false;
@@ -389,15 +503,42 @@
 		createForm = createEmptyCreateForm();
 	}
 
+	function resetCreateLeagueWizard(): void {
+		createLeagueStep = 1;
+		createLeagueSubmitting = false;
+		createLeagueFormError = '';
+		createLeagueEditingIndex = null;
+		createLeagueDraftActive = false;
+		createLeagueSlugTouched = false;
+		createLeagueCopiedFromExisting = false;
+		createLeagueServerFieldErrors = {};
+		createLeagueForm = createEmptyCreateLeagueForm();
+	}
+
 	function openCreateWizard(): void {
+		closeAddActionMenu();
 		resetCreateWizard();
 		isCreateModalOpen = true;
+	}
+
+	function openCreateLeagueWizard(): void {
+		closeAddActionMenu();
+		resetCreateLeagueWizard();
+		createLeagueOfferingFilter =
+			offeringView === 'tournaments' ? 'tournament' : offeringView === 'leagues' ? 'league' : 'all';
+		isCreateLeagueModalOpen = true;
 	}
 
 	function closeCreateWizard(): void {
 		isCreateModalOpen = false;
 		createModalPointerDownStartedInside = false;
 		resetCreateWizard();
+	}
+
+	function closeCreateLeagueWizard(): void {
+		isCreateLeagueModalOpen = false;
+		createLeagueModalPointerDownStartedInside = false;
+		resetCreateLeagueWizard();
 	}
 
 	function hasOfferingDraftData(values: WizardOfferingInput): boolean {
@@ -448,6 +589,15 @@
 		);
 	}
 
+	function hasUnsavedCreateLeagueWizardChanges(): boolean {
+		return (
+			createLeagueForm.offeringId.trim().length > 0 ||
+			createLeagueDraftActive ||
+			(createLeagueDraftActive && hasLeagueDraftData(createLeagueForm.league)) ||
+			createLeagueForm.leagues.length > 0
+		);
+	}
+
 	function requestCloseCreateWizard(): void {
 		if (!isCreateModalOpen) return;
 		if (createSubmitting) return;
@@ -466,6 +616,24 @@
 		closeCreateWizard();
 	}
 
+	function requestCloseCreateLeagueWizard(): void {
+		if (!isCreateLeagueModalOpen) return;
+		if (createLeagueSubmitting) return;
+		if (!hasUnsavedCreateLeagueWizardChanges()) {
+			closeCreateLeagueWizard();
+			return;
+		}
+
+		if (typeof window !== 'undefined') {
+			const confirmed = window.confirm(
+				'You have unsaved changes in this wizard. Close without saving?'
+			);
+			if (!confirmed) return;
+		}
+
+		closeCreateLeagueWizard();
+	}
+
 	function handleCreateModalPointerDown(event: PointerEvent): void {
 		createModalPointerDownStartedInside = event.target !== event.currentTarget;
 	}
@@ -479,6 +647,19 @@
 		requestCloseCreateWizard();
 	}
 
+	function handleCreateLeagueModalPointerDown(event: PointerEvent): void {
+		createLeagueModalPointerDownStartedInside = event.target !== event.currentTarget;
+	}
+
+	function handleCreateLeagueModalBackdropClick(event: MouseEvent): void {
+		if (event.target !== event.currentTarget) return;
+		if (createLeagueModalPointerDownStartedInside) {
+			createLeagueModalPointerDownStartedInside = false;
+			return;
+		}
+		requestCloseCreateLeagueWizard();
+	}
+
 	function clearCreateApiErrors(): void {
 		if (Object.keys(serverFieldErrors).length > 0) {
 			serverFieldErrors = {};
@@ -488,9 +669,21 @@
 		}
 	}
 
+	function clearCreateLeagueApiErrors(): void {
+		if (Object.keys(createLeagueServerFieldErrors).length > 0) {
+			createLeagueServerFieldErrors = {};
+		}
+		if (createLeagueFormError) {
+			createLeagueFormError = '';
+		}
+	}
+
 	$effect(() => {
 		if (typeof window === 'undefined') return;
-		if (!isCreateModalOpen || !hasUnsavedCreateWizardChanges()) return;
+		const hasUnsavedCreateOfferingChanges = isCreateModalOpen && hasUnsavedCreateWizardChanges();
+		const hasUnsavedCreateLeagueChanges =
+			isCreateLeagueModalOpen && hasUnsavedCreateLeagueWizardChanges();
+		if (!hasUnsavedCreateOfferingChanges && !hasUnsavedCreateLeagueChanges) return;
 
 		const handleBeforeUnload = (event: BeforeUnloadEvent) => {
 			event.preventDefault();
@@ -1121,7 +1314,6 @@
 			}
 
 			activities = [...body.data.activities, ...activities];
-			offeringView = 'all';
 			searchQuery = '';
 			const createdLeagueCount = body.data.leagueIds.length;
 			createSuccessMessage =
@@ -1133,6 +1325,519 @@
 			createFormError = 'Unable to save offering right now.';
 		} finally {
 			createSubmitting = false;
+		}
+	}
+
+	function getLeagueOfferingById(offeringId: string): LeagueOfferingOption | null {
+		const selectedOffering = data.leagueOfferingOptions.find(
+			(offering: LeagueOfferingOption) => offering.id === offeringId
+		);
+		return selectedOffering ?? null;
+	}
+
+	function createLeagueStepTitle(step: LeagueWizardStep): string {
+		return wizardEntryStepTitle(step);
+	}
+
+	function normalizeLeagueGender(value: string | null): LeagueGender {
+		if (value === 'male' || value === 'female' || value === 'mixed') return value;
+		return '';
+	}
+
+	function normalizeLeagueSkillLevel(value: string | null): LeagueSkillLevel {
+		if (
+			value === 'competitive' ||
+			value === 'intermediate' ||
+			value === 'recreational' ||
+			value === 'all'
+		) {
+			return value;
+		}
+		return '';
+	}
+
+	function buildDraftFromTemplate(template: LeagueTemplate): WizardLeagueInput {
+		const baseName = template.name.trim() || (template.offeringId ? 'League' : 'Group');
+		const sourceSlug = slugifyFinal(template.slug || template.name || 'entry');
+		let nextName = `${baseName} Copy`;
+		let nextSlug = `${sourceSlug}-copy`;
+		let suffix = 1;
+		const existingNames = new Set([
+			...leagueTemplates.map((league: LeagueTemplate) => league.name.trim().toLowerCase()),
+			...createLeagueForm.leagues.map((league) => league.name.trim().toLowerCase())
+		]);
+		const existingSlugs = new Set([
+			...leagueTemplates.map((league: LeagueTemplate) => slugifyFinal(league.slug || '')),
+			...createLeagueForm.leagues.map((league) => slugifyFinal(league.slug))
+		]);
+		while (existingNames.has(nextName.toLowerCase()) || existingSlugs.has(nextSlug)) {
+			suffix += 1;
+			nextName = `${baseName} Copy ${suffix}`;
+			nextSlug = `${sourceSlug}-copy-${suffix}`;
+		}
+
+		return {
+			draftId: createLeagueDraftId(),
+			name: nextName,
+			slug: nextSlug,
+			stackOrder: createLeagueForm.leagues.length + 1,
+			isSlugManual: false,
+			description: template.description ?? '',
+			season: template.season ?? '',
+			gender: normalizeLeagueGender(template.gender),
+			skillLevel: normalizeLeagueSkillLevel(template.skillLevel),
+			regStartDate: template.regStartDate ?? defaultDateTimeValue('start'),
+			regEndDate: template.regEndDate ?? defaultDateTimeValue('end'),
+			seasonStartDate: template.seasonStartDate ?? '',
+			seasonEndDate: template.seasonEndDate ?? '',
+			hasPostseason: template.hasPostseason,
+			postseasonStartDate: template.postseasonStartDate ?? '',
+			postseasonEndDate: template.postseasonEndDate ?? '',
+			hasPreseason: template.hasPreseason,
+			preseasonStartDate: template.preseasonStartDate ?? '',
+			preseasonEndDate: template.preseasonEndDate ?? '',
+			isActive: template.isActive,
+			isLocked: template.isLocked,
+			imageUrl: template.imageUrl ?? ''
+		};
+	}
+
+	function mapDraftLeagueToTemplate(
+		leagueId: string,
+		offeringId: string,
+		league: WizardLeagueInput,
+		stackOrder: number | null
+	): LeagueTemplate {
+		return {
+			id: leagueId,
+			offeringId,
+			name: league.name.trim() || 'Untitled League',
+			slug: slugifyFinal(league.slug),
+			description: normalizeOptionalTextForRequest(league.description),
+			season: league.season.trim() || null,
+			gender: league.gender || null,
+			skillLevel: league.skillLevel || null,
+			regStartDate: normalizeDateForRequest(league.regStartDate) || null,
+			regEndDate: normalizeDateForRequest(league.regEndDate) || null,
+			seasonStartDate: normalizeDateForRequest(league.seasonStartDate) || null,
+			seasonEndDate: normalizeDateForRequest(league.seasonEndDate) || null,
+			hasPostseason: league.hasPostseason,
+			postseasonStartDate: league.hasPostseason
+				? normalizeDateForRequest(league.postseasonStartDate) || null
+				: null,
+			postseasonEndDate: league.hasPostseason
+				? normalizeDateForRequest(league.postseasonEndDate) || null
+				: null,
+			hasPreseason: league.hasPreseason,
+			preseasonStartDate: league.hasPreseason
+				? normalizeDateForRequest(league.preseasonStartDate) || null
+				: null,
+			preseasonEndDate: league.hasPreseason
+				? normalizeDateForRequest(league.preseasonEndDate) || null
+				: null,
+			isActive: league.isActive,
+			isLocked: league.isLocked,
+			imageUrl: normalizeOptionalUrlForRequest(league.imageUrl),
+			stackOrder
+		};
+	}
+
+	function addOrUpdateCreateLeagueDraft(): boolean {
+		const draftErrors = {
+			...getCreateLeagueStepClientErrors(createLeagueForm, 2),
+			...getCreateLeagueStepClientErrors(createLeagueForm, 3)
+		};
+		if (Object.keys(draftErrors).length > 0) {
+			createLeagueStep = firstInvalidCreateLeagueStep(draftErrors);
+			return false;
+		}
+
+		const normalizedLeague: WizardLeagueInput = {
+			...createLeagueForm.league,
+			name: createLeagueForm.league.name.trim(),
+			slug: slugifyFinal(createLeagueForm.league.slug),
+			stackOrder:
+				createLeagueEditingIndex === null
+					? createLeagueForm.leagues.length + 1
+					: (createLeagueForm.leagues[createLeagueEditingIndex]?.stackOrder ??
+						createLeagueForm.league.stackOrder),
+			isSlugManual: createLeagueSlugTouched,
+			description: createLeagueForm.league.description.trim(),
+			season: createLeagueForm.league.season.trim(),
+			regStartDate: createLeagueForm.league.regStartDate.trim(),
+			regEndDate: createLeagueForm.league.regEndDate.trim(),
+			seasonStartDate: createLeagueForm.league.seasonStartDate.trim(),
+			seasonEndDate: createLeagueForm.league.seasonEndDate.trim(),
+			preseasonStartDate: createLeagueForm.league.preseasonStartDate.trim(),
+			preseasonEndDate: createLeagueForm.league.preseasonEndDate.trim(),
+			postseasonStartDate: createLeagueForm.league.postseasonStartDate.trim(),
+			postseasonEndDate: createLeagueForm.league.postseasonEndDate.trim(),
+			imageUrl: createLeagueForm.league.imageUrl.trim()
+		};
+
+		if (createLeagueEditingIndex === null) {
+			createLeagueForm.leagues = normalizeLeagueStackOrder([
+				...createLeagueForm.leagues,
+				normalizedLeague
+			]);
+		} else {
+			createLeagueForm.leagues = normalizeLeagueStackOrder(
+				createLeagueForm.leagues.map((league, index) =>
+					index === createLeagueEditingIndex ? normalizedLeague : league
+				)
+			);
+		}
+
+		createLeagueForm.league = createEmptyLeague();
+		createLeagueEditingIndex = null;
+		createLeagueSlugTouched = false;
+		createLeagueDraftActive = false;
+		return true;
+	}
+
+	function startAddingCreateLeagueDraft(): void {
+		clearCreateLeagueApiErrors();
+		createLeagueEditingIndex = null;
+		createLeagueSlugTouched = false;
+		createLeagueForm.league = {
+			...createEmptyLeague(),
+			stackOrder: createLeagueForm.leagues.length + 1
+		};
+		createLeagueDraftActive = true;
+		createLeagueStep = 2;
+	}
+
+	function cancelCreateLeagueDraft(): void {
+		createLeagueEditingIndex = null;
+		createLeagueSlugTouched = false;
+		createLeagueDraftActive = false;
+		createLeagueForm.league = createEmptyLeague();
+	}
+
+	function startEditingCreateLeague(index: number): void {
+		if (!createLeagueForm.leagues[index]) return;
+		clearCreateLeagueApiErrors();
+		createLeagueEditingIndex = index;
+		const sourceLeague = createLeagueForm.leagues[index];
+		const inferredManualSlug =
+			typeof sourceLeague.isSlugManual === 'boolean'
+				? sourceLeague.isSlugManual
+				: slugifyFinal(sourceLeague.slug) !==
+					defaultLeagueSlug(sourceLeague.name, getLeagueOfferingById(createLeagueForm.offeringId)?.name || '');
+		createLeagueSlugTouched = inferredManualSlug;
+		createLeagueForm.league = {
+			...sourceLeague,
+			isSlugManual: inferredManualSlug
+		};
+		createLeagueDraftActive = true;
+		createLeagueStep = 2;
+	}
+
+	function duplicateCreateLeague(index: number): void {
+		if (!createLeagueForm.leagues[index]) return;
+		const source = createLeagueForm.leagues[index];
+		const baseName = source.name.trim() || wizardEntryUnitTitleSingular();
+		const baseSlug = slugifyFinal(source.slug || source.name || 'entry');
+		let copyNumber = 1;
+		let nextName = `${baseName} Copy`;
+		let nextSlug = `${baseSlug}-copy`;
+		const existingNames = new Set(
+			createLeagueForm.leagues.map((league) => league.name.trim().toLowerCase())
+		);
+		const existingSlugs = new Set(createLeagueForm.leagues.map((league) => slugifyFinal(league.slug)));
+		while (existingNames.has(nextName.toLowerCase()) || existingSlugs.has(nextSlug)) {
+			copyNumber += 1;
+			nextName = `${baseName} Copy ${copyNumber}`;
+			nextSlug = `${baseSlug}-copy-${copyNumber}`;
+		}
+
+		const duplicate: WizardLeagueInput = {
+			...source,
+			draftId: createLeagueDraftId(),
+			name: nextName,
+			slug: nextSlug,
+			isSlugManual: false
+		};
+		const nextLeagues = [...createLeagueForm.leagues];
+		nextLeagues.splice(index + 1, 0, duplicate);
+		createLeagueForm.leagues = normalizeLeagueStackOrder(nextLeagues);
+		if (createLeagueEditingIndex !== null && createLeagueEditingIndex > index) {
+			createLeagueEditingIndex += 1;
+		}
+	}
+
+	function moveCreateLeague(index: number, direction: 'up' | 'down'): void {
+		const targetIndex = direction === 'up' ? index - 1 : index + 1;
+		if (
+			index < 0 ||
+			targetIndex < 0 ||
+			index >= createLeagueForm.leagues.length ||
+			targetIndex >= createLeagueForm.leagues.length
+		) {
+			return;
+		}
+
+		const reordered = [...createLeagueForm.leagues];
+		const current = reordered[index];
+		const target = reordered[targetIndex];
+		if (!current || !target) return;
+
+		reordered[index] = target;
+		reordered[targetIndex] = current;
+		createLeagueForm.leagues = normalizeLeagueStackOrder(reordered);
+
+		if (createLeagueEditingIndex !== null) {
+			if (createLeagueEditingIndex === index) {
+				createLeagueEditingIndex = targetIndex;
+			} else if (createLeagueEditingIndex === targetIndex) {
+				createLeagueEditingIndex = index;
+			}
+		}
+	}
+
+	function removeCreateLeague(index: number): void {
+		if (!createLeagueForm.leagues[index]) return;
+		createLeagueForm.leagues = normalizeLeagueStackOrder(
+			createLeagueForm.leagues.filter((_, leagueIndex) => leagueIndex !== index)
+		);
+		if (createLeagueForm.leagues.length === 0) {
+			createLeagueCopiedFromExisting = false;
+		}
+		if (createLeagueEditingIndex !== null) {
+			if (createLeagueEditingIndex === index) {
+				cancelCreateLeagueDraft();
+				return;
+			}
+			if (createLeagueEditingIndex > index) {
+				createLeagueEditingIndex -= 1;
+			}
+		}
+	}
+
+	function copyFromExistingLeagueTemplate(template: LeagueTemplate): void {
+		clearCreateLeagueApiErrors();
+		createLeagueEditingIndex = null;
+		createLeagueForm.league = buildDraftFromTemplate(template);
+		createLeagueSlugTouched = false;
+		createLeagueCopiedFromExisting = true;
+		createLeagueDraftActive = true;
+		createLeagueStep = 2;
+	}
+
+	function getCreateLeagueStepClientErrors(
+		values: LeagueWizardFormState,
+		step: LeagueWizardStep
+	): Record<string, string> {
+		if (step === 1) {
+			return values.offeringId.trim()
+				? {}
+				: {
+						offeringId: 'Select an offering.'
+					};
+		}
+
+		if (step === 2) {
+			if (!createLeagueDraftActive) return {};
+			return pickFieldErrors(getLeagueFieldErrors(values.league), [
+				'league.name',
+				'league.slug',
+				'league.description',
+				'league.season',
+				'league.gender',
+				'league.skillLevel'
+			]);
+		}
+
+		if (step === 3) {
+			if (!createLeagueDraftActive) return {};
+			return pickFieldErrors(getLeagueFieldErrors(values.league), [
+				'league.regStartDate',
+				'league.regEndDate',
+				'league.seasonStartDate',
+				'league.seasonEndDate',
+				'league.preseasonStartDate',
+				'league.preseasonEndDate',
+				'league.postseasonStartDate',
+				'league.postseasonEndDate',
+				'league.imageUrl',
+				'league.scheduleRange'
+			]);
+		}
+
+		return getCreateLeagueSubmitErrors(values);
+	}
+
+	function getCreateLeagueSubmitErrors(values: LeagueWizardFormState): Record<string, string> {
+		const errors: Record<string, string> = {};
+		if (!values.offeringId.trim()) {
+			errors['offeringId'] = 'Select an offering.';
+		}
+		if (values.leagues.length === 0) {
+			errors['leagues'] = `Add at least one ${wizardEntryUnitSingular()}.`;
+		} else {
+			values.leagues.forEach((league, index) => {
+				Object.assign(errors, getLeagueFieldErrors(league, `leagues.${index}`));
+			});
+		}
+		return errors;
+	}
+
+	function firstInvalidCreateLeagueStep(errors: Record<string, string>): LeagueWizardStep {
+		const keys = Object.keys(errors);
+		if (keys.includes('offeringId')) return 1;
+		if (
+			keys.some((key) =>
+				[
+					'league.name',
+					'league.slug',
+					'league.description',
+					'league.season',
+					'league.gender',
+					'league.skillLevel'
+				].includes(key)
+			)
+		) {
+			return 2;
+		}
+		if (keys.some((key) => key.startsWith('league.'))) return 3;
+		if (keys.some((key) => key === 'leagues' || key.startsWith('leagues.'))) return 4;
+		return 4;
+	}
+
+	function nextCreateLeagueStep(): void {
+		clearCreateLeagueApiErrors();
+		if (createLeagueStep === 4 || !canGoNextCreateLeagueStep) return;
+
+		if (createLeagueStep === 2) {
+			createLeagueStep = createLeagueDraftActive ? 3 : 4;
+			return;
+		}
+
+		if (createLeagueStep === 3) {
+			if (!createLeagueDraftActive) {
+				createLeagueStep = 2;
+				return;
+			}
+			if (!addOrUpdateCreateLeagueDraft()) return;
+			createLeagueStep = 2;
+			return;
+		}
+
+		createLeagueStep = (createLeagueStep + 1) as LeagueWizardStep;
+	}
+
+	function previousCreateLeagueStep(): void {
+		clearCreateLeagueApiErrors();
+		if (createLeagueStep === 1) return;
+		if (createLeagueStep === 4) {
+			createLeagueStep = createLeagueDraftActive ? 3 : 2;
+			return;
+		}
+		createLeagueStep = (createLeagueStep - 1) as LeagueWizardStep;
+	}
+
+	function handleCreateLeagueBackAction(): void {
+		if (createLeagueDraftActive && (createLeagueStep === 2 || createLeagueStep === 3)) {
+			cancelCreateLeagueDraft();
+			createLeagueStep = 2;
+			return;
+		}
+		previousCreateLeagueStep();
+	}
+
+	function startEditingCreateLeagueOffering(): void {
+		clearCreateLeagueApiErrors();
+		createLeagueStep = 1;
+	}
+
+	function startEditingCreateLeagues(): void {
+		clearCreateLeagueApiErrors();
+		createLeagueStep = 2;
+	}
+
+	async function submitCreateLeagueWizard(): Promise<void> {
+		const clientErrors = getCreateLeagueSubmitErrors(createLeagueForm);
+		if (Object.keys(clientErrors).length > 0) {
+			createLeagueStep = firstInvalidCreateLeagueStep(clientErrors);
+			return;
+		}
+
+		createLeagueSubmitting = true;
+		createLeagueFormError = '';
+		createLeagueServerFieldErrors = {};
+		createSuccessMessage = '';
+		const submittedOfferingId = createLeagueForm.offeringId;
+		const submittedLeagues = createLeagueForm.leagues.map((league) => ({ ...league }));
+
+		const payload = {
+			offeringId: submittedOfferingId,
+			leagues: submittedLeagues.map(mapLeagueForRequest)
+		};
+
+		try {
+			const response = await fetch('/api/intramural-sports/leagues', {
+				method: 'POST',
+				headers: {
+					'content-type': 'application/json'
+				},
+				body: JSON.stringify(payload)
+			});
+
+			let body: CreateOfferingApiResponse | null = null;
+			try {
+				body = (await response.json()) as CreateOfferingApiResponse;
+			} catch {
+				body = null;
+			}
+
+			if (!response.ok || !body?.success || !body?.data) {
+				createLeagueServerFieldErrors = toServerFieldErrorMap(body?.fieldErrors);
+				const combinedErrors = {
+					...getCreateLeagueSubmitErrors(createLeagueForm),
+					...createLeagueServerFieldErrors
+				};
+				createLeagueStep = firstInvalidCreateLeagueStep(combinedErrors);
+				createLeagueFormError = body?.error || 'Unable to save league right now.';
+				return;
+			}
+
+			activities = [...body.data.activities, ...activities];
+			const stackOrderByLeagueId = new Map(
+				body.data.activities
+					.filter((activity) => activity.leagueId)
+					.map((activity) => [activity.leagueId as string, activity.stackOrder ?? null])
+			);
+			const createdTemplates = body.data.leagueIds
+				.map((leagueId, index) => {
+					const sourceLeague = submittedLeagues[index];
+					if (!sourceLeague) return null;
+					return mapDraftLeagueToTemplate(
+						leagueId,
+						submittedOfferingId,
+						sourceLeague,
+						stackOrderByLeagueId.get(leagueId) ?? sourceLeague.stackOrder ?? null
+					);
+				})
+				.filter((league): league is LeagueTemplate => Boolean(league));
+			if (createdTemplates.length > 0) {
+				const merged = new Map(leagueTemplates.map((league) => [league.id, league] as const));
+				for (const league of createdTemplates) {
+					merged.set(league.id, league);
+				}
+				leagueTemplates = Array.from(merged.values());
+			}
+			searchQuery = '';
+			const createdCount = body.data.leagueIds.length;
+			createSuccessMessage = `${createdCount} ${pluralize(
+				createdCount,
+				wizardEntryUnitSingular(),
+				wizardEntryUnitPlural()
+			)} created successfully.`;
+			closeCreateLeagueWizard();
+		} catch {
+			createLeagueFormError = `Unable to save ${wizardEntryUnitPlural()} right now.`;
+		} finally {
+			createLeagueSubmitting = false;
 		}
 	}
 
@@ -1776,6 +2481,61 @@
 	const concludedOfferings = $derived.by(() =>
 		visibleOfferings.filter((offering) => isOfferingConcluded(offering))
 	);
+	const addEntryOptionCount = $derived.by(() => {
+		const filter =
+			offeringView === 'tournaments' ? 'tournament' : offeringView === 'leagues' ? 'league' : 'all';
+		return data.leagueOfferingOptions.filter((offering: LeagueOfferingOption) =>
+			filter === 'all' ? true : offering.type === filter
+		).length;
+	});
+	const createLeagueOfferingOptions = $derived.by(() =>
+		data.leagueOfferingOptions.filter((offering: LeagueOfferingOption) =>
+			createLeagueOfferingFilter === 'all' ? true : offering.type === createLeagueOfferingFilter
+		)
+	);
+	const selectedLeagueWizardOffering = $derived.by(() =>
+		getLeagueOfferingById(createLeagueForm.offeringId)
+	);
+	const selectedOfferingLeagueTemplates = $derived.by(() =>
+		leagueTemplates
+			.filter((league: LeagueTemplate) => league.offeringId === createLeagueForm.offeringId)
+			.sort((a: LeagueTemplate, b: LeagueTemplate) => {
+				const orderDiff = (a.stackOrder ?? Number.MAX_SAFE_INTEGER) - (b.stackOrder ?? Number.MAX_SAFE_INTEGER);
+				if (orderDiff !== 0) return orderDiff;
+				return a.name.localeCompare(b.name);
+			})
+	);
+	const clientCreateLeagueFieldErrors = $derived.by(() =>
+		getCreateLeagueStepClientErrors(createLeagueForm, createLeagueStep)
+	);
+	const rawCreateLeagueFieldErrors = $derived.by(() => ({
+		...clientCreateLeagueFieldErrors,
+		...createLeagueServerFieldErrors
+	}));
+	const createLeagueFieldErrors = $derived.by(() => {
+		const visibleErrors: Record<string, string> = {};
+		for (const [key, value] of Object.entries(rawCreateLeagueFieldErrors)) {
+			if (!isRequiredFieldMessage(value)) {
+				visibleErrors[key] = value;
+			}
+		}
+		return visibleErrors;
+	});
+	const canGoNextCreateLeagueStep = $derived.by(
+		() =>
+			createLeagueStep < 4 &&
+			Object.keys(clientCreateLeagueFieldErrors).length === 0 &&
+			!createLeagueSubmitting
+	);
+	const canSubmitCreateLeague = $derived.by(
+		() =>
+			createLeagueStep === 4 &&
+			Object.keys(getCreateLeagueSubmitErrors(createLeagueForm)).length === 0 &&
+			Object.keys(createLeagueServerFieldErrors).length === 0 &&
+			!createLeagueDraftActive &&
+			!createLeagueSubmitting
+	);
+	const createLeagueStepProgress = $derived.by(() => Math.round((createLeagueStep / 4) * 100));
 	const clientCreateFieldErrors = $derived.by(() =>
 		getCurrentStepClientErrors(createForm, createStep)
 	);
@@ -1908,13 +2668,56 @@
 					Add or enable leagues/tournaments to populate this view.
 				</p>
 				<div class="mt-4">
-					<button
-						type="button"
-						class="button-primary-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer"
-						onclick={openCreateWizard}
-					>
-						+ ADD
-					</button>
+					<div class="relative inline-flex items-stretch" bind:this={addActionMenuContainer}>
+						<button
+							type="button"
+							class="button-primary-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer"
+							onclick={openCreateWizard}
+						>
+							+ ADD
+						</button>
+						<button
+							type="button"
+							class="button-primary-outlined -ml-[2px] px-1 py-2 cursor-pointer"
+							aria-label="Open add menu"
+							aria-haspopup="menu"
+							aria-expanded={addActionMenuOpen}
+							onclick={toggleAddActionMenu}
+						>
+							<IconChevronDown class="w-4 h-4" />
+						</button>
+
+						{#if addActionMenuOpen}
+							<div
+								class="absolute right-0 top-full mt-1 w-44 border-2 border-secondary-300 bg-white z-20"
+								role="menu"
+								aria-label="Create options"
+							>
+								<button
+									type="button"
+									class="w-full text-left px-3 py-2 text-sm text-neutral-950 hover:bg-neutral-100 cursor-pointer border-b border-secondary-200"
+									role="menuitem"
+									onclick={openCreateWizard}
+								>
+									Add Offering
+								</button>
+								<button
+									type="button"
+									class="w-full text-left px-3 py-2 text-sm text-neutral-950 hover:bg-neutral-100 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+									role="menuitem"
+									onclick={openCreateLeagueWizard}
+									disabled={addEntryOptionCount === 0}
+								>
+									{addEntryActionLabel()}
+								</button>
+								{#if addEntryOptionCount === 0}
+									<p class="px-3 pb-2 text-xs text-neutral-900 text-left">
+										No matching offerings available for this view.
+									</p>
+								{/if}
+							</div>
+						{/if}
+					</div>
 				</div>
 			</div>
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-4" aria-hidden="true">
@@ -1961,13 +2764,56 @@
 								{badgeLeagueOrGroupCount}
 								{badgeLeagueOrGroupLabel}
 							</span>
-							<button
-								type="button"
-								class="button-primary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer"
-								onclick={openCreateWizard}
-							>
-								+ ADD
-							</button>
+							<div class="relative inline-flex items-stretch" bind:this={addActionMenuContainer}>
+								<button
+									type="button"
+									class="button-primary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer"
+									onclick={openCreateWizard}
+								>
+									+ ADD
+								</button>
+								<button
+									type="button"
+									class="button-primary-outlined -ml-[2px] px-1 py-1 cursor-pointer"
+									aria-label="Open add menu"
+									aria-haspopup="menu"
+									aria-expanded={addActionMenuOpen}
+									onclick={toggleAddActionMenu}
+								>
+									<IconChevronDown class="w-4 h-4" />
+								</button>
+
+								{#if addActionMenuOpen}
+									<div
+										class="absolute right-0 top-full mt-1 w-44 border-2 border-secondary-300 bg-white z-20"
+										role="menu"
+										aria-label="Create options"
+									>
+										<button
+											type="button"
+											class="w-full text-left px-3 py-2 text-sm text-neutral-950 hover:bg-neutral-100 cursor-pointer border-b border-secondary-200"
+											role="menuitem"
+											onclick={openCreateWizard}
+										>
+											Add Offering
+										</button>
+										<button
+											type="button"
+											class="w-full text-left px-3 py-2 text-sm text-neutral-950 hover:bg-neutral-100 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+											role="menuitem"
+											onclick={openCreateLeagueWizard}
+											disabled={addEntryOptionCount === 0}
+										>
+											{addEntryActionLabel()}
+										</button>
+										{#if addEntryOptionCount === 0}
+											<p class="px-3 pb-2 text-xs text-neutral-900 text-left">
+												No matching offerings available for this view.
+											</p>
+										{/if}
+									</div>
+								{/if}
+							</div>
 						</div>
 					</div>
 					<div class="relative">
@@ -2398,6 +3244,907 @@
 		</div>
 	{/if}
 </div>
+
+{#if isCreateLeagueModalOpen}
+	<div
+		class="fixed inset-0 bg-black/55 z-50 flex items-center justify-center p-4 lg:p-6 overflow-hidden"
+		onpointerdown={handleCreateLeagueModalPointerDown}
+		onclick={handleCreateLeagueModalBackdropClick}
+		onkeydown={(event) => {
+			if (event.key === 'Escape') requestCloseCreateLeagueWizard();
+		}}
+		role="button"
+		tabindex="0"
+		aria-label="Close create league modal"
+	>
+		<div
+			class="w-full max-w-4xl max-h-[calc(100vh-2rem)] lg:max-h-[calc(100vh-3rem)] border-4 border-secondary bg-neutral-400 overflow-hidden flex flex-col"
+			onclick={(event) => event.stopPropagation()}
+			role="presentation"
+		>
+			<div class="p-4 border-b border-secondary space-y-3">
+				<div class="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+					<div>
+						<h2 class="text-3xl font-bold font-serif text-neutral-950">
+							New {wizardEntryUnitTitleSingular()}
+						</h2>
+						<p class="text-sm font-sans text-neutral-950">
+							Step {createLeagueStep} of 4: {createLeagueStepTitle(createLeagueStep)}
+						</p>
+					</div>
+					<button
+						type="button"
+						class="p-1 text-neutral-950 hover:text-secondary-900 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-500"
+						aria-label="Close create league modal"
+						onclick={requestCloseCreateLeagueWizard}
+					>
+						<IconX class="w-6 h-6" />
+					</button>
+				</div>
+				<div class="border border-secondary-300 bg-white h-3">
+					<div class="h-full bg-secondary" style={`width: ${createLeagueStepProgress}%`}></div>
+				</div>
+			</div>
+
+			<form
+				class={`p-4 space-y-5 flex-1 min-h-0 ${
+					createLeagueStep === 2 && !createLeagueDraftActive ? 'overflow-hidden' : 'overflow-y-auto'
+				}`}
+				onsubmit={(event) => {
+					event.preventDefault();
+					void submitCreateLeagueWizard();
+				}}
+				oninput={clearCreateLeagueApiErrors}
+			>
+				{#if createLeagueFormError}
+					<div class="border-2 border-error-300 bg-error-50 p-3">
+						<p class="text-error-800 text-sm font-sans">{createLeagueFormError}</p>
+					</div>
+				{/if}
+
+				{#if createLeagueStep === 1}
+					<div class="space-y-4">
+						{#if createLeagueOfferingOptions.length === 0}
+							<div class="border-2 border-secondary-300 bg-white p-4 space-y-3">
+								<p class="text-sm text-neutral-950">
+									Create an offering that matches this view before adding {wizardEntryUnitPlural()}.
+								</p>
+								<button
+									type="button"
+									class="button-primary-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer w-fit"
+									onclick={() => {
+										closeCreateLeagueWizard();
+										openCreateWizard();
+									}}
+								>
+									Add Offering
+								</button>
+							</div>
+						{:else}
+							<div>
+								<label
+									for="league-wizard-offering"
+									class="block text-sm font-sans text-neutral-950 mb-1"
+								>
+									{wizardEntryUnitTitleSingular()} Offering <span class="text-error-700">*</span>
+								</label>
+								<select
+									id="league-wizard-offering"
+									class="select-secondary"
+									value={createLeagueForm.offeringId}
+									onchange={(event) => {
+										const offeringId = (event.currentTarget as HTMLSelectElement).value;
+										if (
+											offeringId !== createLeagueForm.offeringId &&
+											(createLeagueForm.leagues.length > 0 || createLeagueDraftActive)
+										) {
+											const confirmed =
+												typeof window === 'undefined'
+													? true
+													: window.confirm(
+															'Switching offerings clears your in-progress league/group list. Continue?'
+														);
+											if (!confirmed) {
+												(event.currentTarget as HTMLSelectElement).value = createLeagueForm.offeringId;
+												return;
+											}
+											createLeagueForm.leagues = [];
+											cancelCreateLeagueDraft();
+											createLeagueCopiedFromExisting = false;
+										}
+
+										createLeagueForm.offeringId = offeringId;
+										if (!createLeagueSlugTouched) {
+											const offeringName = getLeagueOfferingById(offeringId)?.name ?? '';
+											createLeagueForm.league.slug = defaultLeagueSlug(
+												createLeagueForm.league.name,
+												offeringName
+											);
+										}
+									}}
+								>
+									<option value="">Select an offering...</option>
+									{#each createLeagueOfferingOptions as offeringOption}
+										<option value={offeringOption.id}>{offeringOption.name}</option>
+									{/each}
+								</select>
+								{#if createLeagueFieldErrors['offeringId']}
+									<p class="text-xs text-error-700 mt-1">{createLeagueFieldErrors['offeringId']}</p>
+								{/if}
+							</div>
+
+							{#if selectedLeagueWizardOffering}
+								<div
+									class="border border-secondary-300 bg-white p-3 text-sm text-neutral-950 space-y-2"
+								>
+									<div class="flex items-center justify-between gap-2">
+										<p>
+											<span class="font-semibold">Type:</span>
+											{selectedLeagueWizardOffering.type === 'tournament' ? 'Tournament' : 'League'}
+										</p>
+										<p>
+											<span class="font-semibold">Status:</span>
+											{selectedLeagueWizardOffering.isActive ? 'Active' : 'Inactive'}
+										</p>
+									</div>
+									{#if selectedOfferingLeagueTemplates.length === 0}
+										<p class="text-xs text-neutral-900">
+											No existing {wizardEntryUnitPlural()} for this offering yet.
+										</p>
+									{:else}
+										<div class="border border-secondary-200 bg-neutral p-2 space-y-2">
+											<p class="text-xs font-semibold uppercase tracking-wide text-neutral-950">
+												Copy Existing {wizardEntryUnitTitleSingular()}
+											</p>
+											<div
+												class="space-y-2 max-h-52 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 scrollbar-track-secondary-400"
+											>
+												{#each selectedOfferingLeagueTemplates as existingLeague}
+													<div class="border border-secondary-300 bg-white p-2 flex items-center justify-between gap-3">
+														<div class="min-w-0">
+															<p class="text-sm font-semibold text-neutral-950 truncate">
+																{existingLeague.name}
+															</p>
+															<p class="text-xs text-neutral-900">
+																{existingLeague.season || 'Unscheduled'}
+															</p>
+														</div>
+														<button
+															type="button"
+															class="button-secondary-outlined p-1.5 cursor-pointer shrink-0"
+															title={`Copy ${wizardEntryUnitSingular()} settings`}
+															aria-label={`Copy ${existingLeague.name}`}
+															onclick={() => {
+																copyFromExistingLeagueTemplate(existingLeague);
+															}}
+														>
+															<IconCopy class="w-4 h-4" />
+														</button>
+													</div>
+												{/each}
+											</div>
+										</div>
+									{/if}
+								</div>
+							{/if}
+						{/if}
+					</div>
+				{/if}
+
+				{#if createLeagueStep === 2}
+					<div class="space-y-4">
+						{#if selectedLeagueWizardOffering}
+							<div class="border border-secondary-300 bg-white p-3 text-sm text-neutral-950">
+								Adding to
+								<span class="font-semibold">{selectedLeagueWizardOffering.name}</span>
+							</div>
+						{/if}
+						{#if !createLeagueDraftActive}
+							<div class="border border-secondary-300 bg-white p-3 space-y-3">
+								<div class="flex items-center justify-between gap-2">
+									<h3 class="text-sm font-bold font-sans text-neutral-950 uppercase tracking-wide">
+										{wizardEntryType() === 'tournament' ? 'Tournament Groups' : 'Leagues'}
+									</h3>
+									<button
+										type="button"
+										class="button-secondary-outlined p-1.5 cursor-pointer"
+										aria-label={`Add ${wizardEntryUnitSingular()}`}
+										title={`Add ${wizardEntryUnitSingular()}`}
+										onclick={startAddingCreateLeagueDraft}
+									>
+										<IconPlus class="w-4 h-4" />
+									</button>
+								</div>
+
+								{#if createLeagueFieldErrors['leagues']}
+									<p class="text-xs text-error-700">{createLeagueFieldErrors['leagues']}</p>
+								{/if}
+
+								{#if createLeagueForm.leagues.length === 0 && !createLeagueDraftActive}
+									<p class="text-sm text-neutral-950 font-sans">
+										No {wizardEntryUnitPlural()} added yet. Use the plus button to add one, or continue
+										without {wizardEntryUnitPlural()}.
+									</p>
+								{:else if createLeagueForm.leagues.length > 0}
+									<div
+										class="space-y-2 max-h-[52vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 scrollbar-track-secondary-400 scrollbar-corner-secondary-500 hover:scrollbar-thumb-secondary-700 active:scrollbar-thumb-secondary-700 scrollbar-hover:scrollbar-thumb-secondary-800 scrollbar-active:scrollbar-thumb-secondary-700"
+									>
+										{#each createLeagueForm.leagues as league, leagueIndex (league.draftId)}
+											<div
+												class="border border-secondary-300 bg-neutral p-3 space-y-2"
+												animate:flip={{ duration: 180, easing: cubicOut }}
+											>
+												<div class="flex items-start justify-between gap-3">
+													<div>
+														<p class="text-sm font-semibold text-neutral-950">
+															{league.name.trim() || `Untitled ${wizardEntryUnitTitleSingular()}`}
+														</p>
+														<p class="text-xs text-neutral-900">Slug: {league.slug || 'TBD'}</p>
+													</div>
+													<div class="flex items-center gap-1">
+														{#if createLeagueForm.leagues.length > 1}
+															{#if leagueIndex > 0}
+																<button
+																	type="button"
+																	class="button-secondary-outlined p-1.5 cursor-pointer"
+																	aria-label={`Move ${wizardEntryUnitSingular()} up`}
+																	title="Move up"
+																	onclick={() => {
+																		moveCreateLeague(leagueIndex, 'up');
+																	}}
+																>
+																	<IconArrowUp class="w-4 h-4" />
+																</button>
+															{/if}
+															{#if leagueIndex < createLeagueForm.leagues.length - 1}
+																<button
+																	type="button"
+																	class="button-secondary-outlined p-1.5 cursor-pointer"
+																	aria-label={`Move ${wizardEntryUnitSingular()} down`}
+																	title="Move down"
+																	onclick={() => {
+																		moveCreateLeague(leagueIndex, 'down');
+																	}}
+																>
+																	<IconArrowDown class="w-4 h-4" />
+																</button>
+															{/if}
+														{/if}
+														<button
+															type="button"
+															class="button-secondary-outlined p-1.5 cursor-pointer"
+															aria-label={`Edit ${wizardEntryUnitSingular()}`}
+															title="Edit"
+															onclick={() => {
+																startEditingCreateLeague(leagueIndex);
+															}}
+														>
+															<IconPencil class="w-4 h-4" />
+														</button>
+														<button
+															type="button"
+															class="button-secondary-outlined p-1.5 cursor-pointer"
+															aria-label={`Copy ${wizardEntryUnitSingular()}`}
+															title="Copy"
+															onclick={() => {
+																duplicateCreateLeague(leagueIndex);
+															}}
+														>
+															<IconCopy class="w-4 h-4" />
+														</button>
+														<button
+															type="button"
+															class="button-secondary-outlined p-1.5 cursor-pointer"
+															aria-label={`Remove ${wizardEntryUnitSingular()}`}
+															title="Remove"
+															onclick={() => {
+																removeCreateLeague(leagueIndex);
+															}}
+														>
+															<IconTrash class="w-4 h-4 text-error-500" />
+														</button>
+													</div>
+												</div>
+												<div
+													class="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-xs text-neutral-950"
+												>
+													<p><span class="font-semibold">Season:</span> {league.season || 'TBD'}</p>
+													<p>
+														<span class="font-semibold">Gender:</span>
+														{normalizeGender(league.gender) ?? 'Unspecified'}
+													</p>
+													<p>
+														<span class="font-semibold">Skill Level:</span>
+														{league.skillLevel ? toTitleCase(league.skillLevel) : 'Unspecified'}
+													</p>
+													<p>
+														<span class="font-semibold">Status:</span>
+														{league.isActive ? 'Active' : 'Inactive'} | {league.isLocked
+															? 'Locked'
+															: 'Unlocked'}
+													</p>
+													<p class="sm:col-span-2">
+														<span class="font-semibold">Registration:</span>
+														{formatReviewRange(league.regStartDate, league.regEndDate, true)}
+													</p>
+													<p class="sm:col-span-2">
+														<span class="font-semibold">Season Dates:</span>
+														{formatReviewRange(league.seasonStartDate, league.seasonEndDate)}
+													</p>
+													{#if league.hasPreseason}
+														<p class="sm:col-span-2">
+															<span class="font-semibold">Preseason:</span>
+															{formatReviewRange(
+																league.preseasonStartDate,
+																league.preseasonEndDate
+															)}
+														</p>
+													{/if}
+													{#if league.hasPostseason}
+														<p class="sm:col-span-2">
+															<span class="font-semibold">Postseason:</span>
+															{formatReviewRange(
+																league.postseasonStartDate,
+																league.postseasonEndDate
+															)}
+														</p>
+													{/if}
+												</div>
+												{#if league.description.trim()}
+													<p class="text-xs text-neutral-950">
+														<span class="font-semibold">Description:</span>
+														{league.description.trim()}
+													</p>
+												{/if}
+											</div>
+										{/each}
+									</div>
+								{/if}
+							</div>
+						{:else}
+							<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+								<div>
+									<label for="league-wizard-name" class="block text-sm font-sans text-neutral-950 mb-1"
+										>Name <span class="text-error-700">*</span></label
+									>
+									<input
+										id="league-wizard-name"
+										type="text"
+										class="input-secondary"
+										value={createLeagueForm.league.name}
+										placeholder={wizardEntryType() === 'tournament' ? 'Pool A' : "Men's"}
+										oninput={(event) => {
+											const value = (event.currentTarget as HTMLInputElement).value;
+											createLeagueForm.league.name = value;
+											if (!createLeagueSlugTouched) {
+												const offeringName = selectedLeagueWizardOffering?.name ?? '';
+												createLeagueForm.league.slug = defaultLeagueSlug(value, offeringName);
+												createLeagueForm.league.isSlugManual = false;
+											}
+										}}
+										autocomplete="off"
+									/>
+									{#if createLeagueFieldErrors['league.name']}
+										<p class="text-xs text-error-700 mt-1">{createLeagueFieldErrors['league.name']}</p>
+									{/if}
+								</div>
+
+								<div>
+									<label for="league-wizard-slug" class="block text-sm font-sans text-neutral-950 mb-1"
+										>Slug <span class="text-error-700">*</span></label
+									>
+									<input
+										id="league-wizard-slug"
+										type="text"
+										class="input-secondary"
+										value={createLeagueForm.league.slug}
+										placeholder={wizardEntryType() === 'tournament' ? 'pool-a' : 'mens-soccer'}
+										oninput={(event) => {
+											createLeagueSlugTouched = true;
+											createLeagueForm.league.isSlugManual = true;
+											createLeagueForm.league.slug = applyLiveSlugInput(
+												event.currentTarget as HTMLInputElement
+											);
+										}}
+										autocomplete="off"
+									/>
+									{#if createLeagueFieldErrors['league.slug']}
+										<p class="text-xs text-error-700 mt-1">{createLeagueFieldErrors['league.slug']}</p>
+									{/if}
+								</div>
+
+								<div>
+									<label for="league-wizard-season" class="block text-sm font-sans text-neutral-950 mb-1"
+										>Season <span class="text-error-700">*</span></label
+									>
+									<input
+										id="league-wizard-season"
+										type="text"
+										class="input-secondary"
+										bind:value={createLeagueForm.league.season}
+										placeholder={seasonPlaceholder}
+										autocomplete="off"
+									/>
+									{#if createLeagueFieldErrors['league.season']}
+										<p class="text-xs text-error-700 mt-1">{createLeagueFieldErrors['league.season']}</p>
+									{/if}
+								</div>
+
+								<div>
+									<label for="league-wizard-gender" class="block text-sm font-sans text-neutral-950 mb-1"
+										>Gender</label
+									>
+									<select
+										id="league-wizard-gender"
+										class="select-secondary"
+										bind:value={createLeagueForm.league.gender}
+									>
+										<option value="">Select...</option>
+										<option value="male">Male</option>
+										<option value="female">Female</option>
+										<option value="mixed">Mixed</option>
+									</select>
+								</div>
+
+								<div>
+									<label
+										for="league-wizard-skill-level"
+										class="block text-sm font-sans text-neutral-950 mb-1">Skill Level</label
+									>
+									<select
+										id="league-wizard-skill-level"
+										class="select-secondary"
+										bind:value={createLeagueForm.league.skillLevel}
+									>
+										<option value="">Select...</option>
+										<option value="competitive">Competitive</option>
+										<option value="intermediate">Intermediate</option>
+										<option value="recreational">Recreational</option>
+										<option value="all">All</option>
+									</select>
+								</div>
+
+								<div class="lg:col-span-2">
+									<label
+										for="league-wizard-description"
+										class="block text-sm font-sans text-neutral-950 mb-1">Description</label
+									>
+									<textarea
+										id="league-wizard-description"
+										class="textarea-secondary min-h-28"
+										bind:value={createLeagueForm.league.description}
+										placeholder={`Describe this ${wizardEntryUnitSingular()}.`}
+									></textarea>
+								</div>
+							</div>
+						{/if}
+					</div>
+				{/if}
+
+				{#if createLeagueStep === 3}
+					<div class="space-y-4">
+						{#if !createLeagueDraftActive}
+							<div class="border border-secondary-300 bg-white p-4">
+								<p class="text-sm font-sans text-neutral-950">
+									No {wizardEntryUnitSingular()} draft is open. Go back to {createLeagueStepTitle(2)}
+									and click the plus button to add one.
+								</p>
+							</div>
+						{:else}
+						<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+							<div>
+								<label
+									for="league-wizard-reg-start"
+									class="block text-sm font-sans text-neutral-950 mb-1"
+									>Registration Opens <span class="text-error-700">*</span></label
+								>
+								<input
+									id="league-wizard-reg-start"
+									type="datetime-local"
+									class="input-secondary"
+									bind:value={createLeagueForm.league.regStartDate}
+									onfocus={() => {
+										if (!createLeagueForm.league.regStartDate.trim()) {
+											createLeagueForm.league.regStartDate = defaultDateTimeValue('start');
+										}
+									}}
+								/>
+								{#if createLeagueFieldErrors['league.regStartDate']}
+									<p class="text-xs text-error-700 mt-1">
+										{createLeagueFieldErrors['league.regStartDate']}
+									</p>
+								{/if}
+							</div>
+							<div>
+								<label
+									for="league-wizard-reg-end"
+									class="block text-sm font-sans text-neutral-950 mb-1"
+									>Registration Deadline <span class="text-error-700">*</span></label
+								>
+								<input
+									id="league-wizard-reg-end"
+									type="datetime-local"
+									class="input-secondary"
+									bind:value={createLeagueForm.league.regEndDate}
+									onfocus={() => {
+										if (!createLeagueForm.league.regEndDate.trim()) {
+											createLeagueForm.league.regEndDate = defaultDateTimeValue('end');
+										}
+									}}
+								/>
+								{#if createLeagueFieldErrors['league.regEndDate']}
+									<p class="text-xs text-error-700 mt-1">
+										{createLeagueFieldErrors['league.regEndDate']}
+									</p>
+								{/if}
+							</div>
+							<div>
+								<label
+									for="league-wizard-season-start"
+									class="block text-sm font-sans text-neutral-950 mb-1"
+									>Season Start Date <span class="text-error-700">*</span></label
+								>
+								<input
+									id="league-wizard-season-start"
+									type="date"
+									class="input-secondary"
+									bind:value={createLeagueForm.league.seasonStartDate}
+								/>
+								{#if createLeagueFieldErrors['league.seasonStartDate']}
+									<p class="text-xs text-error-700 mt-1">
+										{createLeagueFieldErrors['league.seasonStartDate']}
+									</p>
+								{/if}
+							</div>
+							<div>
+								<label
+									for="league-wizard-season-end"
+									class="block text-sm font-sans text-neutral-950 mb-1"
+									>Season End Date <span class="text-error-700">*</span></label
+								>
+								<input
+									id="league-wizard-season-end"
+									type="date"
+									class="input-secondary"
+									bind:value={createLeagueForm.league.seasonEndDate}
+								/>
+								{#if createLeagueFieldErrors['league.seasonEndDate']}
+									<p class="text-xs text-error-700 mt-1">
+										{createLeagueFieldErrors['league.seasonEndDate']}
+									</p>
+								{/if}
+							</div>
+						</div>
+
+						{#if createLeagueFieldErrors['league.scheduleRange']}
+							<p class="text-xs text-error-700">
+								{createLeagueFieldErrors['league.scheduleRange']}
+							</p>
+						{/if}
+
+						<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+							<div class="border border-secondary-300 bg-white p-3 space-y-3">
+								<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
+									<input
+										type="checkbox"
+										class="toggle-secondary"
+										bind:checked={createLeagueForm.league.hasPreseason}
+										onchange={() => {
+											if (!createLeagueForm.league.hasPreseason) {
+												createLeagueForm.league.preseasonStartDate = '';
+												createLeagueForm.league.preseasonEndDate = '';
+											}
+										}}
+									/>
+									Has Preseason
+								</label>
+								{#if createLeagueForm.league.hasPreseason}
+									<div class="space-y-3">
+										<div>
+											<label
+												for="league-wizard-preseason-start"
+												class="block text-sm font-sans text-neutral-950 mb-1">Preseason Start</label
+											>
+											<input
+												id="league-wizard-preseason-start"
+												type="date"
+												class="input-secondary"
+												bind:value={createLeagueForm.league.preseasonStartDate}
+											/>
+											{#if createLeagueFieldErrors['league.preseasonStartDate']}
+												<p class="text-xs text-error-700 mt-1">
+													{createLeagueFieldErrors['league.preseasonStartDate']}
+												</p>
+											{/if}
+										</div>
+										<div>
+											<label
+												for="league-wizard-preseason-end"
+												class="block text-sm font-sans text-neutral-950 mb-1">Preseason End</label
+											>
+											<input
+												id="league-wizard-preseason-end"
+												type="date"
+												class="input-secondary"
+												bind:value={createLeagueForm.league.preseasonEndDate}
+											/>
+											{#if createLeagueFieldErrors['league.preseasonEndDate']}
+												<p class="text-xs text-error-700 mt-1">
+													{createLeagueFieldErrors['league.preseasonEndDate']}
+												</p>
+											{/if}
+										</div>
+									</div>
+								{/if}
+							</div>
+
+							<div class="border border-secondary-300 bg-white p-3 space-y-3">
+								<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
+									<input
+										type="checkbox"
+										class="toggle-secondary"
+										bind:checked={createLeagueForm.league.hasPostseason}
+										onchange={() => {
+											if (!createLeagueForm.league.hasPostseason) {
+												createLeagueForm.league.postseasonStartDate = '';
+												createLeagueForm.league.postseasonEndDate = '';
+											}
+										}}
+									/>
+									Has Postseason
+								</label>
+								{#if createLeagueForm.league.hasPostseason}
+									<div class="space-y-3">
+										<div>
+											<label
+												for="league-wizard-postseason-start"
+												class="block text-sm font-sans text-neutral-950 mb-1"
+												>Postseason Start</label
+											>
+											<input
+												id="league-wizard-postseason-start"
+												type="date"
+												class="input-secondary"
+												bind:value={createLeagueForm.league.postseasonStartDate}
+											/>
+											{#if createLeagueFieldErrors['league.postseasonStartDate']}
+												<p class="text-xs text-error-700 mt-1">
+													{createLeagueFieldErrors['league.postseasonStartDate']}
+												</p>
+											{/if}
+										</div>
+										<div>
+											<label
+												for="league-wizard-postseason-end"
+												class="block text-sm font-sans text-neutral-950 mb-1">Postseason End</label
+											>
+											<input
+												id="league-wizard-postseason-end"
+												type="date"
+												class="input-secondary"
+												bind:value={createLeagueForm.league.postseasonEndDate}
+											/>
+											{#if createLeagueFieldErrors['league.postseasonEndDate']}
+												<p class="text-xs text-error-700 mt-1">
+													{createLeagueFieldErrors['league.postseasonEndDate']}
+												</p>
+											{/if}
+										</div>
+									</div>
+								{/if}
+							</div>
+						</div>
+
+						<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+							<div class="border border-secondary-300 bg-white p-3">
+								<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
+									<input
+										type="checkbox"
+										class="toggle-secondary"
+										bind:checked={createLeagueForm.league.isActive}
+									/>
+									Active
+								</label>
+							</div>
+							<div class="border border-secondary-300 bg-white p-3">
+								<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
+									<input
+										type="checkbox"
+										class="toggle-secondary"
+										bind:checked={createLeagueForm.league.isLocked}
+									/>
+									Locked
+								</label>
+							</div>
+						</div>
+
+						<div>
+							<label
+								for="league-wizard-image-url"
+								class="block text-sm font-sans text-neutral-950 mb-1">Image URL</label
+							>
+							<input
+								id="league-wizard-image-url"
+								type="url"
+								class="input-secondary"
+								bind:value={createLeagueForm.league.imageUrl}
+								placeholder="https://example.com/league-image.jpg"
+								autocomplete="off"
+							/>
+							{#if createLeagueFieldErrors['league.imageUrl']}
+								<p class="text-xs text-error-700 mt-1">
+									{createLeagueFieldErrors['league.imageUrl']}
+								</p>
+							{/if}
+						</div>
+						{/if}
+					</div>
+				{/if}
+
+				{#if createLeagueStep === 4}
+					<div class="space-y-4">
+						<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
+							<div class="flex items-start justify-between gap-2">
+								<h3 class="text-lg font-bold font-serif text-neutral-950">Offering</h3>
+								{#if !createLeagueCopiedFromExisting}
+									<button
+										type="button"
+										class="button-secondary-outlined p-1.5 cursor-pointer"
+										aria-label="Edit offering"
+										title="Edit offering"
+										onclick={startEditingCreateLeagueOffering}
+									>
+										<IconPencil class="w-4 h-4" />
+									</button>
+								{/if}
+							</div>
+							{#if selectedLeagueWizardOffering}
+								<p class="text-sm text-neutral-950">
+									<span class="font-semibold">Name:</span>
+									{selectedLeagueWizardOffering.name}
+								</p>
+								<p class="text-sm text-neutral-950">
+									<span class="font-semibold">Type:</span>
+									{selectedLeagueWizardOffering.type === 'tournament' ? 'Tournament' : 'League'}
+									<span class="ml-3 font-semibold">Status:</span>
+									{selectedLeagueWizardOffering.isActive ? 'Active' : 'Inactive'}
+								</p>
+							{:else}
+								<p class="text-sm text-neutral-950">No offering selected.</p>
+							{/if}
+						</div>
+
+						<div class="border-2 border-secondary-300 bg-white p-4 space-y-3">
+							<div class="flex items-start justify-between gap-2">
+								<h3 class="text-lg font-bold font-serif text-neutral-950">
+									{wizardEntryUnitTitlePlural()}
+								</h3>
+								<button
+									type="button"
+									class="button-secondary-outlined p-1.5 cursor-pointer"
+									aria-label={`Edit ${wizardEntryUnitPlural()}`}
+									title={`Edit ${wizardEntryUnitPlural()}`}
+									onclick={startEditingCreateLeagues}
+								>
+									<IconPencil class="w-4 h-4" />
+								</button>
+							</div>
+							{#if createLeagueFieldErrors['leagues']}
+								<p class="text-xs text-error-700">{createLeagueFieldErrors['leagues']}</p>
+							{/if}
+							{#if createLeagueForm.leagues.length === 0}
+								<p class="text-sm text-neutral-950 font-sans">
+									No {wizardEntryUnitPlural()} will be created.
+								</p>
+							{:else}
+								<div class="space-y-3 max-h-[45vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 scrollbar-track-secondary-400">
+									{#each createLeagueForm.leagues as league}
+										<div class="border border-secondary-300 bg-neutral p-3 space-y-2">
+											<div>
+												<p class="text-sm font-semibold text-neutral-950">
+													{league.name.trim() || `Untitled ${wizardEntryUnitTitleSingular()}`}
+												</p>
+												<p class="text-xs text-neutral-900">Slug: {league.slug || 'TBD'}</p>
+											</div>
+											<div
+												class="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-xs text-neutral-950"
+											>
+												<p><span class="font-semibold">Season:</span> {league.season || 'TBD'}</p>
+												<p>
+													<span class="font-semibold">Gender:</span>
+													{normalizeGender(league.gender) ?? 'Unspecified'}
+												</p>
+												<p>
+													<span class="font-semibold">Skill Level:</span>
+													{league.skillLevel ? toTitleCase(league.skillLevel) : 'Unspecified'}
+												</p>
+												<p>
+													<span class="font-semibold">Status:</span>
+													{league.isActive ? 'Active' : 'Inactive'} | {league.isLocked
+														? 'Locked'
+														: 'Unlocked'}
+												</p>
+												<p class="sm:col-span-2">
+													<span class="font-semibold">Registration:</span>
+													{formatReviewRange(league.regStartDate, league.regEndDate, true)}
+												</p>
+												<p class="sm:col-span-2">
+													<span class="font-semibold">Season Dates:</span>
+													{formatReviewRange(league.seasonStartDate, league.seasonEndDate)}
+												</p>
+												{#if league.hasPreseason}
+													<p class="sm:col-span-2">
+														<span class="font-semibold">Preseason:</span>
+														{formatReviewRange(league.preseasonStartDate, league.preseasonEndDate)}
+													</p>
+												{/if}
+												{#if league.hasPostseason}
+													<p class="sm:col-span-2">
+														<span class="font-semibold">Postseason:</span>
+														{formatReviewRange(
+															league.postseasonStartDate,
+															league.postseasonEndDate
+														)}
+													</p>
+												{/if}
+											</div>
+											{#if league.description.trim()}
+												<p class="text-xs text-neutral-950">
+													<span class="font-semibold">Description:</span>
+													{league.description.trim()}
+												</p>
+											{/if}
+										</div>
+									{/each}
+								</div>
+							{/if}
+						</div>
+					</div>
+				{/if}
+
+				<div class="pt-2 border-t border-secondary-300 flex justify-end">
+					<div class="flex items-center gap-2 justify-end">
+						{#if createLeagueStep > 1}
+							<button
+								type="button"
+								class="button-secondary-outlined cursor-pointer"
+								onclick={handleCreateLeagueBackAction}
+							>
+								Back
+							</button>
+						{/if}
+						{#if createLeagueStep < 4}
+							<button
+								type="button"
+								class="button-accent cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+								onclick={nextCreateLeagueStep}
+								disabled={!canGoNextCreateLeagueStep}
+							>
+								{#if createLeagueStep === 2 && !createLeagueDraftActive}
+									{createLeagueForm.leagues.length === 0 ? 'Skip to Review' : 'Review'}
+								{:else if createLeagueStep === 3 && createLeagueDraftActive}
+									{createLeagueEditingIndex === null
+										? `Add ${wizardEntryUnitTitleSingular()}`
+										: `Update ${wizardEntryUnitTitleSingular()}`}
+								{:else}
+									Next
+								{/if}
+							</button>
+						{:else}
+							<button
+								type="submit"
+								class="button-accent cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+								disabled={!canSubmitCreateLeague}
+							>
+								{createLeagueSubmitting ? 'Creating...' : 'Create'}
+							</button>
+						{/if}
+					</div>
+				</div>
+			</form>
+		</div>
+	</div>
+{/if}
 
 {#if isCreateModalOpen}
 	<div
