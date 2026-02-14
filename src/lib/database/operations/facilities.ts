@@ -30,6 +30,7 @@ export class FacilityOperations {
 		postalCode?: string;
 		country?: string;
 		timezone?: string;
+		capacity?: number | null;
 		description?: string;
 		metadata?: string;
 		isActive?: number;
@@ -52,6 +53,7 @@ export class FacilityOperations {
 				postalCode: data.postalCode || null,
 				country: data.country || null,
 				timezone: data.timezone || null,
+				capacity: data.capacity ?? null,
 				description: data.description || null,
 				metadata: data.metadata || null,
 				isActive: data.isActive ?? 1,
@@ -77,6 +79,7 @@ export class FacilityOperations {
 			postalCode: string;
 			country: string;
 			timezone: string;
+			capacity: number | null;
 			description: string;
 			metadata: string;
 			isActive: number;

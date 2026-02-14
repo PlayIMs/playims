@@ -7,6 +7,7 @@ export const facilityAreas = sqliteTable('facility_areas', {
 	facilityId: text('facility_id'),
 	name: text(),
 	slug: text(),
+	capacity: integer('capacity'),
 	description: text(),
 	metadata: text(),
 	isActive: integer('is_active').default(1),

@@ -25,9 +25,9 @@
 
 	// Typed form data for accessing custom fields
 	const formData = $derived(form as unknown as Record<string, unknown> | null);
-
-	type FacilityCreateStep = 1 | 2 | 3 | 4;
-	type AddAreasChoice = 'yes' | 'no';
+	type FacilityRecord = PageProps['data']['facilities'][number];
+	type FacilityAreaRecord = PageProps['data']['facilityAreas'][number];
+	type FacilityCreateStep = 1 | 2 | 3 | 4 | 5;
 
 	interface FacilityAreaDraft {
 		draftId: string;
@@ -35,6 +35,8 @@
 		slug: string;
 		description: string;
 		isSlugManual: boolean;
+		isActive: boolean;
+		capacity: number;
 	}
 
 	interface FacilityWizardForm {
@@ -49,17 +51,33 @@
 			postalCode: string;
 			country: string;
 			timezone: string;
+			isActive: boolean;
+			capacity: number;
 		};
-		addAreas: AddAreasChoice;
 		areaDraft: FacilityAreaDraft;
 		areas: FacilityAreaDraft[];
 	}
 
+	interface CreateFacilityApiResponse {
+		success: boolean;
+		data?: {
+			facility: FacilityRecord;
+			facilityAreas: FacilityAreaRecord[];
+		};
+		error?: string;
+		fieldErrors?: Record<string, string[] | undefined>;
+		duplicateType?: 'archived';
+		archivedFacilityId?: string;
+		archivedAreaId?: string;
+		archivedAreaFacilityId?: string;
+	}
+
 	const FACILITY_CREATE_STEP_TITLES: Record<FacilityCreateStep, string> = {
 		1: 'Facility Basics',
-		2: 'Location Details',
+		2: 'Facility Setup',
 		3: 'Facility Areas',
-		4: 'Review & Create'
+		4: 'Facility Area Setup',
+		5: 'Review & Create'
 	};
 
 	let viewArchiveMode = $state(false);
@@ -70,11 +88,19 @@
 	let createFacilityStep = $state<FacilityCreateStep>(1);
 	let createFacilitySubmitting = $state(false);
 	let createFacilityFormError = $state('');
+	let createFacilitySuccessMessage = $state('');
 	let createFacilityModalPointerDownStartedInside = $state(false);
 	let facilitySlugTouched = $state(false);
 	let wizardAreaSlugTouched = $state(false);
 	let areaDraftActive = $state(false);
 	let areaEditingIndex = $state<number | null>(null);
+	let createFacilityServerFieldErrors = $state<Record<string, string>>({});
+	let createFacilityConflictMeta = $state<{
+		duplicateType?: 'archived';
+		archivedFacilityId?: string;
+		archivedAreaId?: string;
+		archivedAreaFacilityId?: string;
+	}>({});
 
 	let isCreateAreaOpen = $state(false);
 	let editingFacilityId = $state<string | null>(null);
@@ -83,8 +109,11 @@
 	let newAreaCode = $state('');
 	let newAreaName = $state('');
 	let newAreaDescription = $state('');
+	let newAreaCapacity = $state('');
 	let areaSlugTouched = $state(false);
 	let creatingAreaForFacilityId = $state<string | null>(null);
+	let facilitiesData = $state<FacilityRecord[]>([]);
+	let facilityAreasData = $state<FacilityAreaRecord[]>([]);
 
 	function createAreaDraftId(): string {
 		if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -99,7 +128,9 @@
 			name: '',
 			slug: '',
 			description: '',
-			isSlugManual: false
+			isSlugManual: false,
+			isActive: true,
+			capacity: 0
 		};
 	}
 
@@ -115,9 +146,10 @@
 				state: '',
 				postalCode: '',
 				country: '',
-				timezone: ''
+				timezone: '',
+				isActive: true,
+				capacity: 0
 			},
-			addAreas: 'no',
 			areaDraft: createEmptyAreaDraft(),
 			areas: []
 		};
@@ -139,6 +171,7 @@
 				postalCode: string;
 				country: string;
 				timezone: string;
+				capacity: string;
 				description: string;
 				_addressExpanded?: boolean;
 			}
@@ -147,7 +180,7 @@
 
 	// Area edit drafts
 	let areaDrafts = $state<
-		Record<string, { name: string; slug: string; description: string }>
+		Record<string, { name: string; slug: string; description: string; capacity: string }>
 	>({});
 
 	// Confirm modal (archive/restore/delete).
@@ -165,53 +198,6 @@
 	let archiveFacilityForm = $state<HTMLFormElement | null>(null);
 	let deleteFacilityForm = $state<HTMLFormElement | null>(null);
 	let archiveAreaFormId = $state<string | null>(null);
-
-	// Basic address autocomplete (fills city/state/postal/country).
-	let addressQuery = $state('');
-	let addressSuggestions = $state<
-		Array<{ label: string; city: string; state: string; postalCode: string; country: string }>
-	>([]);
-	let isAddressLoading = $state(false);
-	let addressTimer: ReturnType<typeof setTimeout> | null = null;
-
-	async function fetchAddressSuggestions(q: string) {
-		const query = q.trim();
-		if (query.length < 4) {
-			addressSuggestions = [];
-			return;
-		}
-		isAddressLoading = true;
-		try {
-			const res = await fetch(`/api/address-suggest?q=${encodeURIComponent(query)}`);
-			const body = await res.json();
-			addressSuggestions = Array.isArray(body?.data) ? body.data : [];
-		} catch {
-			addressSuggestions = [];
-		} finally {
-			isAddressLoading = false;
-		}
-	}
-
-	function scheduleAddressLookup(value: string) {
-		addressQuery = value;
-		if (addressTimer) clearTimeout(addressTimer);
-		addressTimer = setTimeout(() => void fetchAddressSuggestions(value), 250);
-	}
-
-	function applyAddressSuggestion(s: {
-		label: string;
-		city: string;
-		state: string;
-		postalCode: string;
-		country: string;
-	}) {
-		createFacilityForm.facility.addressLine1 = (s.label.split(',')[0] || addressQuery).trim();
-		createFacilityForm.facility.city = s.city || createFacilityForm.facility.city;
-		createFacilityForm.facility.state = s.state || createFacilityForm.facility.state;
-		createFacilityForm.facility.postalCode = s.postalCode || createFacilityForm.facility.postalCode;
-		createFacilityForm.facility.country = s.country || createFacilityForm.facility.country;
-		addressSuggestions = [];
-	}
 
 	function autofocus(node: HTMLElement) {
 		if (node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement) node.focus();
@@ -268,16 +254,69 @@
 		return value;
 	}
 
+	function defaultAreaSlug(areaName: string): string {
+		return slugifyFinal(areaName);
+	}
+
+	function pickFieldErrors(
+		errors: Record<string, string>,
+		fieldKeys: string[]
+	): Record<string, string> {
+		const subset: Record<string, string> = {};
+		for (const key of fieldKeys) {
+			if (errors[key]) subset[key] = errors[key];
+		}
+		return subset;
+	}
+
+	function normalizeOptionalText(value: string): string | null {
+		const normalized = value.trim();
+		return normalized.length > 0 ? normalized : null;
+	}
+
+	function normalizeCapacityForRequest(value: number): number | null {
+		return Number.isInteger(value) && value >= 1 ? value : null;
+	}
+
+	function toServerFieldErrorMap(
+		fieldErrors: Record<string, string[] | undefined> | undefined
+	): Record<string, string> {
+		const flattened: Record<string, string> = {};
+		if (!fieldErrors) return flattened;
+
+		for (const [key, value] of Object.entries(fieldErrors)) {
+			if (Array.isArray(value) && value.length > 0 && value[0]) {
+				flattened[key] = value[0];
+			}
+		}
+		return flattened;
+	}
+
+	function isRequiredFieldMessage(message: string): boolean {
+		const normalized = message.trim().toLowerCase();
+		return normalized.endsWith(' is required.') || normalized === 'required.';
+	}
+
+	function clearCreateFacilityApiErrors(): void {
+		if (createFacilityFormError) createFacilityFormError = '';
+		if (Object.keys(createFacilityServerFieldErrors).length > 0) {
+			createFacilityServerFieldErrors = {};
+		}
+		if (createFacilityConflictMeta.duplicateType) {
+			createFacilityConflictMeta = {};
+		}
+	}
+
 	function resetCreateFacilityWizard(): void {
 		createFacilityStep = 1;
 		createFacilitySubmitting = false;
 		createFacilityFormError = '';
+		createFacilityServerFieldErrors = {};
+		createFacilityConflictMeta = {};
 		facilitySlugTouched = false;
 		wizardAreaSlugTouched = false;
 		areaDraftActive = false;
 		areaEditingIndex = null;
-		addressQuery = '';
-		addressSuggestions = [];
 		createFacilityForm = createEmptyFacilityWizardForm();
 	}
 
@@ -304,7 +343,9 @@
 			values.state.trim().length > 0 ||
 			values.postalCode.trim().length > 0 ||
 			values.country.trim().length > 0 ||
-			values.timezone.trim().length > 0
+			values.timezone.trim().length > 0 ||
+			!values.isActive ||
+			values.capacity > 0
 		);
 	}
 
@@ -313,14 +354,15 @@
 		return (
 			values.name.trim().length > 0 ||
 			values.slug.trim().length > 0 ||
-			values.description.trim().length > 0
+			values.description.trim().length > 0 ||
+			!values.isActive ||
+			values.capacity > 0
 		);
 	}
 
 	function hasUnsavedCreateFacilityChanges(): boolean {
 		return (
 			hasFacilityDraftData() ||
-			createFacilityForm.addAreas === 'yes' ||
 			createFacilityForm.areas.length > 0 ||
 			areaDraftActive ||
 			(areaDraftActive && hasAreaDraftData())
@@ -364,10 +406,12 @@
 	}
 
 	function startAreaDraft(): void {
+		clearCreateFacilityApiErrors();
 		areaDraftActive = true;
 		areaEditingIndex = null;
 		wizardAreaSlugTouched = false;
 		createFacilityForm.areaDraft = createEmptyAreaDraft();
+		createFacilityStep = 4;
 	}
 
 	function cancelAreaDraft(): void {
@@ -381,6 +425,7 @@
 		const area = createFacilityForm.areas[index];
 		if (!area) return;
 
+		clearCreateFacilityApiErrors();
 		areaDraftActive = true;
 		areaEditingIndex = index;
 		wizardAreaSlugTouched = area.isSlugManual;
@@ -388,6 +433,7 @@
 			...area,
 			draftId: area.draftId || createAreaDraftId()
 		};
+		createFacilityStep = 4;
 	}
 
 	function duplicateWizardArea(index: number): void {
@@ -396,24 +442,32 @@
 
 		const normalizedSlug = slugifyFinal(source.slug);
 		const baseSlug = normalizedSlug || 'area';
+		const baseName = source.name.trim() || 'Area';
 		let candidateSlug = `${baseSlug}-copy`;
+		let candidateName = `${baseName} Copy`;
 		let counter = 2;
+		const existingNames = new Set(
+			createFacilityForm.areas.map((area) => area.name.trim().toLowerCase())
+		);
 		const existingSlugs = new Set(createFacilityForm.areas.map((area) => slugifyFinal(area.slug)));
-		while (existingSlugs.has(candidateSlug)) {
+		while (existingSlugs.has(candidateSlug) || existingNames.has(candidateName.toLowerCase())) {
 			candidateSlug = `${baseSlug}-copy-${counter}`;
+			candidateName = `${baseName} Copy ${counter}`;
 			counter += 1;
 		}
 
-		createFacilityForm.areas = [
-			...createFacilityForm.areas,
-			{
-				...source,
-				draftId: createAreaDraftId(),
-				slug: candidateSlug,
-				name: `${source.name} Copy`,
-				isSlugManual: true
-			}
-		];
+		const nextAreas = [...createFacilityForm.areas];
+		nextAreas.splice(index + 1, 0, {
+			...source,
+			draftId: createAreaDraftId(),
+			slug: candidateSlug,
+			name: candidateName,
+			isSlugManual: false
+		});
+		createFacilityForm.areas = nextAreas;
+		if (areaEditingIndex !== null && areaEditingIndex > index) {
+			areaEditingIndex += 1;
+		}
 	}
 
 	function removeWizardArea(index: number): void {
@@ -429,93 +483,120 @@
 		if (!movedArea) return;
 		reordered.splice(targetIndex, 0, movedArea);
 		createFacilityForm.areas = reordered;
+
+		if (areaEditingIndex !== null) {
+			if (areaEditingIndex === index) {
+				areaEditingIndex = targetIndex;
+			} else if (areaEditingIndex === targetIndex) {
+				areaEditingIndex = index;
+			}
+		}
 	}
 
-	function getFacilityBasicsErrors(values: FacilityWizardForm['facility']): Record<string, string> {
+	function getFacilityFieldErrors(values: FacilityWizardForm['facility']): Record<string, string> {
 		const errors: Record<string, string> = {};
 		const name = values.name.trim();
 		const slug = slugifyFinal(values.slug);
 
 		if (!name) errors['facility.name'] = 'Facility name is required.';
 		if (!slug) errors['facility.slug'] = 'Facility slug is required.';
+		if (values.capacity > 0 && (!Number.isInteger(values.capacity) || values.capacity < 1)) {
+			errors['facility.capacity'] = 'Capacity must be at least 1.';
+		}
 		return errors;
 	}
 
-	function getAreaDraftErrors(
+	function getAreaFieldErrors(
 		values: FacilityAreaDraft,
 		existingAreas: FacilityAreaDraft[],
-		editingIndex: number | null
+		editingIndex: number | null,
+		prefix = 'areaDraft'
 	): Record<string, string> {
 		const errors: Record<string, string> = {};
 		const name = values.name.trim();
 		const slug = slugifyFinal(values.slug);
 
-		if (!name) errors['areaDraft.name'] = 'Area name is required.';
-		if (!slug) errors['areaDraft.slug'] = 'Area slug is required.';
+		if (!name) errors[`${prefix}.name`] = 'Area name is required.';
+		if (!slug) errors[`${prefix}.slug`] = 'Area slug is required.';
+		if (values.capacity > 0 && (!Number.isInteger(values.capacity) || values.capacity < 1)) {
+			errors[`${prefix}.capacity`] = 'Capacity must be at least 1.';
+		}
 
 		const duplicateName = existingAreas.some((area, index) => {
 			if (editingIndex !== null && editingIndex === index) return false;
 			return area.name.trim().toLowerCase() === name.toLowerCase();
 		});
-		if (name && duplicateName) errors['areaDraft.name'] = 'Area name must be unique for this facility.';
+		if (name && duplicateName) errors[`${prefix}.name`] = 'Area name must be unique for this facility.';
 
 		const duplicateSlug = existingAreas.some((area, index) => {
 			if (editingIndex !== null && editingIndex === index) return false;
 			return slugifyFinal(area.slug) === slug;
 		});
-		if (slug && duplicateSlug) errors['areaDraft.slug'] = 'Area slug must be unique for this facility.';
+		if (slug && duplicateSlug) errors[`${prefix}.slug`] = 'Area slug must be unique for this facility.';
 
 		return errors;
 	}
 
-	function getAreasStepErrors(values: FacilityWizardForm): Record<string, string> {
-		const errors: Record<string, string> = {};
-		if (values.addAreas !== 'yes') return errors;
-
-		if (areaDraftActive) {
-			Object.assign(
-				errors,
-				getAreaDraftErrors(values.areaDraft, values.areas, areaEditingIndex)
-			);
-		} else if (values.areas.length === 0) {
-			errors['areas'] = 'Add at least one area, or select "No" for adding areas now.';
-		}
-
-		return errors;
-	}
-
-	function getCurrentCreateStepErrors(
+	function getCurrentStepClientErrors(
 		values: FacilityWizardForm,
 		step: FacilityCreateStep
 	): Record<string, string> {
-		if (step === 1) return getFacilityBasicsErrors(values.facility);
-		if (step === 3) return getAreasStepErrors(values);
-		if (step === 4) {
-			const reviewErrors: Record<string, string> = {
-				...getFacilityBasicsErrors(values.facility),
-				...getAreasStepErrors(values)
-			};
-			if (values.addAreas === 'yes' && areaDraftActive) {
-				reviewErrors['areas'] = 'Finish the open area draft before creating the facility.';
-			}
-			return reviewErrors;
+		if (step === 1) {
+			return pickFieldErrors(getFacilityFieldErrors(values.facility), ['facility.name', 'facility.slug']);
 		}
-		return {};
+		if (step === 2) {
+			return pickFieldErrors(getFacilityFieldErrors(values.facility), ['facility.capacity']);
+		}
+		if (step === 3) {
+			return {};
+		}
+		if (step === 4) {
+			if (!areaDraftActive) return {};
+			return pickFieldErrors(
+				getAreaFieldErrors(values.areaDraft, values.areas, areaEditingIndex),
+				['areaDraft.name', 'areaDraft.slug', 'areaDraft.capacity']
+			);
+		}
+		return getSubmitClientErrors(values);
 	}
 
-	function saveWizardAreaDraft(): boolean {
-		const draftErrors = getAreaDraftErrors(
-			createFacilityForm.areaDraft,
-			createFacilityForm.areas,
-			areaEditingIndex
-		);
-		if (Object.keys(draftErrors).length > 0) return false;
+	function getSubmitClientErrors(values: FacilityWizardForm): Record<string, string> {
+		const errors: Record<string, string> = {};
+		Object.assign(errors, getFacilityFieldErrors(values.facility));
+		values.areas.forEach((area, index) => {
+			Object.assign(
+				errors,
+				getAreaFieldErrors(area, values.areas, index, `areas.${index}`)
+			);
+		});
+		return errors;
+	}
+
+	function firstInvalidStep(errors: Record<string, string>): FacilityCreateStep {
+		const keys = Object.keys(errors);
+		if (keys.some((key) => ['facility.name', 'facility.slug'].includes(key))) return 1;
+		if (keys.some((key) => ['facility.capacity'].includes(key))) return 2;
+		if (keys.some((key) => key.startsWith('areaDraft.'))) return 4;
+		if (keys.some((key) => key.startsWith('areas.'))) return 3;
+		return 5;
+	}
+
+	function addOrUpdateDraftArea(): boolean {
+		const draftErrors = getCurrentStepClientErrors(createFacilityForm, 4);
+		if (Object.keys(draftErrors).length > 0) {
+			createFacilityStep = firstInvalidStep(draftErrors);
+			return false;
+		}
 
 		const normalizedDraft: FacilityAreaDraft = {
 			...createFacilityForm.areaDraft,
 			name: createFacilityForm.areaDraft.name.trim(),
 			slug: slugifyFinal(createFacilityForm.areaDraft.slug),
-			description: createFacilityForm.areaDraft.description.trim()
+			description: createFacilityForm.areaDraft.description.trim(),
+			isSlugManual: wizardAreaSlugTouched,
+			capacity: Number.isInteger(createFacilityForm.areaDraft.capacity)
+				? createFacilityForm.areaDraft.capacity
+				: 0
 		};
 
 		if (areaEditingIndex === null) {
@@ -531,11 +612,21 @@
 	}
 
 	function nextCreateFacilityStep(): void {
-		if (createFacilityStep === 4) return;
-		if (Object.keys(getCurrentCreateStepErrors(createFacilityForm, createFacilityStep)).length > 0) return;
+		clearCreateFacilityApiErrors();
+		if (createFacilityStep === 5 || !canGoNextCreateFacilityStep) return;
 
-		if (createFacilityStep === 3 && areaDraftActive) {
-			saveWizardAreaDraft();
+		if (createFacilityStep === 3) {
+			createFacilityStep = areaDraftActive ? 4 : 5;
+			return;
+		}
+
+		if (createFacilityStep === 4) {
+			if (!areaDraftActive) {
+				createFacilityStep = 3;
+				return;
+			}
+			if (!addOrUpdateDraftArea()) return;
+			createFacilityStep = 3;
 			return;
 		}
 
@@ -543,49 +634,155 @@
 	}
 
 	function previousCreateFacilityStep(): void {
+		clearCreateFacilityApiErrors();
 		if (createFacilityStep === 1) return;
+
+		if (createFacilityStep === 5) {
+			createFacilityStep = areaDraftActive ? 4 : 3;
+			return;
+		}
+
 		createFacilityStep = (createFacilityStep - 1) as FacilityCreateStep;
 	}
 
 	function handleCreateFacilityBackAction(): void {
-		if (createFacilityStep === 3 && areaDraftActive) {
+		if (areaDraftActive && (createFacilityStep === 3 || createFacilityStep === 4)) {
 			cancelAreaDraft();
+			createFacilityStep = 3;
 			return;
 		}
 		previousCreateFacilityStep();
 	}
 
-	const createFacilityFieldErrors = $derived.by(() =>
-		getCurrentCreateStepErrors(createFacilityForm, createFacilityStep)
+	function startEditingFacilityDraft(): void {
+		clearCreateFacilityApiErrors();
+		createFacilityStep = 1;
+	}
+
+	function startEditingAreasDraft(): void {
+		clearCreateFacilityApiErrors();
+		createFacilityStep = 3;
+	}
+
+	const clientCreateFacilityFieldErrors = $derived.by(() =>
+		getCurrentStepClientErrors(createFacilityForm, createFacilityStep)
 	);
+
+	const rawCreateFacilityFieldErrors = $derived.by(() => ({
+		...clientCreateFacilityFieldErrors,
+		...createFacilityServerFieldErrors
+	}));
+
+	const createFacilityFieldErrors = $derived.by(() => {
+		const visibleErrors: Record<string, string> = {};
+		for (const [key, value] of Object.entries(rawCreateFacilityFieldErrors)) {
+			if (!isRequiredFieldMessage(value)) visibleErrors[key] = value;
+		}
+		return visibleErrors;
+	});
 
 	const canGoNextCreateFacilityStep = $derived.by(
 		() =>
-			createFacilityStep < 4 &&
-			Object.keys(createFacilityFieldErrors).length === 0 &&
+			createFacilityStep < 5 &&
+			Object.keys(clientCreateFacilityFieldErrors).length === 0 &&
 			!createFacilitySubmitting
 	);
 
 	const canSubmitCreateFacility = $derived.by(
 		() =>
-			createFacilityStep === 4 &&
-			Object.keys(getCurrentCreateStepErrors(createFacilityForm, 4)).length === 0 &&
+			createFacilityStep === 5 &&
+			Object.keys(getSubmitClientErrors(createFacilityForm)).length === 0 &&
+			Object.keys(createFacilityServerFieldErrors).length === 0 &&
 			!createFacilitySubmitting
 	);
 
 	const createFacilityStepProgress = $derived.by(() =>
-		Math.round((createFacilityStep / 4) * 100)
+		Math.round((createFacilityStep / 5) * 100)
 	);
 
-	const serializedWizardAreas = $derived.by(() =>
-		JSON.stringify(
-			createFacilityForm.areas.map((area) => ({
+	async function submitCreateFacilityWizard(): Promise<void> {
+		const clientErrors = getSubmitClientErrors(createFacilityForm);
+		if (Object.keys(clientErrors).length > 0) {
+			createFacilityStep = firstInvalidStep(clientErrors);
+			return;
+		}
+
+		createFacilitySubmitting = true;
+		createFacilityFormError = '';
+		createFacilityServerFieldErrors = {};
+		createFacilityConflictMeta = {};
+
+		const payload = {
+			facility: {
+				name: createFacilityForm.facility.name.trim(),
+				slug: slugifyFinal(createFacilityForm.facility.slug),
+				description: normalizeOptionalText(createFacilityForm.facility.description),
+				addressLine1: normalizeOptionalText(createFacilityForm.facility.addressLine1),
+				addressLine2: normalizeOptionalText(createFacilityForm.facility.addressLine2),
+				city: normalizeOptionalText(createFacilityForm.facility.city),
+				state: normalizeOptionalText(createFacilityForm.facility.state),
+				postalCode: normalizeOptionalText(createFacilityForm.facility.postalCode),
+				country: normalizeOptionalText(createFacilityForm.facility.country),
+				timezone: normalizeOptionalText(createFacilityForm.facility.timezone),
+				isActive: createFacilityForm.facility.isActive,
+				capacity: normalizeCapacityForRequest(createFacilityForm.facility.capacity)
+			},
+			areas: createFacilityForm.areas.map((area) => ({
 				name: area.name.trim(),
 				slug: slugifyFinal(area.slug),
-				description: area.description.trim()
+				description: normalizeOptionalText(area.description),
+				isActive: area.isActive,
+				capacity: normalizeCapacityForRequest(area.capacity)
 			}))
-		)
-	);
+		};
+
+		try {
+			const response = await fetch('/api/facilities', {
+				method: 'POST',
+				headers: {
+					'content-type': 'application/json'
+				},
+				body: JSON.stringify(payload)
+			});
+
+			let body: CreateFacilityApiResponse | null = null;
+			try {
+				body = (await response.json()) as CreateFacilityApiResponse;
+			} catch {
+				body = null;
+			}
+
+			if (!response.ok || !body?.success || !body.data) {
+				createFacilityServerFieldErrors = toServerFieldErrorMap(body?.fieldErrors);
+				createFacilityConflictMeta = {
+					duplicateType: body?.duplicateType,
+					archivedFacilityId: body?.archivedFacilityId,
+					archivedAreaId: body?.archivedAreaId,
+					archivedAreaFacilityId: body?.archivedAreaFacilityId
+				};
+				const combinedErrors = {
+					...getSubmitClientErrors(createFacilityForm),
+					...createFacilityServerFieldErrors
+				};
+				createFacilityStep = firstInvalidStep(combinedErrors);
+				createFacilityFormError = body?.error || 'Unable to save facility right now.';
+				return;
+			}
+
+			facilitiesData = [body.data.facility, ...facilitiesData];
+			facilityAreasData = [...body.data.facilityAreas, ...facilityAreasData];
+			expandedFacilityIds.add(body.data.facility.id);
+			createFacilitySuccessMessage =
+				body.data.facilityAreas.length > 0
+					? `Facility and ${body.data.facilityAreas.length} ${body.data.facilityAreas.length === 1 ? 'area' : 'areas'} created successfully.`
+					: 'Facility created successfully.';
+			closeCreateFacility();
+		} catch {
+			createFacilityFormError = 'Unable to save facility right now.';
+		} finally {
+			createFacilitySubmitting = false;
+		}
+	}
 
 	// Submit a form action via fetch (avoids nested form issues)
 	async function submitAction(action: string, formDataObj: Record<string, string>) {
@@ -608,14 +805,21 @@
 	}
 
 	const currentClientId = $derived(data.clientId || '');
-	const totalFacilityCount = $derived(data.facilities.length);
-	const activeFacilityCount = $derived(data.facilities.filter((facility) => facility.isActive !== 0).length);
+	const totalFacilityCount = $derived(facilitiesData.length);
+	const activeFacilityCount = $derived(
+		facilitiesData.filter((facility) => facility.isActive !== 0).length
+	);
 	const archivedFacilityCount = $derived(
-		data.facilities.filter((facility) => facility.isActive === 0).length
+		facilitiesData.filter((facility) => facility.isActive === 0).length
 	);
 	const activeFacilityAreaCount = $derived(
-		data.facilityAreas.filter((facilityArea) => facilityArea.isActive !== 0).length
+		facilityAreasData.filter((facilityArea) => facilityArea.isActive !== 0).length
 	);
+
+	$effect(() => {
+		facilitiesData = [...data.facilities];
+		facilityAreasData = [...data.facilityAreas];
+	});
 
 	$effect(() => {
 		if (!data.facilityId || expandedFacilityIds.has(data.facilityId)) return;
@@ -658,7 +862,7 @@
 			matchedAreaIds.clear();
 		} else {
 			// Find matching areas
-			const matchingAreas = data.facilityAreas.filter(
+			const matchingAreas = facilityAreasData.filter(
 				(a) =>
 					(a.name || '').toLowerCase().includes(query) ||
 					(a.slug || '').toLowerCase().includes(query)
@@ -673,13 +877,13 @@
 	// Get facilities based on view mode (normal or archive)
 	const facilities = $derived.by(() => {
 		const query = facilitySearch.trim().toLowerCase();
-		let filtered = data.facilities;
+		let filtered = facilitiesData;
 
 		if (viewArchiveMode) {
 			// In archive mode, show only archived facilities OR facilities with archived areas
 			filtered = filtered.filter((f) => {
 				const isArchived = f.isActive === 0;
-				const hasArchivedAreas = data.facilityAreas.some(
+				const hasArchivedAreas = facilityAreasData.some(
 					(a) => a.facilityId === f.id && a.isActive === 0
 				);
 				return isArchived || hasArchivedAreas;
@@ -695,7 +899,7 @@
 
 		// Get facility IDs that have matching areas (use the reactive matchedAreaIds)
 		const facilityIdsWithMatchingAreas = new Set(
-			data.facilityAreas.filter((a) => matchedAreaIds.has(a.id)).map((a) => a.facilityId)
+			facilityAreasData.filter((a) => matchedAreaIds.has(a.id)).map((a) => a.facilityId)
 		);
 
 		return filtered
@@ -712,7 +916,7 @@
 	function getAreasForFacility(facilityId: string) {
 		const query = areaSearch.trim().toLowerCase();
 		const facilityQuery = facilitySearch.trim().toLowerCase();
-		return data.facilityAreas
+		return facilityAreasData
 			.filter((a) => a.facilityId === facilityId)
 			.filter((a) => {
 				if (viewArchiveMode) {
@@ -737,10 +941,10 @@
 	}
 
 	function getActiveAreaCount(facilityId: string) {
-		return data.facilityAreas.filter((a) => a.facilityId === facilityId && a.isActive !== 0).length;
+		return facilityAreasData.filter((a) => a.facilityId === facilityId && a.isActive !== 0).length;
 	}
 
-	function getGoogleMapsUrl(facility: (typeof data.facilities)[0]) {
+	function getGoogleMapsUrl(facility: FacilityRecord) {
 		const parts = [
 			facility.addressLine1,
 			facility.city,
@@ -760,7 +964,7 @@
 		}
 	}
 
-	function startEditingFacility(facility: (typeof data.facilities)[0]) {
+	function startEditingFacility(facility: FacilityRecord) {
 		editingFacilityId = facility.id;
 		facilityDrafts[facility.id] = {
 			name: facility.name || '',
@@ -772,6 +976,10 @@
 			postalCode: facility.postalCode || '',
 			country: facility.country || '',
 			timezone: facility.timezone || '',
+			capacity:
+				typeof facility.capacity === 'number' && Number.isInteger(facility.capacity)
+					? String(facility.capacity)
+					: '',
 			description: facility.description || '',
 			_addressExpanded: !!(
 				facility.addressLine1 ||
@@ -788,12 +996,16 @@
 		editingFacilityId = null;
 	}
 
-	function startEditingArea(area: (typeof data.facilityAreas)[0]) {
+	function startEditingArea(area: FacilityAreaRecord) {
 		editingAreaId = area.id;
 		areaDrafts[area.id] = {
 			name: area.name || '',
 			slug: area.slug || '',
-			description: area.description || ''
+			description: area.description || '',
+			capacity:
+				typeof area.capacity === 'number' && Number.isInteger(area.capacity)
+					? String(area.capacity)
+					: ''
 		};
 	}
 
@@ -817,6 +1029,7 @@
 		newAreaName = '';
 		newAreaCode = '';
 		newAreaDescription = '';
+		newAreaCapacity = '';
 		areaSlugTouched = false;
 		isCreateAreaOpen = true;
 	}
@@ -908,7 +1121,7 @@
 									class="button-secondary-outlined text-sm flex items-center gap-1 border-error-500 text-error-700"
 									onclick={() => {
 										if (formData?.archivedFacilityId) {
-											const archivedFacility = data.facilities.find(
+											const archivedFacility = facilitiesData.find(
 												(f) => f.id === formData?.archivedFacilityId
 											);
 											if (archivedFacility) {
@@ -925,7 +1138,7 @@
 									Delete
 								</button>
 							{:else if formData?.archivedAreaId && formData?.archivedAreaFacilityId}
-								{@const archivedArea = data.facilityAreas.find(
+								{@const archivedArea = facilityAreasData.find(
 									(a) => a.id === formData?.archivedAreaId
 								)}
 								<form method="POST" action="?/setFacilityAreaArchived" use:enhance class="inline">
@@ -956,6 +1169,11 @@
 						</div>
 					{/if}
 				</div>
+			</div>
+		{/if}
+		{#if createFacilitySuccessMessage}
+			<div class="border-2 border-primary-500 bg-primary-100 p-4">
+				<p class="text-neutral-950 font-sans text-sm">{createFacilitySuccessMessage}</p>
 			</div>
 		{/if}
 	</header>
@@ -1103,7 +1321,7 @@
 														class="button-secondary-outlined text-sm flex items-center gap-1 border-error-500 text-error-700"
 														onclick={() => {
 															if (formData?.archivedFacilityId) {
-																const archivedFacility = data.facilities.find(
+																const archivedFacility = facilitiesData.find(
 																	(f) => f.id === formData.archivedFacilityId
 																);
 																if (archivedFacility) {
@@ -1149,6 +1367,22 @@
 													const el = e.currentTarget as HTMLInputElement;
 													facilityDrafts[facility.id].slug = applyLiveSlugInput(el);
 												}}
+												class="w-full input-secondary bg-white mt-1"
+												autocomplete="off"
+											/>
+										</label>
+									</div>
+								</div>
+								<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+									<div>
+										<label class="block text-sm font-sans text-neutral-950 mb-1"
+											>Capacity
+											<input
+												type="number"
+												name="capacity"
+												min="1"
+												step="1"
+												bind:value={facilityDrafts[facility.id].capacity}
 												class="w-full input-secondary bg-white mt-1"
 												autocomplete="off"
 											/>
@@ -1334,6 +1568,12 @@
 												<IconSquare class="w-3 h-3" />
 												<span>{activeAreaCount} area{activeAreaCount === 1 ? '' : 's'}</span>
 											</div>
+											{#if typeof facility.capacity === 'number' && facility.capacity > 0}
+												<div class="flex items-center gap-1 text-neutral-600">
+													<IconSquare class="w-3 h-3" />
+													<span>Capacity {facility.capacity}</span>
+												</div>
+											{/if}
 										</div>
 									</div>
 								</button>
@@ -1487,7 +1727,7 @@
 															<div class="flex-1">
 																<p class="text-error-800 font-sans">{form.message}</p>
 																{#if formData?.duplicateType === 'archived' && formData?.archivedAreaId}
-																	{@const archivedArea = data.facilityAreas.find(
+																	{@const archivedArea = facilityAreasData.find(
 																		(a) => a.id === formData.archivedAreaId
 																	)}
 																	<div class="flex items-center gap-2 mt-2">
@@ -1548,6 +1788,20 @@
 													</div>
 													<div>
 														<label class="block text-xs font-sans text-neutral-950 mb-1"
+															>Capacity
+															<input
+																type="number"
+																name="capacity"
+																min="1"
+																step="1"
+																bind:value={areaDrafts[area.id].capacity}
+																class="w-full input-secondary text-sm mt-1"
+																autocomplete="off"
+															/>
+														</label>
+													</div>
+													<div>
+														<label class="block text-xs font-sans text-neutral-950 mb-1"
 															>Notes (optional)
 															<textarea
 																name="description"
@@ -1587,6 +1841,9 @@
 															<p class="text-xs text-neutral-900 mt-0.5 truncate">
 																{area.description}
 															</p>
+														{/if}
+														{#if typeof area.capacity === 'number' && area.capacity > 0}
+															<p class="text-xs text-neutral-900 mt-0.5">Capacity: {area.capacity}</p>
 														{/if}
 														{#if isAreaArchived}
 															<span class="badge-secondary text-xs shrink-0">ARCHIVED</span>
@@ -1732,7 +1989,7 @@
 <!-- Create Facility Modal -->
 {#if isCreateFacilityOpen}
 	<div
-		class="fixed inset-0 bg-black/50 z-50 flex items-start justify-center p-4 lg:p-6"
+		class="fixed inset-0 bg-black/55 z-50 flex items-center justify-center p-4 lg:p-6 overflow-hidden"
 		onpointerdown={handleCreateFacilityModalPointerDown}
 		onclick={handleCreateFacilityModalBackdropClick}
 		onkeydown={(event) => {
@@ -1743,101 +2000,68 @@
 		aria-label="Close modal"
 	>
 		<div
-			class="w-full max-w-5xl bg-neutral-400 border-4 border-secondary max-h-[95vh] overflow-hidden flex flex-col"
+			class="w-full max-w-5xl max-h-[calc(100vh-2rem)] lg:max-h-[calc(100vh-3rem)] border-4 border-secondary bg-neutral-400 overflow-hidden flex flex-col"
 			onclick={(e) => e.stopPropagation()}
 			role="presentation"
 		>
-			<div class="p-5 border-b border-secondary space-y-2">
-				<div class="flex items-start justify-between gap-3">
+			<div class="p-4 border-b border-secondary space-y-3">
+				<div class="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
 					<div>
-						<p class="text-xs uppercase tracking-wide font-sans text-neutral-900">Create Facility</p>
-						<h3 class="text-2xl font-bold font-serif text-neutral-950">
-							Step {createFacilityStep} of 4: {createStepTitle(createFacilityStep)}
-						</h3>
+						<h2 class="text-3xl font-bold font-serif text-neutral-950">New Facility</h2>
+						<p class="text-sm font-sans text-neutral-950">
+							Step {createFacilityStep} of 5: {createStepTitle(createFacilityStep)}
+						</p>
 					</div>
 					<button
 						type="button"
-						class="button-secondary-outlined p-1.5 cursor-pointer"
+						class="p-1 text-neutral-950 hover:text-secondary-900 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-500"
 						aria-label="Close create facility wizard"
 						onclick={requestCloseCreateFacilityWizard}
 					>
-						<IconX class="w-4 h-4" />
+						<IconX class="w-6 h-6" />
 					</button>
 				</div>
-				<div class="h-2 bg-secondary-200 overflow-hidden" aria-hidden="true">
+				<div class="border border-secondary-300 bg-white h-3" aria-hidden="true">
 					<div class="h-full bg-secondary" style={`width: ${createFacilityStepProgress}%`}></div>
 				</div>
 			</div>
 
 			<form
-				method="POST"
-				action="?/createFacilityWithAreas"
-				use:enhance={() => {
-					createFacilitySubmitting = true;
-					createFacilityFormError = '';
-					return async ({ result, update }) => {
-						await update({ reset: false });
-						createFacilitySubmitting = false;
-						if (result.type === 'redirect' || result.type === 'success') {
-							closeCreateFacility();
-							return;
-						}
-						if (result.type === 'failure') {
-							createFacilityFormError =
-								((result.data as { message?: string } | null)?.message ?? '').trim() ||
-								'Could not create facility. Review the form and try again.';
-						}
-					};
+				class="p-4 space-y-5 flex-1 min-h-0 overflow-y-auto"
+				onsubmit={(event) => {
+					event.preventDefault();
+					void submitCreateFacilityWizard();
 				}}
-				class="flex-1 overflow-y-auto p-5 space-y-5"
+				oninput={clearCreateFacilityApiErrors}
 			>
-				<input type="hidden" name="name" value={createFacilityForm.facility.name.trim()} />
-				<input type="hidden" name="slug" value={slugifyFinal(createFacilityForm.facility.slug)} />
-				<input type="hidden" name="description" value={createFacilityForm.facility.description.trim()} />
-				<input type="hidden" name="addressLine1" value={createFacilityForm.facility.addressLine1.trim()} />
-				<input type="hidden" name="addressLine2" value={createFacilityForm.facility.addressLine2.trim()} />
-				<input type="hidden" name="city" value={createFacilityForm.facility.city.trim()} />
-				<input type="hidden" name="state" value={createFacilityForm.facility.state.trim()} />
-				<input type="hidden" name="postalCode" value={createFacilityForm.facility.postalCode.trim()} />
-				<input type="hidden" name="country" value={createFacilityForm.facility.country.trim()} />
-				<input type="hidden" name="timezone" value={createFacilityForm.facility.timezone.trim()} />
-				<input type="hidden" name="areasJson" value={serializedWizardAreas} />
-
 				{#if createFacilityFormError}
 					<div class="border-2 border-error-300 bg-error-50 p-3 flex items-start gap-3">
 						<IconAlertCircle class="w-5 h-5 text-error-700 mt-0.5" />
 						<div class="flex-1">
 							<p class="text-error-800 font-sans">{createFacilityFormError}</p>
-						</div>
-					</div>
-				{/if}
-
-				{#if form?.action === 'createFacilityWithAreas' && form?.message}
-					<div class="border-2 border-error-300 bg-error-50 p-3 flex items-start gap-3">
-						<IconAlertCircle class="w-5 h-5 text-error-700 mt-0.5" />
-						<div class="flex-1">
-							<p class="text-error-800 font-sans">{form.message}</p>
-							{#if formData?.duplicateType === 'archived' && formData?.archivedFacilityId}
+							{#if createFacilityConflictMeta.duplicateType === 'archived' &&
+								createFacilityConflictMeta.archivedFacilityId}
 								<div class="flex items-center gap-2 mt-2">
 									<button
 										type="button"
 										class="button-secondary text-sm flex items-center gap-1"
 										onclick={() =>
 											submitAction('setFacilityArchived', {
-												facilityId: String(formData?.archivedFacilityId),
+												facilityId: String(createFacilityConflictMeta.archivedFacilityId),
 												isActive: '1'
 											})}
 									>
 										<IconRestore class="w-4 h-4" />
-										Restore
+										Restore Facility
 									</button>
 									<button
 										type="button"
 										class="button-secondary-outlined text-sm flex items-center gap-1 border-error-500 text-error-700"
 										onclick={() => {
-											if (formData?.archivedFacilityId) {
-												const archivedFacility = data.facilities.find(
-													(facility) => facility.id === formData.archivedFacilityId
+											if (createFacilityConflictMeta.archivedFacilityId) {
+												const archivedFacility = facilitiesData.find(
+													(facility) =>
+														facility.id === createFacilityConflictMeta.archivedFacilityId
 												);
 												if (archivedFacility) {
 													openConfirm({
@@ -1849,8 +2073,46 @@
 											}
 										}}
 									>
-										<IconTrash class="w-4 h-4" />
-										Delete
+										<IconTrash class="w-4 h-4 text-error-500" />
+										Delete Facility
+									</button>
+								</div>
+							{/if}
+							{#if createFacilityConflictMeta.duplicateType === 'archived' &&
+								createFacilityConflictMeta.archivedAreaId}
+								<div class="flex items-center gap-2 mt-2">
+									<button
+										type="button"
+										class="button-secondary text-sm flex items-center gap-1"
+										onclick={() =>
+											submitAction('setFacilityAreaArchived', {
+												facilityAreaId: String(createFacilityConflictMeta.archivedAreaId),
+												isActive: '1'
+											})}
+									>
+										<IconRestore class="w-4 h-4" />
+										Restore Area
+									</button>
+									<button
+										type="button"
+										class="button-secondary-outlined text-sm flex items-center gap-1 border-error-500 text-error-700"
+										onclick={() => {
+											if (createFacilityConflictMeta.archivedAreaId) {
+												const archivedArea = facilityAreasData.find(
+													(area) => area.id === createFacilityConflictMeta.archivedAreaId
+												);
+												if (archivedArea) {
+													openConfirm({
+														kind: 'area-delete',
+														facilityAreaId: archivedArea.id,
+														slug: archivedArea.slug || ''
+													});
+												}
+											}
+										}}
+									>
+										<IconTrash class="w-4 h-4 text-error-500" />
+										Delete Area
 									</button>
 								</div>
 							{/if}
@@ -1937,43 +2199,13 @@
 									for="wizard-facility-address-line1"
 									class="block text-sm font-sans text-neutral-950 mb-1">Address line 1</label
 								>
-								<div class="relative">
-									<input
-										id="wizard-facility-address-line1"
-										type="text"
-										class="input-secondary"
-										bind:value={createFacilityForm.facility.addressLine1}
-										oninput={(event) =>
-											scheduleAddressLookup((event.currentTarget as HTMLInputElement).value)}
-										autocomplete="off"
-									/>
-									{#if isAddressLoading}
-										<div class="absolute right-2 top-2 text-xs font-sans text-secondary-700">
-											Looking up...
-										</div>
-									{/if}
-									{#if addressSuggestions.length > 0}
-										<div class="absolute z-10 mt-1 w-full border-2 border-secondary-300 bg-white">
-											<ul
-												class="max-h-56 overflow-auto"
-												role="listbox"
-												aria-label="Address suggestions"
-											>
-												{#each addressSuggestions as suggestion (suggestion.label)}
-													<li class="border-b border-secondary-200 last:border-b-0">
-														<button
-															type="button"
-															class="w-full text-left px-3 py-2 hover:bg-secondary-50 font-sans text-sm text-neutral-950 cursor-pointer"
-															onclick={() => applyAddressSuggestion(suggestion)}
-														>
-															{suggestion.label}
-														</button>
-													</li>
-												{/each}
-											</ul>
-										</div>
-									{/if}
-								</div>
+								<input
+									id="wizard-facility-address-line1"
+									type="text"
+									class="input-secondary"
+									bind:value={createFacilityForm.facility.addressLine1}
+									autocomplete="off"
+								/>
 							</div>
 							<div>
 								<label
@@ -2059,215 +2291,317 @@
 								/>
 							</div>
 						</div>
+						<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+							<div>
+								<label
+									for="wizard-facility-capacity"
+									class="block text-sm font-sans text-neutral-950 mb-1">Capacity</label
+								>
+								<input
+									id="wizard-facility-capacity"
+									type="number"
+									class="input-secondary"
+									min="1"
+									step="1"
+									value={createFacilityForm.facility.capacity > 0
+										? String(createFacilityForm.facility.capacity)
+										: ''}
+									oninput={(event) => {
+										const parsed = Number.parseInt(
+											(event.currentTarget as HTMLInputElement).value,
+											10
+										);
+										createFacilityForm.facility.capacity = Number.isNaN(parsed) ? 0 : parsed;
+									}}
+									autocomplete="off"
+								/>
+								{#if createFacilityFieldErrors['facility.capacity']}
+									<p class="text-xs text-error-700 mt-1">
+										{createFacilityFieldErrors['facility.capacity']}
+									</p>
+								{/if}
+							</div>
+							<div class="border border-secondary-300 bg-white p-3 flex items-center">
+								<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
+									<input
+										type="checkbox"
+										class="toggle-secondary"
+										bind:checked={createFacilityForm.facility.isActive}
+									/>
+									Active
+								</label>
+							</div>
+						</div>
 					</div>
 				{/if}
 
 				{#if createFacilityStep === 3}
 					<div class="space-y-4">
-						<fieldset class="border border-secondary-300 bg-white p-3 space-y-2">
-							<legend class="text-sm font-semibold text-neutral-950 px-1">Add areas now?</legend>
-							<label class="flex items-center gap-2 text-sm text-neutral-950 font-sans">
-								<input
-									type="radio"
-									class="radio-secondary"
-									name="wizard-add-areas"
-									value="yes"
-									bind:group={createFacilityForm.addAreas}
-								/>
-								Yes, create facility areas during setup.
-							</label>
-							<label class="flex items-center gap-2 text-sm text-neutral-950 font-sans">
-								<input
-									type="radio"
-									class="radio-secondary"
-									name="wizard-add-areas"
-									value="no"
-									bind:group={createFacilityForm.addAreas}
-									onchange={() => {
-										if (createFacilityForm.addAreas === 'no') cancelAreaDraft();
-									}}
-								/>
-								No, I will add areas later.
-							</label>
-						</fieldset>
+						<div class="border border-secondary-300 bg-white p-3 space-y-3">
+							<div class="flex items-center justify-between gap-2">
+								<h3 class="text-sm font-bold font-sans text-neutral-950 uppercase tracking-wide">
+									Facility Areas
+								</h3>
+								<button
+									type="button"
+									class="button-secondary-outlined p-1.5 cursor-pointer"
+									aria-label="Add area"
+									title="Add area"
+									onclick={startAreaDraft}
+								>
+									<IconPlus class="w-4 h-4" />
+								</button>
+							</div>
 
-						{#if createFacilityForm.addAreas === 'yes'}
-							<div class="border-2 border-secondary-300 bg-white">
-								<div class="p-3 border-b border-secondary-300 flex items-center justify-between gap-2">
-									<h4 class="text-lg font-bold font-serif text-neutral-950">Areas</h4>
-									{#if !areaDraftActive}
-										<button
-											type="button"
-											class="button-secondary-outlined p-1.5 cursor-pointer"
-											aria-label="Add area draft"
-											onclick={startAreaDraft}
-										>
-											<IconPlus class="w-4 h-4" />
-										</button>
-									{/if}
+							{#if areaDraftActive}
+								<div class="border border-secondary-300 bg-secondary-50 p-2">
+									<p class="text-xs font-sans text-neutral-950">
+										Area draft is open. Continue to Step 4 to {areaEditingIndex === null
+											? 'add this area'
+											: 'update this area'}.
+									</p>
 								</div>
-								<div class="p-3 space-y-3">
-									{#if createFacilityFieldErrors['areas']}
-										<p class="text-xs text-error-700">{createFacilityFieldErrors['areas']}</p>
-									{/if}
+							{/if}
 
-									{#if createFacilityForm.areas.length > 0}
-										<div class="space-y-2">
-											{#each createFacilityForm.areas as area, areaIndex (area.draftId)}
-												<div class="border border-secondary-300 bg-neutral p-3">
-													<div class="flex items-start justify-between gap-3">
-														<div>
-															<p class="text-sm font-semibold text-neutral-950">
-																{area.name || 'Untitled Area'}
-															</p>
-															<p class="text-xs text-neutral-900">Slug: {area.slug || 'TBD'}</p>
-															{#if area.description.trim()}
-																<p class="text-xs text-neutral-950 mt-1">{area.description.trim()}</p>
-															{/if}
-														</div>
-														<div class="flex items-center gap-1">
+							{#if createFacilityForm.areas.length === 0}
+								<p class="text-sm text-neutral-950 font-sans">
+									No areas added yet. Use the plus button to add one, or continue without areas.
+								</p>
+							{:else}
+								<div
+									class="space-y-2 max-h-[61vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 scrollbar-track-secondary-400 scrollbar-corner-secondary-500 hover:scrollbar-thumb-secondary-700 active:scrollbar-thumb-secondary-700 scrollbar-hover:scrollbar-thumb-secondary-800 scrollbar-active:scrollbar-thumb-secondary-700"
+								>
+									{#each createFacilityForm.areas as area, areaIndex (area.draftId)}
+										<div class="border border-secondary-300 bg-neutral p-3 space-y-2">
+											<div class="flex items-start justify-between gap-3">
+												<div>
+													<p class="text-sm font-semibold text-neutral-950">
+														{area.name.trim() || 'Untitled Area'}
+													</p>
+													<p class="text-xs text-neutral-900">Slug: {area.slug || 'TBD'}</p>
+												</div>
+												<div class="flex items-center gap-1">
+													{#if createFacilityForm.areas.length > 1}
+														{#if areaIndex > 0}
 															<button
 																type="button"
 																class="button-secondary-outlined p-1.5 cursor-pointer"
 																aria-label="Move area up"
-																disabled={areaIndex === 0}
+																title="Move up"
 																onclick={() => moveWizardArea(areaIndex, -1)}
 															>
 																<IconChevronUp class="w-4 h-4" />
 															</button>
+														{/if}
+														{#if areaIndex < createFacilityForm.areas.length - 1}
 															<button
 																type="button"
 																class="button-secondary-outlined p-1.5 cursor-pointer"
 																aria-label="Move area down"
-																disabled={areaIndex === createFacilityForm.areas.length - 1}
+																title="Move down"
 																onclick={() => moveWizardArea(areaIndex, 1)}
 															>
 																<IconChevronDown class="w-4 h-4" />
 															</button>
-															<button
-																type="button"
-																class="button-secondary-outlined p-1.5 cursor-pointer"
-																aria-label="Edit area"
-																onclick={() => startEditingWizardArea(areaIndex)}
-															>
-																<IconPencil class="w-4 h-4" />
-															</button>
-															<button
-																type="button"
-																class="button-secondary-outlined p-1.5 cursor-pointer"
-																aria-label="Copy area"
-																onclick={() => duplicateWizardArea(areaIndex)}
-															>
-																<IconCopy class="w-4 h-4" />
-															</button>
-															<button
-																type="button"
-																class="button-secondary-outlined p-1.5 cursor-pointer"
-																aria-label="Remove area"
-																onclick={() => removeWizardArea(areaIndex)}
-															>
-																<IconTrash class="w-4 h-4" />
-															</button>
-														</div>
-													</div>
+														{/if}
+													{/if}
+													<button
+														type="button"
+														class="button-secondary-outlined p-1.5 cursor-pointer"
+														aria-label="Edit area"
+														title="Edit"
+														onclick={() => startEditingWizardArea(areaIndex)}
+													>
+														<IconPencil class="w-4 h-4" />
+													</button>
+													<button
+														type="button"
+														class="button-secondary-outlined p-1.5 cursor-pointer"
+														aria-label="Copy area"
+														title="Copy"
+														onclick={() => duplicateWizardArea(areaIndex)}
+													>
+														<IconCopy class="w-4 h-4" />
+													</button>
+													<button
+														type="button"
+														class="button-secondary-outlined p-1.5 cursor-pointer"
+														aria-label="Remove area"
+														title="Remove"
+														onclick={() => removeWizardArea(areaIndex)}
+													>
+														<IconTrash class="w-4 h-4 text-error-500" />
+													</button>
 												</div>
-											{/each}
+											</div>
+											<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-xs text-neutral-950">
+												<p>
+													<span class="font-semibold">Capacity:</span>
+													{area.capacity > 0 ? area.capacity : 'N/A'}
+												</p>
+												<p>
+													<span class="font-semibold">Status:</span>
+													{area.isActive ? 'Active' : 'Inactive'}
+												</p>
+											</div>
+											{#if area.description.trim()}
+												<p class="text-xs text-neutral-950">
+													<span class="font-semibold">Description:</span>
+													{area.description.trim()}
+												</p>
+											{/if}
 										</div>
-									{/if}
+									{/each}
+								</div>
+							{/if}
+						</div>
+					</div>
+				{/if}
 
-									{#if areaDraftActive}
-										<div class="border border-secondary-300 bg-white p-3 space-y-3">
-											<div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
-												<div>
-													<label
-														for="wizard-area-name"
-														class="block text-sm font-sans text-neutral-950 mb-1"
-														>Name <span class="text-error-700">*</span></label
-													>
-													<input
-														id="wizard-area-name"
-														type="text"
-														class="input-secondary"
-														value={createFacilityForm.areaDraft.name}
-														placeholder="Field 1"
-														oninput={(event) => {
-															const value = (event.currentTarget as HTMLInputElement).value;
-															createFacilityForm.areaDraft.name = value;
-															if (!wizardAreaSlugTouched) {
-																createFacilityForm.areaDraft.slug = slugifyFinal(value);
-																createFacilityForm.areaDraft.isSlugManual = false;
-															}
-														}}
-														autocomplete="off"
-													/>
-													{#if createFacilityFieldErrors['areaDraft.name']}
-														<p class="text-xs text-error-700 mt-1">
-															{createFacilityFieldErrors['areaDraft.name']}
-														</p>
-													{/if}
-												</div>
-												<div>
-													<label
-														for="wizard-area-slug"
-														class="block text-sm font-sans text-neutral-950 mb-1"
-														>Slug <span class="text-error-700">*</span></label
-													>
-													<input
-														id="wizard-area-slug"
-														type="text"
-														class="input-secondary"
-														value={createFacilityForm.areaDraft.slug}
-														placeholder="field-1"
-														oninput={(event) => {
-															wizardAreaSlugTouched = true;
-															createFacilityForm.areaDraft.isSlugManual = true;
-															createFacilityForm.areaDraft.slug = applyLiveSlugInput(
-																event.currentTarget as HTMLInputElement
-															);
-														}}
-														autocomplete="off"
-													/>
-													{#if createFacilityFieldErrors['areaDraft.slug']}
-														<p class="text-xs text-error-700 mt-1">
-															{createFacilityFieldErrors['areaDraft.slug']}
-														</p>
-													{/if}
-												</div>
-											</div>
-											<div>
-												<label
-													for="wizard-area-description"
-													class="block text-sm font-sans text-neutral-950 mb-1">Description</label
-												>
-												<textarea
-													id="wizard-area-description"
-													class="textarea-secondary min-h-24"
-													bind:value={createFacilityForm.areaDraft.description}
-													placeholder="Optional notes about this area."
-												></textarea>
-											</div>
-										</div>
-									{:else if createFacilityForm.areas.length === 0}
-										<p class="text-sm font-sans text-neutral-950">
-											No areas added yet. Click the plus button to add one.
-										</p>
-									{/if}
+				{#if createFacilityStep === 4}
+					<div class="space-y-4">
+						{#if !areaDraftActive}
+							<div class="border border-secondary-300 bg-white p-4">
+								<p class="text-sm font-sans text-neutral-950">
+									No area draft is open. Go back to Facility Areas and click the plus button to add one.
+								</p>
+							</div>
+						{:else}
+							<div class="border border-secondary-300 bg-white p-3 space-y-4">
+								<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+									<div>
+										<label for="wizard-area-name" class="block text-sm font-sans text-neutral-950 mb-1"
+											>Name <span class="text-error-700">*</span></label
+										>
+										<input
+											id="wizard-area-name"
+											type="text"
+											use:autofocus
+											class="input-secondary"
+											value={createFacilityForm.areaDraft.name}
+											placeholder="Field 1"
+											oninput={(event) => {
+												const value = (event.currentTarget as HTMLInputElement).value;
+												createFacilityForm.areaDraft.name = value;
+												if (!wizardAreaSlugTouched) {
+													createFacilityForm.areaDraft.slug = defaultAreaSlug(value);
+													createFacilityForm.areaDraft.isSlugManual = false;
+												}
+											}}
+											autocomplete="off"
+										/>
+										{#if createFacilityFieldErrors['areaDraft.name']}
+											<p class="text-xs text-error-700 mt-1">{createFacilityFieldErrors['areaDraft.name']}</p>
+										{/if}
+									</div>
+									<div>
+										<label for="wizard-area-slug" class="block text-sm font-sans text-neutral-950 mb-1"
+											>Slug <span class="text-error-700">*</span></label
+										>
+										<input
+											id="wizard-area-slug"
+											type="text"
+											class="input-secondary"
+											value={createFacilityForm.areaDraft.slug}
+											placeholder="field-1"
+											oninput={(event) => {
+												wizardAreaSlugTouched = true;
+												createFacilityForm.areaDraft.isSlugManual = true;
+												createFacilityForm.areaDraft.slug = applyLiveSlugInput(
+													event.currentTarget as HTMLInputElement
+												);
+											}}
+											autocomplete="off"
+										/>
+										{#if createFacilityFieldErrors['areaDraft.slug']}
+											<p class="text-xs text-error-700 mt-1">{createFacilityFieldErrors['areaDraft.slug']}</p>
+										{/if}
+									</div>
+									<div class="lg:col-span-2">
+										<label
+											for="wizard-area-description"
+											class="block text-sm font-sans text-neutral-950 mb-1">Description</label
+										>
+										<textarea
+											id="wizard-area-description"
+											class="textarea-secondary min-h-28"
+											bind:value={createFacilityForm.areaDraft.description}
+											placeholder="Optional notes about this area."
+										></textarea>
+									</div>
+								</div>
+
+								<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+									<div class="border border-secondary-300 bg-white p-3">
+										<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
+											<input
+												type="checkbox"
+												class="toggle-secondary"
+												bind:checked={createFacilityForm.areaDraft.isActive}
+											/>
+											Active
+										</label>
+									</div>
+									<div>
+										<label for="wizard-area-capacity" class="block text-sm font-sans text-neutral-950 mb-1"
+											>Capacity</label
+										>
+										<input
+											id="wizard-area-capacity"
+											type="number"
+											class="input-secondary"
+											min="1"
+											step="1"
+											value={createFacilityForm.areaDraft.capacity > 0
+												? String(createFacilityForm.areaDraft.capacity)
+												: ''}
+											oninput={(event) => {
+												const parsed = Number.parseInt(
+													(event.currentTarget as HTMLInputElement).value,
+													10
+												);
+												createFacilityForm.areaDraft.capacity = Number.isNaN(parsed) ? 0 : parsed;
+											}}
+											autocomplete="off"
+										/>
+										{#if createFacilityFieldErrors['areaDraft.capacity']}
+											<p class="text-xs text-error-700 mt-1">
+												{createFacilityFieldErrors['areaDraft.capacity']}
+											</p>
+										{/if}
+									</div>
 								</div>
 							</div>
 						{/if}
 					</div>
 				{/if}
 
-				{#if createFacilityStep === 4}
+				{#if createFacilityStep === 5}
 					<div class="space-y-4">
 						<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
-							<h4 class="text-lg font-bold font-serif text-neutral-950">Facility</h4>
+							<div class="flex items-start justify-between gap-2">
+								<h3 class="text-lg font-bold font-serif text-neutral-950">Facility</h3>
+								<button
+									type="button"
+									class="button-secondary-outlined p-1.5 cursor-pointer"
+									aria-label="Edit facility"
+									title="Edit facility"
+									onclick={startEditingFacilityDraft}
+								>
+									<IconPencil class="w-4 h-4" />
+								</button>
+							</div>
 							<p class="text-sm text-neutral-950">
-								<span class="font-semibold">Name:</span> {createFacilityForm.facility.name || 'TBD'}
+								<span class="font-semibold">Name:</span>
+								{createFacilityForm.facility.name || 'TBD'}
+								<span class="ml-3 font-semibold">Slug:</span>
+								{slugifyFinal(createFacilityForm.facility.slug) || 'TBD'}
 							</p>
 							<p class="text-sm text-neutral-950">
-								<span class="font-semibold">Slug:</span>
-								{slugifyFinal(createFacilityForm.facility.slug) || 'TBD'}
+								<span class="font-semibold">Status:</span>
+								{createFacilityForm.facility.isActive ? 'Active' : 'Inactive'}
+								<span class="ml-3 font-semibold">Capacity:</span>
+								{createFacilityForm.facility.capacity > 0 ? createFacilityForm.facility.capacity : 'N/A'}
 							</p>
 							{#if createFacilityForm.facility.description.trim()}
 								<p class="text-sm text-neutral-950">
@@ -2297,38 +2631,52 @@
 								</p>
 							{/if}
 						</div>
-						<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
-							<h4 class="text-lg font-bold font-serif text-neutral-950">Areas</h4>
-							{#if createFacilityForm.addAreas === 'no'}
-								<p class="text-sm text-neutral-950 font-sans">
-									No areas will be created yet.
-								</p>
-							{:else if createFacilityForm.areas.length === 0}
-								<p class="text-sm text-neutral-950 font-sans">
-									No areas in the draft list.
-								</p>
+
+						<div class="border-2 border-secondary-300 bg-white p-4 space-y-3">
+							<div class="flex items-start justify-between gap-2">
+								<h3 class="text-lg font-bold font-serif text-neutral-950">Facility Areas</h3>
+								<button
+									type="button"
+									class="button-secondary-outlined p-1.5 cursor-pointer"
+									aria-label="Edit areas"
+									title="Edit areas"
+									onclick={startEditingAreasDraft}
+								>
+									<IconPencil class="w-4 h-4" />
+								</button>
+							</div>
+							{#if createFacilityForm.areas.length === 0}
+								<p class="text-sm text-neutral-950 font-sans">No areas will be created.</p>
 							{:else}
-								<div class="space-y-2">
+								<div
+									class="space-y-3 max-h-[45vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 scrollbar-track-secondary-400 scrollbar-corner-secondary-500 hover:scrollbar-thumb-secondary-700 active:scrollbar-thumb-secondary-700 scrollbar-hover:scrollbar-thumb-secondary-800 scrollbar-active:scrollbar-thumb-secondary-700"
+								>
 									{#each createFacilityForm.areas as area (area.draftId)}
-										<div class="border border-secondary-300 bg-neutral p-3">
-											<p class="text-sm font-semibold text-neutral-950">{area.name}</p>
-											<p class="text-xs text-neutral-900">Slug: {slugifyFinal(area.slug)}</p>
+										<div class="border border-secondary-300 bg-neutral p-3 space-y-1">
+											<p class="text-sm font-semibold text-neutral-950">{area.name || 'Untitled Area'}</p>
+											<p class="text-xs text-neutral-900">Slug: {slugifyFinal(area.slug) || 'TBD'}</p>
+											<p class="text-xs text-neutral-950">
+												<span class="font-semibold">Status:</span>
+												{area.isActive ? 'Active' : 'Inactive'}
+												<span class="ml-2 font-semibold">Capacity:</span>
+												{area.capacity > 0 ? area.capacity : 'N/A'}
+											</p>
 											{#if area.description.trim()}
-												<p class="text-xs text-neutral-950 mt-1">{area.description.trim()}</p>
+												<p class="text-xs text-neutral-950">
+													<span class="font-semibold">Description:</span>
+													{area.description.trim()}
+												</p>
 											{/if}
 										</div>
 									{/each}
 								</div>
-							{/if}
-							{#if createFacilityFieldErrors['areas']}
-								<p class="text-xs text-error-700">{createFacilityFieldErrors['areas']}</p>
 							{/if}
 						</div>
 					</div>
 				{/if}
 
 				<div class="pt-2 border-t border-secondary-300 flex justify-end">
-					<div class="flex items-center gap-2">
+					<div class="flex items-center gap-2 justify-end">
 						{#if createFacilityStep > 1}
 							<button
 								type="button"
@@ -2338,17 +2686,17 @@
 								Back
 							</button>
 						{/if}
-						{#if createFacilityStep < 4}
+						{#if createFacilityStep < 5}
 							<button
 								type="button"
 								class="button-accent cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
 								onclick={nextCreateFacilityStep}
 								disabled={!canGoNextCreateFacilityStep}
 							>
-								{#if createFacilityStep === 3 && areaDraftActive}
+								{#if createFacilityStep === 3 && !areaDraftActive}
+									{createFacilityForm.areas.length === 0 ? 'Skip to Review' : 'Review'}
+								{:else if createFacilityStep === 4 && areaDraftActive}
 									{areaEditingIndex === null ? 'Add Area' : 'Update Area'}
-								{:else if createFacilityStep === 3}
-									Review
 								{:else}
 									Next
 								{/if}
@@ -2406,7 +2754,7 @@
 						<div class="flex-1">
 							<p class="text-error-800 font-sans">{form.message}</p>
 							{#if formData?.duplicateType === 'archived' && formData?.archivedAreaId}
-								{@const archivedArea = data.facilityAreas.find(
+								{@const archivedArea = facilityAreasData.find(
 									(a) => a.id === formData.archivedAreaId
 								)}
 								<div class="flex items-center gap-2 mt-2">
@@ -2488,6 +2836,22 @@
 							Auto-formats to lowercase with dashes.
 						</p>
 					</div>
+				</div>
+
+				<div>
+					<label for="new-area-capacity" class="block text-sm font-sans text-neutral-950 mb-1"
+						>Capacity</label
+					>
+					<input
+						id="new-area-capacity"
+						name="capacity"
+						type="number"
+						min="1"
+						step="1"
+						bind:value={newAreaCapacity}
+						class="w-full input-secondary"
+						autocomplete="off"
+					/>
 				</div>
 
 				<div>

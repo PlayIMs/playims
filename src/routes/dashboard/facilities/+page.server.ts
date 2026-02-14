@@ -19,6 +19,17 @@ function asInt01(value: FormDataEntryValue | null): number | null {
 	return null;
 }
 
+function asOptionalPositiveInt(value: FormDataEntryValue | null): number | null | 'invalid' {
+	if (value === null) return null;
+	if (typeof value !== 'string') return 'invalid';
+
+	const trimmed = value.trim();
+	if (!trimmed) return null;
+	const parsed = Number(trimmed);
+	if (!Number.isInteger(parsed) || parsed < 1) return 'invalid';
+	return parsed;
+}
+
 function normalizeSlug(raw: string | null): string | null {
 	if (!raw) return null;
 	return raw
@@ -53,6 +64,8 @@ interface FacilityAreaWizardInput {
 	name: string;
 	slug: string;
 	description?: string;
+	capacity?: number | null;
+	isActive?: boolean;
 }
 
 function parseFacilityAreaWizardPayload(raw: FormDataEntryValue | null): FacilityAreaWizardInput[] | null {
@@ -79,6 +92,12 @@ function parseFacilityAreaWizardPayload(raw: FormDataEntryValue | null): Facilit
 				typeof input.description === 'string' && input.description.trim().length > 0
 					? input.description.trim()
 					: undefined;
+			const rawCapacity = input.capacity;
+			const capacity =
+				typeof rawCapacity === 'number' && Number.isInteger(rawCapacity) && rawCapacity >= 1
+					? rawCapacity
+					: null;
+			const isActive = typeof input.isActive === 'boolean' ? input.isActive : true;
 
 			if (!name || !slug) return null;
 
@@ -88,7 +107,7 @@ function parseFacilityAreaWizardPayload(raw: FormDataEntryValue | null): Facilit
 
 			seenNames.add(nameKey);
 			seenSlugs.add(slug);
-			areas.push({ name, slug, description });
+			areas.push({ name, slug, description, capacity, isActive });
 		}
 
 		return areas;
@@ -127,6 +146,7 @@ export const actions: Actions = {
 		const name = asTrimmedString(form.get('name'));
 		const slug = normalizeSlugAllowTrailing(asTrimmedString(form.get('slug')));
 		const areas = parseFacilityAreaWizardPayload(form.get('areasJson'));
+		const capacity = asOptionalPositiveInt(form.get('capacity'));
 
 		if (!name) {
 			return fail(400, {
@@ -143,6 +163,12 @@ export const actions: Actions = {
 		if (areas === null) {
 			return fail(400, {
 				message: 'Facility areas data is invalid. Please review area entries and try again.',
+				action: 'createFacilityWithAreas'
+			});
+		}
+		if (capacity === 'invalid') {
+			return fail(400, {
+				message: 'Capacity must be a whole number of at least 1.',
 				action: 'createFacilityWithAreas'
 			});
 		}
@@ -184,6 +210,7 @@ export const actions: Actions = {
 			postalCode: asTrimmedString(form.get('postalCode')) || undefined,
 			country: asTrimmedString(form.get('country')) || undefined,
 			timezone: asTrimmedString(form.get('timezone')) || undefined,
+			capacity,
 			description: asTrimmedString(form.get('description')) || undefined,
 			metadata: asTrimmedString(form.get('metadata')) || undefined,
 			isActive: 1,
@@ -204,8 +231,9 @@ export const actions: Actions = {
 				facilityId: createdFacility.id,
 				name: area.name,
 				slug: area.slug,
+				capacity: area.capacity,
 				description: area.description,
-				isActive: 1,
+				isActive: area.isActive === false ? 0 : 1,
 				createdUser: actorUserId || undefined,
 				updatedUser: actorUserId || undefined
 			});
@@ -229,11 +257,17 @@ export const actions: Actions = {
 		const name = asTrimmedString(form.get('name'));
 		// Allow trailing dashes during input, trim them on save
 		const slug = normalizeSlugAllowTrailing(asTrimmedString(form.get('slug')));
+		const capacity = asOptionalPositiveInt(form.get('capacity'));
 
 		if (!name)
 			return fail(400, { message: 'Facility name is required.', action: 'createFacility' });
 		if (!slug)
 			return fail(400, { message: 'Facility slug is required.', action: 'createFacility' });
+		if (capacity === 'invalid')
+			return fail(400, {
+				message: 'Capacity must be a whole number of at least 1.',
+				action: 'createFacility'
+			});
 
 		const dbOps = new DatabaseOperations(platform as App.Platform);
 		const actorUserId = requireAuthenticatedUserId(locals);
@@ -273,6 +307,7 @@ export const actions: Actions = {
 			postalCode: asTrimmedString(form.get('postalCode')) || undefined,
 			country: asTrimmedString(form.get('country')) || undefined,
 			timezone: asTrimmedString(form.get('timezone')) || undefined,
+			capacity,
 			description: asTrimmedString(form.get('description')) || undefined,
 			metadata: asTrimmedString(form.get('metadata')) || undefined,
 			isActive: 1,
@@ -312,6 +347,13 @@ export const actions: Actions = {
 		const countryUpdate = asTrimmedString(form.get('country'));
 		const timezoneUpdate = asTrimmedString(form.get('timezone'));
 		const descriptionUpdate = asTrimmedString(form.get('description'));
+		const capacityUpdate = asOptionalPositiveInt(form.get('capacity'));
+		if (capacityUpdate === 'invalid') {
+			return fail(400, {
+				message: 'Capacity must be a whole number of at least 1.',
+				action: 'updateFacility'
+			});
+		}
 
 		// Check for actual changes
 		const hasChanges =
@@ -324,7 +366,8 @@ export const actions: Actions = {
 			(postalCodeUpdate !== undefined && postalCodeUpdate !== existing.postalCode) ||
 			(countryUpdate !== undefined && countryUpdate !== existing.country) ||
 			(timezoneUpdate !== undefined && timezoneUpdate !== existing.timezone) ||
-			(descriptionUpdate !== undefined && descriptionUpdate !== existing.description);
+			(descriptionUpdate !== undefined && descriptionUpdate !== existing.description) ||
+			capacityUpdate !== (existing.capacity ?? null);
 
 		if (!hasChanges) {
 			return { ok: true, facilityId, noChange: true };
@@ -367,6 +410,7 @@ export const actions: Actions = {
 			postalCode: postalCodeUpdate ?? undefined,
 			country: countryUpdate ?? undefined,
 			timezone: timezoneUpdate ?? undefined,
+			capacity: capacityUpdate,
 			description: descriptionUpdate ?? undefined,
 			metadata: asTrimmedString(form.get('metadata')) ?? undefined,
 			updatedUser: actorUserId || undefined
@@ -409,6 +453,7 @@ export const actions: Actions = {
 		const name = asTrimmedString(form.get('name'));
 		// Allow trailing dashes during input, trim them on save
 		const slug = normalizeSlugAllowTrailing(asTrimmedString(form.get('slug')));
+		const capacity = asOptionalPositiveInt(form.get('capacity'));
 
 		if (!facilityId)
 			return fail(400, { message: 'Facility is required.', action: 'createFacilityArea' });
@@ -416,6 +461,11 @@ export const actions: Actions = {
 			return fail(400, { message: 'Area name is required.', action: 'createFacilityArea' });
 		if (!slug)
 			return fail(400, { message: 'Area slug is required.', action: 'createFacilityArea' });
+		if (capacity === 'invalid')
+			return fail(400, {
+				message: 'Capacity must be a whole number of at least 1.',
+				action: 'createFacilityArea'
+			});
 
 		const dbOps = new DatabaseOperations(platform as App.Platform);
 		const actorUserId = requireAuthenticatedUserId(locals);
@@ -454,6 +504,7 @@ export const actions: Actions = {
 			facilityId,
 			name,
 			slug,
+			capacity,
 			description: asTrimmedString(form.get('description')) || undefined,
 			isActive: 1,
 			metadata: asTrimmedString(form.get('metadata')) || undefined,
@@ -488,6 +539,13 @@ export const actions: Actions = {
 		// Normalize inputs
 		const slugUpdate = normalizeSlugAllowTrailing(asTrimmedString(form.get('slug')));
 		const nameUpdate = asTrimmedString(form.get('name'));
+		const capacityUpdate = asOptionalPositiveInt(form.get('capacity'));
+		if (capacityUpdate === 'invalid') {
+			return fail(400, {
+				message: 'Capacity must be a whole number of at least 1.',
+				action: 'updateFacilityArea'
+			});
+		}
 		const descriptionInput = form.get('description');
 		const descriptionUpdate =
 			typeof descriptionInput === 'string'
@@ -498,7 +556,8 @@ export const actions: Actions = {
 		const hasChanges =
 			(nameUpdate !== undefined && nameUpdate !== existing.name) ||
 			(slugUpdate !== undefined && slugUpdate !== existing.slug) ||
-			descriptionUpdate !== (existing.description ?? null);
+			descriptionUpdate !== (existing.description ?? null) ||
+			capacityUpdate !== (existing.capacity ?? null);
 
 		if (!hasChanges) {
 			return { ok: true, facilityAreaId, noChange: true };
@@ -535,6 +594,7 @@ export const actions: Actions = {
 		const updated = await dbOps.facilityAreas.update(facilityAreaId, {
 			name: nameUpdate ?? undefined,
 			slug: slugUpdate ?? undefined,
+			capacity: capacityUpdate,
 			description: descriptionUpdate,
 			metadata: asTrimmedString(form.get('metadata')) ?? undefined,
 			updatedUser: actorUserId || undefined

@@ -32,6 +32,7 @@ export class FacilityAreaOperations {
 		facilityId: string;
 		name: string;
 		slug?: string;
+		capacity?: number | null;
 		description?: string;
 		isActive?: number;
 		metadata?: string;
@@ -48,6 +49,7 @@ export class FacilityAreaOperations {
 				facilityId: data.facilityId,
 				name: data.name,
 				slug: data.slug || null,
+				capacity: data.capacity ?? null,
 				description: data.description || null,
 				isActive: data.isActive ?? 1,
 				metadata: data.metadata || null,
@@ -67,6 +69,7 @@ export class FacilityAreaOperations {
 			facilityId: string;
 			name: string;
 			slug: string;
+			capacity: number | null;
 			description: string | null;
 			isActive: number;
 			metadata: string;
