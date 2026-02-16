@@ -1,3 +1,30 @@
+<script lang="ts" module>
+let bodyScrollLockCount = 0;
+let bodyOverflowBeforeLock: string | null = null;
+
+function acquireBodyScrollLock() {
+	if (typeof document === 'undefined') return;
+
+	if (bodyScrollLockCount === 0) {
+		bodyOverflowBeforeLock = document.body.style.overflow;
+		document.body.style.overflow = 'hidden';
+	}
+
+	bodyScrollLockCount += 1;
+}
+
+function releaseBodyScrollLock() {
+	if (typeof document === 'undefined') return;
+	if (bodyScrollLockCount <= 0) return;
+
+	bodyScrollLockCount -= 1;
+	if (bodyScrollLockCount > 0) return;
+
+	document.body.style.overflow = bodyOverflowBeforeLock ?? '';
+	bodyOverflowBeforeLock = null;
+}
+</script>
+
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 	import type { Snippet } from 'svelte';
@@ -27,15 +54,17 @@
 
 	const dispatch = createEventDispatcher<{ requestClose: void }>();
 	let pointerDownStartedInside = $state(false);
+	let hasBodyScrollLock = $state(false);
 
 	$effect(() => {
 		if (typeof document === 'undefined' || !open || !lockBodyScroll) return;
-
-		const previousOverflow = document.body.style.overflow;
-		document.body.style.overflow = 'hidden';
+		acquireBodyScrollLock();
+		hasBodyScrollLock = true;
 
 		return () => {
-			document.body.style.overflow = previousOverflow;
+			if (!hasBodyScrollLock) return;
+			releaseBodyScrollLock();
+			hasBodyScrollLock = false;
 		};
 	});
 
