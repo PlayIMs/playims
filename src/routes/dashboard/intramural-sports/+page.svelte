@@ -17,6 +17,7 @@
 	} from '$lib/components/wizard';
 	import CreateLeagueWizard from './_wizards/CreateLeagueWizard.svelte';
 	import CreateOfferingWizard from './_wizards/CreateOfferingWizard.svelte';
+	import CreateSeasonWizard from './_wizards/CreateSeasonWizard.svelte';
 	import type { PageData } from './$types';
 	import IconAlertTriangle from '@tabler/icons-svelte/icons/alert-triangle';
 	import IconBallAmericanFootball from '@tabler/icons-svelte/icons/ball-american-football';
@@ -30,6 +31,7 @@
 	import IconCalendar from '@tabler/icons-svelte/icons/calendar';
 	import IconCopy from '@tabler/icons-svelte/icons/copy';
 	import IconCrosshair from '@tabler/icons-svelte/icons/crosshair';
+	import IconHistory from '@tabler/icons-svelte/icons/history';
 	import IconPencil from '@tabler/icons-svelte/icons/pencil';
 	import IconPlus from '@tabler/icons-svelte/icons/plus';
 	import IconSearch from '@tabler/icons-svelte/icons/search';
@@ -72,11 +74,9 @@
 		leagues: LeagueOffering[];
 	}
 
-	interface SemesterBoard {
+	interface SeasonBoard {
 		key: string;
 		label: string;
-		yearSort: number;
-		termSort: number;
 		offerings: OfferingGroup[];
 		totalOfferings: number;
 		totalLeagues: number;
@@ -102,6 +102,7 @@
 	type OfferingView = 'leagues' | 'tournaments' | 'all';
 	type WizardStep = 1 | 2 | 3 | 4 | 5;
 	type LeagueWizardStep = 1 | 2 | 3 | 4;
+	type SeasonWizardStep = 1 | 2;
 	type LeagueChoice = 'yes' | 'no';
 	type LeagueGender = '' | 'male' | 'female' | 'mixed';
 	type LeagueSkillLevel = '' | 'competitive' | 'intermediate' | 'recreational' | 'all';
@@ -126,7 +127,7 @@
 		stackOrder: number;
 		isSlugManual: boolean;
 		description: string;
-		season: string;
+		seasonId: string;
 		gender: LeagueGender;
 		skillLevel: LeagueSkillLevel;
 		regStartDate: string;
@@ -157,6 +158,15 @@
 		leagues: WizardLeagueInput[];
 	}
 
+	interface WizardSeasonInput {
+		name: string;
+		slug: string;
+		startDate: string;
+		endDate: string;
+		isCurrent: boolean;
+		isActive: boolean;
+	}
+
 	interface CreateOfferingApiResponse {
 		success: boolean;
 		data?: {
@@ -168,18 +178,26 @@
 		fieldErrors?: Record<string, string[] | undefined>;
 	}
 
-	const TERM_ORDER: Record<string, number> = {
-		spring: 0,
-		summer: 1,
-		fall: 2,
-		winter: 3
-	};
+	interface CreateSeasonApiResponse {
+		success: boolean;
+		data?: {
+			season: {
+				id: string;
+				name: string;
+				slug: string;
+				startDate: string;
+				endDate: string | null;
+				isCurrent: boolean;
+				isActive: boolean;
+			};
+		};
+		error?: string;
+		fieldErrors?: Record<string, string[] | undefined>;
+	}
+
 	const OFFERING_VIEW_STORAGE_KEY = 'intramural-offerings-view-mode';
 	const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 	const DATE_TIME_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
-	const currentYear = new Date().getFullYear();
-	const seasonPlaceholder =
-		new Date().getMonth() <= 5 ? `Spring ${currentYear}` : `Fall ${currentYear}`;
 	const WIZARD_STEP_TITLES: Record<WizardStep, string> = {
 		1: 'Offering Basics',
 		2: 'Offering Setup',
@@ -187,18 +205,35 @@
 		4: 'League Schedule',
 		5: 'Review & Create'
 	};
+	const SEASON_WIZARD_STEP_TITLES: Record<SeasonWizardStep, string> = {
+		1: 'Season Details',
+		2: 'Review & Create'
+	};
 	let { data } = $props<{ data: PageData }>();
 
 	let activities = $state<Activity[]>([]);
+	let seasons = $state<PageData['seasons']>([]);
+	let selectedSeasonId = $state('');
 	let leagueTemplates = $state<LeagueTemplate[]>([]);
 	let searchQuery = $state('');
 	let showConcludedSeasons = $state(false);
 	let offeringView = $state<OfferingView>('all');
 	let offeringViewHydrated = $state(false);
+	let seasonHistoryOpen = $state(false);
+	let seasonHistoryContainer = $state<HTMLDivElement | null>(null);
 	let highlightedLeagueRowId = $state<string | null>(null);
 	let highlightTimeout: ReturnType<typeof setTimeout> | null = null;
 	let addActionMenuOpen = $state(false);
 	let addActionMenuContainer = $state<HTMLDivElement | null>(null);
+	let isCreateSeasonModalOpen = $state(false);
+	let createSeasonWizardUnsavedConfirmOpen = $state(false);
+	let createSeasonStep = $state<SeasonWizardStep>(1);
+	let createSeasonSubmitting = $state(false);
+	let createSeasonFormError = $state('');
+	let createSeasonServerFieldErrors = $state<Record<string, string>>({});
+	let seasonSlugTouched = $state(false);
+	let createSeasonForm = $state<WizardSeasonInput>(createEmptySeasonForm(false));
+	let createSeasonInitialForm = $state<WizardSeasonInput>(createEmptySeasonForm(false));
 	let isCreateModalOpen = $state(false);
 	let createWizardUnsavedConfirmOpen = $state(false);
 	let createStep = $state<WizardStep>(1);
@@ -255,7 +290,7 @@
 			stackOrder: 1,
 			isSlugManual: false,
 			description: '',
-			season: '',
+			seasonId: '',
 			gender: '',
 			skillLevel: '',
 			regStartDate: defaultDateTimeValue('start'),
@@ -302,6 +337,17 @@
 		};
 	}
 
+	function createEmptySeasonForm(defaultCurrent: boolean): WizardSeasonInput {
+		return {
+			name: '',
+			slug: '',
+			startDate: todayDateString(),
+			endDate: '',
+			isCurrent: defaultCurrent,
+			isActive: true
+		};
+	}
+
 	let createForm = $state<WizardFormState>(createEmptyCreateForm());
 
 	function isTournamentWizard(): boolean {
@@ -328,6 +374,10 @@
 		if (step === 3) return isTournamentWizard() ? 'Tournament Groups' : 'League Options';
 		if (step === 4) return isTournamentWizard() ? 'Tournament Schedule' : 'League Schedule';
 		return WIZARD_STEP_TITLES[step];
+	}
+
+	function seasonWizardStepTitle(step: SeasonWizardStep): string {
+		return SEASON_WIZARD_STEP_TITLES[step];
 	}
 
 	function addEntryActionLabel(): 'Add League' | 'Add Group' | 'Add League/Group' {
@@ -378,6 +428,30 @@
 		return 'Review & Create';
 	}
 
+	function getSeasonById(seasonId: string | null | undefined) {
+		if (!seasonId) return null;
+		return seasons.find((season) => season.id === seasonId) ?? null;
+	}
+
+	function normalizeSeasonName(value: string | null | undefined): string {
+		return value?.trim().toLowerCase() ?? '';
+	}
+
+	function getSeasonLabel(seasonId: string | null | undefined): string {
+		const season = getSeasonById(seasonId);
+		return season?.name ?? 'Unscheduled';
+	}
+
+	function resolveActivitySeasonId(activity: Activity): string | null {
+		if (activity.seasonId) return activity.seasonId;
+		const activitySeasonName = normalizeSeasonName(activity.seasonLabel ?? activity.season);
+		if (!activitySeasonName) return null;
+		const matchedSeason = seasons.find(
+			(season) => normalizeSeasonName(season.name) === activitySeasonName
+		);
+		return matchedSeason?.id ?? null;
+	}
+
 	function getLeagueRowId(offeringSlug: string, leagueId: string): string {
 		return `league-row-${offeringSlug}-${leagueId}`;
 	}
@@ -391,6 +465,18 @@
 			searchQuery = '';
 			await tick();
 			rowElement = document.getElementById(rowId);
+		}
+
+		if (!rowElement) {
+			const matchedActivity = activities.find(
+				(activity) => activity.id === leagueId || activity.leagueId === leagueId
+			);
+			const activitySeasonId = matchedActivity ? resolveActivitySeasonId(matchedActivity) : null;
+			if (activitySeasonId && activitySeasonId !== selectedSeasonId) {
+				selectedSeasonId = activitySeasonId;
+				await tick();
+				rowElement = document.getElementById(rowId);
+			}
 		}
 
 		if (
@@ -433,6 +519,24 @@
 	});
 
 	$effect(() => {
+		seasons = [...(data.seasons ?? [])].sort((a, b) => b.startDate.localeCompare(a.startDate));
+	});
+
+	$effect(() => {
+		if (seasons.length === 0) {
+			selectedSeasonId = '';
+			return;
+		}
+
+		const preferredSeasonId = data.currentSeasonId ?? seasons[0]?.id ?? '';
+		if (!selectedSeasonId || !seasons.some((season) => season.id === selectedSeasonId)) {
+			selectedSeasonId = seasons.some((season) => season.id === preferredSeasonId)
+				? preferredSeasonId
+				: (seasons[0]?.id ?? '');
+		}
+	});
+
+	$effect(() => {
 		leagueTemplates = [...(data.leagueTemplates ?? [])];
 	});
 
@@ -440,11 +544,18 @@
 		return value === 'leagues' || value === 'tournaments' || value === 'all';
 	}
 
+	function normalizeOfferingViewAlias(value: string | null): string | null {
+		if (!value) return value;
+		if (value === 'sports' || value === 'sport' || value === 'league') return 'leagues';
+		if (value === 'tournament') return 'tournaments';
+		return value;
+	}
+
 	function readStoredOfferingView(): OfferingView | null {
 		if (typeof window === 'undefined') return null;
 		try {
 			const saved = window.localStorage.getItem(OFFERING_VIEW_STORAGE_KEY);
-			const normalizedSavedView = saved === 'sports' ? 'leagues' : saved;
+			const normalizedSavedView = normalizeOfferingViewAlias(saved);
 			return isOfferingView(normalizedSavedView) ? normalizedSavedView : null;
 		} catch {
 			return null;
@@ -466,6 +577,14 @@
 
 	function toggleAddActionMenu(): void {
 		addActionMenuOpen = !addActionMenuOpen;
+	}
+
+	function closeSeasonHistoryMenu(): void {
+		seasonHistoryOpen = false;
+	}
+
+	function toggleSeasonHistoryMenu(): void {
+		seasonHistoryOpen = !seasonHistoryOpen;
 	}
 
 	$effect(() => {
@@ -491,6 +610,29 @@
 		};
 	});
 
+	$effect(() => {
+		if (typeof window === 'undefined') return;
+		if (!seasonHistoryOpen) return;
+
+		const handlePointerDown = (event: PointerEvent) => {
+			const target = event.target as Node | null;
+			if (!target) return;
+			if (seasonHistoryContainer?.contains(target)) return;
+			closeSeasonHistoryMenu();
+		};
+
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (event.key === 'Escape') closeSeasonHistoryMenu();
+		};
+
+		window.addEventListener('pointerdown', handlePointerDown);
+		window.addEventListener('keydown', handleKeyDown);
+		return () => {
+			window.removeEventListener('pointerdown', handlePointerDown);
+			window.removeEventListener('keydown', handleKeyDown);
+		};
+	});
+
 	function resetCreateWizard(): void {
 		createStep = 1;
 		createSubmitting = false;
@@ -502,6 +644,18 @@
 		leagueDraftActive = false;
 		serverFieldErrors = {};
 		createForm = createEmptyCreateForm();
+	}
+
+	function resetCreateSeasonWizard(): void {
+		const baseForm = createEmptySeasonForm(seasons.length === 0);
+		createSeasonStep = 1;
+		createSeasonSubmitting = false;
+		createSeasonFormError = '';
+		createSeasonWizardUnsavedConfirmOpen = false;
+		createSeasonServerFieldErrors = {};
+		seasonSlugTouched = false;
+		createSeasonForm = { ...baseForm };
+		createSeasonInitialForm = { ...baseForm };
 	}
 
 	function resetCreateLeagueWizard(): void {
@@ -517,9 +671,17 @@
 		createLeagueForm = createEmptyCreateLeagueForm();
 	}
 
+	function openCreateSeasonWizard(): void {
+		closeAddActionMenu();
+		resetCreateSeasonWizard();
+		isCreateSeasonModalOpen = true;
+	}
+
 	function openCreateWizard(): void {
 		closeAddActionMenu();
 		resetCreateWizard();
+		createForm.offering.type = createWizardDefaultOfferingType();
+		createForm.league.seasonId = selectedSeasonId;
 		isCreateModalOpen = true;
 	}
 
@@ -528,7 +690,14 @@
 		resetCreateLeagueWizard();
 		createLeagueOfferingFilter =
 			offeringView === 'tournaments' ? 'tournament' : offeringView === 'leagues' ? 'league' : 'all';
+		createLeagueForm.league.seasonId = selectedSeasonId;
 		isCreateLeagueModalOpen = true;
+	}
+
+	function closeCreateSeasonWizard(): void {
+		isCreateSeasonModalOpen = false;
+		createSeasonWizardUnsavedConfirmOpen = false;
+		resetCreateSeasonWizard();
 	}
 
 	function closeCreateWizard(): void {
@@ -543,6 +712,10 @@
 		resetCreateLeagueWizard();
 	}
 
+	function createWizardDefaultOfferingType(): 'league' | 'tournament' {
+		return offeringView === 'tournaments' ? 'tournament' : 'league';
+	}
+
 	function hasOfferingDraftData(values: WizardOfferingInput): boolean {
 		return (
 			values.name.trim().length > 0 ||
@@ -552,7 +725,7 @@
 			values.maxPlayers > 0 ||
 			values.rulebookUrl.trim().length > 0 ||
 			values.sport.trim().length > 0 ||
-			values.type !== 'league' ||
+			values.type !== createWizardDefaultOfferingType() ||
 			values.description.trim().length > 0 ||
 			!values.isActive
 		);
@@ -563,7 +736,7 @@
 			values.name.trim().length > 0 ||
 			values.slug.trim().length > 0 ||
 			values.description.trim().length > 0 ||
-			values.season.trim().length > 0 ||
+			values.seasonId.trim().length > 0 ||
 			values.gender.length > 0 ||
 			values.skillLevel.length > 0 ||
 			values.regStartDate.trim().length > 0 ||
@@ -600,6 +773,17 @@
 		);
 	}
 
+	function hasUnsavedCreateSeasonWizardChanges(): boolean {
+		return (
+			createSeasonForm.name.trim() !== createSeasonInitialForm.name.trim() ||
+			slugifyFinal(createSeasonForm.slug) !== slugifyFinal(createSeasonInitialForm.slug) ||
+			createSeasonForm.startDate.trim() !== createSeasonInitialForm.startDate.trim() ||
+			createSeasonForm.endDate.trim() !== createSeasonInitialForm.endDate.trim() ||
+			createSeasonForm.isCurrent !== createSeasonInitialForm.isCurrent ||
+			createSeasonForm.isActive !== createSeasonInitialForm.isActive
+		);
+	}
+
 	function requestCloseCreateWizard(): void {
 		if (!isCreateModalOpen) return;
 		if (createSubmitting) return;
@@ -620,6 +804,16 @@
 		createLeagueWizardUnsavedConfirmOpen = true;
 	}
 
+	function requestCloseCreateSeasonWizard(): void {
+		if (!isCreateSeasonModalOpen) return;
+		if (createSeasonSubmitting) return;
+		if (!hasUnsavedCreateSeasonWizardChanges()) {
+			closeCreateSeasonWizard();
+			return;
+		}
+		createSeasonWizardUnsavedConfirmOpen = true;
+	}
+
 	function confirmDiscardCreateWizard(): void {
 		createWizardUnsavedConfirmOpen = false;
 		closeCreateWizard();
@@ -636,6 +830,15 @@
 
 	function cancelDiscardCreateLeagueWizard(): void {
 		createLeagueWizardUnsavedConfirmOpen = false;
+	}
+
+	function confirmDiscardCreateSeasonWizard(): void {
+		createSeasonWizardUnsavedConfirmOpen = false;
+		closeCreateSeasonWizard();
+	}
+
+	function cancelDiscardCreateSeasonWizard(): void {
+		createSeasonWizardUnsavedConfirmOpen = false;
 	}
 
 	function clearCreateApiErrors(): void {
@@ -656,12 +859,28 @@
 		}
 	}
 
+	function clearCreateSeasonApiErrors(): void {
+		if (Object.keys(createSeasonServerFieldErrors).length > 0) {
+			createSeasonServerFieldErrors = {};
+		}
+		if (createSeasonFormError) {
+			createSeasonFormError = '';
+		}
+	}
+
 	$effect(() => {
 		if (typeof window === 'undefined') return;
 		const hasUnsavedCreateOfferingChanges = isCreateModalOpen && hasUnsavedCreateWizardChanges();
 		const hasUnsavedCreateLeagueChanges =
 			isCreateLeagueModalOpen && hasUnsavedCreateLeagueWizardChanges();
-		if (!hasUnsavedCreateOfferingChanges && !hasUnsavedCreateLeagueChanges) return;
+		const hasUnsavedCreateSeasonChanges =
+			isCreateSeasonModalOpen && hasUnsavedCreateSeasonWizardChanges();
+		if (
+			!hasUnsavedCreateOfferingChanges &&
+			!hasUnsavedCreateLeagueChanges &&
+			!hasUnsavedCreateSeasonChanges
+		)
+			return;
 
 		const handleBeforeUnload = (event: BeforeUnloadEvent) => {
 			event.preventDefault();
@@ -701,6 +920,60 @@
 		} catch {
 			return false;
 		}
+	}
+
+	function getSeasonFieldErrors(values: WizardSeasonInput): Record<string, string> {
+		const errors: Record<string, string> = {};
+		const name = values.name.trim();
+		const slug = slugifyFinal(values.slug);
+		const startDate = values.startDate.trim();
+		const endDate = values.endDate.trim();
+
+		if (!name) errors['season.name'] = 'Season name is required.';
+		if (!slug) errors['season.slug'] = 'Season slug is required.';
+		if (!startDate) {
+			errors['season.startDate'] = 'Season start date is required.';
+		} else if (!DATE_REGEX.test(startDate)) {
+			errors['season.startDate'] = 'Use YYYY-MM-DD format.';
+		}
+
+		if (endDate && !DATE_REGEX.test(endDate)) {
+			errors['season.endDate'] = 'Use YYYY-MM-DD format.';
+		}
+
+		const startMs = toDateOnlyMs(startDate);
+		const endMs = endDate ? toDateOnlyMs(endDate) : null;
+		if (startMs !== null && endMs !== null && endMs < startMs) {
+			errors['season.endDate'] = 'End date must be on or after start date.';
+		}
+
+		return errors;
+	}
+
+	function getSeasonStepClientErrors(
+		values: WizardSeasonInput,
+		step: SeasonWizardStep
+	): Record<string, string> {
+		const allErrors = getSeasonFieldErrors(values);
+
+		if (step === 1) {
+			return pickFieldErrors(allErrors, [
+				'season.name',
+				'season.slug',
+				'season.startDate',
+				'season.endDate'
+			]);
+		}
+
+		return allErrors;
+	}
+
+	function firstInvalidCreateSeasonStep(errors: Record<string, string>): SeasonWizardStep {
+		const stepOneKeys = new Set(['season.name', 'season.slug', 'season.startDate', 'season.endDate']);
+		for (const key of Object.keys(errors)) {
+			if (stepOneKeys.has(key)) return 1;
+		}
+		return 2;
 	}
 
 	function getOfferingFieldErrors(values: WizardOfferingInput): Record<string, string> {
@@ -749,12 +1022,12 @@
 		const errors: Record<string, string> = {};
 		const leagueName = values.name.trim();
 		const leagueSlug = slugifyFinal(values.slug);
-		const leagueSeason = values.season.trim();
+		const leagueSeasonId = values.seasonId.trim();
 		const leagueImageUrl = values.imageUrl.trim();
 
 		if (!leagueName) errors[`${prefix}.name`] = 'League name is required.';
 		if (!leagueSlug) errors[`${prefix}.slug`] = 'League slug is required.';
-		if (!leagueSeason) errors[`${prefix}.season`] = 'Season is required.';
+		if (!leagueSeasonId) errors[`${prefix}.seasonId`] = 'Season is required.';
 
 		const regStartMs = toDateMs(values.regStartDate);
 		const regEndMs = toDateMs(values.regEndDate);
@@ -881,7 +1154,7 @@
 				'league.name',
 				'league.slug',
 				'league.description',
-				'league.season',
+				'league.seasonId',
 				'league.gender',
 				'league.skillLevel'
 			]);
@@ -947,7 +1220,7 @@
 					'league.name',
 					'league.slug',
 					'league.description',
-					'league.season',
+					'league.seasonId',
 					'league.gender',
 					'league.skillLevel'
 				].includes(key)
@@ -993,7 +1266,7 @@
 			stackOrder:
 				Number.isInteger(league.stackOrder) && league.stackOrder > 0 ? league.stackOrder : 1,
 			description: normalizeOptionalTextForRequest(league.description),
-			season: league.season.trim(),
+			seasonId: league.seasonId.trim(),
 			gender: league.gender || null,
 			skillLevel: league.skillLevel || null,
 			regStartDate: normalizeDateForRequest(league.regStartDate),
@@ -1040,7 +1313,7 @@
 					: (createForm.leagues[leagueEditingIndex]?.stackOrder ?? createForm.league.stackOrder),
 			isSlugManual: leagueSlugTouched,
 			description: createForm.league.description.trim(),
-			season: createForm.league.season.trim(),
+			seasonId: createForm.league.seasonId.trim(),
 			regStartDate: createForm.league.regStartDate.trim(),
 			regEndDate: createForm.league.regEndDate.trim(),
 			seasonStartDate: createForm.league.seasonStartDate.trim(),
@@ -1063,6 +1336,7 @@
 		}
 
 		createForm.league = createEmptyLeague();
+		createForm.league.seasonId = selectedSeasonId;
 		createForm.addLeagues = createForm.leagues.length > 0 ? 'yes' : 'no';
 		leagueEditingIndex = null;
 		leagueSlugTouched = false;
@@ -1076,7 +1350,8 @@
 		leagueSlugTouched = false;
 		createForm.league = {
 			...createEmptyLeague(),
-			stackOrder: createForm.leagues.length + 1
+			stackOrder: createForm.leagues.length + 1,
+			seasonId: selectedSeasonId
 		};
 		createForm.addLeagues = 'yes';
 		leagueDraftActive = true;
@@ -1088,6 +1363,7 @@
 		leagueSlugTouched = false;
 		leagueDraftActive = false;
 		createForm.league = createEmptyLeague();
+		createForm.league.seasonId = selectedSeasonId;
 		if (createForm.leagues.length === 0) {
 			createForm.addLeagues = 'no';
 		}
@@ -1258,6 +1534,90 @@
 		}
 	}
 
+	async function submitCreateSeasonWizard(): Promise<void> {
+		const clientErrors = getSeasonFieldErrors(createSeasonForm);
+		if (Object.keys(clientErrors).length > 0) {
+			createSeasonStep = firstInvalidCreateSeasonStep(clientErrors);
+			return;
+		}
+
+		createSeasonSubmitting = true;
+		createSeasonFormError = '';
+		createSeasonServerFieldErrors = {};
+		createSuccessMessage = '';
+
+		const payload = {
+			season: {
+				name: createSeasonForm.name.trim(),
+				slug: slugifyFinal(createSeasonForm.slug),
+				startDate: createSeasonForm.startDate.trim(),
+				endDate: createSeasonForm.endDate.trim() || null,
+				isCurrent: createSeasonForm.isCurrent,
+				isActive: createSeasonForm.isActive
+			}
+		};
+
+		try {
+			const response = await fetch('/api/intramural-sports/seasons', {
+				method: 'POST',
+				headers: {
+					'content-type': 'application/json'
+				},
+				body: JSON.stringify(payload)
+			});
+
+			let body: CreateSeasonApiResponse | null = null;
+			try {
+				body = (await response.json()) as CreateSeasonApiResponse;
+			} catch {
+				body = null;
+			}
+
+			if (!response.ok || !body?.success || !body?.data?.season) {
+				createSeasonServerFieldErrors = toServerFieldErrorMap(body?.fieldErrors);
+				const combinedErrors = {
+					...getSeasonFieldErrors(createSeasonForm),
+					...createSeasonServerFieldErrors
+				};
+				createSeasonStep = firstInvalidCreateSeasonStep(combinedErrors);
+				createSeasonFormError = body?.error || 'Unable to save season right now.';
+				return;
+			}
+
+			const createdSeason = body.data.season;
+			const mergedSeasons = seasons
+				.filter((season) => season.id !== createdSeason.id)
+				.map((season) => ({
+					...season,
+					isCurrent: createdSeason.isCurrent ? false : season.isCurrent
+				}));
+			mergedSeasons.push({
+				id: createdSeason.id,
+				name: createdSeason.name,
+				startDate: createdSeason.startDate,
+				endDate: createdSeason.endDate,
+				isCurrent: createdSeason.isCurrent,
+				isActive: createdSeason.isActive
+			});
+			seasons = mergedSeasons.sort((a, b) => b.startDate.localeCompare(a.startDate));
+
+			if (
+				createdSeason.isCurrent ||
+				!selectedSeasonId ||
+				!seasons.some((season) => season.id === selectedSeasonId)
+			) {
+				selectedSeasonId = createdSeason.id;
+			}
+
+			createSuccessMessage = `Season "${createdSeason.name}" created successfully.`;
+			closeCreateSeasonWizard();
+		} catch {
+			createSeasonFormError = 'Unable to save season right now.';
+		} finally {
+			createSeasonSubmitting = false;
+		}
+	}
+
 	function getLeagueOfferingById(offeringId: string): LeagueOfferingOption | null {
 		const selectedOffering = data.leagueOfferingOptions.find(
 			(offering: LeagueOfferingOption) => offering.id === offeringId
@@ -1313,7 +1673,7 @@
 			stackOrder: createLeagueForm.leagues.length + 1,
 			isSlugManual: false,
 			description: template.description ?? '',
-			season: template.season ?? '',
+			seasonId: template.seasonId ?? selectedSeasonId,
 			gender: normalizeLeagueGender(template.gender),
 			skillLevel: normalizeLeagueSkillLevel(template.skillLevel),
 			regStartDate: template.regStartDate ?? defaultDateTimeValue('start'),
@@ -1341,10 +1701,11 @@
 		return {
 			id: leagueId,
 			offeringId,
+			seasonId: league.seasonId.trim(),
 			name: league.name.trim() || 'Untitled League',
 			slug: slugifyFinal(league.slug),
 			description: normalizeOptionalTextForRequest(league.description),
-			season: league.season.trim() || null,
+			season: getSeasonLabel(league.seasonId),
 			gender: league.gender || null,
 			skillLevel: league.skillLevel || null,
 			regStartDate: normalizeDateForRequest(league.regStartDate) || null,
@@ -1393,7 +1754,7 @@
 						createLeagueForm.league.stackOrder),
 			isSlugManual: createLeagueSlugTouched,
 			description: createLeagueForm.league.description.trim(),
-			season: createLeagueForm.league.season.trim(),
+			seasonId: createLeagueForm.league.seasonId.trim(),
 			regStartDate: createLeagueForm.league.regStartDate.trim(),
 			regEndDate: createLeagueForm.league.regEndDate.trim(),
 			seasonStartDate: createLeagueForm.league.seasonStartDate.trim(),
@@ -1419,6 +1780,7 @@
 		}
 
 		createLeagueForm.league = createEmptyLeague();
+		createLeagueForm.league.seasonId = selectedSeasonId;
 		createLeagueEditingIndex = null;
 		createLeagueSlugTouched = false;
 		createLeagueDraftActive = false;
@@ -1431,7 +1793,8 @@
 		createLeagueSlugTouched = false;
 		createLeagueForm.league = {
 			...createEmptyLeague(),
-			stackOrder: createLeagueForm.leagues.length + 1
+			stackOrder: createLeagueForm.leagues.length + 1,
+			seasonId: selectedSeasonId
 		};
 		createLeagueDraftActive = true;
 		createLeagueStep = 2;
@@ -1442,6 +1805,7 @@
 		createLeagueSlugTouched = false;
 		createLeagueDraftActive = false;
 		createLeagueForm.league = createEmptyLeague();
+		createLeagueForm.league.seasonId = selectedSeasonId;
 	}
 
 	function startEditingCreateLeague(index: number): void {
@@ -1561,7 +1925,7 @@
 				'league.name',
 				'league.slug',
 				'league.description',
-				'league.season',
+				'league.seasonId',
 				'league.gender',
 				'league.skillLevel'
 			]);
@@ -1610,7 +1974,7 @@
 					'league.name',
 					'league.slug',
 					'league.description',
-					'league.season',
+					'league.seasonId',
 					'league.gender',
 					'league.skillLevel'
 				].includes(key)
@@ -1890,34 +2254,25 @@
 		return 'Untitled League';
 	}
 
-	function getSemesterMeta(activity: Activity): {
+	function getSeasonMeta(activity: Activity): {
 		key: string;
 		label: string;
-		yearSort: number;
-		termSort: number;
 	} {
-		let season = activity.season?.trim() ?? '';
-		let year = activity.year ?? null;
-
-		if ((!season || !year) && activity.seasonLabel) {
-			const match = activity.seasonLabel.match(/(spring|summer|fall|winter)\s+(\d{4})/i);
-			if (match) {
-				season = match[1];
-				year = Number(match[2]);
-			}
+		const resolvedSeasonId = resolveActivitySeasonId(activity);
+		const resolvedSeason = getSeasonById(resolvedSeasonId);
+		if (resolvedSeason) {
+			return {
+				key: resolvedSeason.id,
+				label: resolvedSeason.name
+			};
 		}
 
-		if (!season) season = 'Unscheduled';
-		const seasonTitle = toTitleCase(season);
-		const safeYear = year ?? 0;
-		const key = `${seasonTitle.toLowerCase()}-${safeYear}`;
-		const label = safeYear > 0 ? `${seasonTitle} ${safeYear}` : seasonTitle;
+		const fallbackLabel = activity.seasonLabel?.trim() || activity.season?.trim() || 'Unscheduled';
+		const fallbackSlug = slugifyFinal(fallbackLabel) || 'unscheduled';
 
 		return {
-			key,
-			label,
-			yearSort: safeYear,
-			termSort: TERM_ORDER[seasonTitle.toLowerCase()] ?? 99
+			key: `season-${fallbackSlug}`,
+			label: fallbackLabel
 		};
 	}
 
@@ -2047,29 +2402,27 @@
 		return group.offeringType === 'tournament' ? 'group' : 'league';
 	}
 
-	function buildBoards(source: Activity[], splitByOfferingType = false): SemesterBoard[] {
+	function buildBoards(source: Activity[], splitByOfferingType = false): SeasonBoard[] {
 		const now = new Date();
-		const semesterMap = new Map<
+		const seasonMap = new Map<
 			string,
 			{
 				key: string;
 				label: string;
-				yearSort: number;
-				termSort: number;
 				offerings: Map<string, OfferingGroup>;
 			}
 		>();
 
 		for (const activity of source) {
-			const semester = getSemesterMeta(activity);
-			if (!semesterMap.has(semester.key)) {
-				semesterMap.set(semester.key, {
-					...semester,
+			const season = getSeasonMeta(activity);
+			if (!seasonMap.has(season.key)) {
+				seasonMap.set(season.key, {
+					...season,
 					offerings: new Map<string, OfferingGroup>()
 				});
 			}
 
-			const bucket = semesterMap.get(semester.key);
+			const bucket = seasonMap.get(season.key);
 			if (!bucket) continue;
 
 			const offeringName = activity.offeringName?.trim() || 'General Recreation';
@@ -2079,7 +2432,7 @@
 			if (!bucket.offerings.has(offeringKey)) {
 				bucket.offerings.set(offeringKey, {
 					offeringName,
-					offeringSlug: `offering-${slugifyFinal(offeringName)}-${activity.offeringType}-${semester.key}`,
+					offeringSlug: `offering-${slugifyFinal(offeringName)}-${activity.offeringType}-${season.key}`,
 					offeringType: activity.offeringType,
 					divisionCount: 0,
 					openCount: 0,
@@ -2123,7 +2476,7 @@
 			if (status === 'closed') offeringGroup.closedCount += 1;
 		}
 
-		const boards = Array.from(semesterMap.values())
+		const boards = Array.from(seasonMap.values())
 			.map((bucket) => {
 				const offerings = Array.from(bucket.offerings.values())
 					.map((offering) => ({
@@ -2157,8 +2510,6 @@
 				return {
 					key: bucket.key,
 					label: bucket.label,
-					yearSort: bucket.yearSort,
-					termSort: bucket.termSort,
 					offerings,
 					totalOfferings: offerings.length,
 					totalLeagues,
@@ -2166,11 +2517,13 @@
 					openCount,
 					waitlistedCount,
 					closedCount
-				} satisfies SemesterBoard;
+				} satisfies SeasonBoard;
 			})
 			.sort((a, b) => {
-				if (a.yearSort !== b.yearSort) return b.yearSort - a.yearSort;
-				if (a.termSort !== b.termSort) return a.termSort - b.termSort;
+				if (selectedSeason?.id) {
+					if (a.key === selectedSeason.id) return -1;
+					if (b.key === selectedSeason.id) return 1;
+				}
 				return a.label.localeCompare(b.label);
 			});
 
@@ -2179,25 +2532,40 @@
 
 	const showTournaments = $derived.by(() => offeringView === 'tournaments');
 	const showAllOfferings = $derived.by(() => offeringView === 'all');
+	const selectedSeason = $derived.by(
+		() => seasons.find((season) => season.id === selectedSeasonId) ?? null
+	);
+	const seasonHistory = $derived.by(() =>
+		[...seasons].sort((a, b) => b.startDate.localeCompare(a.startDate))
+	);
 	const offeringTypeLabel = $derived.by(() => {
 		if (showTournaments) return 'Tournaments';
 		if (showAllOfferings) return 'Offerings';
 		return 'Leagues';
 	});
 
+	const seasonScopedActivities = $derived.by(() =>
+		activities.filter((activity: Activity) => {
+			if (!selectedSeasonId) return false;
+			if (activity.seasonId === selectedSeasonId) return true;
+			const resolvedActivitySeasonId = resolveActivitySeasonId(activity);
+			return resolvedActivitySeasonId === selectedSeasonId;
+		})
+	);
+
 	const leagueActivities = $derived.by(() =>
-		activities.filter(
+		seasonScopedActivities.filter(
 			(activity: Activity) => activity.isActive && activity.offeringType !== 'tournament'
 		)
 	);
 
 	const tournamentActivities = $derived.by(() =>
-		activities.filter(
+		seasonScopedActivities.filter(
 			(activity: Activity) => activity.isActive && activity.offeringType === 'tournament'
 		)
 	);
 
-	const semesterBoards = $derived.by(() => {
+	const seasonBoards = $derived.by(() => {
 		if (showTournaments) return buildBoards(tournamentActivities);
 		if (showAllOfferings) {
 			return buildBoards([...leagueActivities, ...tournamentActivities], true);
@@ -2214,7 +2582,7 @@
 		if (offeringViewHydrated || typeof window === 'undefined') return;
 		const url = new URL(window.location.href);
 		const fromUrl = url.searchParams.get('view');
-		const normalizedUrlView = fromUrl === 'sports' ? 'leagues' : fromUrl;
+		const normalizedUrlView = normalizeOfferingViewAlias(fromUrl);
 		if (isOfferingView(normalizedUrlView)) {
 			offeringView = normalizedUrlView;
 		} else {
@@ -2243,15 +2611,18 @@
 		}
 	});
 
-	const currentSemester = $derived.by(() => semesterBoards[0] ?? null);
-	const activeSemester = $derived.by(() => currentSemester);
+	const currentSeasonBoard = $derived.by(() => {
+		if (seasonBoards.length === 0) return null;
+		return seasonBoards[0] ?? null;
+	});
+	const activeSeasonBoard = $derived.by(() => currentSeasonBoard);
 	const badgeOfferingCount = $derived.by(() => {
-		if (!activeSemester) return 0;
-		return new Set(activeSemester.offerings.map((offering) => offering.offeringName)).size;
+		if (!activeSeasonBoard) return 0;
+		return new Set(activeSeasonBoard.offerings.map((offering) => offering.offeringName)).size;
 	});
 	const badgeLeagueOrGroupCount = $derived.by(() => {
-		if (!activeSemester) return 0;
-		return activeSemester.totalLeagues;
+		if (!activeSeasonBoard) return 0;
+		return activeSeasonBoard.totalLeagues;
 	});
 	const badgeLeagueOrGroupLabel = $derived.by(() => {
 		if (showTournaments) return pluralize(badgeLeagueOrGroupCount, 'group', 'groups');
@@ -2261,10 +2632,10 @@
 	});
 
 	const visibleOfferings = $derived.by(() => {
-		if (!activeSemester) return [];
+		if (!activeSeasonBoard) return [];
 		const query = normalizeSearch(searchQuery.trim());
 		if (!query) {
-			return activeSemester.offerings
+			return activeSeasonBoard.offerings
 				.map((offering) => ({
 					...offering,
 					...computeStatusCounts(offering.leagues)
@@ -2272,7 +2643,7 @@
 				.sort(sortOfferingsByName);
 		}
 
-		return activeSemester.offerings
+		return activeSeasonBoard.offerings
 			.map((offering) => {
 				let leagues = offering.leagues;
 				if (!normalizeSearch(offering.offeringName).includes(query)) {
@@ -2303,11 +2674,11 @@
 	});
 
 	const activeDeadlines = $derived.by(() => {
-		if (!activeSemester) return [] as DeadlineGroup[];
+		if (!activeSeasonBoard) return [] as DeadlineGroup[];
 		const nowMs = new Date().getTime();
 		const grouped = new Map<string, DeadlineGroup>();
 
-		for (const offering of activeSemester.offerings) {
+		for (const offering of activeSeasonBoard.offerings) {
 			for (const league of offering.leagues) {
 				const deadlineDate = league.teamRegistrationCloseDate;
 				if (!deadlineDate) continue;
@@ -2404,6 +2775,36 @@
 			!createLeagueSubmitting
 	);
 	const createLeagueStepProgress = $derived.by(() => Math.round((createLeagueStep / 4) * 100));
+	const clientCreateSeasonFieldErrors = $derived.by(() =>
+		getSeasonStepClientErrors(createSeasonForm, createSeasonStep)
+	);
+	const rawCreateSeasonFieldErrors = $derived.by(() => ({
+		...clientCreateSeasonFieldErrors,
+		...createSeasonServerFieldErrors
+	}));
+	const createSeasonFieldErrors = $derived.by(() => {
+		const visibleErrors: Record<string, string> = {};
+		for (const [key, value] of Object.entries(rawCreateSeasonFieldErrors)) {
+			if (!isRequiredFieldMessage(value)) {
+				visibleErrors[key] = value;
+			}
+		}
+		return visibleErrors;
+	});
+	const canGoNextCreateSeasonStep = $derived.by(
+		() =>
+			createSeasonStep < 2 &&
+			Object.keys(clientCreateSeasonFieldErrors).length === 0 &&
+			!createSeasonSubmitting
+	);
+	const canSubmitCreateSeason = $derived.by(
+		() =>
+			createSeasonStep === 2 &&
+			Object.keys(getSeasonFieldErrors(createSeasonForm)).length === 0 &&
+			Object.keys(createSeasonServerFieldErrors).length === 0 &&
+			!createSeasonSubmitting
+	);
+	const createSeasonStepProgress = $derived.by(() => Math.round((createSeasonStep / 2) * 100));
 	const clientCreateFieldErrors = $derived.by(() =>
 		getCurrentStepClientErrors(createForm, createStep)
 	);
@@ -2454,6 +2855,18 @@
 		createStep = (createStep + 1) as WizardStep;
 	}
 
+	function nextCreateSeasonStep(): void {
+		clearCreateSeasonApiErrors();
+		if (createSeasonStep === 2 || !canGoNextCreateSeasonStep) return;
+		createSeasonStep = 2;
+	}
+
+	function previousCreateSeasonStep(): void {
+		clearCreateSeasonApiErrors();
+		if (createSeasonStep === 1) return;
+		createSeasonStep = 1;
+	}
+
 	function previousCreateStep(): void {
 		clearCreateApiErrors();
 		if (createStep === 1) return;
@@ -2486,7 +2899,7 @@
 	<title>Intramural Sports - PlayIMs</title>
 	<meta
 		name="description"
-		content="View intramural tournament offerings by semester with leagues, registration status, and deadlines."
+		content="View intramural offerings by season with leagues, registration status, and deadlines."
 	/>
 	<meta name="robots" content="noindex, follow" />
 </svelte:head>
@@ -2521,7 +2934,7 @@
 		</div>
 	{/if}
 
-	{#if semesterBoards.length === 0}
+	{#if seasonBoards.length === 0}
 		<section class="border-2 border-secondary-300 bg-neutral p-6 space-y-4">
 			<div class="text-center">
 				<div class="bg-secondary p-3 inline-flex mb-3" aria-hidden="true">
@@ -2535,7 +2948,7 @@
 				<p class="text-sm text-neutral-950 font-sans mt-1">
 					Add or enable leagues/tournaments to populate this view.
 				</p>
-				<div class="mt-4">
+				<div class="mt-4 flex flex-wrap items-center justify-center gap-2">
 					<div class="relative inline-flex items-stretch" bind:this={addActionMenuContainer}>
 						<button
 							type="button"
@@ -2578,6 +2991,14 @@
 								>
 									{addEntryActionLabel()}
 								</button>
+								<button
+									type="button"
+									class="w-full text-left px-3 py-2 text-sm text-neutral-950 hover:bg-neutral-100 cursor-pointer border-t border-secondary-200"
+									role="menuitem"
+									onclick={openCreateSeasonWizard}
+								>
+									Add Season
+								</button>
 								{#if addEntryOptionCount === 0}
 									<p class="px-3 pb-2 text-xs text-neutral-900 text-left">
 										No matching offerings available for this view.
@@ -2586,6 +3007,13 @@
 							</div>
 						{/if}
 					</div>
+					<button
+						type="button"
+						class="button-secondary-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer"
+						onclick={openCreateSeasonWizard}
+					>
+						Add Season
+					</button>
 				</div>
 			</div>
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-4" aria-hidden="true">
@@ -2610,7 +3038,7 @@
 					<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
 						<div class="flex items-center gap-2">
 							<h2 class="text-2xl font-bold font-serif text-neutral-950">
-								{activeSemester?.label ?? ''}
+								{selectedSeason?.name ?? activeSeasonBoard?.label ?? 'Season'}
 							</h2>
 							<label class="sr-only" for="offering-view">Offering type</label>
 							<select
@@ -2622,6 +3050,49 @@
 								<option value="tournaments">Tournaments</option>
 								<option value="all">All</option>
 							</select>
+							<div class="relative inline-flex items-stretch" bind:this={seasonHistoryContainer}>
+								<button
+									type="button"
+									class="button-secondary-outlined p-1.5 cursor-pointer"
+									aria-label="Open season history"
+									aria-haspopup="menu"
+									aria-expanded={seasonHistoryOpen}
+									onclick={toggleSeasonHistoryMenu}
+								>
+									<IconHistory class="w-4 h-4" />
+								</button>
+								{#if seasonHistoryOpen}
+									<div
+										class="absolute left-0 top-full mt-1 w-64 border-2 border-secondary-300 bg-white z-20 max-h-72 overflow-y-auto"
+										role="menu"
+										aria-label="Season history"
+									>
+										{#if seasonHistory.length === 0}
+											<p class="px-3 py-2 text-xs text-neutral-900">No seasons configured.</p>
+										{:else}
+											{#each seasonHistory as season}
+												<button
+													type="button"
+													role="menuitem"
+													class={`w-full text-left px-3 py-2 text-sm hover:bg-neutral-100 cursor-pointer ${season.id === selectedSeasonId ? 'bg-secondary-100 font-semibold text-neutral-950' : 'text-neutral-950'}`}
+													onclick={() => {
+														selectedSeasonId = season.id;
+														showConcludedSeasons = false;
+														closeSeasonHistoryMenu();
+													}}
+												>
+													{season.name}
+													{#if season.isCurrent}
+														<span class="ml-1 text-[10px] uppercase tracking-wide text-secondary-900">
+															(Current)
+														</span>
+													{/if}
+												</button>
+											{/each}
+										{/if}
+									</div>
+								{/if}
+							</div>
 						</div>
 						<div class="flex items-center gap-2 text-xs text-neutral-950 font-sans">
 							<span class="border border-secondary-300 px-2 py-1">
@@ -2674,6 +3145,14 @@
 										>
 											{addEntryActionLabel()}
 										</button>
+										<button
+											type="button"
+											class="w-full text-left px-3 py-2 text-sm text-neutral-950 hover:bg-neutral-100 cursor-pointer border-t border-secondary-200"
+											role="menuitem"
+											onclick={openCreateSeasonWizard}
+										>
+											Add Season
+										</button>
 										{#if addEntryOptionCount === 0}
 											<p class="px-3 pb-2 text-xs text-neutral-900 text-left">
 												No matching offerings available for this view.
@@ -2713,7 +3192,7 @@
 				{#if visibleOfferings.length === 0}
 					<div class="p-8 text-center">
 						<p class="text-sm text-neutral-950 font-sans">
-							No {offeringTypeLabel.toLowerCase()} match this search for this semester.
+							No {offeringTypeLabel.toLowerCase()} match this search for this season.
 						</p>
 					</div>
 				{:else}
@@ -3061,7 +3540,7 @@
 
 				<section class="border-2 border-secondary-300 bg-neutral">
 					<div class="p-4 border-b border-secondary-300 bg-neutral-600/66">
-						<h2 class="text-xl font-bold font-serif text-neutral-950">Semester Snapshot</h2>
+						<h2 class="text-xl font-bold font-serif text-neutral-950">Season Snapshot</h2>
 					</div>
 					<div class="p-4 grid grid-cols-3 gap-2">
 						<div class="card-secondary-outlined">
@@ -3069,7 +3548,7 @@
 								Offerings
 							</p>
 							<p class="text-2xl font-bold font-serif text-neutral-950">
-								{activeSemester?.totalOfferings ?? 0}
+								{activeSeasonBoard?.totalOfferings ?? 0}
 							</p>
 						</div>
 						<div class="card-secondary-outlined">
@@ -3077,7 +3556,7 @@
 								{showTournaments ? 'Groups' : showAllOfferings ? 'Leagues/Groups' : 'Leagues'}
 							</p>
 							<p class="text-2xl font-bold font-serif text-neutral-950">
-								{activeSemester?.totalLeagues ?? 0}
+								{activeSeasonBoard?.totalLeagues ?? 0}
 							</p>
 						</div>
 						<div class="card-secondary-outlined">
@@ -3085,25 +3564,25 @@
 								Divisions
 							</p>
 							<p class="text-2xl font-bold font-serif text-neutral-950">
-								{activeSemester?.totalDivisions ?? 0}
+								{activeSeasonBoard?.totalDivisions ?? 0}
 							</p>
 						</div>
 						<div class="card-primary-outlined">
 							<p class="text-[11px] uppercase tracking-wide text-primary-700 font-bold">Open</p>
 							<p class="text-2xl font-bold font-serif text-primary-700">
-								{activeSemester?.openCount ?? 0}
+								{activeSeasonBoard?.openCount ?? 0}
 							</p>
 						</div>
 						<div class="card-primary-outlined">
 							<p class="text-[11px] uppercase tracking-wide text-primary-700 font-bold">Waitlist</p>
 							<p class="text-2xl font-bold font-serif text-primary-700">
-								{activeSemester?.waitlistedCount ?? 0}
+								{activeSeasonBoard?.waitlistedCount ?? 0}
 							</p>
 						</div>
 						<div class="card-secondary-outlined">
 							<p class="text-[11px] uppercase tracking-wide text-secondary-900 font-bold">Closed</p>
 							<p class="text-2xl font-bold font-serif text-secondary-900">
-								{activeSemester?.closedCount ?? 0}
+								{activeSeasonBoard?.closedCount ?? 0}
 							</p>
 						</div>
 					</div>
@@ -3112,6 +3591,154 @@
 		</div>
 	{/if}
 </div>
+
+<CreateSeasonWizard
+	open={isCreateSeasonModalOpen}
+	step={createSeasonStep}
+	stepTitle={seasonWizardStepTitle(createSeasonStep)}
+	stepProgress={createSeasonStepProgress}
+	formError={createSeasonFormError}
+	unsavedConfirmOpen={createSeasonWizardUnsavedConfirmOpen}
+	onRequestClose={requestCloseCreateSeasonWizard}
+	onSubmit={() => {
+		void submitCreateSeasonWizard();
+	}}
+	onInput={clearCreateSeasonApiErrors}
+	onUnsavedConfirm={confirmDiscardCreateSeasonWizard}
+	onUnsavedCancel={cancelDiscardCreateSeasonWizard}
+>
+	{#if createSeasonStep === 1}
+		<div class="space-y-4">
+			<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+				<div>
+					<label for="season-name" class="block text-sm font-sans text-neutral-950 mb-1">
+						Name <span class="text-error-700">*</span>
+					</label>
+					<input
+						id="season-name"
+						type="text"
+						class="input-secondary"
+						value={createSeasonForm.name}
+						placeholder="Spring 2026"
+						oninput={(event) => {
+							const value = (event.currentTarget as HTMLInputElement).value;
+							createSeasonForm.name = value;
+							if (!seasonSlugTouched) {
+								createSeasonForm.slug = slugifyFinal(value);
+							}
+						}}
+						autocomplete="off"
+					/>
+					{#if createSeasonFieldErrors['season.name']}
+						<p class="text-xs text-error-700 mt-1">{createSeasonFieldErrors['season.name']}</p>
+					{/if}
+				</div>
+				<div>
+					<label for="season-slug" class="block text-sm font-sans text-neutral-950 mb-1">
+						Slug <span class="text-error-700">*</span>
+					</label>
+					<input
+						id="season-slug"
+						type="text"
+						class="input-secondary"
+						value={createSeasonForm.slug}
+						placeholder="spring-2026"
+						oninput={(event) => {
+							seasonSlugTouched = true;
+							createSeasonForm.slug = applyLiveSlugInput(event.currentTarget as HTMLInputElement);
+						}}
+						autocomplete="off"
+					/>
+					{#if createSeasonFieldErrors['season.slug']}
+						<p class="text-xs text-error-700 mt-1">{createSeasonFieldErrors['season.slug']}</p>
+					{/if}
+				</div>
+				<div>
+					<label for="season-start-date" class="block text-sm font-sans text-neutral-950 mb-1">
+						Start Date <span class="text-error-700">*</span>
+					</label>
+					<input
+						id="season-start-date"
+						type="date"
+						class="input-secondary"
+						bind:value={createSeasonForm.startDate}
+					/>
+					{#if createSeasonFieldErrors['season.startDate']}
+						<p class="text-xs text-error-700 mt-1">{createSeasonFieldErrors['season.startDate']}</p>
+					{/if}
+				</div>
+				<div>
+					<label for="season-end-date" class="block text-sm font-sans text-neutral-950 mb-1">
+						End Date
+					</label>
+					<input
+						id="season-end-date"
+						type="date"
+						class="input-secondary"
+						bind:value={createSeasonForm.endDate}
+					/>
+					{#if createSeasonFieldErrors['season.endDate']}
+						<p class="text-xs text-error-700 mt-1">{createSeasonFieldErrors['season.endDate']}</p>
+					{/if}
+				</div>
+			</div>
+			<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+				<div class="border border-secondary-300 bg-white p-3">
+					<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
+						<input type="checkbox" class="toggle-secondary" bind:checked={createSeasonForm.isCurrent} />
+						Set as current season
+					</label>
+				</div>
+				<div class="border border-secondary-300 bg-white p-3">
+					<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
+						<input type="checkbox" class="toggle-secondary" bind:checked={createSeasonForm.isActive} />
+						Active
+					</label>
+				</div>
+			</div>
+		</div>
+	{/if}
+
+	{#if createSeasonStep === 2}
+		<div class="space-y-4">
+			<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
+				<h3 class="text-lg font-bold font-serif text-neutral-950">Season</h3>
+				<p class="text-sm text-neutral-950">
+					<span class="font-semibold">Name:</span>
+					{createSeasonForm.name || 'TBD'}
+					<span class="ml-3 font-semibold">Slug:</span>
+					{slugifyFinal(createSeasonForm.slug) || 'TBD'}
+				</p>
+				<p class="text-sm text-neutral-950">
+					<span class="font-semibold">Date Range:</span>
+					{formatReviewRange(createSeasonForm.startDate, createSeasonForm.endDate || null)}
+				</p>
+				<p class="text-sm text-neutral-950">
+					<span class="font-semibold">Status:</span>
+					{createSeasonForm.isActive ? 'Active' : 'Inactive'}
+					<span class="ml-3 font-semibold">Current:</span>
+					{createSeasonForm.isCurrent ? 'Yes' : 'No'}
+				</p>
+			</div>
+		</div>
+	{/if}
+
+	{#snippet footer()}
+		<WizardStepFooter
+			step={createSeasonStep}
+			lastStep={2}
+			showBack={createSeasonStep > 1}
+			canGoNext={canGoNextCreateSeasonStep}
+			canSubmit={canSubmitCreateSeason}
+			nextLabel="Review"
+			submitLabel="Create Season"
+			submittingLabel="Creating..."
+			isSubmitting={createSeasonSubmitting}
+			on:back={previousCreateSeasonStep}
+			on:next={nextCreateSeasonStep}
+		/>
+	{/snippet}
+</CreateSeasonWizard>
 
 <CreateLeagueWizard
 	open={isCreateLeagueModalOpen}
@@ -3236,7 +3863,7 @@
 																{existingLeague.name}
 															</p>
 															<p class="text-xs text-neutral-900">
-																{existingLeague.season || 'Unscheduled'}
+																{getSeasonLabel(existingLeague.seasonId)}
 															</p>
 														</div>
 														<button
@@ -3294,7 +3921,7 @@
 									{#snippet itemBody(item)}
 										{@const league = item as WizardLeagueInput}
 										<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-xs text-neutral-950">
-											<p><span class="font-semibold">Season:</span> {league.season || 'TBD'}</p>
+											<p><span class="font-semibold">Season:</span> {getSeasonLabel(league.seasonId)}</p>
 											<p>
 												<span class="font-semibold">Gender:</span>
 												{normalizeGender(league.gender) ?? 'Unspecified'}
@@ -3395,16 +4022,18 @@
 									<label for="league-wizard-season" class="block text-sm font-sans text-neutral-950 mb-1"
 										>Season <span class="text-error-700">*</span></label
 									>
-									<input
+									<select
 										id="league-wizard-season"
-										type="text"
-										class="input-secondary"
-										bind:value={createLeagueForm.league.season}
-										placeholder={seasonPlaceholder}
-										autocomplete="off"
-									/>
-									{#if createLeagueFieldErrors['league.season']}
-										<p class="text-xs text-error-700 mt-1">{createLeagueFieldErrors['league.season']}</p>
+										class="select-secondary"
+										bind:value={createLeagueForm.league.seasonId}
+									>
+										<option value="">Select season...</option>
+										{#each seasons as season}
+											<option value={season.id}>{season.name}</option>
+										{/each}
+									</select>
+									{#if createLeagueFieldErrors['league.seasonId']}
+										<p class="text-xs text-error-700 mt-1">{createLeagueFieldErrors['league.seasonId']}</p>
 									{/if}
 								</div>
 
@@ -3787,7 +4416,7 @@
 											<div
 												class="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-xs text-neutral-950"
 											>
-												<p><span class="font-semibold">Season:</span> {league.season || 'TBD'}</p>
+												<p><span class="font-semibold">Season:</span> {getSeasonLabel(league.seasonId)}</p>
 												<p>
 													<span class="font-semibold">Gender:</span>
 													{normalizeGender(league.gender) ?? 'Unspecified'}
@@ -4123,7 +4752,7 @@
 								{#snippet itemBody(item)}
 									{@const league = item as WizardLeagueInput}
 									<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-xs text-neutral-950">
-										<p><span class="font-semibold">Season:</span> {league.season || 'TBD'}</p>
+										<p><span class="font-semibold">Season:</span> {getSeasonLabel(league.seasonId)}</p>
 										<p>
 											<span class="font-semibold">Gender:</span>
 											{normalizeGender(league.gender) ?? 'Unspecified'}
@@ -4222,16 +4851,18 @@
 									<label for="league-season" class="block text-sm font-sans text-neutral-950 mb-1"
 										>Season <span class="text-error-700">*</span></label
 									>
-									<input
+									<select
 										id="league-season"
-										type="text"
-										class="input-secondary"
-										bind:value={createForm.league.season}
-										placeholder={seasonPlaceholder}
-										autocomplete="off"
-									/>
-									{#if createFieldErrors['league.season']}
-										<p class="text-xs text-error-700 mt-1">{createFieldErrors['league.season']}</p>
+										class="select-secondary"
+										bind:value={createForm.league.seasonId}
+									>
+										<option value="">Select season...</option>
+										{#each seasons as season}
+											<option value={season.id}>{season.name}</option>
+										{/each}
+									</select>
+									{#if createFieldErrors['league.seasonId']}
+										<p class="text-xs text-error-700 mt-1">{createFieldErrors['league.seasonId']}</p>
 									{/if}
 								</div>
 
@@ -4624,7 +5255,7 @@
 											<div
 												class="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-xs text-neutral-950"
 											>
-												<p><span class="font-semibold">Season:</span> {league.season || 'TBD'}</p>
+												<p><span class="font-semibold">Season:</span> {getSeasonLabel(league.seasonId)}</p>
 												<p>
 													<span class="font-semibold">Gender:</span>
 													{normalizeGender(league.gender) ?? 'Unspecified'}

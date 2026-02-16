@@ -99,6 +99,13 @@
       "when": 1771026944423,
       "tag": "0013_ancient_stepford_cuckoos",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1771094798793,
+      "tag": "0014_striped_stick",
+      "breakpoints": true
     }
   ]
 }

@@ -126,12 +126,21 @@ const offeringInputSchema = z.object({
 	description: optionalText('Offering description', 2000)
 });
 
+const seasonInputSchema = z.object({
+	name: requiredText('Season name', 140),
+	slug: slugField('Season slug'),
+	startDate: requiredDate('Season start date'),
+	endDate: optionalDate,
+	isCurrent: z.boolean(),
+	isActive: z.boolean()
+});
+
 const leagueInputSchema = z.object({
 	name: requiredText('League name', 140),
 	slug: slugField('League slug'),
 	stackOrder: z.number().int('League order must be a whole number.').min(1),
 	description: optionalText('League description', 2000),
-	season: requiredText('Season', 80),
+	seasonId: requiredText('Season', 120),
 	gender: z.union([z.enum(['male', 'female', 'mixed']), z.null()]),
 	skillLevel: z.union([z.enum(['competitive', 'intermediate', 'recreational', 'all']), z.null()]),
 	regStartDate: requiredDateTime('Registration start date'),
@@ -367,16 +376,52 @@ export const createIntramuralLeagueSchema = z
 		});
 	});
 
+export const createIntramuralSeasonSchema = z
+	.object({
+		season: seasonInputSchema
+	})
+	.superRefine((payload, ctx) => {
+		const startMs = toDateOnlyMs(payload.season.startDate);
+		const endMs = toDateOnlyMs(payload.season.endDate);
+
+		if (startMs === null) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ['season', 'startDate'],
+				message: 'Season start date is invalid.'
+			});
+		}
+
+		if (payload.season.endDate && endMs === null) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ['season', 'endDate'],
+				message: 'Season end date is invalid.'
+			});
+		}
+
+		if (startMs !== null && endMs !== null && endMs < startMs) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ['season', 'endDate'],
+				message: 'Season end date must be on or after season start date.'
+			});
+		}
+	});
+
 export type CreateIntramuralOfferingWithLeagueInput = z.infer<
 	typeof createIntramuralOfferingWithLeagueSchema
 >;
 
 export type CreateIntramuralLeagueInput = z.infer<typeof createIntramuralLeagueSchema>;
 
+export type CreateIntramuralSeasonInput = z.infer<typeof createIntramuralSeasonSchema>;
+
 export type CreatedIntramuralActivity = {
 	id: string;
 	offeringId: string | null;
 	leagueId: string | null;
+	seasonId: string | null;
 	stackOrder: number | null;
 	offeringType: 'league' | 'tournament';
 	offeringName: string;
@@ -408,3 +453,22 @@ export type CreateIntramuralOfferingWithLeagueResponse = {
 };
 
 export type CreateIntramuralLeagueResponse = CreateIntramuralOfferingWithLeagueResponse;
+
+export type CreatedIntramuralSeason = {
+	id: string;
+	name: string;
+	slug: string;
+	startDate: string;
+	endDate: string | null;
+	isCurrent: boolean;
+	isActive: boolean;
+};
+
+export type CreateIntramuralSeasonResponse = {
+	success: boolean;
+	data?: {
+		season: CreatedIntramuralSeason;
+	};
+	error?: string;
+	fieldErrors?: Record<string, string[] | undefined>;
+};

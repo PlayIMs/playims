@@ -11,6 +11,8 @@ export type {
 	NewUser,
 	Offering,
 	NewOffering,
+	Season,
+	NewSeason,
 	League,
 	NewLeague,
 	Division,

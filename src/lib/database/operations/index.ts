@@ -6,6 +6,7 @@ import type { D1Database } from '@cloudflare/workers-types';
 import { ClientOperations } from './clients.js';
 import { UserOperations } from './users.js';
 import { OfferingOperations } from './offerings.js';
+import { SeasonOperations } from './seasons.js';
 import { LeagueOperations } from './leagues.js';
 import { DivisionOperations } from './divisions.js';
 import { TeamOperations } from './teams.js';
@@ -26,6 +27,7 @@ export class DatabaseOperations {
 	public clients: ClientOperations;
 	public users: UserOperations;
 	public offerings: OfferingOperations;
+	public seasons: SeasonOperations;
 	public leagues: LeagueOperations;
 	public divisions: DivisionOperations;
 	public teams: TeamOperations;
@@ -64,6 +66,7 @@ export class DatabaseOperations {
 		this.clients = new ClientOperations(drizzleDb);
 		this.users = new UserOperations(drizzleDb);
 		this.offerings = new OfferingOperations(drizzleDb);
+		this.seasons = new SeasonOperations(drizzleDb);
 		this.leagues = new LeagueOperations(drizzleDb);
 		this.divisions = new DivisionOperations(drizzleDb);
 		this.teams = new TeamOperations(drizzleDb);
@@ -82,6 +85,7 @@ export class DatabaseOperations {
 export { ClientOperations } from './clients.js';
 export { UserOperations } from './users.js';
 export { OfferingOperations } from './offerings.js';
+export { SeasonOperations } from './seasons.js';
 export { LeagueOperations } from './leagues.js';
 export { DivisionOperations } from './divisions.js';
 export { TeamOperations } from './teams.js';
