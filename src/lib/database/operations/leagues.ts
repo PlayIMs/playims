@@ -27,12 +27,13 @@ export class LeagueOperations {
 	async create(data: {
 		clientId: string;
 		offeringId: string;
+		seasonId: string;
 		name: string;
 		slug: string;
 		stackOrder: number;
 		description: string | null;
-		year: number;
-		season: string;
+		year?: number | null;
+		season?: string | null;
 		gender: 'male' | 'female' | 'mixed' | null;
 		skillLevel: 'competitive' | 'intermediate' | 'recreational' | 'all' | null;
 		regStartDate: string;
@@ -59,12 +60,13 @@ export class LeagueOperations {
 				id: crypto.randomUUID(),
 				clientId: data.clientId,
 				offeringId: data.offeringId,
+				seasonId: data.seasonId,
 				name: data.name,
 				slug: data.slug,
 				stackOrder: data.stackOrder,
 				description: data.description,
-				year: data.year,
-				season: data.season,
+				year: data.year ?? null,
+				season: data.season ?? null,
 				gender: data.gender,
 				skillLevel: data.skillLevel,
 				regStartDate: data.regStartDate,

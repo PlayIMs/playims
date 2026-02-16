@@ -16,17 +16,31 @@ const toActivityType = (value: string | null | undefined): 'league' | 'tournamen
 	return normalized === 'tournament' ? 'tournament' : 'league';
 };
 
-const formatSeasonLabel = (season: string, year: number) => `${season} ${year}`;
+const parseSeasonAndYear = (seasonName: string): { season: string | null; year: number | null } => {
+	const match = seasonName.trim().match(/^(.+?)\s+(\d{4})$/);
+	if (!match?.[1] || !match?.[2]) {
+		return {
+			season: seasonName.trim() || null,
+			year: null
+		};
+	}
+
+	const parsedYear = Number(match[2]);
+	return {
+		season: match[1].trim() || null,
+		year: Number.isFinite(parsedYear) ? parsedYear : null
+	};
+};
 
 const mapActivity = (input: {
 	offeringId: string;
 	leagueId: string;
+	seasonId: string;
 	stackOrder: number | null;
 	offeringName: string;
 	offeringType: string | null | undefined;
 	leagueName: string;
-	season: string;
-	year: number;
+	seasonLabel: string;
 	gender: string | null;
 	skillLevel: string | null;
 	registrationStart: string;
@@ -39,13 +53,14 @@ const mapActivity = (input: {
 	id: input.leagueId,
 	offeringId: input.offeringId,
 	leagueId: input.leagueId,
+	seasonId: input.seasonId,
 	stackOrder: input.stackOrder,
 	offeringType: toActivityType(input.offeringType),
 	offeringName: input.offeringName,
 	leagueName: input.leagueName,
-	seasonLabel: formatSeasonLabel(input.season, input.year),
-	season: input.season,
-	year: input.year,
+	seasonLabel: input.seasonLabel,
+	season: input.seasonLabel,
+	year: null,
 	gender: input.gender,
 	skillLevel: input.skillLevel,
 	registrationStart: input.registrationStart,
@@ -119,6 +134,9 @@ export const POST: RequestHandler = async (event) => {
 
 	try {
 		const issues: Array<{ path: Array<string | number>; message: string }> = [];
+		const seasons = await dbOps.seasons.getByClientId(clientId);
+		const seasonById = new Map(seasons.map((season) => [season.id, season]));
+
 		const existingOfferingSlug = await dbOps.offerings.getByClientIdAndSlug(
 			clientId,
 			input.offering.slug
@@ -145,6 +163,16 @@ export const POST: RequestHandler = async (event) => {
 					path: ['leagues', check.index, 'slug'],
 					message: 'A league with this slug already exists.'
 				});
+			}
+
+			for (const [index, league] of input.leagues.entries()) {
+				const season = seasonById.get(league.seasonId);
+				if (!season) {
+					issues.push({
+						path: ['leagues', index, 'seasonId'],
+						message: 'Select a valid season.'
+					});
+				}
 			}
 		}
 
@@ -186,20 +214,26 @@ export const POST: RequestHandler = async (event) => {
 		}
 
 		createdOfferingId = createdOffering.id;
-		const autoYear = new Date().getFullYear();
 		const createdActivities: CreatedIntramuralActivity[] = [];
 		const createdLeagueIds: string[] = [];
 
 		for (const leagueInput of input.leagues) {
+			const selectedSeason = seasonById.get(leagueInput.seasonId);
+			if (!selectedSeason?.id) {
+				throw new Error('Invalid season selected for league create.');
+			}
+			const seasonLabel = selectedSeason.name?.trim() || 'Unscheduled';
+			const parsedSeason = parseSeasonAndYear(seasonLabel);
 			const createdLeague = await dbOps.leagues.create({
 				clientId,
 				offeringId: createdOffering.id,
+				seasonId: selectedSeason.id,
 				name: leagueInput.name,
 				slug: leagueInput.slug,
 				stackOrder: leagueInput.stackOrder,
 				description: leagueInput.description,
-				year: autoYear,
-				season: leagueInput.season,
+				year: parsedSeason.year,
+				season: parsedSeason.season,
 				gender: leagueInput.gender,
 				skillLevel: leagueInput.skillLevel,
 				regStartDate: leagueInput.regStartDate,
@@ -228,12 +262,12 @@ export const POST: RequestHandler = async (event) => {
 				mapActivity({
 					offeringId: createdOffering.id,
 					leagueId: createdLeague.id,
+					seasonId: selectedSeason.id,
 					stackOrder: createdLeague.stackOrder ?? leagueInput.stackOrder,
 					offeringName: createdOffering.name?.trim() || 'General Recreation',
 					offeringType: createdOffering.type,
 					leagueName: createdLeague.name?.trim() || 'Untitled League',
-					season: createdLeague.season?.trim() || leagueInput.season,
-					year: createdLeague.year ?? autoYear,
+					seasonLabel,
 					gender: createdLeague.gender?.trim() || leagueInput.gender,
 					skillLevel: createdLeague.skillLevel?.trim() || leagueInput.skillLevel,
 					registrationStart: createdLeague.regStartDate ?? leagueInput.regStartDate,

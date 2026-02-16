@@ -16,17 +16,31 @@ const toActivityType = (value: string | null | undefined): 'league' | 'tournamen
 	return normalized === 'tournament' ? 'tournament' : 'league';
 };
 
-const formatSeasonLabel = (season: string, year: number) => `${season} ${year}`;
+const parseSeasonAndYear = (seasonName: string): { season: string | null; year: number | null } => {
+	const match = seasonName.trim().match(/^(.+?)\s+(\d{4})$/);
+	if (!match?.[1] || !match?.[2]) {
+		return {
+			season: seasonName.trim() || null,
+			year: null
+		};
+	}
+
+	const parsedYear = Number(match[2]);
+	return {
+		season: match[1].trim() || null,
+		year: Number.isFinite(parsedYear) ? parsedYear : null
+	};
+};
 
 const mapActivity = (input: {
 	offeringId: string;
 	leagueId: string;
+	seasonId: string;
 	stackOrder: number | null;
 	offeringName: string;
 	offeringType: string | null | undefined;
 	leagueName: string;
-	season: string;
-	year: number;
+	seasonLabel: string;
 	gender: string | null;
 	skillLevel: string | null;
 	registrationStart: string;
@@ -39,13 +53,14 @@ const mapActivity = (input: {
 	id: input.leagueId,
 	offeringId: input.offeringId,
 	leagueId: input.leagueId,
+	seasonId: input.seasonId,
 	stackOrder: input.stackOrder,
 	offeringType: toActivityType(input.offeringType),
 	offeringName: input.offeringName,
 	leagueName: input.leagueName,
-	seasonLabel: formatSeasonLabel(input.season, input.year),
-	season: input.season,
-	year: input.year,
+	seasonLabel: input.seasonLabel,
+	season: input.seasonLabel,
+	year: null,
 	gender: input.gender,
 	skillLevel: input.skillLevel,
 	registrationStart: input.registrationStart,
@@ -117,6 +132,8 @@ export const POST: RequestHandler = async (event) => {
 
 	try {
 		const offerings = await dbOps.offerings.getByClientId(clientId);
+		const seasons = await dbOps.seasons.getByClientId(clientId);
+		const seasonById = new Map(seasons.map((season) => [season.id, season]));
 		const selectedOffering =
 			offerings.find((offering) => offering.id === input.offeringId && Boolean(offering.id)) ?? null;
 
@@ -161,6 +178,26 @@ export const POST: RequestHandler = async (event) => {
 				{ status: 409 }
 			);
 		}
+		const invalidSeasonIssues: Array<{ path: Array<string | number>; message: string }> = [];
+		for (const [index, league] of input.leagues.entries()) {
+			const season = seasonById.get(league.seasonId);
+			if (!season) {
+				invalidSeasonIssues.push({
+					path: ['leagues', index, 'seasonId'],
+					message: 'Select a valid season.'
+				});
+			}
+		}
+		if (invalidSeasonIssues.length > 0) {
+			return json(
+				{
+					success: false,
+					error: 'Invalid season selected.',
+					fieldErrors: toFieldErrorMap(invalidSeasonIssues)
+				},
+				{ status: 400 }
+			);
+		}
 
 		const leagues = await dbOps.leagues.getByClientId(clientId);
 		const nextStackOrderStart =
@@ -171,19 +208,25 @@ export const POST: RequestHandler = async (event) => {
 					return stackOrder > maxOrder ? stackOrder : maxOrder;
 				}, 0) + 1;
 
-		const autoYear = new Date().getFullYear();
 		const createdActivities: CreatedIntramuralActivity[] = [];
 		const createdLeagueIds: string[] = [];
 		for (const [index, leagueInput] of input.leagues.entries()) {
+			const selectedSeason = seasonById.get(leagueInput.seasonId);
+			if (!selectedSeason?.id) {
+				throw new Error('Invalid season selected for league create.');
+			}
+			const seasonLabel = selectedSeason.name?.trim() || 'Unscheduled';
+			const parsedSeason = parseSeasonAndYear(seasonLabel);
 			const createdLeague = await dbOps.leagues.create({
 				clientId,
 				offeringId: selectedOffering.id,
+				seasonId: selectedSeason.id,
 				name: leagueInput.name,
 				slug: leagueInput.slug,
 				stackOrder: nextStackOrderStart + index,
 				description: leagueInput.description,
-				year: autoYear,
-				season: leagueInput.season,
+				year: parsedSeason.year,
+				season: parsedSeason.season,
 				gender: leagueInput.gender,
 				skillLevel: leagueInput.skillLevel,
 				regStartDate: leagueInput.regStartDate,
@@ -218,12 +261,12 @@ export const POST: RequestHandler = async (event) => {
 				mapActivity({
 					offeringId: selectedOffering.id,
 					leagueId: createdLeague.id,
+					seasonId: selectedSeason.id,
 					stackOrder: createdLeague.stackOrder ?? nextStackOrderStart + index,
 					offeringName: selectedOffering.name?.trim() || 'General Recreation',
 					offeringType: selectedOffering.type,
 					leagueName: createdLeague.name?.trim() || 'Untitled League',
-					season: createdLeague.season?.trim() || leagueInput.season,
-					year: createdLeague.year ?? autoYear,
+					seasonLabel,
 					gender: createdLeague.gender?.trim() || leagueInput.gender,
 					skillLevel: createdLeague.skillLevel?.trim() || leagueInput.skillLevel,
 					registrationStart: createdLeague.regStartDate ?? leagueInput.regStartDate,

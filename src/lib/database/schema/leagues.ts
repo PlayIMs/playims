@@ -5,6 +5,7 @@ export const leagues = sqliteTable('leagues', {
 	id: text().primaryKey(),
 	clientId: text('client_id'),
 	offeringId: text('offering_id'),
+	seasonId: text('season_id'),
 	name: text(),
 	slug: text(),
 	stackOrder: integer('stack_order').default(1),
