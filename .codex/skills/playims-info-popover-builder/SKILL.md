@@ -31,7 +31,7 @@ Treat this API as the baseline:
 
 Current default classes:
 - `buttonClass`: `cursor-pointer p-1.5 border border-secondary-300 bg-neutral text-secondary-900 hover:bg-secondary-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-secondary-600`
-- `panelClass`: `top-8 z-10 border border-secondary-300 bg-white p-2 text-xs text-neutral-950 shadow-sm`
+- `panelClass`: `z-10 border border-secondary-300 bg-white p-2 text-xs text-neutral-950 shadow-md`
 - `iconClass`: `w-4 h-4`
 
 Behavioral guarantees from current implementation:
@@ -41,7 +41,7 @@ Behavioral guarantees from current implementation:
 - `Escape` close uses capture-phase listener and stops propagation, so open popover closes before parent modal handlers.
 - Popover panel is only mounted in DOM while open.
 - Trigger has `aria-haspopup="dialog"` and `aria-expanded` state.
-- Root wrapper is `relative shrink-0`; panel is absolutely positioned with `left-0` or `right-0`.
+- Root wrapper is `relative shrink-0`; panel auto-positions with fixed viewport clamping so it remains visible on mobile and desktop.
 
 ## Required Integration Pattern
 1. Keep helper text short and supplemental.
