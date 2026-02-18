@@ -3023,6 +3023,15 @@
 	const concludedOfferings = $derived.by(() =>
 		visibleOfferings.filter((offering) => isOfferingConcluded(offering))
 	);
+	const selectedSeasonIsHistorical = $derived.by(() =>
+		Boolean(selectedSeason && !selectedSeason.isCurrent)
+	);
+	const renderedOfferings = $derived.by(() =>
+		selectedSeasonIsHistorical ? visibleOfferings : nonConcludedOfferings
+	);
+	const collapsibleConcludedOfferings = $derived.by(() =>
+		selectedSeasonIsHistorical ? [] : concludedOfferings
+	);
 	const addEntryOptionCount = $derived.by(() => {
 		const filter =
 			offeringView === 'tournaments' ? 'tournament' : offeringView === 'leagues' ? 'league' : 'all';
@@ -3743,7 +3752,7 @@
 					</div>
 				{:else}
 					<div class="divide-y divide-secondary-300">
-						{#each nonConcludedOfferings as offering}
+						{#each renderedOfferings as offering}
 							<article id={offering.offeringSlug} class="p-4 space-y-3">
 								<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
 									<div>
@@ -3767,15 +3776,21 @@
 										</p>
 									</div>
 									<div class="flex flex-wrap items-center gap-1">
-										<span class="badge-primary text-xs uppercase tracking-wide"
-											>{offering.openCount} Open</span
-										>
-										<span class="badge-primary-outlined text-xs uppercase tracking-wide">
-											{offering.waitlistedCount} Waitlist
-										</span>
-										<span class="badge-secondary-outlined text-xs uppercase tracking-wide">
-											{offering.closedCount} Closed
-										</span>
+										{#if selectedSeasonIsHistorical}
+											<span class="badge-secondary text-xs uppercase tracking-wide">
+												Concluded
+											</span>
+										{:else}
+											<span class="badge-primary text-xs uppercase tracking-wide"
+												>{offering.openCount} Open</span
+											>
+											<span class="badge-primary-outlined text-xs uppercase tracking-wide">
+												{offering.waitlistedCount} Waitlist
+											</span>
+											<span class="badge-secondary-outlined text-xs uppercase tracking-wide">
+												{offering.closedCount} Closed
+											</span>
+										{/if}
 									</div>
 								</div>
 
@@ -3881,7 +3896,7 @@
 							</article>
 						{/each}
 
-						{#if concludedOfferings.length > 0}
+						{#if collapsibleConcludedOfferings.length > 0}
 							<section class="p-4 space-y-3">
 								<button
 									type="button"
@@ -3894,7 +3909,7 @@
 									<span
 										class="text-sm font-bold font-sans text-neutral-950 uppercase tracking-wide"
 									>
-										Concluded Offerings ({concludedOfferings.length})
+										Concluded Offerings ({collapsibleConcludedOfferings.length})
 									</span>
 									{#if showConcludedSeasons}
 										<IconChevronUp class="w-5 h-5 text-secondary-900" />
@@ -3905,7 +3920,7 @@
 
 								{#if showConcludedSeasons}
 									<div class="divide-y divide-secondary-300 border border-secondary-300">
-										{#each concludedOfferings as offering}
+										{#each collapsibleConcludedOfferings as offering}
 											<article id={offering.offeringSlug} class="p-4 space-y-3 bg-neutral">
 												<div
 													class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
