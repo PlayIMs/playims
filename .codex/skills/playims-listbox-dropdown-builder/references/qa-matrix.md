@@ -8,6 +8,7 @@ Use this matrix after adding or refactoring any `ListboxDropdown` usage.
 - Existing side effects on selection (filtering, section reset, fetches) still run.
 - If current `value` is missing from options, placeholder behavior is acceptable for the route.
 - If footer action is configured, clicking it emits `footerAction` and runs the expected route action.
+- In `mode="action"`, selecting an option emits `action` and does not persist a selected option state.
 
 ## Keyboard
 - `ArrowDown` on trigger opens dropdown and moves active option.
@@ -17,6 +18,7 @@ Use this matrix after adding or refactoring any `ListboxDropdown` usage.
 - `Escape` closes dropdown and returns focus to trigger.
 - `Tab` closes dropdown without trapping focus.
 - Typeahead matches option labels and ignores disabled options.
+- In `mode="action"`, keyboard activation triggers `action` handlers and closes the panel.
 
 ## Pointer + Focus
 - Clicking trigger toggles open/closed state.

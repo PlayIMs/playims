@@ -18,14 +18,20 @@
 		label: string;
 		statusLabel?: string;
 		disabled?: boolean;
+		separatorBefore?: boolean;
 	}
+
+	type ListboxDropdownMode = 'select' | 'action';
 
 	interface Props {
 		options: ListboxDropdownOption[];
 		value: string;
 		ariaLabel: string;
+		mode?: ListboxDropdownMode;
 		placeholder?: string;
 		emptyText?: string;
+		noteText?: string;
+		noteClass?: string;
 		buttonClass?: string;
 		listClass?: string;
 		optionClass?: string;
@@ -37,6 +43,7 @@
 		footerActionClass?: string;
 		footerActionDisabled?: boolean;
 		footerAction?: Snippet<[]>;
+		autoFocus?: boolean;
 		align?: 'left' | 'right';
 		disabled?: boolean;
 		trigger?: Snippet<[boolean, ListboxDropdownOption | null]>;
@@ -46,8 +53,11 @@
 		options,
 		value,
 		ariaLabel,
+		mode = 'select',
 		placeholder = 'Select option',
 		emptyText = 'No options available.',
+		noteText,
+		noteClass = 'px-3 pb-2 text-xs text-neutral-900 text-left',
 		buttonClass = 'button-secondary-outlined px-3 py-1 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-60',
 		listClass = 'mt-1 w-64 border-2 border-secondary-300 bg-white z-20 max-h-72 overflow-y-auto',
 		optionClass = 'w-full text-left px-3 py-2 text-sm cursor-pointer text-neutral-950 transition-colors duration-100 touch-manipulation',
@@ -59,12 +69,17 @@
 		footerActionClass = 'w-full button-primary-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer justify-center',
 		footerActionDisabled = false,
 		footerAction,
+		autoFocus = false,
 		align = 'left',
 		disabled = false,
 		trigger
 	}: Props = $props();
 
-	const dispatch = createEventDispatcher<{ change: { value: string }; footerAction: undefined }>();
+	const dispatch = createEventDispatcher<{
+		change: { value: string };
+		action: { value: string };
+		footerAction: undefined;
+	}>();
 
 	let root = $state<HTMLDivElement | null>(null);
 	let buttonElement = $state<HTMLButtonElement | null>(null);
@@ -81,7 +96,7 @@
 	const footerActionId = `${dropdownId}-footer-action`;
 
 	const selectedIndex = $derived.by(() =>
-		options.findIndex((option) => option.value === value && !option.disabled)
+		mode === 'action' ? -1 : options.findIndex((option) => option.value === value && !option.disabled)
 	);
 	const hasFooterAction = $derived.by(() => Boolean(footerActionLabel || footerAction));
 	const selectedOption = $derived.by(() =>
@@ -170,6 +185,7 @@
 		const maxLeft = viewportWidth - listWidth - viewportPadding;
 		const clampedLeft = clamp(preferredLeft, viewportPadding, maxLeft);
 		const maxWidth = Math.max(0, viewportWidth - viewportPadding * 2);
+		const minWidth = clamp(buttonRect.width, 0, maxWidth);
 
 		const belowTop = buttonRect.bottom + gap;
 		const aboveBottom = buttonRect.top - gap;
@@ -181,7 +197,7 @@
 			? Math.max(viewportPadding, buttonRect.top - gap - Math.min(listHeight, availableHeight))
 			: belowTop;
 
-		listInlineStyle = `position: fixed; top: ${listTop}px; left: ${clampedLeft}px; max-width: ${maxWidth}px; max-height: ${availableHeight}px;`;
+		listInlineStyle = `position: fixed; top: ${listTop}px; left: ${clampedLeft}px; min-width: ${minWidth}px; max-width: ${maxWidth}px; max-height: ${availableHeight}px;`;
 	}
 
 	function handlePanelFocusout(event: FocusEvent): void {
@@ -216,6 +232,12 @@
 		if (focusTrigger) buttonElement?.focus();
 	}
 
+	function consumeEscapeEvent(event: KeyboardEvent): void {
+		event.preventDefault();
+		event.stopPropagation();
+		event.stopImmediatePropagation();
+	}
+
 	function scrollActiveOptionIntoView(): void {
 		if (!listElement || activeIndex < 0) return;
 		const activeOption = listElement.querySelector<HTMLElement>(`#${listboxId}-option-${activeIndex}`);
@@ -225,6 +247,11 @@
 	function selectOptionAtIndex(index: number): void {
 		const option = options[index];
 		if (!option || option.disabled) return;
+		if (mode === 'action') {
+			dispatch('action', { value: option.value });
+			closeMenu(true);
+			return;
+		}
 		if (option.value !== value) {
 			dispatch('change', { value: option.value });
 		}
@@ -304,7 +331,7 @@
 		}
 		if (event.key === 'Escape') {
 			if (!open) return;
-			event.preventDefault();
+			consumeEscapeEvent(event);
 			closeMenu();
 			return;
 		}
@@ -349,7 +376,7 @@
 			return;
 		}
 		if (event.key === 'Escape') {
-			event.preventDefault();
+			consumeEscapeEvent(event);
 			closeMenu(true);
 			return;
 		}
@@ -366,10 +393,13 @@
 	}
 
 	function optionClassFor(option: ListboxDropdownOption, index: number): string {
-		const optionBorderClass =
-			index < options.length - 1 ? 'border-b border-secondary-200' : 'border-b-0';
+		const nextOption = options[index + 1];
+		const hasBottomDivider = index < options.length - 1 && !nextOption?.separatorBefore;
+		const optionBorderClass = `${hasBottomDivider ? 'border-b border-secondary-200' : 'border-b-0'} ${
+			option.separatorBefore ? 'border-t border-secondary-200' : ''
+		}`;
 		const optionBaseClass = `${optionClass} ${optionBorderClass}`;
-		const isSelected = option.value === value;
+		const isSelected = mode === 'action' ? false : option.value === value;
 		const isActive = index === activeIndex;
 
 		if (option.disabled) {
@@ -400,6 +430,7 @@
 
 		const handleWindowKeydown = (event: KeyboardEvent) => {
 			if (event.key !== 'Escape') return;
+			consumeEscapeEvent(event);
 			closeMenu(true);
 		};
 
@@ -454,6 +485,7 @@
 		aria-expanded={open}
 		aria-controls={listboxId}
 		disabled={disabled}
+		data-wizard-autofocus={autoFocus ? 'true' : undefined}
 		bind:this={buttonElement}
 		onclick={handleButtonClick}
 		onkeydown={handleButtonKeydown}
@@ -496,7 +528,7 @@
 							id={`${listboxId}-option-${index}`}
 							type="button"
 							role="option"
-							aria-selected={option.value === value}
+							aria-selected={mode === 'action' ? undefined : option.value === value}
 							aria-disabled={option.disabled ? 'true' : undefined}
 							tabindex="-1"
 							disabled={option.disabled}
@@ -520,6 +552,10 @@
 					{/each}
 				{/if}
 			</div>
+
+			{#if noteText}
+				<p class={noteClass}>{noteText}</p>
+			{/if}
 
 			{#if hasFooterAction}
 				<div class="border-t-2 border-secondary-300 bg-neutral-100 p-1.5">

@@ -18,9 +18,13 @@ Read these files before editing:
 ## Component Contract
 Treat this API as the baseline:
 - Required props: `options`, `value`, `ariaLabel`
-- Option shape: `{ value: string; label: string; statusLabel?: string; disabled?: boolean }`
+- Option shape: `{ value: string; label: string; statusLabel?: string; disabled?: boolean; separatorBefore?: boolean }`
 - Emits: `change` event with `event.detail.value: string`
+- Optional action event: `action` with `event.detail.value: string` (when `mode="action"`)
+- Optional mode: `mode?: 'select' | 'action'` (`select` by default; use `action` for non-persistent button dropdowns)
 - Optional props: `placeholder`, `emptyText`, `align`, `disabled`
+- Optional panel note: `noteText`, `noteClass`
+- Optional focus hook: `autoFocus` (adds `data-wizard-autofocus` to trigger button for wizard autofocus flows)
 - Optional class overrides: `buttonClass`, `listClass`, `optionClass`, `selectedOptionClass`, `activeOptionClass`, `disabledOptionClass`
 - Optional trigger snippet: `trigger?: Snippet<[open: boolean, selectedOption: Option | null]>`
 - Optional footer action: `footerActionLabel`, `footerActionAriaLabel`, `footerActionClass`, `footerActionDisabled`, `footerAction?: Snippet<[]>`
@@ -81,6 +85,38 @@ Example footer action usage:
 />
 ```
 
+Example action-menu usage (non-persistent):
+```svelte
+<div class="relative inline-flex items-stretch">
+	<button
+		type="button"
+		class="button-primary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer"
+		onclick={openCreateWizard}
+	>
+		+ ADD
+	</button>
+	<ListboxDropdown
+		options={addActionDropdownOptions}
+		value=""
+		mode="action"
+		ariaLabel="Open add menu"
+		align="right"
+		buttonClass="button-primary-outlined -ml-[2px] px-1 py-1 cursor-pointer"
+		listClass="mt-1 w-44 border-2 border-secondary-300 bg-white z-20"
+		optionClass="w-full text-left px-3 py-2 text-sm text-neutral-950 cursor-pointer"
+		activeOptionClass="bg-neutral-100 text-neutral-950"
+		noteText={addEntryOptionCount === 0 ? 'No matching offerings available for this view.' : undefined}
+		on:action={(event) => {
+			handleAddActionDropdown(event.detail.value);
+		}}
+	>
+		{#snippet trigger()}
+			<IconChevronDown class="w-4 h-4" />
+		{/snippet}
+	</ListboxDropdown>
+</div>
+```
+
 ## Workflow
 1. Ground behavior parity.
 - Capture current selection state, side effects, and empty/loading behavior.
@@ -96,17 +132,21 @@ Example footer action usage:
 4. Add optional footer actions when needed.
 - Use footer action for contextual CTA items (for example: `Add New Season`) that should be visually distinct from selection options.
 - Keep footer action labels action-oriented verbs, and wire `on:footerAction` in the parent route/component.
-5. Validate accessibility and interaction parity.
+5. Use action mode for non-persistent button dropdowns.
+- Set `mode="action"` and `value=""` when options should trigger actions rather than persist a selected value.
+- Handle option clicks with `on:action`.
+- Keep the current split-button styling when migrating existing add/action menus.
+6. Validate accessibility and interaction parity.
 - Run keyboard/pointer QA from `references/qa-matrix.md`.
 - Confirm screen-reader labels and `aria-expanded` transitions.
-6. Validate build safety.
+7. Validate build safety.
 - Run `pnpm check`.
 - Run `pnpm build` when changing shared component internals or multiple consumers.
 
 ## Guardrails
 - Do not mutate `value` inside `ListboxDropdown`; parent state owns selection.
 - Do not remove keyboard/typeahead/outside-click behavior when editing component internals.
-- Do not use `ListboxDropdown` for action menus (`role="menu"` semantics); keep it for option selection (`role="listbox"`).
+- For transient action menus, use `mode="action"` and keep actions non-persistent.
 - Prefer `statusLabel` for compact contextual tags (CURRENT/PAST/FUTURE) rather than embedding metadata in primary labels.
 - Use the optional footer action only for secondary contextual actions, not for replacing primary option selection.
 - Keep option `value` strings stable and unique.
