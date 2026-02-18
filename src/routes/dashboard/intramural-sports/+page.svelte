@@ -3504,7 +3504,7 @@
 						<input
 							id="tournament-search-empty"
 							type="text"
-							class="input-secondary pl-10 pr-10 py-1 text-sm"
+							class="input-secondary pl-10 pr-10 py-1 text-sm disabled:cursor-not-allowed"
 							autocomplete="off"
 							disabled
 							placeholder={`Search offering, ${showTournaments ? 'group' : showAllOfferings ? 'league/group' : 'league'}, or deadline`}
@@ -3778,7 +3778,7 @@
 							<input
 								id="tournament-search"
 								type="text"
-								class="input-secondary pl-10 pr-10 py-1 text-sm"
+								class="input-secondary pl-10 pr-10 py-1 text-sm disabled:cursor-not-allowed"
 								autocomplete="off"
 								placeholder={`Search offering, ${showTournaments ? 'group' : showAllOfferings ? 'league/group' : 'league'}, or deadline`}
 								bind:value={searchQuery}
@@ -3809,7 +3809,7 @@
 							<input
 								id="tournament-search-empty-list"
 								type="text"
-								class="input-secondary pl-10 pr-10 py-1 text-sm"
+								class="input-secondary pl-10 pr-10 py-1 text-sm disabled:cursor-not-allowed"
 								autocomplete="off"
 								disabled={searchQuery.trim().length === 0}
 								placeholder={`Search offering, ${showTournaments ? 'group' : showAllOfferings ? 'league/group' : 'league'}, or deadline`}
