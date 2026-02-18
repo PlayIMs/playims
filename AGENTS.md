@@ -113,6 +113,33 @@ pnpm db:introspect
 - **Database tables**: snake_case in SQL, camelCase in TypeScript
 - **Operations classes**: `XxxOperations` (e.g., `ClientOperations`)
 
+## Commit Message Convention
+
+Use commit messages with a prefix and brief description:
+
+```text
+<type>: <brief description>
+```
+
+Preferred types:
+- `feat:` new feature or capability
+- `fix:` bug fix
+- `docs:` documentation only
+- `refactor:` structural cleanup without behavior change
+- `style:` formatting/styling changes without logic changes
+- `test:` test additions/updates
+- `chore:` maintenance/tooling/config updates
+- `perf:` performance improvements
+- `build:` build/dependency pipeline changes
+- `ci:` CI workflow changes
+
+Examples:
+- `feat: add optional footer action to ListboxDropdown`
+- `fix: prevent listbox overflow on narrow viewports`
+- `docs: add commit message guide`
+
+See `docs/COMMIT_GUIDE.md` for the full standard.
+
 ## Database Architecture
 
 ### Schema Files Location
