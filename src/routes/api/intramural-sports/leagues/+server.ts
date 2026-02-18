@@ -156,7 +156,7 @@ export const POST: RequestHandler = async (event) => {
 		const existingLeaguesBySlug = await Promise.all(
 			input.leagues.map((league, index) =>
 				dbOps.leagues
-					.getByClientIdAndSlug(clientId, league.slug)
+					.getByClientIdSeasonIdAndSlug(clientId, league.seasonId, league.slug)
 					.then((existing) => ({ index, existing }))
 			)
 		);
@@ -165,7 +165,7 @@ export const POST: RequestHandler = async (event) => {
 			if (!check.existing) continue;
 			duplicateSlugIssues.push({
 				path: ['leagues', check.index, 'slug'],
-				message: `A ${unitSingular} with this slug already exists.`
+				message: `A ${unitSingular} with this slug already exists for the selected season.`
 			});
 		}
 		if (duplicateSlugIssues.length > 0) {

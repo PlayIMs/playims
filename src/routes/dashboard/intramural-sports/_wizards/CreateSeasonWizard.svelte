@@ -5,6 +5,7 @@
 	interface Props {
 		open: boolean;
 		step: number;
+		stepCount: number;
 		stepTitle: string;
 		stepProgress: number;
 		formError: string;
@@ -21,6 +22,7 @@
 	let {
 		open,
 		step,
+		stepCount,
 		stepTitle,
 		stepProgress,
 		formError,
@@ -39,7 +41,7 @@
 	{open}
 	title="New Season"
 	{step}
-	stepCount={2}
+	{stepCount}
 	{stepTitle}
 	progressPercent={stepProgress}
 	closeAriaLabel="Close create season modal"

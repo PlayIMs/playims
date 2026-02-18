@@ -135,6 +135,17 @@ const seasonInputSchema = z.object({
 	isActive: z.boolean()
 });
 
+const currentSeasonTransitionSchema = z.object({
+	clearExistingCurrent: z.boolean(),
+	deactivateExistingCurrent: z.boolean()
+});
+
+const seasonCopyOptionsSchema = z.object({
+	sourceSeasonId: requiredText('Source season', 120),
+	scope: z.enum(['offerings-only', 'offerings-leagues', 'offerings-all']),
+	includeDivisions: z.boolean()
+});
+
 const leagueInputSchema = z.object({
 	name: requiredText('League name', 140),
 	slug: slugField('League slug'),
@@ -308,19 +319,20 @@ export const createIntramuralOfferingWithLeagueSchema = z
 			});
 		}
 
-		const seenLeagueSlugs = new Map<string, number>();
+		const seenLeagueSlugSeasonPairs = new Map<string, number>();
 		const seenLeagueStackOrders = new Map<number, number>();
 		payload.leagues.forEach((league, index) => {
-			const previousIndex = seenLeagueSlugs.get(league.slug);
+			const slugSeasonKey = `${league.slug}::${league.seasonId}`;
+			const previousIndex = seenLeagueSlugSeasonPairs.get(slugSeasonKey);
 			if (previousIndex !== undefined) {
 				ctx.addIssue({
 					code: z.ZodIssueCode.custom,
 					path: ['leagues', index, 'slug'],
-					message: 'League slug must be unique within this request.'
+					message: 'League/group slug must be unique per season within this request.'
 				});
 				return;
 			}
-			seenLeagueSlugs.set(league.slug, index);
+			seenLeagueSlugSeasonPairs.set(slugSeasonKey, index);
 
 			const previousStackOrderIndex = seenLeagueStackOrders.get(league.stackOrder);
 			if (previousStackOrderIndex !== undefined) {
@@ -345,19 +357,20 @@ export const createIntramuralLeagueSchema = z
 		leagues: z.array(leagueInputSchema).min(1, 'Add at least one entry.')
 	})
 	.superRefine((payload, ctx) => {
-		const seenLeagueSlugs = new Map<string, number>();
+		const seenLeagueSlugSeasonPairs = new Map<string, number>();
 		const seenLeagueStackOrders = new Map<number, number>();
 		payload.leagues.forEach((league, index) => {
-			const previousIndex = seenLeagueSlugs.get(league.slug);
+			const slugSeasonKey = `${league.slug}::${league.seasonId}`;
+			const previousIndex = seenLeagueSlugSeasonPairs.get(slugSeasonKey);
 			if (previousIndex !== undefined) {
 				ctx.addIssue({
 					code: z.ZodIssueCode.custom,
 					path: ['leagues', index, 'slug'],
-					message: 'League slug must be unique within this request.'
+					message: 'League/group slug must be unique per season within this request.'
 				});
 				return;
 			}
-			seenLeagueSlugs.set(league.slug, index);
+			seenLeagueSlugSeasonPairs.set(slugSeasonKey, index);
 
 			const previousStackOrderIndex = seenLeagueStackOrders.get(league.stackOrder);
 			if (previousStackOrderIndex !== undefined) {
@@ -378,7 +391,9 @@ export const createIntramuralLeagueSchema = z
 
 export const createIntramuralSeasonSchema = z
 	.object({
-		season: seasonInputSchema
+		season: seasonInputSchema,
+		currentSeasonTransition: currentSeasonTransitionSchema.optional(),
+		copyOptions: seasonCopyOptionsSchema.optional()
 	})
 	.superRefine((payload, ctx) => {
 		const startMs = toDateOnlyMs(payload.season.startDate);
@@ -405,6 +420,26 @@ export const createIntramuralSeasonSchema = z
 				code: z.ZodIssueCode.custom,
 				path: ['season', 'endDate'],
 				message: 'Season end date must be on or after season start date.'
+			});
+		}
+
+		if (
+			payload.currentSeasonTransition?.deactivateExistingCurrent &&
+			!payload.currentSeasonTransition.clearExistingCurrent
+		) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ['currentSeasonTransition', 'deactivateExistingCurrent'],
+				message:
+					'Previous current season can only be deactivated when it is also no longer current.'
+			});
+		}
+
+		if (payload.copyOptions?.scope === 'offerings-only' && payload.copyOptions.includeDivisions) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ['copyOptions', 'includeDivisions'],
+				message: 'Divisions/groups can only be copied with leagues or tournament groups.'
 			});
 		}
 	});
@@ -468,6 +503,11 @@ export type CreateIntramuralSeasonResponse = {
 	success: boolean;
 	data?: {
 		season: CreatedIntramuralSeason;
+		copySummary?: {
+			offeringCount: number;
+			leagueCount: number;
+			divisionCount: number;
+		};
 	};
 	error?: string;
 	fieldErrors?: Record<string, string[] | undefined>;

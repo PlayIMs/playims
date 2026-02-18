@@ -39,6 +39,8 @@
 	import IconTarget from '@tabler/icons-svelte/icons/target';
 	import IconTrash from '@tabler/icons-svelte/icons/trash';
 	import IconX from '@tabler/icons-svelte/icons/x';
+	import InfoPopover from '$lib/components/InfoPopover.svelte';
+	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 
 	type Activity = PageData['activities'][number];
 	type LeagueOfferingOption = PageData['leagueOfferingOptions'][number];
@@ -102,7 +104,8 @@
 	type OfferingView = 'leagues' | 'tournaments' | 'all';
 	type WizardStep = 1 | 2 | 3 | 4 | 5;
 	type LeagueWizardStep = 1 | 2 | 3 | 4;
-	type SeasonWizardStep = 1 | 2;
+	type SeasonWizardStep = 1 | 2 | 3 | 4;
+	type SeasonCopyScope = 'offerings-only' | 'offerings-leagues' | 'offerings-all';
 	type LeagueChoice = 'yes' | 'no';
 	type LeagueGender = '' | 'male' | 'female' | 'mixed';
 	type LeagueSkillLevel = '' | 'competitive' | 'intermediate' | 'recreational' | 'all';
@@ -167,6 +170,20 @@
 		isActive: boolean;
 	}
 
+	interface WizardSeasonCopyInput {
+		enabled: boolean;
+		sourceSeasonId: string;
+		scope: SeasonCopyScope;
+		includeDivisions: boolean;
+	}
+
+	interface SeasonCopyPreview {
+		offeringCount: number;
+		leagueCount: number;
+		tournamentGroupCount: number;
+		divisionCount: number;
+	}
+
 	interface CreateOfferingApiResponse {
 		success: boolean;
 		data?: {
@@ -190,6 +207,11 @@
 				isCurrent: boolean;
 				isActive: boolean;
 			};
+			copySummary?: {
+				offeringCount: number;
+				leagueCount: number;
+				divisionCount: number;
+			};
 		};
 		error?: string;
 		fieldErrors?: Record<string, string[] | undefined>;
@@ -207,7 +229,9 @@
 	};
 	const SEASON_WIZARD_STEP_TITLES: Record<SeasonWizardStep, string> = {
 		1: 'Season Details',
-		2: 'Review & Create'
+		2: 'Copy Content',
+		3: 'Current Season Transition',
+		4: 'Review & Create'
 	};
 	let { data } = $props<{ data: PageData }>();
 
@@ -219,8 +243,6 @@
 	let showConcludedSeasons = $state(false);
 	let offeringView = $state<OfferingView>('all');
 	let offeringViewHydrated = $state(false);
-	let seasonHistoryOpen = $state(false);
-	let seasonHistoryContainer = $state<HTMLDivElement | null>(null);
 	let highlightedLeagueRowId = $state<string | null>(null);
 	let highlightTimeout: ReturnType<typeof setTimeout> | null = null;
 	let addActionMenuOpen = $state(false);
@@ -232,8 +254,23 @@
 	let createSeasonFormError = $state('');
 	let createSeasonServerFieldErrors = $state<Record<string, string>>({});
 	let seasonSlugTouched = $state(false);
+	let createSeasonEndDateTouched = $state(false);
 	let createSeasonForm = $state<WizardSeasonInput>(createEmptySeasonForm(false));
 	let createSeasonInitialForm = $state<WizardSeasonInput>(createEmptySeasonForm(false));
+	let createSeasonCopy = $state<WizardSeasonCopyInput>({
+		enabled: false,
+		sourceSeasonId: '',
+		scope: 'offerings-all',
+		includeDivisions: false
+	});
+	let createSeasonInitialCopy = $state<WizardSeasonCopyInput>({
+		enabled: false,
+		sourceSeasonId: '',
+		scope: 'offerings-all',
+		includeDivisions: false
+	});
+	let createSeasonReplaceExistingCurrent = $state(true);
+	let createSeasonDeactivateExistingCurrent = $state(false);
 	let isCreateModalOpen = $state(false);
 	let createWizardUnsavedConfirmOpen = $state(false);
 	let createStep = $state<WizardStep>(1);
@@ -257,6 +294,8 @@
 	let createLeagueCopiedFromExisting = $state(false);
 	let createLeagueServerFieldErrors = $state<Record<string, string>>({});
 	let createLeagueForm = $state<LeagueWizardFormState>(createEmptyCreateLeagueForm());
+	let createSeasonStartDateInput = $state<HTMLInputElement | null>(null);
+	let createSeasonEndDateInput = $state<HTMLInputElement | null>(null);
 
 	function padTwo(value: number): string {
 		return String(value).padStart(2, '0');
@@ -267,12 +306,73 @@
 		return `${now.getFullYear()}-${padTwo(now.getMonth() + 1)}-${padTwo(now.getDate())}`;
 	}
 
+	function formatDateOnly(date: Date): string {
+		return `${date.getFullYear()}-${padTwo(date.getMonth() + 1)}-${padTwo(date.getDate())}`;
+	}
+
+	function parseDateOnly(value: string): Date | null {
+		const normalized = value.trim();
+		if (!DATE_REGEX.test(normalized)) return null;
+
+		const [yearPart, monthPart, dayPart] = normalized.split('-');
+		const year = Number(yearPart);
+		const month = Number(monthPart);
+		const day = Number(dayPart);
+		const parsed = new Date(year, month - 1, day);
+		if (
+			Number.isNaN(parsed.getTime()) ||
+			parsed.getFullYear() !== year ||
+			parsed.getMonth() !== month - 1 ||
+			parsed.getDate() !== day
+		) {
+			return null;
+		}
+		return parsed;
+	}
+
+	function seasonStatusLabelForHistory(season: PageData['seasons'][number]): 'CURRENT' | 'PAST' | 'FUTURE' {
+		if (season.isCurrent) return 'CURRENT';
+		const today = todayDateString();
+		return season.startDate > today ? 'FUTURE' : 'PAST';
+	}
+
+	function seasonEndDateFromStart(startDate: string): string {
+		const parsedStart = parseDateOnly(startDate);
+		if (!parsedStart) return '';
+
+		const target = new Date(parsedStart);
+		target.setDate(target.getDate() + 16 * 7);
+		const daysUntilSaturday = (6 - target.getDay() + 7) % 7;
+		target.setDate(target.getDate() + daysUntilSaturday);
+		return formatDateOnly(target);
+	}
+
 	function defaultDateTimeValue(type: 'start' | 'end'): string {
 		return `${todayDateString()}T${type === 'start' ? '00:00' : '23:59'}`;
 	}
 
 	function defaultLeagueSlug(leagueName: string, offeringName: string): string {
 		return slugifyFinal(`${leagueName} ${offeringName}`);
+	}
+
+	function handleSeasonHistoryChange(value: string): void {
+		if (!value || value === selectedSeasonId) return;
+		selectedSeasonId = value;
+		showConcludedSeasons = false;
+	}
+
+	function openDatePicker(input: HTMLInputElement | null): void {
+		if (!input) return;
+		input.focus();
+		const pickerInput = input as HTMLInputElement & { showPicker?: () => void };
+		pickerInput.showPicker?.();
+	}
+
+	function focusCreateSeasonEndDateOnReverseTab(event: KeyboardEvent): void {
+		if (event.key !== 'Tab' || !event.shiftKey) return;
+		if (!createSeasonEndDateInput) return;
+		event.preventDefault();
+		createSeasonEndDateInput.focus();
 	}
 
 	function createLeagueDraftId(): string {
@@ -338,13 +438,23 @@
 	}
 
 	function createEmptySeasonForm(defaultCurrent: boolean): WizardSeasonInput {
+		const startDate = todayDateString();
 		return {
 			name: '',
 			slug: '',
-			startDate: todayDateString(),
-			endDate: '',
+			startDate,
+			endDate: seasonEndDateFromStart(startDate),
 			isCurrent: defaultCurrent,
 			isActive: true
+		};
+	}
+
+	function createEmptySeasonCopy(defaultSourceSeasonId: string): WizardSeasonCopyInput {
+		return {
+			enabled: false,
+			sourceSeasonId: defaultSourceSeasonId,
+			scope: 'offerings-all',
+			includeDivisions: false
 		};
 	}
 
@@ -378,6 +488,12 @@
 
 	function seasonWizardStepTitle(step: SeasonWizardStep): string {
 		return SEASON_WIZARD_STEP_TITLES[step];
+	}
+
+	function seasonCopyScopeLabel(scope: SeasonCopyScope): string {
+		if (scope === 'offerings-only') return 'Offerings only';
+		if (scope === 'offerings-leagues') return 'Offerings + leagues';
+		return 'Offerings + leagues + tournaments';
 	}
 
 	function addEntryActionLabel(): 'Add League' | 'Add Group' | 'Add League/Group' {
@@ -579,14 +695,6 @@
 		addActionMenuOpen = !addActionMenuOpen;
 	}
 
-	function closeSeasonHistoryMenu(): void {
-		seasonHistoryOpen = false;
-	}
-
-	function toggleSeasonHistoryMenu(): void {
-		seasonHistoryOpen = !seasonHistoryOpen;
-	}
-
 	$effect(() => {
 		if (typeof window === 'undefined') return;
 		if (!addActionMenuOpen) return;
@@ -600,29 +708,6 @@
 
 		const handleKeyDown = (event: KeyboardEvent) => {
 			if (event.key === 'Escape') closeAddActionMenu();
-		};
-
-		window.addEventListener('pointerdown', handlePointerDown);
-		window.addEventListener('keydown', handleKeyDown);
-		return () => {
-			window.removeEventListener('pointerdown', handlePointerDown);
-			window.removeEventListener('keydown', handleKeyDown);
-		};
-	});
-
-	$effect(() => {
-		if (typeof window === 'undefined') return;
-		if (!seasonHistoryOpen) return;
-
-		const handlePointerDown = (event: PointerEvent) => {
-			const target = event.target as Node | null;
-			if (!target) return;
-			if (seasonHistoryContainer?.contains(target)) return;
-			closeSeasonHistoryMenu();
-		};
-
-		const handleKeyDown = (event: KeyboardEvent) => {
-			if (event.key === 'Escape') closeSeasonHistoryMenu();
 		};
 
 		window.addEventListener('pointerdown', handlePointerDown);
@@ -648,12 +733,22 @@
 
 	function resetCreateSeasonWizard(): void {
 		const baseForm = createEmptySeasonForm(seasons.length === 0);
+		const defaultCopySourceSeasonId =
+			selectedSeasonId && seasons.some((season) => season.id === selectedSeasonId)
+				? selectedSeasonId
+				: (seasons[0]?.id ?? '');
+		const baseCopy = createEmptySeasonCopy(defaultCopySourceSeasonId);
 		createSeasonStep = 1;
 		createSeasonSubmitting = false;
 		createSeasonFormError = '';
 		createSeasonWizardUnsavedConfirmOpen = false;
 		createSeasonServerFieldErrors = {};
 		seasonSlugTouched = false;
+		createSeasonEndDateTouched = false;
+		createSeasonCopy = { ...baseCopy };
+		createSeasonInitialCopy = { ...baseCopy };
+		createSeasonReplaceExistingCurrent = true;
+		createSeasonDeactivateExistingCurrent = false;
 		createSeasonForm = { ...baseForm };
 		createSeasonInitialForm = { ...baseForm };
 	}
@@ -780,7 +875,13 @@
 			createSeasonForm.startDate.trim() !== createSeasonInitialForm.startDate.trim() ||
 			createSeasonForm.endDate.trim() !== createSeasonInitialForm.endDate.trim() ||
 			createSeasonForm.isCurrent !== createSeasonInitialForm.isCurrent ||
-			createSeasonForm.isActive !== createSeasonInitialForm.isActive
+			createSeasonForm.isActive !== createSeasonInitialForm.isActive ||
+			createSeasonCopy.enabled !== createSeasonInitialCopy.enabled ||
+			createSeasonCopy.sourceSeasonId !== createSeasonInitialCopy.sourceSeasonId ||
+			createSeasonCopy.scope !== createSeasonInitialCopy.scope ||
+			createSeasonCopy.includeDivisions !== createSeasonInitialCopy.includeDivisions ||
+			(createSeasonForm.isCurrent &&
+				(createSeasonReplaceExistingCurrent !== true || createSeasonDeactivateExistingCurrent))
 		);
 	}
 
@@ -950,11 +1051,46 @@
 		return errors;
 	}
 
+	function getSeasonCopyFieldErrors(values: WizardSeasonCopyInput): Record<string, string> {
+		const errors: Record<string, string> = {};
+		if (!values.enabled) return errors;
+
+		if (!values.sourceSeasonId.trim()) {
+			errors['copyOptions.sourceSeasonId'] = 'Select a season to copy from.';
+		} else if (!seasons.some((season) => season.id === values.sourceSeasonId)) {
+			errors['copyOptions.sourceSeasonId'] = 'Select a valid source season.';
+		}
+
+		if (values.scope === 'offerings-only' && values.includeDivisions) {
+			errors['copyOptions.includeDivisions'] =
+				'Divisions/groups can only be copied when leagues or tournament groups are included.';
+		}
+
+		return errors;
+	}
+
+	function getSeasonTransitionFieldErrors(): Record<string, string> {
+		const errors: Record<string, string> = {};
+		if (!createSeasonCurrentTransitionRequired) return errors;
+
+		if (!createSeasonReplaceExistingCurrent && createSeasonDeactivateExistingCurrent) {
+			errors['season.transition'] =
+				'The previous current season can only be marked inactive if it is no longer current.';
+		}
+
+		return errors;
+	}
+
 	function getSeasonStepClientErrors(
 		values: WizardSeasonInput,
+		copyValues: WizardSeasonCopyInput,
 		step: SeasonWizardStep
 	): Record<string, string> {
-		const allErrors = getSeasonFieldErrors(values);
+		const allErrors = {
+			...getSeasonFieldErrors(values),
+			...getSeasonCopyFieldErrors(copyValues),
+			...getSeasonTransitionFieldErrors()
+		};
 
 		if (step === 1) {
 			return pickFieldErrors(allErrors, [
@@ -965,15 +1101,30 @@
 			]);
 		}
 
+		if (step === 2) {
+			return pickFieldErrors(allErrors, [
+				'copyOptions.sourceSeasonId',
+				'copyOptions.includeDivisions'
+			]);
+		}
+
+		if (step === 3) {
+			return pickFieldErrors(allErrors, ['season.transition']);
+		}
+
 		return allErrors;
 	}
 
 	function firstInvalidCreateSeasonStep(errors: Record<string, string>): SeasonWizardStep {
 		const stepOneKeys = new Set(['season.name', 'season.slug', 'season.startDate', 'season.endDate']);
+		const stepTwoKeys = new Set(['copyOptions.sourceSeasonId', 'copyOptions.includeDivisions']);
+		const stepThreeKeys = new Set(['season.transition']);
 		for (const key of Object.keys(errors)) {
 			if (stepOneKeys.has(key)) return 1;
+			if (stepTwoKeys.has(key)) return 2;
+			if (stepThreeKeys.has(key)) return 3;
 		}
-		return 2;
+		return 4;
 	}
 
 	function getOfferingFieldErrors(values: WizardOfferingInput): Record<string, string> {
@@ -1535,7 +1686,11 @@
 	}
 
 	async function submitCreateSeasonWizard(): Promise<void> {
-		const clientErrors = getSeasonFieldErrors(createSeasonForm);
+		const clientErrors = {
+			...getSeasonFieldErrors(createSeasonForm),
+			...getSeasonCopyFieldErrors(createSeasonCopy),
+			...getSeasonTransitionFieldErrors()
+		};
 		if (Object.keys(clientErrors).length > 0) {
 			createSeasonStep = firstInvalidCreateSeasonStep(clientErrors);
 			return;
@@ -1545,6 +1700,16 @@
 		createSeasonFormError = '';
 		createSeasonServerFieldErrors = {};
 		createSuccessMessage = '';
+		const existingCurrentSeasonIdAtSubmit = existingCurrentSeason?.id ?? null;
+		const applyExistingCurrentTransition =
+			createSeasonForm.isCurrent && existingCurrentSeasonIdAtSubmit !== null;
+		const includeSeasonCopy = createSeasonCopy.enabled && createSeasonCopy.sourceSeasonId.trim().length > 0;
+		const normalizedCopyScope: SeasonCopyScope =
+			createSeasonCopy.scope === 'offerings-leagues' ||
+			createSeasonCopy.scope === 'offerings-all' ||
+			createSeasonCopy.scope === 'offerings-only'
+				? createSeasonCopy.scope
+				: 'offerings-all';
 
 		const payload = {
 			season: {
@@ -1552,9 +1717,24 @@
 				slug: slugifyFinal(createSeasonForm.slug),
 				startDate: createSeasonForm.startDate.trim(),
 				endDate: createSeasonForm.endDate.trim() || null,
-				isCurrent: createSeasonForm.isCurrent,
+				isCurrent: createSeasonWillBeCurrent,
 				isActive: createSeasonForm.isActive
-			}
+			},
+			currentSeasonTransition: applyExistingCurrentTransition
+				? {
+						clearExistingCurrent: createSeasonReplaceExistingCurrent,
+						deactivateExistingCurrent: createSeasonWillDeactivateExistingCurrent
+					}
+				: undefined,
+			copyOptions: includeSeasonCopy
+				? {
+						sourceSeasonId: createSeasonCopy.sourceSeasonId.trim(),
+						scope: normalizedCopyScope,
+						includeDivisions: normalizedCopyScope === 'offerings-only'
+							? false
+							: createSeasonCopy.includeDivisions
+					}
+				: undefined
 		};
 
 		try {
@@ -1577,6 +1757,8 @@
 				createSeasonServerFieldErrors = toServerFieldErrorMap(body?.fieldErrors);
 				const combinedErrors = {
 					...getSeasonFieldErrors(createSeasonForm),
+					...getSeasonCopyFieldErrors(createSeasonCopy),
+					...getSeasonTransitionFieldErrors(),
 					...createSeasonServerFieldErrors
 				};
 				createSeasonStep = firstInvalidCreateSeasonStep(combinedErrors);
@@ -1585,11 +1767,19 @@
 			}
 
 			const createdSeason = body.data.season;
+			const shouldDeactivateExistingCurrentOnClient =
+				createdSeason.isCurrent &&
+				createSeasonWillDeactivateExistingCurrent &&
+				existingCurrentSeasonIdAtSubmit !== null;
 			const mergedSeasons = seasons
 				.filter((season) => season.id !== createdSeason.id)
 				.map((season) => ({
 					...season,
-					isCurrent: createdSeason.isCurrent ? false : season.isCurrent
+					isCurrent: createdSeason.isCurrent ? false : season.isCurrent,
+					isActive:
+						shouldDeactivateExistingCurrentOnClient && season.id === existingCurrentSeasonIdAtSubmit
+							? false
+							: season.isActive
 				}));
 			mergedSeasons.push({
 				id: createdSeason.id,
@@ -1609,7 +1799,32 @@
 				selectedSeasonId = createdSeason.id;
 			}
 
-			createSuccessMessage = `Season "${createdSeason.name}" created successfully.`;
+			const copySummary = body.data.copySummary;
+			if (copySummary) {
+				const copyParts: string[] = [];
+				if (copySummary.offeringCount > 0) {
+					copyParts.push(
+						`${copySummary.offeringCount} ${pluralize(copySummary.offeringCount, 'offering', 'offerings')}`
+					);
+				}
+				if (copySummary.leagueCount > 0) {
+					copyParts.push(
+						`${copySummary.leagueCount} ${pluralize(copySummary.leagueCount, 'league/group', 'leagues/groups')}`
+					);
+				}
+				if (copySummary.divisionCount > 0) {
+					copyParts.push(
+						`${copySummary.divisionCount} ${pluralize(copySummary.divisionCount, 'division/group', 'divisions/groups')}`
+					);
+				}
+
+				createSuccessMessage =
+					copyParts.length > 0
+						? `Season "${createdSeason.name}" created successfully. Copied ${copyParts.join(', ')}.`
+						: `Season "${createdSeason.name}" created successfully.`;
+			} else {
+				createSuccessMessage = `Season "${createdSeason.name}" created successfully.`;
+			}
 			closeCreateSeasonWizard();
 		} catch {
 			createSeasonFormError = 'Unable to save season right now.';
@@ -2535,8 +2750,96 @@
 	const selectedSeason = $derived.by(
 		() => seasons.find((season) => season.id === selectedSeasonId) ?? null
 	);
+	const existingCurrentSeason = $derived.by(() => seasons.find((season) => season.isCurrent) ?? null);
+	const createSeasonCurrentTransitionRequired = $derived.by(
+		() => createSeasonForm.isCurrent && existingCurrentSeason !== null
+	);
+	const createSeasonWillBeCurrent = $derived.by(() => {
+		if (!createSeasonForm.isCurrent) return false;
+		if (!existingCurrentSeason) return true;
+		return createSeasonReplaceExistingCurrent;
+	});
+	const createSeasonWillDeactivateExistingCurrent = $derived.by(
+		() =>
+			createSeasonCurrentTransitionRequired &&
+			createSeasonReplaceExistingCurrent &&
+			createSeasonDeactivateExistingCurrent &&
+			Boolean(existingCurrentSeason?.isActive)
+	);
+	const createSeasonWizardStepCount = $derived.by(() =>
+		createSeasonCurrentTransitionRequired ? 4 : 3
+	);
+	const createSeasonDisplayStep = $derived.by(() => {
+		if (createSeasonCurrentTransitionRequired) return createSeasonStep;
+		return createSeasonStep === 4 ? 3 : createSeasonStep;
+	});
+	const createSeasonCopySourceActivities = $derived.by(() =>
+		activities.filter((activity: Activity) => {
+			if (!createSeasonCopy.sourceSeasonId) return false;
+			if (activity.seasonId === createSeasonCopy.sourceSeasonId) return true;
+			const resolvedActivitySeasonId = resolveActivitySeasonId(activity);
+			return resolvedActivitySeasonId === createSeasonCopy.sourceSeasonId;
+		})
+	);
+	const createSeasonCopySourceSeason = $derived.by(
+		() => seasons.find((season) => season.id === createSeasonCopy.sourceSeasonId) ?? null
+	);
+	const createSeasonCopyIncludesLeagues = $derived.by(
+		() => createSeasonCopy.scope === 'offerings-leagues' || createSeasonCopy.scope === 'offerings-all'
+	);
+	const createSeasonCopyIncludesTournaments = $derived.by(() => createSeasonCopy.scope === 'offerings-all');
+	const createSeasonCopyOfferingsButtonLabel = $derived.by(() =>
+		createSeasonCopyIncludesLeagues ? 'Offerings' : 'Only offerings'
+	);
+	const createSeasonCopyDivisionsToggleLabel = $derived.by(() =>
+		createSeasonCopyIncludesTournaments ? 'Include divisions/groups' : 'Include divisions'
+	);
+	const createSeasonCopyPreview = $derived.by((): SeasonCopyPreview => {
+		const sourceActivities = createSeasonCopySourceActivities;
+		const scopedActivities =
+			createSeasonCopy.scope === 'offerings-leagues'
+				? sourceActivities.filter((activity) => activity.offeringType !== 'tournament')
+				: sourceActivities;
+
+		const offeringIds = new Set(
+			scopedActivities
+				.map((activity) => activity.offeringId)
+				.filter((offeringId): offeringId is string => Boolean(offeringId))
+		);
+
+		if (createSeasonCopy.scope === 'offerings-only') {
+			return {
+				offeringCount: offeringIds.size,
+				leagueCount: 0,
+				tournamentGroupCount: 0,
+				divisionCount: 0
+			};
+		}
+
+		const leagueCount = scopedActivities.filter((activity) => activity.offeringType !== 'tournament').length;
+		const tournamentGroupCount = scopedActivities.filter(
+			(activity) => activity.offeringType === 'tournament'
+		).length;
+		const divisionCount = createSeasonCopy.includeDivisions
+			? scopedActivities.reduce((sum, activity) => sum + (activity.divisionCount ?? 0), 0)
+			: 0;
+
+		return {
+			offeringCount: offeringIds.size,
+			leagueCount,
+			tournamentGroupCount,
+			divisionCount
+		};
+	});
 	const seasonHistory = $derived.by(() =>
 		[...seasons].sort((a, b) => b.startDate.localeCompare(a.startDate))
+	);
+	const seasonHistoryDropdownOptions = $derived.by(() =>
+		seasonHistory.map((season) => ({
+			value: season.id,
+			label: season.name,
+			statusLabel: seasonStatusLabelForHistory(season)
+		}))
 	);
 	const offeringTypeLabel = $derived.by(() => {
 		if (showTournaments) return 'Tournaments';
@@ -2776,7 +3079,7 @@
 	);
 	const createLeagueStepProgress = $derived.by(() => Math.round((createLeagueStep / 4) * 100));
 	const clientCreateSeasonFieldErrors = $derived.by(() =>
-		getSeasonStepClientErrors(createSeasonForm, createSeasonStep)
+		getSeasonStepClientErrors(createSeasonForm, createSeasonCopy, createSeasonStep)
 	);
 	const rawCreateSeasonFieldErrors = $derived.by(() => ({
 		...clientCreateSeasonFieldErrors,
@@ -2793,18 +3096,24 @@
 	});
 	const canGoNextCreateSeasonStep = $derived.by(
 		() =>
-			createSeasonStep < 2 &&
+			createSeasonStep < 4 &&
 			Object.keys(clientCreateSeasonFieldErrors).length === 0 &&
 			!createSeasonSubmitting
 	);
 	const canSubmitCreateSeason = $derived.by(
 		() =>
-			createSeasonStep === 2 &&
-			Object.keys(getSeasonFieldErrors(createSeasonForm)).length === 0 &&
+			createSeasonStep === 4 &&
+			Object.keys({
+				...getSeasonFieldErrors(createSeasonForm),
+				...getSeasonCopyFieldErrors(createSeasonCopy),
+				...getSeasonTransitionFieldErrors()
+			}).length === 0 &&
 			Object.keys(createSeasonServerFieldErrors).length === 0 &&
 			!createSeasonSubmitting
 	);
-	const createSeasonStepProgress = $derived.by(() => Math.round((createSeasonStep / 2) * 100));
+	const createSeasonStepProgress = $derived.by(() =>
+		Math.round((createSeasonDisplayStep / createSeasonWizardStepCount) * 100)
+	);
 	const clientCreateFieldErrors = $derived.by(() =>
 		getCurrentStepClientErrors(createForm, createStep)
 	);
@@ -2857,15 +3166,29 @@
 
 	function nextCreateSeasonStep(): void {
 		clearCreateSeasonApiErrors();
-		if (createSeasonStep === 2 || !canGoNextCreateSeasonStep) return;
-		createSeasonStep = 2;
+		if (createSeasonStep === 4 || !canGoNextCreateSeasonStep) return;
+		if (createSeasonStep === 2 && !createSeasonCurrentTransitionRequired) {
+			createSeasonStep = 4;
+			return;
+		}
+		createSeasonStep = (createSeasonStep + 1) as SeasonWizardStep;
 	}
 
 	function previousCreateSeasonStep(): void {
 		clearCreateSeasonApiErrors();
 		if (createSeasonStep === 1) return;
-		createSeasonStep = 1;
+		if (createSeasonStep === 4 && !createSeasonCurrentTransitionRequired) {
+			createSeasonStep = 2;
+			return;
+		}
+		createSeasonStep = (createSeasonStep - 1) as SeasonWizardStep;
 	}
+
+	$effect(() => {
+		if (createSeasonStep === 3 && !createSeasonCurrentTransitionRequired) {
+			createSeasonStep = 4;
+		}
+	});
 
 	function previousCreateStep(): void {
 		clearCreateApiErrors();
@@ -2935,102 +3258,306 @@
 	{/if}
 
 	{#if seasonBoards.length === 0}
-		<section class="border-2 border-secondary-300 bg-neutral p-6 space-y-4">
-			<div class="text-center">
-				<div class="bg-secondary p-3 inline-flex mb-3" aria-hidden="true">
-					<IconBallFootball class="w-7 h-7 text-white" />
-				</div>
-				<h2 class="text-2xl font-bold font-serif text-neutral-950">
-					No
-					{showTournaments ? 'tournament' : 'offering'}
-					offerings yet
-				</h2>
-				<p class="text-sm text-neutral-950 font-sans mt-1">
-					Add or enable leagues/tournaments to populate this view.
-				</p>
-				<div class="mt-4 flex flex-wrap items-center justify-center gap-2">
-					<div class="relative inline-flex items-stretch" bind:this={addActionMenuContainer}>
-						<button
-							type="button"
-							class="button-primary-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer"
-							onclick={openCreateWizard}
-						>
-							+ ADD
-						</button>
-						<button
-							type="button"
-							class="button-primary-outlined -ml-[2px] px-1 py-2 cursor-pointer"
-							aria-label="Open add menu"
-							aria-haspopup="menu"
-							aria-expanded={addActionMenuOpen}
-							onclick={toggleAddActionMenu}
-						>
-							<IconChevronDown class="w-4 h-4" />
-						</button>
-
-						{#if addActionMenuOpen}
-							<div
-								class="absolute right-0 top-full mt-1 w-44 border-2 border-secondary-300 bg-white z-20"
-								role="menu"
-								aria-label="Create options"
+		<div class="grid grid-cols-1 xl:grid-cols-[1.6fr_0.7fr] gap-6">
+			<section class="border-2 border-secondary-300 bg-neutral">
+				<div class="p-4 border-b border-secondary-300 bg-neutral-600/66 space-y-3">
+					<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+						<div class="flex items-center gap-2">
+							<h2 class="text-2xl font-bold font-serif text-neutral-950">
+								{selectedSeason?.name ?? 'Season'}
+							</h2>
+							<label class="sr-only" for="offering-view-empty">Offering type</label>
+							<select
+								id="offering-view-empty"
+								class="select-secondary w-auto min-w-36 py-1 text-sm"
+								bind:value={offeringView}
 							>
-								<button
-									type="button"
-									class="w-full text-left px-3 py-2 text-sm text-neutral-950 hover:bg-neutral-100 cursor-pointer border-b border-secondary-200"
-									role="menuitem"
-									onclick={openCreateWizard}
+								<option value="leagues">Leagues</option>
+								<option value="tournaments">Tournaments</option>
+								<option value="all">All</option>
+							</select>
+							{#if seasons.length > 0}
+								<ListboxDropdown
+									options={seasonHistoryDropdownOptions}
+									value={selectedSeasonId}
+									ariaLabel="Season history"
+									buttonClass="button-secondary-outlined p-1.5 cursor-pointer"
+									emptyText="No seasons configured."
+									on:change={(event) => {
+										handleSeasonHistoryChange(event.detail.value);
+									}}
 								>
-									Add Offering
-								</button>
+									{#snippet trigger(_, selectedOption)}
+										<IconHistory
+											class={`w-4 h-4 ${selectedOption ? 'text-secondary-900' : 'text-neutral-700'}`}
+										/>
+									{/snippet}
+								</ListboxDropdown>
+							{/if}
+						</div>
+						<div class="flex items-center gap-2 text-xs text-neutral-950 font-sans">
+							<span class="border border-secondary-300 px-2 py-1">
+								{badgeOfferingCount}
+								{pluralize(badgeOfferingCount, 'offering', 'offerings')}
+							</span>
+							<span class="border border-secondary-300 px-2 py-1">
+								{badgeLeagueOrGroupCount}
+								{badgeLeagueOrGroupLabel}
+							</span>
+							{#if seasons.length > 0}
+								<div class="relative inline-flex items-stretch" bind:this={addActionMenuContainer}>
+									<button
+										type="button"
+										class="button-primary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer"
+										onclick={openCreateWizard}
+									>
+										+ ADD
+									</button>
+									<button
+										type="button"
+										class="button-primary-outlined -ml-[2px] px-1 py-1 cursor-pointer"
+										aria-label="Open add menu"
+										aria-haspopup="menu"
+										aria-expanded={addActionMenuOpen}
+										onclick={toggleAddActionMenu}
+									>
+										<IconChevronDown class="w-4 h-4" />
+									</button>
+
+									{#if addActionMenuOpen}
+										<div
+											class="absolute right-0 top-full mt-1 w-44 border-2 border-secondary-300 bg-white z-20"
+											role="menu"
+											aria-label="Create options"
+										>
+											<button
+												type="button"
+												class="w-full text-left px-3 py-2 text-sm text-neutral-950 hover:bg-neutral-100 cursor-pointer border-b border-secondary-200"
+												role="menuitem"
+												onclick={openCreateWizard}
+											>
+												Add Offering
+											</button>
+											{#if addEntryOptionCount > 0}
+												<button
+													type="button"
+													class="w-full text-left px-3 py-2 text-sm text-neutral-950 hover:bg-neutral-100 cursor-pointer"
+													role="menuitem"
+													onclick={openCreateLeagueWizard}
+												>
+													{addEntryActionLabel()}
+												</button>
+											{/if}
+											<button
+												type="button"
+												class="w-full text-left px-3 py-2 text-sm text-neutral-950 hover:bg-neutral-100 cursor-pointer border-t border-secondary-200"
+												role="menuitem"
+												onclick={openCreateSeasonWizard}
+											>
+												Add Season
+											</button>
+											{#if addEntryOptionCount === 0}
+												<p class="px-3 pb-2 text-xs text-neutral-900 text-left">
+													No matching offerings available for this view.
+												</p>
+											{/if}
+										</div>
+									{/if}
+								</div>
+							{:else}
 								<button
 									type="button"
-									class="w-full text-left px-3 py-2 text-sm text-neutral-950 hover:bg-neutral-100 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-									role="menuitem"
-									onclick={openCreateLeagueWizard}
-									disabled={addEntryOptionCount === 0}
-								>
-									{addEntryActionLabel()}
-								</button>
-								<button
-									type="button"
-									class="w-full text-left px-3 py-2 text-sm text-neutral-950 hover:bg-neutral-100 cursor-pointer border-t border-secondary-200"
-									role="menuitem"
+									class="button-secondary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer"
 									onclick={openCreateSeasonWizard}
 								>
 									Add Season
 								</button>
-								{#if addEntryOptionCount === 0}
-									<p class="px-3 pb-2 text-xs text-neutral-900 text-left">
-										No matching offerings available for this view.
-									</p>
-								{/if}
-							</div>
+							{/if}
+						</div>
+					</div>
+					<div class="relative">
+						<IconSearch class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-950" />
+						<label class="sr-only" for="tournament-search-empty">Search offerings and deadlines</label>
+						<input
+							id="tournament-search-empty"
+							type="text"
+							class="input-secondary pl-10 pr-10 py-1 text-sm"
+							autocomplete="off"
+							disabled
+							placeholder={`Search offering, ${showTournaments ? 'group' : showAllOfferings ? 'league/group' : 'league'}, or deadline`}
+							bind:value={searchQuery}
+						/>
+						{#if searchQuery.trim().length > 0}
+							<button
+								type="button"
+								class="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-950 hover:text-secondary-900 cursor-pointer"
+								aria-label="Clear search"
+								onclick={() => {
+									searchQuery = '';
+								}}
+							>
+								<IconX class="w-4 h-4" />
+							</button>
 						{/if}
 					</div>
-					<button
-						type="button"
-						class="button-secondary-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer"
-						onclick={openCreateSeasonWizard}
+				</div>
+
+				<div class="p-4 space-y-4 min-h-[34rem]">
+					<div class="border border-secondary-300 bg-white p-4 space-y-2">
+						<h3 class="text-xl font-bold font-serif text-neutral-950">
+							{#if seasons.length === 0}
+								No seasons yet
+							{:else}
+								No offerings yet
+							{/if}
+						</h3>
+						<p class="text-sm text-neutral-950 font-sans">
+							{#if seasons.length === 0}
+								Create a season to start managing offerings, leagues, and groups.
+							{:else}
+								Add or enable offerings to populate this board.
+							{/if}
+						</p>
+					</div>
+
+					{#each [0, 1] as _, skeletonOfferingIndex}
+						<article class="border border-secondary-300 bg-white p-4 space-y-3" aria-hidden="true">
+							<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+								<div class="space-y-2">
+									<div
+										class={`h-7 ${skeletonOfferingIndex === 0 ? 'w-44' : 'w-36'} bg-neutral-100`}
+									></div>
+									<div class="h-3 w-28 bg-neutral-100"></div>
+								</div>
+								<div class="flex flex-wrap items-center gap-1">
+									<div class="h-5 w-16 bg-neutral-100"></div>
+									<div class="h-5 w-16 bg-neutral-100"></div>
+									<div class="h-5 w-16 bg-neutral-100"></div>
+								</div>
+							</div>
+
+							<div class="border border-secondary-300 bg-white overflow-x-auto">
+								<table class="min-w-full border-collapse">
+									<thead>
+										<tr class="border-b border-secondary-300 bg-neutral">
+											<th scope="col" class="px-2 py-1 text-left min-w-48">
+												<div class="h-3 w-20 bg-neutral-100"></div>
+											</th>
+											<th scope="col" class="px-2 py-1 text-left min-w-24">
+												<div class="h-3 w-12 bg-neutral-100"></div>
+											</th>
+											<th scope="col" class="px-2 py-1 text-left min-w-44">
+												<div class="h-3 w-24 bg-neutral-100"></div>
+											</th>
+											<th scope="col" class="px-2 py-1 text-left min-w-40">
+												<div class="h-3 w-24 bg-neutral-100"></div>
+											</th>
+											<th scope="col" class="px-2 py-1 text-left min-w-44">
+												<div class="h-3 w-20 bg-neutral-100"></div>
+											</th>
+										</tr>
+									</thead>
+									<tbody>
+										{#each [0, 1, 2, 3] as _, leagueIndex}
+											<tr
+												class={`align-middle ${leagueIndex < 3 ? 'border-b border-secondary-200' : ''} ${leagueIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}
+											>
+												<th scope="row" class="px-2 py-1 text-left">
+													<div class="flex items-center gap-2">
+														<div
+															class="w-9 h-9 border border-secondary-300 bg-neutral-100 flex items-center justify-center shrink-0"
+															aria-hidden="true"
+														>
+															<div class="w-4 h-4 bg-neutral-300"></div>
+														</div>
+														<div class="h-4 w-32 bg-neutral-100"></div>
+													</div>
+												</th>
+												<td class="px-2 py-1">
+													<div class="h-5 w-16 bg-neutral-100"></div>
+												</td>
+												<td class="px-2 py-1">
+													<div class="space-y-1">
+														<div class="h-3 w-28 bg-neutral-100"></div>
+														<div class="h-3 w-24 bg-neutral-100"></div>
+													</div>
+												</td>
+												<td class="px-2 py-1">
+													<div class="h-3 w-24 bg-neutral-100"></div>
+												</td>
+												<td class="px-2 py-1">
+													<div class="h-3 w-32 bg-neutral-100"></div>
+												</td>
+											</tr>
+										{/each}
+									</tbody>
+								</table>
+							</div>
+						</article>
+					{/each}
+				</div>
+			</section>
+
+			<aside class="space-y-6">
+				<section class="border-2 border-secondary-300 bg-neutral">
+					<div
+						class="p-4 border-b border-secondary-300 bg-neutral-600/66 flex items-center justify-between"
 					>
-						Add Season
-					</button>
-				</div>
-			</div>
-			<div class="grid grid-cols-1 lg:grid-cols-2 gap-4" aria-hidden="true">
-				<div class="border border-secondary-300 bg-white p-4 space-y-3">
-					<div class="h-4 bg-neutral-100 animate-pulse w-2/5"></div>
-					<div class="h-3 bg-neutral-100 animate-pulse w-full"></div>
-					<div class="h-3 bg-neutral-100 animate-pulse w-5/6"></div>
-					<div class="h-3 bg-neutral-100 animate-pulse w-3/4"></div>
-				</div>
-				<div class="border border-secondary-300 bg-white p-4 space-y-3">
-					<div class="h-4 bg-neutral-100 animate-pulse w-1/3"></div>
-					<div class="h-3 bg-neutral-100 animate-pulse w-full"></div>
-					<div class="h-3 bg-neutral-100 animate-pulse w-4/5"></div>
-					<div class="h-3 bg-neutral-100 animate-pulse w-2/3"></div>
-				</div>
-			</div>
-		</section>
+						<h2 class="text-xl font-bold font-serif text-neutral-950">Upcoming Deadlines</h2>
+						<IconCalendar class="w-5 h-5 text-secondary-700" />
+					</div>
+					<div class="p-4 space-y-3 min-h-56" aria-hidden="true">
+						<div class="border border-secondary-300 bg-white p-3 space-y-2">
+							<div class="h-3 w-4/5 bg-neutral-100"></div>
+							<div class="h-3 w-3/5 bg-neutral-100"></div>
+							<div class="h-3 w-5/6 bg-neutral-100"></div>
+						</div>
+						<div class="border border-secondary-300 bg-white p-3 space-y-2">
+							<div class="h-3 w-3/4 bg-neutral-100"></div>
+							<div class="h-3 w-2/3 bg-neutral-100"></div>
+						</div>
+					</div>
+				</section>
+
+				<section class="border-2 border-secondary-300 bg-neutral">
+					<div class="p-4 border-b border-secondary-300 bg-neutral-600/66">
+						<h2 class="text-xl font-bold font-serif text-neutral-950">Season Snapshot</h2>
+					</div>
+					<div class="p-4 grid grid-cols-3 gap-2">
+						<div class="card-secondary-outlined">
+							<p class="text-[11px] uppercase tracking-wide text-neutral-950 font-bold">
+								Offerings
+							</p>
+							<p class="text-2xl font-bold font-serif text-neutral-950">0</p>
+						</div>
+						<div class="card-secondary-outlined">
+							<p class="text-[11px] uppercase tracking-wide text-neutral-950 font-bold">
+								{showTournaments ? 'Groups' : showAllOfferings ? 'Leagues/Groups' : 'Leagues'}
+							</p>
+							<p class="text-2xl font-bold font-serif text-neutral-950">0</p>
+						</div>
+						<div class="card-secondary-outlined">
+							<p class="text-[11px] uppercase tracking-wide text-neutral-950 font-bold">
+								Divisions
+							</p>
+							<p class="text-2xl font-bold font-serif text-neutral-950">0</p>
+						</div>
+						<div class="card-primary-outlined">
+							<p class="text-[11px] uppercase tracking-wide text-primary-700 font-bold">Open</p>
+							<p class="text-2xl font-bold font-serif text-primary-700">0</p>
+						</div>
+						<div class="card-primary-outlined">
+							<p class="text-[11px] uppercase tracking-wide text-primary-700 font-bold">Waitlist</p>
+							<p class="text-2xl font-bold font-serif text-primary-700">0</p>
+						</div>
+						<div class="card-secondary-outlined">
+							<p class="text-[11px] uppercase tracking-wide text-secondary-900 font-bold">Closed</p>
+							<p class="text-2xl font-bold font-serif text-secondary-900">0</p>
+						</div>
+					</div>
+				</section>
+			</aside>
+		</div>
 	{:else}
 		<div class="grid grid-cols-1 xl:grid-cols-[1.6fr_0.7fr] gap-6">
 			<section class="border-2 border-secondary-300 bg-neutral">
@@ -3050,49 +3577,22 @@
 								<option value="tournaments">Tournaments</option>
 								<option value="all">All</option>
 							</select>
-							<div class="relative inline-flex items-stretch" bind:this={seasonHistoryContainer}>
-								<button
-									type="button"
-									class="button-secondary-outlined p-1.5 cursor-pointer"
-									aria-label="Open season history"
-									aria-haspopup="menu"
-									aria-expanded={seasonHistoryOpen}
-									onclick={toggleSeasonHistoryMenu}
-								>
-									<IconHistory class="w-4 h-4" />
-								</button>
-								{#if seasonHistoryOpen}
-									<div
-										class="absolute left-0 top-full mt-1 w-64 border-2 border-secondary-300 bg-white z-20 max-h-72 overflow-y-auto"
-										role="menu"
-										aria-label="Season history"
-									>
-										{#if seasonHistory.length === 0}
-											<p class="px-3 py-2 text-xs text-neutral-900">No seasons configured.</p>
-										{:else}
-											{#each seasonHistory as season}
-												<button
-													type="button"
-													role="menuitem"
-													class={`w-full text-left px-3 py-2 text-sm hover:bg-neutral-100 cursor-pointer ${season.id === selectedSeasonId ? 'bg-secondary-100 font-semibold text-neutral-950' : 'text-neutral-950'}`}
-													onclick={() => {
-														selectedSeasonId = season.id;
-														showConcludedSeasons = false;
-														closeSeasonHistoryMenu();
-													}}
-												>
-													{season.name}
-													{#if season.isCurrent}
-														<span class="ml-1 text-[10px] uppercase tracking-wide text-secondary-900">
-															(Current)
-														</span>
-													{/if}
-												</button>
-											{/each}
-										{/if}
-									</div>
-								{/if}
-							</div>
+							<ListboxDropdown
+								options={seasonHistoryDropdownOptions}
+								value={selectedSeasonId}
+								ariaLabel="Season history"
+								buttonClass="button-secondary-outlined p-1.5 cursor-pointer"
+								emptyText="No seasons configured."
+								on:change={(event) => {
+									handleSeasonHistoryChange(event.detail.value);
+								}}
+							>
+								{#snippet trigger(_, selectedOption)}
+									<IconHistory
+										class={`w-4 h-4 ${selectedOption ? 'text-secondary-900' : 'text-neutral-700'}`}
+									/>
+								{/snippet}
+							</ListboxDropdown>
 						</div>
 						<div class="flex items-center gap-2 text-xs text-neutral-950 font-sans">
 							<span class="border border-secondary-300 px-2 py-1">
@@ -3103,94 +3603,134 @@
 								{badgeLeagueOrGroupCount}
 								{badgeLeagueOrGroupLabel}
 							</span>
-							<div class="relative inline-flex items-stretch" bind:this={addActionMenuContainer}>
-								<button
-									type="button"
-									class="button-primary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer"
-									onclick={openCreateWizard}
-								>
-									+ ADD
-								</button>
-								<button
-									type="button"
-									class="button-primary-outlined -ml-[2px] px-1 py-1 cursor-pointer"
-									aria-label="Open add menu"
-									aria-haspopup="menu"
-									aria-expanded={addActionMenuOpen}
-									onclick={toggleAddActionMenu}
-								>
-									<IconChevronDown class="w-4 h-4" />
-								</button>
-
-								{#if addActionMenuOpen}
-									<div
-										class="absolute right-0 top-full mt-1 w-44 border-2 border-secondary-300 bg-white z-20"
-										role="menu"
-										aria-label="Create options"
+							{#if seasons.length > 0}
+								<div class="relative inline-flex items-stretch" bind:this={addActionMenuContainer}>
+									<button
+										type="button"
+										class="button-primary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer"
+										onclick={openCreateWizard}
 									>
-										<button
-											type="button"
-											class="w-full text-left px-3 py-2 text-sm text-neutral-950 hover:bg-neutral-100 cursor-pointer border-b border-secondary-200"
-											role="menuitem"
-											onclick={openCreateWizard}
+										+ ADD
+									</button>
+									<button
+										type="button"
+										class="button-primary-outlined -ml-[2px] px-1 py-1 cursor-pointer"
+										aria-label="Open add menu"
+										aria-haspopup="menu"
+										aria-expanded={addActionMenuOpen}
+										onclick={toggleAddActionMenu}
+									>
+										<IconChevronDown class="w-4 h-4" />
+									</button>
+
+									{#if addActionMenuOpen}
+										<div
+											class="absolute right-0 top-full mt-1 w-44 border-2 border-secondary-300 bg-white z-20"
+											role="menu"
+											aria-label="Create options"
 										>
-											Add Offering
-										</button>
-										<button
-											type="button"
-											class="w-full text-left px-3 py-2 text-sm text-neutral-950 hover:bg-neutral-100 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-											role="menuitem"
-											onclick={openCreateLeagueWizard}
-											disabled={addEntryOptionCount === 0}
-										>
-											{addEntryActionLabel()}
-										</button>
-										<button
-											type="button"
-											class="w-full text-left px-3 py-2 text-sm text-neutral-950 hover:bg-neutral-100 cursor-pointer border-t border-secondary-200"
-											role="menuitem"
-											onclick={openCreateSeasonWizard}
-										>
-											Add Season
-										</button>
-										{#if addEntryOptionCount === 0}
-											<p class="px-3 pb-2 text-xs text-neutral-900 text-left">
-												No matching offerings available for this view.
-											</p>
-										{/if}
-									</div>
-								{/if}
-							</div>
+											<button
+												type="button"
+												class="w-full text-left px-3 py-2 text-sm text-neutral-950 hover:bg-neutral-100 cursor-pointer border-b border-secondary-200"
+												role="menuitem"
+												onclick={openCreateWizard}
+											>
+												Add Offering
+											</button>
+											{#if addEntryOptionCount > 0}
+												<button
+													type="button"
+													class="w-full text-left px-3 py-2 text-sm text-neutral-950 hover:bg-neutral-100 cursor-pointer"
+													role="menuitem"
+													onclick={openCreateLeagueWizard}
+												>
+													{addEntryActionLabel()}
+												</button>
+											{/if}
+											<button
+												type="button"
+												class="w-full text-left px-3 py-2 text-sm text-neutral-950 hover:bg-neutral-100 cursor-pointer border-t border-secondary-200"
+												role="menuitem"
+												onclick={openCreateSeasonWizard}
+											>
+												Add Season
+											</button>
+											{#if addEntryOptionCount === 0}
+												<p class="px-3 pb-2 text-xs text-neutral-900 text-left">
+													No matching offerings available for this view.
+												</p>
+											{/if}
+										</div>
+									{/if}
+								</div>
+							{:else}
+								<button
+									type="button"
+									class="button-secondary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer"
+									onclick={openCreateSeasonWizard}
+								>
+									Add Season
+								</button>
+							{/if}
 						</div>
 					</div>
-					<div class="relative">
-						<IconSearch class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-950" />
-						<label class="sr-only" for="tournament-search">Search offerings and deadlines</label>
-						<input
-							id="tournament-search"
-							type="text"
-							class="input-secondary pl-10 pr-10 py-1 text-sm"
-							autocomplete="off"
-							placeholder={`Search offering, ${showTournaments ? 'group' : showAllOfferings ? 'league/group' : 'league'}, or deadline`}
-							bind:value={searchQuery}
-						/>
-						{#if searchQuery.trim().length > 0}
-							<button
-								type="button"
-								class="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-950 hover:text-secondary-900 cursor-pointer"
-								aria-label="Clear search"
-								onclick={() => {
-									searchQuery = '';
-								}}
-							>
-								<IconX class="w-4 h-4" />
-							</button>
-						{/if}
-					</div>
+					{#if visibleOfferings.length > 0}
+						<div class="relative">
+							<IconSearch class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-950" />
+							<label class="sr-only" for="tournament-search">Search offerings and deadlines</label>
+							<input
+								id="tournament-search"
+								type="text"
+								class="input-secondary pl-10 pr-10 py-1 text-sm"
+								autocomplete="off"
+								placeholder={`Search offering, ${showTournaments ? 'group' : showAllOfferings ? 'league/group' : 'league'}, or deadline`}
+								bind:value={searchQuery}
+							/>
+							{#if searchQuery.trim().length > 0}
+								<button
+									type="button"
+									class="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-950 hover:text-secondary-900 cursor-pointer"
+									aria-label="Clear search"
+									onclick={() => {
+										searchQuery = '';
+									}}
+								>
+									<IconX class="w-4 h-4" />
+								</button>
+							{/if}
+						</div>
+					{/if}
 				</div>
 
 				{#if visibleOfferings.length === 0}
-					<div class="p-8 text-center">
+					<div class="p-8 space-y-4">
+						<div class="relative max-w-lg">
+							<IconSearch class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-950" />
+							<label class="sr-only" for="tournament-search-empty-list">
+								Search offerings and deadlines
+							</label>
+							<input
+								id="tournament-search-empty-list"
+								type="text"
+								class="input-secondary pl-10 pr-10 py-1 text-sm"
+								autocomplete="off"
+								disabled={searchQuery.trim().length === 0}
+								placeholder={`Search offering, ${showTournaments ? 'group' : showAllOfferings ? 'league/group' : 'league'}, or deadline`}
+								bind:value={searchQuery}
+							/>
+							{#if searchQuery.trim().length > 0}
+								<button
+									type="button"
+									class="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-950 hover:text-secondary-900 cursor-pointer"
+									aria-label="Clear search"
+									onclick={() => {
+										searchQuery = '';
+									}}
+								>
+									<IconX class="w-4 h-4" />
+								</button>
+							{/if}
+						</div>
 						<p class="text-sm text-neutral-950 font-sans">
 							No {offeringTypeLabel.toLowerCase()} match this search for this season.
 						</p>
@@ -3594,7 +4134,8 @@
 
 <CreateSeasonWizard
 	open={isCreateSeasonModalOpen}
-	step={createSeasonStep}
+	step={createSeasonDisplayStep}
+	stepCount={createSeasonWizardStepCount}
 	stepTitle={seasonWizardStepTitle(createSeasonStep)}
 	stepProgress={createSeasonStepProgress}
 	formError={createSeasonFormError}
@@ -3617,6 +4158,7 @@
 					<input
 						id="season-name"
 						type="text"
+						data-wizard-autofocus
 						class="input-secondary"
 						value={createSeasonForm.name}
 						placeholder="Spring 2026"
@@ -3657,12 +4199,40 @@
 					<label for="season-start-date" class="block text-sm font-sans text-neutral-950 mb-1">
 						Start Date <span class="text-error-700">*</span>
 					</label>
-					<input
-						id="season-start-date"
-						type="date"
-						class="input-secondary"
-						bind:value={createSeasonForm.startDate}
-					/>
+					<div class="relative">
+						<input
+							id="season-start-date"
+							type="date"
+							class="input-secondary pr-9 no-native-date-picker"
+							bind:this={createSeasonStartDateInput}
+							value={createSeasonForm.startDate}
+							oninput={(event) => {
+								const nextStartDate = (event.currentTarget as HTMLInputElement).value;
+								createSeasonForm.startDate = nextStartDate;
+								if (!createSeasonEndDateTouched) {
+									createSeasonForm.endDate = seasonEndDateFromStart(nextStartDate);
+								}
+							}}
+							onchange={(event) => {
+								const nextStartDate = (event.currentTarget as HTMLInputElement).value;
+								createSeasonForm.startDate = nextStartDate;
+								if (!createSeasonEndDateTouched) {
+									createSeasonForm.endDate = seasonEndDateFromStart(nextStartDate);
+								}
+							}}
+						/>
+						<button
+							type="button"
+							tabindex="-1"
+							class="absolute right-2 top-1/2 -translate-y-1/2 text-secondary-900 hover:text-secondary-700 cursor-pointer"
+							aria-label="Open start date picker"
+							onclick={() => {
+								openDatePicker(createSeasonStartDateInput);
+							}}
+						>
+							<IconCalendar class="w-4 h-4" />
+						</button>
+					</div>
 					{#if createSeasonFieldErrors['season.startDate']}
 						<p class="text-xs text-error-700 mt-1">{createSeasonFieldErrors['season.startDate']}</p>
 					{/if}
@@ -3671,12 +4241,34 @@
 					<label for="season-end-date" class="block text-sm font-sans text-neutral-950 mb-1">
 						End Date
 					</label>
-					<input
-						id="season-end-date"
-						type="date"
-						class="input-secondary"
-						bind:value={createSeasonForm.endDate}
-					/>
+					<div class="relative">
+						<input
+							id="season-end-date"
+							type="date"
+							class="input-secondary pr-9 no-native-date-picker"
+							bind:this={createSeasonEndDateInput}
+							value={createSeasonForm.endDate}
+							oninput={(event) => {
+								createSeasonEndDateTouched = true;
+								createSeasonForm.endDate = (event.currentTarget as HTMLInputElement).value;
+							}}
+							onchange={(event) => {
+								createSeasonEndDateTouched = true;
+								createSeasonForm.endDate = (event.currentTarget as HTMLInputElement).value;
+							}}
+						/>
+						<button
+							type="button"
+							tabindex="-1"
+							class="absolute right-2 top-1/2 -translate-y-1/2 text-secondary-900 hover:text-secondary-700 cursor-pointer"
+							aria-label="Open end date picker"
+							onclick={() => {
+								openDatePicker(createSeasonEndDateInput);
+							}}
+						>
+							<IconCalendar class="w-4 h-4" />
+						</button>
+					</div>
 					{#if createSeasonFieldErrors['season.endDate']}
 						<p class="text-xs text-error-700 mt-1">{createSeasonFieldErrors['season.endDate']}</p>
 					{/if}
@@ -3685,7 +4277,18 @@
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
 				<div class="border border-secondary-300 bg-white p-3">
 					<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-						<input type="checkbox" class="toggle-secondary" bind:checked={createSeasonForm.isCurrent} />
+						<input
+							type="checkbox"
+							class="toggle-secondary"
+							bind:checked={createSeasonForm.isCurrent}
+							onkeydown={focusCreateSeasonEndDateOnReverseTab}
+							onchange={() => {
+								if (!createSeasonForm.isCurrent) {
+									createSeasonReplaceExistingCurrent = true;
+									createSeasonDeactivateExistingCurrent = false;
+								}
+							}}
+						/>
 						Set as current season
 					</label>
 				</div>
@@ -3700,6 +4303,342 @@
 	{/if}
 
 	{#if createSeasonStep === 2}
+		<div class="space-y-4">
+			<div class="border-2 border-secondary-300 bg-white p-4 space-y-4">
+				<div class="flex items-start justify-between gap-3">
+					<div>
+						<p class="text-[11px] uppercase tracking-wide font-bold text-secondary-900">Optional</p>
+						<h3 class="text-lg font-bold font-serif text-neutral-950">Copy Content</h3>
+					</div>
+					<InfoPopover buttonAriaLabel="Copy content help">
+						<p>
+							Copy pulls offerings and optionally leagues, tournaments, and divisions/groups from one
+							season into this new season.
+						</p>
+					</InfoPopover>
+				</div>
+
+				<fieldset class="space-y-2">
+					<legend class="text-sm font-semibold text-neutral-950">Season setup mode</legend>
+					<div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+						<label
+							class={`flex items-start gap-2 border p-3 cursor-pointer text-sm text-neutral-950 min-w-0 ${
+								!createSeasonCopy.enabled
+									? 'border-secondary-600 bg-secondary-50'
+									: 'border-secondary-300 bg-white'
+							}`}
+						>
+							<input
+								type="radio"
+								class="radio-secondary mt-0.5"
+								name="season-copy-enabled"
+								checked={!createSeasonCopy.enabled}
+								onchange={() => {
+									createSeasonCopy.enabled = false;
+									createSeasonCopy.includeDivisions = false;
+								}}
+								data-wizard-autofocus
+							/>
+							<span class="min-w-0">
+								<span class="block font-semibold">Blank season</span>
+								<span class="block text-xs text-neutral-900">Create with no copied content.</span>
+							</span>
+						</label>
+						<label
+							class={`flex items-start gap-2 border p-3 text-sm text-neutral-950 min-w-0 ${
+								createSeasonCopy.enabled
+									? 'border-secondary-600 bg-secondary-50'
+									: 'border-secondary-300 bg-white'
+							} ${
+								seasonHistory.length === 0 ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+							}`}
+						>
+							<input
+								type="radio"
+								class="radio-secondary mt-0.5"
+								name="season-copy-enabled"
+								checked={createSeasonCopy.enabled}
+								disabled={seasonHistory.length === 0}
+								onchange={() => {
+									if (seasonHistory.length === 0) return;
+									createSeasonCopy.enabled = true;
+								}}
+							/>
+							<span class="min-w-0">
+								<span class="block font-semibold">Copy existing setup</span>
+								<span class="block text-xs text-neutral-900">Choose what to carry over.</span>
+							</span>
+						</label>
+					</div>
+				</fieldset>
+
+				{#if seasonHistory.length === 0}
+					<p class="text-xs text-neutral-900">No existing seasons are available to copy yet.</p>
+				{/if}
+
+				{#if createSeasonCopy.enabled}
+					<div class="border border-secondary-300 bg-neutral p-3 space-y-3">
+						<div>
+							<label for="season-copy-source" class="block text-sm font-sans text-neutral-950 mb-1">
+								Source Season <span class="text-error-700">*</span>
+							</label>
+							<select id="season-copy-source" class="select-secondary" bind:value={createSeasonCopy.sourceSeasonId}>
+								<option value="">Select season...</option>
+								{#each seasonHistory as season}
+									<option value={season.id}>{season.name}</option>
+								{/each}
+							</select>
+							{#if createSeasonFieldErrors['copyOptions.sourceSeasonId']}
+								<p class="text-xs text-error-700 mt-1">
+									{createSeasonFieldErrors['copyOptions.sourceSeasonId']}
+								</p>
+							{/if}
+						</div>
+
+						<fieldset class="space-y-2">
+							<legend class="text-sm font-semibold text-neutral-950">Copy scope</legend>
+							<div class="grid grid-cols-1 sm:grid-cols-3 gap-2" role="radiogroup" aria-label="Copy scope">
+								<button
+									type="button"
+									role="radio"
+									aria-checked={createSeasonCopy.scope === 'offerings-only'}
+									class="border border-secondary-600 bg-secondary-50 text-neutral-950 px-3 py-2 text-sm font-semibold text-left cursor-pointer flex items-center justify-start"
+									onclick={() => {
+										createSeasonCopy.scope = 'offerings-only';
+										createSeasonCopy.includeDivisions = false;
+									}}
+								>
+									<span class="flex items-center gap-2 w-full">
+										<span class="h-5 w-5 border-2 border-secondary-600 bg-white rounded-full flex items-center justify-center shrink-0">
+											{#if createSeasonCopy.scope === 'offerings-only'}
+												<span class="h-2.5 w-2.5 rounded-full bg-secondary-700"></span>
+											{/if}
+										</span>
+										<span>{createSeasonCopyOfferingsButtonLabel}</span>
+									</span>
+								</button>
+								<button
+									type="button"
+									role="radio"
+									aria-checked={createSeasonCopy.scope === 'offerings-leagues'}
+									class={`border px-3 py-2 text-sm font-semibold text-left cursor-pointer flex items-center justify-start ${
+										createSeasonCopy.scope === 'offerings-leagues' ||
+										createSeasonCopy.scope === 'offerings-all'
+											? 'border-secondary-600 bg-secondary-50 text-neutral-950'
+											: 'border-secondary-300 bg-white text-neutral-950 hover:bg-neutral-100'
+									}`}
+									onclick={() => {
+										createSeasonCopy.scope = 'offerings-leagues';
+									}}
+								>
+									<span class="flex items-center gap-2 w-full">
+										<span class="h-5 w-5 border-2 border-secondary-600 bg-white rounded-full flex items-center justify-center shrink-0">
+											{#if createSeasonCopy.scope === 'offerings-leagues'}
+												<span class="h-2.5 w-2.5 rounded-full bg-secondary-700"></span>
+											{/if}
+										</span>
+										<span>+ leagues</span>
+									</span>
+								</button>
+								<button
+									type="button"
+									role="radio"
+									aria-checked={createSeasonCopy.scope === 'offerings-all'}
+									class={`border px-3 py-2 text-sm font-semibold text-left cursor-pointer flex items-center justify-start ${
+										createSeasonCopy.scope === 'offerings-all'
+											? 'border-secondary-600 bg-secondary-50 text-neutral-950'
+											: 'border-secondary-300 bg-white text-neutral-950 hover:bg-neutral-100'
+									}`}
+									onclick={() => {
+										createSeasonCopy.scope = 'offerings-all';
+									}}
+								>
+									<span class="flex items-center gap-2 w-full">
+										<span class="h-5 w-5 border-2 border-secondary-600 bg-white rounded-full flex items-center justify-center shrink-0">
+											{#if createSeasonCopy.scope === 'offerings-all'}
+												<span class="h-2.5 w-2.5 rounded-full bg-secondary-700"></span>
+											{/if}
+										</span>
+										<span>+ tournaments</span>
+									</span>
+								</button>
+							</div>
+						</fieldset>
+
+						<div class="border border-secondary-300 bg-white p-2.5">
+							<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
+								<input
+									type="checkbox"
+									class="toggle-secondary"
+									bind:checked={createSeasonCopy.includeDivisions}
+									disabled={createSeasonCopy.scope === 'offerings-only'}
+								/>
+								{createSeasonCopyDivisionsToggleLabel}
+							</label>
+							{#if createSeasonFieldErrors['copyOptions.includeDivisions']}
+								<p class="text-xs text-error-700 mt-1">
+									{createSeasonFieldErrors['copyOptions.includeDivisions']}
+								</p>
+							{/if}
+						</div>
+
+						<div class="border border-secondary-300 bg-white p-3 space-y-2">
+							<p class="text-[11px] uppercase tracking-wide font-bold text-secondary-900">Copy Preview</p>
+							<p class="text-sm font-semibold text-neutral-950 break-words">
+								{createSeasonCopySourceSeason?.name ?? 'No season selected'}
+							</p>
+							<div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-neutral-950">
+								<div class="border border-secondary-300 bg-neutral p-2">
+									<p class="text-[11px] uppercase tracking-wide font-bold">Offerings</p>
+									<p class="text-lg font-bold font-serif">{createSeasonCopyPreview.offeringCount}</p>
+								</div>
+								<div class="border border-secondary-300 bg-neutral p-2">
+									<p class="text-[11px] uppercase tracking-wide font-bold">
+										{createSeasonCopyIncludesTournaments ? 'Leagues/Groups' : 'Leagues'}
+									</p>
+									<p class="text-lg font-bold font-serif">
+										{createSeasonCopyPreview.leagueCount + createSeasonCopyPreview.tournamentGroupCount}
+									</p>
+								</div>
+								<div class="border border-secondary-300 bg-neutral p-2">
+									<p class="text-[11px] uppercase tracking-wide font-bold">
+										{createSeasonCopyIncludesTournaments ? 'Divisions/Groups' : 'Divisions'}
+									</p>
+									<p class="text-lg font-bold font-serif">
+										{createSeasonCopy.includeDivisions ? createSeasonCopyPreview.divisionCount : 0}
+									</p>
+								</div>
+							</div>
+						</div>
+					</div>
+				{/if}
+			</div>
+
+		</div>
+	{/if}
+
+	{#if createSeasonStep === 3}
+		<div class="space-y-4">
+			{#if createSeasonCurrentTransitionRequired && existingCurrentSeason}
+				<div class="border-2 border-secondary-300 bg-white p-4 space-y-4">
+					<div class="flex items-start justify-between gap-3">
+						<div>
+							<p class="text-[11px] uppercase tracking-wide font-bold text-secondary-900">
+								Action Required
+							</p>
+							<h3 class="text-lg font-bold font-serif text-neutral-950">Current Season Transition</h3>
+						</div>
+						<InfoPopover buttonAriaLabel="Why this step is required">
+							<p>
+								Only one season can be current. To make this new season current, mark
+								"{existingCurrentSeason.name}" as not current here.
+							</p>
+						</InfoPopover>
+					</div>
+
+					<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+						<div class="border border-secondary-300 bg-neutral p-3 space-y-1">
+							<p class="text-[11px] uppercase tracking-wide font-bold text-secondary-900">
+								Current Right Now
+							</p>
+							<p class="text-sm font-semibold text-neutral-950">{existingCurrentSeason.name}</p>
+							<p class="text-xs text-neutral-900">
+								{formatReviewRange(existingCurrentSeason.startDate, existingCurrentSeason.endDate)}
+							</p>
+							<p class="text-xs text-neutral-900">
+								{existingCurrentSeason.isActive ? 'Active' : 'Inactive'}
+							</p>
+						</div>
+						<div class="border border-secondary-300 bg-white p-3 space-y-1">
+							<p class="text-[11px] uppercase tracking-wide font-bold text-secondary-900">
+								New Season Outcome
+							</p>
+							<p class="text-sm font-semibold text-neutral-950">
+								{createSeasonForm.name || 'New Season'}
+							</p>
+							<p class="text-xs text-neutral-900">
+								{createSeasonReplaceExistingCurrent
+									? 'Will become current'
+									: `Will not become current while "${existingCurrentSeason.name}" stays current`}
+							</p>
+						</div>
+					</div>
+
+					<fieldset class="space-y-2">
+						<legend class="text-sm font-semibold text-neutral-950">Choose current season</legend>
+						<label
+							class={`flex items-start gap-2 border p-3 cursor-pointer text-sm text-neutral-950 ${
+								createSeasonReplaceExistingCurrent
+									? 'border-secondary-600 bg-secondary-50'
+									: 'border-secondary-300 bg-white'
+							}`}
+						>
+							<input
+								type="radio"
+								class="radio-secondary mt-0.5"
+								name="season-current-transition"
+								checked={createSeasonReplaceExistingCurrent}
+								onchange={() => {
+									createSeasonReplaceExistingCurrent = true;
+								}}
+								data-wizard-autofocus
+							/>
+							<span>Set "{existingCurrentSeason.name}" to not current, and make this new season current.</span>
+						</label>
+						<label
+							class={`flex items-start gap-2 border p-3 cursor-pointer text-sm text-neutral-950 ${
+								!createSeasonReplaceExistingCurrent
+									? 'border-secondary-600 bg-secondary-50'
+									: 'border-secondary-300 bg-white'
+							}`}
+						>
+							<input
+								type="radio"
+								class="radio-secondary mt-0.5"
+								name="season-current-transition"
+								checked={!createSeasonReplaceExistingCurrent}
+								onchange={() => {
+									createSeasonReplaceExistingCurrent = false;
+									createSeasonDeactivateExistingCurrent = false;
+								}}
+							/>
+							<span>Keep "{existingCurrentSeason.name}" as current (new season stays non-current).</span>
+						</label>
+					</fieldset>
+					{#if createSeasonFieldErrors['season.transition']}
+						<p class="text-xs text-error-700">{createSeasonFieldErrors['season.transition']}</p>
+					{/if}
+
+					{#if createSeasonReplaceExistingCurrent}
+						{#if existingCurrentSeason.isActive}
+							<div class="border border-secondary-300 bg-neutral p-3">
+								<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
+									<input
+										type="checkbox"
+										class="toggle-secondary"
+										bind:checked={createSeasonDeactivateExistingCurrent}
+									/>
+									Also mark "{existingCurrentSeason.name}" as inactive
+								</label>
+							</div>
+						{:else}
+							<p class="text-xs text-neutral-900">
+								"{existingCurrentSeason.name}" is already inactive.
+							</p>
+						{/if}
+					{/if}
+				</div>
+			{:else}
+				<div class="border-2 border-secondary-300 bg-white p-4">
+					<p class="text-sm text-neutral-950">
+						No current-season transition is needed for this season.
+					</p>
+				</div>
+			{/if}
+		</div>
+	{/if}
+
+	{#if createSeasonStep === 4}
 		<div class="space-y-4">
 			<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
 				<h3 class="text-lg font-bold font-serif text-neutral-950">Season</h3>
@@ -3717,20 +4656,78 @@
 					<span class="font-semibold">Status:</span>
 					{createSeasonForm.isActive ? 'Active' : 'Inactive'}
 					<span class="ml-3 font-semibold">Current:</span>
-					{createSeasonForm.isCurrent ? 'Yes' : 'No'}
+					{createSeasonWillBeCurrent ? 'Yes' : 'No'}
 				</p>
 			</div>
+
+			<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
+				<h3 class="text-lg font-bold font-serif text-neutral-950">Copy Plan</h3>
+				{#if !createSeasonCopy.enabled}
+					<p class="text-sm text-neutral-950">Season will be created without copying existing content.</p>
+				{:else}
+					<p class="text-sm text-neutral-950">
+						<span class="font-semibold">Source:</span>
+						{createSeasonCopySourceSeason?.name ?? 'Unknown'}
+					</p>
+					<p class="text-sm text-neutral-950">
+						<span class="font-semibold">Scope:</span>
+						{seasonCopyScopeLabel(createSeasonCopy.scope)}
+					</p>
+					<p class="text-sm text-neutral-950">
+						<span class="font-semibold">Include divisions/groups:</span>
+						{createSeasonCopy.scope === 'offerings-only'
+							? 'No'
+							: createSeasonCopy.includeDivisions
+								? 'Yes'
+								: 'No'}
+					</p>
+					<p class="text-sm text-neutral-950">
+						<span class="font-semibold">Estimated copy:</span>
+						{createSeasonCopyPreview.offeringCount}
+						{pluralize(createSeasonCopyPreview.offeringCount, 'offering', 'offerings')},
+						{createSeasonCopyPreview.leagueCount + createSeasonCopyPreview.tournamentGroupCount}
+						{pluralize(
+							createSeasonCopyPreview.leagueCount + createSeasonCopyPreview.tournamentGroupCount,
+							'league/group',
+							'leagues/groups'
+						)}
+						{createSeasonCopy.scope === 'offerings-only' || !createSeasonCopy.includeDivisions
+							? ''
+							: `, ${createSeasonCopyPreview.divisionCount} ${pluralize(createSeasonCopyPreview.divisionCount, 'division/group', 'divisions/groups')}`}
+					</p>
+				{/if}
+			</div>
+
+			{#if createSeasonCurrentTransitionRequired && existingCurrentSeason}
+				<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
+					<h3 class="text-lg font-bold font-serif text-neutral-950">Current Season Transition</h3>
+					<p class="text-sm text-neutral-950">
+						<span class="font-semibold">{existingCurrentSeason.name}</span>
+						{createSeasonReplaceExistingCurrent
+							? ' will no longer be current.'
+							: ' will remain current.'}
+					</p>
+					{#if createSeasonReplaceExistingCurrent}
+						<p class="text-sm text-neutral-950">
+							<span class="font-semibold">Set inactive:</span>
+							{createSeasonWillDeactivateExistingCurrent ? 'Yes' : 'No'}
+						</p>
+					{/if}
+				</div>
+			{/if}
 		</div>
 	{/if}
 
 	{#snippet footer()}
 		<WizardStepFooter
 			step={createSeasonStep}
-			lastStep={2}
+			lastStep={4}
 			showBack={createSeasonStep > 1}
 			canGoNext={canGoNextCreateSeasonStep}
 			canSubmit={canSubmitCreateSeason}
-			nextLabel="Review"
+			nextLabel={createSeasonStep === 3 || (createSeasonStep === 2 && !createSeasonCurrentTransitionRequired)
+				? 'Review'
+				: 'Next'}
 			submitLabel="Create Season"
 			submittingLabel="Creating..."
 			isSubmitting={createSeasonSubmitting}
@@ -3787,6 +4784,7 @@
 								</label>
 								<select
 									id="league-wizard-offering"
+									data-wizard-autofocus
 									class="select-secondary"
 									value={createLeagueForm.offeringId}
 									onchange={(event) => {

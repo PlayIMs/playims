@@ -86,4 +86,21 @@ export class SeasonOperations {
 			})
 			.where(and(eq(seasons.clientId, clientId), eq(seasons.id, seasonId)));
 	}
+
+	async setActive(
+		clientId: string,
+		seasonId: string,
+		isActive: boolean,
+		updatedUser?: string | null
+	): Promise<void> {
+		const now = new Date().toISOString();
+		await this.db
+			.update(seasons)
+			.set({
+				isActive: isActive ? 1 : 0,
+				updatedAt: now,
+				updatedUser: updatedUser ?? null
+			})
+			.where(and(eq(seasons.clientId, clientId), eq(seasons.id, seasonId)));
+	}
 }
