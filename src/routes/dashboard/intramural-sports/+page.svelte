@@ -109,6 +109,13 @@
 	type LeagueChoice = 'yes' | 'no';
 	type LeagueGender = '' | 'male' | 'female' | 'mixed';
 	type LeagueSkillLevel = '' | 'competitive' | 'intermediate' | 'recreational' | 'all';
+	interface DropdownOption {
+		value: string;
+		label: string;
+		statusLabel?: string;
+		disabled?: boolean;
+		separatorBefore?: boolean;
+	}
 
 	interface WizardOfferingInput {
 		name: string;
@@ -233,6 +240,10 @@
 		3: 'Current Season Transition',
 		4: 'Review & Create'
 	};
+	const COMPACT_DROPDOWN_BUTTON_CLASS =
+		'button-secondary-outlined w-auto min-w-36 px-3 py-1 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500';
+	const FORM_DROPDOWN_BUTTON_CLASS =
+		'button-secondary-outlined w-full px-3 py-2 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500';
 	let { data } = $props<{ data: PageData }>();
 
 	let activities = $state<Activity[]>([]);
@@ -243,10 +254,9 @@
 	let showConcludedSeasons = $state(false);
 	let offeringView = $state<OfferingView>('all');
 	let offeringViewHydrated = $state(false);
+	let seasonSelectionHydrated = $state(false);
 	let highlightedLeagueRowId = $state<string | null>(null);
 	let highlightTimeout: ReturnType<typeof setTimeout> | null = null;
-	let addActionMenuOpen = $state(false);
-	let addActionMenuContainer = $state<HTMLDivElement | null>(null);
 	let isCreateSeasonModalOpen = $state(false);
 	let createSeasonWizardUnsavedConfirmOpen = $state(false);
 	let createSeasonStep = $state<SeasonWizardStep>(1);
@@ -502,6 +512,51 @@
 		return 'Add League';
 	}
 
+	function handleOfferingViewChange(value: string): void {
+		if (value !== 'leagues' && value !== 'tournaments' && value !== 'all') return;
+		offeringView = value;
+	}
+
+	function handleAddActionDropdown(value: string): void {
+		if (value === 'add-offering') {
+			openCreateWizard();
+			return;
+		}
+		if (value === 'add-entry') {
+			if (addEntryOptionCount <= 0) return;
+			openCreateLeagueWizard();
+			return;
+		}
+		if (value === 'add-season') {
+			openCreateSeasonWizard();
+		}
+	}
+
+	function handleCreateLeagueOfferingChange(value: string): void {
+		if (
+			value !== createLeagueForm.offeringId &&
+			(createLeagueForm.leagues.length > 0 || createLeagueDraftActive)
+		) {
+			const confirmed =
+				typeof window === 'undefined'
+					? true
+					: window.confirm(
+							'Switching offerings clears your in-progress league/group list. Continue?'
+						);
+			if (!confirmed) return;
+			createLeagueForm.leagues = [];
+			cancelCreateLeagueDraft();
+			createLeagueCopiedFromExisting = false;
+		}
+
+		createLeagueForm.offeringId = value;
+		if (!createLeagueSlugTouched) {
+			const offeringName = getLeagueOfferingById(value)?.name ?? '';
+			createLeagueForm.league.slug = defaultLeagueSlug(createLeagueForm.league.name, offeringName);
+		}
+		clearCreateLeagueApiErrors();
+	}
+
 	function wizardEntryType(): 'league' | 'tournament' | null {
 		const selectedOffering = getLeagueOfferingById(createLeagueForm.offeringId);
 		if (selectedOffering) return selectedOffering.type;
@@ -547,6 +602,21 @@
 	function getSeasonById(seasonId: string | null | undefined) {
 		if (!seasonId) return null;
 		return seasons.find((season) => season.id === seasonId) ?? null;
+	}
+
+	function seasonUrlSlug(season: PageData['seasons'][number]): string {
+		return slugifyFinal(season.name ?? '');
+	}
+
+	function resolveSeasonIdFromUrlSeasonParam(value: string | null): string | null {
+		if (!value) return null;
+		const normalized = value.trim();
+		if (!normalized) return null;
+		const bySlug = seasons.find((season) => seasonUrlSlug(season) === normalized);
+		if (bySlug) return bySlug.id;
+		// Backward compatibility for older links that used season IDs.
+		const byId = seasons.find((season) => season.id === normalized);
+		return byId?.id ?? null;
 	}
 
 	function normalizeSeasonName(value: string | null | undefined): string {
@@ -641,7 +711,20 @@
 	$effect(() => {
 		if (seasons.length === 0) {
 			selectedSeasonId = '';
+			seasonSelectionHydrated = true;
 			return;
+		}
+
+		if (!seasonSelectionHydrated) {
+			if (shouldHydrateSeasonFromUrlOnLoad()) {
+				const seasonFromUrl = readSeasonFromUrl();
+				if (seasonFromUrl && seasons.some((season) => season.id === seasonFromUrl)) {
+					selectedSeasonId = seasonFromUrl;
+					seasonSelectionHydrated = true;
+					return;
+				}
+			}
+			seasonSelectionHydrated = true;
 		}
 
 		const preferredSeasonId = data.currentSeasonId ?? seasons[0]?.id ?? '';
@@ -687,36 +770,28 @@
 		}
 	}
 
-	function closeAddActionMenu(): void {
-		addActionMenuOpen = false;
+	function readSeasonFromUrl(): string | null {
+		if (typeof window === 'undefined') return null;
+		try {
+			const url = new URL(window.location.href);
+			const seasonFromUrl = url.searchParams.get('season');
+			return resolveSeasonIdFromUrlSeasonParam(seasonFromUrl);
+		} catch {
+			return null;
+		}
 	}
 
-	function toggleAddActionMenu(): void {
-		addActionMenuOpen = !addActionMenuOpen;
+	function shouldHydrateSeasonFromUrlOnLoad(): boolean {
+		if (typeof window === 'undefined' || typeof performance === 'undefined') return false;
+		try {
+			const [navigationEntry] = performance.getEntriesByType(
+				'navigation'
+			) as PerformanceNavigationTiming[];
+			return navigationEntry?.type === 'reload';
+		} catch {
+			return false;
+		}
 	}
-
-	$effect(() => {
-		if (typeof window === 'undefined') return;
-		if (!addActionMenuOpen) return;
-
-		const handlePointerDown = (event: PointerEvent) => {
-			const target = event.target as Node | null;
-			if (!target) return;
-			if (addActionMenuContainer?.contains(target)) return;
-			closeAddActionMenu();
-		};
-
-		const handleKeyDown = (event: KeyboardEvent) => {
-			if (event.key === 'Escape') closeAddActionMenu();
-		};
-
-		window.addEventListener('pointerdown', handlePointerDown);
-		window.addEventListener('keydown', handleKeyDown);
-		return () => {
-			window.removeEventListener('pointerdown', handlePointerDown);
-			window.removeEventListener('keydown', handleKeyDown);
-		};
-	});
 
 	function resetCreateWizard(): void {
 		createStep = 1;
@@ -767,13 +842,11 @@
 	}
 
 	function openCreateSeasonWizard(): void {
-		closeAddActionMenu();
 		resetCreateSeasonWizard();
 		isCreateSeasonModalOpen = true;
 	}
 
 	function openCreateWizard(): void {
-		closeAddActionMenu();
 		resetCreateWizard();
 		createForm.offering.type = createWizardDefaultOfferingType();
 		createForm.league.seasonId = selectedSeasonId;
@@ -781,7 +854,6 @@
 	}
 
 	function openCreateLeagueWizard(): void {
-		closeAddActionMenu();
 		resetCreateLeagueWizard();
 		createLeagueOfferingFilter =
 			offeringView === 'tournaments' ? 'tournament' : offeringView === 'leagues' ? 'league' : 'all';
@@ -2834,6 +2906,11 @@
 	const seasonHistory = $derived.by(() =>
 		[...seasons].sort((a, b) => b.startDate.localeCompare(a.startDate))
 	);
+	const offeringViewDropdownOptions = $derived.by<DropdownOption[]>(() => [
+		{ value: 'leagues', label: 'Leagues' },
+		{ value: 'tournaments', label: 'Tournaments' },
+		{ value: 'all', label: 'All' }
+	]);
 	const seasonHistoryDropdownOptions = $derived.by(() =>
 		seasonHistory.map((season) => ({
 			value: season.id,
@@ -2841,6 +2918,37 @@
 			statusLabel: seasonStatusLabelForHistory(season)
 		}))
 	);
+	const seasonCopySourceDropdownOptions = $derived.by<DropdownOption[]>(() => [
+		{ value: '', label: 'Select season...' },
+		...seasonHistory.map((season) => ({
+			value: season.id,
+			label: season.name
+		}))
+	]);
+	const seasonDropdownOptions = $derived.by<DropdownOption[]>(() => [
+		{ value: '', label: 'Select season...' },
+		...seasons.map((season) => ({
+			value: season.id,
+			label: season.name
+		}))
+	]);
+	const leagueGenderDropdownOptions = $derived.by<DropdownOption[]>(() => [
+		{ value: '', label: 'Select...' },
+		{ value: 'male', label: 'Male' },
+		{ value: 'female', label: 'Female' },
+		{ value: 'mixed', label: 'Mixed' }
+	]);
+	const leagueSkillLevelDropdownOptions = $derived.by<DropdownOption[]>(() => [
+		{ value: '', label: 'Select...' },
+		{ value: 'competitive', label: 'Competitive' },
+		{ value: 'intermediate', label: 'Intermediate' },
+		{ value: 'recreational', label: 'Recreational' },
+		{ value: 'all', label: 'All' }
+	]);
+	const offeringTypeDropdownOptions = $derived.by<DropdownOption[]>(() => [
+		{ value: 'league', label: 'League' },
+		{ value: 'tournament', label: 'Tournament' }
+	]);
 	const offeringTypeLabel = $derived.by(() => {
 		if (showTournaments) return 'Tournaments';
 		if (showAllOfferings) return 'Offerings';
@@ -2903,14 +3011,31 @@
 		if (!offeringViewHydrated || typeof window === 'undefined') return;
 		writeStoredOfferingView(offeringView);
 		const url = new URL(window.location.href);
-		if (url.searchParams.get('view') !== offeringView) {
+		const currentView = normalizeOfferingViewAlias(url.searchParams.get('view'));
+		const currentSeason = url.searchParams.get('season') ?? '';
+		const selectedSeason = getSeasonById(selectedSeasonId);
+		const targetSeason =
+			selectedSeason && !selectedSeason.isCurrent ? seasonUrlSlug(selectedSeason) : '';
+		let urlChanged = false;
+		if (currentView !== offeringView) {
 			url.searchParams.set('view', offeringView);
-			try {
-				// Firefox can throw quota errors when cloning large existing history.state objects.
-				replaceState(`${url.pathname}${url.search}${url.hash}`, {});
-			} catch {
-				// Ignore history state errors in restrictive browser modes.
+			urlChanged = true;
+		}
+		if (targetSeason.length > 0) {
+			if (currentSeason !== targetSeason) {
+				url.searchParams.set('season', targetSeason);
+				urlChanged = true;
 			}
+		} else if (currentSeason.length > 0) {
+			url.searchParams.delete('season');
+			urlChanged = true;
+		}
+		if (!urlChanged) return;
+		try {
+			// Firefox can throw quota errors when cloning large existing history.state objects.
+			replaceState(`${url.pathname}${url.search}${url.hash}`, {});
+		} catch {
+			// Ignore history state errors in restrictive browser modes.
 		}
 	});
 
@@ -3039,11 +3164,26 @@
 			filter === 'all' ? true : offering.type === filter
 		).length;
 	});
+	const addActionDropdownOptions = $derived.by<DropdownOption[]>(() => {
+		const options: DropdownOption[] = [{ value: 'add-offering', label: 'Add Offering' }];
+		if (addEntryOptionCount > 0) {
+			options.push({ value: 'add-entry', label: addEntryActionLabel() });
+		}
+		options.push({ value: 'add-season', label: 'Add Season', separatorBefore: true });
+		return options;
+	});
 	const createLeagueOfferingOptions = $derived.by(() =>
 		data.leagueOfferingOptions.filter((offering: LeagueOfferingOption) =>
 			createLeagueOfferingFilter === 'all' ? true : offering.type === createLeagueOfferingFilter
 		)
 	);
+	const createLeagueOfferingDropdownOptions = $derived.by<DropdownOption[]>(() => [
+		{ value: '', label: 'Select an offering...' },
+		...createLeagueOfferingOptions.map((offeringOption: LeagueOfferingOption) => ({
+			value: offeringOption.id,
+			label: offeringOption.name
+		}))
+	]);
 	const selectedLeagueWizardOffering = $derived.by(() =>
 		getLeagueOfferingById(createLeagueForm.offeringId)
 	);
@@ -3275,16 +3415,15 @@
 							<h2 class="text-2xl font-bold font-serif text-neutral-950">
 								{selectedSeason?.name ?? 'Season'}
 							</h2>
-							<label class="sr-only" for="offering-view-empty">Offering type</label>
-							<select
-								id="offering-view-empty"
-								class="select-secondary w-auto min-w-36 py-1 text-sm"
-								bind:value={offeringView}
-							>
-								<option value="leagues">Leagues</option>
-								<option value="tournaments">Tournaments</option>
-								<option value="all">All</option>
-							</select>
+							<ListboxDropdown
+								options={offeringViewDropdownOptions}
+								value={offeringView}
+								ariaLabel="Offering type"
+								buttonClass={COMPACT_DROPDOWN_BUTTON_CLASS}
+								on:change={(event) => {
+									handleOfferingViewChange(event.detail.value);
+								}}
+							/>
 							{#if seasons.length > 0}
 								<ListboxDropdown
 									options={seasonHistoryDropdownOptions}
@@ -3317,7 +3456,7 @@
 								{badgeLeagueOrGroupLabel}
 							</span>
 							{#if seasons.length > 0}
-								<div class="relative inline-flex items-stretch" bind:this={addActionMenuContainer}>
+								<div class="relative inline-flex items-stretch">
 									<button
 										type="button"
 										class="button-primary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer"
@@ -3325,56 +3464,28 @@
 									>
 										+ ADD
 									</button>
-									<button
-										type="button"
-										class="button-primary-outlined -ml-[2px] px-1 py-1 cursor-pointer"
-										aria-label="Open add menu"
-										aria-haspopup="menu"
-										aria-expanded={addActionMenuOpen}
-										onclick={toggleAddActionMenu}
+									<ListboxDropdown
+										options={addActionDropdownOptions}
+										value=""
+										mode="action"
+										ariaLabel="Open add menu"
+										align="right"
+										buttonClass="button-primary-outlined -ml-[2px] px-1 py-1 cursor-pointer"
+										listClass="mt-1 w-44 border-2 border-secondary-300 bg-white z-20"
+										optionClass="w-full text-left px-3 py-2 text-sm text-neutral-950 cursor-pointer"
+										activeOptionClass="bg-neutral-100 text-neutral-950"
+										noteText={addEntryOptionCount === 0
+											? 'No matching offerings available for this view.'
+											: undefined}
+										noteClass="px-3 pb-2 text-xs text-neutral-900 text-left"
+										on:action={(event) => {
+											handleAddActionDropdown(event.detail.value);
+										}}
 									>
-										<IconChevronDown class="w-4 h-4" />
-									</button>
-
-									{#if addActionMenuOpen}
-										<div
-											class="absolute right-0 top-full mt-1 w-44 border-2 border-secondary-300 bg-white z-20"
-											role="menu"
-											aria-label="Create options"
-										>
-											<button
-												type="button"
-												class="w-full text-left px-3 py-2 text-sm text-neutral-950 hover:bg-neutral-100 cursor-pointer border-b border-secondary-200"
-												role="menuitem"
-												onclick={openCreateWizard}
-											>
-												Add Offering
-											</button>
-											{#if addEntryOptionCount > 0}
-												<button
-													type="button"
-													class="w-full text-left px-3 py-2 text-sm text-neutral-950 hover:bg-neutral-100 cursor-pointer"
-													role="menuitem"
-													onclick={openCreateLeagueWizard}
-												>
-													{addEntryActionLabel()}
-												</button>
-											{/if}
-											<button
-												type="button"
-												class="w-full text-left px-3 py-2 text-sm text-neutral-950 hover:bg-neutral-100 cursor-pointer border-t border-secondary-200"
-												role="menuitem"
-												onclick={openCreateSeasonWizard}
-											>
-												Add Season
-											</button>
-											{#if addEntryOptionCount === 0}
-												<p class="px-3 pb-2 text-xs text-neutral-900 text-left">
-													No matching offerings available for this view.
-												</p>
-											{/if}
-										</div>
-									{/if}
+										{#snippet trigger()}
+											<IconChevronDown class="w-4 h-4" />
+										{/snippet}
+									</ListboxDropdown>
 								</div>
 							{:else}
 								<button
@@ -3579,16 +3690,15 @@
 							<h2 class="text-2xl font-bold font-serif text-neutral-950">
 								{selectedSeason?.name ?? activeSeasonBoard?.label ?? 'Season'}
 							</h2>
-							<label class="sr-only" for="offering-view">Offering type</label>
-							<select
-								id="offering-view"
-								class="select-secondary w-auto min-w-36 py-1 text-sm"
-								bind:value={offeringView}
-							>
-								<option value="leagues">Leagues</option>
-								<option value="tournaments">Tournaments</option>
-								<option value="all">All</option>
-							</select>
+							<ListboxDropdown
+								options={offeringViewDropdownOptions}
+								value={offeringView}
+								ariaLabel="Offering type"
+								buttonClass={COMPACT_DROPDOWN_BUTTON_CLASS}
+								on:change={(event) => {
+									handleOfferingViewChange(event.detail.value);
+								}}
+							/>
 							<ListboxDropdown
 								options={seasonHistoryDropdownOptions}
 								value={selectedSeasonId}
@@ -3619,7 +3729,7 @@
 								{badgeLeagueOrGroupLabel}
 							</span>
 							{#if seasons.length > 0}
-								<div class="relative inline-flex items-stretch" bind:this={addActionMenuContainer}>
+								<div class="relative inline-flex items-stretch">
 									<button
 										type="button"
 										class="button-primary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer"
@@ -3627,56 +3737,28 @@
 									>
 										+ ADD
 									</button>
-									<button
-										type="button"
-										class="button-primary-outlined -ml-[2px] px-1 py-1 cursor-pointer"
-										aria-label="Open add menu"
-										aria-haspopup="menu"
-										aria-expanded={addActionMenuOpen}
-										onclick={toggleAddActionMenu}
+									<ListboxDropdown
+										options={addActionDropdownOptions}
+										value=""
+										mode="action"
+										ariaLabel="Open add menu"
+										align="right"
+										buttonClass="button-primary-outlined -ml-[2px] px-1 py-1 cursor-pointer"
+										listClass="mt-1 w-44 border-2 border-secondary-300 bg-white z-20"
+										optionClass="w-full text-left px-3 py-2 text-sm text-neutral-950 cursor-pointer"
+										activeOptionClass="bg-neutral-100 text-neutral-950"
+										noteText={addEntryOptionCount === 0
+											? 'No matching offerings available for this view.'
+											: undefined}
+										noteClass="px-3 pb-2 text-xs text-neutral-900 text-left"
+										on:action={(event) => {
+											handleAddActionDropdown(event.detail.value);
+										}}
 									>
-										<IconChevronDown class="w-4 h-4" />
-									</button>
-
-									{#if addActionMenuOpen}
-										<div
-											class="absolute right-0 top-full mt-1 w-44 border-2 border-secondary-300 bg-white z-20"
-											role="menu"
-											aria-label="Create options"
-										>
-											<button
-												type="button"
-												class="w-full text-left px-3 py-2 text-sm text-neutral-950 hover:bg-neutral-100 cursor-pointer border-b border-secondary-200"
-												role="menuitem"
-												onclick={openCreateWizard}
-											>
-												Add Offering
-											</button>
-											{#if addEntryOptionCount > 0}
-												<button
-													type="button"
-													class="w-full text-left px-3 py-2 text-sm text-neutral-950 hover:bg-neutral-100 cursor-pointer"
-													role="menuitem"
-													onclick={openCreateLeagueWizard}
-												>
-													{addEntryActionLabel()}
-												</button>
-											{/if}
-											<button
-												type="button"
-												class="w-full text-left px-3 py-2 text-sm text-neutral-950 hover:bg-neutral-100 cursor-pointer border-t border-secondary-200"
-												role="menuitem"
-												onclick={openCreateSeasonWizard}
-											>
-												Add Season
-											</button>
-											{#if addEntryOptionCount === 0}
-												<p class="px-3 pb-2 text-xs text-neutral-900 text-left">
-													No matching offerings available for this view.
-												</p>
-											{/if}
-										</div>
-									{/if}
+										{#snippet trigger()}
+											<IconChevronDown class="w-4 h-4" />
+										{/snippet}
+									</ListboxDropdown>
 								</div>
 							{:else}
 								<button
@@ -3877,14 +3959,7 @@
 														</p>
 													</td>
 													<td class="px-2 py-1 align-top">
-														{#if league.seasonConcluded}
-															<p
-																class="text-xs text-secondary-800 font-bold uppercase tracking-wide"
-															>
-																Concluded
-															</p>
-														{/if}
-														<p class="text-xs text-neutral-950 font-sans mt-1">
+														<p class="text-xs text-neutral-950 font-sans">
 															{league.seasonRangeText}
 														</p>
 													</td>
@@ -4035,14 +4110,7 @@
 																		</p>
 																	</td>
 																	<td class="px-2 py-1 align-top">
-																		{#if league.seasonConcluded}
-																			<p
-																				class="text-xs text-secondary-800 font-bold uppercase tracking-wide"
-																			>
-																				Concluded
-																			</p>
-																		{/if}
-																		<p class="text-xs text-neutral-950 font-sans mt-1">
+																		<p class="text-xs text-neutral-950 font-sans">
 																			{league.seasonRangeText}
 																		</p>
 																	</td>
@@ -4400,15 +4468,19 @@
 				{#if createSeasonCopy.enabled}
 					<div class="border border-secondary-300 bg-neutral p-3 space-y-3">
 						<div>
-							<label for="season-copy-source" class="block text-sm font-sans text-neutral-950 mb-1">
+							<p class="block text-sm font-sans text-neutral-950 mb-1">
 								Source Season <span class="text-error-700">*</span>
-							</label>
-							<select id="season-copy-source" class="select-secondary" bind:value={createSeasonCopy.sourceSeasonId}>
-								<option value="">Select season...</option>
-								{#each seasonHistory as season}
-									<option value={season.id}>{season.name}</option>
-								{/each}
-							</select>
+							</p>
+							<ListboxDropdown
+								options={seasonCopySourceDropdownOptions}
+								value={createSeasonCopy.sourceSeasonId}
+								ariaLabel="Source season"
+								buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
+								on:change={(event) => {
+									createSeasonCopy.sourceSeasonId = event.detail.value;
+									clearCreateSeasonApiErrors();
+								}}
+							/>
 							{#if createSeasonFieldErrors['copyOptions.sourceSeasonId']}
 								<p class="text-xs text-error-700 mt-1">
 									{createSeasonFieldErrors['copyOptions.sourceSeasonId']}
@@ -4558,29 +4630,36 @@
 					</div>
 
 					<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-						<div class="border border-secondary-300 bg-neutral p-3 space-y-1">
+						<div
+							class={`bg-neutral p-3 space-y-1 ${
+								!createSeasonReplaceExistingCurrent
+									? 'border-2 border-primary-500'
+									: 'border border-secondary-300'
+							}`}
+						>
 							<p class="text-[11px] uppercase tracking-wide font-bold text-secondary-900">
-								Current Right Now
+								Current Season
 							</p>
 							<p class="text-sm font-semibold text-neutral-950">{existingCurrentSeason.name}</p>
 							<p class="text-xs text-neutral-900">
 								{formatReviewRange(existingCurrentSeason.startDate, existingCurrentSeason.endDate)}
 							</p>
-							<p class="text-xs text-neutral-900">
-								{existingCurrentSeason.isActive ? 'Active' : 'Inactive'}
-							</p>
 						</div>
-						<div class="border border-secondary-300 bg-white p-3 space-y-1">
+						<div
+							class={`bg-white p-3 space-y-1 ${
+								createSeasonReplaceExistingCurrent
+									? 'border-2 border-primary-500'
+									: 'border border-secondary-300'
+							}`}
+						>
 							<p class="text-[11px] uppercase tracking-wide font-bold text-secondary-900">
-								New Season Outcome
+								New Season
 							</p>
 							<p class="text-sm font-semibold text-neutral-950">
 								{createSeasonForm.name || 'New Season'}
 							</p>
 							<p class="text-xs text-neutral-900">
-								{createSeasonReplaceExistingCurrent
-									? 'Will become current'
-									: `Will not become current while "${existingCurrentSeason.name}" stays current`}
+								{formatReviewRange(createSeasonForm.startDate, createSeasonForm.endDate || null)}
 							</p>
 						</div>
 					</div>
@@ -4797,53 +4876,19 @@
 							</div>
 						{:else}
 							<div>
-								<label
-									for="league-wizard-offering"
-									class="block text-sm font-sans text-neutral-950 mb-1"
-								>
+								<p class="block text-sm font-sans text-neutral-950 mb-1">
 									{wizardEntryUnitTitleSingular()} Offering <span class="text-error-700">*</span>
-								</label>
-								<select
-									id="league-wizard-offering"
-									data-wizard-autofocus
-									class="select-secondary"
+								</p>
+								<ListboxDropdown
+									options={createLeagueOfferingDropdownOptions}
 									value={createLeagueForm.offeringId}
-									onchange={(event) => {
-										const offeringId = (event.currentTarget as HTMLSelectElement).value;
-										if (
-											offeringId !== createLeagueForm.offeringId &&
-											(createLeagueForm.leagues.length > 0 || createLeagueDraftActive)
-										) {
-											const confirmed =
-												typeof window === 'undefined'
-													? true
-													: window.confirm(
-															'Switching offerings clears your in-progress league/group list. Continue?'
-														);
-											if (!confirmed) {
-												(event.currentTarget as HTMLSelectElement).value = createLeagueForm.offeringId;
-												return;
-											}
-											createLeagueForm.leagues = [];
-											cancelCreateLeagueDraft();
-											createLeagueCopiedFromExisting = false;
-										}
-
-										createLeagueForm.offeringId = offeringId;
-										if (!createLeagueSlugTouched) {
-											const offeringName = getLeagueOfferingById(offeringId)?.name ?? '';
-											createLeagueForm.league.slug = defaultLeagueSlug(
-												createLeagueForm.league.name,
-												offeringName
-											);
-										}
+									ariaLabel={`${wizardEntryUnitTitleSingular()} offering`}
+									buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
+									autoFocus
+									on:change={(event) => {
+										handleCreateLeagueOfferingChange(event.detail.value);
 									}}
-								>
-									<option value="">Select an offering...</option>
-									{#each createLeagueOfferingOptions as offeringOption}
-										<option value={offeringOption.id}>{offeringOption.name}</option>
-									{/each}
-								</select>
+								/>
 								{#if createLeagueFieldErrors['offeringId']}
 									<p class="text-xs text-error-700 mt-1">{createLeagueFieldErrors['offeringId']}</p>
 								{/if}
@@ -5038,56 +5083,50 @@
 								</div>
 
 								<div>
-									<label for="league-wizard-season" class="block text-sm font-sans text-neutral-950 mb-1"
-										>Season <span class="text-error-700">*</span></label
-									>
-									<select
-										id="league-wizard-season"
-										class="select-secondary"
-										bind:value={createLeagueForm.league.seasonId}
-									>
-										<option value="">Select season...</option>
-										{#each seasons as season}
-											<option value={season.id}>{season.name}</option>
-										{/each}
-									</select>
+									<p class="block text-sm font-sans text-neutral-950 mb-1">
+										Season <span class="text-error-700">*</span>
+									</p>
+									<ListboxDropdown
+										options={seasonDropdownOptions}
+										value={createLeagueForm.league.seasonId}
+										ariaLabel="League wizard season"
+										buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
+										on:change={(event) => {
+											createLeagueForm.league.seasonId = event.detail.value;
+											clearCreateLeagueApiErrors();
+										}}
+									/>
 									{#if createLeagueFieldErrors['league.seasonId']}
 										<p class="text-xs text-error-700 mt-1">{createLeagueFieldErrors['league.seasonId']}</p>
 									{/if}
 								</div>
 
 								<div>
-									<label for="league-wizard-gender" class="block text-sm font-sans text-neutral-950 mb-1"
-										>Gender</label
-									>
-									<select
-										id="league-wizard-gender"
-										class="select-secondary"
-										bind:value={createLeagueForm.league.gender}
-									>
-										<option value="">Select...</option>
-										<option value="male">Male</option>
-										<option value="female">Female</option>
-										<option value="mixed">Mixed</option>
-									</select>
+									<p class="block text-sm font-sans text-neutral-950 mb-1">Gender</p>
+									<ListboxDropdown
+										options={leagueGenderDropdownOptions}
+										value={createLeagueForm.league.gender}
+										ariaLabel="League wizard gender"
+										buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
+										on:change={(event) => {
+											createLeagueForm.league.gender = event.detail.value as LeagueGender;
+											clearCreateLeagueApiErrors();
+										}}
+									/>
 								</div>
 
 								<div>
-									<label
-										for="league-wizard-skill-level"
-										class="block text-sm font-sans text-neutral-950 mb-1">Skill Level</label
-									>
-									<select
-										id="league-wizard-skill-level"
-										class="select-secondary"
-										bind:value={createLeagueForm.league.skillLevel}
-									>
-										<option value="">Select...</option>
-										<option value="competitive">Competitive</option>
-										<option value="intermediate">Intermediate</option>
-										<option value="recreational">Recreational</option>
-										<option value="all">All</option>
-									</select>
+									<p class="block text-sm font-sans text-neutral-950 mb-1">Skill Level</p>
+									<ListboxDropdown
+										options={leagueSkillLevelDropdownOptions}
+										value={createLeagueForm.league.skillLevel}
+										ariaLabel="League wizard skill level"
+										buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
+										on:change={(event) => {
+											createLeagueForm.league.skillLevel = event.detail.value as LeagueSkillLevel;
+											clearCreateLeagueApiErrors();
+										}}
+									/>
 								</div>
 
 								<div class="lg:col-span-2">
@@ -5594,17 +5633,19 @@
 						</div>
 
 						<div>
-							<label for="offering-type" class="block text-sm font-sans text-neutral-950 mb-1"
-								>Type <span class="text-error-700">*</span></label
-							>
-							<select
-								id="offering-type"
-								class="select-secondary"
-								bind:value={createForm.offering.type}
-							>
-								<option value="league">League</option>
-								<option value="tournament">Tournament</option>
-							</select>
+							<p class="block text-sm font-sans text-neutral-950 mb-1">
+								Type <span class="text-error-700">*</span>
+							</p>
+							<ListboxDropdown
+								options={offeringTypeDropdownOptions}
+								value={createForm.offering.type}
+								ariaLabel="Offering type"
+								buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
+								on:change={(event) => {
+									createForm.offering.type = event.detail.value as 'league' | 'tournament';
+									clearCreateApiErrors();
+								}}
+							/>
 							{#if createFieldErrors['offering.type']}
 								<p class="text-xs text-error-700 mt-1">{createFieldErrors['offering.type']}</p>
 							{/if}
@@ -5867,56 +5908,50 @@
 								</div>
 
 								<div>
-									<label for="league-season" class="block text-sm font-sans text-neutral-950 mb-1"
-										>Season <span class="text-error-700">*</span></label
-									>
-									<select
-										id="league-season"
-										class="select-secondary"
-										bind:value={createForm.league.seasonId}
-									>
-										<option value="">Select season...</option>
-										{#each seasons as season}
-											<option value={season.id}>{season.name}</option>
-										{/each}
-									</select>
+									<p class="block text-sm font-sans text-neutral-950 mb-1">
+										Season <span class="text-error-700">*</span>
+									</p>
+									<ListboxDropdown
+										options={seasonDropdownOptions}
+										value={createForm.league.seasonId}
+										ariaLabel="League season"
+										buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
+										on:change={(event) => {
+											createForm.league.seasonId = event.detail.value;
+											clearCreateApiErrors();
+										}}
+									/>
 									{#if createFieldErrors['league.seasonId']}
 										<p class="text-xs text-error-700 mt-1">{createFieldErrors['league.seasonId']}</p>
 									{/if}
 								</div>
 
 								<div>
-									<label for="league-gender" class="block text-sm font-sans text-neutral-950 mb-1"
-										>Gender</label
-									>
-									<select
-										id="league-gender"
-										class="select-secondary"
-										bind:value={createForm.league.gender}
-									>
-										<option value="">Select...</option>
-										<option value="male">Male</option>
-										<option value="female">Female</option>
-										<option value="mixed">Mixed</option>
-									</select>
+									<p class="block text-sm font-sans text-neutral-950 mb-1">Gender</p>
+									<ListboxDropdown
+										options={leagueGenderDropdownOptions}
+										value={createForm.league.gender}
+										ariaLabel="League gender"
+										buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
+										on:change={(event) => {
+											createForm.league.gender = event.detail.value as LeagueGender;
+											clearCreateApiErrors();
+										}}
+									/>
 								</div>
 
 								<div>
-									<label
-										for="league-skill-level"
-										class="block text-sm font-sans text-neutral-950 mb-1">Skill Level</label
-									>
-									<select
-										id="league-skill-level"
-										class="select-secondary"
-										bind:value={createForm.league.skillLevel}
-									>
-										<option value="">Select...</option>
-										<option value="competitive">Competitive</option>
-										<option value="intermediate">Intermediate</option>
-										<option value="recreational">Recreational</option>
-										<option value="all">All</option>
-									</select>
+									<p class="block text-sm font-sans text-neutral-950 mb-1">Skill Level</p>
+									<ListboxDropdown
+										options={leagueSkillLevelDropdownOptions}
+										value={createForm.league.skillLevel}
+										ariaLabel="League skill level"
+										buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
+										on:change={(event) => {
+											createForm.league.skillLevel = event.detail.value as LeagueSkillLevel;
+											clearCreateApiErrors();
+										}}
+									/>
 								</div>
 
 								<div class="lg:col-span-2">
