@@ -1,0 +1,4 @@
+interface:
+  display_name: "PlayIMs Listbox Dropdown Builder"
+  short_description: "Build and migrate ListboxDropdown UIs"
+  default_prompt: "Use $playims-listbox-dropdown-builder to add or migrate dropdown selectors to ListboxDropdown.svelte with consistent behavior, styling, and accessibility."
