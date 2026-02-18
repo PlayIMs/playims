@@ -1,0 +1,4 @@
+interface:
+  display_name: "PlayIMs Info Popover Builder"
+  short_description: "Standardize InfoPopover helper UI"
+  default_prompt: "Use $playims-info-popover-builder to add or migrate helper text popovers with InfoPopover.svelte consistently across PlayIMs dashboard routes."

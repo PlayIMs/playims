@@ -37,7 +37,9 @@ Follow this structure:
 - `slug-utils`
 - `wizard-field-errors`
 - `create-draft-collection-controller`
-6. Use snippet/render patterns (`{#snippet ...}` / `{@render ...}`), not legacy `<slot>`.
+6. For any new select/dropdown UI in wizards, use `src/lib/components/ListboxDropdown.svelte` and follow `$playims-listbox-dropdown-builder`; do not introduce native `<select>` controls.
+7. Use snippet/render patterns (`{#snippet ...}` / `{@render ...}`), not legacy `<slot>`.
+8. For any new info/help popover in wizards, use `src/lib/components/InfoPopover.svelte` and follow `$playims-info-popover-builder`; do not introduce ad-hoc popover implementations.
 
 ## Workflow
 1. Ground current behavior.
@@ -49,13 +51,16 @@ Follow this structure:
 3. Standardize UX logic.
 - Replace native unsaved `window.confirm` for wizard close with `WizardUnsavedConfirm`.
 - Keep existing in-flow confirms unless explicitly asked to change them.
-- Use `InfoPopover` for paragraph-heavy helper/explanatory content instead of ad-hoc `<details>` patterns.
+- Use `InfoPopover` for paragraph-heavy helper/explanatory content instead of ad-hoc `<details>` patterns, and follow `$playims-info-popover-builder` for behavior/styling consistency.
 4. Standardize draft-list logic.
 - Use `WizardDraftCollection` UI and draft controller helpers for reorder/removal/edit-index adjustments.
-5. Rewire route page.
+5. Standardize select/dropdown controls.
+- Migrate new wizard select/dropdown interactions to `ListboxDropdown`.
+- Keep native `<select>` only when preserving existing parity and no new dropdown is being introduced.
+6. Rewire route page.
 - Replace inline wizard markup with route wizard component.
 - Preserve existing API payloads and action endpoints unless explicitly requested otherwise.
-6. Validate.
+7. Validate.
 - Run `pnpm check`.
 - Run `pnpm build` for larger changes.
 - Run manual QA matrix in `references/qa-matrix.md`.
@@ -66,6 +71,8 @@ Follow this structure:
 - Prefer splitting dense content into additional wizard steps instead of relying on in-panel scroll.
 - Do not change backend schemas/migrations/API contracts unless requested.
 - If adding a new `/api/...` endpoint for the wizard, update security policy map and rate limiting in `src/hooks.server.ts` (`API_ROUTE_POLICIES` and `resolveRateLimitConfig`) to avoid 403 policy blocks.
+- For all newly added wizard select/dropdown controls, use `ListboxDropdown` and not native `<select>`.
+- For all newly added wizard info/help popovers, use `InfoPopover` and follow `$playims-info-popover-builder`; do not ship custom popover variants.
 - Keep scope to dashboard routes unless user expands scope.
 
 ## Delivery Checklist

@@ -1,6 +1,6 @@
 ---
 name: style
-description: Defines the CSS framework, styling conventions, and design system for this project using TailwindCSS with a retro flat design aesthetic.
+description: Defines the CSS framework, styling conventions, and design system for this project using TailwindCSS with a retro flat design aesthetic and mobile-first responsiveness for web, mobile, and iPad.
 ---
 
 # Style Guide
@@ -23,6 +23,10 @@ This skill defines the styling standards, CSS framework usage, and design princi
 - Prefer utility classes over custom CSS when possible
 - Use the project's custom color palette (primary, secondary, neutral, accent) defined in the theme system
 - Use the custom components created for buttons, badges, form elements, etc. as seen in the usage examples in colors/+page.svelte.
+- For any new select/dropdown UI, use `src/lib/components/ListboxDropdown.svelte` and follow `$playims-listbox-dropdown-builder`.
+- Do not add new native `<select>` dropdowns; use the custom listbox dropdown component to keep the app consistent.
+- For any new info/help popover UI, use `src/lib/components/InfoPopover.svelte` and follow `$playims-info-popover-builder`.
+- Do not create ad-hoc/custom popover implementations when the behavior is an info popover.
 
 ### Design Aesthetic
 
@@ -70,9 +74,22 @@ This skill defines the styling standards, CSS framework usage, and design princi
 - Prioritize clarity and ease of use
 - For complex features or non-intuitive interactions, provide:
   - Clear instructions
-  - Information icons (ℹ️) that users can click for help
+  - Information icons that users can click for help
   - Tooltips or helper text where appropriate
-- For paragraph-heavy helper text, use `src/lib/components/InfoPopover.svelte` instead of ad-hoc `<details>` blocks so behavior stays consistent (toggle on re-click, close on outside click, close on `Escape`).
+- For paragraph-heavy helper text and any new info popover behavior, always use `src/lib/components/InfoPopover.svelte` and follow `$playims-info-popover-builder` so behavior stays consistent (toggle on re-click, close on outside click, close on `Escape`) across all pages and elements.
+
+### Responsive Priority (Mobile + iPad)
+
+- **Mobile-first is required**: Start with phone layout first, then scale up for tablet and desktop.
+- **iPad support is required**: Ensure all dashboard screens are fully usable in both iPad portrait and landscape.
+- Design for common widths at minimum: ~320px to ~430px (phones), ~768px and ~1024px (iPad portrait/landscape), and desktop widths.
+- Do not rely on hover-only interactions; every interaction must work with touch.
+- Keep touch targets at least `44x44` px for buttons, icons, toggles, and dropdown triggers.
+- Prevent horizontal overflow on page-level containers; if wide content is unavoidable (tables/schedules), use intentional horizontal scroll regions with clear affordances.
+- Ensure form layouts, modals, dropdowns, and wizard steps remain fully reachable and operable on small screens without clipped actions.
+- Prefer responsive stacking (`flex-col`, grid collapse, wrapped toolbars) before shrinking text below readable sizes.
+- Validate spacing and typography at mobile and iPad sizes so text remains legible and controls are not crowded.
+- For new dropdowns/selectors, ensure `ListboxDropdown` works cleanly with touch, viewport bounds, and scroll on mobile/iPad.
 
 ### Svelte Runes (Svelte 5)
 
@@ -107,4 +124,5 @@ This skill defines the styling standards, CSS framework usage, and design princi
 - Follow accessibility guidelines (see `html-accessibility.md` rule)
 - Keep designs clean and uncluttered
 - Prioritize functionality and usability over decorative elements
+
 
