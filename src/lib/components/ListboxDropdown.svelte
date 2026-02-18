@@ -44,7 +44,7 @@
 		placeholder = 'Select option',
 		emptyText = 'No options available.',
 		buttonClass = 'button-secondary-outlined px-3 py-1 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-60',
-		listClass = 'absolute left-0 top-full mt-1 w-64 border-2 border-secondary-300 bg-white z-20 max-h-72 overflow-y-auto shadow-[0_4px_0_var(--color-secondary-300)]',
+		listClass = 'mt-1 w-64 border-2 border-secondary-300 bg-white z-20 max-h-72 overflow-y-auto shadow-[0_4px_0_var(--color-secondary-300)]',
 		optionClass = 'w-full text-left px-3 py-2 text-sm cursor-pointer text-neutral-950 transition-colors duration-100 border-b border-secondary-200 last:border-b-0 touch-manipulation',
 		selectedOptionClass = 'bg-primary text-white font-semibold hover:bg-primary-700 active:bg-primary-800',
 		activeOptionClass = 'bg-neutral-100 text-neutral-950 hover:bg-neutral-200 active:bg-neutral-300',
@@ -61,6 +61,7 @@
 	let listElement = $state<HTMLDivElement | null>(null);
 	let open = $state(false);
 	let activeIndex = $state(-1);
+	let listInlineStyle = $state('');
 	let typeaheadBuffer = '';
 	let typeaheadResetTimer: ReturnType<typeof setTimeout> | null = null;
 	const dropdownId = nextDropdownId('dropdown');
@@ -124,6 +125,41 @@
 		activeIndex = findFirstEnabledIndex();
 	}
 
+	function clamp(value: number, min: number, max: number): number {
+		if (max < min) return min;
+		return Math.min(Math.max(value, min), max);
+	}
+
+	function positionList(): void {
+		if (typeof window === 'undefined' || !buttonElement || !listElement) return;
+
+		const viewportWidth = window.innerWidth;
+		const viewportHeight = window.innerHeight;
+		const viewportPadding = 8;
+		const gap = 4;
+		const buttonRect = buttonElement.getBoundingClientRect();
+		const measuredRect = listElement.getBoundingClientRect();
+		const listWidth = Math.max(1, measuredRect.width);
+		const listHeight = Math.max(1, measuredRect.height);
+
+		const preferredLeft = align === 'right' ? buttonRect.right - listWidth : buttonRect.left;
+		const maxLeft = viewportWidth - listWidth - viewportPadding;
+		const clampedLeft = clamp(preferredLeft, viewportPadding, maxLeft);
+		const maxWidth = Math.max(0, viewportWidth - viewportPadding * 2);
+
+		const belowTop = buttonRect.bottom + gap;
+		const aboveBottom = buttonRect.top - gap;
+		const spaceBelow = Math.max(0, viewportHeight - belowTop - viewportPadding);
+		const spaceAbove = Math.max(0, aboveBottom - viewportPadding);
+		const shouldOpenAbove = spaceBelow < listHeight && spaceAbove > spaceBelow;
+		const availableHeight = Math.max(0, shouldOpenAbove ? spaceAbove : spaceBelow);
+		const listTop = shouldOpenAbove
+			? Math.max(viewportPadding, buttonRect.top - gap - Math.min(listHeight, availableHeight))
+			: belowTop;
+
+		listInlineStyle = `position: fixed; top: ${listTop}px; left: ${clampedLeft}px; max-width: ${maxWidth}px; max-height: ${availableHeight}px;`;
+	}
+
 	async function openMenu(focusList = true): Promise<void> {
 		if (disabled) return;
 		if (!open) {
@@ -132,6 +168,7 @@
 		}
 		if (!focusList) return;
 		await tick();
+		positionList();
 		listElement?.focus();
 		scrollActiveOptionIntoView();
 	}
@@ -334,6 +371,31 @@
 	});
 
 	$effect(() => {
+		if (typeof window === 'undefined' || !open) return;
+		positionList();
+
+		const handleViewportChange = () => {
+			positionList();
+		};
+		const resizeObserver =
+			typeof ResizeObserver === 'undefined'
+				? null
+				: new ResizeObserver(() => {
+						positionList();
+					});
+
+		if (resizeObserver && buttonElement) resizeObserver.observe(buttonElement);
+		if (resizeObserver && listElement) resizeObserver.observe(listElement);
+		window.addEventListener('resize', handleViewportChange);
+		window.addEventListener('scroll', handleViewportChange, true);
+		return () => {
+			resizeObserver?.disconnect();
+			window.removeEventListener('resize', handleViewportChange);
+			window.removeEventListener('scroll', handleViewportChange, true);
+		};
+	});
+
+	$effect(() => {
 		if (!open) return;
 		if (activeIndex >= 0 && activeIndex < options.length && !options[activeIndex]?.disabled) return;
 		setActiveIndexToSelectedOrFirst();
@@ -374,7 +436,8 @@
 			aria-labelledby={buttonId}
 			aria-activedescendant={activeOptionId}
 			tabindex="0"
-			class={`${align === 'right' ? 'right-0' : 'left-0'} ${listClass}`}
+			class={`${listClass} fixed`}
+			style={listInlineStyle}
 			bind:this={listElement}
 			onkeydown={handleListKeydown}
 		>
