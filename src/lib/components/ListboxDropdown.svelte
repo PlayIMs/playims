@@ -61,8 +61,8 @@
 		buttonClass = 'button-secondary-outlined px-3 py-1 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-60',
 		listClass = 'mt-1 w-64 border-2 border-secondary-300 bg-white z-20 max-h-72 overflow-y-auto',
 		optionClass = 'w-full text-left px-3 py-2 text-sm cursor-pointer text-neutral-950 transition-colors duration-100 touch-manipulation',
-		selectedOptionClass = 'bg-primary text-white font-semibold hover:bg-primary-700 active:bg-primary-800',
-		activeOptionClass = 'bg-neutral-100 text-neutral-950 hover:bg-neutral-200 active:bg-neutral-300',
+		selectedOptionClass = 'bg-primary text-white font-semibold',
+		activeOptionClass = 'bg-neutral-300 text-neutral-950',
 		disabledOptionClass = 'opacity-50 cursor-not-allowed bg-white text-neutral-700',
 		footerActionLabel,
 		footerActionAriaLabel,
@@ -96,7 +96,9 @@
 	const footerActionId = `${dropdownId}-footer-action`;
 
 	const selectedIndex = $derived.by(() =>
-		mode === 'action' ? -1 : options.findIndex((option) => option.value === value && !option.disabled)
+		mode === 'action'
+			? -1
+			: options.findIndex((option) => option.value === value && !option.disabled)
 	);
 	const hasFooterAction = $derived.by(() => Boolean(footerActionLabel || footerAction));
 	const selectedOption = $derived.by(() =>
@@ -240,7 +242,9 @@
 
 	function scrollActiveOptionIntoView(): void {
 		if (!listElement || activeIndex < 0) return;
-		const activeOption = listElement.querySelector<HTMLElement>(`#${listboxId}-option-${activeIndex}`);
+		const activeOption = listElement.querySelector<HTMLElement>(
+			`#${listboxId}-option-${activeIndex}`
+		);
 		activeOption?.scrollIntoView({ block: 'nearest' });
 	}
 
@@ -406,6 +410,10 @@
 			return `${optionBaseClass} ${disabledOptionClass}`;
 		}
 
+		if (isSelected && isActive) {
+			return `${optionBaseClass} bg-primary-600 text-white font-semibold`;
+		}
+
 		if (isSelected) {
 			return `${optionBaseClass} ${selectedOptionClass}`;
 		}
@@ -414,7 +422,7 @@
 			return `${optionBaseClass} ${activeOptionClass}`;
 		}
 
-		return `${optionBaseClass} hover:bg-neutral-100 active:bg-neutral-200`;
+		return `${optionBaseClass} hover:bg-neutral-300 active:bg-neutral-300`;
 	}
 
 	$effect(() => {
@@ -484,7 +492,7 @@
 		aria-haspopup="listbox"
 		aria-expanded={open}
 		aria-controls={listboxId}
-		disabled={disabled}
+		{disabled}
 		data-wizard-autofocus={autoFocus ? 'true' : undefined}
 		bind:this={buttonElement}
 		onclick={handleButtonClick}
@@ -516,7 +524,7 @@
 				aria-labelledby={buttonId}
 				aria-activedescendant={activeOptionId}
 				tabindex="0"
-				class={hasFooterAction ? 'min-h-0 flex-1 overflow-y-auto' : ''}
+				class={`${hasFooterAction ? 'min-h-0 flex-1 overflow-y-auto' : ''} focus:outline-none focus-visible:outline-none`}
 				bind:this={listElement}
 				onkeydown={handleListKeydown}
 			>
