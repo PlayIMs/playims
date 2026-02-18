@@ -10,6 +10,7 @@
 <script lang="ts">
 	import IconChevronDown from '@tabler/icons-svelte/icons/chevron-down';
 	import IconChevronUp from '@tabler/icons-svelte/icons/chevron-up';
+	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import { createEventDispatcher, onDestroy, tick } from 'svelte';
 	import type { Snippet } from 'svelte';
 
@@ -19,6 +20,8 @@
 		statusLabel?: string;
 		disabled?: boolean;
 		separatorBefore?: boolean;
+		tooltip?: string;
+		disabledTooltip?: string;
 	}
 
 	type ListboxDropdownMode = 'select' | 'action';
@@ -43,6 +46,11 @@
 		footerActionClass?: string;
 		footerActionDisabled?: boolean;
 		footerAction?: Snippet<[]>;
+		footerSecondaryActionLabel?: string;
+		footerSecondaryActionAriaLabel?: string;
+		footerSecondaryActionClass?: string;
+		footerSecondaryActionDisabled?: boolean;
+		footerSecondaryAction?: Snippet<[]>;
 		autoFocus?: boolean;
 		align?: 'left' | 'right';
 		disabled?: boolean;
@@ -69,6 +77,11 @@
 		footerActionClass = 'w-full button-primary-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer justify-center',
 		footerActionDisabled = false,
 		footerAction,
+		footerSecondaryActionLabel,
+		footerSecondaryActionAriaLabel,
+		footerSecondaryActionClass = 'button-secondary-outlined px-2 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer justify-center',
+		footerSecondaryActionDisabled = false,
+		footerSecondaryAction,
 		autoFocus = false,
 		align = 'left',
 		disabled = false,
@@ -79,6 +92,7 @@
 		change: { value: string };
 		action: { value: string };
 		footerAction: undefined;
+		footerSecondaryAction: undefined;
 	}>();
 
 	let root = $state<HTMLDivElement | null>(null);
@@ -94,19 +108,28 @@
 	const buttonId = `${dropdownId}-button`;
 	const listboxId = `${dropdownId}-listbox`;
 	const footerActionId = `${dropdownId}-footer-action`;
+	const footerSecondaryActionId = `${dropdownId}-footer-secondary-action`;
 
 	const selectedIndex = $derived.by(() =>
 		mode === 'action'
 			? -1
 			: options.findIndex((option) => option.value === value && !option.disabled)
 	);
-	const hasFooterAction = $derived.by(() => Boolean(footerActionLabel || footerAction));
+	const hasPrimaryFooterAction = $derived.by(() => Boolean(footerActionLabel || footerAction));
+	const hasSecondaryFooterAction = $derived.by(() =>
+		Boolean(footerSecondaryActionLabel || footerSecondaryAction)
+	);
+	const hasFooterAction = $derived.by(() => hasPrimaryFooterAction || hasSecondaryFooterAction);
 	const selectedOption = $derived.by(() =>
 		selectedIndex >= 0 ? (options[selectedIndex] ?? null) : null
 	);
 	const activeOptionId = $derived.by(() =>
 		activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined
 	);
+	const rootClass = $derived.by(() => {
+		const isFullWidthTrigger = /\bw-full\b/.test(buttonClass) || /\bmin-w-full\b/.test(buttonClass);
+		return `relative ${isFullWidthTrigger ? 'flex w-full' : 'inline-flex'} items-stretch`;
+	});
 
 	onDestroy(() => {
 		clearTypeaheadBuffer();
@@ -127,6 +150,7 @@
 	function isTypeaheadCharacter(key: string): boolean {
 		return key.length === 1 && key !== '\r' && key !== '\n' && key !== '\t';
 	}
+
 	function optionLabelMatchesBuffer(label: string, normalizedBuffer: string): boolean {
 		if (!normalizedBuffer) return false;
 		const normalizedLabel = normalizeText(label);
@@ -169,8 +193,14 @@
 	}
 
 	function triggerFooterAction(): void {
-		if (!hasFooterAction || footerActionDisabled) return;
+		if (!hasPrimaryFooterAction || footerActionDisabled) return;
 		dispatch('footerAction');
+		closeMenu(true);
+	}
+
+	function triggerFooterSecondaryAction(): void {
+		if (!hasSecondaryFooterAction || footerSecondaryActionDisabled) return;
+		dispatch('footerSecondaryAction');
 		closeMenu(true);
 	}
 
@@ -465,6 +495,13 @@
 		return `${optionBaseClass} hover:bg-neutral-300 active:bg-neutral-300`;
 	}
 
+	function optionTooltipFor(option: ListboxDropdownOption): string | undefined {
+		const value = option.disabled ? option.disabledTooltip ?? option.tooltip : option.tooltip;
+		if (!value) return undefined;
+		const trimmed = value.trim();
+		return trimmed.length > 0 ? trimmed : undefined;
+	}
+
 	$effect(() => {
 		if (typeof window === 'undefined' || !open) return;
 
@@ -523,7 +560,7 @@
 	});
 </script>
 
-<div class="relative inline-flex items-stretch" bind:this={root}>
+<div class={rootClass} bind:this={root}>
 	<button
 		id={buttonId}
 		type="button"
@@ -572,31 +609,75 @@
 					<p class="px-3 py-2 text-xs text-neutral-900">{emptyText}</p>
 				{:else}
 					{#each options as option, index}
-						<button
-							id={`${listboxId}-option-${index}`}
-							type="button"
-							role="option"
-							aria-selected={mode === 'action' ? undefined : option.value === value}
-							aria-disabled={option.disabled ? 'true' : undefined}
-							tabindex="-1"
-							disabled={option.disabled}
-							class={optionClassFor(option, index)}
-							onclick={() => {
-								selectOptionAtIndex(index);
-							}}
-							onmousemove={() => {
-								if (!option.disabled) activeIndex = index;
-							}}
-						>
-							<span class="inline-flex items-center gap-2 min-w-0">
-								<span class="truncate">{option.label}</span>
-								{#if option.statusLabel}
-									<span class="text-[10px] uppercase tracking-wide text-secondary-900 shrink-0">
-										({option.statusLabel})
+						{@const isSelectedOption = mode !== 'action' && option.value === value}
+						{@const optionTooltip = optionTooltipFor(option)}
+						{#if optionTooltip}
+							<HoverTooltip
+								text={optionTooltip}
+								placement="right"
+								align="left"
+								offsetPx={10}
+								constrainToAncestorOverflow={false}
+								maxWidthClass="max-w-72"
+								wrapperClass="block w-full"
+							>
+								<button
+									id={`${listboxId}-option-${index}`}
+									type="button"
+									role="option"
+									aria-selected={mode === 'action' ? undefined : option.value === value}
+									aria-disabled={option.disabled ? 'true' : undefined}
+									tabindex="-1"
+									disabled={option.disabled}
+									class={optionClassFor(option, index)}
+									onclick={() => {
+										selectOptionAtIndex(index);
+									}}
+									onmousemove={() => {
+										if (!option.disabled) activeIndex = index;
+									}}
+								>
+									<span class="inline-flex items-center gap-2 min-w-0">
+										<span class="truncate">{option.label}</span>
+										{#if option.statusLabel}
+											<span
+												class={`text-[10px] uppercase tracking-wide shrink-0 ${isSelectedOption ? 'text-white' : 'text-secondary-900'}`}
+											>
+												({option.statusLabel})
+											</span>
+										{/if}
 									</span>
-								{/if}
-							</span>
-						</button>
+								</button>
+							</HoverTooltip>
+						{:else}
+							<button
+								id={`${listboxId}-option-${index}`}
+								type="button"
+								role="option"
+								aria-selected={mode === 'action' ? undefined : option.value === value}
+								aria-disabled={option.disabled ? 'true' : undefined}
+								tabindex="-1"
+								disabled={option.disabled}
+								class={optionClassFor(option, index)}
+								onclick={() => {
+									selectOptionAtIndex(index);
+								}}
+								onmousemove={() => {
+									if (!option.disabled) activeIndex = index;
+								}}
+							>
+								<span class="inline-flex items-center gap-2 min-w-0">
+									<span class="truncate">{option.label}</span>
+									{#if option.statusLabel}
+										<span
+											class={`text-[10px] uppercase tracking-wide shrink-0 ${isSelectedOption ? 'text-white' : 'text-secondary-900'}`}
+										>
+											({option.statusLabel})
+										</span>
+									{/if}
+								</span>
+							</button>
+						{/if}
 					{/each}
 				{/if}
 			</div>
@@ -607,20 +688,44 @@
 
 			{#if hasFooterAction}
 				<div class="border-t-2 border-secondary-300 bg-neutral-100 p-1.5">
-					<button
-						id={footerActionId}
-						type="button"
-						class={footerActionClass}
-						aria-label={footerActionAriaLabel ?? footerActionLabel}
-						disabled={footerActionDisabled}
-						onclick={triggerFooterAction}
+					<div
+						class={hasPrimaryFooterAction && hasSecondaryFooterAction
+							? 'grid grid-cols-[minmax(0,1fr)_auto] gap-1.5'
+							: ''}
 					>
-						{#if footerAction}
-							{@render footerAction()}
-						{:else}
-							{footerActionLabel}
+						{#if hasPrimaryFooterAction}
+							<button
+								id={footerActionId}
+								type="button"
+								class={footerActionClass}
+								aria-label={footerActionAriaLabel ?? footerActionLabel}
+								disabled={footerActionDisabled}
+								onclick={triggerFooterAction}
+							>
+								{#if footerAction}
+									{@render footerAction()}
+								{:else}
+									{footerActionLabel}
+								{/if}
+							</button>
 						{/if}
-					</button>
+						{#if hasSecondaryFooterAction}
+							<button
+								id={footerSecondaryActionId}
+								type="button"
+								class={footerSecondaryActionClass}
+								aria-label={footerSecondaryActionAriaLabel ?? footerSecondaryActionLabel}
+								disabled={footerSecondaryActionDisabled}
+								onclick={triggerFooterSecondaryAction}
+							>
+								{#if footerSecondaryAction}
+									{@render footerSecondaryAction()}
+								{:else}
+									{footerSecondaryActionLabel}
+								{/if}
+							</button>
+						{/if}
+					</div>
 				</div>
 			{/if}
 		</div>

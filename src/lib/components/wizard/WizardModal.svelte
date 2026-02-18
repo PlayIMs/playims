@@ -47,6 +47,7 @@
 		() =>
 			`w-full ${maxWidthClass} max-h-[calc(100vh-2rem)] lg:max-h-[calc(100vh-3rem)] border-4 border-secondary bg-neutral-400 overflow-hidden flex flex-col`
 	);
+	const showStepMeta = $derived.by(() => stepCount > 1);
 	let formElement = $state<HTMLFormElement | null>(null);
 
 	function focusFirstWizardField(): void {
@@ -75,17 +76,14 @@
 	});
 </script>
 
-<ModalShell
-	{open}
-	closeAriaLabel={closeAriaLabel}
-	panelClass={panelClass}
-	on:requestClose={() => dispatch('requestClose')}
->
+<ModalShell {open} {closeAriaLabel} {panelClass} on:requestClose={() => dispatch('requestClose')}>
 	<div class="p-4 border-b border-secondary space-y-3">
 		<div class="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
 			<div>
 				<h2 class="text-3xl font-bold font-serif text-neutral-950">{title}</h2>
-				<p class="text-sm font-sans text-neutral-950">Step {step} of {stepCount}: {stepTitle}</p>
+				{#if showStepMeta}
+					<p class="text-sm font-sans text-neutral-950">Step {step} of {stepCount}: {stepTitle}</p>
+				{/if}
 			</div>
 			<button
 				type="button"
@@ -96,9 +94,11 @@
 				<IconX class="w-6 h-6" />
 			</button>
 		</div>
-		<div class="border border-secondary-300 bg-white h-3" aria-hidden="true">
-			<div class="h-full bg-secondary" style={`width: ${progressPercent}%`}></div>
-		</div>
+		{#if showStepMeta}
+			<div class="border border-secondary-300 bg-white h-3" aria-hidden="true">
+				<div class="h-full bg-secondary" style={`width: ${progressPercent}%`}></div>
+			</div>
+		{/if}
 	</div>
 
 	<form
