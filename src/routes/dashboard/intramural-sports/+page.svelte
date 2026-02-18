@@ -3283,9 +3283,12 @@
 									ariaLabel="Season history"
 									buttonClass="button-secondary-outlined p-1.5 cursor-pointer"
 									emptyText="No seasons configured."
+									footerActionLabel="Add New Season"
+									footerActionAriaLabel="Add new season"
 									on:change={(event) => {
 										handleSeasonHistoryChange(event.detail.value);
 									}}
+									on:footerAction={openCreateSeasonWizard}
 								>
 									{#snippet trigger(_, selectedOption)}
 										<IconHistory
@@ -3583,9 +3586,12 @@
 								ariaLabel="Season history"
 								buttonClass="button-secondary-outlined p-1.5 cursor-pointer"
 								emptyText="No seasons configured."
+								footerActionLabel="Add New Season"
+								footerActionAriaLabel="Add new season"
 								on:change={(event) => {
 									handleSeasonHistoryChange(event.detail.value);
 								}}
+								on:footerAction={openCreateSeasonWizard}
 							>
 								{#snippet trigger(_, selectedOption)}
 									<IconHistory

@@ -7,6 +7,7 @@ Use this matrix after adding or refactoring any `ListboxDropdown` usage.
 - Parent state updates and reflected label/trigger state stays in sync.
 - Existing side effects on selection (filtering, section reset, fetches) still run.
 - If current `value` is missing from options, placeholder behavior is acceptable for the route.
+- If footer action is configured, clicking it emits `footerAction` and runs the expected route action.
 
 ## Keyboard
 - `ArrowDown` on trigger opens dropdown and moves active option.
@@ -22,6 +23,7 @@ Use this matrix after adding or refactoring any `ListboxDropdown` usage.
 - Clicking outside closes dropdown.
 - Hovering options updates active styling (without selecting until click/Enter/Space).
 - Selecting an option closes dropdown and returns focus to trigger button.
+- Footer action button (when present) is visually distinct and clickable without affecting option selection state.
 
 ## Accessibility + Semantics
 - Trigger has domain-specific `ariaLabel`.
@@ -29,6 +31,7 @@ Use this matrix after adding or refactoring any `ListboxDropdown` usage.
 - List container uses `role="listbox"` and options use `role="option"`.
 - `aria-selected` reflects current selection.
 - Disabled options expose `aria-disabled` and cannot be selected.
+- Footer action button has an accessible label (`footerActionAriaLabel` or clear visible text).
 
 ## Visual + Layout
 - Trigger style aligns with route conventions (`button-secondary-outlined` for compact icon triggers).

@@ -23,6 +23,8 @@ Treat this API as the baseline:
 - Optional props: `placeholder`, `emptyText`, `align`, `disabled`
 - Optional class overrides: `buttonClass`, `listClass`, `optionClass`, `selectedOptionClass`, `activeOptionClass`, `disabledOptionClass`
 - Optional trigger snippet: `trigger?: Snippet<[open: boolean, selectedOption: Option | null]>`
+- Optional footer action: `footerActionLabel`, `footerActionAriaLabel`, `footerActionClass`, `footerActionDisabled`, `footerAction?: Snippet<[]>`
+- Optional footer event: `on:footerAction`
 
 Behavioral guarantees from current implementation:
 - Supports keyboard navigation (`ArrowUp/Down`, `Home`, `End`, `Enter`, `Space`, `Escape`, `Tab`).
@@ -65,6 +67,20 @@ Example icon trigger usage:
 </ListboxDropdown>
 ```
 
+Example footer action usage:
+```svelte
+<ListboxDropdown
+	options={seasonHistoryDropdownOptions}
+	value={selectedSeasonId}
+	ariaLabel="Season history"
+	footerActionLabel="Add New Season"
+	on:footerAction={openCreateSeasonWizard}
+	on:change={(event) => {
+		handleSeasonHistoryChange(event.detail.value);
+	}}
+/>
+```
+
 ## Workflow
 1. Ground behavior parity.
 - Capture current selection state, side effects, and empty/loading behavior.
@@ -77,10 +93,13 @@ Example icon trigger usage:
 - Start from default classes.
 - For compact icon triggers, pass `buttonClass="button-secondary-outlined p-1.5 cursor-pointer"`.
 - Override `listClass` width/alignment only when required by layout constraints.
-4. Validate accessibility and interaction parity.
+4. Add optional footer actions when needed.
+- Use footer action for contextual CTA items (for example: `Add New Season`) that should be visually distinct from selection options.
+- Keep footer action labels action-oriented verbs, and wire `on:footerAction` in the parent route/component.
+5. Validate accessibility and interaction parity.
 - Run keyboard/pointer QA from `references/qa-matrix.md`.
 - Confirm screen-reader labels and `aria-expanded` transitions.
-5. Validate build safety.
+6. Validate build safety.
 - Run `pnpm check`.
 - Run `pnpm build` when changing shared component internals or multiple consumers.
 
@@ -89,6 +108,7 @@ Example icon trigger usage:
 - Do not remove keyboard/typeahead/outside-click behavior when editing component internals.
 - Do not use `ListboxDropdown` for action menus (`role="menu"` semantics); keep it for option selection (`role="listbox"`).
 - Prefer `statusLabel` for compact contextual tags (CURRENT/PAST/FUTURE) rather than embedding metadata in primary labels.
+- Use the optional footer action only for secondary contextual actions, not for replacing primary option selection.
 - Keep option `value` strings stable and unique.
 - Preserve existing copy unless explicitly asked to rewrite UX text.
 

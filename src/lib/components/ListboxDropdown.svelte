@@ -32,6 +32,11 @@
 		selectedOptionClass?: string;
 		activeOptionClass?: string;
 		disabledOptionClass?: string;
+		footerActionLabel?: string;
+		footerActionAriaLabel?: string;
+		footerActionClass?: string;
+		footerActionDisabled?: boolean;
+		footerAction?: Snippet<[]>;
 		align?: 'left' | 'right';
 		disabled?: boolean;
 		trigger?: Snippet<[boolean, ListboxDropdownOption | null]>;
@@ -44,20 +49,26 @@
 		placeholder = 'Select option',
 		emptyText = 'No options available.',
 		buttonClass = 'button-secondary-outlined px-3 py-1 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-60',
-		listClass = 'mt-1 w-64 border-2 border-secondary-300 bg-white z-20 max-h-72 overflow-y-auto shadow-[0_4px_0_var(--color-secondary-300)]',
-		optionClass = 'w-full text-left px-3 py-2 text-sm cursor-pointer text-neutral-950 transition-colors duration-100 border-b border-secondary-200 last:border-b-0 touch-manipulation',
+		listClass = 'mt-1 w-64 border-2 border-secondary-300 bg-white z-20 max-h-72 overflow-y-auto',
+		optionClass = 'w-full text-left px-3 py-2 text-sm cursor-pointer text-neutral-950 transition-colors duration-100 touch-manipulation',
 		selectedOptionClass = 'bg-primary text-white font-semibold hover:bg-primary-700 active:bg-primary-800',
 		activeOptionClass = 'bg-neutral-100 text-neutral-950 hover:bg-neutral-200 active:bg-neutral-300',
 		disabledOptionClass = 'opacity-50 cursor-not-allowed bg-white text-neutral-700',
+		footerActionLabel,
+		footerActionAriaLabel,
+		footerActionClass = 'w-full button-primary-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer justify-center',
+		footerActionDisabled = false,
+		footerAction,
 		align = 'left',
 		disabled = false,
 		trigger
 	}: Props = $props();
 
-	const dispatch = createEventDispatcher<{ change: { value: string } }>();
+	const dispatch = createEventDispatcher<{ change: { value: string }; footerAction: undefined }>();
 
 	let root = $state<HTMLDivElement | null>(null);
 	let buttonElement = $state<HTMLButtonElement | null>(null);
+	let panelElement = $state<HTMLDivElement | null>(null);
 	let listElement = $state<HTMLDivElement | null>(null);
 	let open = $state(false);
 	let activeIndex = $state(-1);
@@ -67,10 +78,12 @@
 	const dropdownId = nextDropdownId('dropdown');
 	const buttonId = `${dropdownId}-button`;
 	const listboxId = `${dropdownId}-listbox`;
+	const footerActionId = `${dropdownId}-footer-action`;
 
 	const selectedIndex = $derived.by(() =>
 		options.findIndex((option) => option.value === value && !option.disabled)
 	);
+	const hasFooterAction = $derived.by(() => Boolean(footerActionLabel || footerAction));
 	const selectedOption = $derived.by(() =>
 		selectedIndex >= 0 ? (options[selectedIndex] ?? null) : null
 	);
@@ -122,7 +135,18 @@
 			activeIndex = selectedIndex;
 			return;
 		}
-		activeIndex = findFirstEnabledIndex();
+		const firstEnabledIndex = findFirstEnabledIndex();
+		if (firstEnabledIndex >= 0) {
+			activeIndex = firstEnabledIndex;
+			return;
+		}
+		activeIndex = -1;
+	}
+
+	function triggerFooterAction(): void {
+		if (!hasFooterAction || footerActionDisabled) return;
+		dispatch('footerAction');
+		closeMenu(true);
 	}
 
 	function clamp(value: number, min: number, max: number): number {
@@ -131,14 +155,14 @@
 	}
 
 	function positionList(): void {
-		if (typeof window === 'undefined' || !buttonElement || !listElement) return;
+		if (typeof window === 'undefined' || !buttonElement || !panelElement) return;
 
 		const viewportWidth = window.innerWidth;
 		const viewportHeight = window.innerHeight;
 		const viewportPadding = 8;
 		const gap = 4;
 		const buttonRect = buttonElement.getBoundingClientRect();
-		const measuredRect = listElement.getBoundingClientRect();
+		const measuredRect = panelElement.getBoundingClientRect();
 		const listWidth = Math.max(1, measuredRect.width);
 		const listHeight = Math.max(1, measuredRect.height);
 
@@ -158,6 +182,17 @@
 			: belowTop;
 
 		listInlineStyle = `position: fixed; top: ${listTop}px; left: ${clampedLeft}px; max-width: ${maxWidth}px; max-height: ${availableHeight}px;`;
+	}
+
+	function handlePanelFocusout(event: FocusEvent): void {
+		const target = event.relatedTarget;
+		if (!(target instanceof Node)) {
+			closeMenu();
+			return;
+		}
+		if (panelElement?.contains(target)) return;
+		if (buttonElement?.contains(target)) return;
+		closeMenu();
 	}
 
 	async function openMenu(focusList = true): Promise<void> {
@@ -319,6 +354,9 @@
 			return;
 		}
 		if (event.key === 'Tab') {
+			if (hasFooterAction && !event.shiftKey) {
+				return;
+			}
 			closeMenu();
 			return;
 		}
@@ -328,22 +366,25 @@
 	}
 
 	function optionClassFor(option: ListboxDropdownOption, index: number): string {
+		const optionBorderClass =
+			index < options.length - 1 ? 'border-b border-secondary-200' : 'border-b-0';
+		const optionBaseClass = `${optionClass} ${optionBorderClass}`;
 		const isSelected = option.value === value;
 		const isActive = index === activeIndex;
 
 		if (option.disabled) {
-			return `${optionClass} ${disabledOptionClass}`;
+			return `${optionBaseClass} ${disabledOptionClass}`;
 		}
 
 		if (isSelected) {
-			return `${optionClass} ${selectedOptionClass}`;
+			return `${optionBaseClass} ${selectedOptionClass}`;
 		}
 
 		if (isActive) {
-			return `${optionClass} ${activeOptionClass}`;
+			return `${optionBaseClass} ${activeOptionClass}`;
 		}
 
-		return `${optionClass} hover:bg-neutral-100 active:bg-neutral-200`;
+		return `${optionBaseClass} hover:bg-neutral-100 active:bg-neutral-200`;
 	}
 
 	$effect(() => {
@@ -385,6 +426,7 @@
 					});
 
 		if (resizeObserver && buttonElement) resizeObserver.observe(buttonElement);
+		if (resizeObserver && panelElement) resizeObserver.observe(panelElement);
 		if (resizeObserver && listElement) resizeObserver.observe(listElement);
 		window.addEventListener('resize', handleViewportChange);
 		window.addEventListener('scroll', handleViewportChange, true);
@@ -430,47 +472,72 @@
 
 	{#if open}
 		<div
-			id={listboxId}
-			role="listbox"
-			aria-label={ariaLabel}
-			aria-labelledby={buttonId}
-			aria-activedescendant={activeOptionId}
-			tabindex="0"
-			class={`${listClass} fixed`}
+			class={`${listClass} fixed ${hasFooterAction ? 'flex flex-col overflow-hidden' : ''}`}
 			style={listInlineStyle}
-			bind:this={listElement}
-			onkeydown={handleListKeydown}
+			bind:this={panelElement}
+			onfocusout={handlePanelFocusout}
 		>
-			{#if options.length === 0}
-				<p class="px-3 py-2 text-xs text-neutral-900">{emptyText}</p>
-			{:else}
-				{#each options as option, index}
+			<div
+				id={listboxId}
+				role="listbox"
+				aria-label={ariaLabel}
+				aria-labelledby={buttonId}
+				aria-activedescendant={activeOptionId}
+				tabindex="0"
+				class={hasFooterAction ? 'min-h-0 flex-1 overflow-y-auto' : ''}
+				bind:this={listElement}
+				onkeydown={handleListKeydown}
+			>
+				{#if options.length === 0}
+					<p class="px-3 py-2 text-xs text-neutral-900">{emptyText}</p>
+				{:else}
+					{#each options as option, index}
+						<button
+							id={`${listboxId}-option-${index}`}
+							type="button"
+							role="option"
+							aria-selected={option.value === value}
+							aria-disabled={option.disabled ? 'true' : undefined}
+							tabindex="-1"
+							disabled={option.disabled}
+							class={optionClassFor(option, index)}
+							onclick={() => {
+								selectOptionAtIndex(index);
+							}}
+							onmousemove={() => {
+								if (!option.disabled) activeIndex = index;
+							}}
+						>
+							<span class="inline-flex items-center gap-2 min-w-0">
+								<span class="truncate">{option.label}</span>
+								{#if option.statusLabel}
+									<span class="text-[10px] uppercase tracking-wide text-secondary-900 shrink-0">
+										({option.statusLabel})
+									</span>
+								{/if}
+							</span>
+						</button>
+					{/each}
+				{/if}
+			</div>
+
+			{#if hasFooterAction}
+				<div class="border-t-2 border-secondary-300 bg-neutral-100 p-1.5">
 					<button
-						id={`${listboxId}-option-${index}`}
+						id={footerActionId}
 						type="button"
-						role="option"
-						aria-selected={option.value === value}
-						aria-disabled={option.disabled ? 'true' : undefined}
-						tabindex="-1"
-						disabled={option.disabled}
-						class={optionClassFor(option, index)}
-						onclick={() => {
-							selectOptionAtIndex(index);
-						}}
-						onmousemove={() => {
-							if (!option.disabled) activeIndex = index;
-						}}
+						class={footerActionClass}
+						aria-label={footerActionAriaLabel ?? footerActionLabel}
+						disabled={footerActionDisabled}
+						onclick={triggerFooterAction}
 					>
-						<span class="inline-flex items-center gap-2 min-w-0">
-							<span class="truncate">{option.label}</span>
-							{#if option.statusLabel}
-								<span class="text-[10px] uppercase tracking-wide text-secondary-900 shrink-0">
-									({option.statusLabel})
-								</span>
-							{/if}
-						</span>
+						{#if footerAction}
+							{@render footerAction()}
+						{:else}
+							{footerActionLabel}
+						{/if}
 					</button>
-				{/each}
+				</div>
 			{/if}
 		</div>
 	{/if}
