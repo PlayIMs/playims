@@ -9,6 +9,14 @@ Use shared wizard primitives for consistent modal behavior, step framing, and dr
 - `WizardStepFooter`: shared Back/Next/Submit footer.
 - `WizardUnsavedConfirm`: custom unsaved changes confirm modal.
 - `WizardDraftCollection`: shared list UI for draft entities.
+- `InfoPopover`: reusable info/help popover trigger for paragraph-heavy helper text.
+
+## Default Modal Behavior
+- `Escape` closes the topmost open modal via shared `ModalShell` behavior, even before any field is focused.
+- Wizard close behavior still routes through each wizard's existing `requestClose` handler, so unsaved-change confirmation remains intact.
+- `WizardModal` auto-focuses the first enabled `input`, `select`, or `textarea` when opened and when step content changes.
+- To override initial focus for a specific field, add `data-wizard-autofocus` to that element.
+- `InfoPopover` helper panels close on `Escape`, outside click, and trigger re-click (toggle behavior).
 
 ## Shared Utilities
 - `slug-utils.ts`: `slugifyFinal`, `slugifyLiveWithCursor`, `applyLiveSlugInput`.
@@ -21,6 +29,21 @@ Use shared wizard primitives for consistent modal behavior, step framing, and dr
 3. Use `WizardModal` + `WizardStepFooter` for shell consistency.
 4. Use `WizardDraftCollection` for add/edit/copy/reorder/remove list steps.
 5. Use `WizardUnsavedConfirm` for unsaved-close behavior.
+
+## Step Layout Rule
+- Prevent wizard step content from exceeding modal height whenever possible.
+- Prefer adding another wizard step/panel over introducing more in-panel scrolling.
+- If a step becomes dense (multiple decision blocks), split it into sequential steps.
+
+## Scannability and Action UX
+- Prioritize quick scanning over long explanatory paragraphs.
+- Put the primary decision or required action at the top of each step.
+- Use short section labels such as `Action Required`, `Optional`, `Current`, `Outcome`, or `Preview`.
+- Prefer selectable cards/rows for major choices instead of plain stacked radio text.
+- Keep helper copy concise; move detailed explanations to an `(i)` info affordance (`details/summary` or tooltip/popover).
+- Summarize context with compact stat/summary blocks when possible (counts, status, source, result).
+- Keep each step focused on one job; if users must make multiple major decisions, split into more steps.
+- Preserve clear affordances for what happens next (e.g., `Next`, `Review`, `Create`) and what each choice changes.
 
 ## Migration Checklist
 - Replace inline modal overlay markup with `WizardModal`.

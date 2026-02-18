@@ -17,6 +17,7 @@ Read these files before making changes:
 - `src/lib/components/wizard/WizardUnsavedConfirm.svelte`
 - `src/lib/components/wizard/WizardDraftCollection.svelte`
 - `src/lib/components/modals/ModalShell.svelte`
+- `src/lib/components/InfoPopover.svelte`
 - Existing route examples:
 - `src/routes/dashboard/facilities/_wizards/CreateFacilityWizard.svelte`
 - `src/routes/dashboard/intramural-sports/_wizards/CreateOfferingWizard.svelte`
@@ -48,6 +49,7 @@ Follow this structure:
 3. Standardize UX logic.
 - Replace native unsaved `window.confirm` for wizard close with `WizardUnsavedConfirm`.
 - Keep existing in-flow confirms unless explicitly asked to change them.
+- Use `InfoPopover` for paragraph-heavy helper/explanatory content instead of ad-hoc `<details>` patterns.
 4. Standardize draft-list logic.
 - Use `WizardDraftCollection` UI and draft controller helpers for reorder/removal/edit-index adjustments.
 5. Rewire route page.
@@ -61,6 +63,7 @@ Follow this structure:
 ## Guardrails
 - Keep numeric step IDs unless asked to change.
 - Preserve existing copy and behavior by default (parity-first).
+- Prefer splitting dense content into additional wizard steps instead of relying on in-panel scroll.
 - Do not change backend schemas/migrations/API contracts unless requested.
 - If adding a new `/api/...` endpoint for the wizard, update security policy map and rate limiting in `src/hooks.server.ts` (`API_ROUTE_POLICIES` and `resolveRateLimitConfig`) to avoid 403 policy blocks.
 - Keep scope to dashboard routes unless user expands scope.

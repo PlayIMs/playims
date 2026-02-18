@@ -72,6 +72,7 @@ This skill defines the styling standards, CSS framework usage, and design princi
   - Clear instructions
   - Information icons (ℹ️) that users can click for help
   - Tooltips or helper text where appropriate
+- For paragraph-heavy helper text, use `src/lib/components/InfoPopover.svelte` instead of ad-hoc `<details>` blocks so behavior stays consistent (toggle on re-click, close on outside click, close on `Escape`).
 
 ### Svelte Runes (Svelte 5)
 
@@ -106,3 +107,4 @@ This skill defines the styling standards, CSS framework usage, and design princi
 - Follow accessibility guidelines (see `html-accessibility.md` rule)
 - Keep designs clean and uncluttered
 - Prioritize functionality and usability over decorative elements
+
