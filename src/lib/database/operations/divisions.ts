@@ -1,21 +1,32 @@
 // Division operations - Drizzle ORM
-import { asc, inArray } from 'drizzle-orm';
+import { inArray } from 'drizzle-orm';
 import type { DrizzleClient } from '../drizzle.js';
 import { divisions, type Division } from '../schema/index.js';
+
+const IN_ARRAY_CHUNK_SIZE = 90;
 
 export class DivisionOperations {
 	constructor(private db: DrizzleClient) {}
 
 	async getByLeagueIds(leagueIds: string[]): Promise<Division[]> {
-		if (leagueIds.length === 0) {
+		const uniqueLeagueIds = Array.from(
+			new Set(leagueIds.map((leagueId) => leagueId.trim()).filter((leagueId) => leagueId.length > 0))
+		);
+		if (uniqueLeagueIds.length === 0) {
 			return [];
 		}
 
-		return await this.db
-			.select()
-			.from(divisions)
-			.where(inArray(divisions.leagueId, leagueIds))
-			.orderBy(asc(divisions.name));
+		const results: Division[] = [];
+		for (let start = 0; start < uniqueLeagueIds.length; start += IN_ARRAY_CHUNK_SIZE) {
+			const chunk = uniqueLeagueIds.slice(start, start + IN_ARRAY_CHUNK_SIZE);
+			const chunkRows = await this.db
+				.select()
+				.from(divisions)
+				.where(inArray(divisions.leagueId, chunk));
+			results.push(...chunkRows);
+		}
+
+		return results.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
 	}
 
 	async create(data: {

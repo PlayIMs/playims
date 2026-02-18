@@ -32,6 +32,7 @@
 	import IconExternalLink from '@tabler/icons-svelte/icons/external-link';
 	import IconBuilding from '@tabler/icons-svelte/icons/building';
 	import IconX from '@tabler/icons-svelte/icons/x';
+	import { generateUuidV4 } from '$lib/utils/uuid.js';
 
 	let { data, form }: PageProps = $props();
 
@@ -128,10 +129,7 @@
 	let facilityAreasData = $state<FacilityAreaRecord[]>([]);
 
 	function createAreaDraftId(): string {
-		if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-			return crypto.randomUUID();
-		}
-		return `facility-area-draft-${Math.random().toString(36).slice(2, 10)}`;
+		return generateUuidV4();
 	}
 
 	function createEmptyAreaDraft(): FacilityAreaDraft {
@@ -524,7 +522,12 @@
 
 	function nextCreateFacilityStep(): void {
 		clearCreateFacilityApiErrors();
-		if (createFacilityStep === 5 || !canGoNextCreateFacilityStep) return;
+		if (createFacilityStep === 5 || createFacilitySubmitting) return;
+		const stepErrors = getCurrentStepClientErrors(createFacilityForm, createFacilityStep);
+		if (Object.keys(stepErrors).length > 0) {
+			createFacilityStep = firstInvalidStep(stepErrors);
+			return;
+		}
 
 		if (createFacilityStep === 3) {
 			createFacilityStep = areaDraftActive ? 4 : 5;

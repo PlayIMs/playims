@@ -135,7 +135,8 @@ export const POST: RequestHandler = async (event) => {
 		const seasons = await dbOps.seasons.getByClientId(clientId);
 		const seasonById = new Map(seasons.map((season) => [season.id, season]));
 		const selectedOffering =
-			offerings.find((offering) => offering.id === input.offeringId && Boolean(offering.id)) ?? null;
+			offerings.find((offering) => offering.id === input.offeringId && Boolean(offering.id)) ??
+			null;
 
 		if (!selectedOffering?.id) {
 			return json(
@@ -152,6 +153,19 @@ export const POST: RequestHandler = async (event) => {
 		const entryType = toActivityType(selectedOffering.type);
 		const unitSingular = entryType === 'tournament' ? 'group' : 'league';
 		const unitPlural = entryType === 'tournament' ? 'groups' : 'leagues';
+		const selectedOfferingSeasonId = selectedOffering.seasonId?.trim() ?? '';
+		if (!selectedOfferingSeasonId) {
+			return json(
+				{
+					success: false,
+					error: 'Selected offering is missing a season assignment.',
+					fieldErrors: {
+						offeringId: ['Offering must be linked to a season before adding entries.']
+					}
+				},
+				{ status: 400 }
+			);
+		}
 
 		const existingLeaguesBySlug = await Promise.all(
 			input.leagues.map((league, index) =>
@@ -185,6 +199,13 @@ export const POST: RequestHandler = async (event) => {
 				invalidSeasonIssues.push({
 					path: ['leagues', index, 'seasonId'],
 					message: 'Select a valid season.'
+				});
+				continue;
+			}
+			if (league.seasonId !== selectedOfferingSeasonId) {
+				invalidSeasonIssues.push({
+					path: ['leagues', index, 'seasonId'],
+					message: 'League/group season must match the selected offering season.'
 				});
 			}
 		}

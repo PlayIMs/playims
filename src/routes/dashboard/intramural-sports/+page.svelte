@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { replaceState } from '$app/navigation';
+	import { invalidateAll, replaceState } from '$app/navigation';
 	import { onDestroy, tick } from 'svelte';
 	import {
 		adjustEditingIndexOnRemove,
@@ -18,6 +18,7 @@
 	import CreateLeagueWizard from './_wizards/CreateLeagueWizard.svelte';
 	import CreateOfferingWizard from './_wizards/CreateOfferingWizard.svelte';
 	import CreateSeasonWizard from './_wizards/CreateSeasonWizard.svelte';
+	import ManageSeasonWizard from './_wizards/ManageSeasonWizard.svelte';
 	import type { PageData } from './$types';
 	import IconAlertTriangle from '@tabler/icons-svelte/icons/alert-triangle';
 	import IconBallAmericanFootball from '@tabler/icons-svelte/icons/ball-american-football';
@@ -34,13 +35,13 @@
 	import IconHistory from '@tabler/icons-svelte/icons/history';
 	import IconPencil from '@tabler/icons-svelte/icons/pencil';
 	import IconPlus from '@tabler/icons-svelte/icons/plus';
-	import IconSearch from '@tabler/icons-svelte/icons/search';
 	import IconShip from '@tabler/icons-svelte/icons/ship';
 	import IconTarget from '@tabler/icons-svelte/icons/target';
 	import IconTrash from '@tabler/icons-svelte/icons/trash';
-	import IconX from '@tabler/icons-svelte/icons/x';
 	import InfoPopover from '$lib/components/InfoPopover.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
+	import SearchInput from '$lib/components/SearchInput.svelte';
+	import { generateUuidV4 } from '$lib/utils/uuid.js';
 
 	type Activity = PageData['activities'][number];
 	type LeagueOfferingOption = PageData['leagueOfferingOptions'][number];
@@ -57,11 +58,14 @@
 		statusLabel: 'Open' | 'Waitlist' | 'Closed';
 		teamRegistrationOpenText: string;
 		teamRegistrationCloseText: string;
+		teamRegistrationOpenDate: string | null;
 		teamRegistrationDate: string | null;
 		teamRegistrationCloseDate: string | null;
 		joinTeamText: string;
 		joinTeamDate: string | null;
 		seasonRangeText: string;
+		seasonStartDate: string | null;
+		seasonEndDate: string | null;
 		seasonConcluded: boolean;
 	}
 
@@ -115,9 +119,12 @@
 		statusLabel?: string;
 		disabled?: boolean;
 		separatorBefore?: boolean;
+		tooltip?: string;
+		disabledTooltip?: string;
 	}
 
 	interface WizardOfferingInput {
+		seasonId: string;
 		name: string;
 		slug: string;
 		isActive: boolean;
@@ -243,7 +250,7 @@
 	const COMPACT_DROPDOWN_BUTTON_CLASS =
 		'button-secondary-outlined w-auto min-w-36 px-3 py-1 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500';
 	const FORM_DROPDOWN_BUTTON_CLASS =
-		'button-secondary-outlined w-full px-3 py-2 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500';
+		'w-full border-2 border-secondary-400 bg-white px-4 py-2 text-base leading-6 font-normal text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2 hover:bg-white focus:outline-none focus-visible:outline-none focus-visible:border-secondary-500 focus-visible:ring-0 focus-visible:shadow-[0_0_0_1px_var(--color-secondary-500)] disabled:cursor-not-allowed disabled:opacity-60';
 	let { data } = $props<{ data: PageData }>();
 
 	let activities = $state<Activity[]>([]);
@@ -258,6 +265,7 @@
 	let highlightedLeagueRowId = $state<string | null>(null);
 	let highlightTimeout: ReturnType<typeof setTimeout> | null = null;
 	let isCreateSeasonModalOpen = $state(false);
+	let isManageSeasonModalOpen = $state(false);
 	let createSeasonWizardUnsavedConfirmOpen = $state(false);
 	let createSeasonStep = $state<SeasonWizardStep>(1);
 	let createSeasonSubmitting = $state(false);
@@ -340,7 +348,9 @@
 		return parsed;
 	}
 
-	function seasonStatusLabelForHistory(season: PageData['seasons'][number]): 'CURRENT' | 'PAST' | 'FUTURE' {
+	function seasonStatusLabelForHistory(
+		season: PageData['seasons'][number]
+	): 'CURRENT' | 'PAST' | 'FUTURE' {
 		if (season.isCurrent) return 'CURRENT';
 		const today = todayDateString();
 		return season.startDate > today ? 'FUTURE' : 'PAST';
@@ -386,10 +396,7 @@
 	}
 
 	function createLeagueDraftId(): string {
-		if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-			return crypto.randomUUID();
-		}
-		return `league-draft-${Math.random().toString(36).slice(2, 10)}`;
+		return generateUuidV4();
 	}
 
 	function createEmptyLeague(): WizardLeagueInput {
@@ -422,6 +429,7 @@
 	function createEmptyCreateForm(): WizardFormState {
 		return {
 			offering: {
+				seasonId: '',
 				name: '',
 				slug: '',
 				isActive: true,
@@ -714,11 +722,13 @@
 			seasonSelectionHydrated = true;
 			return;
 		}
+		const selectableSeasons = seasons.filter((season) => season.isActive);
+		const seasonPool = selectableSeasons.length > 0 ? selectableSeasons : seasons;
 
 		if (!seasonSelectionHydrated) {
 			if (shouldHydrateSeasonFromUrlOnLoad()) {
 				const seasonFromUrl = readSeasonFromUrl();
-				if (seasonFromUrl && seasons.some((season) => season.id === seasonFromUrl)) {
+				if (seasonFromUrl && seasonPool.some((season) => season.id === seasonFromUrl)) {
 					selectedSeasonId = seasonFromUrl;
 					seasonSelectionHydrated = true;
 					return;
@@ -727,11 +737,11 @@
 			seasonSelectionHydrated = true;
 		}
 
-		const preferredSeasonId = data.currentSeasonId ?? seasons[0]?.id ?? '';
-		if (!selectedSeasonId || !seasons.some((season) => season.id === selectedSeasonId)) {
-			selectedSeasonId = seasons.some((season) => season.id === preferredSeasonId)
+		const preferredSeasonId = data.currentSeasonId ?? seasonPool[0]?.id ?? '';
+		if (!selectedSeasonId || !seasonPool.some((season) => season.id === selectedSeasonId)) {
+			selectedSeasonId = seasonPool.some((season) => season.id === preferredSeasonId)
 				? preferredSeasonId
-				: (seasons[0]?.id ?? '');
+				: (seasonPool[0]?.id ?? '');
 		}
 	});
 
@@ -841,14 +851,33 @@
 		createLeagueForm = createEmptyCreateLeagueForm();
 	}
 
-	function openCreateSeasonWizard(): void {
+	function openCreateSeasonWizardWithCopy(copyFromSeasonId?: string): void {
 		resetCreateSeasonWizard();
+		const normalizedSourceSeasonId = copyFromSeasonId?.trim() ?? '';
+		if (normalizedSourceSeasonId && seasons.some((season) => season.id === normalizedSourceSeasonId)) {
+			const duplicateCopyDefaults: WizardSeasonCopyInput = {
+				...createSeasonCopy,
+				enabled: true,
+				sourceSeasonId: normalizedSourceSeasonId
+			};
+			createSeasonCopy = { ...duplicateCopyDefaults };
+			createSeasonInitialCopy = { ...duplicateCopyDefaults };
+		}
 		isCreateSeasonModalOpen = true;
+	}
+
+	function openCreateSeasonWizard(): void {
+		openCreateSeasonWizardWithCopy();
+	}
+
+	function openManageSeasonWizard(): void {
+		isManageSeasonModalOpen = true;
 	}
 
 	function openCreateWizard(): void {
 		resetCreateWizard();
 		createForm.offering.type = createWizardDefaultOfferingType();
+		createForm.offering.seasonId = selectedSeasonId;
 		createForm.league.seasonId = selectedSeasonId;
 		isCreateModalOpen = true;
 	}
@@ -865,6 +894,26 @@
 		isCreateSeasonModalOpen = false;
 		createSeasonWizardUnsavedConfirmOpen = false;
 		resetCreateSeasonWizard();
+	}
+
+	function closeManageSeasonWizard(): void {
+		isManageSeasonModalOpen = false;
+	}
+
+	async function handleManageSeasonSaved(
+		event: CustomEvent<{ selectedSeasonId?: string | null }>
+	): Promise<void> {
+		const suggestedSeasonId = event.detail?.selectedSeasonId ?? null;
+		await invalidateAll();
+		if (suggestedSeasonId) {
+			selectedSeasonId = suggestedSeasonId;
+		}
+	}
+
+	function handleManageSeasonDuplicate(event: CustomEvent<{ sourceSeasonId: string }>): void {
+		const sourceSeasonId = event.detail?.sourceSeasonId?.trim() ?? '';
+		closeManageSeasonWizard();
+		openCreateSeasonWizardWithCopy(sourceSeasonId);
 	}
 
 	function closeCreateWizard(): void {
@@ -885,6 +934,7 @@
 
 	function hasOfferingDraftData(values: WizardOfferingInput): boolean {
 		return (
+			(values.seasonId.trim().length > 0 && values.seasonId !== selectedSeasonId) ||
 			values.name.trim().length > 0 ||
 			values.slug.trim().length > 0 ||
 			values.imageUrl.trim().length > 0 ||
@@ -1104,6 +1154,21 @@
 
 		if (!name) errors['season.name'] = 'Season name is required.';
 		if (!slug) errors['season.slug'] = 'Season slug is required.';
+		if (name) {
+			const normalizedName = name.toLowerCase();
+			const duplicateName = seasons.some(
+				(season) => season.name.trim().toLowerCase() === normalizedName
+			);
+			if (duplicateName) {
+				errors['season.name'] = 'A season with this name already exists.';
+			}
+		}
+		if (slug) {
+			const duplicateSlug = seasons.some((season) => slugifyFinal(season.slug) === slug);
+			if (duplicateSlug) {
+				errors['season.slug'] = 'A season with this slug already exists.';
+			}
+		}
 		if (!startDate) {
 			errors['season.startDate'] = 'Season start date is required.';
 		} else if (!DATE_REGEX.test(startDate)) {
@@ -1188,7 +1253,12 @@
 	}
 
 	function firstInvalidCreateSeasonStep(errors: Record<string, string>): SeasonWizardStep {
-		const stepOneKeys = new Set(['season.name', 'season.slug', 'season.startDate', 'season.endDate']);
+		const stepOneKeys = new Set([
+			'season.name',
+			'season.slug',
+			'season.startDate',
+			'season.endDate'
+		]);
 		const stepTwoKeys = new Set(['copyOptions.sourceSeasonId', 'copyOptions.includeDivisions']);
 		const stepThreeKeys = new Set(['season.transition']);
 		for (const key of Object.keys(errors)) {
@@ -1201,12 +1271,14 @@
 
 	function getOfferingFieldErrors(values: WizardOfferingInput): Record<string, string> {
 		const errors: Record<string, string> = {};
+		const seasonId = values.seasonId.trim();
 		const name = values.name.trim();
 		const slug = slugifyFinal(values.slug);
 		const sport = values.sport.trim();
 		const imageUrl = values.imageUrl.trim();
 		const rulebookUrl = values.rulebookUrl.trim();
 
+		if (!seasonId) errors['offering.seasonId'] = 'Season is required.';
 		if (!name) errors['offering.name'] = 'Offering name is required.';
 		if (!slug) errors['offering.slug'] = 'Offering slug is required.';
 		if (!sport) errors['offering.sport'] = 'Sport is required.';
@@ -1354,6 +1426,7 @@
 	): Record<string, string> {
 		if (step === 1) {
 			return pickFieldErrors(getOfferingFieldErrors(values.offering), [
+				'offering.seasonId',
 				'offering.name',
 				'offering.slug',
 				'offering.sport',
@@ -1420,7 +1493,13 @@
 		const keys = Object.keys(errors);
 		if (
 			keys.some((key) =>
-				['offering.name', 'offering.slug', 'offering.sport', 'offering.type'].includes(key)
+				[
+					'offering.seasonId',
+					'offering.name',
+					'offering.slug',
+					'offering.sport',
+					'offering.type'
+				].includes(key)
 			)
 		) {
 			return 1;
@@ -1536,7 +1615,7 @@
 					: (createForm.leagues[leagueEditingIndex]?.stackOrder ?? createForm.league.stackOrder),
 			isSlugManual: leagueSlugTouched,
 			description: createForm.league.description.trim(),
-			seasonId: createForm.league.seasonId.trim(),
+			seasonId: createForm.offering.seasonId.trim() || createForm.league.seasonId.trim(),
 			regStartDate: createForm.league.regStartDate.trim(),
 			regEndDate: createForm.league.regEndDate.trim(),
 			seasonStartDate: createForm.league.seasonStartDate.trim(),
@@ -1559,7 +1638,7 @@
 		}
 
 		createForm.league = createEmptyLeague();
-		createForm.league.seasonId = selectedSeasonId;
+		createForm.league.seasonId = createForm.offering.seasonId || selectedSeasonId;
 		createForm.addLeagues = createForm.leagues.length > 0 ? 'yes' : 'no';
 		leagueEditingIndex = null;
 		leagueSlugTouched = false;
@@ -1574,7 +1653,7 @@
 		createForm.league = {
 			...createEmptyLeague(),
 			stackOrder: createForm.leagues.length + 1,
-			seasonId: selectedSeasonId
+			seasonId: createForm.offering.seasonId || selectedSeasonId
 		};
 		createForm.addLeagues = 'yes';
 		leagueDraftActive = true;
@@ -1586,7 +1665,7 @@
 		leagueSlugTouched = false;
 		leagueDraftActive = false;
 		createForm.league = createEmptyLeague();
-		createForm.league.seasonId = selectedSeasonId;
+		createForm.league.seasonId = createForm.offering.seasonId || selectedSeasonId;
 		if (createForm.leagues.length === 0) {
 			createForm.addLeagues = 'no';
 		}
@@ -1701,6 +1780,7 @@
 
 		const payload = {
 			offering: {
+				seasonId: createForm.offering.seasonId.trim(),
 				name: createForm.offering.name.trim(),
 				slug: slugifyFinal(createForm.offering.slug),
 				isActive: createForm.offering.isActive,
@@ -1712,7 +1792,12 @@
 				type: createForm.offering.type,
 				description: normalizeOptionalTextForRequest(createForm.offering.description)
 			},
-			leagues: createForm.leagues.map(mapLeagueForRequest)
+			leagues: createForm.leagues.map((league) =>
+				mapLeagueForRequest({
+					...league,
+					seasonId: createForm.offering.seasonId.trim() || league.seasonId
+				})
+			)
 		};
 
 		try {
@@ -1775,7 +1860,8 @@
 		const existingCurrentSeasonIdAtSubmit = existingCurrentSeason?.id ?? null;
 		const applyExistingCurrentTransition =
 			createSeasonForm.isCurrent && existingCurrentSeasonIdAtSubmit !== null;
-		const includeSeasonCopy = createSeasonCopy.enabled && createSeasonCopy.sourceSeasonId.trim().length > 0;
+		const includeSeasonCopy =
+			createSeasonCopy.enabled && createSeasonCopy.sourceSeasonId.trim().length > 0;
 		const normalizedCopyScope: SeasonCopyScope =
 			createSeasonCopy.scope === 'offerings-leagues' ||
 			createSeasonCopy.scope === 'offerings-all' ||
@@ -1802,9 +1888,8 @@
 				? {
 						sourceSeasonId: createSeasonCopy.sourceSeasonId.trim(),
 						scope: normalizedCopyScope,
-						includeDivisions: normalizedCopyScope === 'offerings-only'
-							? false
-							: createSeasonCopy.includeDivisions
+						includeDivisions:
+							normalizedCopyScope === 'offerings-only' ? false : createSeasonCopy.includeDivisions
 					}
 				: undefined
 		};
@@ -1856,6 +1941,7 @@
 			mergedSeasons.push({
 				id: createdSeason.id,
 				name: createdSeason.name,
+				slug: createdSeason.slug,
 				startDate: createdSeason.startDate,
 				endDate: createdSeason.endDate,
 				isCurrent: createdSeason.isCurrent,
@@ -1863,13 +1949,8 @@
 			});
 			seasons = mergedSeasons.sort((a, b) => b.startDate.localeCompare(a.startDate));
 
-			if (
-				createdSeason.isCurrent ||
-				!selectedSeasonId ||
-				!seasons.some((season) => season.id === selectedSeasonId)
-			) {
-				selectedSeasonId = createdSeason.id;
-			}
+			selectedSeasonId = createdSeason.id;
+			showConcludedSeasons = false;
 
 			const copySummary = body.data.copySummary;
 			if (copySummary) {
@@ -1897,6 +1978,8 @@
 			} else {
 				createSuccessMessage = `Season "${createdSeason.name}" created successfully.`;
 			}
+
+			await invalidateAll();
 			closeCreateSeasonWizard();
 		} catch {
 			createSeasonFormError = 'Unable to save season right now.';
@@ -2104,7 +2187,10 @@
 			typeof sourceLeague.isSlugManual === 'boolean'
 				? sourceLeague.isSlugManual
 				: slugifyFinal(sourceLeague.slug) !==
-					defaultLeagueSlug(sourceLeague.name, getLeagueOfferingById(createLeagueForm.offeringId)?.name || '');
+					defaultLeagueSlug(
+						sourceLeague.name,
+						getLeagueOfferingById(createLeagueForm.offeringId)?.name || ''
+					);
 		createLeagueSlugTouched = inferredManualSlug;
 		createLeagueForm.league = {
 			...sourceLeague,
@@ -2125,7 +2211,9 @@
 		const existingNames = new Set(
 			createLeagueForm.leagues.map((league) => league.name.trim().toLowerCase())
 		);
-		const existingSlugs = new Set(createLeagueForm.leagues.map((league) => slugifyFinal(league.slug)));
+		const existingSlugs = new Set(
+			createLeagueForm.leagues.map((league) => slugifyFinal(league.slug))
+		);
 		while (existingNames.has(nextName.toLowerCase()) || existingSlugs.has(nextSlug)) {
 			copyNumber += 1;
 			nextName = `${baseName} Copy ${copyNumber}`;
@@ -2276,7 +2364,12 @@
 
 	function nextCreateLeagueStep(): void {
 		clearCreateLeagueApiErrors();
-		if (createLeagueStep === 4 || !canGoNextCreateLeagueStep) return;
+		if (createLeagueStep === 4 || createLeagueSubmitting) return;
+		const stepErrors = getCreateLeagueStepClientErrors(createLeagueForm, createLeagueStep);
+		if (Object.keys(stepErrors).length > 0) {
+			createLeagueStep = firstInvalidCreateLeagueStep(stepErrors);
+			return;
+		}
 
 		if (createLeagueStep === 2) {
 			createLeagueStep = createLeagueDraftActive ? 3 : 4;
@@ -2427,6 +2520,335 @@
 
 	function normalizeSearch(value: string): string {
 		return value.toLowerCase().replace(/[^a-z0-9]/g, '');
+	}
+
+	function searchTokens(value: string): string[] {
+		return value
+			.toLowerCase()
+			.split(/[\s/|,()_-]+/)
+			.map((part) => normalizeSearch(part))
+			.filter((part) => part.length > 0);
+	}
+
+	function maxSearchDistance(tokenLength: number): number {
+		if (tokenLength <= 4) return 1;
+		if (tokenLength <= 8) return 2;
+		return 3;
+	}
+
+	function isWithinLevenshteinDistance(
+		source: string,
+		target: string,
+		maxDistance: number
+	): boolean {
+		if (source === target) return true;
+		if (Math.abs(source.length - target.length) > maxDistance) return false;
+
+		const previousRow = Array.from({ length: target.length + 1 }, (_, index) => index);
+		const currentRow = new Array<number>(target.length + 1).fill(0);
+
+		for (let sourceIndex = 1; sourceIndex <= source.length; sourceIndex += 1) {
+			currentRow[0] = sourceIndex;
+			let minRowValue = currentRow[0];
+
+			for (let targetIndex = 1; targetIndex <= target.length; targetIndex += 1) {
+				const substitutionCost = source[sourceIndex - 1] === target[targetIndex - 1] ? 0 : 1;
+				const insertCost = currentRow[targetIndex - 1] + 1;
+				const deleteCost = previousRow[targetIndex] + 1;
+				const replaceCost = previousRow[targetIndex - 1] + substitutionCost;
+				const nextCost = Math.min(insertCost, deleteCost, replaceCost);
+				currentRow[targetIndex] = nextCost;
+				if (nextCost < minRowValue) minRowValue = nextCost;
+			}
+
+			if (minRowValue > maxDistance) return false;
+			for (let index = 0; index <= target.length; index += 1) {
+				previousRow[index] = currentRow[index];
+			}
+		}
+
+		return previousRow[target.length] <= maxDistance;
+	}
+
+	function tokenMatchesFuzzy(queryToken: string, candidateToken: string): boolean {
+		if (candidateToken.includes(queryToken)) return true;
+		if (queryToken.length < 3 || candidateToken.length < 3) return false;
+
+		const maxDistance = Math.min(
+			maxSearchDistance(queryToken.length),
+			maxSearchDistance(candidateToken.length)
+		);
+		return isWithinLevenshteinDistance(queryToken, candidateToken, maxDistance);
+	}
+
+	function tokenMatchStrength(queryToken: string, candidateToken: string): number {
+		if (candidateToken === queryToken) return 4;
+		if (candidateToken.includes(queryToken) || queryToken.includes(candidateToken)) return 3;
+		if (tokenMatchesFuzzy(queryToken, candidateToken)) return 2;
+		return 0;
+	}
+
+	const SEARCH_MONTH_LOOKUP: Record<string, number> = {
+		jan: 1,
+		january: 1,
+		feb: 2,
+		february: 2,
+		mar: 3,
+		march: 3,
+		apr: 4,
+		april: 4,
+		may: 5,
+		jun: 6,
+		june: 6,
+		jul: 7,
+		july: 7,
+		aug: 8,
+		august: 8,
+		sep: 9,
+		sept: 9,
+		september: 9,
+		oct: 10,
+		october: 10,
+		nov: 11,
+		november: 11,
+		dec: 12,
+		december: 12
+	};
+	const SEARCH_MONTH_PATTERN =
+		'jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?';
+
+	interface DateSearchQuery {
+		month: number;
+		day: number;
+		year: number | null;
+		matchedText: string;
+	}
+
+	function normalizeSearchYear(yearValue: number): number {
+		if (yearValue >= 100) return yearValue;
+		return 2000 + yearValue;
+	}
+
+	function parseDateSearchQuery(queryValue: string): DateSearchQuery | null {
+		const trimmed = queryValue.trim();
+		if (!trimmed) return null;
+
+		const isoDateMatch = trimmed.match(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/);
+		if (isoDateMatch) {
+			const year = Number(isoDateMatch[1]);
+			const month = Number(isoDateMatch[2]);
+			const day = Number(isoDateMatch[3]);
+			if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+				return {
+					month,
+					day,
+					year,
+					matchedText: isoDateMatch[0]
+				};
+			}
+		}
+
+		const slashDateMatch = trimmed.match(/\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b/);
+		if (slashDateMatch) {
+			const month = Number(slashDateMatch[1]);
+			const day = Number(slashDateMatch[2]);
+			const year = slashDateMatch[3] ? normalizeSearchYear(Number(slashDateMatch[3])) : null;
+			if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+				return {
+					month,
+					day,
+					year,
+					matchedText: slashDateMatch[0]
+				};
+			}
+		}
+
+		const monthDayRegex = new RegExp(
+			`\\b(${SEARCH_MONTH_PATTERN})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s+(\\d{2,4}))?\\b`,
+			'i'
+		);
+		const monthDayMatch = trimmed.match(monthDayRegex);
+		if (monthDayMatch) {
+			const monthToken = monthDayMatch[1]?.toLowerCase() ?? '';
+			const month = SEARCH_MONTH_LOOKUP[monthToken] ?? null;
+			const day = Number(monthDayMatch[2]);
+			const year = monthDayMatch[3] ? normalizeSearchYear(Number(monthDayMatch[3])) : null;
+			if (month && day >= 1 && day <= 31) {
+				return {
+					month,
+					day,
+					year,
+					matchedText: monthDayMatch[0]
+				};
+			}
+		}
+
+		const dayMonthRegex = new RegExp(
+			`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(${SEARCH_MONTH_PATTERN})\\.?((?:,?\\s+(\\d{2,4})))?\\b`,
+			'i'
+		);
+		const dayMonthMatch = trimmed.match(dayMonthRegex);
+		if (dayMonthMatch) {
+			const day = Number(dayMonthMatch[1]);
+			const monthToken = dayMonthMatch[2]?.toLowerCase() ?? '';
+			const month = SEARCH_MONTH_LOOKUP[monthToken] ?? null;
+			const year = dayMonthMatch[4] ? normalizeSearchYear(Number(dayMonthMatch[4])) : null;
+			if (month && day >= 1 && day <= 31) {
+				return {
+					month,
+					day,
+					year,
+					matchedText: dayMonthMatch[0]
+				};
+			}
+		}
+
+		return null;
+	}
+
+	function extractDatePartsFromValue(
+		value: string | null | undefined
+	): { year: number; month: number; day: number } | null {
+		if (!value) return null;
+		const leadingDateMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+		if (leadingDateMatch) {
+			return {
+				year: Number(leadingDateMatch[1]),
+				month: Number(leadingDateMatch[2]),
+				day: Number(leadingDateMatch[3])
+			};
+		}
+
+		const parsed = parseDate(value);
+		if (!parsed) return null;
+		return {
+			year: parsed.getFullYear(),
+			month: parsed.getMonth() + 1,
+			day: parsed.getDate()
+		};
+	}
+
+	function dateValueMatchesQuery(
+		dateValue: string | null | undefined,
+		dateQuery: DateSearchQuery
+	): boolean {
+		const dateParts = extractDatePartsFromValue(dateValue);
+		if (!dateParts) return false;
+		if (dateParts.month !== dateQuery.month || dateParts.day !== dateQuery.day) return false;
+		if (dateQuery.year !== null && dateParts.year !== dateQuery.year) return false;
+		return true;
+	}
+
+	function evaluateTextSearchMatch(
+		queryValue: string,
+		searchParts: Array<string | null | undefined>
+	): { matched: boolean; score: number } {
+		const normalizedQuery = normalizeSearch(queryValue);
+		if (!normalizedQuery) return { matched: true, score: 0 };
+
+		const normalizedParts = searchParts
+			.map((part) => normalizeSearch(part ?? ''))
+			.filter((part) => part.length > 0);
+		if (normalizedParts.length === 0) return { matched: false, score: 0 };
+
+		let directMatchScore = 0;
+		for (const part of normalizedParts) {
+			if (part === normalizedQuery) {
+				directMatchScore = Math.max(directMatchScore, 3);
+				continue;
+			}
+			if (part.includes(normalizedQuery)) {
+				directMatchScore = Math.max(directMatchScore, 2);
+				continue;
+			}
+			if (normalizedQuery.length >= 3 && part.length >= 3) {
+				const maxDistance = Math.min(
+					maxSearchDistance(normalizedQuery.length),
+					maxSearchDistance(part.length)
+				);
+				if (isWithinLevenshteinDistance(normalizedQuery, part, maxDistance)) {
+					directMatchScore = Math.max(directMatchScore, 1);
+				}
+			}
+		}
+
+		const queryTokens = searchTokens(queryValue);
+		const candidateTokens = searchParts.flatMap((part) => searchTokens(part ?? ''));
+		if (queryTokens.length === 0 || candidateTokens.length === 0) {
+			return directMatchScore > 0
+				? {
+						matched: true,
+						score: directMatchScore === 3 ? 10000 : directMatchScore === 2 ? 8000 : 6500
+					}
+				: { matched: false, score: 0 };
+		}
+
+		const tokenStrengths = queryTokens.map((queryToken) => {
+			let strength = 0;
+			for (const candidateToken of candidateTokens) {
+				const nextStrength = tokenMatchStrength(queryToken, candidateToken);
+				if (nextStrength > strength) strength = nextStrength;
+				if (strength === 4) break;
+			}
+			return strength;
+		});
+
+		const matchedTokenCount = tokenStrengths.filter((strength) => strength > 0).length;
+		const exactTokenCount = tokenStrengths.filter((strength) => strength === 4).length;
+		const containsTokenCount = tokenStrengths.filter((strength) => strength === 3).length;
+		const fuzzyTokenCount = tokenStrengths.filter((strength) => strength === 2).length;
+		const missingTokenCount = queryTokens.length - matchedTokenCount;
+		const isOffByOneWord = queryTokens.length >= 2 && missingTokenCount === 1;
+		const fullyMatched = missingTokenCount === 0;
+		const matched = directMatchScore > 0 || fullyMatched || isOffByOneWord;
+
+		if (!matched) return { matched: false, score: 0 };
+
+		let score = 0;
+		if (directMatchScore === 3) score += 10000;
+		else if (directMatchScore === 2) score += 8000;
+		else if (directMatchScore === 1) score += 6500;
+		score += exactTokenCount * 320;
+		score += containsTokenCount * 220;
+		score += fuzzyTokenCount * 140;
+		score += Math.round((matchedTokenCount / Math.max(queryTokens.length, 1)) * 120);
+		if (isOffByOneWord) score -= 280;
+
+		return { matched: true, score };
+	}
+
+	function evaluateSearchMatch(
+		queryValue: string,
+		searchParts: Array<string | null | undefined>,
+		dateValues: Array<string | null | undefined> = []
+	): { matched: boolean; score: number } {
+		const dateQuery = parseDateSearchQuery(queryValue);
+		if (!dateQuery) {
+			return evaluateTextSearchMatch(queryValue, searchParts);
+		}
+
+		const hasDateMatch = dateValues.some((dateValue) =>
+			dateValueMatchesQuery(dateValue, dateQuery)
+		);
+		if (!hasDateMatch) return { matched: false, score: 0 };
+
+		const remainingQuery = queryValue
+			.replace(dateQuery.matchedText, ' ')
+			.replace(/\s+/g, ' ')
+			.trim();
+		if (!normalizeSearch(remainingQuery)) {
+			return {
+				matched: true,
+				score: 12000 + (dateQuery.year !== null ? 240 : 0)
+			};
+		}
+
+		const textMatch = evaluateTextSearchMatch(remainingQuery, searchParts);
+		if (!textMatch.matched) return { matched: false, score: 0 };
+		return {
+			matched: true,
+			score: 12000 + (dateQuery.year !== null ? 240 : 0) + textMatch.score
+		};
 	}
 
 	function pluralize(count: number, singular: string, plural: string): string {
@@ -2748,11 +3170,14 @@
 				statusLabel: status === 'open' ? 'Open' : status === 'waitlisted' ? 'Waitlist' : 'Closed',
 				teamRegistrationOpenText: registrationWindow.openText,
 				teamRegistrationCloseText: registrationWindow.closeText,
+				teamRegistrationOpenDate: activity.registrationStart ?? null,
 				teamRegistrationDate: registrationWindow.anchorDate,
 				teamRegistrationCloseDate: registrationWindow.closeDate,
 				joinTeamText: joinTeam.text,
 				joinTeamDate: joinTeam.date,
 				seasonRangeText: formatRange(activity.seasonStart, activity.seasonEnd),
+				seasonStartDate: activity.seasonStart ?? null,
+				seasonEndDate: activity.seasonEnd ?? null,
 				seasonConcluded: seasonEndMs < now.getTime()
 			};
 
@@ -2822,7 +3247,9 @@
 	const selectedSeason = $derived.by(
 		() => seasons.find((season) => season.id === selectedSeasonId) ?? null
 	);
-	const existingCurrentSeason = $derived.by(() => seasons.find((season) => season.isCurrent) ?? null);
+	const existingCurrentSeason = $derived.by(
+		() => seasons.find((season) => season.isCurrent) ?? null
+	);
 	const createSeasonCurrentTransitionRequired = $derived.by(
 		() => createSeasonForm.isCurrent && existingCurrentSeason !== null
 	);
@@ -2857,9 +3284,12 @@
 		() => seasons.find((season) => season.id === createSeasonCopy.sourceSeasonId) ?? null
 	);
 	const createSeasonCopyIncludesLeagues = $derived.by(
-		() => createSeasonCopy.scope === 'offerings-leagues' || createSeasonCopy.scope === 'offerings-all'
+		() =>
+			createSeasonCopy.scope === 'offerings-leagues' || createSeasonCopy.scope === 'offerings-all'
 	);
-	const createSeasonCopyIncludesTournaments = $derived.by(() => createSeasonCopy.scope === 'offerings-all');
+	const createSeasonCopyIncludesTournaments = $derived.by(
+		() => createSeasonCopy.scope === 'offerings-all'
+	);
 	const createSeasonCopyOfferingsButtonLabel = $derived.by(() =>
 		createSeasonCopyIncludesLeagues ? 'Offerings' : 'Only offerings'
 	);
@@ -2888,7 +3318,9 @@
 			};
 		}
 
-		const leagueCount = scopedActivities.filter((activity) => activity.offeringType !== 'tournament').length;
+		const leagueCount = scopedActivities.filter(
+			(activity) => activity.offeringType !== 'tournament'
+		).length;
 		const tournamentGroupCount = scopedActivities.filter(
 			(activity) => activity.offeringType === 'tournament'
 		).length;
@@ -2906,13 +3338,14 @@
 	const seasonHistory = $derived.by(() =>
 		[...seasons].sort((a, b) => b.startDate.localeCompare(a.startDate))
 	);
+	const activeSeasonHistory = $derived.by(() => seasonHistory.filter((season) => season.isActive));
 	const offeringViewDropdownOptions = $derived.by<DropdownOption[]>(() => [
 		{ value: 'leagues', label: 'Leagues' },
 		{ value: 'tournaments', label: 'Tournaments' },
 		{ value: 'all', label: 'All' }
 	]);
 	const seasonHistoryDropdownOptions = $derived.by(() =>
-		seasonHistory.map((season) => ({
+		activeSeasonHistory.map((season) => ({
 			value: season.id,
 			label: season.name,
 			statusLabel: seasonStatusLabelForHistory(season)
@@ -2932,6 +3365,11 @@
 			label: season.name
 		}))
 	]);
+	const createOfferingLeagueSeasonDropdownOptions = $derived.by<DropdownOption[]>(() => {
+		const offeringSeason = seasons.find((season) => season.id === createForm.offering.seasonId);
+		if (!offeringSeason) return seasonDropdownOptions;
+		return [{ value: offeringSeason.id, label: offeringSeason.name }];
+	});
 	const leagueGenderDropdownOptions = $derived.by<DropdownOption[]>(() => [
 		{ value: '', label: 'Select...' },
 		{ value: 'male', label: 'Male' },
@@ -3012,12 +3450,18 @@
 		writeStoredOfferingView(offeringView);
 		const url = new URL(window.location.href);
 		const currentView = normalizeOfferingViewAlias(url.searchParams.get('view'));
+		const hasViewParam = url.searchParams.has('view');
 		const currentSeason = url.searchParams.get('season') ?? '';
 		const selectedSeason = getSeasonById(selectedSeasonId);
 		const targetSeason =
 			selectedSeason && !selectedSeason.isCurrent ? seasonUrlSlug(selectedSeason) : '';
 		let urlChanged = false;
-		if (currentView !== offeringView) {
+		if (offeringView === 'all') {
+			if (hasViewParam) {
+				url.searchParams.delete('view');
+				urlChanged = true;
+			}
+		} else if (currentView !== offeringView) {
 			url.searchParams.set('view', offeringView);
 			urlChanged = true;
 		}
@@ -3061,7 +3505,8 @@
 
 	const visibleOfferings = $derived.by(() => {
 		if (!activeSeasonBoard) return [];
-		const query = normalizeSearch(searchQuery.trim());
+		const queryText = searchQuery.trim();
+		const query = normalizeSearch(queryText);
 		if (!query) {
 			return activeSeasonBoard.offerings
 				.map((offering) => ({
@@ -3073,10 +3518,20 @@
 
 		return activeSeasonBoard.offerings
 			.map((offering) => {
-				let leagues = offering.leagues;
-				if (!normalizeSearch(offering.offeringName).includes(query)) {
-					leagues = offering.leagues.filter((league) => {
-						const normalizedText = normalizeSearch(
+				const offeringMatch = evaluateSearchMatch(queryText, [offering.offeringName]);
+				if (offeringMatch.matched) {
+					return {
+						...offering,
+						leagues: offering.leagues,
+						searchScore: offeringMatch.score,
+						...computeStatusCounts(offering.leagues)
+					};
+				}
+
+				const matchedLeagues = offering.leagues
+					.map((league, leagueIndex) => {
+						const leagueMatch = evaluateSearchMatch(
+							queryText,
 							[
 								offering.offeringName,
 								league.categoryLabel,
@@ -3084,21 +3539,54 @@
 								league.teamRegistrationOpenText,
 								league.teamRegistrationCloseText,
 								league.joinTeamText
-							].join(' ')
+							],
+							[
+								league.teamRegistrationOpenDate,
+								league.teamRegistrationDate,
+								league.teamRegistrationCloseDate,
+								league.joinTeamDate,
+								league.seasonStartDate,
+								league.seasonEndDate
+							]
 						);
-						return normalizedText.includes(query);
+						if (!leagueMatch.matched) return null;
+						return {
+							league,
+							leagueIndex,
+							score: leagueMatch.score
+						};
+					})
+					.filter(
+						(entry): entry is { league: LeagueOffering; leagueIndex: number; score: number } =>
+							Boolean(entry)
+					)
+					.sort((a, b) => {
+						if (a.score !== b.score) return b.score - a.score;
+						return a.leagueIndex - b.leagueIndex;
 					});
-				}
 
-				if (leagues.length === 0) return null;
+				if (matchedLeagues.length === 0) return null;
+				const leagues = matchedLeagues.map((entry) => entry.league);
+				const topLeagueScore = matchedLeagues[0]?.score ?? 0;
 				return {
 					...offering,
 					leagues,
+					searchScore: topLeagueScore,
 					...computeStatusCounts(leagues)
 				};
 			})
-			.filter((offering): offering is OfferingGroup => Boolean(offering))
-			.sort(sortOfferingsByName);
+			.filter(
+				(
+					offering
+				): offering is OfferingGroup & {
+					searchScore: number;
+				} => Boolean(offering)
+			)
+			.sort((a, b) => {
+				if (a.searchScore !== b.searchScore) return b.searchScore - a.searchScore;
+				return sortOfferingsByName(a, b);
+			})
+			.map(({ searchScore: _searchScore, ...offering }) => offering);
 	});
 
 	const activeDeadlines = $derived.by(() => {
@@ -3157,25 +3645,49 @@
 	const collapsibleConcludedOfferings = $derived.by(() =>
 		selectedSeasonIsHistorical ? [] : concludedOfferings
 	);
+	function offeringIdsForCurrentSeasonView(filter: 'league' | 'tournament' | 'all'): Set<string> {
+		const sourceActivities =
+			filter === 'tournament'
+				? tournamentActivities
+				: filter === 'league'
+					? leagueActivities
+					: [...leagueActivities, ...tournamentActivities];
+		return new Set(
+			sourceActivities
+				.map((activity: Activity) => activity.offeringId)
+				.filter((offeringId): offeringId is string => Boolean(offeringId))
+		);
+	}
 	const addEntryOptionCount = $derived.by(() => {
 		const filter =
 			offeringView === 'tournaments' ? 'tournament' : offeringView === 'leagues' ? 'league' : 'all';
-		return data.leagueOfferingOptions.filter((offering: LeagueOfferingOption) =>
-			filter === 'all' ? true : offering.type === filter
-		).length;
+		return offeringIdsForCurrentSeasonView(filter).size;
 	});
 	const addActionDropdownOptions = $derived.by<DropdownOption[]>(() => {
 		const options: DropdownOption[] = [{ value: 'add-offering', label: 'Add Offering' }];
-		if (addEntryOptionCount > 0) {
-			options.push({ value: 'add-entry', label: addEntryActionLabel() });
-		}
+		options.push({
+			value: 'add-entry',
+			label: addEntryActionLabel(),
+			disabled: addEntryOptionCount <= 0,
+			disabledTooltip:
+				addEntryOptionCount <= 0
+					? 'Add an offering that matches this view to enable this action.'
+					: undefined
+		});
 		options.push({ value: 'add-season', label: 'Add Season', separatorBefore: true });
 		return options;
 	});
 	const createLeagueOfferingOptions = $derived.by(() =>
-		data.leagueOfferingOptions.filter((offering: LeagueOfferingOption) =>
-			createLeagueOfferingFilter === 'all' ? true : offering.type === createLeagueOfferingFilter
-		)
+		data.leagueOfferingOptions.filter((offering: LeagueOfferingOption) => {
+			if (!selectedSeasonId) return false;
+			if (createLeagueOfferingFilter !== 'all' && offering.type !== createLeagueOfferingFilter) {
+				return false;
+			}
+			if (offering.seasonId) {
+				return offering.seasonId === selectedSeasonId;
+			}
+			return offeringIdsForCurrentSeasonView(createLeagueOfferingFilter).has(offering.id);
+		})
 	);
 	const createLeagueOfferingDropdownOptions = $derived.by<DropdownOption[]>(() => [
 		{ value: '', label: 'Select an offering...' },
@@ -3189,9 +3701,13 @@
 	);
 	const selectedOfferingLeagueTemplates = $derived.by(() =>
 		leagueTemplates
-			.filter((league: LeagueTemplate) => league.offeringId === createLeagueForm.offeringId)
+			.filter(
+				(league: LeagueTemplate) =>
+					league.offeringId === createLeagueForm.offeringId && league.seasonId === selectedSeasonId
+			)
 			.sort((a: LeagueTemplate, b: LeagueTemplate) => {
-				const orderDiff = (a.stackOrder ?? Number.MAX_SAFE_INTEGER) - (b.stackOrder ?? Number.MAX_SAFE_INTEGER);
+				const orderDiff =
+					(a.stackOrder ?? Number.MAX_SAFE_INTEGER) - (b.stackOrder ?? Number.MAX_SAFE_INTEGER);
 				if (orderDiff !== 0) return orderDiff;
 				return a.name.localeCompare(b.name);
 			})
@@ -3293,7 +3809,12 @@
 
 	function nextCreateStep(): void {
 		clearCreateApiErrors();
-		if (createStep === 5 || !canGoNextStep) return;
+		if (createStep === 5 || createSubmitting) return;
+		const stepErrors = getCurrentStepClientErrors(createForm, createStep);
+		if (Object.keys(stepErrors).length > 0) {
+			createStep = firstInvalidStep(stepErrors);
+			return;
+		}
 
 		if (createStep === 3) {
 			createStep = leagueDraftActive ? 4 : 5;
@@ -3315,7 +3836,12 @@
 
 	function nextCreateSeasonStep(): void {
 		clearCreateSeasonApiErrors();
-		if (createSeasonStep === 4 || !canGoNextCreateSeasonStep) return;
+		if (createSeasonStep === 4 || createSeasonSubmitting) return;
+		const stepErrors = getSeasonStepClientErrors(createSeasonForm, createSeasonCopy, createSeasonStep);
+		if (Object.keys(stepErrors).length > 0) {
+			createSeasonStep = firstInvalidCreateSeasonStep(stepErrors);
+			return;
+		}
 		if (createSeasonStep === 2 && !createSeasonCurrentTransitionRequired) {
 			createSeasonStep = 4;
 			return;
@@ -3433,15 +3959,21 @@
 									emptyText="No seasons configured."
 									footerActionLabel="Add New Season"
 									footerActionAriaLabel="Add new season"
+									footerSecondaryActionAriaLabel="Manage seasons"
+									footerSecondaryActionClass="button-secondary-outlined w-9 h-9 p-0 cursor-pointer inline-flex items-center justify-center"
 									on:change={(event) => {
 										handleSeasonHistoryChange(event.detail.value);
 									}}
 									on:footerAction={openCreateSeasonWizard}
+									on:footerSecondaryAction={openManageSeasonWizard}
 								>
 									{#snippet trigger(_, selectedOption)}
 										<IconHistory
 											class={`w-4 h-4 ${selectedOption ? 'text-secondary-900' : 'text-neutral-700'}`}
 										/>
+									{/snippet}
+									{#snippet footerSecondaryAction()}
+										<IconPencil class="w-4 h-4" />
 									{/snippet}
 								</ListboxDropdown>
 							{/if}
@@ -3474,10 +4006,6 @@
 										listClass="mt-1 w-44 border-2 border-secondary-300 bg-white z-20"
 										optionClass="w-full text-left px-3 py-2 text-sm text-neutral-950 cursor-pointer"
 										activeOptionClass="bg-neutral-100 text-neutral-950"
-										noteText={addEntryOptionCount === 0
-											? 'No matching offerings available for this view.'
-											: undefined}
-										noteClass="px-3 pb-2 text-xs text-neutral-900 text-left"
 										on:action={(event) => {
 											handleAddActionDropdown(event.detail.value);
 										}}
@@ -3498,31 +4026,23 @@
 							{/if}
 						</div>
 					</div>
-					<div class="relative">
-						<IconSearch class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-950" />
-						<label class="sr-only" for="tournament-search-empty">Search offerings and deadlines</label>
-						<input
-							id="tournament-search-empty"
-							type="text"
-							class="input-secondary pl-10 pr-10 py-1 text-sm disabled:cursor-not-allowed"
-							autocomplete="off"
-							disabled
-							placeholder={`Search offering, ${showTournaments ? 'group' : showAllOfferings ? 'league/group' : 'league'}, or deadline`}
-							bind:value={searchQuery}
-						/>
-						{#if searchQuery.trim().length > 0}
-							<button
-								type="button"
-								class="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-950 hover:text-secondary-900 cursor-pointer"
-								aria-label="Clear search"
-								onclick={() => {
-									searchQuery = '';
-								}}
-							>
-								<IconX class="w-4 h-4" />
-							</button>
-						{/if}
-					</div>
+					<SearchInput
+						id="tournament-search-empty"
+						label="Search offerings and deadlines"
+						value={searchQuery}
+						disabled
+						placeholder={`Search offering, ${showTournaments ? 'group' : showAllOfferings ? 'league/group' : 'league'}, or deadline`}
+						autocomplete="off"
+						wrapperClass="relative"
+						iconClass="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-950"
+						inputClass="input-secondary pl-10 pr-10 py-1 text-sm disabled:cursor-not-allowed"
+						clearButtonClass="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-950 hover:text-secondary-900 cursor-pointer"
+						clearIconClass="w-4 h-4"
+						clearAriaLabel="Clear search"
+						on:input={(event) => {
+							searchQuery = event.detail.value;
+						}}
+					/>
 				</div>
 
 				<div class="p-4 space-y-4 min-h-[34rem]">
@@ -3707,15 +4227,21 @@
 								emptyText="No seasons configured."
 								footerActionLabel="Add New Season"
 								footerActionAriaLabel="Add new season"
+								footerSecondaryActionAriaLabel="Manage seasons"
+								footerSecondaryActionClass="button-secondary-outlined w-9 h-9 p-0 cursor-pointer inline-flex items-center justify-center"
 								on:change={(event) => {
 									handleSeasonHistoryChange(event.detail.value);
 								}}
 								on:footerAction={openCreateSeasonWizard}
+								on:footerSecondaryAction={openManageSeasonWizard}
 							>
 								{#snippet trigger(_, selectedOption)}
 									<IconHistory
 										class={`w-4 h-4 ${selectedOption ? 'text-secondary-900' : 'text-neutral-700'}`}
 									/>
+								{/snippet}
+								{#snippet footerSecondaryAction()}
+									<IconPencil class="w-4 h-4" />
 								{/snippet}
 							</ListboxDropdown>
 						</div>
@@ -3747,10 +4273,6 @@
 										listClass="mt-1 w-44 border-2 border-secondary-300 bg-white z-20"
 										optionClass="w-full text-left px-3 py-2 text-sm text-neutral-950 cursor-pointer"
 										activeOptionClass="bg-neutral-100 text-neutral-950"
-										noteText={addEntryOptionCount === 0
-											? 'No matching offerings available for this view.'
-											: undefined}
-										noteClass="px-3 pb-2 text-xs text-neutral-900 text-left"
 										on:action={(event) => {
 											handleAddActionDropdown(event.detail.value);
 										}}
@@ -3771,66 +4293,114 @@
 							{/if}
 						</div>
 					</div>
-					{#if visibleOfferings.length > 0}
-						<div class="relative">
-							<IconSearch class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-950" />
-							<label class="sr-only" for="tournament-search">Search offerings and deadlines</label>
-							<input
-								id="tournament-search"
-								type="text"
-								class="input-secondary pl-10 pr-10 py-1 text-sm disabled:cursor-not-allowed"
-								autocomplete="off"
-								placeholder={`Search offering, ${showTournaments ? 'group' : showAllOfferings ? 'league/group' : 'league'}, or deadline`}
-								bind:value={searchQuery}
-							/>
-							{#if searchQuery.trim().length > 0}
-								<button
-									type="button"
-									class="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-950 hover:text-secondary-900 cursor-pointer"
-									aria-label="Clear search"
-									onclick={() => {
-										searchQuery = '';
-									}}
-								>
-									<IconX class="w-4 h-4" />
-								</button>
-							{/if}
-						</div>
-					{/if}
+					<SearchInput
+						id="tournament-search"
+						label="Search offerings and deadlines"
+						value={searchQuery}
+						placeholder={`Search offering, ${showTournaments ? 'group' : showAllOfferings ? 'league/group' : 'league'}, or deadline`}
+						autocomplete="off"
+						wrapperClass="relative"
+						iconClass="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-950"
+						inputClass="input-secondary pl-10 pr-10 py-1 text-sm disabled:cursor-not-allowed"
+						clearButtonClass="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-950 hover:text-secondary-900 cursor-pointer"
+						clearIconClass="w-4 h-4"
+						clearAriaLabel="Clear search"
+						on:input={(event) => {
+							searchQuery = event.detail.value;
+						}}
+					/>
 				</div>
 
 				{#if visibleOfferings.length === 0}
-					<div class="p-8 space-y-4">
-						<div class="relative max-w-lg">
-							<IconSearch class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-950" />
-							<label class="sr-only" for="tournament-search-empty-list">
-								Search offerings and deadlines
-							</label>
-							<input
-								id="tournament-search-empty-list"
-								type="text"
-								class="input-secondary pl-10 pr-10 py-1 text-sm disabled:cursor-not-allowed"
-								autocomplete="off"
-								disabled={searchQuery.trim().length === 0}
-								placeholder={`Search offering, ${showTournaments ? 'group' : showAllOfferings ? 'league/group' : 'league'}, or deadline`}
-								bind:value={searchQuery}
-							/>
-							{#if searchQuery.trim().length > 0}
-								<button
-									type="button"
-									class="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-950 hover:text-secondary-900 cursor-pointer"
-									aria-label="Clear search"
-									onclick={() => {
-										searchQuery = '';
-									}}
-								>
-									<IconX class="w-4 h-4" />
-								</button>
-							{/if}
+					<div class="p-4 space-y-4 min-h-[34rem]">
+						<div class="border border-warning-300 bg-warning-50 p-3">
+							<p class="text-sm text-neutral-950 font-sans">
+								{#if searchQuery.trim().length > 0}
+									No {offeringTypeLabel.toLowerCase()} match "{searchQuery.trim()}" for this season.
+								{:else}
+									No {offeringTypeLabel.toLowerCase()} match this search for this season.
+								{/if}
+							</p>
 						</div>
-						<p class="text-sm text-neutral-950 font-sans">
-							No {offeringTypeLabel.toLowerCase()} match this search for this season.
-						</p>
+
+						{#each [0, 1] as _, skeletonOfferingIndex}
+							<article
+								class="border border-secondary-300 bg-white p-4 space-y-3"
+								aria-hidden="true"
+							>
+								<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+									<div class="space-y-2">
+										<div
+											class={`h-7 ${skeletonOfferingIndex === 0 ? 'w-44' : 'w-36'} bg-neutral-100`}
+										></div>
+										<div class="h-3 w-28 bg-neutral-100"></div>
+									</div>
+									<div class="flex flex-wrap items-center gap-1">
+										<div class="h-5 w-16 bg-neutral-100"></div>
+										<div class="h-5 w-16 bg-neutral-100"></div>
+										<div class="h-5 w-16 bg-neutral-100"></div>
+									</div>
+								</div>
+
+								<div class="border border-secondary-300 bg-white overflow-x-auto">
+									<table class="min-w-full border-collapse">
+										<thead>
+											<tr class="border-b border-secondary-300 bg-neutral">
+												<th scope="col" class="px-2 py-1 text-left min-w-48">
+													<div class="h-3 w-20 bg-neutral-100"></div>
+												</th>
+												<th scope="col" class="px-2 py-1 text-left min-w-24">
+													<div class="h-3 w-12 bg-neutral-100"></div>
+												</th>
+												<th scope="col" class="px-2 py-1 text-left min-w-44">
+													<div class="h-3 w-24 bg-neutral-100"></div>
+												</th>
+												<th scope="col" class="px-2 py-1 text-left min-w-40">
+													<div class="h-3 w-24 bg-neutral-100"></div>
+												</th>
+												<th scope="col" class="px-2 py-1 text-left min-w-44">
+													<div class="h-3 w-20 bg-neutral-100"></div>
+												</th>
+											</tr>
+										</thead>
+										<tbody>
+											{#each [0, 1, 2, 3] as _, leagueIndex}
+												<tr
+													class={`align-middle ${leagueIndex < 3 ? 'border-b border-secondary-200' : ''} ${leagueIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}
+												>
+													<th scope="row" class="px-2 py-1 text-left">
+														<div class="flex items-center gap-2">
+															<div
+																class="w-9 h-9 border border-secondary-300 bg-neutral-100 flex items-center justify-center shrink-0"
+																aria-hidden="true"
+															>
+																<div class="w-4 h-4 bg-neutral-300"></div>
+															</div>
+															<div class="h-4 w-32 bg-neutral-100"></div>
+														</div>
+													</th>
+													<td class="px-2 py-1">
+														<div class="h-5 w-16 bg-neutral-100"></div>
+													</td>
+													<td class="px-2 py-1">
+														<div class="space-y-1">
+															<div class="h-3 w-28 bg-neutral-100"></div>
+															<div class="h-3 w-24 bg-neutral-100"></div>
+														</div>
+													</td>
+													<td class="px-2 py-1">
+														<div class="h-3 w-24 bg-neutral-100"></div>
+													</td>
+													<td class="px-2 py-1">
+														<div class="h-3 w-32 bg-neutral-100"></div>
+													</td>
+												</tr>
+											{/each}
+										</tbody>
+									</table>
+								</div>
+							</article>
+						{/each}
 					</div>
 				{:else}
 					<div class="divide-y divide-secondary-300">
@@ -4383,7 +4953,11 @@
 				</div>
 				<div class="border border-secondary-300 bg-white p-3">
 					<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-						<input type="checkbox" class="toggle-secondary" bind:checked={createSeasonForm.isActive} />
+						<input
+							type="checkbox"
+							class="toggle-secondary"
+							bind:checked={createSeasonForm.isActive}
+						/>
 						Active
 					</label>
 				</div>
@@ -4401,8 +4975,8 @@
 					</div>
 					<InfoPopover buttonAriaLabel="Copy content help">
 						<p>
-							Copy pulls offerings and optionally leagues, tournaments, and divisions/groups from one
-							season into this new season.
+							Copy pulls offerings and optionally leagues, tournaments, and divisions/groups from
+							one season into this new season.
 						</p>
 					</InfoPopover>
 				</div>
@@ -4438,9 +5012,7 @@
 								createSeasonCopy.enabled
 									? 'border-secondary-600 bg-secondary-50'
 									: 'border-secondary-300 bg-white'
-							} ${
-								seasonHistory.length === 0 ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
-							}`}
+							} ${seasonHistory.length === 0 ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
 						>
 							<input
 								type="radio"
@@ -4490,7 +5062,11 @@
 
 						<fieldset class="space-y-2">
 							<legend class="text-sm font-semibold text-neutral-950">Copy scope</legend>
-							<div class="grid grid-cols-1 sm:grid-cols-3 gap-2" role="radiogroup" aria-label="Copy scope">
+							<div
+								class="grid grid-cols-1 sm:grid-cols-3 gap-2"
+								role="radiogroup"
+								aria-label="Copy scope"
+							>
 								<button
 									type="button"
 									role="radio"
@@ -4502,7 +5078,9 @@
 									}}
 								>
 									<span class="flex items-center gap-2 w-full">
-										<span class="h-5 w-5 border-2 border-secondary-600 bg-white rounded-full flex items-center justify-center shrink-0">
+										<span
+											class="h-5 w-5 border-2 border-secondary-600 bg-white rounded-full flex items-center justify-center shrink-0"
+										>
 											{#if createSeasonCopy.scope === 'offerings-only'}
 												<span class="h-2.5 w-2.5 rounded-full bg-secondary-700"></span>
 											{/if}
@@ -4525,7 +5103,9 @@
 									}}
 								>
 									<span class="flex items-center gap-2 w-full">
-										<span class="h-5 w-5 border-2 border-secondary-600 bg-white rounded-full flex items-center justify-center shrink-0">
+										<span
+											class="h-5 w-5 border-2 border-secondary-600 bg-white rounded-full flex items-center justify-center shrink-0"
+										>
 											{#if createSeasonCopy.scope === 'offerings-leagues'}
 												<span class="h-2.5 w-2.5 rounded-full bg-secondary-700"></span>
 											{/if}
@@ -4547,7 +5127,9 @@
 									}}
 								>
 									<span class="flex items-center gap-2 w-full">
-										<span class="h-5 w-5 border-2 border-secondary-600 bg-white rounded-full flex items-center justify-center shrink-0">
+										<span
+											class="h-5 w-5 border-2 border-secondary-600 bg-white rounded-full flex items-center justify-center shrink-0"
+										>
 											{#if createSeasonCopy.scope === 'offerings-all'}
 												<span class="h-2.5 w-2.5 rounded-full bg-secondary-700"></span>
 											{/if}
@@ -4576,21 +5158,26 @@
 						</div>
 
 						<div class="border border-secondary-300 bg-white p-3 space-y-2">
-							<p class="text-[11px] uppercase tracking-wide font-bold text-secondary-900">Copy Preview</p>
+							<p class="text-[11px] uppercase tracking-wide font-bold text-secondary-900">
+								Copy Preview
+							</p>
 							<p class="text-sm font-semibold text-neutral-950 break-words">
 								{createSeasonCopySourceSeason?.name ?? 'No season selected'}
 							</p>
 							<div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-neutral-950">
 								<div class="border border-secondary-300 bg-neutral p-2">
 									<p class="text-[11px] uppercase tracking-wide font-bold">Offerings</p>
-									<p class="text-lg font-bold font-serif">{createSeasonCopyPreview.offeringCount}</p>
+									<p class="text-lg font-bold font-serif">
+										{createSeasonCopyPreview.offeringCount}
+									</p>
 								</div>
 								<div class="border border-secondary-300 bg-neutral p-2">
 									<p class="text-[11px] uppercase tracking-wide font-bold">
 										{createSeasonCopyIncludesTournaments ? 'Leagues/Groups' : 'Leagues'}
 									</p>
 									<p class="text-lg font-bold font-serif">
-										{createSeasonCopyPreview.leagueCount + createSeasonCopyPreview.tournamentGroupCount}
+										{createSeasonCopyPreview.leagueCount +
+											createSeasonCopyPreview.tournamentGroupCount}
 									</p>
 								</div>
 								<div class="border border-secondary-300 bg-neutral p-2">
@@ -4606,7 +5193,6 @@
 					</div>
 				{/if}
 			</div>
-
 		</div>
 	{/if}
 
@@ -4619,12 +5205,14 @@
 							<p class="text-[11px] uppercase tracking-wide font-bold text-secondary-900">
 								Action Required
 							</p>
-							<h3 class="text-lg font-bold font-serif text-neutral-950">Current Season Transition</h3>
+							<h3 class="text-lg font-bold font-serif text-neutral-950">
+								Current Season Transition
+							</h3>
 						</div>
 						<InfoPopover buttonAriaLabel="Why this step is required">
 							<p>
-								Only one season can be current. To make this new season current, mark
-								"{existingCurrentSeason.name}" as not current here.
+								Only one season can be current. To make this new season current, mark "{existingCurrentSeason.name}"
+								as not current here.
 							</p>
 						</InfoPopover>
 					</div>
@@ -4683,7 +5271,10 @@
 								}}
 								data-wizard-autofocus
 							/>
-							<span>Set "{existingCurrentSeason.name}" to not current, and make this new season current.</span>
+							<span
+								>Set "{existingCurrentSeason.name}" to not current, and make this new season
+								current.</span
+							>
 						</label>
 						<label
 							class={`flex items-start gap-2 border p-3 cursor-pointer text-sm text-neutral-950 ${
@@ -4702,7 +5293,9 @@
 									createSeasonDeactivateExistingCurrent = false;
 								}}
 							/>
-							<span>Keep "{existingCurrentSeason.name}" as current (new season stays non-current).</span>
+							<span
+								>Keep "{existingCurrentSeason.name}" as current (new season stays non-current).</span
+							>
 						</label>
 					</fieldset>
 					{#if createSeasonFieldErrors['season.transition']}
@@ -4763,7 +5356,9 @@
 			<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
 				<h3 class="text-lg font-bold font-serif text-neutral-950">Copy Plan</h3>
 				{#if !createSeasonCopy.enabled}
-					<p class="text-sm text-neutral-950">Season will be created without copying existing content.</p>
+					<p class="text-sm text-neutral-950">
+						Season will be created without copying existing content.
+					</p>
 				{:else}
 					<p class="text-sm text-neutral-950">
 						<span class="font-semibold">Source:</span>
@@ -4825,7 +5420,8 @@
 			showBack={createSeasonStep > 1}
 			canGoNext={canGoNextCreateSeasonStep}
 			canSubmit={canSubmitCreateSeason}
-			nextLabel={createSeasonStep === 3 || (createSeasonStep === 2 && !createSeasonCurrentTransitionRequired)
+			nextLabel={createSeasonStep === 3 ||
+			(createSeasonStep === 2 && !createSeasonCurrentTransitionRequired)
 				? 'Review'
 				: 'Next'}
 			submitLabel="Create Season"
@@ -4836,6 +5432,17 @@
 		/>
 	{/snippet}
 </CreateSeasonWizard>
+
+<ManageSeasonWizard
+	open={isManageSeasonModalOpen}
+	seasons={seasonHistory}
+	{selectedSeasonId}
+	on:close={closeManageSeasonWizard}
+	on:saved={(event) => {
+		void handleManageSeasonSaved(event);
+	}}
+	on:duplicate={handleManageSeasonDuplicate}
+/>
 
 <CreateLeagueWizard
 	open={isCreateLeagueModalOpen}
@@ -4856,676 +5463,672 @@
 	onUnsavedConfirm={confirmDiscardCreateLeagueWizard}
 	onUnsavedCancel={cancelDiscardCreateLeagueWizard}
 >
-				{#if createLeagueStep === 1}
-					<div class="space-y-4">
-						{#if createLeagueOfferingOptions.length === 0}
-							<div class="border-2 border-secondary-300 bg-white p-4 space-y-3">
-								<p class="text-sm text-neutral-950">
-									Create an offering that matches this view before adding {wizardEntryUnitPlural()}.
-								</p>
-								<button
-									type="button"
-									class="button-primary-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer w-fit"
-									onclick={() => {
-										closeCreateLeagueWizard();
-										openCreateWizard();
-									}}
-								>
-									Add Offering
-								</button>
-							</div>
-						{:else}
-							<div>
-								<p class="block text-sm font-sans text-neutral-950 mb-1">
-									{wizardEntryUnitTitleSingular()} Offering <span class="text-error-700">*</span>
-								</p>
-								<ListboxDropdown
-									options={createLeagueOfferingDropdownOptions}
-									value={createLeagueForm.offeringId}
-									ariaLabel={`${wizardEntryUnitTitleSingular()} offering`}
-									buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
-									autoFocus
-									on:change={(event) => {
-										handleCreateLeagueOfferingChange(event.detail.value);
-									}}
-								/>
-								{#if createLeagueFieldErrors['offeringId']}
-									<p class="text-xs text-error-700 mt-1">{createLeagueFieldErrors['offeringId']}</p>
-								{/if}
-							</div>
+	{#if createLeagueStep === 1}
+		<div class="space-y-4">
+			{#if createLeagueOfferingOptions.length === 0}
+				<div class="border-2 border-secondary-300 bg-white p-4 space-y-3">
+					<p class="text-sm text-neutral-950">
+						Create an offering that matches this view before adding {wizardEntryUnitPlural()}.
+					</p>
+					<button
+						type="button"
+						class="button-primary-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer w-fit"
+						onclick={() => {
+							closeCreateLeagueWizard();
+							openCreateWizard();
+						}}
+					>
+						Add Offering
+					</button>
+				</div>
+			{:else}
+				<div>
+					<p class="block text-sm font-sans text-neutral-950 mb-1">
+						{wizardEntryUnitTitleSingular()} Offering <span class="text-error-700">*</span>
+					</p>
+					<ListboxDropdown
+						options={createLeagueOfferingDropdownOptions}
+						value={createLeagueForm.offeringId}
+						ariaLabel={`${wizardEntryUnitTitleSingular()} offering`}
+						buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
+						autoFocus
+						on:change={(event) => {
+							handleCreateLeagueOfferingChange(event.detail.value);
+						}}
+					/>
+					{#if createLeagueFieldErrors['offeringId']}
+						<p class="text-xs text-error-700 mt-1">{createLeagueFieldErrors['offeringId']}</p>
+					{/if}
+				</div>
 
-							{#if selectedLeagueWizardOffering}
-								<div
-									class="border border-secondary-300 bg-white p-3 text-sm text-neutral-950 space-y-2"
-								>
-									<div class="flex items-center justify-between gap-2">
-										<p>
-											<span class="font-semibold">Type:</span>
-											{selectedLeagueWizardOffering.type === 'tournament' ? 'Tournament' : 'League'}
-										</p>
-										<p>
-											<span class="font-semibold">Status:</span>
-											{selectedLeagueWizardOffering.isActive ? 'Active' : 'Inactive'}
-										</p>
-									</div>
-									{#if selectedOfferingLeagueTemplates.length === 0}
-										<p class="text-xs text-neutral-900">
-											No existing {wizardEntryUnitPlural()} for this offering yet.
-										</p>
-									{:else}
-										<div class="border border-secondary-200 bg-neutral p-2 space-y-2">
-											<p class="text-xs font-semibold uppercase tracking-wide text-neutral-950">
-												Copy Existing {wizardEntryUnitTitleSingular()}
-											</p>
-											<div
-												class="space-y-2 max-h-52 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 scrollbar-track-secondary-400"
-											>
-												{#each selectedOfferingLeagueTemplates as existingLeague}
-													<div class="border border-secondary-300 bg-white p-2 flex items-center justify-between gap-3">
-														<div class="min-w-0">
-															<p class="text-sm font-semibold text-neutral-950 truncate">
-																{existingLeague.name}
-															</p>
-															<p class="text-xs text-neutral-900">
-																{getSeasonLabel(existingLeague.seasonId)}
-															</p>
-														</div>
-														<button
-															type="button"
-															class="button-secondary-outlined p-1.5 cursor-pointer shrink-0"
-															title={`Copy ${wizardEntryUnitSingular()} settings`}
-															aria-label={`Copy ${existingLeague.name}`}
-															onclick={() => {
-																copyFromExistingLeagueTemplate(existingLeague);
-															}}
-														>
-															<IconCopy class="w-4 h-4" />
-														</button>
-													</div>
-												{/each}
-											</div>
-										</div>
-									{/if}
-								</div>
-							{/if}
-						{/if}
-					</div>
-				{/if}
-
-				{#if createLeagueStep === 2}
-					<div class="space-y-4">
-						{#if selectedLeagueWizardOffering}
-							<div class="border border-secondary-300 bg-white p-3 text-sm text-neutral-950">
-								Adding to
-								<span class="font-semibold">{selectedLeagueWizardOffering.name}</span>
-							</div>
-						{/if}
-						{#if !createLeagueDraftActive}
-							<div class="space-y-2">
-								{#if createLeagueFieldErrors['leagues']}
-									<p class="text-xs text-error-700">{createLeagueFieldErrors['leagues']}</p>
-								{/if}
-								<WizardDraftCollection
-									title={wizardEntryType() === 'tournament' ? 'Tournament Groups' : 'Leagues'}
-									itemSingular={wizardEntryUnitSingular()}
-									itemPlural={wizardEntryUnitPlural()}
-									items={createLeagueForm.leagues}
-									draftActive={createLeagueDraftActive}
-									emptyMessage={`No ${wizardEntryUnitPlural()} added yet. Use the plus button to add one, or continue without ${wizardEntryUnitPlural()}.`}
-									onAdd={startAddingCreateLeagueDraft}
-									onEdit={startEditingCreateLeague}
-									onCopy={duplicateCreateLeague}
-									onMoveUp={(index) => moveCreateLeague(index, 'up')}
-									onMoveDown={(index) => moveCreateLeague(index, 'down')}
-									onRemove={removeCreateLeague}
-									getItemName={(item) => (item as WizardLeagueInput).name}
-									getItemSlug={(item) => (item as WizardLeagueInput).slug}
-									listClass="space-y-2 max-h-[52vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 scrollbar-track-secondary-400 scrollbar-corner-secondary-500 hover:scrollbar-thumb-secondary-700 active:scrollbar-thumb-secondary-700 scrollbar-hover:scrollbar-thumb-secondary-800 scrollbar-active:scrollbar-thumb-secondary-700"
-								>
-									{#snippet itemBody(item)}
-										{@const league = item as WizardLeagueInput}
-										<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-xs text-neutral-950">
-											<p><span class="font-semibold">Season:</span> {getSeasonLabel(league.seasonId)}</p>
-											<p>
-												<span class="font-semibold">Gender:</span>
-												{normalizeGender(league.gender) ?? 'Unspecified'}
-											</p>
-											<p>
-												<span class="font-semibold">Skill Level:</span>
-												{league.skillLevel ? toTitleCase(league.skillLevel) : 'Unspecified'}
-											</p>
-											<p>
-												<span class="font-semibold">Status:</span>
-												{league.isActive ? 'Active' : 'Inactive'} | {league.isLocked
-													? 'Locked'
-													: 'Unlocked'}
-											</p>
-											<p class="sm:col-span-2">
-												<span class="font-semibold">Registration:</span>
-												{formatReviewRange(league.regStartDate, league.regEndDate, true)}
-											</p>
-											<p class="sm:col-span-2">
-												<span class="font-semibold">Season Dates:</span>
-												{formatReviewRange(league.seasonStartDate, league.seasonEndDate)}
-											</p>
-											{#if league.hasPreseason}
-												<p class="sm:col-span-2">
-													<span class="font-semibold">Preseason:</span>
-													{formatReviewRange(league.preseasonStartDate, league.preseasonEndDate)}
-												</p>
-											{/if}
-											{#if league.hasPostseason}
-												<p class="sm:col-span-2">
-													<span class="font-semibold">Postseason:</span>
-													{formatReviewRange(league.postseasonStartDate, league.postseasonEndDate)}
-												</p>
-											{/if}
-										</div>
-										{#if league.description.trim()}
-											<p class="text-xs text-neutral-950">
-												<span class="font-semibold">Description:</span>
-												{league.description.trim()}
-											</p>
-										{/if}
-									{/snippet}
-								</WizardDraftCollection>
-							</div>
-						{:else}
-							<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-								<div>
-									<label for="league-wizard-name" class="block text-sm font-sans text-neutral-950 mb-1"
-										>Name <span class="text-error-700">*</span></label
-									>
-									<input
-										id="league-wizard-name"
-										type="text"
-										class="input-secondary"
-										value={createLeagueForm.league.name}
-										placeholder={wizardEntryType() === 'tournament' ? 'Pool A' : "Men's"}
-										oninput={(event) => {
-											const value = (event.currentTarget as HTMLInputElement).value;
-											createLeagueForm.league.name = value;
-											if (!createLeagueSlugTouched) {
-												const offeringName = selectedLeagueWizardOffering?.name ?? '';
-												createLeagueForm.league.slug = defaultLeagueSlug(value, offeringName);
-												createLeagueForm.league.isSlugManual = false;
-											}
-										}}
-										autocomplete="off"
-									/>
-									{#if createLeagueFieldErrors['league.name']}
-										<p class="text-xs text-error-700 mt-1">{createLeagueFieldErrors['league.name']}</p>
-									{/if}
-								</div>
-
-								<div>
-									<label for="league-wizard-slug" class="block text-sm font-sans text-neutral-950 mb-1"
-										>Slug <span class="text-error-700">*</span></label
-									>
-									<input
-										id="league-wizard-slug"
-										type="text"
-										class="input-secondary"
-										value={createLeagueForm.league.slug}
-										placeholder={wizardEntryType() === 'tournament' ? 'pool-a' : 'mens-soccer'}
-										oninput={(event) => {
-											createLeagueSlugTouched = true;
-											createLeagueForm.league.isSlugManual = true;
-											createLeagueForm.league.slug = applyLiveSlugInput(
-												event.currentTarget as HTMLInputElement
-											);
-										}}
-										autocomplete="off"
-									/>
-									{#if createLeagueFieldErrors['league.slug']}
-										<p class="text-xs text-error-700 mt-1">{createLeagueFieldErrors['league.slug']}</p>
-									{/if}
-								</div>
-
-								<div>
-									<p class="block text-sm font-sans text-neutral-950 mb-1">
-										Season <span class="text-error-700">*</span>
-									</p>
-									<ListboxDropdown
-										options={seasonDropdownOptions}
-										value={createLeagueForm.league.seasonId}
-										ariaLabel="League wizard season"
-										buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
-										on:change={(event) => {
-											createLeagueForm.league.seasonId = event.detail.value;
-											clearCreateLeagueApiErrors();
-										}}
-									/>
-									{#if createLeagueFieldErrors['league.seasonId']}
-										<p class="text-xs text-error-700 mt-1">{createLeagueFieldErrors['league.seasonId']}</p>
-									{/if}
-								</div>
-
-								<div>
-									<p class="block text-sm font-sans text-neutral-950 mb-1">Gender</p>
-									<ListboxDropdown
-										options={leagueGenderDropdownOptions}
-										value={createLeagueForm.league.gender}
-										ariaLabel="League wizard gender"
-										buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
-										on:change={(event) => {
-											createLeagueForm.league.gender = event.detail.value as LeagueGender;
-											clearCreateLeagueApiErrors();
-										}}
-									/>
-								</div>
-
-								<div>
-									<p class="block text-sm font-sans text-neutral-950 mb-1">Skill Level</p>
-									<ListboxDropdown
-										options={leagueSkillLevelDropdownOptions}
-										value={createLeagueForm.league.skillLevel}
-										ariaLabel="League wizard skill level"
-										buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
-										on:change={(event) => {
-											createLeagueForm.league.skillLevel = event.detail.value as LeagueSkillLevel;
-											clearCreateLeagueApiErrors();
-										}}
-									/>
-								</div>
-
-								<div class="lg:col-span-2">
-									<label
-										for="league-wizard-description"
-										class="block text-sm font-sans text-neutral-950 mb-1">Description</label
-									>
-									<textarea
-										id="league-wizard-description"
-										class="textarea-secondary min-h-28"
-										bind:value={createLeagueForm.league.description}
-										placeholder={`Describe this ${wizardEntryUnitSingular()}.`}
-									></textarea>
-								</div>
-							</div>
-						{/if}
-					</div>
-				{/if}
-
-				{#if createLeagueStep === 3}
-					<div class="space-y-4">
-						{#if !createLeagueDraftActive}
-							<div class="border border-secondary-300 bg-white p-4">
-								<p class="text-sm font-sans text-neutral-950">
-									No {wizardEntryUnitSingular()} draft is open. Go back to {createLeagueStepTitle(2)}
-									and click the plus button to add one.
-								</p>
-							</div>
-						{:else}
-						<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-							<div>
-								<label
-									for="league-wizard-reg-start"
-									class="block text-sm font-sans text-neutral-950 mb-1"
-									>Registration Opens <span class="text-error-700">*</span></label
-								>
-								<input
-									id="league-wizard-reg-start"
-									type="datetime-local"
-									class="input-secondary"
-									bind:value={createLeagueForm.league.regStartDate}
-									onfocus={() => {
-										if (!createLeagueForm.league.regStartDate.trim()) {
-											createLeagueForm.league.regStartDate = defaultDateTimeValue('start');
-										}
-									}}
-								/>
-								{#if createLeagueFieldErrors['league.regStartDate']}
-									<p class="text-xs text-error-700 mt-1">
-										{createLeagueFieldErrors['league.regStartDate']}
-									</p>
-								{/if}
-							</div>
-							<div>
-								<label
-									for="league-wizard-reg-end"
-									class="block text-sm font-sans text-neutral-950 mb-1"
-									>Registration Deadline <span class="text-error-700">*</span></label
-								>
-								<input
-									id="league-wizard-reg-end"
-									type="datetime-local"
-									class="input-secondary"
-									bind:value={createLeagueForm.league.regEndDate}
-									onfocus={() => {
-										if (!createLeagueForm.league.regEndDate.trim()) {
-											createLeagueForm.league.regEndDate = defaultDateTimeValue('end');
-										}
-									}}
-								/>
-								{#if createLeagueFieldErrors['league.regEndDate']}
-									<p class="text-xs text-error-700 mt-1">
-										{createLeagueFieldErrors['league.regEndDate']}
-									</p>
-								{/if}
-							</div>
-							<div>
-								<label
-									for="league-wizard-season-start"
-									class="block text-sm font-sans text-neutral-950 mb-1"
-									>Season Start Date <span class="text-error-700">*</span></label
-								>
-								<input
-									id="league-wizard-season-start"
-									type="date"
-									class="input-secondary"
-									bind:value={createLeagueForm.league.seasonStartDate}
-								/>
-								{#if createLeagueFieldErrors['league.seasonStartDate']}
-									<p class="text-xs text-error-700 mt-1">
-										{createLeagueFieldErrors['league.seasonStartDate']}
-									</p>
-								{/if}
-							</div>
-							<div>
-								<label
-									for="league-wizard-season-end"
-									class="block text-sm font-sans text-neutral-950 mb-1"
-									>Season End Date <span class="text-error-700">*</span></label
-								>
-								<input
-									id="league-wizard-season-end"
-									type="date"
-									class="input-secondary"
-									bind:value={createLeagueForm.league.seasonEndDate}
-								/>
-								{#if createLeagueFieldErrors['league.seasonEndDate']}
-									<p class="text-xs text-error-700 mt-1">
-										{createLeagueFieldErrors['league.seasonEndDate']}
-									</p>
-								{/if}
-							</div>
-						</div>
-
-						{#if createLeagueFieldErrors['league.scheduleRange']}
-							<p class="text-xs text-error-700">
-								{createLeagueFieldErrors['league.scheduleRange']}
+				{#if selectedLeagueWizardOffering}
+					<div class="border border-secondary-300 bg-white p-3 text-sm text-neutral-950 space-y-2">
+						<div class="flex items-center justify-between gap-2">
+							<p>
+								<span class="font-semibold">Type:</span>
+								{selectedLeagueWizardOffering.type === 'tournament' ? 'Tournament' : 'League'}
 							</p>
-						{/if}
-
-						<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-							<div class="border border-secondary-300 bg-white p-3 space-y-3">
-								<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-									<input
-										type="checkbox"
-										class="toggle-secondary"
-										bind:checked={createLeagueForm.league.hasPreseason}
-										onchange={() => {
-											if (!createLeagueForm.league.hasPreseason) {
-												createLeagueForm.league.preseasonStartDate = '';
-												createLeagueForm.league.preseasonEndDate = '';
-											}
-										}}
-									/>
-									Has Preseason
-								</label>
-								{#if createLeagueForm.league.hasPreseason}
-									<div class="space-y-3">
-										<div>
-											<label
-												for="league-wizard-preseason-start"
-												class="block text-sm font-sans text-neutral-950 mb-1">Preseason Start</label
-											>
-											<input
-												id="league-wizard-preseason-start"
-												type="date"
-												class="input-secondary"
-												bind:value={createLeagueForm.league.preseasonStartDate}
-											/>
-											{#if createLeagueFieldErrors['league.preseasonStartDate']}
-												<p class="text-xs text-error-700 mt-1">
-													{createLeagueFieldErrors['league.preseasonStartDate']}
-												</p>
-											{/if}
-										</div>
-										<div>
-											<label
-												for="league-wizard-preseason-end"
-												class="block text-sm font-sans text-neutral-950 mb-1">Preseason End</label
-											>
-											<input
-												id="league-wizard-preseason-end"
-												type="date"
-												class="input-secondary"
-												bind:value={createLeagueForm.league.preseasonEndDate}
-											/>
-											{#if createLeagueFieldErrors['league.preseasonEndDate']}
-												<p class="text-xs text-error-700 mt-1">
-													{createLeagueFieldErrors['league.preseasonEndDate']}
-												</p>
-											{/if}
-										</div>
-									</div>
-								{/if}
-							</div>
-
-							<div class="border border-secondary-300 bg-white p-3 space-y-3">
-								<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-									<input
-										type="checkbox"
-										class="toggle-secondary"
-										bind:checked={createLeagueForm.league.hasPostseason}
-										onchange={() => {
-											if (!createLeagueForm.league.hasPostseason) {
-												createLeagueForm.league.postseasonStartDate = '';
-												createLeagueForm.league.postseasonEndDate = '';
-											}
-										}}
-									/>
-									Has Postseason
-								</label>
-								{#if createLeagueForm.league.hasPostseason}
-									<div class="space-y-3">
-										<div>
-											<label
-												for="league-wizard-postseason-start"
-												class="block text-sm font-sans text-neutral-950 mb-1"
-												>Postseason Start</label
-											>
-											<input
-												id="league-wizard-postseason-start"
-												type="date"
-												class="input-secondary"
-												bind:value={createLeagueForm.league.postseasonStartDate}
-											/>
-											{#if createLeagueFieldErrors['league.postseasonStartDate']}
-												<p class="text-xs text-error-700 mt-1">
-													{createLeagueFieldErrors['league.postseasonStartDate']}
-												</p>
-											{/if}
-										</div>
-										<div>
-											<label
-												for="league-wizard-postseason-end"
-												class="block text-sm font-sans text-neutral-950 mb-1">Postseason End</label
-											>
-											<input
-												id="league-wizard-postseason-end"
-												type="date"
-												class="input-secondary"
-												bind:value={createLeagueForm.league.postseasonEndDate}
-											/>
-											{#if createLeagueFieldErrors['league.postseasonEndDate']}
-												<p class="text-xs text-error-700 mt-1">
-													{createLeagueFieldErrors['league.postseasonEndDate']}
-												</p>
-											{/if}
-										</div>
-									</div>
-								{/if}
-							</div>
+							<p>
+								<span class="font-semibold">Status:</span>
+								{selectedLeagueWizardOffering.isActive ? 'Active' : 'Inactive'}
+							</p>
 						</div>
-
-						<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-							<div class="border border-secondary-300 bg-white p-3">
-								<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-									<input
-										type="checkbox"
-										class="toggle-secondary"
-										bind:checked={createLeagueForm.league.isActive}
-									/>
-									Active
-								</label>
-							</div>
-							<div class="border border-secondary-300 bg-white p-3">
-								<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-									<input
-										type="checkbox"
-										class="toggle-secondary"
-										bind:checked={createLeagueForm.league.isLocked}
-									/>
-									Locked
-								</label>
-							</div>
-						</div>
-
-						<div>
-							<label
-								for="league-wizard-image-url"
-								class="block text-sm font-sans text-neutral-950 mb-1">Image URL</label
-							>
-							<input
-								id="league-wizard-image-url"
-								type="url"
-								class="input-secondary"
-								bind:value={createLeagueForm.league.imageUrl}
-								placeholder="https://example.com/league-image.jpg"
-								autocomplete="off"
-							/>
-							{#if createLeagueFieldErrors['league.imageUrl']}
-								<p class="text-xs text-error-700 mt-1">
-									{createLeagueFieldErrors['league.imageUrl']}
+						{#if selectedOfferingLeagueTemplates.length === 0}
+							<p class="text-xs text-neutral-900">
+								No existing {wizardEntryUnitPlural()} for this offering yet.
+							</p>
+						{:else}
+							<div class="border border-secondary-200 bg-neutral p-2 space-y-2">
+								<p class="text-xs font-semibold uppercase tracking-wide text-neutral-950">
+									Copy Existing {wizardEntryUnitTitleSingular()}
 								</p>
-							{/if}
-						</div>
-						{/if}
-					</div>
-				{/if}
-
-				{#if createLeagueStep === 4}
-					<div class="space-y-4">
-						<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
-							<div class="flex items-start justify-between gap-2">
-								<h3 class="text-lg font-bold font-serif text-neutral-950">Offering</h3>
-								{#if !createLeagueCopiedFromExisting}
-									<button
-										type="button"
-										class="button-secondary-outlined p-1.5 cursor-pointer"
-										aria-label="Edit offering"
-										title="Edit offering"
-										onclick={startEditingCreateLeagueOffering}
-									>
-										<IconPencil class="w-4 h-4" />
-									</button>
-								{/if}
-							</div>
-							{#if selectedLeagueWizardOffering}
-								<p class="text-sm text-neutral-950">
-									<span class="font-semibold">Name:</span>
-									{selectedLeagueWizardOffering.name}
-								</p>
-								<p class="text-sm text-neutral-950">
-									<span class="font-semibold">Type:</span>
-									{selectedLeagueWizardOffering.type === 'tournament' ? 'Tournament' : 'League'}
-									<span class="ml-3 font-semibold">Status:</span>
-									{selectedLeagueWizardOffering.isActive ? 'Active' : 'Inactive'}
-								</p>
-							{:else}
-								<p class="text-sm text-neutral-950">No offering selected.</p>
-							{/if}
-						</div>
-
-						<div class="border-2 border-secondary-300 bg-white p-4 space-y-3">
-							<div class="flex items-start justify-between gap-2">
-								<h3 class="text-lg font-bold font-serif text-neutral-950">
-									{wizardEntryUnitTitlePlural()}
-								</h3>
-								<button
-									type="button"
-									class="button-secondary-outlined p-1.5 cursor-pointer"
-									aria-label={`Edit ${wizardEntryUnitPlural()}`}
-									title={`Edit ${wizardEntryUnitPlural()}`}
-									onclick={startEditingCreateLeagues}
+								<div
+									class="space-y-2 max-h-52 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 scrollbar-track-secondary-400"
 								>
-									<IconPencil class="w-4 h-4" />
-								</button>
-							</div>
-							{#if createLeagueFieldErrors['leagues']}
-								<p class="text-xs text-error-700">{createLeagueFieldErrors['leagues']}</p>
-							{/if}
-							{#if createLeagueForm.leagues.length === 0}
-								<p class="text-sm text-neutral-950 font-sans">
-									No {wizardEntryUnitPlural()} will be created.
-								</p>
-							{:else}
-								<div class="space-y-3 max-h-[45vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 scrollbar-track-secondary-400">
-									{#each createLeagueForm.leagues as league}
-										<div class="border border-secondary-300 bg-neutral p-3 space-y-2">
-											<div>
-												<p class="text-sm font-semibold text-neutral-950">
-													{league.name.trim() || `Untitled ${wizardEntryUnitTitleSingular()}`}
-												</p>
-												<p class="text-xs text-neutral-900">Slug: {league.slug || 'TBD'}</p>
-											</div>
-											<div
-												class="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-xs text-neutral-950"
-											>
-												<p><span class="font-semibold">Season:</span> {getSeasonLabel(league.seasonId)}</p>
-												<p>
-													<span class="font-semibold">Gender:</span>
-													{normalizeGender(league.gender) ?? 'Unspecified'}
-												</p>
-												<p>
-													<span class="font-semibold">Skill Level:</span>
-													{league.skillLevel ? toTitleCase(league.skillLevel) : 'Unspecified'}
-												</p>
-												<p>
-													<span class="font-semibold">Status:</span>
-													{league.isActive ? 'Active' : 'Inactive'} | {league.isLocked
-														? 'Locked'
-														: 'Unlocked'}
-												</p>
-												<p class="sm:col-span-2">
-													<span class="font-semibold">Registration:</span>
-													{formatReviewRange(league.regStartDate, league.regEndDate, true)}
-												</p>
-												<p class="sm:col-span-2">
-													<span class="font-semibold">Season Dates:</span>
-													{formatReviewRange(league.seasonStartDate, league.seasonEndDate)}
-												</p>
-												{#if league.hasPreseason}
-													<p class="sm:col-span-2">
-														<span class="font-semibold">Preseason:</span>
-														{formatReviewRange(league.preseasonStartDate, league.preseasonEndDate)}
-													</p>
-												{/if}
-												{#if league.hasPostseason}
-													<p class="sm:col-span-2">
-														<span class="font-semibold">Postseason:</span>
-														{formatReviewRange(
-															league.postseasonStartDate,
-															league.postseasonEndDate
-														)}
-													</p>
-												{/if}
-											</div>
-											{#if league.description.trim()}
-												<p class="text-xs text-neutral-950">
-													<span class="font-semibold">Description:</span>
-													{league.description.trim()}
-												</p>
-											{/if}
-										</div>
+									{#each selectedOfferingLeagueTemplates as existingLeague}
+										<button
+											type="button"
+											class="w-full border border-secondary-300 bg-white p-2 flex items-center justify-between gap-3 text-left cursor-pointer hover:bg-neutral-200 active:bg-neutral-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+											title={`Copy ${wizardEntryUnitSingular()} settings`}
+											aria-label={`Copy ${existingLeague.name}`}
+											onclick={() => {
+												copyFromExistingLeagueTemplate(existingLeague);
+											}}
+										>
+											<span class="min-w-0">
+												<span class="block text-sm font-semibold text-neutral-950 truncate">
+													{existingLeague.name}
+												</span>
+												<span class="block text-xs text-neutral-900">
+													{getSeasonLabel(existingLeague.seasonId)}
+												</span>
+											</span>
+											<IconCopy class="w-4 h-4 shrink-0" />
+										</button>
 									{/each}
 								</div>
-							{/if}
-						</div>
+							</div>
+						{/if}
 					</div>
 				{/if}
+			{/if}
+		</div>
+	{/if}
+
+	{#if createLeagueStep === 2}
+		<div class="space-y-4">
+			{#if selectedLeagueWizardOffering}
+				<div class="border border-secondary-300 bg-white p-3 text-sm text-neutral-950">
+					Adding to
+					<span class="font-semibold">{selectedLeagueWizardOffering.name}</span>
+				</div>
+			{/if}
+			{#if !createLeagueDraftActive}
+				<div class="space-y-2">
+					{#if createLeagueFieldErrors['leagues']}
+						<p class="text-xs text-error-700">{createLeagueFieldErrors['leagues']}</p>
+					{/if}
+					<WizardDraftCollection
+						title={wizardEntryType() === 'tournament' ? 'Tournament Groups' : 'Leagues'}
+						itemSingular={wizardEntryUnitSingular()}
+						itemPlural={wizardEntryUnitPlural()}
+						items={createLeagueForm.leagues}
+						draftActive={createLeagueDraftActive}
+						emptyMessage={`No ${wizardEntryUnitPlural()} added yet. Use the plus button to add one, or continue without ${wizardEntryUnitPlural()}.`}
+						onAdd={startAddingCreateLeagueDraft}
+						onEdit={startEditingCreateLeague}
+						onCopy={duplicateCreateLeague}
+						onMoveUp={(index) => moveCreateLeague(index, 'up')}
+						onMoveDown={(index) => moveCreateLeague(index, 'down')}
+						onRemove={removeCreateLeague}
+						getItemName={(item) => (item as WizardLeagueInput).name}
+						getItemSlug={(item) => (item as WizardLeagueInput).slug}
+						listClass="space-y-2 max-h-[52vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 scrollbar-track-secondary-400 scrollbar-corner-secondary-500 hover:scrollbar-thumb-secondary-700 active:scrollbar-thumb-secondary-700 scrollbar-hover:scrollbar-thumb-secondary-800 scrollbar-active:scrollbar-thumb-secondary-700"
+					>
+						{#snippet itemBody(item)}
+							{@const league = item as WizardLeagueInput}
+							<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-xs text-neutral-950">
+								<p><span class="font-semibold">Season:</span> {getSeasonLabel(league.seasonId)}</p>
+								<p>
+									<span class="font-semibold">Gender:</span>
+									{normalizeGender(league.gender) ?? 'Unspecified'}
+								</p>
+								<p>
+									<span class="font-semibold">Skill Level:</span>
+									{league.skillLevel ? toTitleCase(league.skillLevel) : 'Unspecified'}
+								</p>
+								<p>
+									<span class="font-semibold">Status:</span>
+									{league.isActive ? 'Active' : 'Inactive'} | {league.isLocked
+										? 'Locked'
+										: 'Unlocked'}
+								</p>
+								<p class="sm:col-span-2">
+									<span class="font-semibold">Registration:</span>
+									{formatReviewRange(league.regStartDate, league.regEndDate, true)}
+								</p>
+								<p class="sm:col-span-2">
+									<span class="font-semibold">Season Dates:</span>
+									{formatReviewRange(league.seasonStartDate, league.seasonEndDate)}
+								</p>
+								{#if league.hasPreseason}
+									<p class="sm:col-span-2">
+										<span class="font-semibold">Preseason:</span>
+										{formatReviewRange(league.preseasonStartDate, league.preseasonEndDate)}
+									</p>
+								{/if}
+								{#if league.hasPostseason}
+									<p class="sm:col-span-2">
+										<span class="font-semibold">Postseason:</span>
+										{formatReviewRange(league.postseasonStartDate, league.postseasonEndDate)}
+									</p>
+								{/if}
+							</div>
+							{#if league.description.trim()}
+								<p class="text-xs text-neutral-950">
+									<span class="font-semibold">Description:</span>
+									{league.description.trim()}
+								</p>
+							{/if}
+						{/snippet}
+					</WizardDraftCollection>
+				</div>
+			{:else}
+				<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+					<div>
+						<label for="league-wizard-name" class="block text-sm font-sans text-neutral-950 mb-1"
+							>Name <span class="text-error-700">*</span></label
+						>
+						<input
+							id="league-wizard-name"
+							type="text"
+							class="input-secondary"
+							value={createLeagueForm.league.name}
+							placeholder={wizardEntryType() === 'tournament' ? 'Pool A' : "Men's"}
+							oninput={(event) => {
+								const value = (event.currentTarget as HTMLInputElement).value;
+								createLeagueForm.league.name = value;
+								if (!createLeagueSlugTouched) {
+									const offeringName = selectedLeagueWizardOffering?.name ?? '';
+									createLeagueForm.league.slug = defaultLeagueSlug(value, offeringName);
+									createLeagueForm.league.isSlugManual = false;
+								}
+							}}
+							autocomplete="off"
+						/>
+						{#if createLeagueFieldErrors['league.name']}
+							<p class="text-xs text-error-700 mt-1">{createLeagueFieldErrors['league.name']}</p>
+						{/if}
+					</div>
+
+					<div>
+						<label for="league-wizard-slug" class="block text-sm font-sans text-neutral-950 mb-1"
+							>Slug <span class="text-error-700">*</span></label
+						>
+						<input
+							id="league-wizard-slug"
+							type="text"
+							class="input-secondary"
+							value={createLeagueForm.league.slug}
+							placeholder={wizardEntryType() === 'tournament' ? 'pool-a' : 'mens-soccer'}
+							oninput={(event) => {
+								createLeagueSlugTouched = true;
+								createLeagueForm.league.isSlugManual = true;
+								createLeagueForm.league.slug = applyLiveSlugInput(
+									event.currentTarget as HTMLInputElement
+								);
+							}}
+							autocomplete="off"
+						/>
+						{#if createLeagueFieldErrors['league.slug']}
+							<p class="text-xs text-error-700 mt-1">{createLeagueFieldErrors['league.slug']}</p>
+						{/if}
+					</div>
+
+					<div>
+						<p class="block text-sm font-sans text-neutral-950 mb-1">
+							Season <span class="text-error-700">*</span>
+						</p>
+						<ListboxDropdown
+							options={seasonDropdownOptions}
+							value={createLeagueForm.league.seasonId}
+							ariaLabel="League wizard season"
+							buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
+							on:change={(event) => {
+								createLeagueForm.league.seasonId = event.detail.value;
+								clearCreateLeagueApiErrors();
+							}}
+						/>
+						{#if createLeagueFieldErrors['league.seasonId']}
+							<p class="text-xs text-error-700 mt-1">
+								{createLeagueFieldErrors['league.seasonId']}
+							</p>
+						{/if}
+					</div>
+
+					<div>
+						<p class="block text-sm font-sans text-neutral-950 mb-1">Gender</p>
+						<ListboxDropdown
+							options={leagueGenderDropdownOptions}
+							value={createLeagueForm.league.gender}
+							ariaLabel="League wizard gender"
+							buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
+							on:change={(event) => {
+								createLeagueForm.league.gender = event.detail.value as LeagueGender;
+								clearCreateLeagueApiErrors();
+							}}
+						/>
+					</div>
+
+					<div>
+						<p class="block text-sm font-sans text-neutral-950 mb-1">Skill Level</p>
+						<ListboxDropdown
+							options={leagueSkillLevelDropdownOptions}
+							value={createLeagueForm.league.skillLevel}
+							ariaLabel="League wizard skill level"
+							buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
+							on:change={(event) => {
+								createLeagueForm.league.skillLevel = event.detail.value as LeagueSkillLevel;
+								clearCreateLeagueApiErrors();
+							}}
+						/>
+					</div>
+
+					<div class="lg:col-span-2">
+						<label
+							for="league-wizard-description"
+							class="block text-sm font-sans text-neutral-950 mb-1">Description</label
+						>
+						<textarea
+							id="league-wizard-description"
+							class="textarea-secondary min-h-28"
+							bind:value={createLeagueForm.league.description}
+							placeholder={`Describe this ${wizardEntryUnitSingular()}.`}
+						></textarea>
+					</div>
+				</div>
+			{/if}
+		</div>
+	{/if}
+
+	{#if createLeagueStep === 3}
+		<div class="space-y-4">
+			{#if !createLeagueDraftActive}
+				<div class="border border-secondary-300 bg-white p-4">
+					<p class="text-sm font-sans text-neutral-950">
+						No {wizardEntryUnitSingular()} draft is open. Go back to {createLeagueStepTitle(2)}
+						and click the plus button to add one.
+					</p>
+				</div>
+			{:else}
+				<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+					<div>
+						<label
+							for="league-wizard-reg-start"
+							class="block text-sm font-sans text-neutral-950 mb-1"
+							>Registration Opens <span class="text-error-700">*</span></label
+						>
+						<input
+							id="league-wizard-reg-start"
+							type="datetime-local"
+							class="input-secondary"
+							bind:value={createLeagueForm.league.regStartDate}
+							onfocus={() => {
+								if (!createLeagueForm.league.regStartDate.trim()) {
+									createLeagueForm.league.regStartDate = defaultDateTimeValue('start');
+								}
+							}}
+						/>
+						{#if createLeagueFieldErrors['league.regStartDate']}
+							<p class="text-xs text-error-700 mt-1">
+								{createLeagueFieldErrors['league.regStartDate']}
+							</p>
+						{/if}
+					</div>
+					<div>
+						<label for="league-wizard-reg-end" class="block text-sm font-sans text-neutral-950 mb-1"
+							>Registration Deadline <span class="text-error-700">*</span></label
+						>
+						<input
+							id="league-wizard-reg-end"
+							type="datetime-local"
+							class="input-secondary"
+							bind:value={createLeagueForm.league.regEndDate}
+							onfocus={() => {
+								if (!createLeagueForm.league.regEndDate.trim()) {
+									createLeagueForm.league.regEndDate = defaultDateTimeValue('end');
+								}
+							}}
+						/>
+						{#if createLeagueFieldErrors['league.regEndDate']}
+							<p class="text-xs text-error-700 mt-1">
+								{createLeagueFieldErrors['league.regEndDate']}
+							</p>
+						{/if}
+					</div>
+					<div>
+						<label
+							for="league-wizard-season-start"
+							class="block text-sm font-sans text-neutral-950 mb-1"
+							>Season Start Date <span class="text-error-700">*</span></label
+						>
+						<input
+							id="league-wizard-season-start"
+							type="date"
+							class="input-secondary"
+							bind:value={createLeagueForm.league.seasonStartDate}
+						/>
+						{#if createLeagueFieldErrors['league.seasonStartDate']}
+							<p class="text-xs text-error-700 mt-1">
+								{createLeagueFieldErrors['league.seasonStartDate']}
+							</p>
+						{/if}
+					</div>
+					<div>
+						<label
+							for="league-wizard-season-end"
+							class="block text-sm font-sans text-neutral-950 mb-1"
+							>Season End Date <span class="text-error-700">*</span></label
+						>
+						<input
+							id="league-wizard-season-end"
+							type="date"
+							class="input-secondary"
+							bind:value={createLeagueForm.league.seasonEndDate}
+						/>
+						{#if createLeagueFieldErrors['league.seasonEndDate']}
+							<p class="text-xs text-error-700 mt-1">
+								{createLeagueFieldErrors['league.seasonEndDate']}
+							</p>
+						{/if}
+					</div>
+				</div>
+
+				{#if createLeagueFieldErrors['league.scheduleRange']}
+					<p class="text-xs text-error-700">
+						{createLeagueFieldErrors['league.scheduleRange']}
+					</p>
+				{/if}
+
+				<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+					<div class="border border-secondary-300 bg-white p-3 space-y-3">
+						<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
+							<input
+								type="checkbox"
+								class="toggle-secondary"
+								bind:checked={createLeagueForm.league.hasPreseason}
+								onchange={() => {
+									if (!createLeagueForm.league.hasPreseason) {
+										createLeagueForm.league.preseasonStartDate = '';
+										createLeagueForm.league.preseasonEndDate = '';
+									}
+								}}
+							/>
+							Has Preseason
+						</label>
+						{#if createLeagueForm.league.hasPreseason}
+							<div class="space-y-3">
+								<div>
+									<label
+										for="league-wizard-preseason-start"
+										class="block text-sm font-sans text-neutral-950 mb-1">Preseason Start</label
+									>
+									<input
+										id="league-wizard-preseason-start"
+										type="date"
+										class="input-secondary"
+										bind:value={createLeagueForm.league.preseasonStartDate}
+									/>
+									{#if createLeagueFieldErrors['league.preseasonStartDate']}
+										<p class="text-xs text-error-700 mt-1">
+											{createLeagueFieldErrors['league.preseasonStartDate']}
+										</p>
+									{/if}
+								</div>
+								<div>
+									<label
+										for="league-wizard-preseason-end"
+										class="block text-sm font-sans text-neutral-950 mb-1">Preseason End</label
+									>
+									<input
+										id="league-wizard-preseason-end"
+										type="date"
+										class="input-secondary"
+										bind:value={createLeagueForm.league.preseasonEndDate}
+									/>
+									{#if createLeagueFieldErrors['league.preseasonEndDate']}
+										<p class="text-xs text-error-700 mt-1">
+											{createLeagueFieldErrors['league.preseasonEndDate']}
+										</p>
+									{/if}
+								</div>
+							</div>
+						{/if}
+					</div>
+
+					<div class="border border-secondary-300 bg-white p-3 space-y-3">
+						<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
+							<input
+								type="checkbox"
+								class="toggle-secondary"
+								bind:checked={createLeagueForm.league.hasPostseason}
+								onchange={() => {
+									if (!createLeagueForm.league.hasPostseason) {
+										createLeagueForm.league.postseasonStartDate = '';
+										createLeagueForm.league.postseasonEndDate = '';
+									}
+								}}
+							/>
+							Has Postseason
+						</label>
+						{#if createLeagueForm.league.hasPostseason}
+							<div class="space-y-3">
+								<div>
+									<label
+										for="league-wizard-postseason-start"
+										class="block text-sm font-sans text-neutral-950 mb-1">Postseason Start</label
+									>
+									<input
+										id="league-wizard-postseason-start"
+										type="date"
+										class="input-secondary"
+										bind:value={createLeagueForm.league.postseasonStartDate}
+									/>
+									{#if createLeagueFieldErrors['league.postseasonStartDate']}
+										<p class="text-xs text-error-700 mt-1">
+											{createLeagueFieldErrors['league.postseasonStartDate']}
+										</p>
+									{/if}
+								</div>
+								<div>
+									<label
+										for="league-wizard-postseason-end"
+										class="block text-sm font-sans text-neutral-950 mb-1">Postseason End</label
+									>
+									<input
+										id="league-wizard-postseason-end"
+										type="date"
+										class="input-secondary"
+										bind:value={createLeagueForm.league.postseasonEndDate}
+									/>
+									{#if createLeagueFieldErrors['league.postseasonEndDate']}
+										<p class="text-xs text-error-700 mt-1">
+											{createLeagueFieldErrors['league.postseasonEndDate']}
+										</p>
+									{/if}
+								</div>
+							</div>
+						{/if}
+					</div>
+				</div>
+
+				<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+					<div class="border border-secondary-300 bg-white p-3">
+						<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
+							<input
+								type="checkbox"
+								class="toggle-secondary"
+								bind:checked={createLeagueForm.league.isActive}
+							/>
+							Active
+						</label>
+					</div>
+					<div class="border border-secondary-300 bg-white p-3">
+						<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
+							<input
+								type="checkbox"
+								class="toggle-secondary"
+								bind:checked={createLeagueForm.league.isLocked}
+							/>
+							Locked
+						</label>
+					</div>
+				</div>
+
+				<div>
+					<label for="league-wizard-image-url" class="block text-sm font-sans text-neutral-950 mb-1"
+						>Image URL</label
+					>
+					<input
+						id="league-wizard-image-url"
+						type="url"
+						class="input-secondary"
+						bind:value={createLeagueForm.league.imageUrl}
+						placeholder="https://example.com/league-image.jpg"
+						autocomplete="off"
+					/>
+					{#if createLeagueFieldErrors['league.imageUrl']}
+						<p class="text-xs text-error-700 mt-1">
+							{createLeagueFieldErrors['league.imageUrl']}
+						</p>
+					{/if}
+				</div>
+			{/if}
+		</div>
+	{/if}
+
+	{#if createLeagueStep === 4}
+		<div class="space-y-4">
+			<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
+				<div class="flex items-start justify-between gap-2">
+					<h3 class="text-lg font-bold font-serif text-neutral-950">Offering</h3>
+					{#if !createLeagueCopiedFromExisting}
+						<button
+							type="button"
+							class="button-secondary-outlined p-1.5 cursor-pointer"
+							aria-label="Edit offering"
+							title="Edit offering"
+							onclick={startEditingCreateLeagueOffering}
+						>
+							<IconPencil class="w-4 h-4" />
+						</button>
+					{/if}
+				</div>
+				{#if selectedLeagueWizardOffering}
+					<p class="text-sm text-neutral-950">
+						<span class="font-semibold">Name:</span>
+						{selectedLeagueWizardOffering.name}
+					</p>
+					<p class="text-sm text-neutral-950">
+						<span class="font-semibold">Type:</span>
+						{selectedLeagueWizardOffering.type === 'tournament' ? 'Tournament' : 'League'}
+						<span class="ml-3 font-semibold">Status:</span>
+						{selectedLeagueWizardOffering.isActive ? 'Active' : 'Inactive'}
+					</p>
+				{:else}
+					<p class="text-sm text-neutral-950">No offering selected.</p>
+				{/if}
+			</div>
+
+			<div class="border-2 border-secondary-300 bg-white p-4 space-y-3">
+				<div class="flex items-start justify-between gap-2">
+					<h3 class="text-lg font-bold font-serif text-neutral-950">
+						{wizardEntryUnitTitlePlural()}
+					</h3>
+					<button
+						type="button"
+						class="button-secondary-outlined p-1.5 cursor-pointer"
+						aria-label={`Edit ${wizardEntryUnitPlural()}`}
+						title={`Edit ${wizardEntryUnitPlural()}`}
+						onclick={startEditingCreateLeagues}
+					>
+						<IconPencil class="w-4 h-4" />
+					</button>
+				</div>
+				{#if createLeagueFieldErrors['leagues']}
+					<p class="text-xs text-error-700">{createLeagueFieldErrors['leagues']}</p>
+				{/if}
+				{#if createLeagueForm.leagues.length === 0}
+					<p class="text-sm text-neutral-950 font-sans">
+						No {wizardEntryUnitPlural()} will be created.
+					</p>
+				{:else}
+					<div
+						class="space-y-3 max-h-[45vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 scrollbar-track-secondary-400"
+					>
+						{#each createLeagueForm.leagues as league}
+							<div class="border border-secondary-300 bg-neutral p-3 space-y-2">
+								<div>
+									<p class="text-sm font-semibold text-neutral-950">
+										{league.name.trim() || `Untitled ${wizardEntryUnitTitleSingular()}`}
+									</p>
+									<p class="text-xs text-neutral-900">Slug: {league.slug || 'TBD'}</p>
+								</div>
+								<div
+									class="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-xs text-neutral-950"
+								>
+									<p>
+										<span class="font-semibold">Season:</span>
+										{getSeasonLabel(league.seasonId)}
+									</p>
+									<p>
+										<span class="font-semibold">Gender:</span>
+										{normalizeGender(league.gender) ?? 'Unspecified'}
+									</p>
+									<p>
+										<span class="font-semibold">Skill Level:</span>
+										{league.skillLevel ? toTitleCase(league.skillLevel) : 'Unspecified'}
+									</p>
+									<p>
+										<span class="font-semibold">Status:</span>
+										{league.isActive ? 'Active' : 'Inactive'} | {league.isLocked
+											? 'Locked'
+											: 'Unlocked'}
+									</p>
+									<p class="sm:col-span-2">
+										<span class="font-semibold">Registration:</span>
+										{formatReviewRange(league.regStartDate, league.regEndDate, true)}
+									</p>
+									<p class="sm:col-span-2">
+										<span class="font-semibold">Season Dates:</span>
+										{formatReviewRange(league.seasonStartDate, league.seasonEndDate)}
+									</p>
+									{#if league.hasPreseason}
+										<p class="sm:col-span-2">
+											<span class="font-semibold">Preseason:</span>
+											{formatReviewRange(league.preseasonStartDate, league.preseasonEndDate)}
+										</p>
+									{/if}
+									{#if league.hasPostseason}
+										<p class="sm:col-span-2">
+											<span class="font-semibold">Postseason:</span>
+											{formatReviewRange(league.postseasonStartDate, league.postseasonEndDate)}
+										</p>
+									{/if}
+								</div>
+								{#if league.description.trim()}
+									<p class="text-xs text-neutral-950">
+										<span class="font-semibold">Description:</span>
+										{league.description.trim()}
+									</p>
+								{/if}
+							</div>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		</div>
+	{/if}
 	{#snippet footer()}
 		<WizardStepFooter
 			step={createLeagueStep}
@@ -5566,801 +6169,810 @@
 	onUnsavedConfirm={confirmDiscardCreateWizard}
 	onUnsavedCancel={cancelDiscardCreateWizard}
 >
-				{#if createStep === 1}
-					<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-						<div>
-							<label for="offering-name" class="block text-sm font-sans text-neutral-950 mb-1"
-								>Name <span class="text-error-700">*</span></label
-							>
+	{#if createStep === 1}
+		<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+			<div>
+				<p class="block text-sm font-sans text-neutral-950 mb-1">
+					Season <span class="text-error-700">*</span>
+				</p>
+				<ListboxDropdown
+					options={seasonDropdownOptions}
+					value={createForm.offering.seasonId}
+					ariaLabel="Offering season"
+					buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
+					on:change={(event) => {
+						const nextSeasonId = event.detail.value;
+						createForm.offering.seasonId = nextSeasonId;
+						createForm.league.seasonId = nextSeasonId;
+						if (createForm.leagues.length > 0) {
+							createForm.leagues = createForm.leagues.map((league) => ({
+								...league,
+								seasonId: nextSeasonId
+							}));
+						}
+						clearCreateApiErrors();
+					}}
+				/>
+				{#if createFieldErrors['offering.seasonId']}
+					<p class="text-xs text-error-700 mt-1">{createFieldErrors['offering.seasonId']}</p>
+				{/if}
+			</div>
+
+			<div>
+				<label for="offering-name" class="block text-sm font-sans text-neutral-950 mb-1"
+					>Name <span class="text-error-700">*</span></label
+				>
+				<input
+					id="offering-name"
+					type="text"
+					class="input-secondary"
+					value={createForm.offering.name}
+					placeholder="Basketball"
+					oninput={(event) => {
+						const value = (event.currentTarget as HTMLInputElement).value;
+						createForm.offering.name = value;
+						if (!offeringSlugTouched) {
+							createForm.offering.slug = slugifyFinal(value);
+						}
+					}}
+					autocomplete="off"
+				/>
+				{#if createFieldErrors['offering.name']}
+					<p class="text-xs text-error-700 mt-1">{createFieldErrors['offering.name']}</p>
+				{/if}
+			</div>
+
+			<div>
+				<label for="offering-slug" class="block text-sm font-sans text-neutral-950 mb-1"
+					>Slug <span class="text-error-700">*</span></label
+				>
+				<input
+					id="offering-slug"
+					type="text"
+					class="input-secondary"
+					value={createForm.offering.slug}
+					placeholder="basketball"
+					oninput={(event) => {
+						offeringSlugTouched = true;
+						createForm.offering.slug = applyLiveSlugInput(event.currentTarget as HTMLInputElement);
+					}}
+					autocomplete="off"
+				/>
+				{#if createFieldErrors['offering.slug']}
+					<p class="text-xs text-error-700 mt-1">{createFieldErrors['offering.slug']}</p>
+				{/if}
+			</div>
+
+			<div>
+				<label for="offering-sport" class="block text-sm font-sans text-neutral-950 mb-1"
+					>Sport <span class="text-error-700">*</span></label
+				>
+				<input
+					id="offering-sport"
+					type="text"
+					class="input-secondary"
+					bind:value={createForm.offering.sport}
+					placeholder="Basketball"
+					autocomplete="off"
+				/>
+				{#if createFieldErrors['offering.sport']}
+					<p class="text-xs text-error-700 mt-1">{createFieldErrors['offering.sport']}</p>
+				{/if}
+			</div>
+
+			<div>
+				<p class="block text-sm font-sans text-neutral-950 mb-1">
+					Type <span class="text-error-700">*</span>
+				</p>
+				<ListboxDropdown
+					options={offeringTypeDropdownOptions}
+					value={createForm.offering.type}
+					ariaLabel="Offering type"
+					buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
+					on:change={(event) => {
+						createForm.offering.type = event.detail.value as 'league' | 'tournament';
+						clearCreateApiErrors();
+					}}
+				/>
+				{#if createFieldErrors['offering.type']}
+					<p class="text-xs text-error-700 mt-1">{createFieldErrors['offering.type']}</p>
+				{/if}
+			</div>
+
+			<div class="lg:col-span-2">
+				<label for="offering-description" class="block text-sm font-sans text-neutral-950 mb-1"
+					>Description</label
+				>
+				<textarea
+					id="offering-description"
+					class="textarea-secondary min-h-28"
+					bind:value={createForm.offering.description}
+					placeholder="Describe this offering."
+				></textarea>
+				{#if createFieldErrors['offering.description']}
+					<p class="text-xs text-error-700 mt-1">
+						{createFieldErrors['offering.description']}
+					</p>
+				{/if}
+			</div>
+		</div>
+	{/if}
+
+	{#if createStep === 2}
+		<div class="space-y-4">
+			<div class="grid grid-cols-1 lg:grid-cols-[15rem_minmax(0,1fr)] gap-5">
+				<div class="space-y-4 max-w-60">
+					<div>
+						<label for="offering-min-players" class="block text-sm font-sans text-neutral-950 mb-1"
+							>Min Players</label
+						>
+						<input
+							id="offering-min-players"
+							type="number"
+							class="input-secondary"
+							min="1"
+							step="1"
+							value={createForm.offering.minPlayers > 0
+								? String(createForm.offering.minPlayers)
+								: ''}
+							oninput={(event) => {
+								const parsed = Number.parseInt((event.currentTarget as HTMLInputElement).value, 10);
+								createForm.offering.minPlayers = Number.isNaN(parsed) ? 0 : parsed;
+							}}
+						/>
+						{#if createFieldErrors['offering.minPlayers']}
+							<p class="text-xs text-error-700 mt-1">
+								{createFieldErrors['offering.minPlayers']}
+							</p>
+						{/if}
+					</div>
+
+					<div>
+						<label for="offering-max-players" class="block text-sm font-sans text-neutral-950 mb-1"
+							>Max Players</label
+						>
+						<input
+							id="offering-max-players"
+							type="number"
+							class="input-secondary"
+							min="1"
+							step="1"
+							value={createForm.offering.maxPlayers > 0
+								? String(createForm.offering.maxPlayers)
+								: ''}
+							oninput={(event) => {
+								const parsed = Number.parseInt((event.currentTarget as HTMLInputElement).value, 10);
+								createForm.offering.maxPlayers = Number.isNaN(parsed) ? 0 : parsed;
+							}}
+						/>
+						{#if createFieldErrors['offering.maxPlayers']}
+							<p class="text-xs text-error-700 mt-1">
+								{createFieldErrors['offering.maxPlayers']}
+							</p>
+						{/if}
+					</div>
+				</div>
+
+				<div class="space-y-4 max-w-3xl">
+					<div>
+						<label for="offering-image-url" class="block text-sm font-sans text-neutral-950 mb-1"
+							>Image URL</label
+						>
+						<input
+							id="offering-image-url"
+							type="url"
+							class="input-secondary"
+							bind:value={createForm.offering.imageUrl}
+							placeholder="https://example.com/offering-image.jpg"
+							autocomplete="off"
+						/>
+						{#if createFieldErrors['offering.imageUrl']}
+							<p class="text-xs text-error-700 mt-1">
+								{createFieldErrors['offering.imageUrl']}
+							</p>
+						{/if}
+					</div>
+
+					<div>
+						<label for="offering-rulebook-url" class="block text-sm font-sans text-neutral-950 mb-1"
+							>Rulebook URL</label
+						>
+						<input
+							id="offering-rulebook-url"
+							type="url"
+							class="input-secondary"
+							bind:value={createForm.offering.rulebookUrl}
+							placeholder="https://example.com/rules"
+							autocomplete="off"
+						/>
+						{#if createFieldErrors['offering.rulebookUrl']}
+							<p class="text-xs text-error-700 mt-1">
+								{createFieldErrors['offering.rulebookUrl']}
+							</p>
+						{/if}
+					</div>
+				</div>
+			</div>
+
+			<div class="border border-secondary-300 bg-white p-3">
+				<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
+					<input
+						type="checkbox"
+						class="toggle-secondary"
+						bind:checked={createForm.offering.isActive}
+					/>
+					Active
+				</label>
+			</div>
+		</div>
+	{/if}
+
+	{#if createStep === 3}
+		<div class="space-y-4">
+			{#if !leagueDraftActive}
+				<WizardDraftCollection
+					title={isTournamentWizard() ? 'Tournament Groups' : 'Leagues'}
+					itemSingular={wizardUnitSingular()}
+					itemPlural={wizardUnitPlural()}
+					items={createForm.leagues}
+					draftActive={leagueDraftActive}
+					emptyMessage={`No ${wizardUnitPlural()} added yet. Use the plus button to add one, or continue without ${wizardUnitPlural()}.`}
+					onAdd={startAddingLeague}
+					onEdit={startEditingLeague}
+					onCopy={duplicateLeague}
+					onMoveUp={(index) => moveLeague(index, 'up')}
+					onMoveDown={(index) => moveLeague(index, 'down')}
+					onRemove={removeLeague}
+					getItemName={(item) => (item as WizardLeagueInput).name}
+					getItemSlug={(item) => (item as WizardLeagueInput).slug}
+				>
+					{#snippet itemBody(item)}
+						{@const league = item as WizardLeagueInput}
+						<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-xs text-neutral-950">
+							<p><span class="font-semibold">Season:</span> {getSeasonLabel(league.seasonId)}</p>
+							<p>
+								<span class="font-semibold">Gender:</span>
+								{normalizeGender(league.gender) ?? 'Unspecified'}
+							</p>
+							<p>
+								<span class="font-semibold">Skill Level:</span>
+								{league.skillLevel ? toTitleCase(league.skillLevel) : 'Unspecified'}
+							</p>
+							<p>
+								<span class="font-semibold">Status:</span>
+								{league.isActive ? 'Active' : 'Inactive'} | {league.isLocked
+									? 'Locked'
+									: 'Unlocked'}
+							</p>
+							<p class="sm:col-span-2">
+								<span class="font-semibold">Registration:</span>
+								{formatReviewRange(league.regStartDate, league.regEndDate, true)}
+							</p>
+							<p class="sm:col-span-2">
+								<span class="font-semibold">Season Dates:</span>
+								{formatReviewRange(league.seasonStartDate, league.seasonEndDate)}
+							</p>
+							{#if league.hasPreseason}
+								<p class="sm:col-span-2">
+									<span class="font-semibold">Preseason:</span>
+									{formatReviewRange(league.preseasonStartDate, league.preseasonEndDate)}
+								</p>
+							{/if}
+							{#if league.hasPostseason}
+								<p class="sm:col-span-2">
+									<span class="font-semibold">Postseason:</span>
+									{formatReviewRange(league.postseasonStartDate, league.postseasonEndDate)}
+								</p>
+							{/if}
+						</div>
+						{#if league.description.trim()}
+							<p class="text-xs text-neutral-950">
+								<span class="font-semibold">Description:</span>
+								{league.description.trim()}
+							</p>
+						{/if}
+					{/snippet}
+				</WizardDraftCollection>
+			{:else}
+				<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+					<div>
+						<label for="league-name" class="block text-sm font-sans text-neutral-950 mb-1"
+							>Name <span class="text-error-700">*</span></label
+						>
+						<input
+							id="league-name"
+							type="text"
+							class="input-secondary"
+							value={createForm.league.name}
+							placeholder="Men's"
+							oninput={(event) => {
+								const value = (event.currentTarget as HTMLInputElement).value;
+								createForm.league.name = value;
+								if (!leagueSlugTouched) {
+									createForm.league.slug = defaultLeagueSlug(value, createForm.offering.name);
+									createForm.league.isSlugManual = false;
+								}
+							}}
+							autocomplete="off"
+						/>
+						{#if createFieldErrors['league.name']}
+							<p class="text-xs text-error-700 mt-1">{createFieldErrors['league.name']}</p>
+						{/if}
+					</div>
+
+					<div>
+						<label for="league-slug" class="block text-sm font-sans text-neutral-950 mb-1"
+							>Slug <span class="text-error-700">*</span></label
+						>
+						<input
+							id="league-slug"
+							type="text"
+							class="input-secondary"
+							value={createForm.league.slug}
+							placeholder="mens-soccer"
+							oninput={(event) => {
+								leagueSlugTouched = true;
+								createForm.league.isSlugManual = true;
+								createForm.league.slug = applyLiveSlugInput(
+									event.currentTarget as HTMLInputElement
+								);
+							}}
+							autocomplete="off"
+						/>
+						{#if createFieldErrors['league.slug']}
+							<p class="text-xs text-error-700 mt-1">{createFieldErrors['league.slug']}</p>
+						{/if}
+					</div>
+
+					<div>
+						<p class="block text-sm font-sans text-neutral-950 mb-1">
+							Season <span class="text-error-700">*</span>
+						</p>
+						<ListboxDropdown
+							options={createOfferingLeagueSeasonDropdownOptions}
+							value={createForm.league.seasonId}
+							ariaLabel="League season"
+							buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
+							disabled={Boolean(createForm.offering.seasonId)}
+							on:change={(event) => {
+								createForm.league.seasonId = event.detail.value;
+								clearCreateApiErrors();
+							}}
+						/>
+						{#if createFieldErrors['league.seasonId']}
+							<p class="text-xs text-error-700 mt-1">{createFieldErrors['league.seasonId']}</p>
+						{/if}
+					</div>
+
+					<div>
+						<p class="block text-sm font-sans text-neutral-950 mb-1">Gender</p>
+						<ListboxDropdown
+							options={leagueGenderDropdownOptions}
+							value={createForm.league.gender}
+							ariaLabel="League gender"
+							buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
+							on:change={(event) => {
+								createForm.league.gender = event.detail.value as LeagueGender;
+								clearCreateApiErrors();
+							}}
+						/>
+					</div>
+
+					<div>
+						<p class="block text-sm font-sans text-neutral-950 mb-1">Skill Level</p>
+						<ListboxDropdown
+							options={leagueSkillLevelDropdownOptions}
+							value={createForm.league.skillLevel}
+							ariaLabel="League skill level"
+							buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
+							on:change={(event) => {
+								createForm.league.skillLevel = event.detail.value as LeagueSkillLevel;
+								clearCreateApiErrors();
+							}}
+						/>
+					</div>
+
+					<div class="lg:col-span-2">
+						<label for="league-description" class="block text-sm font-sans text-neutral-950 mb-1"
+							>Description</label
+						>
+						<textarea
+							id="league-description"
+							class="textarea-secondary min-h-28"
+							bind:value={createForm.league.description}
+							placeholder={`Describe this ${wizardUnitSingular()}.`}
+						></textarea>
+					</div>
+				</div>
+			{/if}
+		</div>
+	{/if}
+
+	{#if createStep === 4}
+		<div class="space-y-4">
+			{#if !leagueDraftActive}
+				<div class="border border-secondary-300 bg-white p-4">
+					<p class="text-sm font-sans text-neutral-950">
+						No {wizardUnitSingular()} draft is open. Go back to {wizardStepTitle(3)} and click the plus
+						button to add one.
+					</p>
+				</div>
+			{:else}
+				<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+					<div>
+						<label for="league-reg-start" class="block text-sm font-sans text-neutral-950 mb-1"
+							>Registration Opens <span class="text-error-700">*</span></label
+						>
+						<input
+							id="league-reg-start"
+							type="datetime-local"
+							class="input-secondary"
+							bind:value={createForm.league.regStartDate}
+							onfocus={() => {
+								if (!createForm.league.regStartDate.trim()) {
+									createForm.league.regStartDate = defaultDateTimeValue('start');
+								}
+							}}
+						/>
+						{#if createFieldErrors['league.regStartDate']}
+							<p class="text-xs text-error-700 mt-1">
+								{createFieldErrors['league.regStartDate']}
+							</p>
+						{/if}
+					</div>
+					<div>
+						<label for="league-reg-end" class="block text-sm font-sans text-neutral-950 mb-1"
+							>Registration Deadline <span class="text-error-700">*</span></label
+						>
+						<input
+							id="league-reg-end"
+							type="datetime-local"
+							class="input-secondary"
+							bind:value={createForm.league.regEndDate}
+							onfocus={() => {
+								if (!createForm.league.regEndDate.trim()) {
+									createForm.league.regEndDate = defaultDateTimeValue('end');
+								}
+							}}
+						/>
+						{#if createFieldErrors['league.regEndDate']}
+							<p class="text-xs text-error-700 mt-1">
+								{createFieldErrors['league.regEndDate']}
+							</p>
+						{/if}
+					</div>
+					<div>
+						<label for="league-season-start" class="block text-sm font-sans text-neutral-950 mb-1"
+							>Season Start Date <span class="text-error-700">*</span></label
+						>
+						<input
+							id="league-season-start"
+							type="date"
+							class="input-secondary"
+							bind:value={createForm.league.seasonStartDate}
+						/>
+						{#if createFieldErrors['league.seasonStartDate']}
+							<p class="text-xs text-error-700 mt-1">
+								{createFieldErrors['league.seasonStartDate']}
+							</p>
+						{/if}
+					</div>
+					<div>
+						<label for="league-season-end" class="block text-sm font-sans text-neutral-950 mb-1"
+							>Season End Date <span class="text-error-700">*</span></label
+						>
+						<input
+							id="league-season-end"
+							type="date"
+							class="input-secondary"
+							bind:value={createForm.league.seasonEndDate}
+						/>
+						{#if createFieldErrors['league.seasonEndDate']}
+							<p class="text-xs text-error-700 mt-1">
+								{createFieldErrors['league.seasonEndDate']}
+							</p>
+						{/if}
+					</div>
+				</div>
+
+				{#if createFieldErrors['league.scheduleRange']}
+					<p class="text-xs text-error-700">{createFieldErrors['league.scheduleRange']}</p>
+				{/if}
+
+				<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+					<div class="border border-secondary-300 bg-white p-3 space-y-3">
+						<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
 							<input
-								id="offering-name"
-								type="text"
-								class="input-secondary"
-								value={createForm.offering.name}
-								placeholder="Basketball"
-								oninput={(event) => {
-									const value = (event.currentTarget as HTMLInputElement).value;
-									createForm.offering.name = value;
-									if (!offeringSlugTouched) {
-										createForm.offering.slug = slugifyFinal(value);
+								type="checkbox"
+								class="toggle-secondary"
+								bind:checked={createForm.league.hasPreseason}
+								onchange={() => {
+									if (!createForm.league.hasPreseason) {
+										createForm.league.preseasonStartDate = '';
+										createForm.league.preseasonEndDate = '';
 									}
 								}}
-								autocomplete="off"
 							/>
-							{#if createFieldErrors['offering.name']}
-								<p class="text-xs text-error-700 mt-1">{createFieldErrors['offering.name']}</p>
-							{/if}
-						</div>
-
-						<div>
-							<label for="offering-slug" class="block text-sm font-sans text-neutral-950 mb-1"
-								>Slug <span class="text-error-700">*</span></label
-							>
-							<input
-								id="offering-slug"
-								type="text"
-								class="input-secondary"
-								value={createForm.offering.slug}
-								placeholder="basketball"
-								oninput={(event) => {
-									offeringSlugTouched = true;
-									createForm.offering.slug = applyLiveSlugInput(
-										event.currentTarget as HTMLInputElement
-									);
-								}}
-								autocomplete="off"
-							/>
-							{#if createFieldErrors['offering.slug']}
-								<p class="text-xs text-error-700 mt-1">{createFieldErrors['offering.slug']}</p>
-							{/if}
-						</div>
-
-						<div>
-							<label for="offering-sport" class="block text-sm font-sans text-neutral-950 mb-1"
-								>Sport <span class="text-error-700">*</span></label
-							>
-							<input
-								id="offering-sport"
-								type="text"
-								class="input-secondary"
-								bind:value={createForm.offering.sport}
-								placeholder="Basketball"
-								autocomplete="off"
-							/>
-							{#if createFieldErrors['offering.sport']}
-								<p class="text-xs text-error-700 mt-1">{createFieldErrors['offering.sport']}</p>
-							{/if}
-						</div>
-
-						<div>
-							<p class="block text-sm font-sans text-neutral-950 mb-1">
-								Type <span class="text-error-700">*</span>
-							</p>
-							<ListboxDropdown
-								options={offeringTypeDropdownOptions}
-								value={createForm.offering.type}
-								ariaLabel="Offering type"
-								buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
-								on:change={(event) => {
-									createForm.offering.type = event.detail.value as 'league' | 'tournament';
-									clearCreateApiErrors();
-								}}
-							/>
-							{#if createFieldErrors['offering.type']}
-								<p class="text-xs text-error-700 mt-1">{createFieldErrors['offering.type']}</p>
-							{/if}
-						</div>
-
-						<div class="lg:col-span-2">
-							<label
-								for="offering-description"
-								class="block text-sm font-sans text-neutral-950 mb-1">Description</label
-							>
-							<textarea
-								id="offering-description"
-								class="textarea-secondary min-h-28"
-								bind:value={createForm.offering.description}
-								placeholder="Describe this offering."
-							></textarea>
-							{#if createFieldErrors['offering.description']}
-								<p class="text-xs text-error-700 mt-1">
-									{createFieldErrors['offering.description']}
-								</p>
-							{/if}
-						</div>
-					</div>
-				{/if}
-
-				{#if createStep === 2}
-					<div class="space-y-4">
-						<div class="grid grid-cols-1 lg:grid-cols-[15rem_minmax(0,1fr)] gap-5">
-							<div class="space-y-4 max-w-60">
+							Has Preseason
+						</label>
+						{#if createForm.league.hasPreseason}
+							<div class="space-y-3">
 								<div>
 									<label
-										for="offering-min-players"
-										class="block text-sm font-sans text-neutral-950 mb-1">Min Players</label
+										for="league-preseason-start"
+										class="block text-sm font-sans text-neutral-950 mb-1">Preseason Start</label
 									>
 									<input
-										id="offering-min-players"
-										type="number"
+										id="league-preseason-start"
+										type="date"
 										class="input-secondary"
-										min="1"
-										step="1"
-										value={createForm.offering.minPlayers > 0
-											? String(createForm.offering.minPlayers)
-											: ''}
-										oninput={(event) => {
-											const parsed = Number.parseInt(
-												(event.currentTarget as HTMLInputElement).value,
-												10
-											);
-											createForm.offering.minPlayers = Number.isNaN(parsed) ? 0 : parsed;
-										}}
+										bind:value={createForm.league.preseasonStartDate}
 									/>
-									{#if createFieldErrors['offering.minPlayers']}
+									{#if createFieldErrors['league.preseasonStartDate']}
 										<p class="text-xs text-error-700 mt-1">
-											{createFieldErrors['offering.minPlayers']}
+											{createFieldErrors['league.preseasonStartDate']}
 										</p>
 									{/if}
 								</div>
-
 								<div>
 									<label
-										for="offering-max-players"
-										class="block text-sm font-sans text-neutral-950 mb-1">Max Players</label
+										for="league-preseason-end"
+										class="block text-sm font-sans text-neutral-950 mb-1">Preseason End</label
 									>
 									<input
-										id="offering-max-players"
-										type="number"
+										id="league-preseason-end"
+										type="date"
 										class="input-secondary"
-										min="1"
-										step="1"
-										value={createForm.offering.maxPlayers > 0
-											? String(createForm.offering.maxPlayers)
-											: ''}
-										oninput={(event) => {
-											const parsed = Number.parseInt(
-												(event.currentTarget as HTMLInputElement).value,
-												10
-											);
-											createForm.offering.maxPlayers = Number.isNaN(parsed) ? 0 : parsed;
-										}}
+										bind:value={createForm.league.preseasonEndDate}
 									/>
-									{#if createFieldErrors['offering.maxPlayers']}
+									{#if createFieldErrors['league.preseasonEndDate']}
 										<p class="text-xs text-error-700 mt-1">
-											{createFieldErrors['offering.maxPlayers']}
+											{createFieldErrors['league.preseasonEndDate']}
 										</p>
 									{/if}
-								</div>
-							</div>
-
-							<div class="space-y-4 max-w-3xl">
-								<div>
-									<label
-										for="offering-image-url"
-										class="block text-sm font-sans text-neutral-950 mb-1">Image URL</label
-									>
-									<input
-										id="offering-image-url"
-										type="url"
-										class="input-secondary"
-										bind:value={createForm.offering.imageUrl}
-										placeholder="https://example.com/offering-image.jpg"
-										autocomplete="off"
-									/>
-									{#if createFieldErrors['offering.imageUrl']}
-										<p class="text-xs text-error-700 mt-1">
-											{createFieldErrors['offering.imageUrl']}
-										</p>
-									{/if}
-								</div>
-
-								<div>
-									<label
-										for="offering-rulebook-url"
-										class="block text-sm font-sans text-neutral-950 mb-1">Rulebook URL</label
-									>
-									<input
-										id="offering-rulebook-url"
-										type="url"
-										class="input-secondary"
-										bind:value={createForm.offering.rulebookUrl}
-										placeholder="https://example.com/rules"
-										autocomplete="off"
-									/>
-									{#if createFieldErrors['offering.rulebookUrl']}
-										<p class="text-xs text-error-700 mt-1">
-											{createFieldErrors['offering.rulebookUrl']}
-										</p>
-									{/if}
-								</div>
-							</div>
-						</div>
-
-						<div class="border border-secondary-300 bg-white p-3">
-							<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-								<input
-									type="checkbox"
-									class="toggle-secondary"
-									bind:checked={createForm.offering.isActive}
-								/>
-								Active
-							</label>
-						</div>
-					</div>
-				{/if}
-
-				{#if createStep === 3}
-					<div class="space-y-4">
-						{#if !leagueDraftActive}
-							<WizardDraftCollection
-								title={isTournamentWizard() ? 'Tournament Groups' : 'Leagues'}
-								itemSingular={wizardUnitSingular()}
-								itemPlural={wizardUnitPlural()}
-								items={createForm.leagues}
-								draftActive={leagueDraftActive}
-								emptyMessage={`No ${wizardUnitPlural()} added yet. Use the plus button to add one, or continue without ${wizardUnitPlural()}.`}
-								onAdd={startAddingLeague}
-								onEdit={startEditingLeague}
-								onCopy={duplicateLeague}
-								onMoveUp={(index) => moveLeague(index, 'up')}
-								onMoveDown={(index) => moveLeague(index, 'down')}
-								onRemove={removeLeague}
-								getItemName={(item) => (item as WizardLeagueInput).name}
-								getItemSlug={(item) => (item as WizardLeagueInput).slug}
-							>
-								{#snippet itemBody(item)}
-									{@const league = item as WizardLeagueInput}
-									<div class="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-xs text-neutral-950">
-										<p><span class="font-semibold">Season:</span> {getSeasonLabel(league.seasonId)}</p>
-										<p>
-											<span class="font-semibold">Gender:</span>
-											{normalizeGender(league.gender) ?? 'Unspecified'}
-										</p>
-										<p>
-											<span class="font-semibold">Skill Level:</span>
-											{league.skillLevel ? toTitleCase(league.skillLevel) : 'Unspecified'}
-										</p>
-										<p>
-											<span class="font-semibold">Status:</span>
-											{league.isActive ? 'Active' : 'Inactive'} | {league.isLocked
-												? 'Locked'
-												: 'Unlocked'}
-										</p>
-										<p class="sm:col-span-2">
-											<span class="font-semibold">Registration:</span>
-											{formatReviewRange(league.regStartDate, league.regEndDate, true)}
-										</p>
-										<p class="sm:col-span-2">
-											<span class="font-semibold">Season Dates:</span>
-											{formatReviewRange(league.seasonStartDate, league.seasonEndDate)}
-										</p>
-										{#if league.hasPreseason}
-											<p class="sm:col-span-2">
-												<span class="font-semibold">Preseason:</span>
-												{formatReviewRange(league.preseasonStartDate, league.preseasonEndDate)}
-											</p>
-										{/if}
-										{#if league.hasPostseason}
-											<p class="sm:col-span-2">
-												<span class="font-semibold">Postseason:</span>
-												{formatReviewRange(league.postseasonStartDate, league.postseasonEndDate)}
-											</p>
-										{/if}
-									</div>
-									{#if league.description.trim()}
-										<p class="text-xs text-neutral-950">
-											<span class="font-semibold">Description:</span>
-											{league.description.trim()}
-										</p>
-									{/if}
-								{/snippet}
-							</WizardDraftCollection>
-						{:else}
-							<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-								<div>
-									<label for="league-name" class="block text-sm font-sans text-neutral-950 mb-1"
-										>Name <span class="text-error-700">*</span></label
-									>
-									<input
-										id="league-name"
-										type="text"
-										class="input-secondary"
-										value={createForm.league.name}
-										placeholder="Men's"
-										oninput={(event) => {
-											const value = (event.currentTarget as HTMLInputElement).value;
-											createForm.league.name = value;
-											if (!leagueSlugTouched) {
-												createForm.league.slug = defaultLeagueSlug(value, createForm.offering.name);
-												createForm.league.isSlugManual = false;
-											}
-										}}
-										autocomplete="off"
-									/>
-									{#if createFieldErrors['league.name']}
-										<p class="text-xs text-error-700 mt-1">{createFieldErrors['league.name']}</p>
-									{/if}
-								</div>
-
-								<div>
-									<label for="league-slug" class="block text-sm font-sans text-neutral-950 mb-1"
-										>Slug <span class="text-error-700">*</span></label
-									>
-									<input
-										id="league-slug"
-										type="text"
-										class="input-secondary"
-										value={createForm.league.slug}
-										placeholder="mens-soccer"
-										oninput={(event) => {
-											leagueSlugTouched = true;
-											createForm.league.isSlugManual = true;
-											createForm.league.slug = applyLiveSlugInput(
-												event.currentTarget as HTMLInputElement
-											);
-										}}
-										autocomplete="off"
-									/>
-									{#if createFieldErrors['league.slug']}
-										<p class="text-xs text-error-700 mt-1">{createFieldErrors['league.slug']}</p>
-									{/if}
-								</div>
-
-								<div>
-									<p class="block text-sm font-sans text-neutral-950 mb-1">
-										Season <span class="text-error-700">*</span>
-									</p>
-									<ListboxDropdown
-										options={seasonDropdownOptions}
-										value={createForm.league.seasonId}
-										ariaLabel="League season"
-										buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
-										on:change={(event) => {
-											createForm.league.seasonId = event.detail.value;
-											clearCreateApiErrors();
-										}}
-									/>
-									{#if createFieldErrors['league.seasonId']}
-										<p class="text-xs text-error-700 mt-1">{createFieldErrors['league.seasonId']}</p>
-									{/if}
-								</div>
-
-								<div>
-									<p class="block text-sm font-sans text-neutral-950 mb-1">Gender</p>
-									<ListboxDropdown
-										options={leagueGenderDropdownOptions}
-										value={createForm.league.gender}
-										ariaLabel="League gender"
-										buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
-										on:change={(event) => {
-											createForm.league.gender = event.detail.value as LeagueGender;
-											clearCreateApiErrors();
-										}}
-									/>
-								</div>
-
-								<div>
-									<p class="block text-sm font-sans text-neutral-950 mb-1">Skill Level</p>
-									<ListboxDropdown
-										options={leagueSkillLevelDropdownOptions}
-										value={createForm.league.skillLevel}
-										ariaLabel="League skill level"
-										buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
-										on:change={(event) => {
-											createForm.league.skillLevel = event.detail.value as LeagueSkillLevel;
-											clearCreateApiErrors();
-										}}
-									/>
-								</div>
-
-								<div class="lg:col-span-2">
-									<label
-										for="league-description"
-										class="block text-sm font-sans text-neutral-950 mb-1">Description</label
-									>
-									<textarea
-										id="league-description"
-										class="textarea-secondary min-h-28"
-										bind:value={createForm.league.description}
-										placeholder={`Describe this ${wizardUnitSingular()}.`}
-									></textarea>
 								</div>
 							</div>
 						{/if}
 					</div>
+
+					<div class="border border-secondary-300 bg-white p-3 space-y-3">
+						<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
+							<input
+								type="checkbox"
+								class="toggle-secondary"
+								bind:checked={createForm.league.hasPostseason}
+								onchange={() => {
+									if (!createForm.league.hasPostseason) {
+										createForm.league.postseasonStartDate = '';
+										createForm.league.postseasonEndDate = '';
+									}
+								}}
+							/>
+							Has Postseason
+						</label>
+						{#if createForm.league.hasPostseason}
+							<div class="space-y-3">
+								<div>
+									<label
+										for="league-postseason-start"
+										class="block text-sm font-sans text-neutral-950 mb-1">Postseason Start</label
+									>
+									<input
+										id="league-postseason-start"
+										type="date"
+										class="input-secondary"
+										bind:value={createForm.league.postseasonStartDate}
+									/>
+									{#if createFieldErrors['league.postseasonStartDate']}
+										<p class="text-xs text-error-700 mt-1">
+											{createFieldErrors['league.postseasonStartDate']}
+										</p>
+									{/if}
+								</div>
+								<div>
+									<label
+										for="league-postseason-end"
+										class="block text-sm font-sans text-neutral-950 mb-1">Postseason End</label
+									>
+									<input
+										id="league-postseason-end"
+										type="date"
+										class="input-secondary"
+										bind:value={createForm.league.postseasonEndDate}
+									/>
+									{#if createFieldErrors['league.postseasonEndDate']}
+										<p class="text-xs text-error-700 mt-1">
+											{createFieldErrors['league.postseasonEndDate']}
+										</p>
+									{/if}
+								</div>
+							</div>
+						{/if}
+					</div>
+				</div>
+
+				<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+					<div class="border border-secondary-300 bg-white p-3">
+						<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
+							<input
+								type="checkbox"
+								class="toggle-secondary"
+								bind:checked={createForm.league.isActive}
+							/>
+							Active
+						</label>
+					</div>
+					<div class="border border-secondary-300 bg-white p-3">
+						<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
+							<input
+								type="checkbox"
+								class="toggle-secondary"
+								bind:checked={createForm.league.isLocked}
+							/>
+							Locked
+						</label>
+					</div>
+				</div>
+
+				<div>
+					<label for="league-image-url" class="block text-sm font-sans text-neutral-950 mb-1"
+						>Image URL</label
+					>
+					<input
+						id="league-image-url"
+						type="url"
+						class="input-secondary"
+						bind:value={createForm.league.imageUrl}
+						placeholder="https://example.com/league-image.jpg"
+						autocomplete="off"
+					/>
+					{#if createFieldErrors['league.imageUrl']}
+						<p class="text-xs text-error-700 mt-1">{createFieldErrors['league.imageUrl']}</p>
+					{/if}
+				</div>
+			{/if}
+		</div>
+	{/if}
+
+	{#if createStep === 5}
+		<div class="space-y-4">
+			<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
+				<div class="flex items-start justify-between gap-2">
+					<h3 class="text-lg font-bold font-serif text-neutral-950">Offering</h3>
+					<button
+						type="button"
+						class="button-secondary-outlined p-1.5 cursor-pointer"
+						aria-label="Edit offering"
+						title="Edit offering"
+						onclick={startEditingOffering}
+					>
+						<IconPencil class="w-4 h-4" />
+					</button>
+				</div>
+				<p class="text-sm text-neutral-950">
+					<span class="font-semibold">Name:</span>
+					{createForm.offering.name}
+					<span class="ml-3 font-semibold">Slug:</span>
+					{slugifyFinal(createForm.offering.slug)}
+				</p>
+				<p class="text-sm text-neutral-950">
+					<span class="font-semibold">Season:</span>
+					{getSeasonLabel(createForm.offering.seasonId)}
+				</p>
+				<p class="text-sm text-neutral-950">
+					<span class="font-semibold">Sport:</span>
+					{createForm.offering.sport}
+					<span class="ml-3 font-semibold">Type:</span>
+					{createForm.offering.type === 'tournament' ? 'Tournament' : 'League'}
+				</p>
+				{#if createForm.offering.description.trim()}
+					<p class="text-sm text-neutral-950">
+						<span class="font-semibold">Description:</span>
+						{createForm.offering.description.trim()}
+					</p>
+				{/if}
+				{#if createForm.offering.minPlayers > 0 || createForm.offering.maxPlayers > 0}
+					<p class="text-sm text-neutral-950">
+						<span class="font-semibold">Players:</span>
+						{createForm.offering.minPlayers > 0 ? createForm.offering.minPlayers : 'N/A'} -
+						{createForm.offering.maxPlayers > 0 ? createForm.offering.maxPlayers : 'N/A'}
+					</p>
+				{/if}
+			</div>
+
+			<div class="border-2 border-secondary-300 bg-white p-4 space-y-3">
+				<div class="flex items-start justify-between gap-2">
+					<h3 class="text-lg font-bold font-serif text-neutral-950">
+						{wizardUnitTitlePlural()}
+					</h3>
+					<button
+						type="button"
+						class="button-secondary-outlined p-1.5 cursor-pointer"
+						aria-label={`Edit ${wizardUnitPlural()}`}
+						title={`Edit ${wizardUnitPlural()}`}
+						onclick={startEditingLeagues}
+					>
+						<IconPencil class="w-4 h-4" />
+					</button>
+				</div>
+
+				{#if createFieldErrors['leagues']}
+					<p class="text-xs text-error-700">{createFieldErrors['leagues']}</p>
 				{/if}
 
-				{#if createStep === 4}
-					<div class="space-y-4">
-						{#if !leagueDraftActive}
-							<div class="border border-secondary-300 bg-white p-4">
-								<p class="text-sm font-sans text-neutral-950">
-									No {wizardUnitSingular()} draft is open. Go back to {wizardStepTitle(3)} and click the
-									plus button to add one.
-								</p>
-							</div>
-						{:else}
-							<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+				{#if createForm.leagues.length === 0}
+					<p class="text-sm text-neutral-950 font-sans">
+						No {wizardUnitPlural()} will be created.
+					</p>
+				{:else}
+					<div
+						class="space-y-3 max-h-[45vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 scrollbar-track-secondary-400 scrollbar-corner-secondary-500 hover:scrollbar-thumb-secondary-700 active:scrollbar-thumb-secondary-700 scrollbar-hover:scrollbar-thumb-secondary-800 scrollbar-active:scrollbar-thumb-secondary-700"
+					>
+						{#each createForm.leagues as league}
+							<div class="border border-secondary-300 bg-neutral p-3 space-y-2">
 								<div>
-									<label
-										for="league-reg-start"
-										class="block text-sm font-sans text-neutral-950 mb-1"
-										>Registration Opens <span class="text-error-700">*</span></label
-									>
-									<input
-										id="league-reg-start"
-										type="datetime-local"
-										class="input-secondary"
-										bind:value={createForm.league.regStartDate}
-										onfocus={() => {
-											if (!createForm.league.regStartDate.trim()) {
-												createForm.league.regStartDate = defaultDateTimeValue('start');
-											}
-										}}
-									/>
-									{#if createFieldErrors['league.regStartDate']}
-										<p class="text-xs text-error-700 mt-1">
-											{createFieldErrors['league.regStartDate']}
+									<div>
+										<p class="text-sm font-semibold text-neutral-950">
+											{league.name.trim() || 'Untitled League'}
 										</p>
-									{/if}
+										<p class="text-xs text-neutral-900">Slug: {league.slug || 'TBD'}</p>
+									</div>
 								</div>
-								<div>
-									<label for="league-reg-end" class="block text-sm font-sans text-neutral-950 mb-1"
-										>Registration Deadline <span class="text-error-700">*</span></label
-									>
-									<input
-										id="league-reg-end"
-										type="datetime-local"
-										class="input-secondary"
-										bind:value={createForm.league.regEndDate}
-										onfocus={() => {
-											if (!createForm.league.regEndDate.trim()) {
-												createForm.league.regEndDate = defaultDateTimeValue('end');
-											}
-										}}
-									/>
-									{#if createFieldErrors['league.regEndDate']}
-										<p class="text-xs text-error-700 mt-1">
-											{createFieldErrors['league.regEndDate']}
-										</p>
-									{/if}
-								</div>
-								<div>
-									<label
-										for="league-season-start"
-										class="block text-sm font-sans text-neutral-950 mb-1"
-										>Season Start Date <span class="text-error-700">*</span></label
-									>
-									<input
-										id="league-season-start"
-										type="date"
-										class="input-secondary"
-										bind:value={createForm.league.seasonStartDate}
-									/>
-									{#if createFieldErrors['league.seasonStartDate']}
-										<p class="text-xs text-error-700 mt-1">
-											{createFieldErrors['league.seasonStartDate']}
-										</p>
-									{/if}
-								</div>
-								<div>
-									<label
-										for="league-season-end"
-										class="block text-sm font-sans text-neutral-950 mb-1"
-										>Season End Date <span class="text-error-700">*</span></label
-									>
-									<input
-										id="league-season-end"
-										type="date"
-										class="input-secondary"
-										bind:value={createForm.league.seasonEndDate}
-									/>
-									{#if createFieldErrors['league.seasonEndDate']}
-										<p class="text-xs text-error-700 mt-1">
-											{createFieldErrors['league.seasonEndDate']}
-										</p>
-									{/if}
-								</div>
-							</div>
-
-							{#if createFieldErrors['league.scheduleRange']}
-								<p class="text-xs text-error-700">{createFieldErrors['league.scheduleRange']}</p>
-							{/if}
-
-							<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-								<div class="border border-secondary-300 bg-white p-3 space-y-3">
-									<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-										<input
-											type="checkbox"
-											class="toggle-secondary"
-											bind:checked={createForm.league.hasPreseason}
-											onchange={() => {
-												if (!createForm.league.hasPreseason) {
-													createForm.league.preseasonStartDate = '';
-													createForm.league.preseasonEndDate = '';
-												}
-											}}
-										/>
-										Has Preseason
-									</label>
-									{#if createForm.league.hasPreseason}
-										<div class="space-y-3">
-											<div>
-												<label
-													for="league-preseason-start"
-													class="block text-sm font-sans text-neutral-950 mb-1"
-													>Preseason Start</label
-												>
-												<input
-													id="league-preseason-start"
-													type="date"
-													class="input-secondary"
-													bind:value={createForm.league.preseasonStartDate}
-												/>
-												{#if createFieldErrors['league.preseasonStartDate']}
-													<p class="text-xs text-error-700 mt-1">
-														{createFieldErrors['league.preseasonStartDate']}
-													</p>
-												{/if}
-											</div>
-											<div>
-												<label
-													for="league-preseason-end"
-													class="block text-sm font-sans text-neutral-950 mb-1">Preseason End</label
-												>
-												<input
-													id="league-preseason-end"
-													type="date"
-													class="input-secondary"
-													bind:value={createForm.league.preseasonEndDate}
-												/>
-												{#if createFieldErrors['league.preseasonEndDate']}
-													<p class="text-xs text-error-700 mt-1">
-														{createFieldErrors['league.preseasonEndDate']}
-													</p>
-												{/if}
-											</div>
-										</div>
-									{/if}
-								</div>
-
-								<div class="border border-secondary-300 bg-white p-3 space-y-3">
-									<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-										<input
-											type="checkbox"
-											class="toggle-secondary"
-											bind:checked={createForm.league.hasPostseason}
-											onchange={() => {
-												if (!createForm.league.hasPostseason) {
-													createForm.league.postseasonStartDate = '';
-													createForm.league.postseasonEndDate = '';
-												}
-											}}
-										/>
-										Has Postseason
-									</label>
-									{#if createForm.league.hasPostseason}
-										<div class="space-y-3">
-											<div>
-												<label
-													for="league-postseason-start"
-													class="block text-sm font-sans text-neutral-950 mb-1"
-													>Postseason Start</label
-												>
-												<input
-													id="league-postseason-start"
-													type="date"
-													class="input-secondary"
-													bind:value={createForm.league.postseasonStartDate}
-												/>
-												{#if createFieldErrors['league.postseasonStartDate']}
-													<p class="text-xs text-error-700 mt-1">
-														{createFieldErrors['league.postseasonStartDate']}
-													</p>
-												{/if}
-											</div>
-											<div>
-												<label
-													for="league-postseason-end"
-													class="block text-sm font-sans text-neutral-950 mb-1"
-													>Postseason End</label
-												>
-												<input
-													id="league-postseason-end"
-													type="date"
-													class="input-secondary"
-													bind:value={createForm.league.postseasonEndDate}
-												/>
-												{#if createFieldErrors['league.postseasonEndDate']}
-													<p class="text-xs text-error-700 mt-1">
-														{createFieldErrors['league.postseasonEndDate']}
-													</p>
-												{/if}
-											</div>
-										</div>
-									{/if}
-								</div>
-							</div>
-
-							<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-								<div class="border border-secondary-300 bg-white p-3">
-									<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-										<input
-											type="checkbox"
-											class="toggle-secondary"
-											bind:checked={createForm.league.isActive}
-										/>
-										Active
-									</label>
-								</div>
-								<div class="border border-secondary-300 bg-white p-3">
-									<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-										<input
-											type="checkbox"
-											class="toggle-secondary"
-											bind:checked={createForm.league.isLocked}
-										/>
-										Locked
-									</label>
-								</div>
-							</div>
-
-							<div>
-								<label for="league-image-url" class="block text-sm font-sans text-neutral-950 mb-1"
-									>Image URL</label
+								<div
+									class="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-xs text-neutral-950"
 								>
-								<input
-									id="league-image-url"
-									type="url"
-									class="input-secondary"
-									bind:value={createForm.league.imageUrl}
-									placeholder="https://example.com/league-image.jpg"
-									autocomplete="off"
-								/>
-								{#if createFieldErrors['league.imageUrl']}
-									<p class="text-xs text-error-700 mt-1">{createFieldErrors['league.imageUrl']}</p>
+									<p>
+										<span class="font-semibold">Season:</span>
+										{getSeasonLabel(league.seasonId)}
+									</p>
+									<p>
+										<span class="font-semibold">Gender:</span>
+										{normalizeGender(league.gender) ?? 'Unspecified'}
+									</p>
+									<p>
+										<span class="font-semibold">Skill Level:</span>
+										{league.skillLevel ? toTitleCase(league.skillLevel) : 'Unspecified'}
+									</p>
+									<p>
+										<span class="font-semibold">Status:</span>
+										{league.isActive ? 'Active' : 'Inactive'} | {league.isLocked
+											? 'Locked'
+											: 'Unlocked'}
+									</p>
+									<p class="sm:col-span-2">
+										<span class="font-semibold">Registration:</span>
+										{formatReviewRange(league.regStartDate, league.regEndDate, true)}
+									</p>
+									<p class="sm:col-span-2">
+										<span class="font-semibold">Season Dates:</span>
+										{formatReviewRange(league.seasonStartDate, league.seasonEndDate)}
+									</p>
+									{#if league.hasPreseason}
+										<p class="sm:col-span-2">
+											<span class="font-semibold">Preseason:</span>
+											{formatReviewRange(league.preseasonStartDate, league.preseasonEndDate)}
+										</p>
+									{/if}
+									{#if league.hasPostseason}
+										<p class="sm:col-span-2">
+											<span class="font-semibold">Postseason:</span>
+											{formatReviewRange(league.postseasonStartDate, league.postseasonEndDate)}
+										</p>
+									{/if}
+								</div>
+								{#if league.description.trim()}
+									<p class="text-xs text-neutral-950">
+										<span class="font-semibold">Description:</span>
+										{league.description.trim()}
+									</p>
 								{/if}
 							</div>
-						{/if}
+						{/each}
 					</div>
 				{/if}
-
-				{#if createStep === 5}
-					<div class="space-y-4">
-						<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
-							<div class="flex items-start justify-between gap-2">
-								<h3 class="text-lg font-bold font-serif text-neutral-950">Offering</h3>
-								<button
-									type="button"
-									class="button-secondary-outlined p-1.5 cursor-pointer"
-									aria-label="Edit offering"
-									title="Edit offering"
-									onclick={startEditingOffering}
-								>
-									<IconPencil class="w-4 h-4" />
-								</button>
-							</div>
-							<p class="text-sm text-neutral-950">
-								<span class="font-semibold">Name:</span>
-								{createForm.offering.name}
-								<span class="ml-3 font-semibold">Slug:</span>
-								{slugifyFinal(createForm.offering.slug)}
-							</p>
-							<p class="text-sm text-neutral-950">
-								<span class="font-semibold">Sport:</span>
-								{createForm.offering.sport}
-								<span class="ml-3 font-semibold">Type:</span>
-								{createForm.offering.type === 'tournament' ? 'Tournament' : 'League'}
-							</p>
-							{#if createForm.offering.description.trim()}
-								<p class="text-sm text-neutral-950">
-									<span class="font-semibold">Description:</span>
-									{createForm.offering.description.trim()}
-								</p>
-							{/if}
-							{#if createForm.offering.minPlayers > 0 || createForm.offering.maxPlayers > 0}
-								<p class="text-sm text-neutral-950">
-									<span class="font-semibold">Players:</span>
-									{createForm.offering.minPlayers > 0 ? createForm.offering.minPlayers : 'N/A'} -
-									{createForm.offering.maxPlayers > 0 ? createForm.offering.maxPlayers : 'N/A'}
-								</p>
-							{/if}
-						</div>
-
-						<div class="border-2 border-secondary-300 bg-white p-4 space-y-3">
-							<div class="flex items-start justify-between gap-2">
-								<h3 class="text-lg font-bold font-serif text-neutral-950">
-									{wizardUnitTitlePlural()}
-								</h3>
-								<button
-									type="button"
-									class="button-secondary-outlined p-1.5 cursor-pointer"
-									aria-label={`Edit ${wizardUnitPlural()}`}
-									title={`Edit ${wizardUnitPlural()}`}
-									onclick={startEditingLeagues}
-								>
-									<IconPencil class="w-4 h-4" />
-								</button>
-							</div>
-
-							{#if createFieldErrors['leagues']}
-								<p class="text-xs text-error-700">{createFieldErrors['leagues']}</p>
-							{/if}
-
-							{#if createForm.leagues.length === 0}
-								<p class="text-sm text-neutral-950 font-sans">
-									No {wizardUnitPlural()} will be created.
-								</p>
-							{:else}
-								<div
-									class="space-y-3 max-h-[45vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 scrollbar-track-secondary-400 scrollbar-corner-secondary-500 hover:scrollbar-thumb-secondary-700 active:scrollbar-thumb-secondary-700 scrollbar-hover:scrollbar-thumb-secondary-800 scrollbar-active:scrollbar-thumb-secondary-700"
-								>
-									{#each createForm.leagues as league}
-										<div class="border border-secondary-300 bg-neutral p-3 space-y-2">
-											<div>
-												<div>
-													<p class="text-sm font-semibold text-neutral-950">
-														{league.name.trim() || 'Untitled League'}
-													</p>
-													<p class="text-xs text-neutral-900">Slug: {league.slug || 'TBD'}</p>
-												</div>
-											</div>
-											<div
-												class="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-xs text-neutral-950"
-											>
-												<p><span class="font-semibold">Season:</span> {getSeasonLabel(league.seasonId)}</p>
-												<p>
-													<span class="font-semibold">Gender:</span>
-													{normalizeGender(league.gender) ?? 'Unspecified'}
-												</p>
-												<p>
-													<span class="font-semibold">Skill Level:</span>
-													{league.skillLevel ? toTitleCase(league.skillLevel) : 'Unspecified'}
-												</p>
-												<p>
-													<span class="font-semibold">Status:</span>
-													{league.isActive ? 'Active' : 'Inactive'} | {league.isLocked
-														? 'Locked'
-														: 'Unlocked'}
-												</p>
-												<p class="sm:col-span-2">
-													<span class="font-semibold">Registration:</span>
-													{formatReviewRange(league.regStartDate, league.regEndDate, true)}
-												</p>
-												<p class="sm:col-span-2">
-													<span class="font-semibold">Season Dates:</span>
-													{formatReviewRange(league.seasonStartDate, league.seasonEndDate)}
-												</p>
-												{#if league.hasPreseason}
-													<p class="sm:col-span-2">
-														<span class="font-semibold">Preseason:</span>
-														{formatReviewRange(league.preseasonStartDate, league.preseasonEndDate)}
-													</p>
-												{/if}
-												{#if league.hasPostseason}
-													<p class="sm:col-span-2">
-														<span class="font-semibold">Postseason:</span>
-														{formatReviewRange(
-															league.postseasonStartDate,
-															league.postseasonEndDate
-														)}
-													</p>
-												{/if}
-											</div>
-											{#if league.description.trim()}
-												<p class="text-xs text-neutral-950">
-													<span class="font-semibold">Description:</span>
-													{league.description.trim()}
-												</p>
-											{/if}
-										</div>
-									{/each}
-								</div>
-							{/if}
-						</div>
-					</div>
-				{/if}
+			</div>
+		</div>
+	{/if}
 
 	{#snippet footer()}
 		<WizardStepFooter

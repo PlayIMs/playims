@@ -114,6 +114,7 @@ const toDateOnlyMs = (value: string | null): number | null => {
 };
 
 const offeringInputSchema = z.object({
+	seasonId: requiredText('Season', 120),
 	name: requiredText('Offering name', 140),
 	slug: slugField('Offering slug'),
 	isActive: z.boolean(),
@@ -144,6 +145,65 @@ const seasonCopyOptionsSchema = z.object({
 	sourceSeasonId: requiredText('Source season', 120),
 	scope: z.enum(['offerings-only', 'offerings-leagues', 'offerings-all']),
 	includeDivisions: z.boolean()
+});
+
+const manageSeasonUpdateDetailsSchema = z.object({
+	action: z.literal('update-details'),
+	seasonId: requiredText('Season', 120),
+	name: requiredText('Season name', 140),
+	slug: slugField('Season slug'),
+	startDate: requiredDate('Season start date'),
+	endDate: optionalDate
+});
+
+const manageSeasonSetCurrentSchema = z.object({
+	action: z.literal('set-current'),
+	seasonId: requiredText('Season', 120)
+});
+
+const manageSeasonSetActiveSchema = z.object({
+	action: z.literal('set-active'),
+	seasonId: requiredText('Season', 120),
+	isActive: z.boolean()
+});
+
+export const manageIntramuralSeasonSchema = z
+	.discriminatedUnion('action', [
+		manageSeasonUpdateDetailsSchema,
+		manageSeasonSetCurrentSchema,
+		manageSeasonSetActiveSchema
+	])
+	.superRefine((payload, ctx) => {
+		if (payload.action !== 'update-details') return;
+		const startMs = toDateOnlyMs(payload.startDate);
+		const endMs = toDateOnlyMs(payload.endDate);
+		if (startMs === null) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ['startDate'],
+				message: 'Season start date is invalid.'
+			});
+		}
+		if (payload.endDate && endMs === null) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ['endDate'],
+				message: 'Season end date is invalid.'
+			});
+		}
+		if (startMs !== null && endMs !== null && endMs < startMs) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ['endDate'],
+				message: 'Season end date must be on or after season start date.'
+			});
+		}
+	});
+
+export const deleteIntramuralSeasonSchema = z.object({
+	seasonId: requiredText('Season', 120),
+	confirmSlug: requiredText('Season slug confirmation', 120),
+	reason: optionalText('Delete reason', 500)
 });
 
 const leagueInputSchema = z.object({
@@ -286,7 +346,11 @@ const addLeagueDateValidationIssues = (
 				message: 'Postseason end date is required when postseason is enabled.'
 			});
 		}
-		if (postseasonStartMs !== null && postseasonEndMs !== null && postseasonStartMs > postseasonEndMs) {
+		if (
+			postseasonStartMs !== null &&
+			postseasonEndMs !== null &&
+			postseasonStartMs > postseasonEndMs
+		) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
 				path: [...pathPrefix, 'postseasonEndDate'],
@@ -451,6 +515,8 @@ export type CreateIntramuralOfferingWithLeagueInput = z.infer<
 export type CreateIntramuralLeagueInput = z.infer<typeof createIntramuralLeagueSchema>;
 
 export type CreateIntramuralSeasonInput = z.infer<typeof createIntramuralSeasonSchema>;
+export type ManageIntramuralSeasonInput = z.infer<typeof manageIntramuralSeasonSchema>;
+export type DeleteIntramuralSeasonInput = z.infer<typeof deleteIntramuralSeasonSchema>;
 
 export type CreatedIntramuralActivity = {
 	id: string;
@@ -508,6 +574,26 @@ export type CreateIntramuralSeasonResponse = {
 			leagueCount: number;
 			divisionCount: number;
 		};
+	};
+	error?: string;
+	fieldErrors?: Record<string, string[] | undefined>;
+};
+
+export type ManageIntramuralSeasonResponse = {
+	success: boolean;
+	data?: {
+		season?: CreatedIntramuralSeason;
+		currentSeasonId?: string | null;
+	};
+	error?: string;
+	fieldErrors?: Record<string, string[] | undefined>;
+};
+
+export type DeleteIntramuralSeasonResponse = {
+	success: boolean;
+	data?: {
+		deletedSeasonId: string;
+		currentSeasonId?: string | null;
 	};
 	error?: string;
 	fieldErrors?: Record<string, string[] | undefined>;

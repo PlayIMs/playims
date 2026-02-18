@@ -35,6 +35,7 @@ interface ActivityCard {
 interface SeasonOption {
 	id: string;
 	name: string;
+	slug: string;
 	startDate: string;
 	endDate: string | null;
 	isCurrent: boolean;
@@ -46,6 +47,7 @@ interface LeagueOfferingOption {
 	name: string;
 	sport: string;
 	type: ActivityType;
+	seasonId: string | null;
 	isActive: boolean;
 }
 
@@ -124,7 +126,9 @@ function resolveDefaultSeasonId(seasons: SeasonOption[]): string | null {
 	if (explicitCurrent) return explicitCurrent.id;
 
 	const now = new Date().toISOString().slice(0, 10);
-	const inRange = seasons.find((season) => season.startDate <= now && (!season.endDate || season.endDate >= now));
+	const inRange = seasons.find(
+		(season) => season.startDate <= now && (!season.endDate || season.endDate >= now)
+	);
 	if (inRange) return inRange.id;
 
 	const started = seasons.filter((season) => season.startDate <= now).sort(sortSeasonsDescending);
@@ -175,6 +179,7 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 			.map((season) => ({
 				id: season.id,
 				name: season.name?.trim() || 'Unnamed Season',
+				slug: season.slug?.trim() || '',
 				startDate: season.startDate ?? '',
 				endDate: season.endDate ?? null,
 				isCurrent: season.isCurrent === 1,
@@ -198,6 +203,16 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 
 		const leagueIdSet = new Set(leagueIds);
 		const divisionCountByLeague = createDivisionCountByLeague(divisions, leagueIdSet);
+		const offeringSeasonIdsByOfferingId = new Map<string, Set<string>>();
+		for (const league of leagues) {
+			if (!league.offeringId) continue;
+			const resolvedSeasonId = resolveLeagueSeasonId(league);
+			if (!resolvedSeasonId) continue;
+			if (!offeringSeasonIdsByOfferingId.has(league.offeringId)) {
+				offeringSeasonIdsByOfferingId.set(league.offeringId, new Set<string>());
+			}
+			offeringSeasonIdsByOfferingId.get(league.offeringId)?.add(resolvedSeasonId);
+		}
 		const offeringsById = new Map(
 			offerings
 				.filter((offering): offering is Offering & { id: string } => Boolean(offering.id))
@@ -252,6 +267,14 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 		const leagueOfferingOptions = offerings
 			.filter((offering): offering is Offering & { id: string } => Boolean(offering.id))
 			.map<LeagueOfferingOption>((offering) => ({
+				seasonId: (() => {
+					if (offering.seasonId && seasonsById.has(offering.seasonId)) return offering.seasonId;
+					const seasonIds = offeringSeasonIdsByOfferingId.get(offering.id);
+					if (seasonIds?.size === 1) {
+						return Array.from(seasonIds)[0] ?? null;
+					}
+					return null;
+				})(),
 				id: offering.id,
 				name: offering.name?.trim() || 'Untitled Offering',
 				sport: offering.sport?.trim() || 'Unspecified sport',

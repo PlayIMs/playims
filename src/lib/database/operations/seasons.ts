@@ -33,6 +33,15 @@ export class SeasonOperations {
 		return result[0] ?? null;
 	}
 
+	async getByClientIdAndId(clientId: string, seasonId: string): Promise<Season | null> {
+		const result = await this.db
+			.select()
+			.from(seasons)
+			.where(and(eq(seasons.clientId, clientId), eq(seasons.id, seasonId)))
+			.limit(1);
+		return result[0] ?? null;
+	}
+
 	async create(data: {
 		clientId: string;
 		name: string;
@@ -85,6 +94,34 @@ export class SeasonOperations {
 				updatedUser: updatedUser ?? null
 			})
 			.where(and(eq(seasons.clientId, clientId), eq(seasons.id, seasonId)));
+	}
+
+	async updateDetails(
+		clientId: string,
+		seasonId: string,
+		data: {
+			name: string;
+			slug: string;
+			startDate: string;
+			endDate: string | null;
+		},
+		updatedUser?: string | null
+	): Promise<Season | null> {
+		const now = new Date().toISOString();
+		const result = await this.db
+			.update(seasons)
+			.set({
+				name: data.name,
+				slug: data.slug,
+				startDate: data.startDate,
+				endDate: data.endDate,
+				updatedAt: now,
+				updatedUser: updatedUser ?? null
+			})
+			.where(and(eq(seasons.clientId, clientId), eq(seasons.id, seasonId)))
+			.returning();
+
+		return result[0] ?? null;
 	}
 
 	async setActive(

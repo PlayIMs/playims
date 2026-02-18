@@ -136,15 +136,23 @@ export const POST: RequestHandler = async (event) => {
 		const issues: Array<{ path: Array<string | number>; message: string }> = [];
 		const seasons = await dbOps.seasons.getByClientId(clientId);
 		const seasonById = new Map(seasons.map((season) => [season.id, season]));
+		const offeringSeason = seasonById.get(input.offering.seasonId);
+		if (!offeringSeason) {
+			issues.push({
+				path: ['offering', 'seasonId'],
+				message: 'Select a valid season.'
+			});
+		}
 
 		const existingOfferingSlug = await dbOps.offerings.getByClientIdAndSlug(
 			clientId,
-			input.offering.slug
+			input.offering.slug,
+			input.offering.seasonId
 		);
 		if (existingOfferingSlug) {
 			issues.push({
 				path: ['offering', 'slug'],
-				message: 'An offering with this slug already exists.'
+				message: 'An offering with this slug already exists for the selected season.'
 			});
 		}
 
@@ -172,6 +180,13 @@ export const POST: RequestHandler = async (event) => {
 						path: ['leagues', index, 'seasonId'],
 						message: 'Select a valid season.'
 					});
+					continue;
+				}
+				if (league.seasonId !== input.offering.seasonId) {
+					issues.push({
+						path: ['leagues', index, 'seasonId'],
+						message: 'League/group season must match the selected offering season.'
+					});
 				}
 			}
 		}
@@ -189,6 +204,7 @@ export const POST: RequestHandler = async (event) => {
 
 		const createdOffering = await dbOps.offerings.create({
 			clientId,
+			seasonId: input.offering.seasonId,
 			name: input.offering.name,
 			slug: input.offering.slug,
 			isActive: input.offering.isActive ? 1 : 0,

@@ -14,18 +14,50 @@ export class OfferingOperations {
 			.orderBy(asc(offerings.name));
 	}
 
-	async getByClientIdAndSlug(clientId: string, slug: string): Promise<Offering | null> {
+	async getByClientIdAndSlug(
+		clientId: string,
+		slug: string,
+		seasonId?: string | null
+	): Promise<Offering | null> {
 		const result = await this.db
 			.select()
 			.from(offerings)
-			.where(and(eq(offerings.clientId, clientId), eq(offerings.slug, slug)))
+			.where(
+				seasonId
+					? and(
+							eq(offerings.clientId, clientId),
+							eq(offerings.slug, slug),
+							eq(offerings.seasonId, seasonId)
+						)
+					: and(eq(offerings.clientId, clientId), eq(offerings.slug, slug))
+			)
 			.limit(1);
 
 		return result[0] ?? null;
 	}
 
+	async getByClientIdSeasonIdAndSlug(
+		clientId: string,
+		seasonId: string,
+		slug: string
+	): Promise<Offering | null> {
+		const result = await this.db
+			.select()
+			.from(offerings)
+			.where(
+				and(
+					eq(offerings.clientId, clientId),
+					eq(offerings.seasonId, seasonId),
+					eq(offerings.slug, slug)
+				)
+			)
+			.limit(1);
+		return result[0] ?? null;
+	}
+
 	async create(data: {
 		clientId: string;
+		seasonId: string;
 		name: string;
 		slug: string;
 		isActive: number;
@@ -46,6 +78,7 @@ export class OfferingOperations {
 			.values({
 				id: crypto.randomUUID(),
 				clientId: data.clientId,
+				seasonId: data.seasonId,
 				name: data.name,
 				slug: data.slug,
 				isActive: data.isActive,
