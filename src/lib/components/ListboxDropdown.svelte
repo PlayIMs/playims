@@ -121,11 +121,19 @@
 	}
 
 	function normalizeText(value: string): string {
-		return value.trim().toLowerCase();
+		return value.toLowerCase().replace(/\s+/g, ' ').trim();
 	}
 
 	function isTypeaheadCharacter(key: string): boolean {
-		return key.length === 1 && /\S/.test(key);
+		return key.length === 1 && key !== '\r' && key !== '\n' && key !== '\t';
+	}
+	function optionLabelMatchesBuffer(label: string, normalizedBuffer: string): boolean {
+		if (!normalizedBuffer) return false;
+		const normalizedLabel = normalizeText(label);
+		if (!normalizedLabel) return false;
+		if (normalizedLabel.startsWith(normalizedBuffer)) return true;
+		if (normalizedLabel.includes(` ${normalizedBuffer}`)) return true;
+		return normalizedBuffer.length >= 3 && normalizedLabel.includes(normalizedBuffer);
 	}
 
 	function findNextEnabledIndex(startIndex: number, direction: 1 | -1): number {
@@ -278,17 +286,40 @@
 		typeaheadResetTimer = setTimeout(() => {
 			typeaheadBuffer = '';
 			typeaheadResetTimer = null;
-		}, 500);
+		}, 700);
 
 		const normalizedBuffer = normalizeText(typeaheadBuffer);
 		if (!normalizedBuffer) return;
 
-		const fromIndex = activeIndex >= 0 ? activeIndex : selectedIndex >= 0 ? selectedIndex : -1;
-		for (let scanCount = 1; scanCount <= options.length; scanCount += 1) {
-			const candidateIndex = (fromIndex + scanCount + options.length) % options.length;
+		const activeOption = activeIndex >= 0 ? options[activeIndex] : null;
+		if (
+			normalizedBuffer.length > 1 &&
+			activeOption &&
+			!activeOption.disabled &&
+			optionLabelMatchesBuffer(activeOption.label, normalizedBuffer)
+		) {
+			scrollActiveOptionIntoView();
+			return;
+		}
+
+		if (normalizedBuffer.length === 1) {
+			const fromIndex = activeIndex >= 0 ? activeIndex : selectedIndex >= 0 ? selectedIndex : -1;
+			for (let scanCount = 1; scanCount <= options.length; scanCount += 1) {
+				const candidateIndex = (fromIndex + scanCount + options.length) % options.length;
+				const option = options[candidateIndex];
+				if (!option || option.disabled) continue;
+				if (!optionLabelMatchesBuffer(option.label, normalizedBuffer)) continue;
+				activeIndex = candidateIndex;
+				scrollActiveOptionIntoView();
+				return;
+			}
+			return;
+		}
+
+		for (let candidateIndex = 0; candidateIndex < options.length; candidateIndex += 1) {
 			const option = options[candidateIndex];
 			if (!option || option.disabled) continue;
-			if (!normalizeText(option.label).startsWith(normalizedBuffer)) continue;
+			if (!optionLabelMatchesBuffer(option.label, normalizedBuffer)) continue;
 			activeIndex = candidateIndex;
 			scrollActiveOptionIntoView();
 			return;
@@ -324,13 +355,22 @@
 			moveActive(-1);
 			return;
 		}
-		if (event.key === 'Enter' || event.key === ' ') {
+		if (event.key === 'Enter') {
 			event.preventDefault();
 			if (open) {
 				if (activeIndex >= 0) selectOptionAtIndex(activeIndex);
 				return;
 			}
 			void openMenu();
+			return;
+		}
+		if (event.key === ' ') {
+			event.preventDefault();
+			if (!open) {
+				void openMenu();
+				return;
+			}
+			applyTypeaheadSearch(event.key);
 			return;
 		}
 		if (event.key === 'Escape') {
@@ -374,7 +414,7 @@
 			scrollActiveOptionIntoView();
 			return;
 		}
-		if (event.key === 'Enter' || event.key === ' ') {
+		if (event.key === 'Enter') {
 			event.preventDefault();
 			if (activeIndex >= 0) selectOptionAtIndex(activeIndex);
 			return;
