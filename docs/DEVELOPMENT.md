@@ -90,6 +90,12 @@ pnpm dev
 
 to start developing. The local database will persist between sessions, so you only need to run `pnpm db:migrate:local` again when new migrations are added to the project.
 
+## Commit Message Standard
+
+Use commit prefixes like `feat:`, `fix:`, and `docs:` followed by a brief, specific description.
+
+See `docs/COMMIT_GUIDE.md` for the full standard and examples.
+
 ## Database Management
 
 We use Drizzle ORM with Cloudflare D1. Currently, we work exclusively with the **dev database** (`playims-central-db-dev`).

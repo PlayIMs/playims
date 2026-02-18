@@ -122,3 +122,4 @@ Oklahoma State University.
 
 - [Development Guide](docs/DEVELOPMENT.md)
 - [Database Guide](docs/DATABASE.md)
+- [Commit Message Guide](docs/COMMIT_GUIDE.md)
