@@ -71,6 +71,29 @@
 	select:focus:not(.select-primary):not(.select-secondary):not(.select-accent) {
 		--tw-ring-color: var(--color-primary-500) !important;
 	}
+
+	/* Opt-in: hide native picker indicator when a custom trigger is rendered. */
+	input.no-native-date-picker {
+		appearance: none;
+		-moz-appearance: textfield;
+	}
+
+	input.no-native-date-picker::-webkit-calendar-picker-indicator {
+		-webkit-appearance: none;
+		appearance: none;
+		opacity: 0;
+		pointer-events: none;
+		width: 0;
+		min-width: 0;
+		margin: 0;
+		padding: 0;
+	}
+
+	input.no-native-date-picker::-webkit-clear-button,
+	input.no-native-date-picker::-webkit-inner-spin-button {
+		-webkit-appearance: none;
+		display: none;
+	}
 }
 
 @theme {

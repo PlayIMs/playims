@@ -1,6 +1,7 @@
 <script lang="ts" module>
 let bodyScrollLockCount = 0;
 let bodyOverflowBeforeLock: string | null = null;
+const openModalStack: symbol[] = [];
 
 function acquireBodyScrollLock() {
 	if (typeof document === 'undefined') return;
@@ -22,6 +23,21 @@ function releaseBodyScrollLock() {
 
 	document.body.style.overflow = bodyOverflowBeforeLock ?? '';
 	bodyOverflowBeforeLock = null;
+}
+
+function registerOpenModal(modalId: symbol) {
+	if (openModalStack.includes(modalId)) return;
+	openModalStack.push(modalId);
+}
+
+function unregisterOpenModal(modalId: symbol) {
+	const index = openModalStack.lastIndexOf(modalId);
+	if (index < 0) return;
+	openModalStack.splice(index, 1);
+}
+
+function isTopModal(modalId: symbol): boolean {
+	return openModalStack[openModalStack.length - 1] === modalId;
 }
 </script>
 
@@ -53,6 +69,7 @@ function releaseBodyScrollLock() {
 	}: Props = $props();
 
 	const dispatch = createEventDispatcher<{ requestClose: void }>();
+	const modalId = Symbol('modal-shell');
 	let pointerDownStartedInside = $state(false);
 	let hasBodyScrollLock = $state(false);
 
@@ -65,6 +82,15 @@ function releaseBodyScrollLock() {
 			if (!hasBodyScrollLock) return;
 			releaseBodyScrollLock();
 			hasBodyScrollLock = false;
+		};
+	});
+
+	$effect(() => {
+		if (!open) return;
+		registerOpenModal(modalId);
+
+		return () => {
+			unregisterOpenModal(modalId);
 		};
 	});
 
@@ -81,10 +107,27 @@ function releaseBodyScrollLock() {
 		dispatch('requestClose');
 	}
 
-	function handleKeydown(event: KeyboardEvent): void {
-		if (event.key !== 'Escape') return;
+	function handleBackdropKeydown(event: KeyboardEvent): void {
+		if (event.target !== event.currentTarget) return;
+		if (event.key !== 'Enter' && event.key !== ' ') return;
+		event.preventDefault();
 		dispatch('requestClose');
 	}
+
+	$effect(() => {
+		if (typeof window === 'undefined' || !open) return;
+
+		const handleWindowKeydown = (event: KeyboardEvent) => {
+			if (event.key !== 'Escape') return;
+			if (!isTopModal(modalId)) return;
+			dispatch('requestClose');
+		};
+
+		window.addEventListener('keydown', handleWindowKeydown);
+		return () => {
+			window.removeEventListener('keydown', handleWindowKeydown);
+		};
+	});
 </script>
 
 {#if open}
@@ -92,7 +135,7 @@ function releaseBodyScrollLock() {
 		class={`fixed inset-0 ${backdropClass} z-50 flex ${alignmentClass} justify-center ${paddingClass} overflow-hidden`}
 		onpointerdown={handlePointerDown}
 		onclick={handleBackdropClick}
-		onkeydown={handleKeydown}
+		onkeydown={handleBackdropKeydown}
 		role="button"
 		tabindex="0"
 		aria-label={closeAriaLabel}

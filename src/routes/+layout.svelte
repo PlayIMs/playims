@@ -5,7 +5,7 @@
 
 	import '../app.css';
 	import * as theme from '$lib/theme';
-	import { selectArrow } from '$lib/actions';
+	import { forceRadioTabStop, selectArrow, skipDatePickerTabStop } from '$lib/actions';
 
 	let { children, data } = $props();
 	// injectSpeedInsights();
@@ -55,6 +55,30 @@
 		});
 	};
 
+	/** applies date-picker tab bypass action to date/time-like inputs. */
+	const applyDateTabBypassToAll = () => {
+		const inputs = document.querySelectorAll<HTMLInputElement>(
+			"input[type='date'], input[type='datetime-local'], input[type='month'], input[type='week'], input[type='time']"
+		);
+		inputs.forEach((input) => {
+			if (!input.dataset.dateTabBypassApplied) {
+				input.dataset.dateTabBypassApplied = 'true';
+				skipDatePickerTabStop(input);
+			}
+		});
+	};
+
+	/** ensures each radio input is individually tabbable (including unselected radios). */
+	const applyRadioTabStopsToAll = () => {
+		const radios = document.querySelectorAll<HTMLInputElement>("input[type='radio']");
+		radios.forEach((radio) => {
+			if (!radio.dataset.radioTabStopApplied) {
+				radio.dataset.radioTabStopApplied = 'true';
+				forceRadioTabStop(radio);
+			}
+		});
+	};
+
 	/** runs client-only setup after the component mounts. */
 	const handleMount = () => {
 		// critical: reveal is handled inside theme.init/markThemeReady only
@@ -63,10 +87,14 @@
 
 		// apply select arrow once on mount
 		applySelectArrowToAll();
+		applyDateTabBypassToAll();
+		applyRadioTabStopsToAll();
 
 		// watch for dynamically added selects
 		const observer = new MutationObserver(() => {
 			applySelectArrowToAll();
+			applyDateTabBypassToAll();
+			applyRadioTabStopsToAll();
 		});
 
 		observer.observe(document.body, {

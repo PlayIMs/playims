@@ -127,3 +127,110 @@ export function selectArrow(node: HTMLSelectElement) {
 		}
 	};
 }
+
+const DATE_INPUT_TYPES = new Set(['date', 'datetime-local', 'month', 'week', 'time']);
+const FOCUSABLE_SELECTOR = [
+	'a[href]',
+	'button:not([disabled])',
+	'input:not([disabled])',
+	'select:not([disabled])',
+	'textarea:not([disabled])',
+	'[tabindex]:not([tabindex="-1"])'
+].join(',');
+
+function isFocusable(element: HTMLElement): boolean {
+	if (element.hasAttribute('disabled')) return false;
+	if (element.getAttribute('aria-hidden') === 'true') return false;
+	if (element.tabIndex < 0) return false;
+	if (element instanceof HTMLInputElement && element.type === 'hidden') return false;
+
+	const styles = getComputedStyle(element);
+	if (styles.visibility === 'hidden' || styles.display === 'none') return false;
+	return element.getClientRects().length > 0;
+}
+
+function focusAdjacentElement(current: HTMLElement, backwards: boolean): void {
+	const candidates = Array.from(document.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+		isFocusable
+	);
+	const currentIndex = candidates.indexOf(current);
+	if (currentIndex < 0) return;
+
+	const step = backwards ? -1 : 1;
+	for (
+		let index = currentIndex + step;
+		index >= 0 && index < candidates.length;
+		index += step
+	) {
+		const candidate = candidates[index];
+		if (!isFocusable(candidate)) continue;
+		candidate.focus();
+		return;
+	}
+}
+
+/**
+ * Action for date/time inputs so tabbing skips internal browser picker controls
+ * and moves directly to the next logical form field.
+ */
+export function skipDatePickerTabStop(node: HTMLInputElement) {
+	if (!DATE_INPUT_TYPES.has(node.type)) {
+		return {
+			destroy() {}
+		};
+	}
+
+	function handleKeydown(event: KeyboardEvent): void {
+		if (event.key !== 'Tab') return;
+		if (event.altKey || event.ctrlKey || event.metaKey) return;
+
+		event.preventDefault();
+		focusAdjacentElement(node, event.shiftKey);
+	}
+
+	node.addEventListener('keydown', handleKeydown);
+
+	return {
+		destroy() {
+			node.removeEventListener('keydown', handleKeydown);
+		}
+	};
+}
+
+/**
+ * Action for radio inputs so each option remains individually tabbable
+ * (instead of browser-default single tab stop per radio group).
+ */
+export function forceRadioTabStop(node: HTMLInputElement) {
+	if (node.type !== 'radio') {
+		return {
+			destroy() {}
+		};
+	}
+
+	const hadTabIndex = node.hasAttribute('tabindex');
+	const previousTabIndex = node.getAttribute('tabindex');
+
+	const applyTabIndex = () => {
+		if (node.disabled) return;
+		node.tabIndex = 0;
+	};
+
+	applyTabIndex();
+
+	const observer = new MutationObserver(() => {
+		applyTabIndex();
+	});
+	observer.observe(node, { attributes: true, attributeFilter: ['disabled', 'checked', 'tabindex'] });
+
+	return {
+		destroy() {
+			observer.disconnect();
+			if (hadTabIndex && previousTabIndex !== null) {
+				node.setAttribute('tabindex', previousTabIndex);
+			} else if (!hadTabIndex) {
+				node.removeAttribute('tabindex');
+			}
+		}
+	};
+}

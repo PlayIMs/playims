@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
+	import { tick } from 'svelte';
 	import type { Snippet } from 'svelte';
 	import IconX from '@tabler/icons-svelte/icons/x';
 	import ModalShell from '$lib/components/modals/ModalShell.svelte';
@@ -14,6 +15,7 @@
 		closeAriaLabel: string;
 		maxWidthClass?: string;
 		formClass?: string;
+		autoFocusFirstField?: boolean;
 		error?: Snippet;
 		children?: Snippet;
 		footer?: Snippet;
@@ -29,6 +31,7 @@
 		closeAriaLabel,
 		maxWidthClass = 'max-w-5xl',
 		formClass = 'p-4 space-y-5 flex-1 min-h-0 overflow-y-auto',
+		autoFocusFirstField = true,
 		error,
 		children,
 		footer
@@ -44,6 +47,32 @@
 		() =>
 			`w-full ${maxWidthClass} max-h-[calc(100vh-2rem)] lg:max-h-[calc(100vh-3rem)] border-4 border-secondary bg-neutral-400 overflow-hidden flex flex-col`
 	);
+	let formElement = $state<HTMLFormElement | null>(null);
+
+	function focusFirstWizardField(): void {
+		if (!formElement) return;
+
+		const preferred = formElement.querySelector<HTMLElement>('[data-wizard-autofocus]');
+		if (preferred) {
+			preferred.focus();
+			return;
+		}
+
+		const firstField = formElement.querySelector<HTMLElement>(
+			'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled])'
+		);
+		firstField?.focus();
+	}
+
+	$effect(() => {
+		if (!open || !autoFocusFirstField) return;
+		const activeStep = step;
+
+		void tick().then(() => {
+			if (!open || step !== activeStep) return;
+			focusFirstWizardField();
+		});
+	});
 </script>
 
 <ModalShell
@@ -73,6 +102,7 @@
 	</div>
 
 	<form
+		bind:this={formElement}
 		class={formClass}
 		onsubmit={(event) => {
 			event.preventDefault();
