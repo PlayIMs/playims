@@ -8,6 +8,8 @@
 		};
 		form?: {
 			error?: string;
+			errorCode?: string;
+			errorStatus?: number;
 			next?: string;
 			email?: string;
 			firstName?: string;
@@ -27,6 +29,14 @@
 	let emailTouched = $state(false);
 	let passwordTouched = $state(false);
 	let confirmPasswordTouched = $state(false);
+	let lastLoggedAuthError = $state('');
+
+	const registerErrorHints: Record<string, string> = {
+		AUTH_REGISTER_FAILED:
+			'Possible causes: invite key mismatch, email already in use, or blocked registration policy.',
+		AUTH_REGISTER_UNAVAILABLE:
+			'Auth service configuration or backend availability issue. Check server logs.'
+	};
 
 	const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 	let emailTrimmed = $derived(emailValue.trim());
@@ -60,6 +70,25 @@
 		emailTouched = false;
 		passwordTouched = false;
 		confirmPasswordTouched = false;
+	});
+
+	$effect(() => {
+		if (!form?.error) {
+			lastLoggedAuthError = '';
+			return;
+		}
+
+		const signature = `${form.errorStatus ?? 'unknown'}:${form.errorCode ?? 'unknown'}:${form.error}`;
+		if (signature === lastLoggedAuthError) return;
+		lastLoggedAuthError = signature;
+
+		const code = form.errorCode ?? 'AUTH_UNKNOWN';
+		console.error('[auth][register] Registration failed', {
+			code,
+			status: form.errorStatus ?? null,
+			message: form.error,
+			hint: registerErrorHints[code] ?? 'No additional diagnostic hint is available for this error code.'
+		});
 	});
 </script>
 

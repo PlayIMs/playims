@@ -42,6 +42,27 @@ const getValidationMessage = (issues: { path: PropertyKey[]; message: string }[]
 	return issue.message || 'Please provide a valid email and password.';
 };
 
+const genericLoginFailureMessage = 'Sign-in failed. Check your email and password and try again.';
+const genericLoginUnavailableMessage = 'Sign-in is temporarily unavailable. Please try again.';
+const genericLoginFailureCode = 'AUTH_LOGIN_FAILED';
+const genericLoginUnavailableCode = 'AUTH_LOGIN_UNAVAILABLE';
+
+const mapLoginAuthError = (error: AuthServiceError) => {
+	if (error.status >= 500 || error.code === 'AUTH_CONFIG_MISSING') {
+		return {
+			error: genericLoginUnavailableMessage,
+			errorCode: genericLoginUnavailableCode,
+			errorStatus: error.status
+		};
+	}
+
+	return {
+		error: genericLoginFailureMessage,
+		errorCode: genericLoginFailureCode,
+		errorStatus: error.status
+	};
+};
+
 // If already authenticated with required role, skip login page.
 export const load: PageServerLoad = async ({ locals, url }) => {
 	if (locals.user && hasAnyRole(locals.user.role, DASHBOARD_ALLOWED_ROLES)) {
@@ -72,15 +93,20 @@ export const actions: Actions = {
 				await loginWithLocalDevCredentials(event, dbOps);
 			} catch (error) {
 				if (error instanceof AuthServiceError) {
+					const publicAuthError = mapLoginAuthError(error);
 					return fail(error.status, {
-						error: error.clientMessage,
+						error: publicAuthError.error,
+						errorCode: publicAuthError.errorCode,
+						errorStatus: publicAuthError.errorStatus,
 						next: nextPath,
 						email: emailInput
 					});
 				}
 
 				return fail(500, {
-					error: 'Unable to log in right now.',
+					error: genericLoginUnavailableMessage,
+					errorCode: genericLoginUnavailableCode,
+					errorStatus: 500,
 					next: nextPath,
 					email: emailInput
 				});
@@ -111,15 +137,20 @@ export const actions: Actions = {
 			});
 		} catch (error) {
 			if (error instanceof AuthServiceError) {
+				const publicAuthError = mapLoginAuthError(error);
 				return fail(error.status, {
-					error: error.clientMessage,
+					error: publicAuthError.error,
+					errorCode: publicAuthError.errorCode,
+					errorStatus: publicAuthError.errorStatus,
 					next: nextPath,
 					email: parsed.data.email
 				});
 			}
 
 			return fail(500, {
-				error: 'Unable to log in right now.',
+				error: genericLoginUnavailableMessage,
+				errorCode: genericLoginUnavailableCode,
+				errorStatus: 500,
 				next: nextPath,
 				email: parsed.data.email
 			});

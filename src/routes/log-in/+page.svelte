@@ -9,6 +9,8 @@
 		};
 		form?: {
 			error?: string;
+			errorCode?: string;
+			errorStatus?: number;
 			email?: string;
 			next?: string;
 		};
@@ -18,10 +20,37 @@
 	let emailValue = $state('');
 	let passwordValue = $state('');
 	let nextValue = $state('');
+	let lastLoggedAuthError = $state('');
+
+	const loginErrorHints: Record<string, string> = {
+		AUTH_LOGIN_FAILED:
+			'Possible causes: invalid credentials or account access restrictions (non-enumerating by design).',
+		AUTH_LOGIN_UNAVAILABLE:
+			'Auth service configuration or backend availability issue. Check server logs.'
+	};
 
 	$effect(() => {
 		emailValue = form?.email ?? '';
 		nextValue = form?.next ?? data.next;
+	});
+
+	$effect(() => {
+		if (!form?.error) {
+			lastLoggedAuthError = '';
+			return;
+		}
+
+		const signature = `${form.errorStatus ?? 'unknown'}:${form.errorCode ?? 'unknown'}:${form.error}`;
+		if (signature === lastLoggedAuthError) return;
+		lastLoggedAuthError = signature;
+
+		const code = form.errorCode ?? 'AUTH_UNKNOWN';
+		console.error('[auth][login] Sign-in failed', {
+			code,
+			status: form.errorStatus ?? null,
+			message: form.error,
+			hint: loginErrorHints[code] ?? 'No additional diagnostic hint is available for this error code.'
+		});
 	});
 </script>
 

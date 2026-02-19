@@ -50,7 +50,9 @@ If a request conflicts with these rules, refuse and explain why, then propose a 
   - Enforce expiration and server-side revocation checks on every request.
   - Sliding session renewal must happen server-side only and update expiry metadata atomically.
 - Account Enumeration Resistance:
-  - Login and registration must return generic, non-enumerating auth errors (do not reveal whether email, invite key, or account state exists).
+  - Login must return generic, non-enumerating auth errors (do not reveal whether email or password is incorrect).
+  - Registration should return generic errors by default (do not reveal invite key validity or internal account state).
+  - Exception (explicit product policy): registration may return a specific duplicate-email error when the submitted email already has an account.
   - Keep failure-path timing as uniform as practical (e.g., dummy password verification when user is missing) to reduce timing side channels.
 - Least-Privilege Provisioning:
   - Self-registration must never create `admin` users by default.
@@ -115,6 +117,6 @@ When generating or reviewing code, verify:
 9. Opaque hashed session tokens with secure cookie settings and revocation support.
 10. CSRF origin enforcement on mutating cookie-authenticated routes.
 11. RBAC + tenant boundary enforcement derived from `locals`, never client identity fields.
-12. Non-enumerating auth failures (content + timing) for login/register/password reset flows.
+12. Non-enumerating auth failures (content + timing) for login/password reset flows, with registration duplicate-email exception only when explicitly approved.
 13. Least-privilege default role for all self-service account creation paths.
 14. `Cache-Control: no-store` for all sensitive API/auth responses.

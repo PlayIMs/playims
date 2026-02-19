@@ -101,11 +101,23 @@ const requireSignupInviteKey = (event: RequestEvent): string => {
 const getPasswordIterations = (event: RequestEvent): number =>
 	normalizeIterations(readAuthEnv(event, AUTH_ENV_KEYS.passwordIterations));
 
-const throwRegistrationDenied = (): never => {
+const throwRegistrationDenied = (
+	reason: 'invite_mismatch' | 'email_exists' | 'create_failed'
+): never => {
+	console.warn(`[auth][register] denied (${reason})`);
 	throw new AuthServiceError(
 		403,
 		'AUTH_REGISTRATION_DENIED',
-		'Unable to register with the provided credentials.'
+		'Registration failed. Check your account details and invite key, then try again.'
+	);
+};
+
+const throwRegistrationEmailAlreadyExists = (): never => {
+	console.warn('[auth][register] denied (email_exists)');
+	throw new AuthServiceError(
+		409,
+		'AUTH_EMAIL_ALREADY_REGISTERED',
+		'An account with this email already exists. Please sign in instead.'
 	);
 };
 
@@ -326,7 +338,7 @@ export const registerWithPassword = async (
 	const providedInviteKey = input.inviteKey.trim();
 
 	if (!constantTimeStringEqual(expectedInviteKey, providedInviteKey)) {
-		throwRegistrationDenied();
+		throwRegistrationDenied('invite_mismatch');
 	}
 
 	await ensureDefaultClient(dbOps);
@@ -334,7 +346,7 @@ export const registerWithPassword = async (
 	const normalizedEmail = input.email.trim().toLowerCase();
 	const existingUser = await dbOps.users.getAuthByEmail(normalizedEmail);
 	if (existingUser) {
-		throwRegistrationDenied();
+		throwRegistrationEmailAlreadyExists();
 	}
 
 	const passwordHash = await hashPassword({
@@ -355,7 +367,7 @@ export const registerWithPassword = async (
 			status: 'active'
 		});
 	} catch {
-		throwRegistrationDenied();
+		throwRegistrationDenied('create_failed');
 	}
 
 	if (!createdUser) {

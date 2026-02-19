@@ -41,6 +41,36 @@ const getValidationMessage = (issues: { path: PropertyKey[]; message: string }[]
 	return issue.message || 'Please complete all required fields with valid values.';
 };
 
+const genericRegisterFailureMessage =
+	'Registration failed. Check your account details and invite key, then try again.';
+const genericRegisterUnavailableMessage = 'Registration is temporarily unavailable. Please try again.';
+const genericRegisterFailureCode = 'AUTH_REGISTER_FAILED';
+const genericRegisterUnavailableCode = 'AUTH_REGISTER_UNAVAILABLE';
+
+const mapRegisterAuthError = (error: AuthServiceError) => {
+	if (error.code === 'AUTH_EMAIL_ALREADY_REGISTERED') {
+		return {
+			error: 'An account with this email already exists. Please sign in instead.',
+			errorCode: 'AUTH_EMAIL_ALREADY_REGISTERED',
+			errorStatus: 409
+		};
+	}
+
+	if (error.status >= 500 || error.code === 'AUTH_CONFIG_MISSING' || error.code === 'AUTH_CREATE_FAILED') {
+		return {
+			error: genericRegisterUnavailableMessage,
+			errorCode: genericRegisterUnavailableCode,
+			errorStatus: error.status
+		};
+	}
+
+	return {
+		error: genericRegisterFailureMessage,
+		errorCode: genericRegisterFailureCode,
+		errorStatus: error.status
+	};
+};
+
 // If already authenticated with required role, skip register page.
 export const load: PageServerLoad = async ({ locals, url }) => {
 	if (locals.user && hasAnyRole(locals.user.role, DASHBOARD_ALLOWED_ROLES)) {
@@ -92,8 +122,11 @@ export const actions: Actions = {
 			});
 		} catch (error) {
 			if (error instanceof AuthServiceError) {
-				return fail(error.status, {
-					error: error.clientMessage,
+				const publicAuthError = mapRegisterAuthError(error);
+				return fail(publicAuthError.errorStatus, {
+					error: publicAuthError.error,
+					errorCode: publicAuthError.errorCode,
+					errorStatus: publicAuthError.errorStatus,
 					next: nextPath,
 					email: parsed.data.email,
 					firstName: parsed.data.firstName ?? '',
@@ -102,7 +135,9 @@ export const actions: Actions = {
 			}
 
 			return fail(500, {
-				error: 'Unable to register right now.',
+				error: genericRegisterUnavailableMessage,
+				errorCode: genericRegisterUnavailableCode,
+				errorStatus: 500,
 				next: nextPath,
 				email: parsed.data.email,
 				firstName: parsed.data.firstName ?? '',
