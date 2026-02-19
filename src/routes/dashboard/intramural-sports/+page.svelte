@@ -1156,17 +1156,23 @@
 		if (!slug) errors['season.slug'] = 'Season slug is required.';
 		if (name) {
 			const normalizedName = name.toLowerCase();
-			const duplicateName = seasons.some(
+			const duplicateName = seasons.find(
 				(season) => season.name.trim().toLowerCase() === normalizedName
 			);
 			if (duplicateName) {
-				errors['season.name'] = 'A season with this name already exists.';
+				errors['season.name'] =
+					duplicateName.isActive === false
+						? 'An archived season with this name already exists.'
+						: 'A season with this name already exists.';
 			}
 		}
 		if (slug) {
-			const duplicateSlug = seasons.some((season) => slugifyFinal(season.slug) === slug);
+			const duplicateSlug = seasons.find((season) => slugifyFinal(season.slug) === slug);
 			if (duplicateSlug) {
-				errors['season.slug'] = 'A season with this slug already exists.';
+				errors['season.slug'] =
+					duplicateSlug.isActive === false
+						? 'An archived season with this slug already exists.'
+						: 'A season with this slug already exists.';
 			}
 		}
 		if (!startDate) {

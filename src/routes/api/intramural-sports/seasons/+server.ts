@@ -281,14 +281,20 @@ export const POST: RequestHandler = async (event) => {
 		if (duplicateSlug) {
 			duplicateIssues.push({
 				path: ['season', 'slug'],
-				message: 'A season with this slug already exists.'
+				message:
+					duplicateSlug.isActive === 0
+						? 'An archived season with this slug already exists.'
+						: 'A season with this slug already exists.'
 			});
 		}
 
 		if (duplicateName) {
 			duplicateIssues.push({
 				path: ['season', 'name'],
-				message: 'A season with this name already exists.'
+				message:
+					duplicateName.isActive === 0
+						? 'An archived season with this name already exists.'
+						: 'A season with this name already exists.'
 			});
 		}
 

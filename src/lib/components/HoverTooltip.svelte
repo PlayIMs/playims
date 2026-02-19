@@ -13,9 +13,11 @@
 	interface Props {
 		text: string;
 		placement?: 'bottom' | 'right';
+		preferSide?: 'right' | 'left';
 		align?: 'left' | 'center' | 'right';
 		offsetPx?: number;
 		paddingPx?: number;
+		minHorizontalGapPx?: number;
 		constrainToAncestorOverflow?: boolean;
 		panelClass?: string;
 		maxWidthClass?: string;
@@ -26,9 +28,11 @@
 	let {
 		text,
 		placement = 'bottom',
+		preferSide = 'right',
 		align = 'center',
 		offsetPx = 6,
 		paddingPx = 8,
+		minHorizontalGapPx = 8,
 		constrainToAncestorOverflow = true,
 		panelClass = 'border border-secondary-300 bg-neutral px-2 py-1 text-[11px] text-neutral-950 shadow-sm',
 		maxWidthClass = 'max-w-64',
@@ -109,13 +113,19 @@
 		const availableWidth = Math.max(0, boundary.right - boundary.left);
 		const width = Math.min(panelRect.width, availableWidth);
 		const height = panelRect.height;
+		const horizontalGap = Math.max(offsetPx, minHorizontalGapPx);
 
 		let left = rootRect.left;
 		let top = rootRect.bottom + offsetPx;
 		if (placement === 'right') {
-			left = rootRect.right + offsetPx;
-			if (left + width > boundary.right) {
-				left = rootRect.left - offsetPx - width;
+			const rightLeft = rootRect.right + horizontalGap;
+			const leftLeft = rootRect.left - horizontalGap - width;
+			const rightFits = rightLeft + width <= boundary.right;
+			const leftFits = leftLeft >= boundary.left;
+			if (preferSide === 'left') {
+				left = leftFits || !rightFits ? leftLeft : rightLeft;
+			} else {
+				left = rightFits || !leftFits ? rightLeft : leftLeft;
 			}
 			if (align === 'left') top = rootRect.top;
 			if (align === 'center') top = rootRect.top + rootRect.height / 2 - height / 2;
@@ -145,6 +155,11 @@
 			return;
 		}
 		const rect = root.getBoundingClientRect();
+		const horizontalGap = Math.max(offsetPx, minHorizontalGapPx);
+		if (placement === 'right') {
+			panelStyle = `position: fixed; left: ${Math.round(rect.right + horizontalGap)}px; top: ${Math.round(rect.top)}px; visibility: visible;`;
+			return;
+		}
 		panelStyle = `position: fixed; left: ${Math.round(rect.left)}px; top: ${Math.round(rect.bottom + offsetPx)}px; visibility: visible;`;
 	}
 

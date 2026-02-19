@@ -10,6 +10,7 @@
 <script lang="ts">
 	import IconChevronDown from '@tabler/icons-svelte/icons/chevron-down';
 	import IconChevronUp from '@tabler/icons-svelte/icons/chevron-up';
+	import IconInfoCircle from '@tabler/icons-svelte/icons/info-circle';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import { createEventDispatcher, onDestroy, tick } from 'svelte';
 	import type { Snippet } from 'svelte';
@@ -495,6 +496,18 @@
 		return `${optionBaseClass} hover:bg-neutral-300 active:bg-neutral-300`;
 	}
 
+	function optionDisabledInfoClassFor(option: ListboxDropdownOption, index: number): string {
+		const nextOption = options[index + 1];
+		const hasBottomDivider = index < options.length - 1 && !nextOption?.separatorBefore;
+		const optionBorderClass = `${hasBottomDivider ? 'border-b border-secondary-200' : 'border-b-0'} ${
+			option.separatorBefore ? 'border-t border-secondary-200' : ''
+		}`;
+		const optionBaseClass = `${optionClass} ${optionBorderClass}`;
+		const disabledNoOpacity = disabledOptionClass.replace(/\bopacity-\d+\b/g, '').trim();
+		const normalizedDisabledClass = disabledNoOpacity.replace(/\s+/g, ' ').trim();
+		return `${optionBaseClass} ${normalizedDisabledClass || 'cursor-not-allowed bg-white text-neutral-700'}`;
+	}
+
 	function optionTooltipFor(option: ListboxDropdownOption): string | undefined {
 		const value = option.disabled ? option.disabledTooltip ?? option.tooltip : option.tooltip;
 		if (!value) return undefined;
@@ -611,44 +624,45 @@
 					{#each options as option, index}
 						{@const isSelectedOption = mode !== 'action' && option.value === value}
 						{@const optionTooltip = optionTooltipFor(option)}
-						{#if optionTooltip}
-							<HoverTooltip
-								text={optionTooltip}
-								placement="right"
-								align="left"
-								offsetPx={10}
-								constrainToAncestorOverflow={false}
-								maxWidthClass="max-w-72"
-								wrapperClass="block w-full"
+						{@const showOptionInfo = option.disabled && Boolean(optionTooltip)}
+						{#if showOptionInfo}
+							<div
+								id={`${listboxId}-option-${index}`}
+								role="option"
+								aria-selected={mode === 'action' ? undefined : option.value === value}
+								aria-disabled="true"
+								class={`${optionDisabledInfoClassFor(option, index)} cursor-not-allowed`}
 							>
-								<button
-									id={`${listboxId}-option-${index}`}
-									type="button"
-									role="option"
-									aria-selected={mode === 'action' ? undefined : option.value === value}
-									aria-disabled={option.disabled ? 'true' : undefined}
-									tabindex="-1"
-									disabled={option.disabled}
-									class={optionClassFor(option, index)}
-									onclick={() => {
-										selectOptionAtIndex(index);
-									}}
-									onmousemove={() => {
-										if (!option.disabled) activeIndex = index;
-									}}
-								>
-									<span class="inline-flex items-center gap-2 min-w-0">
-										<span class="truncate">{option.label}</span>
-										{#if option.statusLabel}
-											<span
-												class={`text-[10px] uppercase tracking-wide shrink-0 ${isSelectedOption ? 'text-white' : 'text-secondary-900'}`}
-											>
-												({option.statusLabel})
-											</span>
-										{/if}
-									</span>
-								</button>
-							</HoverTooltip>
+								<span class="inline-flex items-center gap-2 min-w-0 text-neutral-700/50 cursor-not-allowed">
+									<span class="truncate">{option.label}</span>
+									{#if option.statusLabel}
+										<span
+											class="text-[10px] uppercase tracking-wide shrink-0 text-neutral-700/50"
+										>
+											({option.statusLabel})
+										</span>
+									{/if}
+									<HoverTooltip
+										text={optionTooltip ?? ''}
+										placement="right"
+										preferSide="right"
+										align="center"
+										minHorizontalGapPx={10}
+										offsetPx={10}
+										constrainToAncestorOverflow={false}
+										maxWidthClass="max-w-72"
+									>
+										<button
+											type="button"
+											class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-neutral-700/50 cursor-help hover:bg-neutral-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-500"
+											aria-label={`Why "${option.label}" is unavailable`}
+											tabindex="-1"
+										>
+											<IconInfoCircle class="w-4 h-4" stroke={2} />
+										</button>
+									</HoverTooltip>
+								</span>
+							</div>
 						{:else}
 							<button
 								id={`${listboxId}-option-${index}`}
