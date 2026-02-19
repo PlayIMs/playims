@@ -78,7 +78,8 @@
 		const term = seasonSearchTerm.trim().toLowerCase();
 		if (!term) return sortedSeasons;
 		return sortedSeasons.filter((season) => {
-			const searchable = `${season.name} ${season.slug} ${season.startDate} ${season.endDate ?? ''}`.toLowerCase();
+			const searchable =
+				`${season.name} ${season.slug} ${season.startDate} ${season.endDate ?? ''}`.toLowerCase();
 			return searchable.includes(term);
 		});
 	});
@@ -379,7 +380,9 @@
 	<div class="grid grid-cols-1 lg:grid-cols-[16rem_minmax(0,1fr)] gap-4 min-h-0">
 		<section class="border-2 border-secondary-300 bg-white min-h-0 flex flex-col">
 			<div class="px-3 py-2 border-b border-secondary-200 flex items-center gap-2">
-				<p class="h-6 inline-flex items-center text-xs font-semibold uppercase tracking-wide text-neutral-950 shrink-0">
+				<p
+					class="h-6 inline-flex items-center text-xs font-semibold uppercase tracking-wide text-neutral-950 shrink-0"
+				>
 					Seasons
 				</p>
 				<SearchInput
@@ -641,11 +644,11 @@
 	<div class="p-4 space-y-3 overflow-y-auto">
 		<div class="border-2 border-error-300 bg-error-50 p-3 space-y-2">
 			<p class="text-sm text-error-900 font-semibold">
-				Deleting this season permanently removes season-linked leagues/groups, divisions, teams,
-				rosters, events, announcements, standings, brackets, and orphaned offerings.
+				Deleting this season permanently removes season-linked offerings, leagues/groups, divisions,
+				teams, rosters, events, announcements, standings, and brackets.
 			</p>
 			<p class="text-sm text-error-800 font-semibold">
-				This action cannot be undone, so procede with caution.
+				This action cannot be undone, so proceed with caution.
 			</p>
 		</div>
 		<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
