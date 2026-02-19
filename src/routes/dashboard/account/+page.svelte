@@ -1180,8 +1180,8 @@
 					</div>
 				</section>
 
-				<section class="border-2 border-error-500 bg-error-100">
-					<div class="p-4 border-b border-accent-500 bg-error-500">
+				<section class="border-2 border-error-700 bg-error-100">
+					<div class="p-4 border-b border-accent-500 bg-error-700">
 						<h2 class="text-xl font-bold font-serif text-error-950">Danger Zone</h2>
 						<p class="text-xs text-error-950 mt-1">
 							Archive account keeps your row in the database and immediately revokes all sessions.
@@ -1246,7 +1246,7 @@
 								</div>
 							</label>
 
-							<div class="border border-error-500 bg-white px-3 py-2 text-xs text-error-950">
+							<div class="border border-error-700 bg-white px-3 py-2 text-xs text-error-950">
 								Archiving deactivates this account but preserves historical data in the database.
 							</div>
 

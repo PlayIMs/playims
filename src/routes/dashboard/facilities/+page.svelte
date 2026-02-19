@@ -991,7 +991,7 @@
 			<div class="border-2 border-error-300 bg-error-50 p-4 flex items-start gap-3">
 				<IconAlertCircle class="w-5 h-5 text-error-700 mt-0.5" />
 				<div class="flex-1">
-					<p class="text-error-800 font-sans">{form.message}</p>
+					<p class="text-error-700 font-sans">{form.message}</p>
 					{#if formData?.duplicateType === 'archived'}
 						<div class="flex items-center gap-2 mt-2">
 							{#if formData?.archivedFacilityId}
@@ -1005,7 +1005,7 @@
 								</form>
 								<button
 									type="button"
-									class="button-secondary-outlined text-sm flex items-center gap-1 border-error-500 text-error-700"
+									class="button-secondary-outlined text-sm flex items-center gap-1 border-error-700 text-error-700"
 									onclick={() => {
 										if (formData?.archivedFacilityId) {
 											const archivedFacility = facilitiesData.find(
@@ -1038,7 +1038,7 @@
 								</form>
 								<button
 									type="button"
-									class="button-secondary-outlined text-sm flex items-center gap-1 border-error-500 text-error-700"
+									class="button-secondary-outlined text-sm flex items-center gap-1 border-error-700 text-error-700"
 									onclick={() => {
 										if (formData?.archivedAreaId && archivedArea) {
 											openConfirm({
@@ -1188,7 +1188,7 @@
 									<div class="border-2 border-error-300 bg-error-50 p-3 flex items-start gap-3">
 										<IconAlertCircle class="w-5 h-5 text-error-700 mt-0.5" />
 										<div class="flex-1">
-											<p class="text-error-800 font-sans">{form.message}</p>
+											<p class="text-error-700 font-sans">{form.message}</p>
 											{#if formData?.duplicateType === 'archived' && formData?.archivedFacilityId}
 												<div class="flex items-center gap-2 mt-2">
 													<button
@@ -1205,7 +1205,7 @@
 													</button>
 													<button
 														type="button"
-														class="button-secondary-outlined text-sm flex items-center gap-1 border-error-500 text-error-700"
+														class="button-secondary-outlined text-sm flex items-center gap-1 border-error-700 text-error-700"
 														onclick={() => {
 															if (formData?.archivedFacilityId) {
 																const archivedFacility = facilitiesData.find(
@@ -1612,7 +1612,7 @@
 														>
 															<IconAlertCircle class="w-5 h-5 text-error-700 mt-0.5" />
 															<div class="flex-1">
-																<p class="text-error-800 font-sans">{form.message}</p>
+																<p class="text-error-700 font-sans">{form.message}</p>
 																{#if formData?.duplicateType === 'archived' && formData?.archivedAreaId}
 																	{@const archivedArea = facilityAreasData.find(
 																		(a) => a.id === formData.archivedAreaId
@@ -1632,7 +1632,7 @@
 																		</button>
 																		<button
 																			type="button"
-																			class="button-secondary-outlined text-sm flex items-center gap-1 border-error-500 text-error-700"
+																			class="button-secondary-outlined text-sm flex items-center gap-1 border-error-700 text-error-700"
 																			onclick={() => {
 																				if (formData?.archivedAreaId && archivedArea) {
 																					openConfirm({
@@ -1963,7 +1963,7 @@
 				<div class="border-2 border-error-300 bg-error-50 p-3 flex items-start gap-3">
 					<IconAlertCircle class="w-5 h-5 text-error-700 mt-0.5" />
 					<div class="flex-1">
-						<p class="text-error-800 font-sans">{form.message}</p>
+						<p class="text-error-700 font-sans">{form.message}</p>
 						{#if formData?.duplicateType === 'archived' && formData?.archivedAreaId}
 							{@const archivedArea = facilityAreasData.find((a) => a.id === formData.archivedAreaId)}
 							<div class="flex items-center gap-2 mt-2">
@@ -1981,7 +1981,7 @@
 								</button>
 								<button
 									type="button"
-									class="button-secondary-outlined text-sm flex items-center gap-1 border-error-500 text-error-700"
+									class="button-secondary-outlined text-sm flex items-center gap-1 border-error-700 text-error-700"
 									onclick={() => {
 										if (formData?.archivedAreaId && archivedArea) {
 											openConfirm({
@@ -2099,8 +2099,8 @@
 				<div class="p-5 space-y-4">
 					{#if confirmIntent.kind === 'facility-delete'}
 						<p class="font-sans text-neutral-950">
-							This will <span class="font-bold text-error-500">permanently delete</span> the
-							facility. This action <span class="font-bold text-error-500">cannot</span>
+							This will <span class="font-bold text-error-700">permanently delete</span> the
+							facility. This action <span class="font-bold text-error-700">cannot</span>
 							be undone.
 						</p>
 						<p class="font-sans text-neutral-950">
@@ -2110,8 +2110,8 @@
 						</p>
 					{:else}
 						<p class="font-sans text-neutral-950">
-							This will <span class="font-bold text-error-500">permanently delete</span> the area.
-							This action <span class="font-bold text-error-500">cannot</span> be undone.
+							This will <span class="font-bold text-error-700">permanently delete</span> the area.
+							This action <span class="font-bold text-error-700">cannot</span> be undone.
 						</p>
 						<p class="font-sans text-neutral-950">
 							Type the area slug to confirm: <span class="font-mono font-bold"
@@ -2132,7 +2132,7 @@
 						>
 						<button
 							type="button"
-							class="button-secondary-outlined border-error-500 text-error-700 hover:bg-error-50 flex items-center gap-2 min-w-[10rem] justify-center cursor-pointer"
+							class="button-secondary-outlined border-error-700 text-error-700 hover:bg-error-50 flex items-center gap-2 min-w-[10rem] justify-center cursor-pointer"
 							disabled={slugifyFinal(confirmSlugInput) !== slugifyFinal(confirmIntent.slug)}
 							onclick={() => {
 								if (!confirmIntent) return;

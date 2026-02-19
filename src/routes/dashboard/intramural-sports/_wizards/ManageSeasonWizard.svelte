@@ -367,7 +367,7 @@
 	{#snippet error()}
 		{#if formError}
 			<div class="border-2 border-error-300 bg-error-50 p-3">
-				<p class="text-error-800 text-sm font-sans">{formError}</p>
+				<p class="text-error-700 text-sm font-sans">{formError}</p>
 			</div>
 		{/if}
 		{#if formSuccess}
@@ -530,7 +530,7 @@
 						<HoverTooltip text="Delete season (opens confirmation)" maxWidthClass="max-w-72">
 							<button
 								type="button"
-								class="button-secondary-outlined border-error-500 text-error-700 hover:bg-error-50 w-11 h-11 p-0 inline-flex items-center justify-center cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+								class="button-secondary-outlined border-error-700 text-error-700 hover:bg-error-50 w-11 h-11 p-0 inline-flex items-center justify-center cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
 								aria-label="Open delete season dialog"
 								disabled={isSubmitting}
 								onclick={openDeleteModal}
@@ -624,7 +624,7 @@
 <ModalShell
 	open={open && isDeleteModalOpen}
 	closeAriaLabel="Close delete season dialog"
-	panelClass="w-full max-w-2xl max-h-[calc(100vh-3rem)] border-4 border-error-500 bg-error-25 overflow-hidden flex flex-col"
+	panelClass="w-full max-w-2xl max-h-[calc(100vh-3rem)] border-4 border-error-700 bg-error-25 overflow-hidden flex flex-col"
 	on:requestClose={closeDeleteModal}
 >
 	<div class="p-4 border-b border-error-300 bg-error-50 flex items-start justify-between gap-3">
@@ -633,7 +633,7 @@
 		</div>
 		<button
 			type="button"
-			class="p-1 text-error-800 hover:text-error-900 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error-500"
+			class="p-1 text-error-700 hover:text-error-900 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error-700"
 			aria-label="Close delete season dialog"
 			onclick={closeDeleteModal}
 		>
@@ -647,17 +647,18 @@
 				Deleting this season permanently removes season-linked offerings, leagues/groups, divisions,
 				teams, rosters, events, announcements, standings, and brackets.
 			</p>
-			<p class="text-sm text-error-800 font-semibold">
+			<p class="text-sm text-error-700 font-semibold">
 				This action cannot be undone, so proceed with caution.
 			</p>
 		</div>
 		<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
 			<div>
 				<label for="manage-season-delete-slug" class="block text-sm text-neutral-950 mb-1">
-					Type slug to confirm
+					Type
 					<code class="font-mono text-xs bg-error-100 text-error-900 px-1 py-0.5 rounded">
 						{normalizedExpectedDeleteSlug}
 					</code>
+					to confirm deletion.
 				</label>
 				<input
 					id="manage-season-delete-slug"

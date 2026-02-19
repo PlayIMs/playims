@@ -1735,6 +1735,60 @@
 		background-color: var(--color-accent-100);
 	}
 
+	/* Error Buttons */
+	:is(button, a).button-error {
+		background-color: var(--color-error-700);
+		color: var(--color-error-50);
+		padding: 0.75rem 1.5rem;
+		font-weight: 700;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		transition: background-color 0.2s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		border: none;
+	}
+
+	:is(button, a).button-error:hover:not(:disabled) {
+		background-color: var(--color-error-800);
+	}
+
+	:is(button, a).button-error:active:not(:disabled) {
+		background-color: var(--color-error-900);
+	}
+
+	:is(button, a).button-error:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	:is(button, a).button-error-outlined {
+		background-color: transparent;
+		outline: 2px solid var(--color-error-700);
+		outline-offset: -2px;
+		border: none;
+		color: var(--color-error-700);
+		padding: 0.75rem 1.5rem;
+		font-weight: 700;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		transition: background-color 0.2s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+	}
+
+	:is(button, a).button-error-outlined:hover:not(:disabled) {
+		background-color: var(--color-error-50);
+	}
+
+	:is(button, a).button-error-outlined:active:not(:disabled) {
+		background-color: var(--color-error-100);
+	}
+
 	/* Badge Component Classes */
 	.badge-primary {
 		background-color: var(--color-primary-500);

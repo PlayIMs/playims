@@ -51,7 +51,7 @@
 	{#snippet error()}
 		{#if formError}
 			<div class="border-2 border-error-300 bg-error-50 p-3">
-				<p class="text-error-800 text-sm font-sans">{formError}</p>
+				<p class="text-error-700 text-sm font-sans">{formError}</p>
 			</div>
 		{/if}
 	{/snippet}

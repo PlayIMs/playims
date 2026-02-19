@@ -142,7 +142,7 @@
 								title="Remove"
 								onclick={() => onRemove(itemIndex)}
 							>
-								<IconTrash class="w-4 h-4 text-error-500" />
+								<IconTrash class="w-4 h-4 text-error-700" />
 							</button>
 						</div>
 					</div>

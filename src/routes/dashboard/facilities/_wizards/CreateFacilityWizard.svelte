@@ -163,7 +163,7 @@
 			<div class="border-2 border-error-300 bg-error-50 p-3 flex items-start gap-3">
 				<IconAlertCircle class="w-5 h-5 text-error-700 mt-0.5" />
 				<div class="flex-1">
-					<p class="text-error-800 font-sans">{formError}</p>
+					<p class="text-error-700 font-sans">{formError}</p>
 					{#if conflictMeta.duplicateType === 'archived' && conflictMeta.archivedFacilityId}
 						<div class="flex items-center gap-2 mt-2">
 							<button
@@ -180,14 +180,14 @@
 							</button>
 							<button
 								type="button"
-								class="button-secondary-outlined text-sm flex items-center gap-1 border-error-500 text-error-700"
+								class="button-secondary-outlined text-sm flex items-center gap-1 border-error-700 text-error-700"
 								onclick={() => {
 									if (conflictMeta.archivedFacilityId) {
 										onOpenArchivedFacilityDelete(String(conflictMeta.archivedFacilityId));
 									}
 								}}
 							>
-								<IconTrash class="w-4 h-4 text-error-500" />
+								<IconTrash class="w-4 h-4 text-error-700" />
 								Delete Facility
 							</button>
 						</div>
@@ -208,14 +208,14 @@
 							</button>
 							<button
 								type="button"
-								class="button-secondary-outlined text-sm flex items-center gap-1 border-error-500 text-error-700"
+								class="button-secondary-outlined text-sm flex items-center gap-1 border-error-700 text-error-700"
 								onclick={() => {
 									if (conflictMeta.archivedAreaId) {
 										onOpenArchivedAreaDelete(String(conflictMeta.archivedAreaId));
 									}
 								}}
 							>
-								<IconTrash class="w-4 h-4 text-error-500" />
+								<IconTrash class="w-4 h-4 text-error-700" />
 								Delete Area
 							</button>
 						</div>

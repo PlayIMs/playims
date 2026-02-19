@@ -32,7 +32,7 @@
 			</button>
 			<button
 				type="button"
-				class="button-secondary-outlined border-error-500 text-error-700 hover:bg-error-50 cursor-pointer"
+				class="button-secondary-outlined border-error-700 text-error-700 hover:bg-error-50 cursor-pointer"
 				onclick={() => dispatch('confirm')}
 			>
 				{confirmLabel}
