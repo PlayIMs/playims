@@ -1,5 +1,5 @@
-import { DatabaseOperations } from '$lib/database';
 import { requireAuthenticatedClientId } from '$lib/server/client-context';
+import { getTenantDbOps } from '$lib/server/database/context';
 import type { Event } from '$lib/database/schema/events';
 import type { Facility } from '$lib/database/schema/facilities';
 import type { FacilityArea } from '$lib/database/schema/facility-areas';
@@ -169,7 +169,8 @@ function buildScheduleEvent(
 	};
 }
 
-export const load: PageServerLoad = async ({ platform, locals }) => {
+export const load: PageServerLoad = async (event) => {
+	const { platform, locals } = event;
 	if (!platform?.env?.DB) {
 		return {
 			clientId: null,
@@ -188,8 +189,8 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 		};
 	}
 
-	const db = new DatabaseOperations(platform);
 	const clientId = requireAuthenticatedClientId(locals);
+	const db = await getTenantDbOps(event, clientId);
 
 	try {
 		const [events, teams, offerings, leagues, facilities, facilityAreas] = await Promise.all([

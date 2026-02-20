@@ -1,5 +1,5 @@
-import { DatabaseOperations } from '$lib/database/operations/index.js';
 import { requireAuthenticatedClientId } from '$lib/server/client-context';
+import { getCentralDbOps, getTenantDbOps } from '$lib/server/database/context';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ platform, locals }) => {
@@ -15,8 +15,9 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 		};
 	}
 
-	const db = new DatabaseOperations(platform);
 	const clientId = requireAuthenticatedClientId(locals);
+	const centralDb = getCentralDbOps({ platform, locals });
+	const tenantDb = await getTenantDbOps({ platform, locals }, clientId);
 
 	try {
 		const now = new Date();
@@ -26,14 +27,14 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 
 		const [users, allEvents, teams, leagues, offerings, facilities, announcements, rosters] =
 			await Promise.all([
-				db.users.getByClientId(clientId),
-				db.events.getByClientId(clientId),
-				db.teams.getByClientId(clientId),
-				db.leagues.getByClientId(clientId),
-				db.offerings.getByClientId(clientId),
-				db.facilities.getAll(clientId),
-				db.announcements.getAll(clientId),
-				db.rosters.getByClientId(clientId)
+				centralDb.users.getByClientId(clientId),
+				tenantDb.events.getByClientId(clientId),
+				tenantDb.teams.getByClientId(clientId),
+				tenantDb.leagues.getByClientId(clientId),
+				tenantDb.offerings.getByClientId(clientId),
+				tenantDb.facilities.getAll(clientId),
+				tenantDb.announcements.getAll(clientId),
+				tenantDb.rosters.getByClientId(clientId)
 			]);
 
 		const teamsById = new Map(

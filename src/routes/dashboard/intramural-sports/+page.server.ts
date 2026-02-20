@@ -1,5 +1,5 @@
-import { DatabaseOperations } from '$lib/database';
 import { requireAuthenticatedClientId } from '$lib/server/client-context';
+import { getTenantDbOps } from '$lib/server/database/context';
 import type { Division } from '$lib/database/schema/divisions';
 import type { League } from '$lib/database/schema/leagues';
 import type { Offering } from '$lib/database/schema/offerings';
@@ -138,7 +138,8 @@ function resolveDefaultSeasonId(seasons: SeasonOption[]): string | null {
 	return upcoming[0]?.id ?? null;
 }
 
-export const load: PageServerLoad = async ({ platform, locals }) => {
+export const load: PageServerLoad = async (event) => {
+	const { platform, locals } = event;
 	const setRequestLogMeta = (recordCount: number) => {
 		locals.requestLogMeta = {
 			table: 'seasons,offerings,leagues,divisions',
@@ -158,8 +159,8 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 		};
 	}
 
-	const db = new DatabaseOperations(platform);
 	const clientId = requireAuthenticatedClientId(locals);
+	const db = await getTenantDbOps(event, clientId);
 
 	try {
 		const [seasonsRaw, offerings, leagues] = await Promise.all([

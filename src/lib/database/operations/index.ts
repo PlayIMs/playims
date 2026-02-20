@@ -18,6 +18,7 @@ import { AnnouncementOperations } from './announcements.js';
 import { ThemeOperations } from './themes.js';
 import { SessionOperations } from './sessions.js';
 import { UserClientOperations } from './user-clients.js';
+import { ClientDatabaseRouteOperations } from './client-database-routes.js';
 
 /**
  * Unified database operations class
@@ -39,6 +40,7 @@ export class DatabaseOperations {
 	public themes: ThemeOperations;
 	public sessions: SessionOperations;
 	public userClients: UserClientOperations;
+	public clientDatabaseRoutes: ClientDatabaseRouteOperations;
 
 	constructor(platformOrDb: { env: { DB: D1Database } } | D1Database) {
 		let db: D1Database;
@@ -78,6 +80,7 @@ export class DatabaseOperations {
 		this.themes = new ThemeOperations(drizzleDb);
 		this.sessions = new SessionOperations(drizzleDb);
 		this.userClients = new UserClientOperations(drizzleDb);
+		this.clientDatabaseRoutes = new ClientDatabaseRouteOperations(drizzleDb);
 	}
 }
 
@@ -97,3 +100,4 @@ export { AnnouncementOperations } from './announcements.js';
 export { ThemeOperations } from './themes.js';
 export { SessionOperations } from './sessions.js';
 export { UserClientOperations } from './user-clients.js';
+export { ClientDatabaseRouteOperations } from './client-database-routes.js';

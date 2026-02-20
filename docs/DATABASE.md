@@ -13,22 +13,85 @@ The database logic is modular and located in `src/lib/database/`:
 - **`operations/`**: Contains business logic classes (e.g., `ClientOperations`).
   - To add logic: Create a new operation class here and register it in `operations/index.ts`.
 
+## Central vs Tenant Data
+
+PlayIMs uses a **central identity model** with **tenant-routed domain data**.
+
+### Central tables
+
+- `users`
+- `sessions`
+- `user_clients`
+- `clients`
+- `client_database_routes`
+
+Central tables are always read/written using `getCentralDbOps(...)`.
+
+### Tenant tables
+
+Domain/feature tables (for example `seasons`, `offerings`, `leagues`, `facilities`, `themes`, `events`, etc.) are tenant-routed using `getTenantDbOps(..., clientId)`.
+
+In this phase, all tenant routes resolve to `central_shared`, so tenant reads/writes still hit the single central D1 binding. Future per-client D1 isolation is controlled by `client_database_routes`, not by rewriting route handlers.
+
 ## Schema Standards (Required)
 
-All tables in this project are expected to include:
+Tenant-domain tables should include:
 
-- `client_id` (tenant scoping; themes are per-client, not per-user)
+- `client_id` (tenant defense-in-depth scoping)
 - `created_at`
 - `updated_at`
 - `created_user`
 - `updated_user`
 
-Notes:
+Global identity/auth tables do not require `client_id` and should remain centrally scoped.
 
-- `created_at` should default to the current timestamp when possible.
-- `updated_at` should be set/updated by the application whenever a record changes.
-- `created_user` / `updated_user` should be set from `locals.user?.id` when auth exists; until then, they may be null.
-- If a table is truly global (rare), still include `client_id` and leave it null; document the exception in the schema file.
+## Tenant Routing Contract (`client_database_routes`)
+
+`client_database_routes` controls where tenant-domain reads/writes resolve:
+
+- `client_id`: target organization
+- `route_mode`:
+  - `central_shared`: use central D1 binding (`env.DB`)
+  - `d1_binding`: use named runtime binding (`binding_name`)
+- `binding_name`: Cloudflare binding key when `route_mode='d1_binding'`
+- `database_id`: optional tracking metadata for operations/auditing
+- `status`: active/inactive route state
+
+Routing helpers:
+
+- `getCentralDbOps(event)` for central identity/auth data
+- `getTenantDbOps(event, clientId)` for tenant-domain data
+- `getTenantD1Database(event, clientId)` for low-level tenant SQL when required
+
+## Enable/Disable Org Self-Join
+
+Self-join is controlled by `clients.self_join_enabled`:
+
+- `1` = users can self-join from `/<client-slug>`
+- `0` = self-join blocked (admin invite/join flow only)
+
+If you do not see the column yet, run migrations first:
+
+```bash
+pnpm db:migrate:local
+pnpm db:migrate:remote
+```
+
+Enable self-join for a client (by slug):
+
+```sql
+UPDATE clients
+SET self_join_enabled = 1, updated_at = CURRENT_TIMESTAMP
+WHERE lower(trim(slug)) = lower(trim('your-client-slug'));
+```
+
+Disable self-join:
+
+```sql
+UPDATE clients
+SET self_join_enabled = 0, updated_at = CURRENT_TIMESTAMP
+WHERE lower(trim(slug)) = lower(trim('your-client-slug'));
+```
 
 ## Local vs. Remote Development
 

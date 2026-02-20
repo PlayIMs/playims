@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `clients_slug_normalized_unique` ON `clients` (lower(trim("slug"))) WHERE "clients"."slug" is not null and trim("clients"."slug") <> '';

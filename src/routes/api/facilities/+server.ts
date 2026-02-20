@@ -1,9 +1,9 @@
 import { json } from '@sveltejs/kit';
-import { DatabaseOperations } from '$lib/database';
 import {
 	requireAuthenticatedClientId,
 	requireAuthenticatedUserId
 } from '$lib/server/client-context';
+import { getTenantDbOps } from '$lib/server/database/context';
 import {
 	createFacilityWithAreasSchema,
 	type CreateFacilityWithAreasInput
@@ -77,8 +77,8 @@ export const POST: RequestHandler = async (event) => {
 	}
 
 	const input: CreateFacilityWithAreasInput = parsed.data;
-	const dbOps = new DatabaseOperations(event.platform as App.Platform);
 	const clientId = requireAuthenticatedClientId(event.locals);
+	const dbOps = await getTenantDbOps(event, clientId);
 	const userId = requireAuthenticatedUserId(event.locals);
 
 	let createdFacilityId: string | null = null;

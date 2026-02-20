@@ -1,9 +1,9 @@
 import { json } from '@sveltejs/kit';
-import { DatabaseOperations } from '$lib/database';
 import {
 	requireAuthenticatedClientId,
 	requireAuthenticatedUserId
 } from '$lib/server/client-context';
+import { getTenantDbOps } from '$lib/server/database/context';
 import { updateCurrentThemeSchema } from '$lib/server/theme-validation';
 import type { RequestHandler } from './$types';
 
@@ -33,10 +33,11 @@ const buildEtag = (
 	return `W/"${parts.join('|')}"`;
 };
 
-export const GET: RequestHandler = async ({ platform, locals, request }) => {
+export const GET: RequestHandler = async (event) => {
 	try {
-		const dbOps = new DatabaseOperations(platform as App.Platform);
+		const { locals, request } = event;
 		const clientId = requireAuthenticatedClientId(locals);
+		const dbOps = await getTenantDbOps(event, clientId);
 		const theme = await dbOps.themes.getBySlug(clientId, 'current');
 
 		const etag = buildEtag(theme);
@@ -65,11 +66,12 @@ export const GET: RequestHandler = async ({ platform, locals, request }) => {
 	}
 };
 
-export const PUT: RequestHandler = async ({ request, platform, locals }) => {
+export const PUT: RequestHandler = async (event) => {
 	try {
-		const dbOps = new DatabaseOperations(platform as App.Platform);
+		const { request, locals } = event;
 		const clientId = requireAuthenticatedClientId(locals);
 		const userId = requireAuthenticatedUserId(locals);
+		const dbOps = await getTenantDbOps(event, clientId);
 		let body: unknown;
 		try {
 			body = (await request.json()) as unknown;

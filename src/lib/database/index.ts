@@ -46,7 +46,9 @@ export type {
 	Session,
 	NewSession,
 	UserClient,
-	NewUserClient
+	NewUserClient,
+	ClientDatabaseRoute,
+	NewClientDatabaseRoute
 } from './schema/index.js';
 
 /**

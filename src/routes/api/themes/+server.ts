@@ -1,9 +1,9 @@
 import { json } from '@sveltejs/kit';
-import { DatabaseOperations } from '$lib/database';
 import {
 	requireAuthenticatedClientId,
 	requireAuthenticatedUserId
 } from '$lib/server/client-context';
+import { getTenantDbOps } from '$lib/server/database/context';
 import { createSavedThemeSchema } from '$lib/server/theme-validation';
 import type { RequestHandler } from './$types';
 
@@ -16,10 +16,11 @@ const slugify = (value: string) =>
 		.replace(/[^a-z0-9]+/g, '-')
 		.replace(/(^-|-$)/g, '');
 
-export const GET: RequestHandler = async ({ platform, locals }) => {
+export const GET: RequestHandler = async (event) => {
 	try {
-		const dbOps = new DatabaseOperations(platform as App.Platform);
+		const { locals } = event;
 		const clientId = requireAuthenticatedClientId(locals);
+		const dbOps = await getTenantDbOps(event, clientId);
 		const themes = await dbOps.themes.getSaved(clientId);
 		return json({ success: true, data: themes });
 	} catch {
@@ -27,11 +28,12 @@ export const GET: RequestHandler = async ({ platform, locals }) => {
 	}
 };
 
-export const POST: RequestHandler = async ({ request, platform, locals }) => {
+export const POST: RequestHandler = async (event) => {
 	try {
-		const dbOps = new DatabaseOperations(platform as App.Platform);
+		const { request, locals } = event;
 		const clientId = requireAuthenticatedClientId(locals);
 		const userId = requireAuthenticatedUserId(locals);
+		const dbOps = await getTenantDbOps(event, clientId);
 		let body: unknown;
 		try {
 			body = (await request.json()) as unknown;

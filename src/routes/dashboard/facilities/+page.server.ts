@@ -1,10 +1,10 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { DatabaseOperations } from '$lib/database';
 import {
 	requireAuthenticatedClientId,
 	requireAuthenticatedUserId
 } from '$lib/server/client-context';
+import { getTenantDbOps } from '$lib/server/database/context';
 
 function asTrimmedString(value: FormDataEntryValue | null): string | null {
 	if (typeof value !== 'string') return null;
@@ -119,9 +119,9 @@ function parseFacilityAreaWizardPayload(raw: FormDataEntryValue | null): Facilit
 export const load: PageServerLoad = async ({ platform, url, locals }) => {
 	if (!platform) throw error(500, 'Platform not available');
 
-	// Secured server-side query (no client-side DB access).
-	const dbOps = new DatabaseOperations(platform as App.Platform);
 	const clientId = requireAuthenticatedClientId(locals);
+	// Secured server-side query (no client-side DB access).
+	const dbOps = await getTenantDbOps({ locals, platform }, clientId);
 
 	const facilityId = url.searchParams.get('facilityId');
 
@@ -173,7 +173,7 @@ export const actions: Actions = {
 			});
 		}
 
-		const dbOps = new DatabaseOperations(platform as App.Platform);
+		const dbOps = await getTenantDbOps({ locals, platform }, clientId);
 
 		// Prevent duplicates by name or slug (within the client), including archived records.
 		const existingFacilities = await dbOps.facilities.getAll(clientId);
@@ -269,7 +269,7 @@ export const actions: Actions = {
 				action: 'createFacility'
 			});
 
-		const dbOps = new DatabaseOperations(platform as App.Platform);
+		const dbOps = await getTenantDbOps({ locals, platform }, clientId);
 		const actorUserId = requireAuthenticatedUserId(locals);
 
 		// Prevent duplicates by name or slug (within the client), including archived records.
@@ -327,9 +327,9 @@ export const actions: Actions = {
 		const facilityId = asTrimmedString(form.get('facilityId'));
 		if (!facilityId) return fail(400, { message: 'Facility ID is required.' });
 
-		const dbOps = new DatabaseOperations(platform as App.Platform);
-		const actorUserId = requireAuthenticatedUserId(locals);
 		const clientId = requireAuthenticatedClientId(locals);
+		const dbOps = await getTenantDbOps({ locals, platform }, clientId);
+		const actorUserId = requireAuthenticatedUserId(locals);
 
 		// Security: validate ownership manually (D1 has no RLS)
 		const existing = await dbOps.facilities.getById(facilityId);
@@ -428,9 +428,9 @@ export const actions: Actions = {
 		if (!facilityId) return fail(400, { message: 'Facility ID is required.' });
 		if (isActive === null) return fail(400, { message: 'isActive must be 0 or 1.' });
 
-		const dbOps = new DatabaseOperations(platform as App.Platform);
-		const actorUserId = requireAuthenticatedUserId(locals);
 		const clientId = requireAuthenticatedClientId(locals);
+		const dbOps = await getTenantDbOps({ locals, platform }, clientId);
+		const actorUserId = requireAuthenticatedUserId(locals);
 
 		const existing = await dbOps.facilities.getById(facilityId);
 		if (!existing || existing.clientId !== clientId)
@@ -467,7 +467,7 @@ export const actions: Actions = {
 				action: 'createFacilityArea'
 			});
 
-		const dbOps = new DatabaseOperations(platform as App.Platform);
+		const dbOps = await getTenantDbOps({ locals, platform }, clientId);
 		const actorUserId = requireAuthenticatedUserId(locals);
 
 		const facility = await dbOps.facilities.getById(facilityId);
@@ -528,9 +528,9 @@ export const actions: Actions = {
 		const facilityAreaId = asTrimmedString(form.get('facilityAreaId'));
 		if (!facilityAreaId) return fail(400, { message: 'Facility area ID is required.' });
 
-		const dbOps = new DatabaseOperations(platform as App.Platform);
-		const actorUserId = requireAuthenticatedUserId(locals);
 		const clientId = requireAuthenticatedClientId(locals);
+		const dbOps = await getTenantDbOps({ locals, platform }, clientId);
+		const actorUserId = requireAuthenticatedUserId(locals);
 
 		const existing = await dbOps.facilityAreas.getById(facilityAreaId);
 		if (!existing || existing.clientId !== clientId)
@@ -612,9 +612,9 @@ export const actions: Actions = {
 		if (!facilityAreaId) return fail(400, { message: 'Facility area ID is required.' });
 		if (!facilityId) return fail(400, { message: 'New facility is required.' });
 
-		const dbOps = new DatabaseOperations(platform as App.Platform);
-		const actorUserId = requireAuthenticatedUserId(locals);
 		const clientId = requireAuthenticatedClientId(locals);
+		const dbOps = await getTenantDbOps({ locals, platform }, clientId);
+		const actorUserId = requireAuthenticatedUserId(locals);
 
 		const existing = await dbOps.facilityAreas.getById(facilityAreaId);
 		if (!existing || existing.clientId !== clientId)
@@ -641,9 +641,9 @@ export const actions: Actions = {
 		if (!facilityAreaId) return fail(400, { message: 'Facility area ID is required.' });
 		if (isActive === null) return fail(400, { message: 'isActive must be 0 or 1.' });
 
-		const dbOps = new DatabaseOperations(platform as App.Platform);
-		const actorUserId = requireAuthenticatedUserId(locals);
 		const clientId = requireAuthenticatedClientId(locals);
+		const dbOps = await getTenantDbOps({ locals, platform }, clientId);
+		const actorUserId = requireAuthenticatedUserId(locals);
 
 		const existing = await dbOps.facilityAreas.getById(facilityAreaId);
 		if (!existing || existing.clientId !== clientId)
@@ -666,8 +666,8 @@ export const actions: Actions = {
 		if (!facilityId)
 			return fail(400, { message: 'Facility ID is required.', action: 'deleteFacility' });
 
-		const dbOps = new DatabaseOperations(platform as App.Platform);
 		const clientId = requireAuthenticatedClientId(locals);
+		const dbOps = await getTenantDbOps({ locals, platform }, clientId);
 
 		const existing = await dbOps.facilities.getById(facilityId);
 		if (!existing || existing.clientId !== clientId)
@@ -702,8 +702,8 @@ export const actions: Actions = {
 		if (!facilityAreaId)
 			return fail(400, { message: 'Facility area ID is required.', action: 'deleteFacilityArea' });
 
-		const dbOps = new DatabaseOperations(platform as App.Platform);
 		const clientId = requireAuthenticatedClientId(locals);
+		const dbOps = await getTenantDbOps({ locals, platform }, clientId);
 
 		const existing = await dbOps.facilityAreas.getById(facilityAreaId);
 		if (!existing || existing.clientId !== clientId)

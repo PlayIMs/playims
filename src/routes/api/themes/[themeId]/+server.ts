@@ -1,21 +1,22 @@
 import { json } from '@sveltejs/kit';
-import { DatabaseOperations } from '$lib/database';
 import {
 	requireAuthenticatedClientId,
 	requireAuthenticatedUserId
 } from '$lib/server/client-context';
+import { getTenantDbOps } from '$lib/server/database/context';
 import { themeIdParamSchema, updateSavedThemeSchema } from '$lib/server/theme-validation';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async ({ params, platform, locals }) => {
+export const GET: RequestHandler = async (event) => {
 	try {
+		const { params, locals } = event;
 		const parsedParams = themeIdParamSchema.safeParse(params);
 		if (!parsedParams.success) {
 			return json({ success: false, error: 'Invalid theme id' }, { status: 400 });
 		}
 
-		const dbOps = new DatabaseOperations(platform as App.Platform);
 		const clientId = requireAuthenticatedClientId(locals);
+		const dbOps = await getTenantDbOps(event, clientId);
 		const theme = await dbOps.themes.getById(clientId, parsedParams.data.themeId);
 		if (!theme) {
 			return json({ success: false, error: 'Theme not found' }, { status: 404 });
@@ -26,16 +27,17 @@ export const GET: RequestHandler = async ({ params, platform, locals }) => {
 	}
 };
 
-export const PUT: RequestHandler = async ({ params, request, platform, locals }) => {
+export const PUT: RequestHandler = async (event) => {
 	try {
+		const { params, request, locals } = event;
 		const parsedParams = themeIdParamSchema.safeParse(params);
 		if (!parsedParams.success) {
 			return json({ success: false, error: 'Invalid theme id' }, { status: 400 });
 		}
 
-		const dbOps = new DatabaseOperations(platform as App.Platform);
 		const clientId = requireAuthenticatedClientId(locals);
 		const userId = requireAuthenticatedUserId(locals);
+		const dbOps = await getTenantDbOps(event, clientId);
 		const existing = await dbOps.themes.getById(clientId, parsedParams.data.themeId);
 		if (!existing) {
 			return json({ success: false, error: 'Theme not found' }, { status: 404 });
@@ -73,15 +75,16 @@ export const PUT: RequestHandler = async ({ params, request, platform, locals })
 	}
 };
 
-export const DELETE: RequestHandler = async ({ params, platform, locals }) => {
+export const DELETE: RequestHandler = async (event) => {
 	try {
+		const { params, locals } = event;
 		const parsedParams = themeIdParamSchema.safeParse(params);
 		if (!parsedParams.success) {
 			return json({ success: false, error: 'Invalid theme id' }, { status: 400 });
 		}
 
-		const dbOps = new DatabaseOperations(platform as App.Platform);
 		const clientId = requireAuthenticatedClientId(locals);
+		const dbOps = await getTenantDbOps(event, clientId);
 		const existing = await dbOps.themes.getById(clientId, parsedParams.data.themeId);
 		if (!existing) {
 			return json({ success: false, error: 'Theme not found' }, { status: 404 });

@@ -1,9 +1,9 @@
 import { json } from '@sveltejs/kit';
-import { DatabaseOperations } from '$lib/database';
 import {
 	requireAuthenticatedClientId,
 	requireAuthenticatedUserId
 } from '$lib/server/client-context';
+import { getTenantD1Database, getTenantDbOps } from '$lib/server/database/context';
 import {
 	createIntramuralSeasonSchema,
 	type CreateIntramuralSeasonInput,
@@ -261,8 +261,8 @@ export const POST: RequestHandler = async (event) => {
 	}
 
 	const input: CreateIntramuralSeasonInput = parsed.data;
-	const dbOps = new DatabaseOperations(event.platform as App.Platform);
 	const clientId = requireAuthenticatedClientId(event.locals);
+	const dbOps = await getTenantDbOps(event, clientId);
 	const userId = requireAuthenticatedUserId(event.locals);
 
 	try {
@@ -781,8 +781,8 @@ export const PATCH: RequestHandler = async (event) => {
 	}
 
 	const input: ManageIntramuralSeasonInput = parsed.data;
-	const dbOps = new DatabaseOperations(event.platform as App.Platform);
 	const clientId = requireAuthenticatedClientId(event.locals);
+	const dbOps = await getTenantDbOps(event, clientId);
 	const userId = requireAuthenticatedUserId(event.locals);
 
 	try {
@@ -978,10 +978,10 @@ export const DELETE: RequestHandler = async (event) => {
 	}
 
 	const input: DeleteIntramuralSeasonInput = parsed.data;
-	const dbOps = new DatabaseOperations(event.platform as App.Platform);
 	const clientId = requireAuthenticatedClientId(event.locals);
+	const dbOps = await getTenantDbOps(event, clientId);
 	const userId = requireAuthenticatedUserId(event.locals);
-	const d1 = event.platform.env.DB;
+	const d1 = await getTenantD1Database(event, clientId);
 
 	try {
 		const seasons = await dbOps.seasons.getByClientId(clientId);

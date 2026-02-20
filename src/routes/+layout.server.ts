@@ -1,5 +1,5 @@
-import { DatabaseOperations } from '$lib/database';
 import { ensureDefaultClient, resolveClientId } from '$lib/server/client-context';
+import { getCentralDbOps, getTenantDbOps } from '$lib/server/database/context';
 import { DEFAULT_THEME } from '$lib/theme';
 import type { LayoutServerLoad } from './$types';
 
@@ -30,12 +30,14 @@ const buildThemeEtag = (theme: {
 	return `W/"${parts.join('|')}"`;
 };
 
-export const load: LayoutServerLoad = async ({ platform, locals }) => {
+export const load: LayoutServerLoad = async (event) => {
+	const { locals } = event;
 	try {
-		const dbOps = new DatabaseOperations(platform as App.Platform);
-		await ensureDefaultClient(dbOps);
+		const centralDbOps = getCentralDbOps(event);
+		await ensureDefaultClient(centralDbOps);
 		const clientId = resolveClientId(locals);
-		const current = await dbOps.themes.getBySlug(clientId, 'current');
+		const tenantDbOps = await getTenantDbOps(event, clientId);
+		const current = await tenantDbOps.themes.getBySlug(clientId, 'current');
 
 		if (!current) {
 			return {

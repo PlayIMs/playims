@@ -1,6 +1,8 @@
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
 import type { D1Database } from '@cloudflare/workers-types';
+import type { DatabaseOperations } from '$lib/database';
+import type { ResolvedTenantDatabaseRoute } from '$lib/server/database/context';
 
 declare global {
 	namespace App {
@@ -36,6 +38,12 @@ declare global {
 				recordCount?: number | null;
 			};
 			requestId?: string;
+			__dbCache?: {
+				centralOps?: DatabaseOperations;
+				tenantOps?: Map<string, DatabaseOperations>;
+				tenantD1?: Map<string, D1Database>;
+				tenantRoutes?: Map<string, ResolvedTenantDatabaseRoute>;
+			};
 		}
 		// interface PageData {}
 		// interface PageState {}
@@ -46,6 +54,7 @@ declare global {
 				AUTH_SESSION_SECRET?: string;
 				AUTH_PASSWORD_PBKDF2_ITERATIONS?: string;
 				AUTH_PASSWORD_PEPPER?: string;
+				[binding: string]: unknown;
 			};
 			context: {
 				waitUntil(promise: Promise<any>): void;
