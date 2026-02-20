@@ -803,6 +803,151 @@ function getLocalMigrationDatabaseName() {
 	return match[1].replace(/^['"]|['"]$/g, '');
 }
 
+function runLocalD1Command(databaseName, sql) {
+	return runCommandCapture(pnpmBin, [
+		'exec',
+		'wrangler',
+		'd1',
+		'execute',
+		databaseName,
+		'--local',
+		'--command',
+		`"${sql}"`
+	]);
+}
+
+function readLocalProcessedMigrations(databaseName) {
+	const queryResult = runLocalD1Command(databaseName, 'SELECT name FROM d1_migrations ORDER BY name;');
+	if (!queryResult.ok) {
+		return { ok: false, files: [] };
+	}
+
+	const payload = extractJsonPayload(queryResult.stdout);
+	if (!Array.isArray(payload) || !Array.isArray(payload[0]?.results)) {
+		return { ok: false, files: [] };
+	}
+
+	const processedFiles = payload[0].results
+		.map((row) => (typeof row?.name === 'string' ? row.name : ''))
+		.filter((name) => name.length > 0);
+	return { ok: true, files: processedFiles };
+}
+
+function localTableHasColumn(databaseName, tableName, columnName) {
+	const queryResult = runLocalD1Command(databaseName, `PRAGMA table_info('${tableName}');`);
+	if (!queryResult.ok) {
+		return null;
+	}
+
+	const payload = extractJsonPayload(queryResult.stdout);
+	if (!Array.isArray(payload) || !Array.isArray(payload[0]?.results)) {
+		return null;
+	}
+
+	return payload[0].results.some((row) => row?.name === columnName);
+}
+
+function reconcileLegacyLocalMigrations(databaseName) {
+	const processed = readLocalProcessedMigrations(databaseName);
+	if (!processed.ok) {
+		addWarning(
+			'Unable to read local migration history before migration apply.',
+			'Run: pnpm exec wrangler d1 execute <db-name> --local --command "SELECT name FROM d1_migrations ORDER BY name;"'
+		);
+		return true;
+	}
+
+	const applied = new Set(processed.files);
+	const hasLegacySeasonManagement = applied.has('0016_season_management_offering_scope.sql');
+	const needsRenamed0015 = !applied.has('0015_long_millenium_guard.sql');
+	const needsRenamed0016 = !applied.has('0016_foamy_talkback.sql');
+
+	if (!hasLegacySeasonManagement || (!needsRenamed0015 && !needsRenamed0016)) {
+		return true;
+	}
+
+	console.log(
+		'[info] Reconciling local migration history: legacy season scope migration found without newer rename entries.'
+	);
+
+	if (needsRenamed0015) {
+		const ensureRoutesTable = runLocalD1Command(
+			databaseName,
+			'CREATE TABLE IF NOT EXISTS client_database_routes (id text PRIMARY KEY NOT NULL, client_id text NOT NULL, route_mode text DEFAULT \'central_shared\' NOT NULL, binding_name text, database_id text, status text DEFAULT \'active\' NOT NULL, metadata text, created_at text NOT NULL, updated_at text NOT NULL, created_user text, updated_user text, FOREIGN KEY (client_id) REFERENCES clients(id) ON UPDATE no action ON DELETE cascade);'
+		);
+		if (!ensureRoutesTable.ok) {
+			addError('Failed to create local compatibility table client_database_routes.');
+			return false;
+		}
+
+		const ensureRoutesUniqueIndex = runLocalD1Command(
+			databaseName,
+			'CREATE UNIQUE INDEX IF NOT EXISTS client_database_routes_client_unique ON client_database_routes (client_id);'
+		);
+		if (!ensureRoutesUniqueIndex.ok) {
+			addError('Failed to create local compatibility index client_database_routes_client_unique.');
+			return false;
+		}
+
+		const ensureRoutesStatusIndex = runLocalD1Command(
+			databaseName,
+			'CREATE INDEX IF NOT EXISTS client_database_routes_status_idx ON client_database_routes (status);'
+		);
+		if (!ensureRoutesStatusIndex.ok) {
+			addError('Failed to create local compatibility index client_database_routes_status_idx.');
+			return false;
+		}
+
+		const hasSelfJoinEnabled = localTableHasColumn(databaseName, 'clients', 'self_join_enabled');
+		if (hasSelfJoinEnabled === null) {
+			addError('Failed to inspect local clients columns for compatibility migration.');
+			return false;
+		}
+
+		if (!hasSelfJoinEnabled) {
+			const addSelfJoinEnabled = runLocalD1Command(
+				databaseName,
+				'ALTER TABLE clients ADD self_join_enabled integer DEFAULT 0 NOT NULL;'
+			);
+			if (!addSelfJoinEnabled.ok) {
+				addError('Failed to add local compatibility column clients.self_join_enabled.');
+				return false;
+			}
+		}
+
+		const markRenamed0015 = runLocalD1Command(
+			databaseName,
+			"INSERT INTO d1_migrations (name) SELECT '0015_long_millenium_guard.sql' WHERE NOT EXISTS (SELECT 1 FROM d1_migrations WHERE name = '0015_long_millenium_guard.sql');"
+		);
+		if (!markRenamed0015.ok) {
+			addError('Failed to mark local compatibility migration 0015_long_millenium_guard.sql as applied.');
+			return false;
+		}
+	}
+
+	if (needsRenamed0016) {
+		const ensureSlugIndex = runLocalD1Command(
+			databaseName,
+			"CREATE UNIQUE INDEX IF NOT EXISTS clients_slug_normalized_unique ON clients (lower(trim(slug))) WHERE slug IS NOT NULL AND trim(slug) <> '';"
+		);
+		if (!ensureSlugIndex.ok) {
+			addError('Failed to create local compatibility index clients_slug_normalized_unique.');
+			return false;
+		}
+
+		const markRenamed0016 = runLocalD1Command(
+			databaseName,
+			"INSERT INTO d1_migrations (name) SELECT '0016_foamy_talkback.sql' WHERE NOT EXISTS (SELECT 1 FROM d1_migrations WHERE name = '0016_foamy_talkback.sql');"
+		);
+		if (!markRenamed0016.ok) {
+			addError('Failed to mark local compatibility migration 0016_foamy_talkback.sql as applied.');
+			return false;
+		}
+	}
+
+	return true;
+}
+
 function collectLocalProcessedMigrations() {
 	const databaseName = getLocalMigrationDatabaseName();
 	if (!databaseName) {
@@ -813,41 +958,15 @@ function collectLocalProcessedMigrations() {
 		return;
 	}
 
-	const queryResult = runCommandCapture(
-		pnpmBin,
-		[
-			'exec',
-			'wrangler',
-			'd1',
-			'execute',
-			databaseName,
-			'--local',
-			'--command',
-			'"SELECT name FROM d1_migrations ORDER BY name;"'
-		]
-	);
-
-	if (!queryResult.ok) {
+	const processed = readLocalProcessedMigrations(databaseName);
+	if (!processed.ok) {
 		addWarning(
 			'Unable to query local processed migrations from d1_migrations.',
 			'Run: pnpm exec wrangler d1 execute <db-name> --local --command "SELECT name FROM d1_migrations ORDER BY name;"'
 		);
 		return;
 	}
-
-	const payload = extractJsonPayload(queryResult.stdout);
-	if (!Array.isArray(payload) || !Array.isArray(payload[0]?.results)) {
-		addWarning(
-			'Unexpected response while reading local processed migrations.',
-			'Verify wrangler output format for d1 execute and update catch-up parser if needed.'
-		);
-		return;
-	}
-
-	const processedFiles = payload[0].results
-		.map((row) => (typeof row?.name === 'string' ? row.name : ''))
-		.filter((name) => name.length > 0);
-	summary.localProcessedMigrations = processedFiles;
+	summary.localProcessedMigrations = processed.files;
 }
 
 function printSummary() {
@@ -956,7 +1075,13 @@ if (!installOk) {
 	finishCheck(wranglerCheck, { ok: wranglerOk });
 
 	const migrationCheck = startCheck('Apply local migrations');
-	const migrationOk = runCommand('Apply local migrations', pnpmBin, ['db:migrate:local']);
+	const migrationDatabaseName = getLocalMigrationDatabaseName();
+	let migrationPreparationOk = true;
+	if (migrationDatabaseName) {
+		migrationPreparationOk = reconcileLegacyLocalMigrations(migrationDatabaseName);
+	}
+	const migrationOk =
+		migrationPreparationOk && runCommand('Apply local migrations', pnpmBin, ['db:migrate:local']);
 	if (!migrationOk) {
 		addError('Local database migration failed.', 'Run pnpm db:migrate:local after fixing migration issues.');
 		finishCheck(migrationCheck, { ok: false });
