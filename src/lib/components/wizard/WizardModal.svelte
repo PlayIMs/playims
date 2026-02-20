@@ -45,7 +45,7 @@
 
 	const panelClass = $derived.by(
 		() =>
-			`w-full ${maxWidthClass} max-h-[calc(100vh-2rem)] lg:max-h-[calc(100vh-3rem)] border-4 border-secondary bg-neutral-400 overflow-hidden flex flex-col`
+			`wizard-modal-panel w-full ${maxWidthClass} max-h-[calc(100vh-2rem)] lg:max-h-[calc(100vh-3rem)] border-4 border-secondary bg-neutral-400 overflow-hidden flex flex-col`
 	);
 	const showStepMeta = $derived.by(() => stepCount > 1);
 	let formElement = $state<HTMLFormElement | null>(null);
@@ -76,8 +76,18 @@
 	});
 </script>
 
-<ModalShell {open} {closeAriaLabel} {panelClass} on:requestClose={() => dispatch('requestClose')}>
-	<div class="p-4 border-b border-secondary space-y-3">
+<ModalShell
+	{open}
+	{closeAriaLabel}
+	{panelClass}
+	draggable
+	dragHandleSelector="[data-wizard-modal-drag-handle]"
+	on:requestClose={() => dispatch('requestClose')}
+>
+	<div
+		class="p-4 border-b border-secondary space-y-3 cursor-move select-none"
+		data-wizard-modal-drag-handle
+	>
 		<div class="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
 			<div>
 				<h2 class="text-3xl font-bold font-serif text-neutral-950">{title}</h2>
@@ -89,6 +99,7 @@
 				type="button"
 				class="p-1 text-neutral-950 hover:text-secondary-900 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-500"
 				aria-label={closeAriaLabel}
+				data-modal-drag-ignore
 				onclick={() => dispatch('requestClose')}
 			>
 				<IconX class="w-6 h-6" />
