@@ -5,6 +5,8 @@
 	import IconAt from '@tabler/icons-svelte/icons/at';
 	import IconBolt from '@tabler/icons-svelte/icons/bolt';
 	import IconCalendar from '@tabler/icons-svelte/icons/calendar';
+	import IconChevronDown from '@tabler/icons-svelte/icons/chevron-down';
+	import IconChevronUp from '@tabler/icons-svelte/icons/chevron-up';
 	import IconCheck from '@tabler/icons-svelte/icons/check';
 	import IconClock from '@tabler/icons-svelte/icons/clock';
 	import IconCopy from '@tabler/icons-svelte/icons/copy';
@@ -12,17 +14,16 @@
 	import IconEye from '@tabler/icons-svelte/icons/eye';
 	import IconEyeOff from '@tabler/icons-svelte/icons/eye-off';
 	import IconId from '@tabler/icons-svelte/icons/id';
-	import IconInfoCircle from '@tabler/icons-svelte/icons/info-circle';
 	import IconKey from '@tabler/icons-svelte/icons/key';
 	import IconLock from '@tabler/icons-svelte/icons/lock';
 	import IconLogout from '@tabler/icons-svelte/icons/logout';
-	import IconPhone from '@tabler/icons-svelte/icons/phone';
 	import IconPlus from '@tabler/icons-svelte/icons/plus';
 	import IconShieldCheck from '@tabler/icons-svelte/icons/shield-check';
 	import IconSparkles from '@tabler/icons-svelte/icons/sparkles';
 	import IconTrash from '@tabler/icons-svelte/icons/trash';
 	import IconUser from '@tabler/icons-svelte/icons/user';
-	import IconWorld from '@tabler/icons-svelte/icons/world';
+	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
+	import { onMount } from 'svelte';
 	import CreateOrganizationWizard from './_wizards/CreateOrganizationWizard.svelte';
 	import { WizardStepFooter, applyLiveSlugInput, slugifyFinal } from '$lib/components/wizard';
 
@@ -65,12 +66,8 @@
 		firstName: string;
 		lastName: string;
 		cellPhone: string;
-		avatarUrl: string;
-		timezone: string;
 		role: string;
 		status: string;
-		preferences: string;
-		notes: string;
 		createdAt: string | null;
 		updatedAt: string | null;
 		emailVerifiedAt: string | null;
@@ -100,17 +97,6 @@
 		};
 		form?: FormState;
 	}>();
-
-	const timezoneSuggestions = [
-		'America/New_York',
-		'America/Chicago',
-		'America/Denver',
-		'America/Los_Angeles',
-		'America/Phoenix',
-		'America/Anchorage',
-		'Pacific/Honolulu',
-		'Europe/London'
-	] as const;
 
 	const countryCodeOptions = [
 		'+1',
@@ -320,10 +306,6 @@
 	let lastName = $state('');
 	let cellPhoneCountryCode = $state('+1');
 	let cellPhone = $state('');
-	let avatarUrl = $state('');
-	let timezone = $state('');
-	let preferences = $state('');
-	let notes = $state('');
 
 	let currentPassword = $state('');
 	let newPassword = $state('');
@@ -344,8 +326,14 @@
 	let createOrganizationSubmissionCount = $state(0);
 	let createOrganizationStep = $state<CreateOrganizationStep>(1);
 	let createOrganizationSubmitForm = $state<HTMLFormElement | null>(null);
+	let switchOrganizationForm = $state<HTMLFormElement | null>(null);
+	let organizationSwitchClientId = $state('');
 	let createOrganizationClientError = $state('');
 	let createOrganizationFieldErrors = $state<Record<string, string>>({});
+	let accountSnapshotCollapsed = $state(false);
+	let accountSnapshotStorageHydrated = $state(false);
+
+	const ACCOUNT_SNAPSHOT_COLLAPSED_STORAGE_KEY = 'playims:account-snapshot-collapsed';
 
 	const CREATE_ORGANIZATION_STEP_TITLES: Record<CreateOrganizationStep, string> = {
 		1: 'Organization Basics',
@@ -444,10 +432,6 @@
 		lastName = account.lastName ?? '';
 		cellPhoneCountryCode = parsedCellPhone.countryCode;
 		cellPhone = formatCellPhoneMaskFromDigits(parsedCellPhone.nationalDigits);
-		avatarUrl = account.avatarUrl ?? '';
-		timezone = account.timezone ?? '';
-		preferences = account.preferences ?? '';
-		notes = account.notes ?? '';
 
 		currentPassword = '';
 		newPassword = '';
@@ -483,17 +467,7 @@
 		return (
 			firstName.trim() !== (account.firstName ?? '').trim() ||
 			lastName.trim() !== (account.lastName ?? '').trim() ||
-			cellPhoneChanged ||
-			avatarUrl.trim() !== (account.avatarUrl ?? '').trim() ||
-			timezone.trim() !== (account.timezone ?? '').trim()
-		);
-	});
-
-	let detailsDirty = $derived.by(() => {
-		if (!account) return false;
-		return (
-			preferences.trim() !== (account.preferences ?? '').trim() ||
-			notes.trim() !== (account.notes ?? '').trim()
+			cellPhoneChanged
 		);
 	});
 
@@ -515,26 +489,6 @@
 	let archiveCanSubmit = $derived.by(
 		() => archivePassword.length >= 8 && archiveConfirmation.trim().toUpperCase() === 'ARCHIVE'
 	);
-
-	let timezonePreview = $derived.by(() => {
-		const value = timezone.trim();
-		if (!value) {
-			return 'Using browser default timezone.';
-		}
-
-		try {
-			return new Intl.DateTimeFormat('en-US', {
-				timeZone: value,
-				weekday: 'short',
-				month: 'short',
-				day: 'numeric',
-				hour: 'numeric',
-				minute: '2-digit'
-			}).format(new Date());
-		} catch {
-			return 'Timezone format does not look valid.';
-		}
-	});
 
 	const formatDateTime = (value: string | null | undefined) => {
 		if (!value) {
@@ -573,19 +527,6 @@
 			hour: 'numeric',
 			minute: '2-digit'
 		});
-	};
-
-	const formatCellPhone = (value: string | null | undefined) => {
-		if (!value) {
-			return 'Not set';
-		}
-
-		const parsed = splitStoredCellPhone(value);
-		if (parsed.nationalDigits.length === 10) {
-			return `${parsed.countryCode} (${parsed.nationalDigits.slice(0, 3)}) ${parsed.nationalDigits.slice(3, 6)}-${parsed.nationalDigits.slice(6)}`;
-		}
-
-		return value;
 	};
 
 	const getDeviceLabel = (userAgent: string | null | undefined) => {
@@ -687,21 +628,94 @@
 			JSON.stringify(normalizeOrganizationForm(createOrganizationForm)) !==
 			JSON.stringify(normalizeOrganizationForm(createOrganizationInitialForm))
 	);
-	let createOrganizationStepTitle = $derived(CREATE_ORGANIZATION_STEP_TITLES[createOrganizationStep]);
+	let createOrganizationStepTitle = $derived(
+		CREATE_ORGANIZATION_STEP_TITLES[createOrganizationStep]
+	);
 	let createOrganizationStepProgress = $derived(Math.round((createOrganizationStep / 4) * 100));
-	let createOrganizationActionError = $derived.by(
-		() =>
-			createOrganizationOpen &&
-			createOrganizationSubmissionCount > 0 &&
-			actionName === 'createOrganization'
-				? actionError
-				: ''
+	let createOrganizationActionError = $derived.by(() =>
+		createOrganizationOpen &&
+		createOrganizationSubmissionCount > 0 &&
+		actionName === 'createOrganization'
+			? actionError
+			: ''
 	);
 	let createOrganizationFormError = $derived.by(
 		() => createOrganizationClientError || createOrganizationActionError || ''
 	);
 	let createOrganizationCanSubmit = $derived.by(() => !createOrganizationSubmitting);
 	let createOrganizationCanGoNext = $derived.by(() => !createOrganizationSubmitting);
+	let currentOrganizationId = $derived.by(
+		() =>
+			organizations.find((organization: OrganizationMembership) => organization.isCurrent)
+				?.clientId ?? ''
+	);
+	let currentOrganizationRole = $derived.by(
+		() =>
+			organizations.find((organization: OrganizationMembership) => organization.isCurrent)?.role ??
+			''
+	);
+	let organizationDropdownOptions = $derived.by(() =>
+		organizations.map((organization: OrganizationMembership) => {
+			const statusParts: string[] = [];
+			if (organization.isCurrent) {
+				statusParts.push('CURRENT');
+			}
+			if (organization.isDefault) {
+				statusParts.push('DEFAULT');
+			}
+
+			return {
+				value: organization.clientId,
+				label: organization.clientSlug
+					? `${organization.clientName} (/${organization.clientSlug})`
+					: organization.clientName,
+				statusLabel: statusParts.length > 0 ? statusParts.join(' / ') : undefined
+			};
+		})
+	);
+
+	function readStoredAccountSnapshotCollapsed(): boolean | null {
+		if (typeof window === 'undefined') {
+			return null;
+		}
+
+		try {
+			const value = window.localStorage.getItem(ACCOUNT_SNAPSHOT_COLLAPSED_STORAGE_KEY);
+			if (value === '1') return true;
+			if (value === '0') return false;
+			return null;
+		} catch {
+			return null;
+		}
+	}
+
+	function writeStoredAccountSnapshotCollapsed(value: boolean): void {
+		if (typeof window === 'undefined') {
+			return;
+		}
+
+		try {
+			window.localStorage.setItem(ACCOUNT_SNAPSHOT_COLLAPSED_STORAGE_KEY, value ? '1' : '0');
+		} catch {
+			// Ignore storage failures; collapse state will still work for the current session.
+		}
+	}
+
+	onMount(() => {
+		const storedValue = readStoredAccountSnapshotCollapsed();
+		if (storedValue !== null) {
+			accountSnapshotCollapsed = storedValue;
+		}
+		accountSnapshotStorageHydrated = true;
+	});
+
+	$effect(() => {
+		if (!accountSnapshotStorageHydrated) {
+			return;
+		}
+
+		writeStoredAccountSnapshotCollapsed(accountSnapshotCollapsed);
+	});
 
 	async function copyUserId() {
 		if (!account?.id || typeof navigator === 'undefined' || !navigator.clipboard) {
@@ -726,6 +740,15 @@
 		}
 
 		cellPhone = formatCellPhoneMaskFromDigits(target.value);
+	}
+
+	function handleOrganizationChange(clientId: string) {
+		if (!clientId || clientId === currentOrganizationId || !switchOrganizationForm) {
+			return;
+		}
+
+		organizationSwitchClientId = clientId;
+		switchOrganizationForm.requestSubmit();
 	}
 
 	function resetCreateOrganizationWizard() {
@@ -787,7 +810,8 @@
 			if (!normalizedSlug) {
 				errors['organizationSlug'] = 'Organization slug is required.';
 			} else if (!/^[a-z0-9-]+$/.test(normalizedSlug)) {
-				errors['organizationSlug'] = 'Organization slug can only include letters, numbers, and dashes.';
+				errors['organizationSlug'] =
+					'Organization slug can only include letters, numbers, and dashes.';
 			} else if (normalizedSlug.length < 2) {
 				errors['organizationSlug'] = 'Organization slug must be at least 2 characters.';
 			}
@@ -832,7 +856,8 @@
 		const reviewErrors = getCreateOrganizationStepErrors(createOrganizationForm, 4);
 		createOrganizationFieldErrors = reviewErrors;
 		if (Object.keys(reviewErrors).length > 0) {
-			createOrganizationStep = reviewErrors['organizationName'] || reviewErrors['organizationSlug'] ? 1 : 3;
+			createOrganizationStep =
+				reviewErrors['organizationName'] || reviewErrors['organizationSlug'] ? 1 : 3;
 			return;
 		}
 
@@ -1010,9 +1035,7 @@
 							</div>
 							<div>
 								<h2 class="text-xl font-bold font-serif text-neutral-950">Profile Essentials</h2>
-								<p class="text-xs text-neutral-950">
-									Update your identity fields and public avatar URL.
-								</p>
+								<p class="text-xs text-neutral-950">Update your core account identity fields.</p>
 							</div>
 						</div>
 						{#if profileDirty}
@@ -1141,53 +1164,6 @@
 								</label>
 							</div>
 
-							<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-								<label class="block">
-									<span
-										class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1"
-										>Avatar URL</span
-									>
-									<input
-										class="input-secondary"
-										type="url"
-										name="avatarUrl"
-										placeholder="https://example.com/avatar.png"
-										autocomplete="off"
-										bind:value={avatarUrl}
-									/>
-								</label>
-
-								<label class="block">
-									<span
-										class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1"
-										>Timezone</span
-									>
-									<input
-										class="input-secondary"
-										type="text"
-										name="timezone"
-										list="timezone-options"
-										placeholder="America/New_York"
-										autocomplete="off"
-										bind:value={timezone}
-									/>
-									<datalist id="timezone-options">
-										{#each timezoneSuggestions as zone}
-											<option value={zone}></option>
-										{/each}
-									</datalist>
-								</label>
-							</div>
-
-							<div
-								class="border border-secondary-300 bg-secondary-50 px-3 py-2 text-xs text-neutral-950"
-							>
-								<div class="flex items-center gap-2">
-									<IconWorld class="w-4 h-4 text-secondary-800" />
-									<span>{timezonePreview}</span>
-								</div>
-							</div>
-
 							<div class="flex items-center justify-end gap-3">
 								<button
 									type="submit"
@@ -1195,77 +1171,6 @@
 									disabled={!profileCanSubmit}
 								>
 									Save Profile
-								</button>
-							</div>
-						</form>
-					</div>
-				</section>
-
-				<section class="border-2 border-secondary-300 bg-neutral">
-					<div class="p-4 border-b border-secondary-300 bg-neutral-600/66">
-						<h2 class="text-xl font-bold font-serif text-neutral-950">Preferences and Notes</h2>
-						<p class="text-xs text-neutral-950 mt-1">
-							Capture personal defaults, reminders, and private account context.
-						</p>
-					</div>
-
-					<div class="p-4 space-y-4">
-						{#if actionName === 'updateDetails' && actionError}
-							<p class="text-sm border border-accent-500 bg-accent-100 text-accent-900 px-3 py-2">
-								{actionError}
-							</p>
-						{/if}
-						{#if actionName === 'updateDetails' && actionSuccess}
-							<p
-								class="text-sm border border-primary-500 bg-primary-100 text-primary-900 px-3 py-2"
-							>
-								{actionSuccess}
-							</p>
-						{/if}
-
-						<form
-							method="POST"
-							action="?/updateDetails"
-							class="space-y-4"
-							use:enhance={enhanceNoJump}
-						>
-							<label class="block">
-								<span class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1">
-									Preferences
-								</span>
-								<textarea
-									class="textarea-secondary min-h-28"
-									name="preferences"
-									maxlength="4000"
-									bind:value={preferences}
-								></textarea>
-								<p class="mt-1 text-xs text-neutral-950">{preferences.length}/4000</p>
-							</label>
-
-							<label class="block">
-								<span class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1">
-									Private notes
-								</span>
-								<textarea
-									class="textarea-secondary min-h-36"
-									name="notes"
-									maxlength="4000"
-									bind:value={notes}
-								></textarea>
-								<p class="mt-1 text-xs text-neutral-950">{notes.length}/4000</p>
-							</label>
-
-							<div class="flex items-center justify-between gap-3">
-								<div class="text-xs text-neutral-950 flex items-center gap-2">
-									<IconInfoCircle class="w-4 h-4 text-secondary-700" />
-									<span>Saved server-side to your account profile.</span>
-								</div>
-								<button
-									type="submit"
-									class="button-secondary px-4 py-2 text-xs font-bold uppercase tracking-wide disabled:opacity-50 disabled:cursor-not-allowed"
-									disabled={!detailsDirty}
-								>
-									Save Details
 								</button>
 							</div>
 						</form>
@@ -1518,23 +1423,10 @@
 			<aside class="space-y-6">
 				<section class="border-2 border-secondary-300 bg-neutral">
 					<div class="p-4 border-b border-secondary-300 bg-neutral-600/66">
-						<div class="flex items-start justify-between gap-3">
-							<div>
-								<h2 class="text-xl font-bold font-serif text-neutral-950">Organizations</h2>
-								<p class="text-xs text-neutral-950 mt-1">
-									Switch your active workspace without leaving account settings.
-								</p>
-							</div>
-							<button
-								type="button"
-								class="button-secondary-outlined px-2 py-1 text-[11px] font-bold uppercase tracking-wide flex items-center gap-1 shrink-0 cursor-pointer"
-								onclick={openCreateOrganizationWizard}
-								aria-label="Create organization"
-							>
-								<IconPlus class="w-4 h-4" />
-								New
-							</button>
-						</div>
+						<h2 class="text-xl font-bold font-serif text-neutral-950">Organizations</h2>
+						<p class="text-xs text-neutral-950 mt-1">
+							Switch your active workspace without leaving account settings.
+						</p>
 					</div>
 					<div class="p-4 space-y-3">
 						{#if actionName === 'switchOrganization' && actionError}
@@ -1553,138 +1445,146 @@
 						{#if organizations.length === 0}
 							<p class="text-sm text-neutral-950">No active organization memberships found.</p>
 						{:else}
-							<div class="space-y-2">
-								{#each organizations as organization (organization.clientId)}
-									<div class="border border-secondary-300 bg-white p-3">
-										<div class="flex items-start justify-between gap-3">
-											<div class="min-w-0">
-												<p class="font-bold text-neutral-950 truncate">{organization.clientName}</p>
-												{#if organization.clientSlug}
-													<p class="text-xs text-neutral-950 break-all">/{organization.clientSlug}</p>
-												{/if}
-												<p class="text-xs text-neutral-950 mt-1">Role: {organization.role}</p>
-											</div>
+							<ListboxDropdown
+								options={organizationDropdownOptions}
+								value={currentOrganizationId}
+								ariaLabel="Active organization"
+								placeholder="Select organization"
+								emptyText="No active organization memberships found."
+								buttonClass="button-secondary-outlined w-full px-2.5 py-1.5 text-xs font-bold uppercase tracking-wide cursor-pointer justify-between"
+								listClass="mt-1 w-80 max-w-[calc(100vw-2rem)] border-2 border-secondary-300 bg-white z-20"
+								optionClass="w-full text-left px-3 py-2 text-xs text-neutral-950 cursor-pointer"
+								activeOptionClass="bg-neutral-300 text-neutral-950"
+								selectedOptionClass="bg-primary text-white font-semibold"
+								footerActionClass="button-secondary-outlined w-full px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer inline-flex items-center justify-center gap-1"
+								footerActionAriaLabel="Create new organization"
+								noteText={currentOrganizationRole
+									? `Current role: ${currentOrganizationRole}`
+									: undefined}
+								on:change={(event) => {
+									handleOrganizationChange(event.detail.value);
+								}}
+								on:footerAction={openCreateOrganizationWizard}
+							>
+								{#snippet footerAction()}
+									<IconPlus class="w-4 h-4" />
+									New
+								{/snippet}
+							</ListboxDropdown>
 
-											<div class="flex items-center gap-2 shrink-0">
-												{#if organization.isDefault}
-													<span
-														class="border border-secondary-300 bg-neutral px-2 py-1 text-[10px] uppercase tracking-wide font-bold text-neutral-950"
-													>
-														Default
-													</span>
-												{/if}
-
-												{#if organization.isCurrent}
-													<span
-														class="border border-primary-500 bg-primary-100 px-2 py-1 text-[10px] uppercase tracking-wide font-bold text-primary-900"
-													>
-														Current
-													</span>
-												{:else}
-													<form method="POST" action="?/switchOrganization" use:enhance={enhanceNoJump}>
-														<input type="hidden" name="clientId" value={organization.clientId} />
-														<button
-															type="submit"
-															class="button-secondary-outlined px-3 py-1 text-[11px] font-bold uppercase tracking-wide"
-														>
-															Switch
-														</button>
-													</form>
-												{/if}
-											</div>
-										</div>
-									</div>
-								{/each}
-							</div>
+							<form
+								class="hidden"
+								method="POST"
+								action="?/switchOrganization"
+								use:enhance={enhanceNoJump}
+								bind:this={switchOrganizationForm}
+							>
+								<input type="hidden" name="clientId" value={organizationSwitchClientId} />
+							</form>
 						{/if}
 					</div>
 				</section>
 
 				<section class="border-2 border-secondary-300 bg-neutral">
-					<div class="p-4 border-b border-secondary-300 bg-neutral-600/66">
+					<div
+						class="p-4 border-b border-secondary-300 bg-neutral-600/66 flex items-center justify-between gap-3"
+					>
 						<h2 class="text-xl font-bold font-serif text-neutral-950">Account Snapshot</h2>
+						<button
+							type="button"
+							class="button-secondary-outlined px-2 py-1 text-[11px] font-bold uppercase tracking-wide inline-flex items-center gap-1 cursor-pointer"
+							aria-controls="account-snapshot-panel"
+							aria-expanded={!accountSnapshotCollapsed}
+							onclick={() => {
+								accountSnapshotCollapsed = !accountSnapshotCollapsed;
+							}}
+						>
+							{accountSnapshotCollapsed ? 'Expand' : 'Collapse'}
+							{#if accountSnapshotCollapsed}
+								<IconChevronDown class="w-4 h-4" />
+							{:else}
+								<IconChevronUp class="w-4 h-4" />
+							{/if}
+						</button>
 					</div>
-					<div class="p-4 space-y-3 text-sm">
-						<div class="border border-secondary-300 bg-white p-3 flex items-start gap-3">
-							<IconCalendar class="w-5 h-5 text-secondary-700 shrink-0 mt-0.5" />
-							<div>
-								<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">
-									Member since
-								</p>
-								<p class="text-neutral-950">{formatDateTime(account.createdAt)}</p>
+					{#if !accountSnapshotCollapsed}
+						<div id="account-snapshot-panel" class="p-4 space-y-3 text-sm">
+							<div class="border border-secondary-300 bg-white p-3 flex items-start gap-3">
+								<IconCalendar class="w-5 h-5 text-secondary-700 shrink-0 mt-0.5" />
+								<div>
+									<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">
+										Member since
+									</p>
+									<p class="text-neutral-950">{formatDateTime(account.createdAt)}</p>
+								</div>
 							</div>
-						</div>
 
-						<div class="border border-secondary-300 bg-white p-3 flex items-start gap-3">
-							<IconClock class="w-5 h-5 text-secondary-700 shrink-0 mt-0.5" />
-							<div>
-								<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">
-									Last active
-								</p>
-								<p class="text-neutral-950">{formatSessionDateTime(account.lastActiveAt)}</p>
+							<div class="border border-secondary-300 bg-white p-3 flex items-start gap-3">
+								<IconClock class="w-5 h-5 text-secondary-700 shrink-0 mt-0.5" />
+								<div>
+									<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">
+										Last active
+									</p>
+									<p class="text-neutral-950">{formatSessionDateTime(account.lastActiveAt)}</p>
+								</div>
 							</div>
-						</div>
 
-						<div class="border border-secondary-300 bg-white p-3 flex items-start gap-3">
-							<IconBolt class="w-5 h-5 text-secondary-700 shrink-0 mt-0.5" />
-							<div>
-								<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">
-									Current session
-								</p>
-								<p class="text-neutral-950">
-									Expires {formatSessionDateTime(account.currentSessionExpiresAt)}
-								</p>
+							<div class="border border-secondary-300 bg-white p-3 flex items-start gap-3">
+								<IconBolt class="w-5 h-5 text-secondary-700 shrink-0 mt-0.5" />
+								<div>
+									<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">
+										Current session
+									</p>
+									<p class="text-neutral-950">
+										Expires {formatSessionDateTime(account.currentSessionExpiresAt)}
+									</p>
+								</div>
 							</div>
-						</div>
 
-						<div class="border border-secondary-300 bg-white p-3 flex items-start gap-3">
-							<IconAt class="w-5 h-5 text-secondary-700 shrink-0 mt-0.5" />
-							<div>
-								<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">
-									Email status
-								</p>
-								<p class="text-neutral-950">
-									{account.emailVerifiedAt ? 'Verified' : 'Not verified yet'}
-								</p>
+							<div class="border border-secondary-300 bg-white p-3 flex items-start gap-3">
+								<IconAt class="w-5 h-5 text-secondary-700 shrink-0 mt-0.5" />
+								<div>
+									<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">
+										Email status
+									</p>
+									<p class="text-neutral-950">
+										{account.emailVerifiedAt ? 'Verified' : 'Not verified yet'}
+									</p>
+								</div>
 							</div>
-						</div>
 
-						<div class="border border-secondary-300 bg-white p-3 flex items-start gap-3">
-							<IconShieldCheck class="w-5 h-5 text-secondary-700 shrink-0 mt-0.5" />
-							<div>
-								<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">Role</p>
-								<p class="text-neutral-950">{account.role}</p>
+							<div class="border border-secondary-300 bg-white p-3 flex items-start gap-3">
+								<IconShieldCheck class="w-5 h-5 text-secondary-700 shrink-0 mt-0.5" />
+								<div>
+									<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">Role</p>
+									<p class="text-neutral-950">{account.role}</p>
+								</div>
 							</div>
-						</div>
 
-						<div class="border border-secondary-300 bg-white p-3 flex items-start gap-3">
-							<IconPhone class="w-5 h-5 text-secondary-700 shrink-0 mt-0.5" />
-							<div>
-								<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">Cell phone</p>
-								<p class="text-neutral-950">{formatCellPhone(account.cellPhone)}</p>
-							</div>
-						</div>
-
-						<div class="border border-secondary-300 bg-white p-3 space-y-2">
-							<div class="flex items-center justify-between gap-2">
-								<div class="flex items-center gap-2">
-									<IconId class="w-5 h-5 text-secondary-700" />
+							<div class="border border-secondary-300 bg-white p-3 flex items-start gap-3">
+								<IconId class="w-5 h-5 text-secondary-700 shrink-0 mt-0.5" />
+								<div class="min-w-0">
 									<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">
 										Account ID
 									</p>
+									<button
+										type="button"
+										class="mt-0.5 inline-flex max-w-full items-start gap-1 text-left text-xs text-neutral-950 hover:underline cursor-pointer"
+										onclick={copyUserId}
+										aria-label="Copy account ID"
+									>
+										<span class="break-all">{account.id}</span>
+										<IconCopy class="w-3.5 h-3.5 shrink-0 mt-0.5" />
+									</button>
+									{#if copiedUserId}
+										<p class="text-[10px] uppercase tracking-wide font-bold text-primary-800 mt-1">
+											Copied
+										</p>
+									{/if}
 								</div>
-								<button
-									type="button"
-									class="button-secondary-outlined px-2 py-1 text-[11px] font-bold uppercase tracking-wide flex items-center gap-1"
-									onclick={copyUserId}
-								>
-									<IconCopy class="w-4 h-4" />
-									{copiedUserId ? 'Copied' : 'Copy'}
-								</button>
 							</div>
-							<p class="text-xs break-all text-neutral-950">{account.id}</p>
 						</div>
-					</div>
+					{/if}
 				</section>
 
 				<section class="border-2 border-secondary-300 bg-neutral">
@@ -1741,7 +1641,9 @@
 												<div class="flex items-center gap-2">
 													<IconDeviceLaptop class="w-4 h-4 text-secondary-700" />
 													<span class="font-bold text-neutral-950">
-														{getDeviceLabel(session.userAgent)} - {getBrowserLabel(session.userAgent)}
+														{getDeviceLabel(session.userAgent)} - {getBrowserLabel(
+															session.userAgent
+														)}
 													</span>
 													{#if session.isCurrent}
 														<span
@@ -1764,7 +1666,10 @@
 											</div>
 											<p class="mt-1 text-neutral-950">IP: {formatIpAddress(session.ipAddress)}</p>
 											<p class="text-neutral-950">
-												Location: {formatSessionLocation(session.locationCity, session.locationStation)}
+												Location: {formatSessionLocation(
+													session.locationCity,
+													session.locationStation
+												)}
 											</p>
 											<p class="text-neutral-950">
 												Last active: {formatSessionDateTime(session.lastSeenAt)}
@@ -1813,8 +1718,16 @@
 			use:enhance={enhanceCreateOrganizationSubmit}
 			bind:this={createOrganizationSubmitForm}
 		>
-			<input type="hidden" name="organizationName" value={createOrganizationForm.organizationName} />
-			<input type="hidden" name="organizationSlug" value={createOrganizationForm.organizationSlug} />
+			<input
+				type="hidden"
+				name="organizationName"
+				value={createOrganizationForm.organizationName}
+			/>
+			<input
+				type="hidden"
+				name="organizationSlug"
+				value={createOrganizationForm.organizationSlug}
+			/>
 			<input
 				type="hidden"
 				name="selfJoinEnabled"
@@ -1852,10 +1765,10 @@
 			{#if createOrganizationStep === 1}
 				<div class="space-y-4">
 					<div class="border border-secondary-300 bg-white p-3">
-						<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">Action Required</p>
-						<p class="text-sm text-neutral-950 mt-1">
-							Set the organization name and URL slug.
+						<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">
+							Action Required
 						</p>
+						<p class="text-sm text-neutral-950 mt-1">Set the organization name and URL slug.</p>
 					</div>
 					<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
 						<div>
@@ -1924,7 +1837,9 @@
 			{#if createOrganizationStep === 2}
 				<div class="space-y-4">
 					<div class="border border-secondary-300 bg-white p-3">
-						<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">Access Settings</p>
+						<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">
+							Access Settings
+						</p>
 						<p class="text-sm text-neutral-950 mt-1">
 							Define your membership role and decide if this org should allow self-join.
 						</p>
@@ -1967,7 +1882,8 @@
 								}}
 							/>
 							Allow open self-join for `/<span class="font-semibold"
-								>{slugifyFinal(createOrganizationForm.organizationSlug) || 'organization-slug'}</span
+								>{slugifyFinal(createOrganizationForm.organizationSlug) ||
+									'organization-slug'}</span
 							>`
 						</label>
 					</div>
@@ -2015,7 +1931,10 @@
 						</div>
 					</div>
 					<div>
-						<label for="organization-wizard-metadata" class="block text-sm font-sans text-neutral-950 mb-1">
+						<label
+							for="organization-wizard-metadata"
+							class="block text-sm font-sans text-neutral-950 mb-1"
+						>
 							Metadata (optional)
 						</label>
 						<textarea
@@ -2024,7 +1943,9 @@
 							placeholder="Optional JSON or notes for this organization."
 							bind:value={createOrganizationForm.metadata}
 						></textarea>
-						<p class="text-xs text-neutral-950 mt-1">{createOrganizationForm.metadata.length}/4000</p>
+						<p class="text-xs text-neutral-950 mt-1">
+							{createOrganizationForm.metadata.length}/4000
+						</p>
 						{#if createOrganizationFieldErrors['metadata']}
 							<p class="text-xs text-error-700 mt-1">{createOrganizationFieldErrors['metadata']}</p>
 						{/if}

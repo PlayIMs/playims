@@ -11,7 +11,6 @@ import {
 	accountArchiveSchema,
 	accountCreateOrganizationSchema,
 	accountPasswordChangeSchema,
-	accountPreferencesSchema,
 	accountProfileSchema,
 	switchClientSchema
 } from '$lib/server/auth/validation';
@@ -26,10 +25,6 @@ const FIELD_LABELS: Record<string, string> = {
 	lastName: 'Last name',
 	cellPhoneCountryCode: 'Country code',
 	cellPhone: 'Cell phone',
-	avatarUrl: 'Avatar URL',
-	timezone: 'Timezone',
-	preferences: 'Preferences',
-	notes: 'Notes',
 	organizationName: 'Organization name',
 	organizationSlug: 'Organization slug',
 	metadata: 'Metadata',
@@ -135,19 +130,13 @@ export const load: PageServerLoad = async (event) => {
 		throw redirect(303, '/log-in');
 	}
 
-	const profileCompletionFields = [
-		user.firstName,
-		user.lastName,
-		user.cellPhone,
-		user.avatarUrl,
-		user.timezone,
-		user.preferences,
-		user.notes
-	];
+	const profileCompletionFields = [user.firstName, user.lastName, user.cellPhone];
 	const completedFields = profileCompletionFields.filter(
 		(value) => typeof value === 'string' && value.trim().length > 0
 	).length;
-	const profileCompletionPercent = Math.round((completedFields / profileCompletionFields.length) * 100);
+	const profileCompletionPercent = Math.round(
+		(completedFields / profileCompletionFields.length) * 100
+	);
 
 	const organizations = memberships
 		.map(({ membership, client }) => {
@@ -176,12 +165,8 @@ export const load: PageServerLoad = async (event) => {
 			firstName: user.firstName ?? '',
 			lastName: user.lastName ?? '',
 			cellPhone: user.cellPhone ?? '',
-			avatarUrl: user.avatarUrl ?? '',
-			timezone: user.timezone ?? '',
 			role: user.role ?? 'player',
 			status: user.status ?? 'unknown',
-			preferences: user.preferences ?? '',
-			notes: user.notes ?? '',
 			createdAt: user.createdAt ?? null,
 			updatedAt: user.updatedAt ?? null,
 			emailVerifiedAt: user.emailVerifiedAt ?? null,
@@ -219,9 +204,7 @@ export const actions: Actions = {
 			firstName: formData.get('firstName')?.toString(),
 			lastName: formData.get('lastName')?.toString(),
 			cellPhoneCountryCode: formData.get('cellPhoneCountryCode')?.toString(),
-			cellPhone: formData.get('cellPhone')?.toString(),
-			avatarUrl: formData.get('avatarUrl')?.toString(),
-			timezone: formData.get('timezone')?.toString()
+			cellPhone: formData.get('cellPhone')?.toString()
 		});
 
 		if (!parsed.success) {
@@ -244,8 +227,6 @@ export const actions: Actions = {
 			firstName: toNullableString(parsed.data.firstName),
 			lastName: toNullableString(parsed.data.lastName),
 			cellPhone: toNullableString(parsed.data.cellPhone),
-			avatarUrl: toNullableString(parsed.data.avatarUrl),
-			timezone: toNullableString(parsed.data.timezone),
 			updatedUser: userId
 		});
 
@@ -268,52 +249,6 @@ export const actions: Actions = {
 		return {
 			action: 'updateProfile',
 			success: 'Profile updated.'
-		};
-	},
-
-	updateDetails: async (event) => {
-		if (!event.platform?.env?.DB) {
-			return fail(500, { action: 'updateDetails', error: 'Database is not configured.' });
-		}
-
-		const formData = await event.request.formData();
-		const parsed = accountPreferencesSchema.safeParse({
-			preferences: formData.get('preferences')?.toString(),
-			notes: formData.get('notes')?.toString()
-		});
-
-		if (!parsed.success) {
-			return fail(400, {
-				action: 'updateDetails',
-				error: getValidationMessage(
-					parsed.error.issues,
-					'Please provide valid preferences and notes.'
-				)
-			});
-		}
-
-		const dbOps = getCentralDbOps(event);
-		const userId = requireAuthenticatedUserId(event.locals);
-		const clientId = requireAuthenticatedClientId(event.locals);
-
-		const updated = await dbOps.users.updateSelfPreferences({
-			userId,
-			clientId,
-			preferences: toNullableString(parsed.data.preferences),
-			notes: toNullableString(parsed.data.notes),
-			updatedUser: userId
-		});
-
-		if (!updated) {
-			return fail(404, {
-				action: 'updateDetails',
-				error: 'Unable to update account details.'
-			});
-		}
-
-		return {
-			action: 'updateDetails',
-			success: 'Account details updated.'
 		};
 	},
 

@@ -149,8 +149,6 @@ export class UserOperations {
 		firstName: string | null;
 		lastName: string | null;
 		cellPhone: string | null;
-		avatarUrl: string | null;
-		timezone: string | null;
 		updatedUser: string | null;
 	}): Promise<User | null> {
 		const now = new Date().toISOString();
@@ -160,8 +158,6 @@ export class UserOperations {
 				firstName: input.firstName,
 				lastName: input.lastName,
 				cellPhone: input.cellPhone,
-				avatarUrl: input.avatarUrl,
-				timezone: input.timezone,
 				updatedAt: now,
 				updatedUser: input.updatedUser
 			})
