@@ -1,19 +1,30 @@
-import { DatabaseOperations } from '$lib/database';
 import { json } from '@sveltejs/kit';
+import { getCentralDbOps } from '$lib/server/database/context';
 import type { RequestHandler } from './$types';
 
 // Authenticated endpoint: returns safe session/user data for UI hydration.
-export const GET: RequestHandler = async ({ locals, platform }) => {
+export const GET: RequestHandler = async (event) => {
+	const { locals, platform } = event;
 	if (!locals.user || !locals.session) {
 		return json({ success: false, error: 'Authentication required.' }, { status: 401 });
 	}
 
-	let memberships: { clientId: string; role: string; isDefault: boolean }[] = [];
+	let memberships: {
+		clientId: string;
+		clientSlug: string | null;
+		clientName: string | null;
+		clientStatus: string | null;
+		role: string;
+		isDefault: boolean;
+	}[] = [];
 	if (platform?.env?.DB) {
-		const dbOps = new DatabaseOperations(platform as App.Platform);
-		const activeMemberships = await dbOps.userClients.listActiveForUser(locals.user.id);
-		memberships = activeMemberships.map((membership) => ({
+		const dbOps = getCentralDbOps(event);
+		const activeMemberships = await dbOps.userClients.listActiveForUserWithClientDetails(locals.user.id);
+		memberships = activeMemberships.map(({ membership, client }) => ({
 			clientId: membership.clientId,
+			clientSlug: client?.slug ?? null,
+			clientName: client?.name ?? null,
+			clientStatus: client?.status ?? null,
 			role: membership.role,
 			isDefault: membership.isDefault === 1
 		}));

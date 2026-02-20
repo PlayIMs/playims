@@ -1,7 +1,7 @@
-import { DatabaseOperations } from '$lib/database';
 import { DASHBOARD_ALLOWED_ROLES, hasAnyRole } from '$lib/server/auth/rbac';
 import { AuthServiceError, registerWithPassword } from '$lib/server/auth/service';
 import { registerSchema } from '$lib/server/auth/validation';
+import { getCentralDbOps } from '$lib/server/database/context';
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -112,7 +112,7 @@ export const actions: Actions = {
 		}
 
 		try {
-			const dbOps = new DatabaseOperations(event.platform as App.Platform);
+			const dbOps = getCentralDbOps(event);
 			await registerWithPassword(event, dbOps, {
 				email: parsed.data.email,
 				password: parsed.data.password,

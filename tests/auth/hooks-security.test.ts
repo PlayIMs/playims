@@ -145,4 +145,17 @@ describe('hooks security behavior', () => {
 		const response = await handle({ event, resolve: resolveOk });
 		expect(response.status).toBe(403);
 	});
+
+	it('requires authentication for join-client API route', async () => {
+		const event = createEvent({
+			pathname: '/api/auth/join-client',
+			method: 'POST',
+			origin: 'https://playims.test',
+			ip: '198.51.100.72',
+			locals: {}
+		});
+
+		const response = await handle({ event, resolve: resolveOk });
+		expect(response.status).toBe(401);
+	});
 });

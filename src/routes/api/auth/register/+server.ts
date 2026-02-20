@@ -1,6 +1,6 @@
-import { DatabaseOperations } from '$lib/database';
 import { AuthServiceError, registerWithPassword } from '$lib/server/auth/service';
 import { registerSchema } from '$lib/server/auth/validation';
+import { getCentralDbOps } from '$lib/server/database/context';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
@@ -23,7 +23,7 @@ export const POST: RequestHandler = async (event) => {
 	}
 
 	try {
-		const dbOps = new DatabaseOperations(event.platform as App.Platform);
+		const dbOps = getCentralDbOps(event);
 		const authResult = await registerWithPassword(event, dbOps, {
 			email: parsed.data.email,
 			password: parsed.data.password,

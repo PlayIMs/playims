@@ -11,14 +11,14 @@ const mocks = vi.hoisted(() => {
 				updateClientContext: vi.fn()
 			}
 		},
-		DatabaseOperations: vi.fn()
+		getCentralDbOps: vi.fn()
 	};
 });
 
-vi.mock('$lib/database', () => {
-	mocks.DatabaseOperations.mockImplementation(() => mocks.dbOps);
+vi.mock('$lib/server/database/context', () => {
+	mocks.getCentralDbOps.mockImplementation(() => mocks.dbOps);
 	return {
-		DatabaseOperations: mocks.DatabaseOperations
+		getCentralDbOps: mocks.getCentralDbOps
 	};
 });
 

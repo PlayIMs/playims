@@ -1,4 +1,3 @@
-import { DatabaseOperations } from '$lib/database';
 import { DASHBOARD_ALLOWED_ROLES, hasAnyRole } from '$lib/server/auth/rbac';
 import { isLocalDevCredentialPair, isLocalhostHostname } from '$lib/server/auth/local-dev';
 import {
@@ -7,6 +6,7 @@ import {
 	loginWithPassword
 } from '$lib/server/auth/service';
 import { loginSchema } from '$lib/server/auth/validation';
+import { getCentralDbOps } from '$lib/server/database/context';
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -89,7 +89,7 @@ export const actions: Actions = {
 
 		if (isLocalDevCredentialPair(emailInput, passwordInput)) {
 			try {
-				const dbOps = new DatabaseOperations(event.platform as App.Platform);
+				const dbOps = getCentralDbOps(event);
 				await loginWithLocalDevCredentials(event, dbOps);
 			} catch (error) {
 				if (error instanceof AuthServiceError) {
@@ -130,7 +130,7 @@ export const actions: Actions = {
 		}
 
 		try {
-			const dbOps = new DatabaseOperations(event.platform as App.Platform);
+			const dbOps = getCentralDbOps(event);
 			await loginWithPassword(event, dbOps, {
 				email: parsed.data.email,
 				password: parsed.data.password

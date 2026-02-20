@@ -1,10 +1,10 @@
-import { DatabaseOperations } from '$lib/database';
 import { dev } from '$app/environment';
 import { clearSessionCookie, resolveSessionFromRequest } from '$lib/server/auth/session';
 import type { AuthRole } from '$lib/server/auth/rbac';
 import { DASHBOARD_ALLOWED_ROLES, hasAnyRole } from '$lib/server/auth/rbac';
 import { AuthServiceError, requireSessionSecret } from '$lib/server/auth/service';
 import { AUTH_SESSION_COOKIE_NAME } from '$lib/server/auth/constants';
+import { getCentralDbOps } from '$lib/server/database/context';
 import {
 	getApiTableFromPath,
 	getSsrTableFromPath,
@@ -55,6 +55,7 @@ const API_ROUTE_POLICIES: ApiRoutePolicy[] = [
 	{ pattern: /^\/api\/auth\/logout$/, policy: { access: 'authenticated' } },
 	{ pattern: /^\/api\/auth\/session$/, policy: { access: 'authenticated' } },
 	{ pattern: /^\/api\/auth\/switch-client$/, policy: { access: 'authenticated' } },
+	{ pattern: /^\/api\/auth\/join-client$/, policy: { access: 'authenticated' } },
 	{
 		pattern: /^\/api\/address-suggest$/,
 		policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES }
@@ -106,6 +107,11 @@ const THEMES_RATE_LIMIT: RateLimitConfig = {
 const AUTH_READ_RATE_LIMIT: RateLimitConfig = {
 	windowMs: 60_000,
 	maxRequests: 120
+};
+
+const JOIN_CLIENT_RATE_LIMIT: RateLimitConfig = {
+	windowMs: 60_000,
+	maxRequests: 30
 };
 
 const INTRAMURAL_OFFERINGS_RATE_LIMIT: RateLimitConfig = {
@@ -174,6 +180,10 @@ const resolveRateLimitConfig = (pathname: string): RateLimitConfig | null => {
 		pathname === '/api/auth/switch-client'
 	) {
 		return AUTH_READ_RATE_LIMIT;
+	}
+
+	if (pathname === '/api/auth/join-client') {
+		return JOIN_CLIENT_RATE_LIMIT;
 	}
 
 	return null;
@@ -418,19 +428,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const table = isApiRequest ? getApiTableFromPath(pathname) : getSsrTableFromPath(pathname);
 	const scope = isApiRequest ? 'API' : 'SSR';
 
-	let dbOps: DatabaseOperations | null = null;
-	const getDbOps = () => {
-		if (dbOps) {
-			return dbOps;
-		}
-
-		if (!event.platform?.env?.DB) {
-			throw new Error('DB_NOT_CONFIGURED');
-		}
-
-		dbOps = new DatabaseOperations(event.platform as App.Platform);
-		return dbOps;
-	};
+	const getDbOps = () => getCentralDbOps(event);
 
 	let authHydrationError: Error | null = null;
 	const hasSessionCookie = Boolean(event.cookies.get(AUTH_SESSION_COOKIE_NAME));

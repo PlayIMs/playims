@@ -1,5 +1,5 @@
-import { DatabaseOperations } from '$lib/database';
 import { revokeCurrentSession } from '$lib/server/auth/session';
+import { getCentralDbOps } from '$lib/server/database/context';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
@@ -9,7 +9,7 @@ export const POST: RequestHandler = async (event) => {
 		return json({ success: false, error: 'Authentication is unavailable.' }, { status: 500 });
 	}
 
-	const dbOps = new DatabaseOperations(event.platform as App.Platform);
+	const dbOps = getCentralDbOps(event);
 	await revokeCurrentSession(event, dbOps);
 	return json({ success: true, data: { loggedOut: true } });
 };

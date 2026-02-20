@@ -148,6 +148,16 @@ export const switchClientSchema = z.object({
 	clientId: z.string().trim().uuid('Please provide a valid client ID.')
 });
 
+export const joinClientSchema = z
+	.object({
+		clientId: z.string().trim().uuid('Please provide a valid client ID.').optional(),
+		clientSlug: z.string().trim().min(1).max(120).optional()
+	})
+	.refine((value) => Boolean(value.clientId || value.clientSlug), {
+		message: 'Provide either a client ID or client slug.',
+		path: ['clientSlug']
+	});
+
 export const accountProfileSchema = z.object({
 	firstName: nameSchema,
 	lastName: nameSchema,
@@ -193,10 +203,31 @@ export const accountArchiveSchema = z.object({
 		.refine((value) => value === 'ARCHIVE', 'Type ARCHIVE to confirm.')
 });
 
+export const accountCreateOrganizationSchema = z.object({
+	organizationName: z.string().trim().min(2).max(120),
+	organizationSlug: z.string().trim().min(2).max(120),
+	selfJoinEnabled: z
+		.enum(['0', '1'])
+		.optional()
+		.transform((value) => value === '1'),
+	membershipRole: z.enum(['admin', 'manager']).default('manager'),
+	switchToOrganization: z
+		.enum(['0', '1'])
+		.optional()
+		.transform((value) => value === '1'),
+	setDefaultOrganization: z
+		.enum(['0', '1'])
+		.optional()
+		.transform((value) => value === '1'),
+	metadata: optionalLongTextSchema(4000)
+});
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type AccountProfileInput = z.infer<typeof accountProfileSchema>;
 export type AccountPreferencesInput = z.infer<typeof accountPreferencesSchema>;
 export type AccountPasswordChangeInput = z.infer<typeof accountPasswordChangeSchema>;
 export type AccountArchiveInput = z.infer<typeof accountArchiveSchema>;
+export type AccountCreateOrganizationInput = z.infer<typeof accountCreateOrganizationSchema>;
 export type SwitchClientInput = z.infer<typeof switchClientSchema>;
+export type JoinClientInput = z.infer<typeof joinClientSchema>;

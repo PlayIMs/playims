@@ -1,6 +1,6 @@
 import { and, asc, eq } from 'drizzle-orm';
 import type { DrizzleClient } from '../drizzle.js';
-import { userClients, type UserClient } from '../schema/index.js';
+import { clients, userClients, type UserClient } from '../schema/index.js';
 
 export class UserClientOperations {
 	constructor(private db: DrizzleClient) {}
@@ -16,6 +16,15 @@ export class UserClientOperations {
 					eq(userClients.status, 'active')
 				)
 			)
+			.limit(1);
+		return result[0] ?? null;
+	}
+
+	async getMembership(userId: string, clientId: string): Promise<UserClient | null> {
+		const result = await this.db
+			.select()
+			.from(userClients)
+			.where(and(eq(userClients.userId, userId), eq(userClients.clientId, clientId)))
 			.limit(1);
 		return result[0] ?? null;
 	}
@@ -49,6 +58,33 @@ export class UserClientOperations {
 		return await this.db
 			.select()
 			.from(userClients)
+			.where(and(eq(userClients.userId, userId), eq(userClients.status, 'active')))
+			.orderBy(asc(userClients.createdAt));
+	}
+
+	async listActiveForUserWithClientDetails(userId: string): Promise<
+		Array<{
+			membership: UserClient;
+			client: {
+				id: string | null;
+				name: string | null;
+				slug: string | null;
+				status: string | null;
+			} | null;
+		}>
+	> {
+		return await this.db
+			.select({
+				membership: userClients,
+				client: {
+					id: clients.id,
+					name: clients.name,
+					slug: clients.slug,
+					status: clients.status
+				}
+			})
+			.from(userClients)
+			.leftJoin(clients, eq(userClients.clientId, clients.id))
 			.where(and(eq(userClients.userId, userId), eq(userClients.status, 'active')))
 			.orderBy(asc(userClients.createdAt));
 	}

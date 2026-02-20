@@ -168,17 +168,6 @@ const getClientLocation = (event: RequestEvent): {
 	};
 };
 
-export const buildSafeUser = (user: User) => ({
-	id: user.id,
-	clientId: user.clientId ?? '',
-	email: user.email ?? '',
-	firstName: user.firstName ?? null,
-	lastName: user.lastName ?? null,
-	cellPhone: user.cellPhone ?? null,
-	role: normalizeRole(user.role),
-	status: user.status ?? null
-});
-
 const buildSafeUserWithContext = (
 	user: User,
 	context: {
@@ -209,9 +198,9 @@ export const createSessionForUser = async (
 		activeRole?: string | null;
 	}
 ) => {
-	const clientId = context?.activeClientId?.trim() ?? user.clientId?.trim();
+	const clientId = context?.activeClientId?.trim();
 	if (!clientId) {
-		throw new Error('AUTH_USER_MISSING_CLIENT');
+		throw new Error('AUTH_SESSION_CONTEXT_REQUIRED');
 	}
 
 	const token = generateSessionToken();

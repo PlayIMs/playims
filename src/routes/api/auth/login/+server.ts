@@ -1,4 +1,3 @@
-import { DatabaseOperations } from '$lib/database';
 import { isLocalDevCredentialPair } from '$lib/server/auth/local-dev';
 import {
 	AuthServiceError,
@@ -6,6 +5,7 @@ import {
 	loginWithPassword
 } from '$lib/server/auth/service';
 import { loginSchema } from '$lib/server/auth/validation';
+import { getCentralDbOps } from '$lib/server/database/context';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
@@ -31,7 +31,7 @@ export const POST: RequestHandler = async (event) => {
 
 	if (isLocalDevCredentialPair(emailInput, passwordInput)) {
 		try {
-			const dbOps = new DatabaseOperations(event.platform as App.Platform);
+			const dbOps = getCentralDbOps(event);
 			const authResult = await loginWithLocalDevCredentials(event, dbOps);
 			return json({
 				success: true,
@@ -55,7 +55,7 @@ export const POST: RequestHandler = async (event) => {
 	}
 
 	try {
-		const dbOps = new DatabaseOperations(event.platform as App.Platform);
+		const dbOps = getCentralDbOps(event);
 		const authResult = await loginWithPassword(event, dbOps, {
 			email: parsed.data.email,
 			password: parsed.data.password

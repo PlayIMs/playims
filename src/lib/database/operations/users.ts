@@ -1,7 +1,7 @@
 // User operations - Drizzle ORM
-import { and, desc, eq, or, sql } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import type { DrizzleClient } from '../drizzle.js';
-import { userClients, users, clients, type User, type Client } from '../schema/index.js';
+import { clients, userClients, users, type Client, type User } from '../schema/index.js';
 
 export class UserOperations {
 	constructor(private db: DrizzleClient) {}
@@ -20,14 +20,15 @@ export class UserOperations {
 				client: clients
 			})
 			.from(users)
-			.leftJoin(clients, eq(users.clientId, clients.id))
-			.leftJoin(userClients, eq(userClients.userId, users.id))
-			.where(
-				or(
-					eq(users.clientId, clientId),
-					and(eq(userClients.clientId, clientId), eq(userClients.status, 'active'))
+			.innerJoin(
+				userClients,
+				and(
+					eq(userClients.userId, users.id),
+					eq(userClients.clientId, clientId),
+					eq(userClients.status, 'active')
 				)
 			)
+			.leftJoin(clients, eq(clients.id, userClients.clientId))
 			.orderBy(desc(users.createdAt));
 
 		return result.map(this.mapResult);
@@ -57,16 +58,13 @@ export class UserOperations {
 			.where(
 				and(
 					eq(users.id, userId),
-					or(
-						eq(users.clientId, clientId),
-						sql`exists (
-							select 1
-							from ${userClients}
-							where ${userClients.userId} = ${users.id}
-								and ${userClients.clientId} = ${clientId}
-								and ${userClients.status} = 'active'
-						)`
-					)
+					sql`exists (
+						select 1
+						from ${userClients}
+						where ${userClients.userId} = ${users.id}
+							and ${userClients.clientId} = ${clientId}
+							and ${userClients.status} = 'active'
+					)`
 				)
 			)
 			.limit(1);
@@ -75,7 +73,6 @@ export class UserOperations {
 
 	// Creates an auth-ready user row with normalized email and security fields.
 	async createAuthUser(data: {
-		clientId: string;
 		email: string;
 		passwordHash: string;
 		role: 'admin' | 'manager' | 'player';
@@ -92,7 +89,6 @@ export class UserOperations {
 			.insert(users)
 			.values({
 				id: crypto.randomUUID(),
-				clientId: data.clientId,
 				email: normalizedEmail,
 				passwordHash: data.passwordHash,
 				role: data.role,
@@ -172,16 +168,13 @@ export class UserOperations {
 			.where(
 				and(
 					eq(users.id, input.userId),
-					or(
-						eq(users.clientId, input.clientId),
-						sql`exists (
-							select 1
-							from ${userClients}
-							where ${userClients.userId} = ${users.id}
-								and ${userClients.clientId} = ${input.clientId}
-								and ${userClients.status} = 'active'
-						)`
-					),
+					sql`exists (
+						select 1
+						from ${userClients}
+						where ${userClients.userId} = ${users.id}
+							and ${userClients.clientId} = ${input.clientId}
+							and ${userClients.status} = 'active'
+					)`,
 					eq(users.status, 'active')
 				)
 			)
@@ -209,16 +202,13 @@ export class UserOperations {
 			.where(
 				and(
 					eq(users.id, input.userId),
-					or(
-						eq(users.clientId, input.clientId),
-						sql`exists (
-							select 1
-							from ${userClients}
-							where ${userClients.userId} = ${users.id}
-								and ${userClients.clientId} = ${input.clientId}
-								and ${userClients.status} = 'active'
-						)`
-					),
+					sql`exists (
+						select 1
+						from ${userClients}
+						where ${userClients.userId} = ${users.id}
+							and ${userClients.clientId} = ${input.clientId}
+							and ${userClients.status} = 'active'
+					)`,
 					eq(users.status, 'active')
 				)
 			)
@@ -244,16 +234,13 @@ export class UserOperations {
 			.where(
 				and(
 					eq(users.id, input.userId),
-					or(
-						eq(users.clientId, input.clientId),
-						sql`exists (
-							select 1
-							from ${userClients}
-							where ${userClients.userId} = ${users.id}
-								and ${userClients.clientId} = ${input.clientId}
-								and ${userClients.status} = 'active'
-						)`
-					),
+					sql`exists (
+						select 1
+						from ${userClients}
+						where ${userClients.userId} = ${users.id}
+							and ${userClients.clientId} = ${input.clientId}
+							and ${userClients.status} = 'active'
+					)`,
 					eq(users.status, 'active')
 				)
 			)
@@ -278,16 +265,13 @@ export class UserOperations {
 			.where(
 				and(
 					eq(users.id, input.userId),
-					or(
-						eq(users.clientId, input.clientId),
-						sql`exists (
-							select 1
-							from ${userClients}
-							where ${userClients.userId} = ${users.id}
-								and ${userClients.clientId} = ${input.clientId}
-								and ${userClients.status} = 'active'
-						)`
-					),
+					sql`exists (
+						select 1
+						from ${userClients}
+						where ${userClients.userId} = ${users.id}
+							and ${userClients.clientId} = ${input.clientId}
+							and ${userClients.status} = 'active'
+					)`,
 					eq(users.status, 'active')
 				)
 			)

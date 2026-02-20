@@ -123,19 +123,8 @@ const throwRegistrationEmailAlreadyExists = (): never => {
 
 const resolveLoginMembership = async (
 	dbOps: DatabaseOperations,
-	user: { id: string; clientId: string | null; role: string | null; status: string | null }
+	user: { id: string; role: string | null; status: string | null }
 ) => {
-	const legacyClientId = user.clientId?.trim();
-	if (legacyClientId) {
-		await dbOps.userClients.ensureMembership({
-			userId: user.id,
-			clientId: legacyClientId,
-			role: user.role ?? 'player',
-			status: user.status ?? 'active',
-			isDefault: true
-		});
-	}
-
 	const defaultMembership = await dbOps.userClients.getDefaultActiveForUser(user.id);
 	if (defaultMembership) {
 		return defaultMembership;
@@ -181,7 +170,6 @@ const resolveLocalDevLoginUser = async (dbOps: DatabaseOperations) => {
 	if (!fallbackUser) {
 		try {
 			fallbackUser = await dbOps.users.createAuthUser({
-				clientId: DEFAULT_CLIENT.id,
 				email: LOCAL_DEV_FALLBACK_EMAIL,
 				passwordHash: DUMMY_PASSWORD_HASH,
 				role: 'manager',
@@ -222,12 +210,45 @@ const resolveLocalDevLoginUser = async (dbOps: DatabaseOperations) => {
 	return refreshedFallbackUser;
 };
 
-const isMissingUserClientsTableError = (error: unknown): boolean => {
-	if (!(error instanceof Error)) {
-		return false;
+const collectErrorMessages = (error: unknown): string[] => {
+	const messages: string[] = [];
+	const queue: unknown[] = [error];
+	const visited = new Set<unknown>();
+
+	while (queue.length > 0) {
+		const current = queue.shift();
+		if (!current || visited.has(current)) {
+			continue;
+		}
+		visited.add(current);
+
+		if (current instanceof Error) {
+			if (current.message) {
+				messages.push(current.message);
+			}
+			if ('cause' in current) {
+				queue.push((current as { cause?: unknown }).cause);
+			}
+			continue;
+		}
+
+		if (typeof current === 'object') {
+			const candidate = current as { message?: unknown; cause?: unknown };
+			if (typeof candidate.message === 'string' && candidate.message.length > 0) {
+				messages.push(candidate.message);
+			}
+			if (candidate.cause !== undefined) {
+				queue.push(candidate.cause);
+			}
+		}
 	}
 
-	return /no such table:\s*user_clients/i.test(error.message);
+	return messages;
+};
+
+const isMissingUserClientsTableError = (error: unknown): boolean => {
+	const messages = collectErrorMessages(error);
+	return messages.some((message) => /no such table:\s*user_clients/i.test(message));
 };
 
 export const loginWithLocalDevCredentials = async (
@@ -358,7 +379,6 @@ export const registerWithPassword = async (
 	let createdUser: Awaited<ReturnType<typeof dbOps.users.createAuthUser>> | null = null;
 	try {
 		createdUser = await dbOps.users.createAuthUser({
-			clientId: DEFAULT_CLIENT.id,
 			email: normalizedEmail,
 			passwordHash,
 			role: 'manager',

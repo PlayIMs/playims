@@ -1,6 +1,6 @@
-import { DatabaseOperations } from '$lib/database';
 import { normalizeRole } from '$lib/server/auth/rbac';
 import { switchClientSchema } from '$lib/server/auth/validation';
+import { getCentralDbOps } from '$lib/server/database/context';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
@@ -26,7 +26,7 @@ export const POST: RequestHandler = async (event) => {
 		return json({ success: false, error: 'Invalid request payload.' }, { status: 400 });
 	}
 
-	const dbOps = new DatabaseOperations(event.platform as App.Platform);
+	const dbOps = getCentralDbOps(event);
 	const userId = event.locals.user.id;
 	const requestedClientId = parsed.data.clientId;
 	const activeMembership = await dbOps.userClients.getActiveMembership(userId, requestedClientId);
