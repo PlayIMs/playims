@@ -17,11 +17,14 @@
 	import IconLock from '@tabler/icons-svelte/icons/lock';
 	import IconLogout from '@tabler/icons-svelte/icons/logout';
 	import IconPhone from '@tabler/icons-svelte/icons/phone';
+	import IconPlus from '@tabler/icons-svelte/icons/plus';
 	import IconShieldCheck from '@tabler/icons-svelte/icons/shield-check';
 	import IconSparkles from '@tabler/icons-svelte/icons/sparkles';
 	import IconTrash from '@tabler/icons-svelte/icons/trash';
 	import IconUser from '@tabler/icons-svelte/icons/user';
 	import IconWorld from '@tabler/icons-svelte/icons/world';
+	import CreateOrganizationWizard from './_wizards/CreateOrganizationWizard.svelte';
+	import { WizardStepFooter, applyLiveSlugInput, slugifyFinal } from '$lib/components/wizard';
 
 	type ActiveSessionData = {
 		id: string;
@@ -33,6 +36,27 @@
 		createdAt: string;
 		expiresAt: string;
 		isCurrent: boolean;
+	};
+
+	type OrganizationMembership = {
+		clientId: string;
+		clientName: string;
+		clientSlug: string | null;
+		role: string;
+		isDefault: boolean;
+		isCurrent: boolean;
+	};
+
+	type CreateOrganizationStep = 1 | 2 | 3 | 4;
+
+	type CreateOrganizationForm = {
+		organizationName: string;
+		organizationSlug: string;
+		selfJoinEnabled: boolean;
+		membershipRole: 'admin' | 'manager';
+		switchToOrganization: boolean;
+		setDefaultOrganization: boolean;
+		metadata: string;
 	};
 
 	type AccountData = {
@@ -65,12 +89,14 @@
 		action?: string;
 		error?: string;
 		success?: string;
+		fieldErrors?: Record<string, string>;
 	};
 
 	let { data, form } = $props<{
 		data: {
 			error?: string;
 			account: AccountData | null;
+			organizations: OrganizationMembership[];
 		};
 		form?: FormState;
 	}>();
@@ -284,6 +310,7 @@
 	const cellPhoneMaskRegex = /^\(\d{3}\)\s\d{3}-\d{4}$/;
 
 	let account = $derived(data.account);
+	let organizations = $derived(data.organizations ?? []);
 	let actionName = $derived(form?.action ?? '');
 	let actionError = $derived(form?.error ?? '');
 	let actionSuccess = $derived(form?.success ?? '');
@@ -310,6 +337,55 @@
 	let showArchivePassword = $state(false);
 	let copiedUserId = $state(false);
 	let cellPhoneTouched = $state(false);
+	let createOrganizationOpen = $state(false);
+	let createOrganizationUnsavedConfirmOpen = $state(false);
+	let createOrganizationSubmitting = $state(false);
+	let createOrganizationSlugTouched = $state(false);
+	let createOrganizationSubmissionCount = $state(0);
+	let createOrganizationStep = $state<CreateOrganizationStep>(1);
+	let createOrganizationSubmitForm = $state<HTMLFormElement | null>(null);
+	let createOrganizationClientError = $state('');
+	let createOrganizationFieldErrors = $state<Record<string, string>>({});
+
+	const CREATE_ORGANIZATION_STEP_TITLES: Record<CreateOrganizationStep, string> = {
+		1: 'Organization Basics',
+		2: 'Access Settings',
+		3: 'Defaults',
+		4: 'Review'
+	};
+
+	const createEmptyOrganizationForm = (): CreateOrganizationForm => ({
+		organizationName: '',
+		organizationSlug: '',
+		selfJoinEnabled: false,
+		membershipRole: 'manager',
+		switchToOrganization: true,
+		setDefaultOrganization: true,
+		metadata: ''
+	});
+
+	const cloneOrganizationForm = (value: CreateOrganizationForm): CreateOrganizationForm => ({
+		organizationName: value.organizationName,
+		organizationSlug: value.organizationSlug,
+		selfJoinEnabled: value.selfJoinEnabled,
+		membershipRole: value.membershipRole,
+		switchToOrganization: value.switchToOrganization,
+		setDefaultOrganization: value.setDefaultOrganization,
+		metadata: value.metadata
+	});
+
+	const normalizeOrganizationForm = (value: CreateOrganizationForm): CreateOrganizationForm => ({
+		organizationName: value.organizationName.trim(),
+		organizationSlug: slugifyFinal(value.organizationSlug),
+		selfJoinEnabled: value.selfJoinEnabled,
+		membershipRole: value.membershipRole,
+		switchToOrganization: value.switchToOrganization,
+		setDefaultOrganization: value.setDefaultOrganization,
+		metadata: value.metadata.trim()
+	});
+
+	let createOrganizationForm = $state<CreateOrganizationForm>(createEmptyOrganizationForm());
+	let createOrganizationInitialForm = $state<CreateOrganizationForm>(createEmptyOrganizationForm());
 
 	const formatCellPhoneMaskFromDigits = (value: string) => {
 		const digits = value.replace(/\D/g, '').slice(0, 10);
@@ -606,6 +682,27 @@
 		return [...sortedCurrent, ...sortedNonCurrent];
 	});
 
+	let createOrganizationDirty = $derived.by(
+		() =>
+			JSON.stringify(normalizeOrganizationForm(createOrganizationForm)) !==
+			JSON.stringify(normalizeOrganizationForm(createOrganizationInitialForm))
+	);
+	let createOrganizationStepTitle = $derived(CREATE_ORGANIZATION_STEP_TITLES[createOrganizationStep]);
+	let createOrganizationStepProgress = $derived(Math.round((createOrganizationStep / 4) * 100));
+	let createOrganizationActionError = $derived.by(
+		() =>
+			createOrganizationOpen &&
+			createOrganizationSubmissionCount > 0 &&
+			actionName === 'createOrganization'
+				? actionError
+				: ''
+	);
+	let createOrganizationFormError = $derived.by(
+		() => createOrganizationClientError || createOrganizationActionError || ''
+	);
+	let createOrganizationCanSubmit = $derived.by(() => !createOrganizationSubmitting);
+	let createOrganizationCanGoNext = $derived.by(() => !createOrganizationSubmitting);
+
 	async function copyUserId() {
 		if (!account?.id || typeof navigator === 'undefined' || !navigator.clipboard) {
 			return;
@@ -630,6 +727,160 @@
 
 		cellPhone = formatCellPhoneMaskFromDigits(target.value);
 	}
+
+	function resetCreateOrganizationWizard() {
+		createOrganizationStep = 1;
+		createOrganizationSubmitting = false;
+		createOrganizationSlugTouched = false;
+		createOrganizationSubmissionCount = 0;
+		createOrganizationUnsavedConfirmOpen = false;
+		createOrganizationClientError = '';
+		createOrganizationFieldErrors = {};
+		createOrganizationForm = createEmptyOrganizationForm();
+		createOrganizationInitialForm = cloneOrganizationForm(createOrganizationForm);
+	}
+
+	function openCreateOrganizationWizard() {
+		resetCreateOrganizationWizard();
+		createOrganizationOpen = true;
+	}
+
+	function closeCreateOrganizationWizard() {
+		createOrganizationOpen = false;
+		createOrganizationUnsavedConfirmOpen = false;
+	}
+
+	function requestCloseCreateOrganizationWizard() {
+		if (createOrganizationSubmitting) {
+			return;
+		}
+
+		if (createOrganizationDirty) {
+			createOrganizationUnsavedConfirmOpen = true;
+			return;
+		}
+
+		closeCreateOrganizationWizard();
+		resetCreateOrganizationWizard();
+	}
+
+	function confirmDiscardCreateOrganizationWizard() {
+		closeCreateOrganizationWizard();
+		resetCreateOrganizationWizard();
+	}
+
+	function cancelDiscardCreateOrganizationWizard() {
+		createOrganizationUnsavedConfirmOpen = false;
+	}
+
+	function getCreateOrganizationStepErrors(
+		values: CreateOrganizationForm,
+		step: CreateOrganizationStep
+	): Record<string, string> {
+		const errors: Record<string, string> = {};
+
+		if (step === 1 || step === 4) {
+			if (values.organizationName.trim().length < 2) {
+				errors['organizationName'] = 'Organization name must be at least 2 characters.';
+			}
+			const normalizedSlug = slugifyFinal(values.organizationSlug);
+			if (!normalizedSlug) {
+				errors['organizationSlug'] = 'Organization slug is required.';
+			} else if (!/^[a-z0-9-]+$/.test(normalizedSlug)) {
+				errors['organizationSlug'] = 'Organization slug can only include letters, numbers, and dashes.';
+			} else if (normalizedSlug.length < 2) {
+				errors['organizationSlug'] = 'Organization slug must be at least 2 characters.';
+			}
+		}
+
+		if (step === 3 || step === 4) {
+			if (values.metadata.trim().length > 4000) {
+				errors['metadata'] = 'Metadata cannot exceed 4000 characters.';
+			}
+		}
+
+		return errors;
+	}
+
+	function validateCreateOrganizationStep(step: CreateOrganizationStep): boolean {
+		const stepErrors = getCreateOrganizationStepErrors(createOrganizationForm, step);
+		createOrganizationFieldErrors = stepErrors;
+		return Object.keys(stepErrors).length === 0;
+	}
+
+	function goToCreateOrganizationNextStep() {
+		createOrganizationClientError = '';
+		if (!validateCreateOrganizationStep(createOrganizationStep)) {
+			return;
+		}
+
+		if (createOrganizationStep < 4) {
+			createOrganizationStep = (createOrganizationStep + 1) as CreateOrganizationStep;
+		}
+	}
+
+	function goToCreateOrganizationPreviousStep() {
+		createOrganizationClientError = '';
+		createOrganizationFieldErrors = {};
+		if (createOrganizationStep > 1) {
+			createOrganizationStep = (createOrganizationStep - 1) as CreateOrganizationStep;
+		}
+	}
+
+	function submitCreateOrganizationWizard() {
+		createOrganizationClientError = '';
+		const reviewErrors = getCreateOrganizationStepErrors(createOrganizationForm, 4);
+		createOrganizationFieldErrors = reviewErrors;
+		if (Object.keys(reviewErrors).length > 0) {
+			createOrganizationStep = reviewErrors['organizationName'] || reviewErrors['organizationSlug'] ? 1 : 3;
+			return;
+		}
+
+		if (!createOrganizationSubmitForm) {
+			createOrganizationClientError = 'Unable to submit organization form right now.';
+			return;
+		}
+
+		createOrganizationSubmitting = true;
+		createOrganizationSubmissionCount += 1;
+		createOrganizationSubmitForm.requestSubmit();
+	}
+
+	const enhanceCreateOrganizationSubmit = () => {
+		const scrollX = typeof window !== 'undefined' ? window.scrollX : 0;
+		const scrollY = typeof window !== 'undefined' ? window.scrollY : 0;
+
+		return async ({
+			result,
+			update
+		}: {
+			result: ActionResult;
+			update: (options?: { reset?: boolean; invalidateAll?: boolean }) => Promise<void>;
+		}) => {
+			if (result.type === 'redirect' || result.type === 'error') {
+				createOrganizationSubmitting = false;
+				await applyAction(result);
+				return;
+			}
+
+			await update({ reset: false });
+			createOrganizationSubmitting = false;
+
+			if (typeof window !== 'undefined') {
+				requestAnimationFrame(() => {
+					window.scrollTo(scrollX, scrollY);
+				});
+			}
+
+			if (result.type === 'success') {
+				const payload = result.data as FormState | undefined;
+				if (payload?.action === 'createOrganization' && payload.success) {
+					closeCreateOrganizationWizard();
+					resetCreateOrganizationWizard();
+				}
+			}
+		};
+	};
 
 	const enhanceNoJump = () => {
 		const scrollX = typeof window !== 'undefined' ? window.scrollX : 0;
@@ -1267,6 +1518,90 @@
 			<aside class="space-y-6">
 				<section class="border-2 border-secondary-300 bg-neutral">
 					<div class="p-4 border-b border-secondary-300 bg-neutral-600/66">
+						<div class="flex items-start justify-between gap-3">
+							<div>
+								<h2 class="text-xl font-bold font-serif text-neutral-950">Organizations</h2>
+								<p class="text-xs text-neutral-950 mt-1">
+									Switch your active workspace without leaving account settings.
+								</p>
+							</div>
+							<button
+								type="button"
+								class="button-secondary-outlined px-2 py-1 text-[11px] font-bold uppercase tracking-wide flex items-center gap-1 shrink-0 cursor-pointer"
+								onclick={openCreateOrganizationWizard}
+								aria-label="Create organization"
+							>
+								<IconPlus class="w-4 h-4" />
+								New
+							</button>
+						</div>
+					</div>
+					<div class="p-4 space-y-3">
+						{#if actionName === 'switchOrganization' && actionError}
+							<p class="text-sm border border-accent-500 bg-accent-100 text-accent-900 px-3 py-2">
+								{actionError}
+							</p>
+						{/if}
+						{#if actionName === 'switchOrganization' && actionSuccess}
+							<p
+								class="text-sm border border-primary-500 bg-primary-100 text-primary-900 px-3 py-2"
+							>
+								{actionSuccess}
+							</p>
+						{/if}
+
+						{#if organizations.length === 0}
+							<p class="text-sm text-neutral-950">No active organization memberships found.</p>
+						{:else}
+							<div class="space-y-2">
+								{#each organizations as organization (organization.clientId)}
+									<div class="border border-secondary-300 bg-white p-3">
+										<div class="flex items-start justify-between gap-3">
+											<div class="min-w-0">
+												<p class="font-bold text-neutral-950 truncate">{organization.clientName}</p>
+												{#if organization.clientSlug}
+													<p class="text-xs text-neutral-950 break-all">/{organization.clientSlug}</p>
+												{/if}
+												<p class="text-xs text-neutral-950 mt-1">Role: {organization.role}</p>
+											</div>
+
+											<div class="flex items-center gap-2 shrink-0">
+												{#if organization.isDefault}
+													<span
+														class="border border-secondary-300 bg-neutral px-2 py-1 text-[10px] uppercase tracking-wide font-bold text-neutral-950"
+													>
+														Default
+													</span>
+												{/if}
+
+												{#if organization.isCurrent}
+													<span
+														class="border border-primary-500 bg-primary-100 px-2 py-1 text-[10px] uppercase tracking-wide font-bold text-primary-900"
+													>
+														Current
+													</span>
+												{:else}
+													<form method="POST" action="?/switchOrganization" use:enhance={enhanceNoJump}>
+														<input type="hidden" name="clientId" value={organization.clientId} />
+														<button
+															type="submit"
+															class="button-secondary-outlined px-3 py-1 text-[11px] font-bold uppercase tracking-wide"
+														>
+															Switch
+														</button>
+													</form>
+												{/if}
+											</div>
+										</div>
+									</div>
+								{/each}
+							</div>
+						{/if}
+					</div>
+				</section>
+
+				<section class="border-2 border-secondary-300 bg-neutral">
+					<div class="p-4 border-b border-secondary-300 bg-neutral-600/66">
 						<h2 class="text-xl font-bold font-serif text-neutral-950">Account Snapshot</h2>
 					</div>
 					<div class="p-4 space-y-3 text-sm">
@@ -1470,5 +1805,289 @@
 				</section>
 			</aside>
 		</div>
+
+		<form
+			class="hidden"
+			method="POST"
+			action="?/createOrganization"
+			use:enhance={enhanceCreateOrganizationSubmit}
+			bind:this={createOrganizationSubmitForm}
+		>
+			<input type="hidden" name="organizationName" value={createOrganizationForm.organizationName} />
+			<input type="hidden" name="organizationSlug" value={createOrganizationForm.organizationSlug} />
+			<input
+				type="hidden"
+				name="selfJoinEnabled"
+				value={createOrganizationForm.selfJoinEnabled ? '1' : '0'}
+			/>
+			<input type="hidden" name="membershipRole" value={createOrganizationForm.membershipRole} />
+			<input
+				type="hidden"
+				name="switchToOrganization"
+				value={createOrganizationForm.switchToOrganization ? '1' : '0'}
+			/>
+			<input
+				type="hidden"
+				name="setDefaultOrganization"
+				value={createOrganizationForm.setDefaultOrganization ? '1' : '0'}
+			/>
+			<input type="hidden" name="metadata" value={createOrganizationForm.metadata} />
+		</form>
+
+		<CreateOrganizationWizard
+			open={createOrganizationOpen}
+			step={createOrganizationStep}
+			stepTitle={createOrganizationStepTitle}
+			stepProgress={createOrganizationStepProgress}
+			formError={createOrganizationFormError}
+			unsavedConfirmOpen={createOrganizationUnsavedConfirmOpen}
+			onRequestClose={requestCloseCreateOrganizationWizard}
+			onSubmit={submitCreateOrganizationWizard}
+			onInput={() => {
+				createOrganizationClientError = '';
+			}}
+			onUnsavedConfirm={confirmDiscardCreateOrganizationWizard}
+			onUnsavedCancel={cancelDiscardCreateOrganizationWizard}
+		>
+			{#if createOrganizationStep === 1}
+				<div class="space-y-4">
+					<div class="border border-secondary-300 bg-white p-3">
+						<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">Action Required</p>
+						<p class="text-sm text-neutral-950 mt-1">
+							Set the organization name and URL slug.
+						</p>
+					</div>
+					<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+						<div>
+							<label
+								for="organization-wizard-name"
+								class="block text-sm font-sans text-neutral-950 mb-1"
+							>
+								Organization Name <span class="text-error-700">*</span>
+							</label>
+							<input
+								id="organization-wizard-name"
+								type="text"
+								class="input-secondary"
+								placeholder="PlayIMs Campus"
+								value={createOrganizationForm.organizationName}
+								data-wizard-autofocus
+								oninput={(event) => {
+									const value = (event.currentTarget as HTMLInputElement).value;
+									createOrganizationForm.organizationName = value;
+									if (!createOrganizationSlugTouched) {
+										createOrganizationForm.organizationSlug = slugifyFinal(value);
+									}
+								}}
+								autocomplete="off"
+							/>
+							{#if createOrganizationFieldErrors['organizationName']}
+								<p class="text-xs text-error-700 mt-1">
+									{createOrganizationFieldErrors['organizationName']}
+								</p>
+							{/if}
+						</div>
+						<div>
+							<label
+								for="organization-wizard-slug"
+								class="block text-sm font-sans text-neutral-950 mb-1"
+							>
+								Organization Slug <span class="text-error-700">*</span>
+							</label>
+							<input
+								id="organization-wizard-slug"
+								type="text"
+								class="input-secondary"
+								placeholder="playims-campus"
+								value={createOrganizationForm.organizationSlug}
+								oninput={(event) => {
+									createOrganizationSlugTouched = true;
+									createOrganizationForm.organizationSlug = applyLiveSlugInput(
+										event.currentTarget as HTMLInputElement
+									);
+								}}
+								autocomplete="off"
+							/>
+							<p class="text-xs font-sans text-neutral-950 mt-1">
+								Used for the join page URL: `/your-slug`
+							</p>
+							{#if createOrganizationFieldErrors['organizationSlug']}
+								<p class="text-xs text-error-700 mt-1">
+									{createOrganizationFieldErrors['organizationSlug']}
+								</p>
+							{/if}
+						</div>
+					</div>
+				</div>
+			{/if}
+
+			{#if createOrganizationStep === 2}
+				<div class="space-y-4">
+					<div class="border border-secondary-300 bg-white p-3">
+						<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">Access Settings</p>
+						<p class="text-sm text-neutral-950 mt-1">
+							Define your membership role and decide if this org should allow self-join.
+						</p>
+					</div>
+					<div class="space-y-3">
+						<p class="text-sm font-semibold text-neutral-950">Your role in this organization</p>
+						<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+							<button
+								type="button"
+								class={`border p-3 text-left cursor-pointer ${createOrganizationForm.membershipRole === 'manager' ? 'border-primary-500 bg-primary-100 text-primary-900' : 'border-secondary-300 bg-white text-neutral-950 hover:bg-secondary-50'}`}
+								onclick={() => {
+									createOrganizationForm.membershipRole = 'manager';
+								}}
+							>
+								<p class="font-semibold">Manager</p>
+								<p class="text-xs mt-1">Can manage operations and dashboard settings.</p>
+							</button>
+							<button
+								type="button"
+								class={`border p-3 text-left cursor-pointer ${createOrganizationForm.membershipRole === 'admin' ? 'border-primary-500 bg-primary-100 text-primary-900' : 'border-secondary-300 bg-white text-neutral-950 hover:bg-secondary-50'}`}
+								onclick={() => {
+									createOrganizationForm.membershipRole = 'admin';
+								}}
+							>
+								<p class="font-semibold">Admin</p>
+								<p class="text-xs mt-1">Full administrative control for this organization.</p>
+							</button>
+						</div>
+					</div>
+					<div class="border border-secondary-300 bg-white p-3">
+						<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
+							<input
+								type="checkbox"
+								class="toggle-secondary"
+								checked={createOrganizationForm.selfJoinEnabled}
+								onchange={(event) => {
+									createOrganizationForm.selfJoinEnabled = (
+										event.currentTarget as HTMLInputElement
+									).checked;
+								}}
+							/>
+							Allow open self-join for `/<span class="font-semibold"
+								>{slugifyFinal(createOrganizationForm.organizationSlug) || 'organization-slug'}</span
+							>`
+						</label>
+					</div>
+				</div>
+			{/if}
+
+			{#if createOrganizationStep === 3}
+				<div class="space-y-4">
+					<div class="border border-secondary-300 bg-white p-3">
+						<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">Defaults</p>
+						<p class="text-sm text-neutral-950 mt-1">
+							Choose how this new organization should apply to your account right away.
+						</p>
+					</div>
+					<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+						<div class="border border-secondary-300 bg-white p-3">
+							<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
+								<input
+									type="checkbox"
+									class="toggle-secondary"
+									checked={createOrganizationForm.switchToOrganization}
+									onchange={(event) => {
+										createOrganizationForm.switchToOrganization = (
+											event.currentTarget as HTMLInputElement
+										).checked;
+									}}
+								/>
+								Switch to this organization after create
+							</label>
+						</div>
+						<div class="border border-secondary-300 bg-white p-3">
+							<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
+								<input
+									type="checkbox"
+									class="toggle-secondary"
+									checked={createOrganizationForm.setDefaultOrganization}
+									onchange={(event) => {
+										createOrganizationForm.setDefaultOrganization = (
+											event.currentTarget as HTMLInputElement
+										).checked;
+									}}
+								/>
+								Set as my default organization
+							</label>
+						</div>
+					</div>
+					<div>
+						<label for="organization-wizard-metadata" class="block text-sm font-sans text-neutral-950 mb-1">
+							Metadata (optional)
+						</label>
+						<textarea
+							id="organization-wizard-metadata"
+							class="textarea-secondary min-h-28"
+							placeholder="Optional JSON or notes for this organization."
+							bind:value={createOrganizationForm.metadata}
+						></textarea>
+						<p class="text-xs text-neutral-950 mt-1">{createOrganizationForm.metadata.length}/4000</p>
+						{#if createOrganizationFieldErrors['metadata']}
+							<p class="text-xs text-error-700 mt-1">{createOrganizationFieldErrors['metadata']}</p>
+						{/if}
+					</div>
+				</div>
+			{/if}
+
+			{#if createOrganizationStep === 4}
+				<div class="space-y-4">
+					<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
+						<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">Organization</p>
+						<p class="text-sm text-neutral-950">
+							<span class="font-semibold">Name:</span>
+							{createOrganizationForm.organizationName.trim() || 'TBD'}
+						</p>
+						<p class="text-sm text-neutral-950">
+							<span class="font-semibold">Slug:</span>
+							{slugifyFinal(createOrganizationForm.organizationSlug) || 'TBD'}
+						</p>
+						<p class="text-sm text-neutral-950">
+							<span class="font-semibold">Self-join:</span>
+							{createOrganizationForm.selfJoinEnabled ? 'Enabled' : 'Disabled'}
+						</p>
+					</div>
+					<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
+						<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">Membership</p>
+						<p class="text-sm text-neutral-950">
+							<span class="font-semibold">Role:</span>
+							{createOrganizationForm.membershipRole}
+						</p>
+						<p class="text-sm text-neutral-950">
+							<span class="font-semibold">Switch after create:</span>
+							{createOrganizationForm.switchToOrganization ? 'Yes' : 'No'}
+						</p>
+						<p class="text-sm text-neutral-950">
+							<span class="font-semibold">Set default:</span>
+							{createOrganizationForm.setDefaultOrganization ? 'Yes' : 'No'}
+						</p>
+						{#if createOrganizationForm.metadata.trim()}
+							<p class="text-sm text-neutral-950">
+								<span class="font-semibold">Metadata:</span>
+								{createOrganizationForm.metadata.trim()}
+							</p>
+						{/if}
+					</div>
+				</div>
+			{/if}
+
+			{#snippet footer()}
+				<WizardStepFooter
+					step={createOrganizationStep}
+					lastStep={4}
+					showBack={createOrganizationStep > 1}
+					canGoNext={createOrganizationCanGoNext}
+					canSubmit={createOrganizationCanSubmit}
+					nextLabel="Next"
+					submitLabel="Create Organization"
+					submittingLabel="Creating..."
+					isSubmitting={createOrganizationSubmitting}
+					on:back={goToCreateOrganizationPreviousStep}
+					on:next={goToCreateOrganizationNextStep}
+				/>
+			{/snippet}
+		</CreateOrganizationWizard>
 	{/if}
 </div>
