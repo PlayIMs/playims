@@ -1,6 +1,6 @@
 ---
 name: playims-info-popover-builder
-description: Build, migrate, or refactor PlayIMs helper/info popovers using src/lib/components/InfoPopover.svelte with consistent behavior, accessibility, and styling. Use when replacing ad-hoc info icons/help blocks/details-style helper content, adding explanatory popovers in dashboard flows, or updating InfoPopover internals and consumers under src/routes/dashboard/**.
+description: Build, migrate, or refactor PlayIMs helper/info popovers using src/lib/components/InfoPopover.svelte with consistent behavior, accessibility, and styling. Use when replacing ad-hoc info icons/help blocks/details-style helper content, adding explanatory popovers in dashboard flows, or updating InfoPopover internals and consumers under src/routes/dashboard/** while keeping shared floating-position logic aligned with HoverTooltip.
 ---
 
 # PlayIMs Info Popover Builder
@@ -11,6 +11,8 @@ Implement reusable helper popovers with `InfoPopover` so helper text looks and b
 ## Start Here
 Read these files before editing:
 - `src/lib/components/InfoPopover.svelte`
+- `src/lib/components/HoverTooltip.svelte`
+- `src/lib/components/floating-position.ts`
 - `docs/wizard-system.md`
 - Current consumers (search `InfoPopover` in `src/routes/dashboard/**`)
 - Nearby ad-hoc helper icon patterns (for migration candidates):
@@ -44,6 +46,7 @@ Behavioral guarantees from current implementation:
 - Popover panel is only mounted in DOM while open.
 - Trigger has `aria-haspopup="dialog"` and `aria-expanded` state.
 - Root wrapper is `relative shrink-0`; panel auto-positions with fixed viewport clamping so it remains visible on mobile and desktop.
+- Popover positioning is shared via `floating-position.ts`, the same positioning utility used by `HoverTooltip`.
 
 ## Required Integration Pattern
 1. Keep helper text short and supplemental.
@@ -57,7 +60,7 @@ Behavioral guarantees from current implementation:
 - Recommended wrapper: `mb-1 flex min-h-6 items-center gap-1.5`.
 - Keep label text class consistent with nearby labels (`text-sm ...`) and avoid one-off spacing tweaks.
 5. Keep `InfoPopover` scoped to explanatory help; do not use it for inline field actions.
-- For action affordances inside inputs (for example slug revert/reset icons), use project `HoverTooltip` instead.
+- For action affordances inside inputs (for example slug revert/reset icons), use project `HoverTooltip` and follow `$playims-hover-tooltip-builder`.
 6. If a field label has both helper info and an in-input action icon, keep the helper in the shared label row and keep the action icon inside the input control.
 7. Use `align="right"` by default; switch to `align="left"` near right viewport edges to avoid clipping.
 8. Use paragraph blocks in popover content.
@@ -108,6 +111,8 @@ Label-adjacent example:
 5. Validate build safety.
 - Run `pnpm check`.
 - Run `pnpm build` when changing shared component internals or broad consumer sets.
+6. Preserve shared positioning internals.
+- When adjusting popover placement rules, update shared logic in `floating-position.ts` rather than duplicating calculations in `InfoPopover`.
 
 ## Guardrails
 - Do not create custom outside-click or Escape handlers around `InfoPopover` unless fixing a specific bug.
@@ -118,6 +123,7 @@ Label-adjacent example:
 - Do not use `InfoPopover` for action menus, confirmations, or editable controls.
 - Keep `buttonAriaLabel` unique and context-specific for each popover instance.
 - Preserve existing route behavior and copy unless explicitly asked to rewrite UX text.
+- Do not reintroduce native `title` attributes for helper-copy UI; use shared tooltip/popover components.
 
 ## Delivery Checklist
 Always report:

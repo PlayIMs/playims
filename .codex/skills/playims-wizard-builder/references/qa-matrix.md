@@ -28,6 +28,12 @@ Use this checklist after implementing or migrating a wizard.
 - Move item up/down and verify ordering.
 - Remove item and verify editing index correction.
 
+## Hover Tooltip Behavior (if applicable)
+- Hovering action icons shows `HoverTooltip` text.
+- Tooltip follows cursor while hover remains on trigger.
+- Tooltip remains within viewport at screen edges.
+- No native `title` attributes are relied on for wizard action hints.
+
 ## Submit Behavior
 - Successful submit resets wizard and updates route state.
 - Failed submit preserves input and shows field/form errors.

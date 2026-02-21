@@ -604,15 +604,16 @@
 			<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
 				<div class="flex items-start justify-between gap-2">
 					<h3 class="text-lg font-bold font-serif text-neutral-950">Facility</h3>
-					<button
-						type="button"
-						class="button-secondary-outlined p-1.5 cursor-pointer"
-						aria-label="Edit facility"
-						title="Edit facility"
-						onclick={onStartEditFacility}
-					>
-						<IconPencil class="w-4 h-4" />
-					</button>
+					<HoverTooltip text="Edit facility">
+						<button
+							type="button"
+							class="button-secondary-outlined p-1.5 cursor-pointer"
+							aria-label="Edit facility"
+							onclick={onStartEditFacility}
+						>
+							<IconPencil class="w-4 h-4" />
+						</button>
+					</HoverTooltip>
 				</div>
 				<p class="text-sm text-neutral-950">
 					<span class="font-semibold">Name:</span>
@@ -658,15 +659,16 @@
 			<div class="border-2 border-secondary-300 bg-white p-4 space-y-3">
 				<div class="flex items-start justify-between gap-2">
 					<h3 class="text-lg font-bold font-serif text-neutral-950">Facility Areas</h3>
-					<button
-						type="button"
-						class="button-secondary-outlined p-1.5 cursor-pointer"
-						aria-label="Edit areas"
-						title="Edit areas"
-						onclick={onStartEditAreas}
-					>
-						<IconPencil class="w-4 h-4" />
-					</button>
+					<HoverTooltip text="Edit areas">
+						<button
+							type="button"
+							class="button-secondary-outlined p-1.5 cursor-pointer"
+							aria-label="Edit areas"
+							onclick={onStartEditAreas}
+						>
+							<IconPencil class="w-4 h-4" />
+						</button>
+					</HoverTooltip>
 				</div>
 				{#if form.areas.length === 0}
 					<p class="text-sm text-neutral-950 font-sans">No areas will be created.</p>

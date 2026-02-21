@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import {
 		themeColors,
 		updateColor,
@@ -774,40 +775,46 @@
 							>
 								<div class="flex justify-between items-start mb-3">
 									<h3 class="text-lg font-bold text-primary-900">{theme.name}</h3>
-									<button
-										onclick={(e) => handleDeleteTheme(theme.id, e)}
-										class="text-red-600 hover:text-red-800 text-xl font-bold cursor-pointer"
-										title="Delete theme"
-									>
-										×
-									</button>
+									<HoverTooltip text="Delete theme">
+										<button
+											onclick={(e) => handleDeleteTheme(theme.id, e)}
+											class="text-red-600 hover:text-red-800 text-xl font-bold cursor-pointer"
+										>
+											&times;
+										</button>
+									</HoverTooltip>
 								</div>
 								<div class="grid grid-cols-4 gap-2 mb-2">
-									<div
-										class="h-12 border-2 border-primary-300"
-										style="background-color: #{theme.colors.primary}"
-										title="Primary: #{theme.colors.primary}"
-									></div>
-									<div
-										class="h-12 border-2 border-primary-300"
-										style="background-color: #{theme.colors.secondary}"
-										title="Secondary: #{theme.colors.secondary}"
-									></div>
-									<div
-										class="h-12 border-2 border-primary-300"
-										style="background-color: {theme.colors.neutral &&
-										theme.colors.neutral.trim() !== ''
-											? '#' + theme.colors.neutral
-											: '#' + ZINC_PALETTE['500']}"
-										title="Neutral: {theme.colors.neutral && theme.colors.neutral.trim() !== ''
-											? theme.colors.neutral
-											: 'Zinc default'}"
-									></div>
-									<div
-										class="h-12 border-2 border-primary-300"
-										style="background-color: #{theme.colors.accent}"
-										title="Accent: #{theme.colors.accent}"
-									></div>
+									<HoverTooltip text={`Primary: #${theme.colors.primary}`} wrapperClass="block">
+										<div
+											class="h-12 border-2 border-primary-300"
+											style="background-color: #{theme.colors.primary}"
+										></div>
+									</HoverTooltip>
+									<HoverTooltip text={`Secondary: #${theme.colors.secondary}`} wrapperClass="block">
+										<div
+											class="h-12 border-2 border-primary-300"
+											style="background-color: #{theme.colors.secondary}"
+										></div>
+									</HoverTooltip>
+									<HoverTooltip
+										text={`Neutral: ${theme.colors.neutral && theme.colors.neutral.trim() !== '' ? theme.colors.neutral : 'Zinc default'}`}
+										wrapperClass="block"
+									>
+										<div
+											class="h-12 border-2 border-primary-300"
+											style="background-color: {theme.colors.neutral &&
+											theme.colors.neutral.trim() !== ''
+												? '#' + theme.colors.neutral
+												: '#' + ZINC_PALETTE['500']}"
+										></div>
+									</HoverTooltip>
+									<HoverTooltip text={`Accent: #${theme.colors.accent}`} wrapperClass="block">
+										<div
+											class="h-12 border-2 border-primary-300"
+											style="background-color: #{theme.colors.accent}"
+										></div>
+									</HoverTooltip>
 								</div>
 								<p class="text-xs text-secondary-600">
 									Saved {new Date(theme.createdAt).toLocaleDateString()}
@@ -1878,3 +1885,4 @@
 		</div>
 	</div>
 </div>
+

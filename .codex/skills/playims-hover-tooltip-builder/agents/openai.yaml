@@ -1,0 +1,4 @@
+interface:
+  display_name: "PlayIMs Hover Tooltip Builder"
+  short_description: "Standardize cursor-follow hover tooltips"
+  default_prompt: "Use $playims-hover-tooltip-builder to add or migrate hover tooltips with HoverTooltip.svelte and consistent viewport-safe cursor tracking."

@@ -23,6 +23,8 @@ Use this checklist after adding or refactoring any `InfoPopover` usage.
 - Panel width (`panelWidthClass`) is appropriate for copy length and responsive layout.
 - Panel alignment (`align`) prevents clipping at viewport/container edges.
 - Popover stacks correctly with nearby UI (`z-10` context is sufficient).
+- Popover remains within viewport edges even inside modal/wizard contexts.
+- Positioning behavior stays aligned with shared `floating-position.ts` logic (no one-off overrides).
 
 ## Content Quality
 - Copy is concise and scannable (short paragraphs, no dense walls of text).

@@ -21,6 +21,8 @@ Read these files before making changes:
 - `src/lib/components/wizard/WizardDraftCollection.svelte`
 - `src/lib/components/modals/ModalShell.svelte`
 - `src/lib/components/InfoPopover.svelte`
+- `src/lib/components/HoverTooltip.svelte`
+- `src/lib/components/floating-position.ts`
 - Existing route examples:
 - `src/routes/dashboard/facilities/_wizards/CreateFacilityWizard.svelte`
 - `src/routes/dashboard/intramural-sports/_wizards/CreateOfferingWizard.svelte`
@@ -52,6 +54,7 @@ Follow this structure:
 7. Use snippet/render patterns (`{#snippet ...}` / `{@render ...}`), not legacy `<slot>`.
 8. For any new info/help popover in wizards, use `src/lib/components/InfoPopover.svelte` and follow `$playims-info-popover-builder`; do not introduce ad-hoc popover implementations.
 9. For wizard-adjacent admin entry points, prefer `ListboxDropdown` footer actions (primary and optional secondary icon action) to keep context actions in-flow.
+10. For hover hints on wizard controls (edit/copy/remove/revert icons and similar), use `HoverTooltip` and follow `$playims-hover-tooltip-builder`; do not use native `title` attributes.
 
 ### InfoPopover Placement In Wizards
 
@@ -65,6 +68,7 @@ Follow this structure:
 
 - For wizard slug inputs, include an inline revert icon button inside the input on the far right (`relative` wrapper + input `pr-10` + absolute icon button).
 - Use project `HoverTooltip` with text `Revert to default` for this action; do not use `InfoPopover` for the revert control.
+- Keep hover behavior cursor-relative (shared `HoverTooltip` behavior); do not add one-off tooltip positioning in wizard files.
 - Keep the revert icon button visually unboxed (`border-0 bg-transparent`) and out of keyboard tab order with `tabindex="-1"`.
 - Revert behavior must reset slug manual/touched state and restore the auto-generated default slug from the current source name(s).
 
@@ -99,20 +103,24 @@ Follow this structure:
 
 - Replace inline wizard markup with route wizard component.
 - Preserve existing API payloads and action endpoints unless explicitly requested otherwise.
+7. Standardize wizard hover tooltip affordances.
 
-7. Apply destructive action standards when needed.
+- Replace wizard-native `title` hover hints with `HoverTooltip` wrappers when touched.
+- Keep tooltip text concise and action-specific (for example: `Edit facility`, `Edit areas`, `Sign out this session`).
+
+8. Apply destructive action standards when needed.
 
 - For delete/archive flows, include explicit impact copy, typed slug confirmation, and irreversible warning language.
 - Disable destructive submit until typed confirmation matches normalized target slug.
 - Keep destructive controls visually isolated in a dedicated danger section.
 
-8. Enforce step-by-step validation.
+9. Enforce step-by-step validation.
 
 - Validate the current step before advancing on every Next action; do not defer validation to final submit.
 - Include uniqueness checks (for example name/slug duplicates) on the earliest relevant step when local data allows it.
 - Keep final submit validation as a safety net, but users should get actionable errors before they progress.
 
-9. Validate.
+10. Validate.
 
 - Run `pnpm check`.
 - Run `pnpm build` for larger changes.
@@ -129,6 +137,7 @@ Follow this structure:
 - For all newly added wizard info/help popovers, use `InfoPopover` and follow `$playims-info-popover-builder`; do not ship custom popover variants.
 - For all wizard form labels that include an info popover, use the shared label-row alignment pattern and `buttonVariant="label-inline"` for consistent field alignment.
 - For wizard slug fields, include the shared inline revert control with `HoverTooltip` and reset touched/manual flags when reverting.
+- Do not ship wizard hover hints with native `title` attributes; use shared `HoverTooltip`.
 - For destructive wizard actions, do not rely on single-click confirmations; require typed confirmation when data loss scope is broad.
 - Do not allow step advancement when current-step validation fails; Next handlers must run explicit current-step validation before incrementing the step.
 - Keep scope to dashboard routes unless user expands scope.

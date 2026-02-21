@@ -14,6 +14,7 @@ Implement reusable, accessible dropdown selectors with `ListboxDropdown` while p
 Read these files before editing:
 
 - `src/lib/components/ListboxDropdown.svelte`
+- `src/lib/components/HoverTooltip.svelte`
 - Current consumers (search `ListboxDropdown` in `src/routes/dashboard/**`)
 - `src/app.css` (`button-secondary-outlined` and dropdown-related utility classes)
 - `references/qa-matrix.md`
@@ -45,6 +46,7 @@ Behavioral guarantees from current implementation:
 - Closes on outside pointer down and global `Escape`.
 - Focuses listbox when opened; returns focus to trigger after selection or `Escape`.
 - Uses module-level unique IDs for `aria-controls`, `aria-activedescendant`, and option IDs.
+- Disabled-option helper icons use shared `HoverTooltip` behavior for explanatory text.
 
 ## Required Integration Pattern
 
@@ -53,6 +55,7 @@ Behavioral guarantees from current implementation:
 3. Update state in `on:change` and preserve side effects currently tied to selection changes.
 4. Provide meaningful `ariaLabel` specific to the domain context.
 5. Use trigger snippets for icon-only buttons; otherwise rely on default trigger text + chevron.
+6. For unavailable options that need explanation, use option `tooltip`/`disabledTooltip` and keep shared `HoverTooltip` defaults (follow `$playims-hover-tooltip-builder`).
 
 Example default usage:
 
@@ -190,8 +193,12 @@ Example action-menu usage (non-persistent):
 
 - Run keyboard/pointer QA from `references/qa-matrix.md`.
 - Confirm screen-reader labels and `aria-expanded` transitions.
+8. Validate disabled-option helper tooltip behavior.
 
-8. Validate build safety.
+- Ensure helper tooltip follows cursor and remains viewport-visible when hovering the info icon.
+- Do not add custom tooltip positioning logic inside `ListboxDropdown`; keep shared `HoverTooltip` behavior.
+
+9. Validate build safety.
 
 - Run `pnpm check`.
 - Run `pnpm build` when changing shared component internals or multiple consumers.
@@ -205,6 +212,8 @@ Example action-menu usage (non-persistent):
 - Use the optional footer action only for secondary contextual actions, not for replacing primary option selection.
 - Keep option `value` strings stable and unique.
 - Preserve existing copy unless explicitly asked to rewrite UX text.
+- Do not add native `title` attributes for disabled-option explanations; use `HoverTooltip`.
+- Do not pass ad-hoc positioning props to `HoverTooltip` from dropdown consumers unless fixing a documented bug.
 
 ## Delivery Checklist
 

@@ -26,6 +26,8 @@ Use this matrix after adding or refactoring any `ListboxDropdown` usage.
 - Hovering options updates active styling (without selecting until click/Enter/Space).
 - Selecting an option closes dropdown and returns focus to trigger button.
 - Footer action button (when present) is visually distinct and clickable without affecting option selection state.
+- Disabled-option info tooltip (when present) appears on hover and follows cursor.
+- Disabled-option info tooltip stays within viewport at right/bottom edges.
 
 ## Accessibility + Semantics
 - Trigger has domain-specific `ariaLabel`.

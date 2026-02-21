@@ -1,6 +1,10 @@
 <script lang="ts">
 	import IconInfoCircle from '@tabler/icons-svelte/icons/info-circle';
 	import { tick, type Snippet } from 'svelte';
+	import {
+		resolveAnchoredFloatingPosition,
+		toFixedStyle
+	} from '$lib/components/floating-position.js';
 
 	interface Props {
 		buttonAriaLabel?: string;
@@ -45,32 +49,28 @@
 
 	const EDGE_PADDING_PX = 8;
 	const TRIGGER_GAP_PX = 8;
+	const PREFERRED_VERTICAL: 'bottom' | 'top' = 'bottom';
 
 	function updatePanelPosition(): void {
 		if (typeof window === 'undefined' || !root || !panel) return;
 
 		const rootRect = root.getBoundingClientRect();
 		const panelRect = panel.getBoundingClientRect();
-		const viewportWidth = window.innerWidth;
-		const viewportHeight = window.innerHeight;
-		const availableWidth = Math.max(0, viewportWidth - EDGE_PADDING_PX * 2);
-		const panelWidth = Math.min(panelRect.width, availableWidth);
+		const position = resolveAnchoredFloatingPosition({
+			anchorRect: rootRect,
+			panelWidth: panelRect.width,
+			panelHeight: panelRect.height,
+			align,
+			gapPx: TRIGGER_GAP_PX,
+			paddingPx: EDGE_PADDING_PX,
+			preferVertical: PREFERRED_VERTICAL,
+			viewportWidth: window.innerWidth,
+			viewportHeight: window.innerHeight
+		});
 
-		let left = align === 'right' ? rootRect.right - panelWidth : rootRect.left;
-		left = Math.max(EDGE_PADDING_PX, Math.min(left, viewportWidth - EDGE_PADDING_PX - panelWidth));
-
-		let top = rootRect.bottom + TRIGGER_GAP_PX;
-		const bottomOverflow = top + panelRect.height > viewportHeight - EDGE_PADDING_PX;
-		if (bottomOverflow) {
-			const aboveTop = rootRect.top - TRIGGER_GAP_PX - panelRect.height;
-			if (aboveTop >= EDGE_PADDING_PX) {
-				top = aboveTop;
-			} else {
-				top = Math.max(EDGE_PADDING_PX, viewportHeight - EDGE_PADDING_PX - panelRect.height);
-			}
-		}
-
-		panelStyle = `position: fixed; left: ${Math.round(left)}px; top: ${Math.round(top)}px; max-width: ${availableWidth}px; visibility: visible;`;
+		const maxWidthStyle =
+			panelRect.width > position.maxWidth ? `max-width: ${Math.round(position.maxWidth)}px;` : '';
+		panelStyle = toFixedStyle(position, maxWidthStyle);
 	}
 
 	function toggleOpen(): void {

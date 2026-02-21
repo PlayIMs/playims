@@ -20,7 +20,6 @@
 	import IconPlus from '@tabler/icons-svelte/icons/plus';
 	import IconRestore from '@tabler/icons-svelte/icons/restore';
 	import IconShieldCheck from '@tabler/icons-svelte/icons/shield-check';
-	import IconSparkles from '@tabler/icons-svelte/icons/sparkles';
 	import IconTrash from '@tabler/icons-svelte/icons/trash';
 	import IconUser from '@tabler/icons-svelte/icons/user';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
@@ -332,10 +331,25 @@
 	let organizationSwitchClientId = $state('');
 	let createOrganizationClientError = $state('');
 	let createOrganizationFieldErrors = $state<Record<string, string>>({});
+	let profileEssentialsCollapsed = $state(false);
+	let passwordAccessCollapsed = $state(false);
+	let dangerZoneCollapsed = $state(false);
 	let accountSnapshotCollapsed = $state(false);
-	let accountSnapshotStorageHydrated = $state(false);
+	let sessionControlsCollapsed = $state(false);
+	let activityHighlightsCollapsed = $state(false);
+	let collapseStorageHydrated = $state(false);
 	let copyUserIdResetTimeout: ReturnType<typeof setTimeout> | null = null;
 
+	type CollapsedSectionStorage = {
+		profileEssentialsCollapsed?: boolean;
+		passwordAccessCollapsed?: boolean;
+		dangerZoneCollapsed?: boolean;
+		accountSnapshotCollapsed?: boolean;
+		sessionControlsCollapsed?: boolean;
+		activityHighlightsCollapsed?: boolean;
+	};
+
+	const ACCOUNT_SECTION_COLLAPSE_STORAGE_KEY = 'playims:account-section-collapsed';
 	const ACCOUNT_SNAPSHOT_COLLAPSED_STORAGE_KEY = 'playims:account-snapshot-collapsed';
 
 	const CREATE_ORGANIZATION_STEP_TITLES: Record<CreateOrganizationStep, string> = {
@@ -532,6 +546,21 @@
 		});
 	};
 
+	const formatAccountAgeCompact = (value: number | null | undefined) => {
+		if (value === null || value === undefined || !Number.isFinite(value)) {
+			return 'n/a';
+		}
+
+		const totalDays = Math.max(0, Math.floor(value));
+		if (totalDays > 365) {
+			const years = Math.floor(totalDays / 365);
+			const days = totalDays % 365;
+			return `${years}y${days}d`;
+		}
+
+		return `${totalDays}d`;
+	};
+
 	const getDeviceLabel = (userAgent: string | null | undefined) => {
 		const ua = (userAgent ?? '').toLowerCase();
 		if (!ua) return 'Unknown device';
@@ -669,15 +698,74 @@
 
 			return {
 				value: organization.clientId,
-				label: organization.clientSlug
-					? `${organization.clientName} (/${organization.clientSlug})`
-					: organization.clientName,
+				label: organization.clientName,
+				description: organization.clientSlug ? `/${organization.clientSlug}` : undefined,
 				statusLabel: statusParts.length > 0 ? statusParts.join(' / ') : undefined
 			};
 		})
 	);
 
-	function readStoredAccountSnapshotCollapsed(): boolean | null {
+	function readStoredCollapsedSections(): CollapsedSectionStorage | null {
+		if (typeof window === 'undefined') {
+			return null;
+		}
+
+		try {
+			const value = window.localStorage.getItem(ACCOUNT_SECTION_COLLAPSE_STORAGE_KEY);
+			if (!value) {
+				return null;
+			}
+
+			const parsed = JSON.parse(value) as unknown;
+			if (!parsed || typeof parsed !== 'object') {
+				return null;
+			}
+
+			const normalized: CollapsedSectionStorage = {};
+			if ('profileEssentialsCollapsed' in parsed) {
+				normalized.profileEssentialsCollapsed =
+					typeof (parsed as CollapsedSectionStorage).profileEssentialsCollapsed === 'boolean'
+						? (parsed as CollapsedSectionStorage).profileEssentialsCollapsed
+						: undefined;
+			}
+			if ('passwordAccessCollapsed' in parsed) {
+				normalized.passwordAccessCollapsed =
+					typeof (parsed as CollapsedSectionStorage).passwordAccessCollapsed === 'boolean'
+						? (parsed as CollapsedSectionStorage).passwordAccessCollapsed
+						: undefined;
+			}
+			if ('dangerZoneCollapsed' in parsed) {
+				normalized.dangerZoneCollapsed =
+					typeof (parsed as CollapsedSectionStorage).dangerZoneCollapsed === 'boolean'
+						? (parsed as CollapsedSectionStorage).dangerZoneCollapsed
+						: undefined;
+			}
+			if ('accountSnapshotCollapsed' in parsed) {
+				normalized.accountSnapshotCollapsed =
+					typeof (parsed as CollapsedSectionStorage).accountSnapshotCollapsed === 'boolean'
+						? (parsed as CollapsedSectionStorage).accountSnapshotCollapsed
+						: undefined;
+			}
+			if ('sessionControlsCollapsed' in parsed) {
+				normalized.sessionControlsCollapsed =
+					typeof (parsed as CollapsedSectionStorage).sessionControlsCollapsed === 'boolean'
+						? (parsed as CollapsedSectionStorage).sessionControlsCollapsed
+						: undefined;
+			}
+			if ('activityHighlightsCollapsed' in parsed) {
+				normalized.activityHighlightsCollapsed =
+					typeof (parsed as CollapsedSectionStorage).activityHighlightsCollapsed === 'boolean'
+						? (parsed as CollapsedSectionStorage).activityHighlightsCollapsed
+						: undefined;
+			}
+
+			return normalized;
+		} catch {
+			return null;
+		}
+	}
+
+	function readStoredAccountSnapshotCollapsedLegacy(): boolean | null {
 		if (typeof window === 'undefined') {
 			return null;
 		}
@@ -692,24 +780,48 @@
 		}
 	}
 
-	function writeStoredAccountSnapshotCollapsed(value: boolean): void {
+	function writeStoredCollapsedSections(value: CollapsedSectionStorage): void {
 		if (typeof window === 'undefined') {
 			return;
 		}
 
 		try {
-			window.localStorage.setItem(ACCOUNT_SNAPSHOT_COLLAPSED_STORAGE_KEY, value ? '1' : '0');
+			window.localStorage.setItem(ACCOUNT_SECTION_COLLAPSE_STORAGE_KEY, JSON.stringify(value));
 		} catch {
 			// Ignore storage failures; collapse state will still work for the current session.
 		}
 	}
 
 	onMount(() => {
-		const storedValue = readStoredAccountSnapshotCollapsed();
-		if (storedValue !== null) {
-			accountSnapshotCollapsed = storedValue;
+		const storedCollapsedSections = readStoredCollapsedSections();
+		if (storedCollapsedSections) {
+			if (typeof storedCollapsedSections.profileEssentialsCollapsed === 'boolean') {
+				profileEssentialsCollapsed = storedCollapsedSections.profileEssentialsCollapsed;
+			}
+			if (typeof storedCollapsedSections.passwordAccessCollapsed === 'boolean') {
+				passwordAccessCollapsed = storedCollapsedSections.passwordAccessCollapsed;
+			}
+			if (typeof storedCollapsedSections.dangerZoneCollapsed === 'boolean') {
+				dangerZoneCollapsed = storedCollapsedSections.dangerZoneCollapsed;
+			}
+			if (typeof storedCollapsedSections.accountSnapshotCollapsed === 'boolean') {
+				accountSnapshotCollapsed = storedCollapsedSections.accountSnapshotCollapsed;
+			}
+			if (typeof storedCollapsedSections.sessionControlsCollapsed === 'boolean') {
+				sessionControlsCollapsed = storedCollapsedSections.sessionControlsCollapsed;
+			}
+			if (typeof storedCollapsedSections.activityHighlightsCollapsed === 'boolean') {
+				activityHighlightsCollapsed = storedCollapsedSections.activityHighlightsCollapsed;
+			}
+		} else {
+			// Backward compatibility for prior single-state snapshot persistence.
+			const legacySnapshotState = readStoredAccountSnapshotCollapsedLegacy();
+			if (legacySnapshotState !== null) {
+				accountSnapshotCollapsed = legacySnapshotState;
+			}
 		}
-		accountSnapshotStorageHydrated = true;
+
+		collapseStorageHydrated = true;
 	});
 
 	onDestroy(() => {
@@ -720,11 +832,18 @@
 	});
 
 	$effect(() => {
-		if (!accountSnapshotStorageHydrated) {
+		if (!collapseStorageHydrated) {
 			return;
 		}
 
-		writeStoredAccountSnapshotCollapsed(accountSnapshotCollapsed);
+		writeStoredCollapsedSections({
+			profileEssentialsCollapsed,
+			passwordAccessCollapsed,
+			dangerZoneCollapsed,
+			accountSnapshotCollapsed,
+			sessionControlsCollapsed,
+			activityHighlightsCollapsed
+		});
 	});
 
 	async function copyUserId() {
@@ -963,7 +1082,7 @@
 	<header class="border-2 border-secondary-300 bg-neutral p-5 relative overflow-hidden">
 		<div class="absolute inset-0 pointer-events-none" aria-hidden="true">
 			<div
-				class="absolute top-0 left-0 w-full h-full bg-[linear-gradient(120deg,var(--color-primary-100)_0%,transparent_40%,var(--color-accent-100)_100%)] opacity-45"
+				class="absolute top-0 left-0 w-full h-full bg-[linear-gradient(120deg,var(--color-primary-100)_0%,transparent_65%)] opacity-45"
 			></div>
 		</div>
 		<div class="relative z-10 flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
@@ -982,11 +1101,80 @@
 					</p>
 				</div>
 			</div>
-			<div
-				class="border border-secondary-300 bg-white/85 px-3 py-2 text-xs text-neutral-950 max-w-xs flex items-start gap-2"
-			>
-				<IconSparkles class="w-4 h-4 mt-0.5 shrink-0 text-accent-700" />
-				<span>Changes save instantly on submit. Email changes are intentionally disabled.</span>
+			<div class="w-full xl:w-[24rem] space-y-2">
+				{#if actionName === 'switchOrganization' && actionError}
+					<p class="text-xs border border-accent-500 bg-accent-100 text-accent-900 px-3 py-2">
+						{actionError}
+					</p>
+				{/if}
+				{#if actionName === 'switchOrganization' && actionSuccess}
+					<p class="text-xs border border-primary-500 bg-primary-100 text-primary-900 px-3 py-2">
+						{actionSuccess}
+					</p>
+				{/if}
+
+				{#if organizations.length === 0}
+					<div class="border border-secondary-300 bg-white/85 px-3 py-2 text-xs text-neutral-950">
+						No active organization memberships found.
+					</div>
+				{:else}
+					<ListboxDropdown
+						options={organizationDropdownOptions}
+						value={currentOrganizationId}
+						ariaLabel="Active organization"
+						placeholder="Select organization"
+						emptyText="No active organization memberships found."
+						buttonClass="button-secondary-outlined !bg-neutral-05 w-full px-3 py-2 text-xs cursor-pointer justify-between gap-2 items-start normal-case tracking-normal"
+						listClass="mt-1 w-80 max-w-[calc(100vw-2rem)] border-2 border-secondary-300 bg-white z-20"
+						optionClass="w-full text-left px-3 py-2 text-xs text-neutral-950 cursor-pointer"
+						activeOptionClass="bg-neutral-300 text-neutral-950"
+						selectedOptionClass="bg-primary text-white font-semibold"
+						footerActionClass="button-secondary-outlined w-full px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer inline-flex items-center justify-center gap-1"
+						footerActionAriaLabel="Create new organization"
+						noteText={currentOrganizationRole
+							? `Current role: ${currentOrganizationRole}`
+							: undefined}
+						on:change={(event) => {
+							handleOrganizationChange(event.detail.value);
+						}}
+						on:footerAction={openCreateOrganizationWizard}
+					>
+						{#snippet trigger(open, selectedOption)}
+							<span class="min-w-0 flex-1 text-left">
+								<span class="block truncate text-sm font-semibold text-neutral-950">
+									{selectedOption?.label ?? 'Select organization'}
+								</span>
+								{#if selectedOption?.description}
+									<span
+										class="mt-0.5 block truncate text-[11px] font-normal tracking-normal text-neutral-700"
+									>
+										{selectedOption.description}
+									</span>
+								{/if}
+							</span>
+							{#if open}
+								<IconChevronUp class="w-4 h-4 shrink-0 mt-0.5 text-neutral-900" />
+							{:else}
+								<IconChevronDown class="w-4 h-4 shrink-0 mt-0.5 text-neutral-900" />
+							{/if}
+						{/snippet}
+
+						{#snippet footerAction()}
+							<IconPlus class="w-4 h-4" />
+							New
+						{/snippet}
+					</ListboxDropdown>
+
+					<form
+						class="hidden"
+						method="POST"
+						action="?/switchOrganization"
+						use:enhance={enhanceNoJump}
+						bind:this={switchOrganizationForm}
+					>
+						<input type="hidden" name="clientId" value={organizationSwitchClientId} />
+					</form>
+				{/if}
 			</div>
 		</div>
 	</header>
@@ -1005,41 +1193,6 @@
 			<p class="text-neutral-950">Account details are unavailable right now.</p>
 		</section>
 	{:else}
-		<section class="grid grid-cols-1 lg:grid-cols-4 gap-4">
-			<div class="border-2 border-primary-500 bg-neutral p-4 lg:col-span-2">
-				<div class="flex items-center justify-between gap-4">
-					<div>
-						<p class="text-xs uppercase tracking-wide text-primary-700 font-bold">
-							Profile Progress
-						</p>
-						<p class="text-3xl font-bold font-serif text-primary-700">
-							{account.profileCompletionPercent}%
-						</p>
-					</div>
-					<div class="bg-primary text-white px-3 py-2 text-xs uppercase tracking-wide font-bold">
-						{account.status}
-					</div>
-				</div>
-				<div class="mt-3 border border-primary-300 bg-primary-100 h-3">
-					<div
-						class="h-full bg-primary-500 transition-[width] duration-300"
-						style={`width: ${Math.max(0, Math.min(100, account.profileCompletionPercent))}%`}
-					></div>
-				</div>
-			</div>
-			<div class="border-2 border-secondary-300 bg-neutral p-4">
-				<p class="text-xs uppercase tracking-wide text-neutral-950 font-bold">Active Sessions</p>
-				<p class="text-3xl font-bold font-serif text-neutral-950">{account.activeSessionCount}</p>
-			</div>
-			<div class="border-2 border-secondary-300 bg-neutral p-4">
-				<p class="text-xs uppercase tracking-wide text-neutral-950 font-bold">Account Age</p>
-				<p class="text-3xl font-bold font-serif text-neutral-950">
-					{account.accountAgeDays ?? 0}
-				</p>
-				<p class="text-xs text-neutral-950">days</p>
-			</div>
-		</section>
-
 		<div class="grid grid-cols-1 2xl:grid-cols-[1.75fr_1fr] gap-6">
 			<div class="space-y-6">
 				<section class="border-2 border-secondary-300 bg-neutral">
@@ -1055,453 +1208,463 @@
 								<p class="text-xs text-neutral-950">Update your core account identity fields.</p>
 							</div>
 						</div>
-						{#if profileDirty}
-							<span class="text-xs uppercase tracking-wide text-accent-800 font-bold"
-								>Unsaved edits</span
-							>
-						{/if}
-					</div>
-
-					<div class="p-4 space-y-4">
-						{#if actionName === 'updateProfile' && actionError}
-							<p class="text-sm border border-accent-500 bg-accent-100 text-accent-900 px-3 py-2">
-								{actionError}
-							</p>
-						{/if}
-						{#if actionName === 'updateProfile' && actionSuccess}
-							<p
-								class="text-sm border border-primary-500 bg-primary-100 text-primary-900 px-3 py-2"
-							>
-								{actionSuccess}
-							</p>
-						{/if}
-
-						<form
-							method="POST"
-							action="?/updateProfile"
-							class="space-y-4"
-							use:enhance={enhanceNoJump}
-						>
-							<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-								<label class="block">
-									<span
-										class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1"
-										>First name</span
-									>
-									<input
-										class="input-secondary"
-										type="text"
-										name="firstName"
-										maxlength="80"
-										autocomplete="off"
-										bind:value={firstName}
-									/>
-								</label>
-								<label class="block">
-									<span
-										class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1"
-										>Last name</span
-									>
-									<input
-										class="input-secondary"
-										type="text"
-										name="lastName"
-										maxlength="80"
-										autocomplete="off"
-										bind:value={lastName}
-									/>
-								</label>
+						<div class="flex items-center justify-end gap-2 sm:gap-3 flex-wrap">
+							<div class="text-right min-w-0">
+								<p class="text-[10px] uppercase tracking-wide text-primary-800 font-bold">
+									Profile {Math.max(0, Math.min(100, account.profileCompletionPercent))}%
+								</p>
+								<div class="mt-1 ml-auto border border-primary-300 bg-primary-100 h-1.5 w-24">
+									<div
+										class="h-full bg-primary-500 transition-[width] duration-300"
+										style={`width: ${Math.max(0, Math.min(100, account.profileCompletionPercent))}%`}
+									></div>
+								</div>
 							</div>
-
-							<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-								<label class="block">
-									<span
-										class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1"
-									>
-										Email (locked)
-									</span>
-									<div class="relative flex-1">
-										<input
-											class="input-secondary opacity-80 pr-10"
-											type="email"
-											value={account.email}
-											disabled
-											readonly
-										/>
-										<IconLock
-											class="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-secondary-700"
-										/>
-									</div>
-									<p class="text-xs text-neutral-950 mt-1">
-										Email updates are disabled during this phase of account settings.
-									</p>
-								</label>
-
-								<label class="block">
-									<span
-										class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1"
-										>Cell phone</span
-									>
-									<div class="flex">
-										<select
-											class="select-secondary custom-select w-24 shrink-0"
-											name="cellPhoneCountryCode"
-											bind:value={cellPhoneCountryCode}
-										>
-											{#each countryCodeOptions as code}
-												<option value={code}>{code}</option>
-											{/each}
-										</select>
-										<input
-											class={`input-secondary border-l-0 flex-1 ${
-												showCellPhoneError ? 'border-red-600 focus:border-red-700' : ''
-											}`}
-											type="tel"
-											name="cellPhone"
-											placeholder="(555) 555-5555"
-											inputmode="numeric"
-											autocomplete="off"
-											aria-invalid={showCellPhoneError}
-											bind:value={cellPhone}
-											oninput={handleCellPhoneInput}
-											onblur={() => {
-												cellPhoneTouched = true;
-											}}
-										/>
-									</div>
-									{#if showCellPhoneError}
-										<p class="mt-1 text-xs text-red-700">
-											Enter a valid phone number as (###) ###-####.
-										</p>
-									{:else}
-										<p class="mt-1 text-xs text-neutral-950">
-											Format: (###) ###-####, with country code selected at left.
-										</p>
-									{/if}
-								</label>
-							</div>
-
-							<div class="flex items-center justify-end gap-3">
-								<button
-									type="submit"
-									class="button-secondary px-4 py-2 text-xs font-bold uppercase tracking-wide disabled:opacity-50 disabled:cursor-not-allowed"
-									disabled={!profileCanSubmit}
+							{#if profileDirty}
+								<span class="text-xs uppercase tracking-wide text-accent-800 font-bold"
+									>Unsaved edits</span
 								>
-									Save Profile
-								</button>
-							</div>
-						</form>
+							{/if}
+							<button
+								type="button"
+								class="inline-flex h-7 w-7 items-center justify-center text-secondary-900 hover:text-secondary-950 cursor-pointer"
+								aria-controls="profile-essentials-panel"
+								aria-expanded={!profileEssentialsCollapsed}
+								onclick={() => {
+									profileEssentialsCollapsed = !profileEssentialsCollapsed;
+								}}
+							>
+								{#if profileEssentialsCollapsed}
+									<IconChevronDown class="w-4 h-4" />
+								{:else}
+									<IconChevronUp class="w-4 h-4" />
+								{/if}
+							</button>
+						</div>
 					</div>
+
+					{#if !profileEssentialsCollapsed}
+						<div id="profile-essentials-panel" class="p-4 space-y-4">
+							{#if actionName === 'updateProfile' && actionError}
+								<p class="text-sm border border-accent-500 bg-accent-100 text-accent-900 px-3 py-2">
+									{actionError}
+								</p>
+							{/if}
+							{#if actionName === 'updateProfile' && actionSuccess}
+								<p
+									class="text-sm border border-primary-500 bg-primary-100 text-primary-900 px-3 py-2"
+								>
+									{actionSuccess}
+								</p>
+							{/if}
+
+							<form
+								method="POST"
+								action="?/updateProfile"
+								class="space-y-4"
+								use:enhance={enhanceNoJump}
+							>
+								<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+									<label class="block">
+										<span
+											class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1"
+											>First name</span
+										>
+										<input
+											class="input-secondary"
+											type="text"
+											name="firstName"
+											maxlength="80"
+											autocomplete="off"
+											bind:value={firstName}
+										/>
+									</label>
+									<label class="block">
+										<span
+											class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1"
+											>Last name</span
+										>
+										<input
+											class="input-secondary"
+											type="text"
+											name="lastName"
+											maxlength="80"
+											autocomplete="off"
+											bind:value={lastName}
+										/>
+									</label>
+								</div>
+
+								<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+									<label class="block">
+										<span
+											class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1"
+										>
+											Email (locked)
+										</span>
+										<div class="relative flex-1">
+											<input
+												class="input-secondary opacity-80 pr-10"
+												type="email"
+												value={account.email}
+												disabled
+												readonly
+											/>
+											<IconLock
+												class="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-secondary-700"
+											/>
+										</div>
+										<p class="text-xs text-neutral-950 mt-1">
+											Email updates are disabled during this phase of account settings.
+										</p>
+									</label>
+
+									<label class="block">
+										<span
+											class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1"
+											>Cell phone</span
+										>
+										<div class="flex">
+											<select
+												class="select-secondary custom-select w-24 shrink-0"
+												name="cellPhoneCountryCode"
+												bind:value={cellPhoneCountryCode}
+											>
+												{#each countryCodeOptions as code}
+													<option value={code}>{code}</option>
+												{/each}
+											</select>
+											<input
+												class={`input-secondary border-l-0 flex-1 ${
+													showCellPhoneError ? 'border-red-600 focus:border-red-700' : ''
+												}`}
+												type="tel"
+												name="cellPhone"
+												placeholder="(555) 555-5555"
+												inputmode="numeric"
+												autocomplete="off"
+												aria-invalid={showCellPhoneError}
+												bind:value={cellPhone}
+												oninput={handleCellPhoneInput}
+												onblur={() => {
+													cellPhoneTouched = true;
+												}}
+											/>
+										</div>
+										{#if showCellPhoneError}
+											<p class="mt-1 text-xs text-red-700">
+												Enter a valid phone number as (###) ###-####.
+											</p>
+										{:else}
+											<p class="mt-1 text-xs text-neutral-950">
+												Format: (###) ###-####, with country code selected at left.
+											</p>
+										{/if}
+									</label>
+								</div>
+
+								<div class="flex items-center justify-end gap-3">
+									<button
+										type="submit"
+										class="button-secondary px-4 py-2 text-xs font-bold uppercase tracking-wide disabled:opacity-50 disabled:cursor-not-allowed"
+										disabled={!profileCanSubmit}
+									>
+										Save Profile
+									</button>
+								</div>
+							</form>
+						</div>
+					{/if}
 				</section>
 
 				<section class="border-2 border-secondary-300 bg-neutral">
-					<div class="p-4 border-b border-secondary-300 bg-neutral-600/66">
-						<h2 class="text-xl font-bold font-serif text-neutral-950">Password and Access</h2>
-						<p class="text-xs text-neutral-950 mt-1">
-							Changing your password signs out your other active sessions for safety.
-						</p>
+					<div
+						class="p-4 border-b border-secondary-300 bg-neutral-600/66 flex items-center justify-between gap-3"
+					>
+						<div>
+							<h2 class="text-xl font-bold font-serif text-neutral-950">Password and Access</h2>
+							<p class="text-xs text-neutral-950 mt-1">
+								Changing your password signs out your other active sessions for safety.
+							</p>
+						</div>
+						<button
+							type="button"
+							class="inline-flex h-7 w-7 items-center justify-center text-secondary-900 hover:text-secondary-950 cursor-pointer"
+							aria-controls="password-access-panel"
+							aria-expanded={!passwordAccessCollapsed}
+							onclick={() => {
+								passwordAccessCollapsed = !passwordAccessCollapsed;
+							}}
+						>
+							{#if passwordAccessCollapsed}
+								<IconChevronDown class="w-4 h-4" />
+							{:else}
+								<IconChevronUp class="w-4 h-4" />
+							{/if}
+						</button>
 					</div>
 
-					<div class="p-4 space-y-4">
-						{#if actionName === 'changePassword' && actionError}
-							<p class="text-sm border border-accent-500 bg-accent-100 text-accent-900 px-3 py-2">
-								{actionError}
-							</p>
-						{/if}
-						{#if actionName === 'changePassword' && actionSuccess}
-							<p
-								class="text-sm border border-primary-500 bg-primary-100 text-primary-900 px-3 py-2"
-							>
-								{actionSuccess}
-							</p>
-						{/if}
+					{#if !passwordAccessCollapsed}
+						<div id="password-access-panel" class="p-4 space-y-4">
+							{#if actionName === 'changePassword' && actionError}
+								<p class="text-sm border border-accent-500 bg-accent-100 text-accent-900 px-3 py-2">
+									{actionError}
+								</p>
+							{/if}
+							{#if actionName === 'changePassword' && actionSuccess}
+								<p
+									class="text-sm border border-primary-500 bg-primary-100 text-primary-900 px-3 py-2"
+								>
+									{actionSuccess}
+								</p>
+							{/if}
 
-						<form
-							method="POST"
-							action="?/changePassword"
-							class="space-y-4"
-							use:enhance={enhanceNoJump}
-						>
-							<label class="block">
-								<span class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1">
-									Current password
-								</span>
-								<div class="relative">
-									<input
-										class="input-secondary pr-10"
-										type={showCurrentPassword ? 'text' : 'password'}
-										name="currentPassword"
-										autocomplete="off"
-										bind:value={currentPassword}
-										required
-									/>
-									<button
-										type="button"
-										class="absolute right-3 top-1/2 -translate-y-1/2 text-secondary-800 hover:text-secondary-950 cursor-pointer"
-										aria-label={showCurrentPassword
-											? 'Hide current password'
-											: 'Show current password'}
-										onclick={() => {
-											showCurrentPassword = !showCurrentPassword;
-										}}
+							<form
+								method="POST"
+								action="?/changePassword"
+								class="space-y-4"
+								use:enhance={enhanceNoJump}
+							>
+								<label class="block">
+									<span
+										class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1"
 									>
-										{#if showCurrentPassword}
-											<IconEye class="w-5 h-5" />
-										{:else}
-											<IconEyeOff class="w-5 h-5" />
-										{/if}
+										Current password
+									</span>
+									<div class="relative">
+										<input
+											class="input-secondary pr-10"
+											type={showCurrentPassword ? 'text' : 'password'}
+											name="currentPassword"
+											autocomplete="off"
+											bind:value={currentPassword}
+											required
+										/>
+										<button
+											type="button"
+											class="absolute right-3 top-1/2 -translate-y-1/2 text-secondary-800 hover:text-secondary-950 cursor-pointer"
+											aria-label={showCurrentPassword
+												? 'Hide current password'
+												: 'Show current password'}
+											onclick={() => {
+												showCurrentPassword = !showCurrentPassword;
+											}}
+										>
+											{#if showCurrentPassword}
+												<IconEye class="w-5 h-5" />
+											{:else}
+												<IconEyeOff class="w-5 h-5" />
+											{/if}
+										</button>
+									</div>
+								</label>
+
+								<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+									<label class="block">
+										<span
+											class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1"
+										>
+											New password
+										</span>
+										<div class="relative">
+											<input
+												class="input-secondary pr-10"
+												type={showNewPassword ? 'text' : 'password'}
+												name="newPassword"
+												autocomplete="off"
+												bind:value={newPassword}
+												required
+											/>
+											<button
+												type="button"
+												class="absolute right-3 top-1/2 -translate-y-1/2 text-secondary-800 hover:text-secondary-950 cursor-pointer"
+												aria-label={showNewPassword ? 'Hide new password' : 'Show new password'}
+												onclick={() => {
+													showNewPassword = !showNewPassword;
+												}}
+											>
+												{#if showNewPassword}
+													<IconEye class="w-5 h-5" />
+												{:else}
+													<IconEyeOff class="w-5 h-5" />
+												{/if}
+											</button>
+										</div>
+									</label>
+
+									<label class="block">
+										<span
+											class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1"
+										>
+											Confirm password
+										</span>
+										<div class="relative">
+											<input
+												class="input-secondary pr-10"
+												type={showConfirmPassword ? 'text' : 'password'}
+												name="confirmPassword"
+												autocomplete="off"
+												bind:value={confirmPassword}
+												required
+											/>
+											<button
+												type="button"
+												class="absolute right-3 top-1/2 -translate-y-1/2 text-secondary-800 hover:text-secondary-950 cursor-pointer"
+												aria-label={showConfirmPassword
+													? 'Hide confirmation password'
+													: 'Show confirmation password'}
+												onclick={() => {
+													showConfirmPassword = !showConfirmPassword;
+												}}
+											>
+												{#if showConfirmPassword}
+													<IconEye class="w-5 h-5" />
+												{:else}
+													<IconEyeOff class="w-5 h-5" />
+												{/if}
+											</button>
+										</div>
+									</label>
+								</div>
+
+								<div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+									<div
+										class={`border px-2 py-2 ${newPassword.length >= 8 ? 'border-primary-500 bg-primary-100 text-primary-900' : 'border-secondary-300 bg-secondary-50 text-neutral-950'}`}
+									>
+										8+ characters
+									</div>
+									<div
+										class={`border px-2 py-2 ${newPassword !== currentPassword && newPassword.length > 0 ? 'border-primary-500 bg-primary-100 text-primary-900' : 'border-secondary-300 bg-secondary-50 text-neutral-950'}`}
+									>
+										Not reused
+									</div>
+									<div
+										class={`border px-2 py-2 ${newPassword === confirmPassword && confirmPassword.length > 0 ? 'border-primary-500 bg-primary-100 text-primary-900' : 'border-secondary-300 bg-secondary-50 text-neutral-950'}`}
+									>
+										Matches confirm
+									</div>
+								</div>
+
+								<div class="flex justify-end">
+									<button
+										type="submit"
+										class="button-secondary px-4 py-2 text-xs font-bold uppercase tracking-wide disabled:opacity-50 disabled:cursor-not-allowed"
+										disabled={!passwordCanSubmit}
+									>
+										Update Password
 									</button>
 								</div>
-							</label>
-
-							<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-								<label class="block">
-									<span
-										class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1"
-									>
-										New password
-									</span>
-									<div class="relative">
-										<input
-											class="input-secondary pr-10"
-											type={showNewPassword ? 'text' : 'password'}
-											name="newPassword"
-											autocomplete="off"
-											bind:value={newPassword}
-											required
-										/>
-										<button
-											type="button"
-											class="absolute right-3 top-1/2 -translate-y-1/2 text-secondary-800 hover:text-secondary-950 cursor-pointer"
-											aria-label={showNewPassword ? 'Hide new password' : 'Show new password'}
-											onclick={() => {
-												showNewPassword = !showNewPassword;
-											}}
-										>
-											{#if showNewPassword}
-												<IconEye class="w-5 h-5" />
-											{:else}
-												<IconEyeOff class="w-5 h-5" />
-											{/if}
-										</button>
-									</div>
-								</label>
-
-								<label class="block">
-									<span
-										class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1"
-									>
-										Confirm password
-									</span>
-									<div class="relative">
-										<input
-											class="input-secondary pr-10"
-											type={showConfirmPassword ? 'text' : 'password'}
-											name="confirmPassword"
-											autocomplete="off"
-											bind:value={confirmPassword}
-											required
-										/>
-										<button
-											type="button"
-											class="absolute right-3 top-1/2 -translate-y-1/2 text-secondary-800 hover:text-secondary-950 cursor-pointer"
-											aria-label={showConfirmPassword
-												? 'Hide confirmation password'
-												: 'Show confirmation password'}
-											onclick={() => {
-												showConfirmPassword = !showConfirmPassword;
-											}}
-										>
-											{#if showConfirmPassword}
-												<IconEye class="w-5 h-5" />
-											{:else}
-												<IconEyeOff class="w-5 h-5" />
-											{/if}
-										</button>
-									</div>
-								</label>
-							</div>
-
-							<div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-								<div
-									class={`border px-2 py-2 ${newPassword.length >= 8 ? 'border-primary-500 bg-primary-100 text-primary-900' : 'border-secondary-300 bg-secondary-50 text-neutral-950'}`}
-								>
-									8+ characters
-								</div>
-								<div
-									class={`border px-2 py-2 ${newPassword !== currentPassword && newPassword.length > 0 ? 'border-primary-500 bg-primary-100 text-primary-900' : 'border-secondary-300 bg-secondary-50 text-neutral-950'}`}
-								>
-									Not reused
-								</div>
-								<div
-									class={`border px-2 py-2 ${newPassword === confirmPassword && confirmPassword.length > 0 ? 'border-primary-500 bg-primary-100 text-primary-900' : 'border-secondary-300 bg-secondary-50 text-neutral-950'}`}
-								>
-									Matches confirm
-								</div>
-							</div>
-
-							<div class="flex justify-end">
-								<button
-									type="submit"
-									class="button-secondary px-4 py-2 text-xs font-bold uppercase tracking-wide disabled:opacity-50 disabled:cursor-not-allowed"
-									disabled={!passwordCanSubmit}
-								>
-									Update Password
-								</button>
-							</div>
-						</form>
-					</div>
+							</form>
+						</div>
+					{/if}
 				</section>
 
 				<section class="border-2 border-error-700 bg-error-100">
-					<div class="p-4 border-b border-accent-500 bg-error-700">
-						<h2 class="text-xl font-bold font-serif text-error-950">Danger Zone</h2>
-						<p class="text-xs text-error-950 mt-1">
-							Archive account keeps your row in the database and immediately revokes all sessions.
-						</p>
-					</div>
-					<div class="p-4 space-y-4">
-						{#if actionName === 'archiveAccount' && actionError}
-							<p class="text-sm border border-error-700 bg-error-200 text-error-950 px-3 py-2">
-								{actionError}
+					<div
+						class="p-4 border-b border-accent-500 bg-error-700 flex items-center justify-between gap-3"
+					>
+						<div>
+							<h2 class="text-xl font-bold font-serif text-error-950">Danger Zone</h2>
+							<p class="text-xs text-error-950 mt-1">
+								Archive account keeps your row in the database and immediately revokes all sessions.
 							</p>
-						{/if}
-
-						<form
-							method="POST"
-							action="?/archiveAccount"
-							class="space-y-4"
-							use:enhance={enhanceNoJump}
+						</div>
+						<button
+							type="button"
+							class="inline-flex h-7 w-7 items-center justify-center text-error-950 hover:text-error-950 cursor-pointer"
+							aria-controls="danger-zone-panel"
+							aria-expanded={!dangerZoneCollapsed}
+							onclick={() => {
+								dangerZoneCollapsed = !dangerZoneCollapsed;
+							}}
 						>
-							<label class="block">
-								<span class="block text-xs uppercase tracking-wide text-error-950 font-bold mb-1">
-									Type ARCHIVE
-								</span>
-								<input
-									class="input-error"
-									type="text"
-									name="confirmation"
-									autocomplete="off"
-									bind:value={archiveConfirmation}
-									required
-								/>
-							</label>
+							{#if dangerZoneCollapsed}
+								<IconChevronDown class="w-4 h-4" />
+							{:else}
+								<IconChevronUp class="w-4 h-4" />
+							{/if}
+						</button>
+					</div>
+					{#if !dangerZoneCollapsed}
+						<div id="danger-zone-panel" class="p-4 space-y-4">
+							{#if actionName === 'archiveAccount' && actionError}
+								<p class="text-sm border border-error-700 bg-error-200 text-error-950 px-3 py-2">
+									{actionError}
+								</p>
+							{/if}
 
-							<label class="block">
-								<span class="block text-xs uppercase tracking-wide text-error-950 font-bold mb-1">
-									Current password
-								</span>
-								<div class="relative">
+							<form
+								method="POST"
+								action="?/archiveAccount"
+								class="space-y-4"
+								use:enhance={enhanceNoJump}
+							>
+								<label class="block">
+									<span class="block text-xs uppercase tracking-wide text-error-950 font-bold mb-1">
+										Type ARCHIVE
+									</span>
 									<input
-										class="input-error pr-10"
-										type={showArchivePassword ? 'text' : 'password'}
-										name="currentPassword"
+										class="input-error"
+										type="text"
+										name="confirmation"
 										autocomplete="off"
-										bind:value={archivePassword}
+										bind:value={archiveConfirmation}
 										required
 									/>
+								</label>
+
+								<label class="block">
+									<span class="block text-xs uppercase tracking-wide text-error-950 font-bold mb-1">
+										Current password
+									</span>
+									<div class="relative">
+										<input
+											class="input-error pr-10"
+											type={showArchivePassword ? 'text' : 'password'}
+											name="currentPassword"
+											autocomplete="off"
+											bind:value={archivePassword}
+											required
+										/>
+										<button
+											type="button"
+											class="absolute right-3 top-1/2 -translate-y-1/2 text-error-950 hover:text-error-950 cursor-pointer"
+											aria-label={showArchivePassword
+												? 'Hide archive password'
+												: 'Show archive password'}
+											onclick={() => {
+												showArchivePassword = !showArchivePassword;
+											}}
+										>
+											{#if showArchivePassword}
+												<IconEye class="w-5 h-5" />
+											{:else}
+												<IconEyeOff class="w-5 h-5" />
+											{/if}
+										</button>
+									</div>
+								</label>
+
+								<div class="border border-error-700 bg-white px-3 py-2 text-xs text-error-950">
+									Archiving deactivates this account but preserves historical data in the database.
+								</div>
+
+								<div class="flex justify-end">
 									<button
-										type="button"
-										class="absolute right-3 top-1/2 -translate-y-1/2 text-error-950 hover:text-error-950 cursor-pointer"
-										aria-label={showArchivePassword
-											? 'Hide archive password'
-											: 'Show archive password'}
-										onclick={() => {
-											showArchivePassword = !showArchivePassword;
-										}}
+										type="submit"
+										class="button-error px-4 py-2 text-xs font-bold uppercase tracking-wide disabled:opacity-50 disabled:cursor-not-allowed"
+										disabled={!archiveCanSubmit}
 									>
-										{#if showArchivePassword}
-											<IconEye class="w-5 h-5" />
-										{:else}
-											<IconEyeOff class="w-5 h-5" />
-										{/if}
+										Archive Account
 									</button>
 								</div>
-							</label>
-
-							<div class="border border-error-700 bg-white px-3 py-2 text-xs text-error-950">
-								Archiving deactivates this account but preserves historical data in the database.
-							</div>
-
-							<div class="flex justify-end">
-								<button
-									type="submit"
-									class="button-error px-4 py-2 text-xs font-bold uppercase tracking-wide disabled:opacity-50 disabled:cursor-not-allowed"
-									disabled={!archiveCanSubmit}
-								>
-									Archive Account
-								</button>
-							</div>
-						</form>
-					</div>
+							</form>
+						</div>
+					{/if}
 				</section>
 			</div>
 
 			<aside class="space-y-6">
-				<section class="border-2 border-secondary-300 bg-neutral">
-					<div class="p-4 border-b border-secondary-300 bg-neutral-600/66">
-						<h2 class="text-xl font-bold font-serif text-neutral-950">Organizations</h2>
-						<p class="text-xs text-neutral-950 mt-1">
-							Switch your active workspace without leaving account settings.
-						</p>
-					</div>
-					<div class="p-4 space-y-3">
-						{#if actionName === 'switchOrganization' && actionError}
-							<p class="text-sm border border-accent-500 bg-accent-100 text-accent-900 px-3 py-2">
-								{actionError}
-							</p>
-						{/if}
-						{#if actionName === 'switchOrganization' && actionSuccess}
-							<p
-								class="text-sm border border-primary-500 bg-primary-100 text-primary-900 px-3 py-2"
-							>
-								{actionSuccess}
-							</p>
-						{/if}
-
-						{#if organizations.length === 0}
-							<p class="text-sm text-neutral-950">No active organization memberships found.</p>
-						{:else}
-							<ListboxDropdown
-								options={organizationDropdownOptions}
-								value={currentOrganizationId}
-								ariaLabel="Active organization"
-								placeholder="Select organization"
-								emptyText="No active organization memberships found."
-								buttonClass="button-secondary-outlined w-full px-2.5 py-1.5 text-xs font-bold uppercase tracking-wide cursor-pointer justify-between"
-								listClass="mt-1 w-80 max-w-[calc(100vw-2rem)] border-2 border-secondary-300 bg-white z-20"
-								optionClass="w-full text-left px-3 py-2 text-xs text-neutral-950 cursor-pointer"
-								activeOptionClass="bg-neutral-300 text-neutral-950"
-								selectedOptionClass="bg-primary text-white font-semibold"
-								footerActionClass="button-secondary-outlined w-full px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer inline-flex items-center justify-center gap-1"
-								footerActionAriaLabel="Create new organization"
-								noteText={currentOrganizationRole
-									? `Current role: ${currentOrganizationRole}`
-									: undefined}
-								on:change={(event) => {
-									handleOrganizationChange(event.detail.value);
-								}}
-								on:footerAction={openCreateOrganizationWizard}
-							>
-								{#snippet footerAction()}
-									<IconPlus class="w-4 h-4" />
-									New
-								{/snippet}
-							</ListboxDropdown>
-
-							<form
-								class="hidden"
-								method="POST"
-								action="?/switchOrganization"
-								use:enhance={enhanceNoJump}
-								bind:this={switchOrganizationForm}
-							>
-								<input type="hidden" name="clientId" value={organizationSwitchClientId} />
-							</form>
-						{/if}
-					</div>
-				</section>
-
 				<section class="border-2 border-secondary-300 bg-neutral">
 					<div
 						class="p-4 border-b border-secondary-300 bg-neutral-600/66 flex items-center justify-between gap-3"
@@ -1509,14 +1672,13 @@
 						<h2 class="text-xl font-bold font-serif text-neutral-950">Account Snapshot</h2>
 						<button
 							type="button"
-							class="button-secondary-outlined px-2 py-1 text-[11px] font-bold uppercase tracking-wide inline-flex items-center gap-1 cursor-pointer"
+							class="inline-flex h-7 w-7 items-center justify-center text-secondary-900 hover:text-secondary-950 cursor-pointer"
 							aria-controls="account-snapshot-panel"
 							aria-expanded={!accountSnapshotCollapsed}
 							onclick={() => {
 								accountSnapshotCollapsed = !accountSnapshotCollapsed;
 							}}
 						>
-							{accountSnapshotCollapsed ? 'Expand' : 'Collapse'}
 							{#if accountSnapshotCollapsed}
 								<IconChevronDown class="w-4 h-4" />
 							{:else}
@@ -1533,6 +1695,16 @@
 										Member since
 									</p>
 									<p class="text-neutral-950">{formatDateTime(account.createdAt)}</p>
+								</div>
+							</div>
+
+							<div class="border border-secondary-300 bg-white p-3 flex items-start gap-3">
+								<IconCalendar class="w-5 h-5 text-secondary-700 shrink-0 mt-0.5" />
+								<div>
+									<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">
+										Account age
+									</p>
+									<p class="text-neutral-950">{formatAccountAgeCompact(account.accountAgeDays)}</p>
 								</div>
 							</div>
 
@@ -1602,125 +1774,168 @@
 				</section>
 
 				<section class="border-2 border-secondary-300 bg-neutral">
-					<div class="p-4 border-b border-secondary-300 bg-neutral-600/66">
+					<div
+						class="p-4 border-b border-secondary-300 bg-neutral-600/66 flex items-center justify-between gap-3"
+					>
 						<h2 class="text-xl font-bold font-serif text-neutral-950">Session Controls</h2>
-					</div>
-					<div class="p-4 space-y-3">
-						{#if actionName === 'signOutSession' && actionError}
-							<p class="text-sm border border-accent-500 bg-accent-100 text-accent-900 px-3 py-2">
-								{actionError}
-							</p>
-						{/if}
-						{#if actionName === 'signOutSession' && actionSuccess}
-							<p
-								class="text-sm border border-primary-500 bg-primary-100 text-primary-900 px-3 py-2"
-							>
-								{actionSuccess}
-							</p>
-						{/if}
-
-						<div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-							<form method="POST" action="?/signOut" use:enhance={enhanceNoJump}>
-								<button
-									type="submit"
-									class="button-primary w-full px-4 py-3 text-xs font-bold uppercase tracking-wide flex items-center justify-center gap-2"
-								>
-									<IconLogout class="w-4 h-4" />
-									Sign Out
-								</button>
-							</form>
-
-							<form method="POST" action="?/signOutEverywhere" use:enhance={enhanceNoJump}>
-								<button
-									type="submit"
-									class="button-secondary-outlined w-full px-4 py-3 text-xs font-bold uppercase tracking-wide flex items-center justify-center gap-2"
-								>
-									<IconDeviceLaptop class="w-4 h-4" />
-									Sign Out Everywhere
-								</button>
-							</form>
-						</div>
-
-						<div class="border border-secondary-300 bg-white p-3 space-y-2">
-							<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">
-								Logged-in Devices
-							</p>
-							{#if orderedActiveSessions.length === 0}
-								<p class="text-xs text-neutral-950">No active sessions found.</p>
+						<button
+							type="button"
+							class="inline-flex h-7 w-7 items-center justify-center text-secondary-900 hover:text-secondary-950 cursor-pointer"
+							aria-controls="session-controls-panel"
+							aria-expanded={!sessionControlsCollapsed}
+							onclick={() => {
+								sessionControlsCollapsed = !sessionControlsCollapsed;
+							}}
+						>
+							{#if sessionControlsCollapsed}
+								<IconChevronDown class="w-4 h-4" />
 							{:else}
-								<div class="space-y-2">
-									{#each orderedActiveSessions as session (session.id)}
-										<div class="border border-secondary-300 bg-neutral p-2 text-xs">
-											<div class="flex items-center justify-between gap-2">
-												<div class="flex items-center gap-2">
-													<IconDeviceLaptop class="w-4 h-4 text-secondary-700" />
-													<span class="font-bold text-neutral-950">
-														{getDeviceLabel(session.userAgent)} - {getBrowserLabel(
-															session.userAgent
-														)}
-													</span>
-													{#if session.isCurrent}
-														<span
-															class="border border-primary-500 bg-primary-100 text-primary-900 px-2 py-0.5 text-[10px] uppercase tracking-wide font-bold"
-														>
-															Current
-														</span>
-													{/if}
-												</div>
-												<form method="POST" action="?/signOutSession" use:enhance={enhanceNoJump}>
-													<input type="hidden" name="sessionId" value={session.id} />
-													<button
-														type="submit"
-														class="text-[10px] uppercase tracking-wide font-bold text-secondary-800 hover:text-secondary-950 hover:underline cursor-pointer"
-														title="Sign out this session"
-													>
-														Sign out
-													</button>
-												</form>
-											</div>
-											<p class="mt-1 text-neutral-950">IP: {formatIpAddress(session.ipAddress)}</p>
-											<p class="text-neutral-950">
-												Location: {formatSessionLocation(
-													session.locationCity,
-													session.locationStation
-												)}
-											</p>
-											<p class="text-neutral-950">
-												Last active: {formatSessionDateTime(session.lastSeenAt)}
-											</p>
-											<p class="text-neutral-950">
-												Expires: {formatSessionDateTime(session.expiresAt)}
-											</p>
-										</div>
-									{/each}
-								</div>
+								<IconChevronUp class="w-4 h-4" />
 							{/if}
-						</div>
+						</button>
 					</div>
+					{#if !sessionControlsCollapsed}
+						<div id="session-controls-panel" class="p-4 space-y-3">
+							{#if actionName === 'signOutSession' && actionError}
+								<p class="text-sm border border-accent-500 bg-accent-100 text-accent-900 px-3 py-2">
+									{actionError}
+								</p>
+							{/if}
+							{#if actionName === 'signOutSession' && actionSuccess}
+								<p
+									class="text-sm border border-primary-500 bg-primary-100 text-primary-900 px-3 py-2"
+								>
+									{actionSuccess}
+								</p>
+							{/if}
+
+							<div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+								<form method="POST" action="?/signOut" use:enhance={enhanceNoJump}>
+									<button
+										type="submit"
+										class="button-primary w-full px-4 py-3 text-xs font-bold uppercase tracking-wide flex items-center justify-center gap-2"
+									>
+										<IconLogout class="w-4 h-4" />
+										Sign Out
+									</button>
+								</form>
+
+								<form method="POST" action="?/signOutEverywhere" use:enhance={enhanceNoJump}>
+									<button
+										type="submit"
+										class="button-secondary-outlined w-full px-4 py-3 text-xs font-bold uppercase tracking-wide flex items-center justify-center gap-2"
+									>
+										<IconDeviceLaptop class="w-4 h-4" />
+										Sign Out Everywhere
+									</button>
+								</form>
+							</div>
+
+							<div class="border border-secondary-300 bg-white p-3 space-y-2">
+								<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">
+									Logged-in Devices
+								</p>
+								{#if orderedActiveSessions.length === 0}
+									<p class="text-xs text-neutral-950">No active sessions found.</p>
+								{:else}
+									<div class="space-y-2">
+										{#each orderedActiveSessions as session (session.id)}
+											<div class="border border-secondary-300 bg-neutral p-2 text-xs">
+												<div class="flex items-center justify-between gap-2">
+													<div class="flex items-center gap-2">
+														<IconDeviceLaptop class="w-4 h-4 text-secondary-700" />
+														<span class="font-bold text-neutral-950">
+															{getDeviceLabel(session.userAgent)} - {getBrowserLabel(
+																session.userAgent
+															)}
+														</span>
+														{#if session.isCurrent}
+															<span
+																class="border border-primary-500 bg-primary-100 text-primary-900 px-2 py-0.5 text-[10px] uppercase tracking-wide font-bold"
+															>
+																Current
+															</span>
+														{/if}
+													</div>
+													<form method="POST" action="?/signOutSession" use:enhance={enhanceNoJump}>
+														<input type="hidden" name="sessionId" value={session.id} />
+														<HoverTooltip text="Sign out this session">
+															<button
+																type="submit"
+																class="text-[10px] uppercase tracking-wide font-bold text-secondary-800 hover:text-secondary-950 hover:underline cursor-pointer"
+															>
+																Sign out
+															</button>
+														</HoverTooltip>
+													</form>
+												</div>
+												<p class="mt-1 text-neutral-950">
+													IP: {formatIpAddress(session.ipAddress)}
+												</p>
+												<p class="text-neutral-950">
+													Location: {formatSessionLocation(
+														session.locationCity,
+														session.locationStation
+													)}
+												</p>
+												<p class="text-neutral-950">
+													Last active: {formatSessionDateTime(session.lastSeenAt)}
+												</p>
+												<p class="text-neutral-950">
+													Expires: {formatSessionDateTime(session.expiresAt)}
+												</p>
+											</div>
+										{/each}
+									</div>
+								{/if}
+							</div>
+						</div>
+					{/if}
 				</section>
 
 				<section class="border-2 border-secondary-300 bg-neutral">
-					<div class="p-4 border-b border-secondary-300 bg-neutral-600/66">
+					<div
+						class="p-4 border-b border-secondary-300 bg-neutral-600/66 flex items-center justify-between gap-3"
+					>
 						<h2 class="text-xl font-bold font-serif text-neutral-950">Activity Highlights</h2>
+						<button
+							type="button"
+							class="inline-flex h-7 w-7 items-center justify-center text-secondary-900 hover:text-secondary-950 cursor-pointer"
+							aria-controls="activity-highlights-panel"
+							aria-expanded={!activityHighlightsCollapsed}
+							onclick={() => {
+								activityHighlightsCollapsed = !activityHighlightsCollapsed;
+							}}
+						>
+							{#if activityHighlightsCollapsed}
+								<IconChevronDown class="w-4 h-4" />
+							{:else}
+								<IconChevronUp class="w-4 h-4" />
+							{/if}
+						</button>
 					</div>
-					<div class="p-4 space-y-2 text-sm">
-						<div class="border border-secondary-300 bg-white px-3 py-2 flex items-center gap-2">
-							<IconCheck class="w-4 h-4 text-primary-700" />
-							<span>Sessions started: <strong>{account.sessionCount}</strong></span>
+					{#if !activityHighlightsCollapsed}
+						<div id="activity-highlights-panel" class="p-4 space-y-2 text-sm">
+							<div class="border border-secondary-300 bg-white px-3 py-2 flex items-center gap-2">
+								<IconCheck class="w-4 h-4 text-primary-700" />
+								<span>Sessions started: <strong>{account.sessionCount}</strong></span>
+							</div>
+							<div class="border border-secondary-300 bg-white px-3 py-2 flex items-center gap-2">
+								<IconKey class="w-4 h-4 text-primary-700" />
+								<span>First login: <strong>{formatDateTime(account.firstLoginAt)}</strong></span>
+							</div>
+							<div class="border border-secondary-300 bg-white px-3 py-2 flex items-center gap-2">
+								<IconTrash class="w-4 h-4 text-primary-700" />
+								<span
+									>Last account update: <strong>{formatDateTime(account.updatedAt)}</strong></span
+								>
+							</div>
+							<div class="border border-secondary-300 bg-white px-3 py-2 flex items-center gap-2">
+								<IconAlertTriangle class="w-4 h-4 text-primary-700" />
+								<span>Last login: <strong>{formatDateTime(account.lastLoginAt)}</strong></span>
+							</div>
 						</div>
-						<div class="border border-secondary-300 bg-white px-3 py-2 flex items-center gap-2">
-							<IconKey class="w-4 h-4 text-primary-700" />
-							<span>First login: <strong>{formatDateTime(account.firstLoginAt)}</strong></span>
-						</div>
-						<div class="border border-secondary-300 bg-white px-3 py-2 flex items-center gap-2">
-							<IconTrash class="w-4 h-4 text-primary-700" />
-							<span>Last account update: <strong>{formatDateTime(account.updatedAt)}</strong></span>
-						</div>
-						<div class="border border-secondary-300 bg-white px-3 py-2 flex items-center gap-2">
-							<IconAlertTriangle class="w-4 h-4 text-primary-700" />
-							<span>Last login: <strong>{formatDateTime(account.lastLoginAt)}</strong></span>
-						</div>
-					</div>
+					{/if}
 				</section>
 			</aside>
 		</div>

@@ -17,6 +17,7 @@
 	import IconChevronRight from '@tabler/icons-svelte/icons/chevron-right';
 	import IconMessageCircle from '@tabler/icons-svelte/icons/message-circle';
 	import { page } from '$app/stores';
+	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 
 	let { children, data } = $props();
 
@@ -112,25 +113,26 @@
 			<ul class="space-y-1">
 				{#each menuItems as item}
 					<li>
-						<a
-							href={item.href}
-							class="w-full whitespace-nowrap {isSidebarOpen
-								? 'px-4 py-3 md:px-3 md:py-2.5 md:gap-2.5 xl:px-4 xl:py-3 xl:gap-3 flex items-center text-base md:text-sm xl:text-base'
-								: 'px-2 py-3 md:px-1.5 md:py-2.5 xl:px-2 xl:py-3 flex items-center justify-center'} transition-colors duration-150 cursor-pointer {activePath ===
-							item.href
-								? 'bg-primary-600 border-l-4 border-neutral-500 text-white'
-								: 'text-primary-100 hover:bg-primary-600 hover:text-white border-l-4 border-transparent'} {item.href ===
-							'#'
-								? 'opacity-70 pointer-events-none'
-								: ''}"
-							title={isSidebarOpen ? '' : item.label}
-							aria-current={activePath === item.href ? 'page' : undefined}
-						>
-							<item.icon class="w-5 h-5 md:w-4 md:h-4 xl:w-5 xl:h-5 shrink-0" />
-							{#if isSidebarOpen}
-								<span>{item.label}</span>
-							{/if}
-						</a>
+						<HoverTooltip text={isSidebarOpen ? '' : item.label} wrapperClass="block w-full">
+							<a
+								href={item.href}
+								class="w-full whitespace-nowrap {isSidebarOpen
+									? 'px-4 py-3 md:px-3 md:py-2.5 md:gap-2.5 xl:px-4 xl:py-3 xl:gap-3 flex items-center text-base md:text-sm xl:text-base'
+									: 'px-2 py-3 md:px-1.5 md:py-2.5 xl:px-2 xl:py-3 flex items-center justify-center'} transition-colors duration-150 cursor-pointer {activePath ===
+								item.href
+									? 'bg-primary-600 border-l-4 border-neutral-500 text-white'
+									: 'text-primary-100 hover:bg-primary-600 hover:text-white border-l-4 border-transparent'} {item.href ===
+								'#'
+									? 'opacity-70 pointer-events-none'
+									: ''}"
+								aria-current={activePath === item.href ? 'page' : undefined}
+							>
+								<item.icon class="w-5 h-5 md:w-4 md:h-4 xl:w-5 xl:h-5 shrink-0" />
+								{#if isSidebarOpen}
+									<span>{item.label}</span>
+								{/if}
+							</a>
+						</HoverTooltip>
 					</li>
 				{/each}
 			</ul>
@@ -157,56 +159,61 @@
 					</a>
 
 					<div class="flex flex-col gap-2">
+						<HoverTooltip text="Tech support">
+							<button
+								type="button"
+								class="w-10 h-10 flex items-center justify-center border border-primary-300 text-primary-50 opacity-70 cursor-not-allowed"
+								aria-label="Tech support"
+								disabled
+							>
+								<IconHeadset class="w-5 h-5" />
+							</button>
+						</HoverTooltip>
+						<HoverTooltip text="Help">
+							<button
+								type="button"
+								class="w-10 h-10 flex items-center justify-center border border-primary-300 text-primary-50 opacity-70 cursor-not-allowed"
+								aria-label="Help"
+								disabled
+							>
+								<IconHelpCircle class="w-5 h-5" />
+							</button>
+						</HoverTooltip>
+					</div>
+				</div>
+			{:else}
+				<div class="flex flex-col items-center gap-2">
+					<HoverTooltip text={viewerName}>
+						<a
+							href={accountHref}
+							class="w-10 h-10 flex items-center justify-center border transition-colors duration-150 cursor-pointer {isAccountRoute
+								? 'border-primary-100 bg-primary-600 text-white'
+								: 'border-primary-300 text-primary-50 hover:bg-primary-600 hover:text-white'}"
+							aria-current={isAccountRoute ? 'page' : undefined}
+						>
+							<IconUser class="w-5 h-5" />
+						</a>
+					</HoverTooltip>
+					<HoverTooltip text="Tech support">
 						<button
 							type="button"
 							class="w-10 h-10 flex items-center justify-center border border-primary-300 text-primary-50 opacity-70 cursor-not-allowed"
-							title="Tech support"
 							aria-label="Tech support"
 							disabled
 						>
 							<IconHeadset class="w-5 h-5" />
 						</button>
+					</HoverTooltip>
+					<HoverTooltip text="Help">
 						<button
 							type="button"
 							class="w-10 h-10 flex items-center justify-center border border-primary-300 text-primary-50 opacity-70 cursor-not-allowed"
-							title="Help"
 							aria-label="Help"
 							disabled
 						>
 							<IconHelpCircle class="w-5 h-5" />
 						</button>
-					</div>
-				</div>
-			{:else}
-				<div class="flex flex-col items-center gap-2">
-					<a
-						href={accountHref}
-						class="w-10 h-10 flex items-center justify-center border transition-colors duration-150 cursor-pointer {isAccountRoute
-							? 'border-primary-100 bg-primary-600 text-white'
-							: 'border-primary-300 text-primary-50 hover:bg-primary-600 hover:text-white'}"
-						title={viewerName}
-						aria-current={isAccountRoute ? 'page' : undefined}
-					>
-						<IconUser class="w-5 h-5" />
-					</a>
-					<button
-						type="button"
-						class="w-10 h-10 flex items-center justify-center border border-primary-300 text-primary-50 opacity-70 cursor-not-allowed"
-						title="Tech support"
-						aria-label="Tech support"
-						disabled
-					>
-						<IconHeadset class="w-5 h-5" />
-					</button>
-					<button
-						type="button"
-						class="w-10 h-10 flex items-center justify-center border border-primary-300 text-primary-50 opacity-70 cursor-not-allowed"
-						title="Help"
-						aria-label="Help"
-						disabled
-					>
-						<IconHelpCircle class="w-5 h-5" />
-					</button>
+					</HoverTooltip>
 				</div>
 			{/if}
 		</div>
