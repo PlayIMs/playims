@@ -3,7 +3,10 @@ import { clearSessionCookie, resolveSessionFromRequest } from '$lib/server/auth/
 import type { AuthRole } from '$lib/server/auth/rbac';
 import { DASHBOARD_ALLOWED_ROLES, hasAnyRole } from '$lib/server/auth/rbac';
 import { AuthServiceError, requireSessionSecret } from '$lib/server/auth/service';
-import { AUTH_SESSION_COOKIE_NAME } from '$lib/server/auth/constants';
+import {
+	AUTH_SESSION_COOKIE_NAME,
+	AUTH_SESSION_COOKIE_NAME_LEGACY
+} from '$lib/server/auth/constants';
 import { getCentralDbOps } from '$lib/server/database/context';
 import {
 	getApiTableFromPath,
@@ -29,6 +32,12 @@ import type { Handle, RequestEvent } from '@sveltejs/kit';
 type RateLimitConfig = {
 	windowMs: number;
 	maxRequests: number;
+};
+
+type RateLimitResult = {
+	allowed: boolean;
+	remaining: number;
+	resetAt: number;
 };
 
 type ApiAccessPolicy =
@@ -124,9 +133,20 @@ const FACILITIES_RATE_LIMIT: RateLimitConfig = {
 	maxRequests: 60
 };
 
-// In-memory limiter is intentionally simple for this phase/local scale.
+const RATE_LIMIT_ACCOUNT_PATHS = new Set([
+	'/api/auth/login',
+	'/api/auth/register',
+	'/log-in',
+	'/register'
+]);
+const GLOBAL_RATE_LIMIT_CLEANUP_INTERVAL_MS = 10 * 60_000;
+const GLOBAL_RATE_LIMIT_RETENTION_MS = 24 * 60 * 60 * 1000;
+
+// Local fallback when shared D1-backed limiting is unavailable.
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 let lastRateLimitCleanupAt = 0;
+let lastGlobalRateLimitCleanupAt = 0;
+let hasWarnedGlobalRateLimitFallback = false;
 
 const PROTECTED_PAGE_PREFIXES = ['/dashboard'];
 const PROTECTED_PAGE_EXACT = new Set(['/schedule', '/colors']);
@@ -202,7 +222,7 @@ const cleanupRateLimitStore = (now: number) => {
 	}
 };
 
-const consumeRateLimit = (key: string, config: RateLimitConfig, now: number) => {
+const consumeRateLimitInMemory = (key: string, config: RateLimitConfig, now: number): RateLimitResult => {
 	cleanupRateLimitStore(now);
 
 	const existing = rateLimitStore.get(key);
@@ -222,6 +242,124 @@ const consumeRateLimit = (key: string, config: RateLimitConfig, now: number) => 
 		allowed: true,
 		remaining: Math.max(0, config.maxRequests - existing.count),
 		resetAt: existing.resetAt
+	};
+};
+
+const maybeCleanupGlobalRateLimits = async (getDbOps: () => ReturnType<typeof getCentralDbOps>, now: number) => {
+	if (now - lastGlobalRateLimitCleanupAt < GLOBAL_RATE_LIMIT_CLEANUP_INTERVAL_MS) {
+		return;
+	}
+	lastGlobalRateLimitCleanupAt = now;
+
+	const cutoffIso = new Date(now - GLOBAL_RATE_LIMIT_RETENTION_MS).toISOString();
+	await getDbOps().authRateLimits.purgeOlderThan(cutoffIso);
+};
+
+const consumeRateLimit = async (
+	getDbOps: () => ReturnType<typeof getCentralDbOps>,
+	key: string,
+	config: RateLimitConfig,
+	now: number
+): Promise<RateLimitResult> => {
+	try {
+		await maybeCleanupGlobalRateLimits(getDbOps, now);
+		return await getDbOps().authRateLimits.consume({
+			key,
+			windowMs: config.windowMs,
+			maxRequests: config.maxRequests,
+			nowMs: now
+		});
+	} catch {
+		if (!hasWarnedGlobalRateLimitFallback) {
+			hasWarnedGlobalRateLimitFallback = true;
+			console.warn('[security] Falling back to in-memory rate limiting.');
+		}
+		return consumeRateLimitInMemory(key, config, now);
+	}
+};
+
+const normalizeRateLimitAccount = (value: unknown): string | null => {
+	if (typeof value !== 'string') {
+		return null;
+	}
+
+	const normalized = value.trim().toLowerCase();
+	if (!normalized || normalized.length > 254 || !normalized.includes('@')) {
+		return null;
+	}
+
+	return normalized;
+};
+
+const resolveRateLimitAccountFromRequest = async (
+	event: RequestEvent,
+	pathname: string
+): Promise<string | null> => {
+	if (!RATE_LIMIT_ACCOUNT_PATHS.has(pathname)) {
+		const userId = event.locals.user?.id?.trim();
+		return userId ? `user:${userId}` : null;
+	}
+
+	const contentType = event.request.headers.get('content-type')?.toLowerCase() ?? '';
+	try {
+		const clone = event.request.clone();
+		if (contentType.includes('application/json')) {
+			const payload = (await clone.json()) as unknown;
+			if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+				return normalizeRateLimitAccount((payload as Record<string, unknown>).email);
+			}
+		}
+
+		if (
+			contentType.includes('application/x-www-form-urlencoded') ||
+			contentType.includes('multipart/form-data') ||
+			pathname === '/log-in' ||
+			pathname === '/register'
+		) {
+			const formData = await clone.formData();
+			return normalizeRateLimitAccount(formData.get('email'));
+		}
+	} catch {
+		return null;
+	}
+
+	return null;
+};
+
+const consumeRequestRateLimit = async (
+	event: RequestEvent,
+	getDbOps: () => ReturnType<typeof getCentralDbOps>,
+	pathname: string,
+	method: string,
+	config: RateLimitConfig,
+	now: number
+): Promise<RateLimitResult> => {
+	const clientAddress = getClientAddress(event);
+	const ipKey = `ip:${clientAddress}:${pathname}:${method}`;
+	const ipResult = await consumeRateLimit(getDbOps, ipKey, config, now);
+	if (!ipResult.allowed) {
+		return ipResult;
+	}
+
+	const accountKey = await resolveRateLimitAccountFromRequest(event, pathname);
+	if (!accountKey) {
+		return ipResult;
+	}
+
+	const principalResult = await consumeRateLimit(
+		getDbOps,
+		`acct:${accountKey}:${pathname}:${method}`,
+		config,
+		now
+	);
+	if (!principalResult.allowed) {
+		return principalResult;
+	}
+
+	return {
+		allowed: true,
+		remaining: Math.min(ipResult.remaining, principalResult.remaining),
+		resetAt: Math.min(ipResult.resetAt, principalResult.resetAt)
 	};
 };
 
@@ -376,6 +514,15 @@ const withSecurityHeaders = (
 		);
 	}
 
+	const responseContentType = headers.get('content-type') ?? '';
+	const isHtmlResponse = responseContentType.toLowerCase().includes('text/html');
+	if (!isApiRequest && isHtmlResponse && !headers.has('content-security-policy')) {
+		headers.set(
+			'content-security-policy',
+			"default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob: https:; font-src 'self' https://fonts.gstatic.com data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'"
+		);
+	}
+
 	if (isApiRequest && !headers.has('cache-control')) {
 		// API payloads may contain session/user context; never allow caching by default.
 		headers.set('cache-control', 'no-store');
@@ -431,7 +578,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const getDbOps = () => getCentralDbOps(event);
 
 	let authHydrationError: Error | null = null;
-	const hasSessionCookie = Boolean(event.cookies.get(AUTH_SESSION_COOKIE_NAME));
+	const hasSessionCookie = Boolean(
+		event.cookies.get(AUTH_SESSION_COOKIE_NAME) ?? event.cookies.get(AUTH_SESSION_COOKIE_NAME_LEGACY)
+	);
 	if (hasSessionCookie) {
 		try {
 			// Session resolution is centralized and never trusts client-provided user identity.
@@ -479,9 +628,14 @@ export const handle: Handle = async ({ event, resolve }) => {
 		const rateLimitConfig = resolveRateLimitConfig(pathname);
 		if (rateLimitConfig) {
 			const now = Date.now();
-			const clientAddress = getClientAddress(event);
-			const key = `${clientAddress}:${pathname}:${method}`;
-			const result = consumeRateLimit(key, rateLimitConfig, now);
+			const result = await consumeRequestRateLimit(
+				event,
+				getDbOps,
+				pathname,
+				method,
+				rateLimitConfig,
+				now
+			);
 			if (!result.allowed) {
 				const retryAfterSeconds = Math.max(1, Math.ceil((result.resetAt - now) / 1000));
 				const response = toPageErrorResponse(429, 'Too many requests. Please try again later.', {
@@ -615,9 +769,14 @@ export const handle: Handle = async ({ event, resolve }) => {
 		const rateLimitConfig = resolveRateLimitConfig(pathname);
 		if (rateLimitConfig) {
 			const now = Date.now();
-			const clientAddress = getClientAddress(event);
-			const key = `${clientAddress}:${pathname}:${method}`;
-			const result = consumeRateLimit(key, rateLimitConfig, now);
+			const result = await consumeRequestRateLimit(
+				event,
+				getDbOps,
+				pathname,
+				method,
+				rateLimitConfig,
+				now
+			);
 			if (!result.allowed) {
 				const retryAfterSeconds = Math.max(1, Math.ceil((result.resetAt - now) / 1000));
 				const response = toApiErrorResponse(

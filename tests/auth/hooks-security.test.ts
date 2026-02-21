@@ -118,6 +118,7 @@ describe('hooks security behavior', () => {
 		const response = await handle({ event, resolve: resolveOk });
 		expect(response.status).toBe(200);
 		expect(response.headers.get('cache-control')).toBe('no-store');
+		expect(response.headers.get('content-security-policy')).toContain("frame-ancestors 'none'");
 	});
 
 	it('enforces role checks for dashboard SSR', async () => {

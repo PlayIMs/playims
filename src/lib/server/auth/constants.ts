@@ -4,7 +4,8 @@
  * Keep these values in one place so session and auth behavior stays consistent
  * across hooks, API handlers, and server actions.
  */
-export const AUTH_SESSION_COOKIE_NAME = 'playims_session';
+export const AUTH_SESSION_COOKIE_NAME = '__Host-playims_session';
+export const AUTH_SESSION_COOKIE_NAME_LEGACY = 'playims_session';
 export const AUTH_SESSION_TTL_HOURS = 24;
 export const AUTH_SESSION_TTL_SECONDS = AUTH_SESSION_TTL_HOURS * 60 * 60;
 export const AUTH_SESSION_TTL_MS = AUTH_SESSION_TTL_SECONDS * 1000;

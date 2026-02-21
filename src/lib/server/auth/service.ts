@@ -27,6 +27,7 @@ export class AuthServiceError extends Error {
 const textEncoder = new TextEncoder();
 const DUMMY_PASSWORD_HASH = `pbkdf2_sha256$${AUTH_PBKDF2_DEFAULT_ITERATIONS}$AAECAwQFBgcICQoLDA0ODw$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA`;
 const LOCAL_DEV_FALLBACK_EMAIL = 'dev@localhost.playims';
+const SELF_SERVICE_DEFAULT_ROLE = 'player' as const;
 let hasWarnedPasswordPepperFallback = false;
 
 const constantTimeStringEqual = (a: string, b: string): boolean => {
@@ -41,6 +42,16 @@ const constantTimeStringEqual = (a: string, b: string): boolean => {
 		result |= aByte ^ bByte;
 	}
 	return result === 0;
+};
+
+const toHex = (bytes: Uint8Array): string =>
+	Array.from(bytes)
+		.map((byte) => byte.toString(16).padStart(2, '0'))
+		.join('');
+
+const hashInviteKey = async (inviteKey: string): Promise<string> => {
+	const digest = await crypto.subtle.digest('SHA-256', textEncoder.encode(inviteKey));
+	return toHex(new Uint8Array(digest));
 };
 
 const readAuthEnv = (event: RequestEvent, key: string): string | undefined => {
@@ -251,6 +262,33 @@ const isMissingUserClientsTableError = (error: unknown): boolean => {
 	return messages.some((message) => /no such table:\s*user_clients/i.test(message));
 };
 
+const isMissingSignupInviteKeysTableError = (error: unknown): boolean => {
+	const messages = collectErrorMessages(error);
+	return messages.some((message) => /no such table:\s*signup_invite_keys/i.test(message));
+};
+
+const consumeGlobalSignupInvite = async (
+	event: RequestEvent,
+	dbOps: DatabaseOperations,
+	providedInviteKey: string
+) => {
+	const nowIso = new Date().toISOString();
+	const inviteKeyHash = await hashInviteKey(providedInviteKey);
+
+	try {
+		const consumedInvite = await dbOps.signupInviteKeys.consumeByHash(inviteKeyHash, nowIso);
+		return consumedInvite !== null;
+	} catch (error) {
+		if (!isMissingSignupInviteKeysTableError(error)) {
+			throw error;
+		}
+
+		// Compatibility fallback before local/remote migrations are applied everywhere.
+		const expectedInviteKey = requireSignupInviteKey(event);
+		return constantTimeStringEqual(expectedInviteKey, providedInviteKey);
+	}
+};
+
 export const loginWithLocalDevCredentials = async (
 	event: RequestEvent,
 	dbOps: DatabaseOperations
@@ -339,7 +377,7 @@ export const loginWithPassword = async (
 };
 
 /**
- * Invite-key registration flow for this phase.
+ * Global invite-key registration flow for this phase.
  * New users are attached to DEFAULT_CLIENT with least-privilege role.
  */
 export const registerWithPassword = async (
@@ -355,12 +393,7 @@ export const registerWithPassword = async (
 ) => {
 	const sessionSecret = requireSessionSecret(event);
 	const passwordPepper = resolvePasswordPepper(event);
-	const expectedInviteKey = requireSignupInviteKey(event);
 	const providedInviteKey = input.inviteKey.trim();
-
-	if (!constantTimeStringEqual(expectedInviteKey, providedInviteKey)) {
-		throwRegistrationDenied('invite_mismatch');
-	}
 
 	await ensureDefaultClient(dbOps);
 
@@ -376,12 +409,17 @@ export const registerWithPassword = async (
 		iterations: getPasswordIterations(event)
 	});
 
+	const hasValidInvite = await consumeGlobalSignupInvite(event, dbOps, providedInviteKey);
+	if (!hasValidInvite) {
+		throwRegistrationDenied('invite_mismatch');
+	}
+
 	let createdUser: Awaited<ReturnType<typeof dbOps.users.createAuthUser>> | null = null;
 	try {
 		createdUser = await dbOps.users.createAuthUser({
 			email: normalizedEmail,
 			passwordHash,
-			role: 'manager',
+			role: SELF_SERVICE_DEFAULT_ROLE,
 			firstName: input.firstName?.trim() || null,
 			lastName: input.lastName?.trim() || null,
 			status: 'active'
@@ -397,7 +435,7 @@ export const registerWithPassword = async (
 	await dbOps.userClients.ensureMembership({
 		userId: createdUser.id,
 		clientId: DEFAULT_CLIENT.id,
-		role: 'manager',
+		role: SELF_SERVICE_DEFAULT_ROLE,
 		status: 'active',
 		isDefault: true
 	});
@@ -406,6 +444,6 @@ export const registerWithPassword = async (
 	const userForSession = loginMarkedUser ?? createdUser;
 	return await createSessionForUser(event, dbOps, userForSession, sessionSecret, {
 		activeClientId: DEFAULT_CLIENT.id,
-		activeRole: 'manager'
+		activeRole: SELF_SERVICE_DEFAULT_ROLE
 	});
 };

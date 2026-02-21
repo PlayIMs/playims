@@ -21,3 +21,5 @@ export * from './audit-logs';
 export * from './themes';
 export * from './sessions';
 export * from './user-clients';
+export * from './signup-invite-keys';
+export * from './auth-rate-limits';

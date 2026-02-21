@@ -7,6 +7,7 @@ import {
 	AUTH_PASSWORD_PROVIDER,
 	AUTH_SESSION_ABSOLUTE_TTL_MS,
 	AUTH_SESSION_COOKIE_NAME,
+	AUTH_SESSION_COOKIE_NAME_LEGACY,
 	AUTH_SESSION_RENEW_WINDOW_MS,
 	AUTH_SESSION_TTL_MS,
 	AUTH_SESSION_TTL_SECONDS
@@ -69,23 +70,37 @@ const getCookieOptions = (event: RequestEvent) => ({
 	maxAge: AUTH_SESSION_TTL_SECONDS
 });
 
+const resolveSessionCookieName = (event: RequestEvent) =>
+	resolveCookieSecure(event) ? AUTH_SESSION_COOKIE_NAME : AUTH_SESSION_COOKIE_NAME_LEGACY;
+
+const getSessionCookieToken = (event: RequestEvent): string | null =>
+	event.cookies.get(AUTH_SESSION_COOKIE_NAME) ?? event.cookies.get(AUTH_SESSION_COOKIE_NAME_LEGACY) ?? null;
+
 /**
  * Writes the session cookie. Raw token never leaves cookie storage.
  */
 export const setSessionCookie = (event: RequestEvent, token: string) => {
-	event.cookies.set(AUTH_SESSION_COOKIE_NAME, token, getCookieOptions(event));
+	event.cookies.set(resolveSessionCookieName(event), token, getCookieOptions(event));
 };
 
 /**
  * Removes the session cookie from browser storage.
  */
 export const clearSessionCookie = (event: RequestEvent) => {
-	event.cookies.delete(AUTH_SESSION_COOKIE_NAME, {
-		path: '/',
-		httpOnly: true,
-		sameSite: 'lax',
-		secure: resolveCookieSecure(event)
-	});
+	for (const secure of [true, false]) {
+		event.cookies.delete(AUTH_SESSION_COOKIE_NAME, {
+			path: '/',
+			httpOnly: true,
+			sameSite: 'lax',
+			secure
+		});
+		event.cookies.delete(AUTH_SESSION_COOKIE_NAME_LEGACY, {
+			path: '/',
+			httpOnly: true,
+			sameSite: 'lax',
+			secure
+		});
+	}
 };
 
 /**
@@ -253,7 +268,7 @@ export const resolveSessionFromRequest = async (
 	dbOps: DatabaseOperations,
 	sessionSecret: string
 ) => {
-	const rawToken = event.cookies.get(AUTH_SESSION_COOKIE_NAME);
+	const rawToken = getSessionCookieToken(event);
 	if (!rawToken) {
 		return null;
 	}

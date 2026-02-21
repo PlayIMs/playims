@@ -19,6 +19,8 @@ import { ThemeOperations } from './themes.js';
 import { SessionOperations } from './sessions.js';
 import { UserClientOperations } from './user-clients.js';
 import { ClientDatabaseRouteOperations } from './client-database-routes.js';
+import { SignupInviteKeyOperations } from './signup-invite-keys.js';
+import { AuthRateLimitOperations } from './auth-rate-limits.js';
 
 /**
  * Unified database operations class
@@ -41,6 +43,8 @@ export class DatabaseOperations {
 	public sessions: SessionOperations;
 	public userClients: UserClientOperations;
 	public clientDatabaseRoutes: ClientDatabaseRouteOperations;
+	public signupInviteKeys: SignupInviteKeyOperations;
+	public authRateLimits: AuthRateLimitOperations;
 
 	constructor(platformOrDb: { env: { DB: D1Database } } | D1Database) {
 		let db: D1Database;
@@ -81,6 +85,8 @@ export class DatabaseOperations {
 		this.sessions = new SessionOperations(drizzleDb);
 		this.userClients = new UserClientOperations(drizzleDb);
 		this.clientDatabaseRoutes = new ClientDatabaseRouteOperations(drizzleDb);
+		this.signupInviteKeys = new SignupInviteKeyOperations(drizzleDb);
+		this.authRateLimits = new AuthRateLimitOperations(drizzleDb);
 	}
 }
 
@@ -101,3 +107,5 @@ export { ThemeOperations } from './themes.js';
 export { SessionOperations } from './sessions.js';
 export { UserClientOperations } from './user-clients.js';
 export { ClientDatabaseRouteOperations } from './client-database-routes.js';
+export { SignupInviteKeyOperations } from './signup-invite-keys.js';
+export { AuthRateLimitOperations } from './auth-rate-limits.js';

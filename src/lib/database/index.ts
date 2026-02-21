@@ -48,7 +48,11 @@ export type {
 	UserClient,
 	NewUserClient,
 	ClientDatabaseRoute,
-	NewClientDatabaseRoute
+	NewClientDatabaseRoute,
+	SignupInviteKey,
+	NewSignupInviteKey,
+	AuthRateLimit,
+	NewAuthRateLimit
 } from './schema/index.js';
 
 /**
