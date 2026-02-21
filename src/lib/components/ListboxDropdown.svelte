@@ -18,6 +18,7 @@
 	interface ListboxDropdownOption {
 		value: string;
 		label: string;
+		description?: string;
 		statusLabel?: string;
 		disabled?: boolean;
 		separatorBefore?: boolean;
@@ -633,23 +634,28 @@
 								aria-disabled="true"
 								class={`${optionDisabledInfoClassFor(option, index)} cursor-not-allowed`}
 							>
-								<span class="inline-flex items-center gap-2 min-w-0 text-neutral-700/50 cursor-not-allowed">
-									<span class="truncate">{option.label}</span>
-									{#if option.statusLabel}
-										<span
-											class="text-[10px] uppercase tracking-wide shrink-0 text-neutral-700/50"
-										>
-											({option.statusLabel})
+								<span class="inline-flex items-start gap-2 min-w-0 text-neutral-700/50 cursor-not-allowed">
+									<span class="min-w-0 flex-1 text-left">
+										<span class="inline-flex max-w-full items-center gap-2 min-w-0">
+											<span class="truncate">{option.label}</span>
+											{#if option.statusLabel}
+												<span
+													class="text-[10px] uppercase tracking-wide shrink-0 text-neutral-700/50"
+												>
+													({option.statusLabel})
+												</span>
+											{/if}
 										</span>
-									{/if}
+										{#if option.description}
+											<span
+												class="mt-0.5 block text-[11px] font-normal normal-case tracking-normal text-neutral-700/50"
+											>
+												{option.description}
+											</span>
+										{/if}
+									</span>
 									<HoverTooltip
 										text={optionTooltip ?? ''}
-										placement="right"
-										preferSide="right"
-										align="center"
-										minHorizontalGapPx={10}
-										offsetPx={10}
-										constrainToAncestorOverflow={false}
 										maxWidthClass="max-w-72"
 									>
 										<button
@@ -680,13 +686,22 @@
 									if (!option.disabled) activeIndex = index;
 								}}
 							>
-								<span class="inline-flex items-center gap-2 min-w-0">
-									<span class="truncate">{option.label}</span>
-									{#if option.statusLabel}
+								<span class="min-w-0 flex-1 text-left">
+									<span class="inline-flex max-w-full items-center gap-2 min-w-0">
+										<span class="truncate">{option.label}</span>
+										{#if option.statusLabel}
+											<span
+												class={`text-[10px] uppercase tracking-wide shrink-0 ${isSelectedOption ? 'text-white' : 'text-secondary-900'}`}
+											>
+												({option.statusLabel})
+											</span>
+										{/if}
+									</span>
+									{#if option.description}
 										<span
-											class={`text-[10px] uppercase tracking-wide shrink-0 ${isSelectedOption ? 'text-white' : 'text-secondary-900'}`}
+											class={`mt-0.5 block text-[11px] font-normal normal-case tracking-normal ${isSelectedOption ? 'text-white/85' : 'text-neutral-700'}`}
 										>
-											({option.statusLabel})
+											{option.description}
 										</span>
 									{/if}
 								</span>
