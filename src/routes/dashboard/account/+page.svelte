@@ -23,7 +23,7 @@
 	import IconTrash from '@tabler/icons-svelte/icons/trash';
 	import IconUser from '@tabler/icons-svelte/icons/user';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount, tick } from 'svelte';
 	import CreateOrganizationWizard from './_wizards/CreateOrganizationWizard.svelte';
 	import { WizardStepFooter, applyLiveSlugInput, slugifyFinal } from '$lib/components/wizard';
 
@@ -332,6 +332,7 @@
 	let createOrganizationFieldErrors = $state<Record<string, string>>({});
 	let accountSnapshotCollapsed = $state(false);
 	let accountSnapshotStorageHydrated = $state(false);
+	let copyUserIdResetTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	const ACCOUNT_SNAPSHOT_COLLAPSED_STORAGE_KEY = 'playims:account-snapshot-collapsed';
 
@@ -709,6 +710,13 @@
 		accountSnapshotStorageHydrated = true;
 	});
 
+	onDestroy(() => {
+		if (copyUserIdResetTimeout) {
+			clearTimeout(copyUserIdResetTimeout);
+			copyUserIdResetTimeout = null;
+		}
+	});
+
 	$effect(() => {
 		if (!accountSnapshotStorageHydrated) {
 			return;
@@ -724,10 +732,17 @@
 
 		try {
 			await navigator.clipboard.writeText(account.id);
+			if (copyUserIdResetTimeout) {
+				clearTimeout(copyUserIdResetTimeout);
+				copyUserIdResetTimeout = null;
+			}
+			copiedUserId = false;
+			await tick();
 			copiedUserId = true;
-			setTimeout(() => {
+			copyUserIdResetTimeout = setTimeout(() => {
 				copiedUserId = false;
-			}, 1400);
+				copyUserIdResetTimeout = null;
+			}, 60);
 		} catch {
 			copiedUserId = false;
 		}
@@ -1574,13 +1589,10 @@
 										aria-label="Copy account ID"
 									>
 										<span class="break-all">{account.id}</span>
-										<IconCopy class="w-3.5 h-3.5 shrink-0 mt-0.5" />
+										<IconCopy
+											class={`w-3.5 h-3.5 shrink-0 mt-0.5 ${copiedUserId ? 'text-green-500 transition-none' : 'text-neutral-950/70 transition-colors duration-[2000ms] ease-out'}`}
+										/>
 									</button>
-									{#if copiedUserId}
-										<p class="text-[10px] uppercase tracking-wide font-bold text-primary-800 mt-1">
-											Copied
-										</p>
-									{/if}
 								</div>
 							</div>
 						</div>
