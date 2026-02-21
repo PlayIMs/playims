@@ -11,6 +11,7 @@ const isActiveClient = (status: string | null | undefined): boolean =>
 
 const isActiveMembership = (status: string | null | undefined): boolean =>
 	(status?.trim().toLowerCase() ?? 'active') === 'active';
+const SELF_JOIN_DEFAULT_ROLE = 'player';
 
 export const POST: RequestHandler = async (event) => {
 	if (!event.platform?.env?.DB) {
@@ -75,7 +76,7 @@ export const POST: RequestHandler = async (event) => {
 	const membership = await dbOps.userClients.ensureMembership({
 		userId,
 		clientId: targetClient.id,
-		role: existingMembership?.role ?? 'manager',
+		role: existingMembership?.role ?? SELF_JOIN_DEFAULT_ROLE,
 		status: 'active',
 		isDefault: true,
 		updatedUser: userId,

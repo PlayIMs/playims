@@ -17,6 +17,15 @@ const sanitizeNextPath = (value: string | null | undefined) => {
 	return trimmed;
 };
 
+const resolvePostAuthRedirect = (nextPath: string | null | undefined, role: string | null | undefined) => {
+	const sanitizedNextPath = sanitizeNextPath(nextPath);
+	if (sanitizedNextPath) {
+		return sanitizedNextPath;
+	}
+
+	return hasAnyRole(role, DASHBOARD_ALLOWED_ROLES) ? '/dashboard' : '/';
+};
+
 const FIELD_LABELS: Record<string, string> = {
 	email: 'Email',
 	password: 'Password',
@@ -73,13 +82,12 @@ const mapRegisterAuthError = (error: AuthServiceError) => {
 
 // If already authenticated with required role, skip register page.
 export const load: PageServerLoad = async ({ locals, url }) => {
-	if (locals.user && hasAnyRole(locals.user.role, DASHBOARD_ALLOWED_ROLES)) {
-		const nextPath = sanitizeNextPath(url.searchParams.get('next'));
-		throw redirect(303, nextPath ?? '/dashboard');
+	if (locals.user && locals.session) {
+		throw redirect(303, resolvePostAuthRedirect(url.searchParams.get('next'), locals.user.role));
 	}
 
 	return {
-		next: sanitizeNextPath(url.searchParams.get('next')) ?? '/dashboard'
+		next: sanitizeNextPath(url.searchParams.get('next')) ?? ''
 	};
 };
 
@@ -90,7 +98,8 @@ export const actions: Actions = {
 		}
 
 		const formData = await event.request.formData();
-		const nextPath = sanitizeNextPath(formData.get('next')?.toString()) ?? '/dashboard';
+		const submittedNextPath = formData.get('next')?.toString();
+		const nextPath = sanitizeNextPath(submittedNextPath) ?? '';
 		const parsed = registerSchema.safeParse({
 			email: formData.get('email')?.toString(),
 			password: formData.get('password')?.toString(),
@@ -111,9 +120,10 @@ export const actions: Actions = {
 			});
 		}
 
+		let authResult: Awaited<ReturnType<typeof registerWithPassword>>;
 		try {
 			const dbOps = getCentralDbOps(event);
-			await registerWithPassword(event, dbOps, {
+			authResult = await registerWithPassword(event, dbOps, {
 				email: parsed.data.email,
 				password: parsed.data.password,
 				inviteKey: parsed.data.inviteKey,
@@ -145,6 +155,6 @@ export const actions: Actions = {
 			});
 		}
 
-		throw redirect(303, nextPath);
+		throw redirect(303, resolvePostAuthRedirect(submittedNextPath, authResult.session.role));
 	}
 };

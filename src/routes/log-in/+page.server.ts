@@ -22,6 +22,15 @@ const sanitizeNextPath = (value: string | null | undefined) => {
 	return trimmed;
 };
 
+const resolvePostAuthRedirect = (nextPath: string | null | undefined, role: string | null | undefined) => {
+	const sanitizedNextPath = sanitizeNextPath(nextPath);
+	if (sanitizedNextPath) {
+		return sanitizedNextPath;
+	}
+
+	return hasAnyRole(role, DASHBOARD_ALLOWED_ROLES) ? '/dashboard' : '/';
+};
+
 const FIELD_LABELS: Record<string, string> = {
 	email: 'Email',
 	password: 'Password'
@@ -65,13 +74,12 @@ const mapLoginAuthError = (error: AuthServiceError) => {
 
 // If already authenticated with required role, skip login page.
 export const load: PageServerLoad = async ({ locals, url }) => {
-	if (locals.user && hasAnyRole(locals.user.role, DASHBOARD_ALLOWED_ROLES)) {
-		const nextPath = sanitizeNextPath(url.searchParams.get('next'));
-		throw redirect(303, nextPath ?? '/dashboard');
+	if (locals.user && locals.session) {
+		throw redirect(303, resolvePostAuthRedirect(url.searchParams.get('next'), locals.user.role));
 	}
 
 	return {
-		next: sanitizeNextPath(url.searchParams.get('next')) ?? '/dashboard',
+		next: sanitizeNextPath(url.searchParams.get('next')) ?? '',
 		allowLocalDevLogin: isLocalhostHostname(url.hostname)
 	};
 };
@@ -83,14 +91,17 @@ export const actions: Actions = {
 		}
 
 		const formData = await event.request.formData();
-		const nextPath = sanitizeNextPath(formData.get('next')?.toString()) ?? '/dashboard';
+		const submittedNextPath = formData.get('next')?.toString();
+		const nextPath = sanitizeNextPath(submittedNextPath) ?? '';
 		const emailInput = formData.get('email')?.toString() ?? '';
 		const passwordInput = formData.get('password')?.toString() ?? '';
 
+		let resolvedSessionRole: string | null = null;
 		if (isLocalDevCredentialPair(emailInput, passwordInput)) {
 			try {
 				const dbOps = getCentralDbOps(event);
-				await loginWithLocalDevCredentials(event, dbOps);
+				const authResult = await loginWithLocalDevCredentials(event, dbOps);
+				resolvedSessionRole = authResult.session.role;
 			} catch (error) {
 				if (error instanceof AuthServiceError) {
 					const publicAuthError = mapLoginAuthError(error);
@@ -112,7 +123,7 @@ export const actions: Actions = {
 				});
 			}
 
-			throw redirect(303, nextPath);
+			throw redirect(303, resolvePostAuthRedirect(submittedNextPath, resolvedSessionRole));
 		}
 
 		const parsed = loginSchema.safeParse({
@@ -131,10 +142,11 @@ export const actions: Actions = {
 
 		try {
 			const dbOps = getCentralDbOps(event);
-			await loginWithPassword(event, dbOps, {
+			const authResult = await loginWithPassword(event, dbOps, {
 				email: parsed.data.email,
 				password: parsed.data.password
 			});
+			resolvedSessionRole = authResult.session.role;
 		} catch (error) {
 			if (error instanceof AuthServiceError) {
 				const publicAuthError = mapLoginAuthError(error);
@@ -156,6 +168,6 @@ export const actions: Actions = {
 			});
 		}
 
-		throw redirect(303, nextPath);
+		throw redirect(303, resolvePostAuthRedirect(submittedNextPath, resolvedSessionRole));
 	}
 };

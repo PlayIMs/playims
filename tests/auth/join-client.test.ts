@@ -87,7 +87,7 @@ describe('join-client endpoint', () => {
 		mocks.dbOps.userClients.ensureMembership.mockResolvedValue({
 			userId: 'user-1',
 			clientId: '33333333-3333-4333-8333-333333333333',
-			role: 'manager',
+			role: 'player',
 			status: 'active',
 			isDefault: 1
 		});
@@ -109,9 +109,16 @@ describe('join-client endpoint', () => {
 		expect(payload.success).toBe(true);
 		expect(payload.data.joinedNow).toBe(true);
 		expect(payload.data.clientId).toBe('33333333-3333-4333-8333-333333333333');
-		expect(payload.data.role).toBe('manager');
+		expect(payload.data.role).toBe('player');
 		expect(event.locals.session.activeClientId).toBe('33333333-3333-4333-8333-333333333333');
 		expect(event.locals.user.clientId).toBe('33333333-3333-4333-8333-333333333333');
+		expect(mocks.dbOps.userClients.ensureMembership).toHaveBeenCalledWith(
+			expect.objectContaining({
+				userId: 'user-1',
+				clientId: '33333333-3333-4333-8333-333333333333',
+				role: 'player'
+			})
+		);
 		expect(mocks.dbOps.sessions.updateClientContext).toHaveBeenCalledWith(
 			'session-1',
 			'33333333-3333-4333-8333-333333333333',
