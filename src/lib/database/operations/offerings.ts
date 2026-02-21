@@ -65,7 +65,7 @@ export class OfferingOperations {
 		minPlayers: number | null;
 		maxPlayers: number | null;
 		rulebookUrl: string | null;
-		sport: string;
+		sport: string | null;
 		type: 'league' | 'tournament';
 		description: string | null;
 		createdUser?: string | null;

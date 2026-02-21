@@ -53,6 +53,21 @@ Follow this structure:
 8. For any new info/help popover in wizards, use `src/lib/components/InfoPopover.svelte` and follow `$playims-info-popover-builder`; do not introduce ad-hoc popover implementations.
 9. For wizard-adjacent admin entry points, prefer `ListboxDropdown` footer actions (primary and optional secondary icon action) to keep context actions in-flow.
 
+### InfoPopover Placement In Wizards
+
+- Use the default `InfoPopover` trigger style (boxed icon button) for step-panel helpers, section headers, and standalone helper affordances.
+- For form-label-adjacent helpers (for example `Name` / `Slug` labels), use `buttonVariant="label-inline"` and a shared label row wrapper: `mb-1 flex min-h-6 items-center gap-1.5`.
+- Keep label text in the same row with `text-sm` and `leading-6` so fields align even when only one label has a popover.
+- Keep label-adjacent popover copy concise and supplemental; required guidance should still be visible inline near the field.
+- Keep `buttonAriaLabel` context-specific in both cases.
+
+### Slug Field Revert Control
+
+- For wizard slug inputs, include an inline revert icon button inside the input on the far right (`relative` wrapper + input `pr-10` + absolute icon button).
+- Use project `HoverTooltip` with text `Revert to default` for this action; do not use `InfoPopover` for the revert control.
+- Keep the revert icon button visually unboxed (`border-0 bg-transparent`) and out of keyboard tab order with `tabindex="-1"`.
+- Revert behavior must reset slug manual/touched state and restore the auto-generated default slug from the current source name(s).
+
 ## Workflow
 
 1. Ground current behavior.
@@ -112,6 +127,8 @@ Follow this structure:
 - If adding a new `/api/...` endpoint for the wizard, update security policy map and rate limiting in `src/hooks.server.ts` (`API_ROUTE_POLICIES` and `resolveRateLimitConfig`) to avoid 403 policy blocks.
 - For all newly added wizard select/dropdown controls, use `ListboxDropdown` and not native `<select>`.
 - For all newly added wizard info/help popovers, use `InfoPopover` and follow `$playims-info-popover-builder`; do not ship custom popover variants.
+- For all wizard form labels that include an info popover, use the shared label-row alignment pattern and `buttonVariant="label-inline"` for consistent field alignment.
+- For wizard slug fields, include the shared inline revert control with `HoverTooltip` and reset touched/manual flags when reverting.
 - For destructive wizard actions, do not rely on single-click confirmations; require typed confirmation when data loss scope is broad.
 - Do not allow step advancement when current-step validation fails; Next handlers must run explicit current-step validation before incrementing the step.
 - Keep scope to dashboard routes unless user expands scope.

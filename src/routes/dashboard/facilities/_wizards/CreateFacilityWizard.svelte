@@ -3,6 +3,7 @@
 	import IconPencil from '@tabler/icons-svelte/icons/pencil';
 	import IconRestore from '@tabler/icons-svelte/icons/restore';
 	import IconTrash from '@tabler/icons-svelte/icons/trash';
+	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import {
 		WizardDraftCollection,
 		WizardModal,
@@ -256,18 +257,37 @@
 					<label for="wizard-facility-slug" class="block text-sm font-sans text-neutral-950 mb-1"
 						>Slug <span class="text-error-700">*</span></label
 					>
-					<input
-						id="wizard-facility-slug"
-						type="text"
-						class="input-secondary"
-						placeholder="intramural-fields"
-						value={form.facility.slug}
-						oninput={(event) => {
-							onFacilitySlugTouchedChange(true);
-							form.facility.slug = applyLiveSlugInput(event.currentTarget as HTMLInputElement);
-						}}
-						autocomplete="off"
-					/>
+					<div class="relative">
+						<input
+							id="wizard-facility-slug"
+							type="text"
+							class="input-secondary pr-10"
+							placeholder="intramural-fields"
+							value={form.facility.slug}
+							oninput={(event) => {
+								onFacilitySlugTouchedChange(true);
+								form.facility.slug = applyLiveSlugInput(event.currentTarget as HTMLInputElement);
+							}}
+							autocomplete="off"
+						/>
+						<HoverTooltip
+							text="Revert to default"
+							wrapperClass="absolute right-2 top-1/2 -translate-y-1/2 inline-flex shrink-0 z-10"
+						>
+							<button
+								type="button"
+								tabindex="-1"
+								class="inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
+								aria-label="Revert facility slug to default"
+								onclick={() => {
+									onFacilitySlugTouchedChange(false);
+									form.facility.slug = slugifyFinal(form.facility.name);
+								}}
+							>
+								<IconRestore class="h-4 w-4" />
+							</button>
+						</HoverTooltip>
+					</div>
 					<p class="text-xs font-sans text-neutral-950 mt-1">Auto-formats to lowercase with dashes.</p>
 					{#if fieldErrors['facility.slug']}
 						<p class="text-xs text-error-700 mt-1">{fieldErrors['facility.slug']}</p>
@@ -495,19 +515,39 @@
 							<label for="wizard-area-slug" class="block text-sm font-sans text-neutral-950 mb-1"
 								>Slug <span class="text-error-700">*</span></label
 							>
-							<input
-								id="wizard-area-slug"
-								type="text"
-								class="input-secondary"
-								value={form.areaDraft.slug}
-								placeholder="field-1"
-								oninput={(event) => {
-									onWizardAreaSlugTouchedChange(true);
-									form.areaDraft.isSlugManual = true;
-									form.areaDraft.slug = applyLiveSlugInput(event.currentTarget as HTMLInputElement);
-								}}
-								autocomplete="off"
-							/>
+							<div class="relative">
+								<input
+									id="wizard-area-slug"
+									type="text"
+									class="input-secondary pr-10"
+									value={form.areaDraft.slug}
+									placeholder="field-1"
+									oninput={(event) => {
+										onWizardAreaSlugTouchedChange(true);
+										form.areaDraft.isSlugManual = true;
+										form.areaDraft.slug = applyLiveSlugInput(event.currentTarget as HTMLInputElement);
+									}}
+									autocomplete="off"
+								/>
+								<HoverTooltip
+									text="Revert to default"
+									wrapperClass="absolute right-2 top-1/2 -translate-y-1/2 inline-flex shrink-0 z-10"
+								>
+									<button
+										type="button"
+										tabindex="-1"
+										class="inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
+										aria-label="Revert area slug to default"
+										onclick={() => {
+											onWizardAreaSlugTouchedChange(false);
+											form.areaDraft.isSlugManual = false;
+											form.areaDraft.slug = slugifyFinal(form.areaDraft.name);
+										}}
+									>
+										<IconRestore class="h-4 w-4" />
+									</button>
+								</HoverTooltip>
+							</div>
 							{#if fieldErrors['areaDraft.slug']}
 								<p class="text-xs text-error-700 mt-1">{fieldErrors['areaDraft.slug']}</p>
 							{/if}

@@ -8,6 +8,7 @@
 	import IconPencil from '@tabler/icons-svelte/icons/pencil';
 	import IconPlus from '@tabler/icons-svelte/icons/plus';
 	import IconTrash from '@tabler/icons-svelte/icons/trash';
+	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 
 	interface Props {
 		title: string;
@@ -62,15 +63,16 @@
 <div class={containerClass}>
 	<div class="flex items-center justify-between gap-2">
 		<h3 class="text-sm font-bold font-sans text-neutral-950 uppercase tracking-wide">{title}</h3>
-		<button
-			type="button"
-			class="button-secondary-outlined p-1.5 cursor-pointer"
-			aria-label={`Add ${itemSingular}`}
-			title={`Add ${itemSingular}`}
-			onclick={onAdd}
-		>
-			<IconPlus class="w-4 h-4" />
-		</button>
+		<HoverTooltip text={`Add ${itemSingular}`}>
+			<button
+				type="button"
+				class="button-secondary-outlined p-1.5 cursor-pointer"
+				aria-label={`Add ${itemSingular}`}
+				onclick={onAdd}
+			>
+				<IconPlus class="w-4 h-4" />
+			</button>
+		</HoverTooltip>
 	</div>
 
 	{#if draftActive && showDraftNotice && draftNoticeText.trim().length > 0}
@@ -95,55 +97,60 @@
 						<div class="flex items-center gap-1">
 							{#if items.length > 1}
 								{#if itemIndex > 0}
-									<button
-										type="button"
-										class="button-secondary-outlined p-1.5 cursor-pointer"
-										aria-label={`Move ${itemSingular} up`}
-										title="Move up"
-										onclick={() => onMoveUp(itemIndex)}
-									>
-										<IconChevronUp class="w-4 h-4" />
-									</button>
+									<HoverTooltip text={`Move ${itemSingular} up`}>
+										<button
+											type="button"
+											class="button-secondary-outlined p-1.5 cursor-pointer"
+											aria-label={`Move ${itemSingular} up`}
+											onclick={() => onMoveUp(itemIndex)}
+										>
+											<IconChevronUp class="w-4 h-4" />
+										</button>
+									</HoverTooltip>
 								{/if}
 								{#if itemIndex < items.length - 1}
-									<button
-										type="button"
-										class="button-secondary-outlined p-1.5 cursor-pointer"
-										aria-label={`Move ${itemSingular} down`}
-										title="Move down"
-										onclick={() => onMoveDown(itemIndex)}
-									>
-										<IconChevronDown class="w-4 h-4" />
-									</button>
+									<HoverTooltip text={`Move ${itemSingular} down`}>
+										<button
+											type="button"
+											class="button-secondary-outlined p-1.5 cursor-pointer"
+											aria-label={`Move ${itemSingular} down`}
+											onclick={() => onMoveDown(itemIndex)}
+										>
+											<IconChevronDown class="w-4 h-4" />
+										</button>
+									</HoverTooltip>
 								{/if}
 							{/if}
-							<button
-								type="button"
-								class="button-secondary-outlined p-1.5 cursor-pointer"
-								aria-label={`Edit ${itemSingular}`}
-								title="Edit"
-								onclick={() => onEdit(itemIndex)}
-							>
-								<IconPencil class="w-4 h-4" />
-							</button>
-							<button
-								type="button"
-								class="button-secondary-outlined p-1.5 cursor-pointer"
-								aria-label={`Copy ${itemSingular}`}
-								title="Copy"
-								onclick={() => onCopy(itemIndex)}
-							>
-								<IconCopy class="w-4 h-4" />
-							</button>
-							<button
-								type="button"
-								class="button-secondary-outlined p-1.5 cursor-pointer"
-								aria-label={`Remove ${itemSingular}`}
-								title="Remove"
-								onclick={() => onRemove(itemIndex)}
-							>
-								<IconTrash class="w-4 h-4 text-error-700" />
-							</button>
+							<HoverTooltip text={`Edit ${itemSingular}`}>
+								<button
+									type="button"
+									class="button-secondary-outlined p-1.5 cursor-pointer"
+									aria-label={`Edit ${itemSingular}`}
+									onclick={() => onEdit(itemIndex)}
+								>
+									<IconPencil class="w-4 h-4" />
+								</button>
+							</HoverTooltip>
+							<HoverTooltip text={`Duplicate ${itemSingular}`}>
+								<button
+									type="button"
+									class="button-secondary-outlined p-1.5 cursor-pointer"
+									aria-label={`Duplicate ${itemSingular}`}
+									onclick={() => onCopy(itemIndex)}
+								>
+									<IconCopy class="w-4 h-4" />
+								</button>
+							</HoverTooltip>
+							<HoverTooltip text={`Remove ${itemSingular}`}>
+								<button
+									type="button"
+									class="button-secondary-outlined p-1.5 cursor-pointer"
+									aria-label={`Remove ${itemSingular}`}
+									onclick={() => onRemove(itemIndex)}
+								>
+									<IconTrash class="w-4 h-4 text-error-700" />
+								</button>
+							</HoverTooltip>
 						</div>
 					</div>
 					{@render itemBody?.(item, itemIndex)}

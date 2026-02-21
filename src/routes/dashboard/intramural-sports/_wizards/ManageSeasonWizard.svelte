@@ -9,6 +9,7 @@
 	import IconX from '@tabler/icons-svelte/icons/x';
 	import { createEventDispatcher, tick } from 'svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
+	import InfoPopover from '$lib/components/InfoPopover.svelte';
 	import ModalShell from '$lib/components/modals/ModalShell.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import { WizardModal } from '$lib/components/wizard';
@@ -557,17 +558,49 @@
 						{/if}
 					</div>
 					<div>
-						<label for="manage-season-slug" class="block text-sm text-neutral-950 mb-1">Slug</label>
-						<input
-							id="manage-season-slug"
-							type="text"
-							class="input-secondary"
-							value={slug}
-							oninput={(event) => {
-								slug = normalizeSlug((event.currentTarget as HTMLInputElement).value);
-							}}
-							disabled={isSubmitting}
-						/>
+						<div class="mb-1 flex min-h-6 items-center gap-1.5">
+							<label for="manage-season-slug" class="text-sm leading-6 text-neutral-950">Slug</label>
+							<InfoPopover
+								buttonAriaLabel="Season slug help"
+								buttonVariant="label-inline"
+								align="left"
+								panelWidthClass="w-80"
+							>
+								<div class="space-y-2">
+									<p>A slug is the URL-friendly identifier used in links and lookups.</p>
+									<p>Leave the default slug if you are unsure.</p>
+								</div>
+							</InfoPopover>
+						</div>
+						<div class="relative">
+							<input
+								id="manage-season-slug"
+								type="text"
+								class="input-secondary pr-10"
+								value={slug}
+								oninput={(event) => {
+									slug = normalizeSlug((event.currentTarget as HTMLInputElement).value);
+								}}
+								disabled={isSubmitting}
+							/>
+							<HoverTooltip
+								text="Revert to default"
+								wrapperClass="absolute right-2 top-1/2 -translate-y-1/2 inline-flex shrink-0 z-10"
+							>
+								<button
+									type="button"
+									tabindex="-1"
+									class="inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none disabled:cursor-not-allowed disabled:text-secondary-400"
+									aria-label="Revert season slug to default"
+									onclick={() => {
+										slug = normalizeSlug(name);
+									}}
+									disabled={isSubmitting}
+								>
+									<IconRestore class="h-4 w-4" />
+								</button>
+							</HoverTooltip>
+						</div>
 						{#if fieldErrors['slug']}
 							<p class="text-xs text-error-700 mt-1">{fieldErrors['slug']}</p>
 						{/if}

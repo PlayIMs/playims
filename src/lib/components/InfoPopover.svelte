@@ -4,6 +4,7 @@
 
 	interface Props {
 		buttonAriaLabel?: string;
+		buttonVariant?: 'default' | 'label-inline';
 		align?: 'left' | 'right';
 		panelWidthClass?: string;
 		buttonClass?: string;
@@ -14,13 +15,28 @@
 
 	let {
 		buttonAriaLabel = 'More information',
+		buttonVariant = 'default',
 		align = 'right',
 		panelWidthClass = 'w-72',
-		buttonClass = 'cursor-pointer p-1.5 border border-secondary-300 bg-neutral text-secondary-900 hover:bg-secondary-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-secondary-600',
+		buttonClass,
 		panelClass = 'z-10 border border-secondary-300 bg-white p-2 text-xs text-neutral-950 shadow-md',
-		iconClass = 'w-4 h-4',
+		iconClass,
 		children
 	}: Props = $props();
+
+	const DEFAULT_BUTTON_CLASS =
+		'cursor-pointer p-1.5 border border-secondary-300 bg-neutral text-secondary-900 hover:bg-secondary-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-secondary-600';
+	const LABEL_INLINE_BUTTON_CLASS =
+		'cursor-pointer inline-flex h-4 w-4 items-center justify-center p-0 text-secondary-900 hover:text-secondary-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-secondary-600';
+	const DEFAULT_ICON_CLASS = 'w-4 h-4';
+	const LABEL_INLINE_ICON_CLASS = 'w-3.5 h-3.5';
+	const resolvedButtonClass = $derived.by(() =>
+		buttonClass ??
+		(buttonVariant === 'label-inline' ? LABEL_INLINE_BUTTON_CLASS : DEFAULT_BUTTON_CLASS)
+	);
+	const resolvedIconClass = $derived.by(() =>
+		iconClass ?? (buttonVariant === 'label-inline' ? LABEL_INLINE_ICON_CLASS : DEFAULT_ICON_CLASS)
+	);
 
 	let open = $state(false);
 	let root = $state<HTMLDivElement | null>(null);
@@ -124,13 +140,13 @@
 <div class="relative shrink-0" bind:this={root}>
 	<button
 		type="button"
-		class={buttonClass}
+		class={resolvedButtonClass}
 		aria-label={buttonAriaLabel}
 		aria-haspopup="dialog"
 		aria-expanded={open}
 		onclick={toggleOpen}
 	>
-		<IconInfoCircle class={iconClass} />
+		<IconInfoCircle class={resolvedIconClass} />
 	</button>
 	{#if open}
 		<div bind:this={panel} class={`${panelWidthClass} ${panelClass}`} style={panelStyle}>

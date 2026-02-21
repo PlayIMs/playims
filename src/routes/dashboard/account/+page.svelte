@@ -18,10 +18,12 @@
 	import IconLock from '@tabler/icons-svelte/icons/lock';
 	import IconLogout from '@tabler/icons-svelte/icons/logout';
 	import IconPlus from '@tabler/icons-svelte/icons/plus';
+	import IconRestore from '@tabler/icons-svelte/icons/restore';
 	import IconShieldCheck from '@tabler/icons-svelte/icons/shield-check';
 	import IconSparkles from '@tabler/icons-svelte/icons/sparkles';
 	import IconTrash from '@tabler/icons-svelte/icons/trash';
 	import IconUser from '@tabler/icons-svelte/icons/user';
+	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import { onDestroy, onMount, tick } from 'svelte';
 	import CreateOrganizationWizard from './_wizards/CreateOrganizationWizard.svelte';
@@ -1819,20 +1821,41 @@
 							>
 								Organization Slug <span class="text-error-700">*</span>
 							</label>
-							<input
-								id="organization-wizard-slug"
-								type="text"
-								class="input-secondary"
-								placeholder="playims-campus"
-								value={createOrganizationForm.organizationSlug}
-								oninput={(event) => {
-									createOrganizationSlugTouched = true;
-									createOrganizationForm.organizationSlug = applyLiveSlugInput(
-										event.currentTarget as HTMLInputElement
-									);
-								}}
-								autocomplete="off"
-							/>
+							<div class="relative">
+								<input
+									id="organization-wizard-slug"
+									type="text"
+									class="input-secondary pr-10"
+									placeholder="playims-campus"
+									value={createOrganizationForm.organizationSlug}
+									oninput={(event) => {
+										createOrganizationSlugTouched = true;
+										createOrganizationForm.organizationSlug = applyLiveSlugInput(
+											event.currentTarget as HTMLInputElement
+										);
+									}}
+									autocomplete="off"
+								/>
+								<HoverTooltip
+									text="Revert to default"
+									wrapperClass="absolute right-2 top-1/2 -translate-y-1/2 inline-flex shrink-0 z-10"
+								>
+									<button
+										type="button"
+										tabindex="-1"
+										class="inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
+										aria-label="Revert organization slug to default"
+										onclick={() => {
+											createOrganizationSlugTouched = false;
+											createOrganizationForm.organizationSlug = slugifyFinal(
+												createOrganizationForm.organizationName
+											);
+										}}
+									>
+										<IconRestore class="h-4 w-4" />
+									</button>
+								</HoverTooltip>
+							</div>
 							<p class="text-xs font-sans text-neutral-950 mt-1">
 								Used for the join page URL: `/your-slug`
 							</p>

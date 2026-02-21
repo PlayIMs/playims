@@ -21,6 +21,7 @@ Read these files before editing:
 Treat this API as the baseline:
 - Optional props:
 - `buttonAriaLabel?: string` (default: `More information`)
+- `buttonVariant?: 'default' | 'label-inline'` (default: `default`)
 - `align?: 'left' | 'right'` (default: `right`)
 - `panelWidthClass?: string` (default: `w-72`)
 - `buttonClass?: string`
@@ -31,6 +32,7 @@ Treat this API as the baseline:
 
 Current default classes:
 - `buttonClass`: `cursor-pointer p-1.5 border border-secondary-300 bg-neutral text-secondary-900 hover:bg-secondary-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-secondary-600`
+- `buttonVariant='label-inline'` trigger: unboxed compact icon style for form-label rows
 - `panelClass`: `z-10 border border-secondary-300 bg-white p-2 text-xs text-neutral-950 shadow-md`
 - `iconClass`: `w-4 h-4`
 
@@ -51,10 +53,16 @@ Behavioral guarantees from current implementation:
 - Avoid generic labels like `Info`.
 3. Prefer default visual classes for consistency.
 - Override `buttonClass`, `panelClass`, or `panelWidthClass` only for concrete layout constraints.
-4. Use `align="right"` by default; switch to `align="left"` near right viewport edges to avoid clipping.
-5. Use paragraph blocks in popover content.
+4. For form-label-adjacent info buttons, use `buttonVariant="label-inline"` with a consistent label row wrapper.
+- Recommended wrapper: `mb-1 flex min-h-6 items-center gap-1.5`.
+- Keep label text class consistent with nearby labels (`text-sm ...`) and avoid one-off spacing tweaks.
+5. Keep `InfoPopover` scoped to explanatory help; do not use it for inline field actions.
+- For action affordances inside inputs (for example slug revert/reset icons), use project `HoverTooltip` instead.
+6. If a field label has both helper info and an in-input action icon, keep the helper in the shared label row and keep the action icon inside the input control.
+7. Use `align="right"` by default; switch to `align="left"` near right viewport edges to avoid clipping.
+8. Use paragraph blocks in popover content.
 - For multiple lines/paragraphs, wrap with `space-y-2` container and concise copy.
-6. Avoid interactive controls inside the popover panel.
+9. Avoid interactive controls inside the popover panel.
 - `InfoPopover` is for explanatory text; it is not a full focus-managed dialog/menu.
 
 Default usage:
@@ -72,6 +80,18 @@ Left-aligned wider panel example:
 		<p>Change this later in season settings if needed.</p>
 	</div>
 </InfoPopover>
+```
+
+Label-adjacent example:
+```svelte
+<div class="mb-1 flex min-h-6 items-center gap-1.5">
+	<label for="offering-slug" class="text-sm leading-6 font-sans text-neutral-950">
+		Slug
+	</label>
+	<InfoPopover buttonAriaLabel="Offering slug help" buttonVariant="label-inline" align="left">
+		<p>A slug is the URL-friendly identifier used in links and lookups.</p>
+	</InfoPopover>
+</div>
 ```
 
 ## Workflow
@@ -93,6 +113,8 @@ Left-aligned wider panel example:
 - Do not create custom outside-click or Escape handlers around `InfoPopover` unless fixing a specific bug.
 - Do not put required or compliance-critical instructions exclusively inside popovers.
 - Do not introduce one-off info icon/button styles when `InfoPopover` defaults are sufficient.
+- Do not handcraft label-popover alignment per field; use the shared label-row pattern + `buttonVariant="label-inline"`.
+- Do not use `InfoPopover` as a replacement for hover-only action tooltips (use `HoverTooltip` for inline actions such as slug revert controls).
 - Do not use `InfoPopover` for action menus, confirmations, or editable controls.
 - Keep `buttonAriaLabel` unique and context-specific for each popover instance.
 - Preserve existing route behavior and copy unless explicitly asked to rewrite UX text.

@@ -35,9 +35,11 @@
 	import IconHistory from '@tabler/icons-svelte/icons/history';
 	import IconPencil from '@tabler/icons-svelte/icons/pencil';
 	import IconPlus from '@tabler/icons-svelte/icons/plus';
+	import IconRestore from '@tabler/icons-svelte/icons/restore';
 	import IconShip from '@tabler/icons-svelte/icons/ship';
 	import IconTarget from '@tabler/icons-svelte/icons/target';
 	import IconTrash from '@tabler/icons-svelte/icons/trash';
+	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import InfoPopover from '$lib/components/InfoPopover.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
@@ -854,7 +856,10 @@
 	function openCreateSeasonWizardWithCopy(copyFromSeasonId?: string): void {
 		resetCreateSeasonWizard();
 		const normalizedSourceSeasonId = copyFromSeasonId?.trim() ?? '';
-		if (normalizedSourceSeasonId && seasons.some((season) => season.id === normalizedSourceSeasonId)) {
+		if (
+			normalizedSourceSeasonId &&
+			seasons.some((season) => season.id === normalizedSourceSeasonId)
+		) {
 			const duplicateCopyDefaults: WizardSeasonCopyInput = {
 				...createSeasonCopy,
 				enabled: true,
@@ -1280,14 +1285,12 @@
 		const seasonId = values.seasonId.trim();
 		const name = values.name.trim();
 		const slug = slugifyFinal(values.slug);
-		const sport = values.sport.trim();
 		const imageUrl = values.imageUrl.trim();
 		const rulebookUrl = values.rulebookUrl.trim();
 
 		if (!seasonId) errors['offering.seasonId'] = 'Season is required.';
 		if (!name) errors['offering.name'] = 'Offering name is required.';
 		if (!slug) errors['offering.slug'] = 'Offering slug is required.';
-		if (!sport) errors['offering.sport'] = 'Sport is required.';
 		if (!values.type) errors['offering.type'] = 'Type is required.';
 
 		if (imageUrl && !isValidUrl(imageUrl)) {
@@ -1302,15 +1305,16 @@
 		const hasMaxPlayers = values.maxPlayers > 0;
 
 		if (hasMinPlayers && (!Number.isInteger(values.minPlayers) || values.minPlayers < 1)) {
-			errors['offering.minPlayers'] = 'Min Players must be at least 1.';
+			errors['offering.minPlayers'] = 'Minimum roster players must be at least 1.';
 		}
 
 		if (hasMaxPlayers && (!Number.isInteger(values.maxPlayers) || values.maxPlayers < 1)) {
-			errors['offering.maxPlayers'] = 'Max Players must be at least 1.';
+			errors['offering.maxPlayers'] = 'Maximum roster players must be at least 1.';
 		}
 
 		if (hasMinPlayers && hasMaxPlayers && values.minPlayers > values.maxPlayers) {
-			errors['offering.maxPlayers'] = 'Max Players must be greater than or equal to Min Players.';
+			errors['offering.maxPlayers'] =
+				'Maximum roster players must be greater than or equal to minimum roster players.';
 		}
 
 		return errors;
@@ -1435,7 +1439,6 @@
 				'offering.seasonId',
 				'offering.name',
 				'offering.slug',
-				'offering.sport',
 				'offering.type',
 				'offering.description'
 			]);
@@ -1794,7 +1797,7 @@
 				minPlayers: normalizePlayerCountForRequest(createForm.offering.minPlayers),
 				maxPlayers: normalizePlayerCountForRequest(createForm.offering.maxPlayers),
 				rulebookUrl: normalizeOptionalUrlForRequest(createForm.offering.rulebookUrl),
-				sport: createForm.offering.sport.trim(),
+				sport: normalizeOptionalTextForRequest(createForm.offering.sport),
 				type: createForm.offering.type,
 				description: normalizeOptionalTextForRequest(createForm.offering.description)
 			},
@@ -3271,12 +3274,18 @@
 			createSeasonDeactivateExistingCurrent &&
 			Boolean(existingCurrentSeason?.isActive)
 	);
-	const createSeasonWizardStepCount = $derived.by(() =>
-		createSeasonCurrentTransitionRequired ? 4 : 3
-	);
+	const createSeasonCopyStepAvailable = $derived.by(() => seasons.length > 0);
+	const createSeasonVisibleSteps = $derived.by((): SeasonWizardStep[] => {
+		const steps: SeasonWizardStep[] = [1];
+		if (createSeasonCopyStepAvailable) steps.push(2);
+		if (createSeasonCurrentTransitionRequired) steps.push(3);
+		steps.push(4);
+		return steps;
+	});
+	const createSeasonWizardStepCount = $derived.by(() => createSeasonVisibleSteps.length);
 	const createSeasonDisplayStep = $derived.by(() => {
-		if (createSeasonCurrentTransitionRequired) return createSeasonStep;
-		return createSeasonStep === 4 ? 3 : createSeasonStep;
+		const currentStepIndex = createSeasonVisibleSteps.indexOf(createSeasonStep);
+		return currentStepIndex >= 0 ? currentStepIndex + 1 : 1;
 	});
 	const createSeasonCopySourceActivities = $derived.by(() =>
 		activities.filter((activity: Activity) => {
@@ -3765,12 +3774,22 @@
 		}
 		return visibleErrors;
 	});
-	const canGoNextCreateSeasonStep = $derived.by(
-		() =>
-			createSeasonStep < 4 &&
+	const canGoNextCreateSeasonStep = $derived.by(() => {
+		const currentStepIndex = createSeasonVisibleSteps.indexOf(createSeasonStep);
+		return (
+			currentStepIndex >= 0 &&
+			currentStepIndex < createSeasonVisibleSteps.length - 1 &&
 			Object.keys(clientCreateSeasonFieldErrors).length === 0 &&
 			!createSeasonSubmitting
-	);
+		);
+	});
+	const nextCreateSeasonLabel = $derived.by(() => {
+		const currentStepIndex = createSeasonVisibleSteps.indexOf(createSeasonStep);
+		if (currentStepIndex < 0 || currentStepIndex >= createSeasonVisibleSteps.length - 1) {
+			return 'Next';
+		}
+		return createSeasonVisibleSteps[currentStepIndex + 1] === 4 ? 'Review' : 'Next';
+	});
 	const canSubmitCreateSeason = $derived.by(
 		() =>
 			createSeasonStep === 4 &&
@@ -3842,33 +3861,32 @@
 
 	function nextCreateSeasonStep(): void {
 		clearCreateSeasonApiErrors();
-		if (createSeasonStep === 4 || createSeasonSubmitting) return;
-		const stepErrors = getSeasonStepClientErrors(createSeasonForm, createSeasonCopy, createSeasonStep);
+		if (createSeasonSubmitting) return;
+		const stepErrors = getSeasonStepClientErrors(
+			createSeasonForm,
+			createSeasonCopy,
+			createSeasonStep
+		);
 		if (Object.keys(stepErrors).length > 0) {
 			createSeasonStep = firstInvalidCreateSeasonStep(stepErrors);
 			return;
 		}
-		if (createSeasonStep === 2 && !createSeasonCurrentTransitionRequired) {
-			createSeasonStep = 4;
-			return;
-		}
-		createSeasonStep = (createSeasonStep + 1) as SeasonWizardStep;
+
+		const currentStepIndex = createSeasonVisibleSteps.indexOf(createSeasonStep);
+		if (currentStepIndex < 0 || currentStepIndex >= createSeasonVisibleSteps.length - 1) return;
+		createSeasonStep = createSeasonVisibleSteps[currentStepIndex + 1];
 	}
 
 	function previousCreateSeasonStep(): void {
 		clearCreateSeasonApiErrors();
-		if (createSeasonStep === 1) return;
-		if (createSeasonStep === 4 && !createSeasonCurrentTransitionRequired) {
-			createSeasonStep = 2;
-			return;
-		}
-		createSeasonStep = (createSeasonStep - 1) as SeasonWizardStep;
+		const currentStepIndex = createSeasonVisibleSteps.indexOf(createSeasonStep);
+		if (currentStepIndex <= 0) return;
+		createSeasonStep = createSeasonVisibleSteps[currentStepIndex - 1];
 	}
 
 	$effect(() => {
-		if (createSeasonStep === 3 && !createSeasonCurrentTransitionRequired) {
-			createSeasonStep = 4;
-		}
+		if (createSeasonVisibleSteps.includes(createSeasonStep)) return;
+		createSeasonStep = createSeasonVisibleSteps[createSeasonVisibleSteps.length - 1] ?? 1;
 	});
 
 	function previousCreateStep(): void {
@@ -4841,21 +4859,53 @@
 					{/if}
 				</div>
 				<div>
-					<label for="season-slug" class="block text-sm font-sans text-neutral-950 mb-1">
-						Slug <span class="text-error-700">*</span>
-					</label>
-					<input
-						id="season-slug"
-						type="text"
-						class="input-secondary"
-						value={createSeasonForm.slug}
-						placeholder="spring-2026"
-						oninput={(event) => {
-							seasonSlugTouched = true;
-							createSeasonForm.slug = applyLiveSlugInput(event.currentTarget as HTMLInputElement);
-						}}
-						autocomplete="off"
-					/>
+					<div class="mb-1 flex min-h-6 items-center gap-1.5">
+						<label for="season-slug" class="text-sm leading-6 font-sans text-neutral-950">
+							Slug <span class="text-error-700">*</span>
+						</label>
+						<InfoPopover
+							buttonAriaLabel="Season slug help"
+							buttonVariant="label-inline"
+							align="left"
+							panelWidthClass="w-80"
+						>
+							<div class="space-y-2">
+								<p>A slug is the URL-friendly identifier used in links and lookups.</p>
+								<p>Leave the default slug if you are unsure.</p>
+							</div>
+						</InfoPopover>
+					</div>
+					<div class="relative">
+						<input
+							id="season-slug"
+							type="text"
+							class="input-secondary pr-10"
+							value={createSeasonForm.slug}
+							placeholder="spring-2026"
+							oninput={(event) => {
+								seasonSlugTouched = true;
+								createSeasonForm.slug = applyLiveSlugInput(event.currentTarget as HTMLInputElement);
+							}}
+							autocomplete="off"
+						/>
+						<HoverTooltip
+							text="Revert to default"
+							wrapperClass="absolute right-2 top-1/2 -translate-y-1/2 inline-flex shrink-0 z-10"
+						>
+							<button
+								type="button"
+								tabindex="-1"
+								class="inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
+								aria-label="Revert season slug to default"
+								onclick={() => {
+									seasonSlugTouched = false;
+									createSeasonForm.slug = slugifyFinal(createSeasonForm.name);
+								}}
+							>
+								<IconRestore class="h-4 w-4" />
+							</button>
+						</HoverTooltip>
+					</div>
 					{#if createSeasonFieldErrors['season.slug']}
 						<p class="text-xs text-error-700 mt-1">{createSeasonFieldErrors['season.slug']}</p>
 					{/if}
@@ -4971,7 +5021,7 @@
 		</div>
 	{/if}
 
-	{#if createSeasonStep === 2}
+	{#if createSeasonStep === 2 && createSeasonCopyStepAvailable}
 		<div class="space-y-4">
 			<div class="border-2 border-secondary-300 bg-white p-4 space-y-4">
 				<div class="flex items-start justify-between gap-3">
@@ -5167,9 +5217,11 @@
 							<p class="text-[11px] uppercase tracking-wide font-bold text-secondary-900">
 								Copy Preview
 							</p>
-							<p class="text-sm font-semibold text-neutral-950 break-words">
-								{createSeasonCopySourceSeason?.name ?? 'No season selected'}
-							</p>
+							{#if createSeasonCopySourceSeason}
+								<p class="text-sm font-semibold text-neutral-950 break-words">
+									{createSeasonCopySourceSeason.name}
+								</p>
+							{/if}
 							<div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-neutral-950">
 								<div class="border border-secondary-300 bg-neutral p-2">
 									<p class="text-[11px] uppercase tracking-wide font-bold">Offerings</p>
@@ -5359,16 +5411,12 @@
 				</p>
 			</div>
 
-			<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
-				<h3 class="text-lg font-bold font-serif text-neutral-950">Copy Plan</h3>
-				{#if !createSeasonCopy.enabled}
-					<p class="text-sm text-neutral-950">
-						Season will be created without copying existing content.
-					</p>
-				{:else}
+			{#if createSeasonCopy.enabled && createSeasonCopySourceSeason}
+				<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
+					<h3 class="text-lg font-bold font-serif text-neutral-950">Copy Plan</h3>
 					<p class="text-sm text-neutral-950">
 						<span class="font-semibold">Source:</span>
-						{createSeasonCopySourceSeason?.name ?? 'Unknown'}
+						{createSeasonCopySourceSeason.name}
 					</p>
 					<p class="text-sm text-neutral-950">
 						<span class="font-semibold">Scope:</span>
@@ -5396,8 +5444,8 @@
 							? ''
 							: `, ${createSeasonCopyPreview.divisionCount} ${pluralize(createSeasonCopyPreview.divisionCount, 'division/group', 'divisions/groups')}`}
 					</p>
-				{/if}
-			</div>
+				</div>
+			{/if}
 
 			{#if createSeasonCurrentTransitionRequired && existingCurrentSeason}
 				<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
@@ -5426,10 +5474,7 @@
 			showBack={createSeasonStep > 1}
 			canGoNext={canGoNextCreateSeasonStep}
 			canSubmit={canSubmitCreateSeason}
-			nextLabel={createSeasonStep === 3 ||
-			(createSeasonStep === 2 && !createSeasonCurrentTransitionRequired)
-				? 'Review'
-				: 'Next'}
+			nextLabel={nextCreateSeasonLabel}
 			submitLabel="Create Season"
 			submittingLabel="Creating..."
 			isSubmitting={createSeasonSubmitting}
@@ -5532,25 +5577,26 @@
 									class="space-y-2 max-h-52 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 scrollbar-track-secondary-400"
 								>
 									{#each selectedOfferingLeagueTemplates as existingLeague}
-										<button
-											type="button"
-											class="w-full border border-secondary-300 bg-white p-2 flex items-center justify-between gap-3 text-left cursor-pointer hover:bg-neutral-200 active:bg-neutral-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-											title={`Copy ${wizardEntryUnitSingular()} settings`}
-											aria-label={`Copy ${existingLeague.name}`}
-											onclick={() => {
-												copyFromExistingLeagueTemplate(existingLeague);
-											}}
-										>
-											<span class="min-w-0">
-												<span class="block text-sm font-semibold text-neutral-950 truncate">
-													{existingLeague.name}
+										<HoverTooltip text={`Duplicate ${wizardEntryUnitSingular()} settings`}>
+											<button
+												type="button"
+												class="w-full border border-secondary-300 bg-white p-2 flex items-center justify-between gap-3 text-left cursor-pointer hover:bg-neutral-200 active:bg-neutral-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+												aria-label={`Duplicate ${existingLeague.name}`}
+												onclick={() => {
+													copyFromExistingLeagueTemplate(existingLeague);
+												}}
+											>
+												<span class="min-w-0">
+													<span class="block text-sm font-semibold text-neutral-950 truncate">
+														{existingLeague.name}
+													</span>
+													<span class="block text-xs text-neutral-900">
+														{getSeasonLabel(existingLeague.seasonId)}
+													</span>
 												</span>
-												<span class="block text-xs text-neutral-900">
-													{getSeasonLabel(existingLeague.seasonId)}
-												</span>
-											</span>
-											<IconCopy class="w-4 h-4 shrink-0" />
-										</button>
+												<IconCopy class="w-4 h-4 shrink-0" />
+											</button>
+										</HoverTooltip>
 									{/each}
 								</div>
 							</div>
@@ -5668,24 +5714,56 @@
 					</div>
 
 					<div>
-						<label for="league-wizard-slug" class="block text-sm font-sans text-neutral-950 mb-1"
-							>Slug <span class="text-error-700">*</span></label
-						>
-						<input
-							id="league-wizard-slug"
-							type="text"
-							class="input-secondary"
-							value={createLeagueForm.league.slug}
-							placeholder={wizardEntryType() === 'tournament' ? 'pool-a' : 'mens-soccer'}
-							oninput={(event) => {
-								createLeagueSlugTouched = true;
-								createLeagueForm.league.isSlugManual = true;
-								createLeagueForm.league.slug = applyLiveSlugInput(
-									event.currentTarget as HTMLInputElement
-								);
-							}}
-							autocomplete="off"
-						/>
+						<div class="mb-1 flex min-h-6 items-center gap-1.5">
+							<label for="league-wizard-slug" class="text-sm leading-6 font-sans text-neutral-950"
+								>Slug <span class="text-error-700">*</span></label
+							>
+							<InfoPopover buttonAriaLabel="League slug help" buttonVariant="label-inline" align="left">
+								<div class="space-y-2">
+									<p>A slug is the URL-friendly identifier used in links and lookups.</p>
+									<p>Leave the default slug if you are unsure.</p>
+								</div>
+							</InfoPopover>
+						</div>
+						<div class="relative">
+							<input
+								id="league-wizard-slug"
+								type="text"
+								class="input-secondary pr-10"
+								value={createLeagueForm.league.slug}
+								placeholder={wizardEntryType() === 'tournament' ? 'pool-a' : 'mens-soccer'}
+								oninput={(event) => {
+									createLeagueSlugTouched = true;
+									createLeagueForm.league.isSlugManual = true;
+									createLeagueForm.league.slug = applyLiveSlugInput(
+										event.currentTarget as HTMLInputElement
+									);
+								}}
+								autocomplete="off"
+							/>
+							<HoverTooltip
+								text="Revert to default"
+								wrapperClass="absolute right-2 top-1/2 -translate-y-1/2 inline-flex shrink-0 z-10"
+							>
+								<button
+									type="button"
+									tabindex="-1"
+									class="inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
+									aria-label="Revert league slug to default"
+									onclick={() => {
+										const offeringName = selectedLeagueWizardOffering?.name ?? '';
+										createLeagueSlugTouched = false;
+										createLeagueForm.league.isSlugManual = false;
+										createLeagueForm.league.slug = defaultLeagueSlug(
+											createLeagueForm.league.name,
+											offeringName
+										);
+									}}
+								>
+									<IconRestore class="h-4 w-4" />
+								</button>
+							</HoverTooltip>
+						</div>
 						{#if createLeagueFieldErrors['league.slug']}
 							<p class="text-xs text-error-700 mt-1">{createLeagueFieldErrors['league.slug']}</p>
 						{/if}
@@ -6019,15 +6097,16 @@
 				<div class="flex items-start justify-between gap-2">
 					<h3 class="text-lg font-bold font-serif text-neutral-950">Offering</h3>
 					{#if !createLeagueCopiedFromExisting}
-						<button
-							type="button"
-							class="button-secondary-outlined p-1.5 cursor-pointer"
-							aria-label="Edit offering"
-							title="Edit offering"
-							onclick={startEditingCreateLeagueOffering}
-						>
-							<IconPencil class="w-4 h-4" />
-						</button>
+						<HoverTooltip text="Edit offering">
+							<button
+								type="button"
+								class="button-secondary-outlined p-1.5 cursor-pointer"
+								aria-label="Edit offering"
+								onclick={startEditingCreateLeagueOffering}
+							>
+								<IconPencil class="w-4 h-4" />
+							</button>
+						</HoverTooltip>
 					{/if}
 				</div>
 				{#if selectedLeagueWizardOffering}
@@ -6051,15 +6130,16 @@
 					<h3 class="text-lg font-bold font-serif text-neutral-950">
 						{wizardEntryUnitTitlePlural()}
 					</h3>
-					<button
-						type="button"
-						class="button-secondary-outlined p-1.5 cursor-pointer"
-						aria-label={`Edit ${wizardEntryUnitPlural()}`}
-						title={`Edit ${wizardEntryUnitPlural()}`}
-						onclick={startEditingCreateLeagues}
-					>
-						<IconPencil class="w-4 h-4" />
-					</button>
+					<HoverTooltip text={`Edit ${wizardEntryUnitPlural()}`}>
+						<button
+							type="button"
+							class="button-secondary-outlined p-1.5 cursor-pointer"
+							aria-label={`Edit ${wizardEntryUnitPlural()}`}
+							onclick={startEditingCreateLeagues}
+						>
+							<IconPencil class="w-4 h-4" />
+						</button>
+					</HoverTooltip>
 				</div>
 				{#if createLeagueFieldErrors['leagues']}
 					<p class="text-xs text-error-700">{createLeagueFieldErrors['leagues']}</p>
@@ -6176,116 +6256,156 @@
 	onUnsavedCancel={cancelDiscardCreateWizard}
 >
 	{#if createStep === 1}
-		<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+		<div class="space-y-4">
 			<div>
-				<p class="block text-sm font-sans text-neutral-950 mb-1">
-					Season <span class="text-error-700">*</span>
-				</p>
-				<ListboxDropdown
-					options={seasonDropdownOptions}
-					value={createForm.offering.seasonId}
-					ariaLabel="Offering season"
-					buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
-					on:change={(event) => {
-						const nextSeasonId = event.detail.value;
-						createForm.offering.seasonId = nextSeasonId;
-						createForm.league.seasonId = nextSeasonId;
-						if (createForm.leagues.length > 0) {
-							createForm.leagues = createForm.leagues.map((league) => ({
-								...league,
-								seasonId: nextSeasonId
-							}));
-						}
-						clearCreateApiErrors();
-					}}
-				/>
-				{#if createFieldErrors['offering.seasonId']}
-					<p class="text-xs text-error-700 mt-1">{createFieldErrors['offering.seasonId']}</p>
-				{/if}
+				<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+					<div>
+						<label for="offering-name" class="block text-sm font-sans text-neutral-950 mb-1"
+							>Name <span class="text-error-700">*</span></label
+						>
+						<input
+							id="offering-name"
+							type="text"
+							class="input-secondary"
+							value={createForm.offering.name}
+							placeholder="Basketball"
+							oninput={(event) => {
+								const value = (event.currentTarget as HTMLInputElement).value;
+								createForm.offering.name = value;
+								if (!offeringSlugTouched) {
+									createForm.offering.slug = slugifyFinal(value);
+								}
+							}}
+							autocomplete="off"
+						/>
+						{#if createFieldErrors['offering.name']}
+							<p class="text-xs text-error-700 mt-1">{createFieldErrors['offering.name']}</p>
+						{/if}
+					</div>
+
+					<div>
+						<div class="mb-1 flex min-h-6 items-center gap-1.5">
+							<label for="offering-slug" class="text-sm leading-6 font-sans text-neutral-950"
+								>Slug <span class="text-error-700">*</span></label
+							>
+							<InfoPopover
+								buttonAriaLabel="Offering slug help"
+								buttonVariant="label-inline"
+								align="left"
+								panelWidthClass="w-80"
+							>
+								<div class="space-y-2">
+									<p>A slug is the URL-friendly identifier used in links and lookups.</p>
+									<p>Leave the default slug if you are unsure.</p>
+								</div>
+							</InfoPopover>
+						</div>
+						<div class="relative">
+							<input
+								id="offering-slug"
+								type="text"
+								class="input-secondary pr-10"
+								value={createForm.offering.slug}
+								placeholder="basketball"
+								oninput={(event) => {
+									offeringSlugTouched = true;
+									createForm.offering.slug = applyLiveSlugInput(
+										event.currentTarget as HTMLInputElement
+									);
+								}}
+								autocomplete="off"
+							/>
+							<HoverTooltip
+								text="Revert to default"
+								wrapperClass="absolute right-2 top-1/2 -translate-y-1/2 inline-flex shrink-0 z-10"
+							>
+								<button
+									type="button"
+									tabindex="-1"
+									class="inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
+									aria-label="Revert offering slug to default"
+									onclick={() => {
+										offeringSlugTouched = false;
+										createForm.offering.slug = slugifyFinal(createForm.offering.name);
+									}}
+								>
+									<IconRestore class="h-4 w-4" />
+								</button>
+							</HoverTooltip>
+						</div>
+						{#if createFieldErrors['offering.slug']}
+							<p class="text-xs text-error-700 mt-1">{createFieldErrors['offering.slug']}</p>
+						{/if}
+					</div>
+				</div>
+			</div>
+
+			<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+				<div>
+					<p class="block text-sm font-sans text-neutral-950 mb-1">
+						Season <span class="text-error-700">*</span>
+					</p>
+					<ListboxDropdown
+						options={seasonDropdownOptions}
+						value={createForm.offering.seasonId}
+						ariaLabel="Offering season"
+						buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
+						on:change={(event) => {
+							const nextSeasonId = event.detail.value;
+							createForm.offering.seasonId = nextSeasonId;
+							createForm.league.seasonId = nextSeasonId;
+							if (createForm.leagues.length > 0) {
+								createForm.leagues = createForm.leagues.map((league) => ({
+									...league,
+									seasonId: nextSeasonId
+								}));
+							}
+							clearCreateApiErrors();
+						}}
+					/>
+					{#if createFieldErrors['offering.seasonId']}
+						<p class="text-xs text-error-700 mt-1">{createFieldErrors['offering.seasonId']}</p>
+					{/if}
+				</div>
+
+				<div>
+					<p class="block text-sm font-sans text-neutral-950 mb-1">
+						Type <span class="text-error-700">*</span>
+					</p>
+					<ListboxDropdown
+						options={offeringTypeDropdownOptions}
+						value={createForm.offering.type}
+						ariaLabel="Offering type"
+						buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
+						on:change={(event) => {
+							createForm.offering.type = event.detail.value as 'league' | 'tournament';
+							clearCreateApiErrors();
+						}}
+					/>
+					{#if createFieldErrors['offering.type']}
+						<p class="text-xs text-error-700 mt-1">{createFieldErrors['offering.type']}</p>
+					{/if}
+				</div>
+
+				<div>
+					<label for="offering-sport" class="block text-sm font-sans text-neutral-950 mb-1"
+						>Sport</label
+					>
+					<input
+						id="offering-sport"
+						type="text"
+						class="input-secondary"
+						bind:value={createForm.offering.sport}
+						placeholder="Basketball (optional)"
+						autocomplete="off"
+					/>
+					{#if createFieldErrors['offering.sport']}
+						<p class="text-xs text-error-700 mt-1">{createFieldErrors['offering.sport']}</p>
+					{/if}
+				</div>
 			</div>
 
 			<div>
-				<label for="offering-name" class="block text-sm font-sans text-neutral-950 mb-1"
-					>Name <span class="text-error-700">*</span></label
-				>
-				<input
-					id="offering-name"
-					type="text"
-					class="input-secondary"
-					value={createForm.offering.name}
-					placeholder="Basketball"
-					oninput={(event) => {
-						const value = (event.currentTarget as HTMLInputElement).value;
-						createForm.offering.name = value;
-						if (!offeringSlugTouched) {
-							createForm.offering.slug = slugifyFinal(value);
-						}
-					}}
-					autocomplete="off"
-				/>
-				{#if createFieldErrors['offering.name']}
-					<p class="text-xs text-error-700 mt-1">{createFieldErrors['offering.name']}</p>
-				{/if}
-			</div>
-
-			<div>
-				<label for="offering-slug" class="block text-sm font-sans text-neutral-950 mb-1"
-					>Slug <span class="text-error-700">*</span></label
-				>
-				<input
-					id="offering-slug"
-					type="text"
-					class="input-secondary"
-					value={createForm.offering.slug}
-					placeholder="basketball"
-					oninput={(event) => {
-						offeringSlugTouched = true;
-						createForm.offering.slug = applyLiveSlugInput(event.currentTarget as HTMLInputElement);
-					}}
-					autocomplete="off"
-				/>
-				{#if createFieldErrors['offering.slug']}
-					<p class="text-xs text-error-700 mt-1">{createFieldErrors['offering.slug']}</p>
-				{/if}
-			</div>
-
-			<div>
-				<label for="offering-sport" class="block text-sm font-sans text-neutral-950 mb-1"
-					>Sport <span class="text-error-700">*</span></label
-				>
-				<input
-					id="offering-sport"
-					type="text"
-					class="input-secondary"
-					bind:value={createForm.offering.sport}
-					placeholder="Basketball"
-					autocomplete="off"
-				/>
-				{#if createFieldErrors['offering.sport']}
-					<p class="text-xs text-error-700 mt-1">{createFieldErrors['offering.sport']}</p>
-				{/if}
-			</div>
-
-			<div>
-				<p class="block text-sm font-sans text-neutral-950 mb-1">
-					Type <span class="text-error-700">*</span>
-				</p>
-				<ListboxDropdown
-					options={offeringTypeDropdownOptions}
-					value={createForm.offering.type}
-					ariaLabel="Offering type"
-					buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
-					on:change={(event) => {
-						createForm.offering.type = event.detail.value as 'league' | 'tournament';
-						clearCreateApiErrors();
-					}}
-				/>
-				{#if createFieldErrors['offering.type']}
-					<p class="text-xs text-error-700 mt-1">{createFieldErrors['offering.type']}</p>
-				{/if}
-			</div>
-
-			<div class="lg:col-span-2">
 				<label for="offering-description" class="block text-sm font-sans text-neutral-950 mb-1"
 					>Description</label
 				>
@@ -6310,7 +6430,7 @@
 				<div class="space-y-4 max-w-60">
 					<div>
 						<label for="offering-min-players" class="block text-sm font-sans text-neutral-950 mb-1"
-							>Min Players</label
+							>Min Roster Players</label
 						>
 						<input
 							id="offering-min-players"
@@ -6335,7 +6455,7 @@
 
 					<div>
 						<label for="offering-max-players" class="block text-sm font-sans text-neutral-950 mb-1"
-							>Max Players</label
+							>Max Roster Players</label
 						>
 						<input
 							id="offering-max-players"
@@ -6507,24 +6627,59 @@
 					</div>
 
 					<div>
-						<label for="league-slug" class="block text-sm font-sans text-neutral-950 mb-1"
-							>Slug <span class="text-error-700">*</span></label
-						>
-						<input
-							id="league-slug"
-							type="text"
-							class="input-secondary"
-							value={createForm.league.slug}
-							placeholder="mens-soccer"
-							oninput={(event) => {
-								leagueSlugTouched = true;
-								createForm.league.isSlugManual = true;
-								createForm.league.slug = applyLiveSlugInput(
-									event.currentTarget as HTMLInputElement
-								);
-							}}
-							autocomplete="off"
-						/>
+						<div class="mb-1 flex min-h-6 items-center gap-1.5">
+							<label for="league-slug" class="text-sm leading-6 font-sans text-neutral-950"
+								>Slug <span class="text-error-700">*</span></label
+							>
+							<InfoPopover
+								buttonAriaLabel="League or group slug help"
+								buttonVariant="label-inline"
+								align="left"
+							>
+								<div class="space-y-2">
+									<p>A slug is the URL-friendly identifier used in links and lookups.</p>
+									<p>Leave the default slug if you are unsure.</p>
+								</div>
+							</InfoPopover>
+						</div>
+						<div class="relative">
+							<input
+								id="league-slug"
+								type="text"
+								class="input-secondary pr-10"
+								value={createForm.league.slug}
+								placeholder="mens-soccer"
+								oninput={(event) => {
+									leagueSlugTouched = true;
+									createForm.league.isSlugManual = true;
+									createForm.league.slug = applyLiveSlugInput(
+										event.currentTarget as HTMLInputElement
+									);
+								}}
+								autocomplete="off"
+							/>
+							<HoverTooltip
+								text="Revert to default"
+								wrapperClass="absolute right-2 top-1/2 -translate-y-1/2 inline-flex shrink-0 z-10"
+							>
+								<button
+									type="button"
+									tabindex="-1"
+									class="inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
+									aria-label="Revert league slug to default"
+									onclick={() => {
+										leagueSlugTouched = false;
+										createForm.league.isSlugManual = false;
+										createForm.league.slug = defaultLeagueSlug(
+											createForm.league.name,
+											createForm.offering.name
+										);
+									}}
+								>
+									<IconRestore class="h-4 w-4" />
+								</button>
+							</HoverTooltip>
+						</div>
 						{#if createFieldErrors['league.slug']}
 							<p class="text-xs text-error-700 mt-1">{createFieldErrors['league.slug']}</p>
 						{/if}
@@ -6845,15 +7000,16 @@
 			<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
 				<div class="flex items-start justify-between gap-2">
 					<h3 class="text-lg font-bold font-serif text-neutral-950">Offering</h3>
-					<button
-						type="button"
-						class="button-secondary-outlined p-1.5 cursor-pointer"
-						aria-label="Edit offering"
-						title="Edit offering"
-						onclick={startEditingOffering}
-					>
-						<IconPencil class="w-4 h-4" />
-					</button>
+					<HoverTooltip text="Edit offering">
+						<button
+							type="button"
+							class="button-secondary-outlined p-1.5 cursor-pointer"
+							aria-label="Edit offering"
+							onclick={startEditingOffering}
+						>
+							<IconPencil class="w-4 h-4" />
+						</button>
+					</HoverTooltip>
 				</div>
 				<p class="text-sm text-neutral-950">
 					<span class="font-semibold">Name:</span>
@@ -6867,7 +7023,7 @@
 				</p>
 				<p class="text-sm text-neutral-950">
 					<span class="font-semibold">Sport:</span>
-					{createForm.offering.sport}
+					{createForm.offering.sport.trim() || 'Not specified'}
 					<span class="ml-3 font-semibold">Type:</span>
 					{createForm.offering.type === 'tournament' ? 'Tournament' : 'League'}
 				</p>
@@ -6879,7 +7035,7 @@
 				{/if}
 				{#if createForm.offering.minPlayers > 0 || createForm.offering.maxPlayers > 0}
 					<p class="text-sm text-neutral-950">
-						<span class="font-semibold">Players:</span>
+						<span class="font-semibold">Roster Players:</span>
 						{createForm.offering.minPlayers > 0 ? createForm.offering.minPlayers : 'N/A'} -
 						{createForm.offering.maxPlayers > 0 ? createForm.offering.maxPlayers : 'N/A'}
 					</p>
@@ -6891,15 +7047,16 @@
 					<h3 class="text-lg font-bold font-serif text-neutral-950">
 						{wizardUnitTitlePlural()}
 					</h3>
-					<button
-						type="button"
-						class="button-secondary-outlined p-1.5 cursor-pointer"
-						aria-label={`Edit ${wizardUnitPlural()}`}
-						title={`Edit ${wizardUnitPlural()}`}
-						onclick={startEditingLeagues}
-					>
-						<IconPencil class="w-4 h-4" />
-					</button>
+					<HoverTooltip text={`Edit ${wizardUnitPlural()}`}>
+						<button
+							type="button"
+							class="button-secondary-outlined p-1.5 cursor-pointer"
+							aria-label={`Edit ${wizardUnitPlural()}`}
+							onclick={startEditingLeagues}
+						>
+							<IconPencil class="w-4 h-4" />
+						</button>
+					</HoverTooltip>
 				</div>
 
 				{#if createFieldErrors['leagues']}

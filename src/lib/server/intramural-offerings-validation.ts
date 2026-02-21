@@ -119,10 +119,10 @@ const offeringInputSchema = z.object({
 	slug: slugField('Offering slug'),
 	isActive: z.boolean(),
 	imageUrl: optionalUrl('Offering image URL'),
-	minPlayers: optionalInt('Minimum players', 1, 100),
-	maxPlayers: optionalInt('Maximum players', 1, 100),
+	minPlayers: optionalInt('Minimum roster players', 1, 100),
+	maxPlayers: optionalInt('Maximum roster players', 1, 100),
 	rulebookUrl: optionalUrl('Rulebook URL'),
-	sport: requiredText('Sport', 80),
+	sport: optionalText('Sport', 80),
 	type: z.enum(['league', 'tournament']),
 	description: optionalText('Offering description', 2000)
 });
