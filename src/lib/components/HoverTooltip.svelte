@@ -191,7 +191,7 @@
 			id={tooltipId}
 			role="tooltip"
 			aria-live="polite"
-			class={`pointer-events-none z-[200] whitespace-normal break-words ${maxWidthClass} ${panelClass}`}
+			class={`pointer-events-none z-[300] whitespace-normal break-words ${maxWidthClass} ${panelClass}`}
 			style={panelStyle}
 			bind:this={panel}
 		>

@@ -558,8 +558,8 @@
 						{/if}
 					</div>
 					<div>
-						<div class="mb-1 flex min-h-6 items-center gap-1.5">
-							<label for="manage-season-slug" class="text-sm leading-6 text-neutral-950">Slug</label>
+						<div class="mb-1 flex h-5 items-center gap-1.5 leading-none">
+							<label for="manage-season-slug" class="text-sm leading-5 text-neutral-950">Slug</label>
 							<InfoPopover
 								buttonAriaLabel="Season slug help"
 								buttonVariant="label-inline"
@@ -585,12 +585,12 @@
 							/>
 							<HoverTooltip
 								text="Revert to default"
-								wrapperClass="absolute right-2 top-1/2 -translate-y-1/2 inline-flex shrink-0 z-10"
+								wrapperClass="absolute right-2 top-1/2 inline-flex shrink-0 z-10"
 							>
 								<button
 									type="button"
 									tabindex="-1"
-									class="inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none disabled:cursor-not-allowed disabled:text-secondary-400"
+									class="-translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none disabled:cursor-not-allowed disabled:text-secondary-400"
 									aria-label="Revert season slug to default"
 									onclick={() => {
 										slug = normalizeSlug(name);
@@ -741,3 +741,5 @@
 		</button>
 	</div>
 </ModalShell>
+
+

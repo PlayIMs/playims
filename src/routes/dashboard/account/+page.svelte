@@ -2053,12 +2053,12 @@
 								/>
 								<HoverTooltip
 									text="Revert to default"
-									wrapperClass="absolute right-2 top-1/2 -translate-y-1/2 inline-flex shrink-0 z-10"
+									wrapperClass="absolute right-2 top-1/2 inline-flex shrink-0 z-10"
 								>
 									<button
 										type="button"
 										tabindex="-1"
-										class="inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
+										class="-translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
 										aria-label="Revert organization slug to default"
 										onclick={() => {
 											createOrganizationSlugTouched = false;
@@ -2262,3 +2262,4 @@
 		</CreateOrganizationWizard>
 	{/if}
 </div>
+

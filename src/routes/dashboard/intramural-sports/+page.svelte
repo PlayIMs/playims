@@ -4859,8 +4859,8 @@
 					{/if}
 				</div>
 				<div>
-					<div class="mb-1 flex min-h-6 items-center gap-1.5">
-						<label for="season-slug" class="text-sm leading-6 font-sans text-neutral-950">
+					<div class="mb-1 flex h-5 items-center gap-1.5 leading-none">
+						<label for="season-slug" class="text-sm leading-5 font-sans text-neutral-950">
 							Slug <span class="text-error-700">*</span>
 						</label>
 						<InfoPopover
@@ -4890,12 +4890,12 @@
 						/>
 						<HoverTooltip
 							text="Revert to default"
-							wrapperClass="absolute right-2 top-1/2 -translate-y-1/2 inline-flex shrink-0 z-10"
+							wrapperClass="absolute right-2 top-1/2 inline-flex shrink-0 z-10"
 						>
 							<button
 								type="button"
 								tabindex="-1"
-								class="inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
+								class="-translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
 								aria-label="Revert season slug to default"
 								onclick={() => {
 									seasonSlugTouched = false;
@@ -5381,7 +5381,7 @@
 				</div>
 			{:else}
 				<div class="border-2 border-secondary-300 bg-white p-4">
-					<p class="text-sm text-neutral-950">
+					<p class="text-sm leading-5 text-neutral-950">
 						No current-season transition is needed for this season.
 					</p>
 				</div>
@@ -5393,17 +5393,17 @@
 		<div class="space-y-4">
 			<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
 				<h3 class="text-lg font-bold font-serif text-neutral-950">Season</h3>
-				<p class="text-sm text-neutral-950">
+				<p class="text-sm leading-5 text-neutral-950">
 					<span class="font-semibold">Name:</span>
 					{createSeasonForm.name || 'TBD'}
 					<span class="ml-3 font-semibold">Slug:</span>
 					{slugifyFinal(createSeasonForm.slug) || 'TBD'}
 				</p>
-				<p class="text-sm text-neutral-950">
+				<p class="text-sm leading-5 text-neutral-950">
 					<span class="font-semibold">Date Range:</span>
 					{formatReviewRange(createSeasonForm.startDate, createSeasonForm.endDate || null)}
 				</p>
-				<p class="text-sm text-neutral-950">
+				<p class="text-sm leading-5 text-neutral-950">
 					<span class="font-semibold">Status:</span>
 					{createSeasonForm.isActive ? 'Active' : 'Inactive'}
 					<span class="ml-3 font-semibold">Current:</span>
@@ -5414,15 +5414,15 @@
 			{#if createSeasonCopy.enabled && createSeasonCopySourceSeason}
 				<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
 					<h3 class="text-lg font-bold font-serif text-neutral-950">Copy Plan</h3>
-					<p class="text-sm text-neutral-950">
+					<p class="text-sm leading-5 text-neutral-950">
 						<span class="font-semibold">Source:</span>
 						{createSeasonCopySourceSeason.name}
 					</p>
-					<p class="text-sm text-neutral-950">
+					<p class="text-sm leading-5 text-neutral-950">
 						<span class="font-semibold">Scope:</span>
 						{seasonCopyScopeLabel(createSeasonCopy.scope)}
 					</p>
-					<p class="text-sm text-neutral-950">
+					<p class="text-sm leading-5 text-neutral-950">
 						<span class="font-semibold">Include divisions/groups:</span>
 						{createSeasonCopy.scope === 'offerings-only'
 							? 'No'
@@ -5430,7 +5430,7 @@
 								? 'Yes'
 								: 'No'}
 					</p>
-					<p class="text-sm text-neutral-950">
+					<p class="text-sm leading-5 text-neutral-950">
 						<span class="font-semibold">Estimated copy:</span>
 						{createSeasonCopyPreview.offeringCount}
 						{pluralize(createSeasonCopyPreview.offeringCount, 'offering', 'offerings')},
@@ -5450,14 +5450,14 @@
 			{#if createSeasonCurrentTransitionRequired && existingCurrentSeason}
 				<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
 					<h3 class="text-lg font-bold font-serif text-neutral-950">Current Season Transition</h3>
-					<p class="text-sm text-neutral-950">
+					<p class="text-sm leading-5 text-neutral-950">
 						<span class="font-semibold">{existingCurrentSeason.name}</span>
 						{createSeasonReplaceExistingCurrent
 							? ' will no longer be current.'
 							: ' will remain current.'}
 					</p>
 					{#if createSeasonReplaceExistingCurrent}
-						<p class="text-sm text-neutral-950">
+						<p class="text-sm leading-5 text-neutral-950">
 							<span class="font-semibold">Set inactive:</span>
 							{createSeasonWillDeactivateExistingCurrent ? 'Yes' : 'No'}
 						</p>
@@ -5518,7 +5518,7 @@
 		<div class="space-y-4">
 			{#if createLeagueOfferingOptions.length === 0}
 				<div class="border-2 border-secondary-300 bg-white p-4 space-y-3">
-					<p class="text-sm text-neutral-950">
+					<p class="text-sm leading-5 text-neutral-950">
 						Create an offering that matches this view before adding {wizardEntryUnitPlural()}.
 					</p>
 					<button
@@ -5714,8 +5714,8 @@
 					</div>
 
 					<div>
-						<div class="mb-1 flex min-h-6 items-center gap-1.5">
-							<label for="league-wizard-slug" class="text-sm leading-6 font-sans text-neutral-950"
+						<div class="mb-1 flex h-5 items-center gap-1.5 leading-none">
+							<label for="league-wizard-slug" class="text-sm leading-5 font-sans text-neutral-950"
 								>Slug <span class="text-error-700">*</span></label
 							>
 							<InfoPopover buttonAriaLabel="League slug help" buttonVariant="label-inline" align="left">
@@ -5743,12 +5743,12 @@
 							/>
 							<HoverTooltip
 								text="Revert to default"
-								wrapperClass="absolute right-2 top-1/2 -translate-y-1/2 inline-flex shrink-0 z-10"
+								wrapperClass="absolute right-2 top-1/2 inline-flex shrink-0 z-10"
 							>
 								<button
 									type="button"
 									tabindex="-1"
-									class="inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
+									class="-translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
 									aria-label="Revert league slug to default"
 									onclick={() => {
 										const offeringName = selectedLeagueWizardOffering?.name ?? '';
@@ -5839,7 +5839,7 @@
 		<div class="space-y-4">
 			{#if !createLeagueDraftActive}
 				<div class="border border-secondary-300 bg-white p-4">
-					<p class="text-sm font-sans text-neutral-950">
+					<p class="text-sm leading-5 font-sans text-neutral-950">
 						No {wizardEntryUnitSingular()} draft is open. Go back to {createLeagueStepTitle(2)}
 						and click the plus button to add one.
 					</p>
@@ -6110,18 +6110,18 @@
 					{/if}
 				</div>
 				{#if selectedLeagueWizardOffering}
-					<p class="text-sm text-neutral-950">
+					<p class="text-sm leading-5 text-neutral-950">
 						<span class="font-semibold">Name:</span>
 						{selectedLeagueWizardOffering.name}
 					</p>
-					<p class="text-sm text-neutral-950">
+					<p class="text-sm leading-5 text-neutral-950">
 						<span class="font-semibold">Type:</span>
 						{selectedLeagueWizardOffering.type === 'tournament' ? 'Tournament' : 'League'}
 						<span class="ml-3 font-semibold">Status:</span>
 						{selectedLeagueWizardOffering.isActive ? 'Active' : 'Inactive'}
 					</p>
 				{:else}
-					<p class="text-sm text-neutral-950">No offering selected.</p>
+					<p class="text-sm leading-5 text-neutral-950">No offering selected.</p>
 				{/if}
 			</div>
 
@@ -6284,8 +6284,8 @@
 					</div>
 
 					<div>
-						<div class="mb-1 flex min-h-6 items-center gap-1.5">
-							<label for="offering-slug" class="text-sm leading-6 font-sans text-neutral-950"
+						<div class="mb-1 flex h-5 items-center gap-1.5 leading-none">
+							<label for="offering-slug" class="text-sm leading-5 font-sans text-neutral-950"
 								>Slug <span class="text-error-700">*</span></label
 							>
 							<InfoPopover
@@ -6317,12 +6317,12 @@
 							/>
 							<HoverTooltip
 								text="Revert to default"
-								wrapperClass="absolute right-2 top-1/2 -translate-y-1/2 inline-flex shrink-0 z-10"
+								wrapperClass="absolute right-2 top-1/2 inline-flex shrink-0 z-10"
 							>
 								<button
 									type="button"
 									tabindex="-1"
-									class="inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
+									class="-translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
 									aria-label="Revert offering slug to default"
 									onclick={() => {
 										offeringSlugTouched = false;
@@ -6627,8 +6627,8 @@
 					</div>
 
 					<div>
-						<div class="mb-1 flex min-h-6 items-center gap-1.5">
-							<label for="league-slug" class="text-sm leading-6 font-sans text-neutral-950"
+						<div class="mb-1 flex h-5 items-center gap-1.5 leading-none">
+							<label for="league-slug" class="text-sm leading-5 font-sans text-neutral-950"
 								>Slug <span class="text-error-700">*</span></label
 							>
 							<InfoPopover
@@ -6660,12 +6660,12 @@
 							/>
 							<HoverTooltip
 								text="Revert to default"
-								wrapperClass="absolute right-2 top-1/2 -translate-y-1/2 inline-flex shrink-0 z-10"
+								wrapperClass="absolute right-2 top-1/2 inline-flex shrink-0 z-10"
 							>
 								<button
 									type="button"
 									tabindex="-1"
-									class="inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
+									class="-translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
 									aria-label="Revert league slug to default"
 									onclick={() => {
 										leagueSlugTouched = false;
@@ -6753,7 +6753,7 @@
 		<div class="space-y-4">
 			{#if !leagueDraftActive}
 				<div class="border border-secondary-300 bg-white p-4">
-					<p class="text-sm font-sans text-neutral-950">
+					<p class="text-sm leading-5 font-sans text-neutral-950">
 						No {wizardUnitSingular()} draft is open. Go back to {wizardStepTitle(3)} and click the plus
 						button to add one.
 					</p>
@@ -7011,30 +7011,30 @@
 						</button>
 					</HoverTooltip>
 				</div>
-				<p class="text-sm text-neutral-950">
+				<p class="text-sm leading-5 text-neutral-950">
 					<span class="font-semibold">Name:</span>
 					{createForm.offering.name}
 					<span class="ml-3 font-semibold">Slug:</span>
 					{slugifyFinal(createForm.offering.slug)}
 				</p>
-				<p class="text-sm text-neutral-950">
+				<p class="text-sm leading-5 text-neutral-950">
 					<span class="font-semibold">Season:</span>
 					{getSeasonLabel(createForm.offering.seasonId)}
 				</p>
-				<p class="text-sm text-neutral-950">
+				<p class="text-sm leading-5 text-neutral-950">
 					<span class="font-semibold">Sport:</span>
 					{createForm.offering.sport.trim() || 'Not specified'}
 					<span class="ml-3 font-semibold">Type:</span>
 					{createForm.offering.type === 'tournament' ? 'Tournament' : 'League'}
 				</p>
 				{#if createForm.offering.description.trim()}
-					<p class="text-sm text-neutral-950">
+					<p class="text-sm leading-5 text-neutral-950">
 						<span class="font-semibold">Description:</span>
 						{createForm.offering.description.trim()}
 					</p>
 				{/if}
 				{#if createForm.offering.minPlayers > 0 || createForm.offering.maxPlayers > 0}
-					<p class="text-sm text-neutral-950">
+					<p class="text-sm leading-5 text-neutral-950">
 						<span class="font-semibold">Roster Players:</span>
 						{createForm.offering.minPlayers > 0 ? createForm.offering.minPlayers : 'N/A'} -
 						{createForm.offering.maxPlayers > 0 ? createForm.offering.maxPlayers : 'N/A'}
@@ -7183,3 +7183,5 @@
 		}
 	}
 </style>
+
+

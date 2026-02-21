@@ -23,7 +23,7 @@
 		align = 'right',
 		panelWidthClass = 'w-72',
 		buttonClass,
-		panelClass = 'z-10 border border-secondary-300 bg-white p-2 text-xs text-neutral-950 shadow-md',
+		panelClass = 'z-[260] border border-secondary-300 bg-white p-2 text-xs text-neutral-950 shadow-md',
 		iconClass,
 		children
 	}: Props = $props();
