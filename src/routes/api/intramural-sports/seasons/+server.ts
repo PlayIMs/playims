@@ -3,6 +3,7 @@ import {
 	requireAuthenticatedClientId,
 	requireAuthenticatedUserId
 } from '$lib/server/client-context';
+import { normalizeRole } from '$lib/server/auth/rbac';
 import { getTenantD1Database, getTenantDbOps } from '$lib/server/database/context';
 import {
 	createIntramuralSeasonSchema,
@@ -978,6 +979,17 @@ export const DELETE: RequestHandler = async (event) => {
 	}
 
 	const input: DeleteIntramuralSeasonInput = parsed.data;
+	const requesterRole = normalizeRole(event.locals.user?.role);
+	if (requesterRole !== 'admin') {
+		return json(
+			{
+				success: false,
+				error: 'Only administrators can delete seasons.'
+			} satisfies DeleteIntramuralSeasonResponse,
+			{ status: 403 }
+		);
+	}
+
 	const clientId = requireAuthenticatedClientId(event.locals);
 	const dbOps = await getTenantDbOps(event, clientId);
 	const userId = requireAuthenticatedUserId(event.locals);
@@ -1023,10 +1035,6 @@ export const DELETE: RequestHandler = async (event) => {
 			);
 		}
 
-		if (targetSeason.isCurrent === 1 && fallbackCurrentSeason?.id) {
-			await dbOps.seasons.setCurrent(clientId, fallbackCurrentSeason.id, userId);
-		}
-
 		const deletedAt = new Date().toISOString();
 		const deleteBatchId = crypto.randomUUID();
 		const deleteReason = input.reason?.trim() || null;
@@ -1055,12 +1063,11 @@ export const DELETE: RequestHandler = async (event) => {
 				)
 		`;
 
-		await d1
-			.prepare(
+		const deleteStatements = [
+			d1.prepare(
 				`INSERT INTO delete_batches (id, client_id, season_id, season_name, reason, deleted_user, deleted_at, metadata)
 				 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-			)
-			.bind(
+			).bind(
 				deleteBatchId,
 				clientId,
 				targetSeason.id,
@@ -1072,48 +1079,38 @@ export const DELETE: RequestHandler = async (event) => {
 					source: 'intramural-seasons-api',
 					cascade: 'season-linked'
 				})
-			)
-			.run();
-
-		await d1
-			.prepare(`INSERT INTO seasons_deleted SELECT seasons.*, ?, ?, ?, ? FROM seasons WHERE id = ?`)
-			.bind(deleteBatchId, deletedAt, userId, deleteReason, targetSeason.id)
-			.run();
-		await d1
-			.prepare(
+			),
+			d1.prepare(`INSERT INTO seasons_deleted SELECT seasons.*, ?, ?, ?, ? FROM seasons WHERE id = ?`).bind(
+				deleteBatchId,
+				deletedAt,
+				userId,
+				deleteReason,
+				targetSeason.id
+			),
+			d1.prepare(
 				`INSERT INTO leagues_deleted
 				 SELECT leagues.*, ?, ?, ?, ?
 				 FROM leagues
 				 WHERE client_id = ? AND season_id = ?`
-			)
-			.bind(deleteBatchId, deletedAt, userId, deleteReason, clientId, targetSeason.id)
-			.run();
-		await d1
-			.prepare(
+			).bind(deleteBatchId, deletedAt, userId, deleteReason, clientId, targetSeason.id),
+			d1.prepare(
 				`INSERT INTO divisions_deleted
 				 SELECT divisions.*, ?, ?, ?, ?
 				 FROM divisions
 				 WHERE league_id IN (${leagueIdSubquery})`
-			)
-			.bind(deleteBatchId, deletedAt, userId, deleteReason, clientId, targetSeason.id)
-			.run();
-		await d1
-			.prepare(
+			).bind(deleteBatchId, deletedAt, userId, deleteReason, clientId, targetSeason.id),
+			d1.prepare(
 				`INSERT INTO teams_deleted
 				 SELECT teams.*, ?, ?, ?, ?
 				 FROM teams
 				 WHERE client_id = ? AND division_id IN (${divisionIdSubquery})`
-			)
-			.bind(deleteBatchId, deletedAt, userId, deleteReason, clientId, clientId, targetSeason.id)
-			.run();
-		await d1
-			.prepare(
+			).bind(deleteBatchId, deletedAt, userId, deleteReason, clientId, clientId, targetSeason.id),
+			d1.prepare(
 				`INSERT INTO rosters_deleted
 				 SELECT rosters.*, ?, ?, ?, ?
 				 FROM rosters
 				 WHERE client_id = ? AND team_id IN (${teamIdSubquery})`
-			)
-			.bind(
+			).bind(
 				deleteBatchId,
 				deletedAt,
 				userId,
@@ -1122,10 +1119,8 @@ export const DELETE: RequestHandler = async (event) => {
 				clientId,
 				clientId,
 				targetSeason.id
-			)
-			.run();
-		await d1
-			.prepare(
+			),
+			d1.prepare(
 				`INSERT INTO events_deleted
 				 SELECT events.*, ?, ?, ?, ?
 				 FROM events
@@ -1135,8 +1130,7 @@ export const DELETE: RequestHandler = async (event) => {
 						OR division_id IN (${divisionIdSubquery})
 						OR offering_id IN (${orphanOfferingIdSubquery})
 					 )`
-			)
-			.bind(
+			).bind(
 				deleteBatchId,
 				deletedAt,
 				userId,
@@ -1149,10 +1143,8 @@ export const DELETE: RequestHandler = async (event) => {
 				clientId,
 				targetSeason.id,
 				targetSeason.id
-			)
-			.run();
-		await d1
-			.prepare(
+			),
+			d1.prepare(
 				`INSERT INTO announcements_deleted
 				 SELECT announcements.*, ?, ?, ?, ?
 				 FROM announcements
@@ -1161,8 +1153,7 @@ export const DELETE: RequestHandler = async (event) => {
 						league_id IN (${leagueIdSubquery})
 						OR division_id IN (${divisionIdSubquery})
 					 )`
-			)
-			.bind(
+			).bind(
 				deleteBatchId,
 				deletedAt,
 				userId,
@@ -1172,10 +1163,8 @@ export const DELETE: RequestHandler = async (event) => {
 				targetSeason.id,
 				clientId,
 				targetSeason.id
-			)
-			.run();
-		await d1
-			.prepare(
+			),
+			d1.prepare(
 				`INSERT INTO brackets_deleted
 				 SELECT brackets.*, ?, ?, ?, ?
 				 FROM brackets
@@ -1184,8 +1173,7 @@ export const DELETE: RequestHandler = async (event) => {
 						league_id IN (${leagueIdSubquery})
 						OR division_id IN (${divisionIdSubquery})
 					 )`
-			)
-			.bind(
+			).bind(
 				deleteBatchId,
 				deletedAt,
 				userId,
@@ -1195,10 +1183,8 @@ export const DELETE: RequestHandler = async (event) => {
 				targetSeason.id,
 				clientId,
 				targetSeason.id
-			)
-			.run();
-		await d1
-			.prepare(
+			),
+			d1.prepare(
 				`INSERT INTO division_standings_deleted
 				 SELECT division_standings.*, ?, ?, ?, ?
 				 FROM division_standings
@@ -1208,8 +1194,7 @@ export const DELETE: RequestHandler = async (event) => {
 						OR division_id IN (${divisionIdSubquery})
 						OR team_id IN (${teamIdSubquery})
 					 )`
-			)
-			.bind(
+			).bind(
 				deleteBatchId,
 				deletedAt,
 				userId,
@@ -1222,10 +1207,8 @@ export const DELETE: RequestHandler = async (event) => {
 				clientId,
 				clientId,
 				targetSeason.id
-			)
-			.run();
-		await d1
-			.prepare(
+			),
+			d1.prepare(
 				`INSERT INTO bracket_entries_deleted
 				 SELECT bracket_entries.*, ?, ?, ?, ?
 				 FROM bracket_entries
@@ -1234,8 +1217,7 @@ export const DELETE: RequestHandler = async (event) => {
 						bracket_id IN (${bracketIdSubquery})
 						OR team_id IN (${teamIdSubquery})
 					 )`
-			)
-			.bind(
+			).bind(
 				deleteBatchId,
 				deletedAt,
 				userId,
@@ -1249,17 +1231,14 @@ export const DELETE: RequestHandler = async (event) => {
 				clientId,
 				clientId,
 				targetSeason.id
-			)
-			.run();
-		await d1
-			.prepare(
+			),
+			d1.prepare(
 				`INSERT INTO offerings_deleted
 				 SELECT offerings.*, ?, ?, ?, ?
 				 FROM offerings
 				 WHERE client_id = ?
 					 AND id IN (${orphanOfferingIdSubquery})`
-			)
-			.bind(
+			).bind(
 				deleteBatchId,
 				deletedAt,
 				userId,
@@ -1268,26 +1247,19 @@ export const DELETE: RequestHandler = async (event) => {
 				clientId,
 				targetSeason.id,
 				targetSeason.id
-			)
-			.run();
-
-		await d1
-			.prepare(
+			),
+			d1.prepare(
 				`DELETE FROM rosters
 				 WHERE client_id = ? AND team_id IN (${teamIdSubquery})`
-			)
-			.bind(clientId, clientId, clientId, targetSeason.id)
-			.run();
-		await d1
-			.prepare(
+			).bind(clientId, clientId, clientId, targetSeason.id),
+			d1.prepare(
 				`DELETE FROM bracket_entries
 				 WHERE client_id = ?
 					 AND (
 						bracket_id IN (${bracketIdSubquery})
 						OR team_id IN (${teamIdSubquery})
 					 )`
-			)
-			.bind(
+			).bind(
 				clientId,
 				clientId,
 				clientId,
@@ -1297,10 +1269,8 @@ export const DELETE: RequestHandler = async (event) => {
 				clientId,
 				clientId,
 				targetSeason.id
-			)
-			.run();
-		await d1
-			.prepare(
+			),
+			d1.prepare(
 				`DELETE FROM division_standings
 				 WHERE client_id = ?
 					 AND (
@@ -1308,8 +1278,7 @@ export const DELETE: RequestHandler = async (event) => {
 						OR division_id IN (${divisionIdSubquery})
 						OR team_id IN (${teamIdSubquery})
 					 )`
-			)
-			.bind(
+			).bind(
 				clientId,
 				clientId,
 				targetSeason.id,
@@ -1318,10 +1287,8 @@ export const DELETE: RequestHandler = async (event) => {
 				clientId,
 				clientId,
 				targetSeason.id
-			)
-			.run();
-		await d1
-			.prepare(
+			),
+			d1.prepare(
 				`DELETE FROM events
 				 WHERE client_id = ?
 					 AND (
@@ -1329,8 +1296,7 @@ export const DELETE: RequestHandler = async (event) => {
 						OR division_id IN (${divisionIdSubquery})
 						OR offering_id IN (${orphanOfferingIdSubquery})
 					 )`
-			)
-			.bind(
+			).bind(
 				clientId,
 				clientId,
 				targetSeason.id,
@@ -1339,57 +1305,47 @@ export const DELETE: RequestHandler = async (event) => {
 				clientId,
 				targetSeason.id,
 				targetSeason.id
-			)
-			.run();
-		await d1
-			.prepare(
+			),
+			d1.prepare(
 				`DELETE FROM announcements
 				 WHERE client_id = ?
 					 AND (
 						league_id IN (${leagueIdSubquery})
 						OR division_id IN (${divisionIdSubquery})
 					 )`
-			)
-			.bind(clientId, clientId, targetSeason.id, clientId, targetSeason.id)
-			.run();
-		await d1
-			.prepare(
+			).bind(clientId, clientId, targetSeason.id, clientId, targetSeason.id),
+			d1.prepare(
 				`DELETE FROM brackets
 				 WHERE client_id = ?
 					 AND (
 						league_id IN (${leagueIdSubquery})
 						OR division_id IN (${divisionIdSubquery})
 					 )`
-			)
-			.bind(clientId, clientId, targetSeason.id, clientId, targetSeason.id)
-			.run();
-		await d1
-			.prepare(
+			).bind(clientId, clientId, targetSeason.id, clientId, targetSeason.id),
+			d1.prepare(
 				`DELETE FROM teams
 				 WHERE client_id = ? AND division_id IN (${divisionIdSubquery})`
-			)
-			.bind(clientId, clientId, targetSeason.id)
-			.run();
-		await d1
-			.prepare(`DELETE FROM divisions WHERE league_id IN (${leagueIdSubquery})`)
-			.bind(clientId, targetSeason.id)
-			.run();
-		await d1
-			.prepare(`DELETE FROM leagues WHERE client_id = ? AND season_id = ?`)
-			.bind(clientId, targetSeason.id)
-			.run();
-		await d1
-			.prepare(
+			).bind(clientId, clientId, targetSeason.id),
+			d1.prepare(`DELETE FROM divisions WHERE league_id IN (${leagueIdSubquery})`).bind(
+				clientId,
+				targetSeason.id
+			),
+			d1.prepare(`DELETE FROM leagues WHERE client_id = ? AND season_id = ?`).bind(
+				clientId,
+				targetSeason.id
+			),
+			d1.prepare(
 				`DELETE FROM offerings
 				 WHERE client_id = ?
 					 AND id IN (${orphanOfferingIdSubquery})`
+			).bind(clientId, clientId, targetSeason.id, targetSeason.id),
+			d1.prepare(`DELETE FROM seasons WHERE client_id = ? AND id = ?`).bind(
+				clientId,
+				targetSeason.id
 			)
-			.bind(clientId, clientId, targetSeason.id, targetSeason.id)
-			.run();
-		await d1
-			.prepare(`DELETE FROM seasons WHERE client_id = ? AND id = ?`)
-			.bind(clientId, targetSeason.id)
-			.run();
+		];
+
+		await d1.batch(deleteStatements);
 
 		const remainingSeasons = await dbOps.seasons.getByClientId(clientId);
 		let currentSeasonId =
