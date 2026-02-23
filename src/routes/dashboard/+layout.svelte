@@ -16,6 +16,8 @@
 	import IconChevronLeft from '@tabler/icons-svelte/icons/chevron-left';
 	import IconChevronRight from '@tabler/icons-svelte/icons/chevron-right';
 	import IconMessageCircle from '@tabler/icons-svelte/icons/message-circle';
+	import IconArrowBackUp from '@tabler/icons-svelte/icons/arrow-back-up';
+	import { invalidateAll } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
@@ -76,31 +78,130 @@
 	});
 	const viewerEmail = $derived.by(() => data?.viewer?.email?.trim() ?? 'No email');
 	const isViewingAsPlayer = $derived.by(() => data?.authMode?.isViewingAsPlayer === true);
+	const shellInsetClass = $derived.by(() => (isViewingAsPlayer ? 'inset-4' : 'inset-0'));
+	const sidebarHeightClass = $derived.by(() =>
+		isViewingAsPlayer ? 'h-[calc(100dvh-2rem)]' : 'h-dvh'
+	);
+	const shellBorderOpacityClass = $derived.by(() =>
+		isViewingAsPlayer ? 'opacity-100' : 'opacity-0'
+	);
+	const viewingModeLabel = $derived.by(() => {
+		const effectiveRole = data?.authMode?.effectiveRole?.trim() ?? '';
+		if (effectiveRole.length > 0) {
+			return effectiveRole.toUpperCase();
+		}
+		return 'PLAYER';
+	});
+	const returnModeLabel = $derived.by(() => {
+		const baseRole = data?.authMode?.baseRole?.trim().toLowerCase() ?? '';
+		if (baseRole.length > 0) {
+			return baseRole;
+		}
+		return 'player';
+	});
+	let revertingViewMode = $state(false);
+	let viewModeBadgeError = $state('');
+
+	const exitViewMode = async () => {
+		if (!browser || !isViewingAsPlayer || revertingViewMode) {
+			return;
+		}
+
+		revertingViewMode = true;
+		viewModeBadgeError = '';
+		try {
+			const response = await fetch('/api/auth/view-as-player', {
+				method: 'POST',
+				headers: {
+					'content-type': 'application/json'
+				},
+				body: JSON.stringify({ enabled: false })
+			});
+
+			let payload: { error?: string } | null = null;
+			try {
+				payload = (await response.json()) as { error?: string };
+			} catch {
+				payload = null;
+			}
+
+			if (!response.ok) {
+				viewModeBadgeError = payload?.error ?? 'Unable to restore role view.';
+				await invalidateAll();
+				return;
+			}
+
+			await invalidateAll();
+		} catch {
+			viewModeBadgeError = 'Unable to restore role view.';
+		} finally {
+			revertingViewMode = false;
+		}
+	};
 
 	$effect(() => {
 		if (!browser) {
 			return;
 		}
 
-		const className = 'dashboard-shell-mounted';
-		document.documentElement.classList.add(className);
-		document.body.classList.add(className);
+		const html = document.documentElement;
+		const body = document.body;
+		const previousHtmlOverflow = html.style.overflow;
+		const previousHtmlScrollbarGutter = html.style.scrollbarGutter;
+		const previousBodyOverflow = body.style.overflow;
+		const previousBodyScrollbarGutter = body.style.scrollbarGutter;
+
+		html.style.overflow = 'hidden';
+		html.style.scrollbarGutter = 'auto';
+		body.style.overflow = 'hidden';
+		body.style.scrollbarGutter = 'auto';
 
 		return () => {
-			document.documentElement.classList.remove(className);
-			document.body.classList.remove(className);
+			html.style.overflow = previousHtmlOverflow;
+			html.style.scrollbarGutter = previousHtmlScrollbarGutter;
+			body.style.overflow = previousBodyOverflow;
+			body.style.scrollbarGutter = previousBodyScrollbarGutter;
 		};
 	});
 </script>
 
-<div class="dashboard-shell" class:dashboard-shell-player={isViewingAsPlayer}>
-	<div class="dashboard-shell-frame" aria-hidden="true"></div>
-	<div class="dashboard-shell-viewport bg-neutral">
-		<div class="dashboard-shell-content flex min-h-full">
+<div class="h-screen box-border">
+	<div
+		class="pointer-events-none fixed inset-0 z-50 shadow-[inset_0_0_0_1rem_var(--color-accent-500)] transition-opacity duration-220 {shellBorderOpacityClass}"
+		aria-hidden="true"
+	></div>
+	{#if isViewingAsPlayer}
+		<div class="fixed right-4 top-4 z-60 inline-flex h-7 items-stretch bg-accent-300 text-white">
+			<span
+				class="inline-flex items-center px-2 text-[0.6rem] font-bold leading-none tracking-[0.08em] cursor-default"
+			>
+				VIEWING AS {viewingModeLabel}
+			</span>
+			<HoverTooltip text={`Return to ${returnModeLabel} view`} wrapperClass="inline-flex self-stretch">
+				<button
+					type="button"
+					class="inline-flex h-full w-7 cursor-pointer items-center justify-center bg-accent-400 text-white transition-colors duration-150 hover:bg-accent-600 focus-visible:bg-accent-800 disabled:cursor-wait disabled:opacity-70"
+					aria-label="Return to organization role view"
+					disabled={revertingViewMode}
+					onclick={exitViewMode}
+				>
+					<IconArrowBackUp class="w-4 h-4" />
+				</button>
+			</HoverTooltip>
+		</div>
+		{#if viewModeBadgeError}
+			<p
+				class="fixed right-2 top-[2.15rem] z-60 border border-accent-900 bg-accent-800 px-2 py-0.5 text-[0.65rem] leading-none text-primary-100"
+			>
+				{viewModeBadgeError}
+			</p>
+		{/if}
+	{/if}
+	<div class="fixed overflow-auto bg-neutral-500 transition-[inset] duration-220 {shellInsetClass}">
+		<div class="flex min-h-full items-start">
 			<!-- Sidebar Navigation -->
 			<aside
-				class="dashboard-sidebar bg-primary text-white flex flex-col relative transition-[width] duration-220 {menuWidth} sticky top-0 self-start"
-				style="background-color: var(--color-primary-500);"
+				class="bg-primary text-white relative sticky top-0 self-start flex flex-col transition-[width] duration-220 {menuWidth} {sidebarHeightClass}"
 			>
 				<!-- Logo Area -->
 				<div
@@ -160,7 +261,6 @@
 
 				<div
 					class="absolute bottom-0 left-0 right-0 border-t border-primary-600 bg-primary-500 p-2"
-					style="background-color: var(--color-primary-500);"
 				>
 					{#if isSidebarOpen}
 						<div class="flex items-stretch gap-2">
@@ -240,68 +340,9 @@
 			</aside>
 
 			<!-- Main Content Area -->
-			<main class="flex-1 bg-neutral min-h-full">
+			<main class="min-h-full flex-1 bg-neutral">
 				{@render children()}
 			</main>
 		</div>
 	</div>
 </div>
-
-<style>
-	/* Retro flat design: no rounded corners */
-	* {
-		border-radius: 0 !important;
-	}
-
-	.dashboard-shell {
-		height: 100vh;
-		box-sizing: border-box;
-		--shell-inset: 0rem;
-		--shell-viewport-height: calc(100dvh - (var(--shell-inset) * 2));
-		--shell-border-opacity: 0;
-	}
-
-	.dashboard-shell-player {
-		--shell-inset: 1rem;
-		--shell-border-opacity: 1;
-	}
-
-	.dashboard-shell-frame {
-		position: fixed;
-		inset: 0;
-		box-shadow: inset 0 0 0 1rem var(--color-accent-500);
-		box-sizing: border-box;
-		opacity: var(--shell-border-opacity);
-		pointer-events: none;
-		z-index: 50;
-		transition: opacity 220ms ease;
-	}
-
-	.dashboard-shell-viewport {
-		position: fixed;
-		inset: var(--shell-inset);
-		overflow: auto;
-		background-color: var(--color-neutral-500);
-		transition: inset 220ms ease;
-	}
-
-	.dashboard-shell-content {
-		min-height: 100%;
-		align-items: flex-start;
-	}
-
-	.dashboard-sidebar {
-		height: var(--shell-viewport-height);
-		flex-shrink: 0;
-	}
-
-	:global(html.dashboard-shell-mounted) {
-		overflow: hidden;
-		scrollbar-gutter: auto !important;
-	}
-
-	:global(body.dashboard-shell-mounted) {
-		overflow: hidden;
-		scrollbar-gutter: auto !important;
-	}
-</style>
