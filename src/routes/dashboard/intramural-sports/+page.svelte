@@ -4034,10 +4034,12 @@
 											handleAddActionDropdown(event.detail.value);
 										}}
 									>
-										{#snippet trigger()}
-											<IconChevronDown class="w-4 h-4" />
-										{/snippet}
-									</ListboxDropdown>
+									{#snippet trigger(open)}
+										<IconChevronDown
+											class={`w-4 h-4 transition-transform duration-200 ${open ? 'rotate-180' : 'rotate-0'}`}
+										/>
+									{/snippet}
+								</ListboxDropdown>
 								</div>
 							{:else}
 								<button
@@ -4301,10 +4303,12 @@
 											handleAddActionDropdown(event.detail.value);
 										}}
 									>
-										{#snippet trigger()}
-											<IconChevronDown class="w-4 h-4" />
-										{/snippet}
-									</ListboxDropdown>
+									{#snippet trigger(open)}
+										<IconChevronDown
+											class={`w-4 h-4 transition-transform duration-200 ${open ? 'rotate-180' : 'rotate-0'}`}
+										/>
+									{/snippet}
+								</ListboxDropdown>
 								</div>
 							{:else}
 								<button
