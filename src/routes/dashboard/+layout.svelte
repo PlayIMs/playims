@@ -82,14 +82,9 @@
 			return;
 		}
 
-		const className = 'player-view-mode';
-		if (isViewingAsPlayer) {
-			document.documentElement.classList.add(className);
-			document.body.classList.add(className);
-		} else {
-			document.documentElement.classList.remove(className);
-			document.body.classList.remove(className);
-		}
+		const className = 'dashboard-shell-mounted';
+		document.documentElement.classList.add(className);
+		document.body.classList.add(className);
 
 		return () => {
 			document.documentElement.classList.remove(className);
@@ -98,14 +93,13 @@
 	});
 </script>
 
-<div class:player-view-shell={isViewingAsPlayer}>
-	<div class:player-view-content={isViewingAsPlayer}>
-		<div class={isViewingAsPlayer ? 'flex min-h-full' : 'flex min-h-screen'}>
+<div class="dashboard-shell" class:dashboard-shell-player={isViewingAsPlayer}>
+	<div class="dashboard-shell-frame" aria-hidden="true"></div>
+	<div class="dashboard-shell-viewport bg-neutral">
+		<div class="dashboard-shell-content flex min-h-full">
 			<!-- Sidebar Navigation -->
 			<aside
-				class="bg-primary text-white flex flex-col relative transition-[width] duration-200 {menuWidth} sticky top-0 {isViewingAsPlayer
-					? 'h-[calc(100vh-2rem)]'
-					: 'h-screen'}"
+				class="dashboard-sidebar bg-primary text-white flex flex-col relative transition-[width] duration-220 {menuWidth} sticky top-0 self-start"
 				style="background-color: var(--color-primary-500);"
 			>
 				<!-- Logo Area -->
@@ -246,7 +240,7 @@
 			</aside>
 
 			<!-- Main Content Area -->
-			<main class="flex-1 bg-neutral {isViewingAsPlayer ? 'min-h-full' : 'min-h-screen'}">
+			<main class="flex-1 bg-neutral min-h-full">
 				{@render children()}
 			</main>
 		</div>
@@ -259,26 +253,55 @@
 		border-radius: 0 !important;
 	}
 
-	/* View as mode shell */
-	.player-view-shell {
+	.dashboard-shell {
 		height: 100vh;
-		background-color: var(--color-green-500);
-		padding: 1rem;
 		box-sizing: border-box;
-		overflow: hidden;
+		--shell-inset: 0rem;
+		--shell-viewport-height: calc(100dvh - (var(--shell-inset) * 2));
+		--shell-border-opacity: 0;
 	}
 
-	.player-view-content {
-		height: 100%;
+	.dashboard-shell-player {
+		--shell-inset: 1rem;
+		--shell-border-opacity: 1;
+	}
+
+	.dashboard-shell-frame {
+		position: fixed;
+		inset: 0;
+		box-shadow: inset 0 0 0 1rem var(--color-accent-500);
+		box-sizing: border-box;
+		opacity: var(--shell-border-opacity);
+		pointer-events: none;
+		z-index: 50;
+		transition: opacity 220ms ease;
+	}
+
+	.dashboard-shell-viewport {
+		position: fixed;
+		inset: var(--shell-inset);
 		overflow: auto;
+		background-color: var(--color-neutral-500);
+		transition: inset 220ms ease;
 	}
 
-	:global(html.player-view-mode) {
-		overflow: hidden;
-		scrollbar-gutter: auto;
+	.dashboard-shell-content {
+		min-height: 100%;
+		align-items: flex-start;
 	}
 
-	:global(body.player-view-mode) {
+	.dashboard-sidebar {
+		height: var(--shell-viewport-height);
+		flex-shrink: 0;
+	}
+
+	:global(html.dashboard-shell-mounted) {
 		overflow: hidden;
+		scrollbar-gutter: auto !important;
+	}
+
+	:global(body.dashboard-shell-mounted) {
+		overflow: hidden;
+		scrollbar-gutter: auto !important;
 	}
 </style>
