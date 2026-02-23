@@ -3957,8 +3957,8 @@
 	{/if}
 
 	{#if seasonBoards.length === 0}
-		<div class="grid grid-cols-1 xl:grid-cols-[1.6fr_0.7fr] gap-6">
-			<section class="border-2 border-secondary-300 bg-neutral">
+		<div class="grid grid-cols-1 2xl:grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)] gap-6">
+			<section class="min-w-0 border-2 border-secondary-300 bg-neutral">
 				<div class="p-4 border-b border-secondary-300 bg-neutral-600/66 space-y-3">
 					<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
 						<div class="flex items-center gap-2">
@@ -4034,12 +4034,12 @@
 											handleAddActionDropdown(event.detail.value);
 										}}
 									>
-									{#snippet trigger(open)}
-										<IconChevronDown
-											class={`w-4 h-4 transition-transform duration-200 ${open ? 'rotate-180' : 'rotate-0'}`}
-										/>
-									{/snippet}
-								</ListboxDropdown>
+										{#snippet trigger(open)}
+											<IconChevronDown
+												class={`w-4 h-4 transition-transform duration-200 ${open ? 'rotate-180' : 'rotate-0'}`}
+											/>
+										{/snippet}
+									</ListboxDropdown>
 								</div>
 							{:else}
 								<button
@@ -4167,7 +4167,7 @@
 				</div>
 			</section>
 
-			<aside class="space-y-6">
+			<aside class="w-full min-w-0 space-y-6">
 				<section class="border-2 border-secondary-300 bg-neutral">
 					<div
 						class="p-4 border-b border-secondary-300 bg-neutral-600/66 flex items-center justify-between"
@@ -4192,7 +4192,7 @@
 					<div class="p-4 border-b border-secondary-300 bg-neutral-600/66">
 						<h2 class="text-xl font-bold font-serif text-neutral-950">Season Snapshot</h2>
 					</div>
-					<div class="p-4 grid grid-cols-3 gap-2">
+					<div class="grid grid-cols-2 gap-2 p-4 sm:grid-cols-3">
 						<div class="card-secondary-outlined">
 							<p class="text-[11px] uppercase tracking-wide text-neutral-950 font-bold">
 								Offerings
@@ -4228,8 +4228,8 @@
 			</aside>
 		</div>
 	{:else}
-		<div class="grid grid-cols-1 xl:grid-cols-[1.6fr_0.7fr] gap-6">
-			<section class="border-2 border-secondary-300 bg-neutral">
+		<div class="grid grid-cols-1 2xl:grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)] gap-6">
+			<section class="min-w-0 border-2 border-secondary-300 bg-neutral">
 				<div class="p-4 border-b border-secondary-300 bg-neutral-600/66 space-y-3">
 					<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
 						<div class="flex items-center gap-2">
@@ -4303,12 +4303,12 @@
 											handleAddActionDropdown(event.detail.value);
 										}}
 									>
-									{#snippet trigger(open)}
-										<IconChevronDown
-											class={`w-4 h-4 transition-transform duration-200 ${open ? 'rotate-180' : 'rotate-0'}`}
-										/>
-									{/snippet}
-								</ListboxDropdown>
+										{#snippet trigger(open)}
+											<IconChevronDown
+												class={`w-4 h-4 transition-transform duration-200 ${open ? 'rotate-180' : 'rotate-0'}`}
+											/>
+										{/snippet}
+									</ListboxDropdown>
 								</div>
 							{:else}
 								<button
@@ -4727,7 +4727,7 @@
 				{/if}
 			</section>
 
-			<aside class="space-y-6">
+			<aside class="w-full min-w-0 space-y-6">
 				<section class="border-2 border-secondary-300 bg-neutral">
 					<div
 						class="p-4 border-b border-secondary-300 bg-neutral-600/66 flex items-center justify-between"
@@ -4769,7 +4769,7 @@
 					<div class="p-4 border-b border-secondary-300 bg-neutral-600/66">
 						<h2 class="text-xl font-bold font-serif text-neutral-950">Season Snapshot</h2>
 					</div>
-					<div class="p-4 grid grid-cols-3 gap-2">
+					<div class="grid grid-cols-2 gap-2 p-4 sm:grid-cols-3">
 						<div class="card-secondary-outlined">
 							<p class="text-[11px] uppercase tracking-wide text-neutral-950 font-bold">
 								Offerings
@@ -5722,7 +5722,11 @@
 							<label for="league-wizard-slug" class="text-sm leading-5 font-sans text-neutral-950"
 								>Slug <span class="text-error-700">*</span></label
 							>
-							<InfoPopover buttonAriaLabel="League slug help" buttonVariant="label-inline" align="left">
+							<InfoPopover
+								buttonAriaLabel="League slug help"
+								buttonVariant="label-inline"
+								align="left"
+							>
 								<div class="space-y-2">
 									<p>A slug is the URL-friendly identifier used in links and lookups.</p>
 									<p>Leave the default slug if you are unsure.</p>
@@ -7187,5 +7191,3 @@
 		}
 	}
 </style>
-
-
