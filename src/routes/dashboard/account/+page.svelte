@@ -68,6 +68,8 @@
 		lastName: string;
 		cellPhone: string;
 		role: string;
+		baseRole: string;
+		isViewingAsPlayer: boolean;
 		status: string;
 		createdAt: string | null;
 		updatedAt: string | null;
@@ -1746,7 +1748,16 @@
 								<IconShieldCheck class="w-5 h-5 text-secondary-700 shrink-0 mt-0.5" />
 								<div>
 									<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">Role</p>
-									<p class="text-neutral-950">{account.role}</p>
+									<p class="text-neutral-950">
+										{#if account.isViewingAsPlayer}
+											Player (view mode)
+										{:else}
+											{account.role}
+										{/if}
+									</p>
+									{#if account.isViewingAsPlayer}
+										<p class="text-xs text-neutral-950 mt-0.5">Organization role: {account.baseRole}</p>
+									{/if}
 								</div>
 							</div>
 

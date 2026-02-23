@@ -32,15 +32,14 @@ If no `client_database_routes` row exists for a client, routing defaults to `cen
 - Join is allowed only when `clients.self_join_enabled = 1`.
 - Join sets active and default client membership immediately for the current session.
 
-## Deprecation: `users.client_id`
+## Identity Source of Truth
 
-`users.client_id` remains in schema temporarily for compatibility, but runtime auth/membership logic now relies on `user_clients`.
+Runtime auth and organization role resolution now exclusively rely on:
 
-Planned follow-up:
+- `user_clients` for org-scoped role membership (`admin`, `manager`, `player`, `dev`)
+- `sessions` for current org context + per-session view mode (`view_as_player`)
 
-1. Run with deprecated column unused for one stable release.
-2. Drop `users.client_id` in a dedicated migration.
-3. Remove leftover compatibility references in seed/docs.
+Legacy `users.client_id` and `users.role` were removed from the active schema. Global user identity remains in `users`, while org access is fully membership-driven.
 
 ## Future Isolation Cutover Checklist
 

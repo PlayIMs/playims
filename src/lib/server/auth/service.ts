@@ -4,7 +4,6 @@ import type { RequestEvent } from '@sveltejs/kit';
 import { AUTH_ENV_KEYS, AUTH_PBKDF2_DEFAULT_ITERATIONS } from './constants';
 import { isLocalhostRequest } from './local-dev';
 import { hashPassword, normalizeIterations, verifyPassword } from './password';
-import { DASHBOARD_ALLOWED_ROLES, hasAnyRole } from './rbac';
 import { createSessionForUser } from './session';
 
 /**
@@ -134,7 +133,7 @@ const throwRegistrationEmailAlreadyExists = (): never => {
 
 const resolveLoginMembership = async (
 	dbOps: DatabaseOperations,
-	user: { id: string; role: string | null; status: string | null }
+	user: { id: string; status: string | null }
 ) => {
 	const defaultMembership = await dbOps.userClients.getDefaultActiveForUser(user.id);
 	if (defaultMembership) {
@@ -153,15 +152,8 @@ const resolveLoginMembership = async (
 	);
 };
 
-const pickPreferredLocalDevUserId = (
-	users: Array<{ id?: string | null; role?: string | null; status?: string | null }>
-) => {
+const pickPreferredLocalDevUserId = (users: Array<{ id?: string | null; status?: string | null }>) => {
 	const activeUsers = users.filter((user) => user.status === 'active' && user.id);
-	const dashboardUser = activeUsers.find((user) => hasAnyRole(user.role, DASHBOARD_ALLOWED_ROLES));
-	if (dashboardUser?.id) {
-		return dashboardUser.id;
-	}
-
 	return activeUsers[0]?.id ?? null;
 };
 
@@ -183,7 +175,6 @@ const resolveLocalDevLoginUser = async (dbOps: DatabaseOperations) => {
 			fallbackUser = await dbOps.users.createAuthUser({
 				email: LOCAL_DEV_FALLBACK_EMAIL,
 				passwordHash: DUMMY_PASSWORD_HASH,
-				role: 'manager',
 				firstName: 'Local',
 				lastName: 'Developer',
 				status: 'active'
@@ -204,7 +195,7 @@ const resolveLocalDevLoginUser = async (dbOps: DatabaseOperations) => {
 	await dbOps.userClients.ensureMembership({
 		userId: fallbackUser.id,
 		clientId: DEFAULT_CLIENT.id,
-		role: 'manager',
+		role: 'dev',
 		status: 'active',
 		isDefault: true
 	});
@@ -419,7 +410,6 @@ export const registerWithPassword = async (
 		createdUser = await dbOps.users.createAuthUser({
 			email: normalizedEmail,
 			passwordHash,
-			role: SELF_SERVICE_DEFAULT_ROLE,
 			firstName: input.firstName?.trim() || null,
 			lastName: input.lastName?.trim() || null,
 			status: 'active'

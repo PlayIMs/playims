@@ -43,6 +43,7 @@ export class SessionOperations {
 				userAgent: data.userAgent ?? null,
 				locationCity: data.locationCity ?? null,
 				locationStation: data.locationStation ?? null,
+				viewAsPlayer: 0,
 				sessionVersion: 1
 			})
 			.returning();
@@ -99,6 +100,25 @@ export class SessionOperations {
 			.update(sessions)
 			.set({
 				clientId,
+				viewAsPlayer: 0,
+				lastSeenAt,
+				updatedAt: lastSeenAt
+			})
+			.where(and(eq(sessions.id, sessionId), isNull(sessions.revokedAt)))
+			.returning();
+
+		return result[0] ?? null;
+	}
+
+	async setViewAsPlayer(
+		sessionId: string,
+		enabled: boolean,
+		lastSeenAt: string
+	): Promise<Session | null> {
+		const result = await this.db
+			.update(sessions)
+			.set({
+				viewAsPlayer: enabled ? 1 : 0,
 				lastSeenAt,
 				updatedAt: lastSeenAt
 			})

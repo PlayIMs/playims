@@ -75,7 +75,6 @@ export class UserOperations {
 	async createAuthUser(data: {
 		email: string;
 		passwordHash: string;
-		role: 'admin' | 'manager' | 'player';
 		firstName?: string | null;
 		lastName?: string | null;
 		cellPhone?: string | null;
@@ -91,7 +90,6 @@ export class UserOperations {
 				id: crypto.randomUUID(),
 				email: normalizedEmail,
 				passwordHash: data.passwordHash,
-				role: data.role,
 				firstName: data.firstName ?? null,
 				lastName: data.lastName ?? null,
 				cellPhone: data.cellPhone ?? null,

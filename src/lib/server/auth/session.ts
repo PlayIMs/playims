@@ -12,7 +12,7 @@ import {
 	AUTH_SESSION_TTL_MS,
 	AUTH_SESSION_TTL_SECONDS
 } from './constants';
-import { normalizeRole } from './rbac';
+import { canViewAsPlayerRole, normalizeRole } from './rbac';
 
 /**
  * Session helper module.
@@ -183,22 +183,50 @@ const getClientLocation = (event: RequestEvent): {
 	};
 };
 
+const buildRoleContext = (input: {
+	baseRole: string | null | undefined;
+	requestedViewAsPlayer: boolean;
+}) => {
+	const baseRole = normalizeRole(input.baseRole);
+	const canViewAsPlayer = canViewAsPlayerRole(baseRole);
+	const isViewingAsPlayer = canViewAsPlayer && input.requestedViewAsPlayer;
+	const role = isViewingAsPlayer ? 'player' : baseRole;
+
+	return {
+		baseRole,
+		canViewAsPlayer,
+		isViewingAsPlayer,
+		role
+	};
+};
+
 const buildSafeUserWithContext = (
 	user: User,
 	context: {
 		activeClientId: string;
-		activeRole: string | null | undefined;
+		baseRole: string | null | undefined;
+		requestedViewAsPlayer: boolean;
 	}
-) => ({
-	id: user.id,
-	clientId: context.activeClientId,
-	email: user.email ?? '',
-	firstName: user.firstName ?? null,
-	lastName: user.lastName ?? null,
-	cellPhone: user.cellPhone ?? null,
-	role: normalizeRole(context.activeRole),
-	status: user.status ?? null
-});
+) => {
+	const roleContext = buildRoleContext({
+		baseRole: context.baseRole,
+		requestedViewAsPlayer: context.requestedViewAsPlayer
+	});
+
+	return {
+		id: user.id,
+		clientId: context.activeClientId,
+		email: user.email ?? '',
+		firstName: user.firstName ?? null,
+		lastName: user.lastName ?? null,
+		cellPhone: user.cellPhone ?? null,
+		role: roleContext.role,
+		baseRole: roleContext.baseRole,
+		canViewAsPlayer: roleContext.canViewAsPlayer,
+		isViewingAsPlayer: roleContext.isViewingAsPlayer,
+		status: user.status ?? null
+	};
+};
 
 /**
  * Creates a DB session row + cookie for a validated user login/register flow.
@@ -208,9 +236,9 @@ export const createSessionForUser = async (
 	dbOps: DatabaseOperations,
 	user: User,
 	sessionSecret: string,
-	context?: {
+	context: {
 		activeClientId: string;
-		activeRole?: string | null;
+		activeRole: string | null | undefined;
 	}
 ) => {
 	const clientId = context?.activeClientId?.trim();
@@ -240,6 +268,11 @@ export const createSessionForUser = async (
 		throw new Error('AUTH_SESSION_CREATE_FAILED');
 	}
 
+	const roleContext = buildRoleContext({
+		baseRole: context.activeRole,
+		requestedViewAsPlayer: false
+	});
+
 	setSessionCookie(event, token);
 
 	return {
@@ -248,13 +281,17 @@ export const createSessionForUser = async (
 			userId: user.id,
 			clientId,
 			activeClientId: clientId,
-			role: normalizeRole(context?.activeRole ?? user.role),
+			role: roleContext.role,
+			baseRole: roleContext.baseRole,
+			canViewAsPlayer: roleContext.canViewAsPlayer,
+			isViewingAsPlayer: roleContext.isViewingAsPlayer,
 			authProvider: createdSession.authProvider ?? AUTH_PASSWORD_PROVIDER,
 			expiresAt: createdSession.expiresAt
 		},
 		user: buildSafeUserWithContext(user, {
 			activeClientId: clientId,
-			activeRole: context?.activeRole ?? user.role
+			baseRole: roleContext.baseRole,
+			requestedViewAsPlayer: roleContext.isViewingAsPlayer
 		})
 	};
 };
@@ -327,6 +364,10 @@ export const resolveSessionFromRequest = async (
 	}
 
 	await dbOps.users.touchLastActive(found.user.id);
+	const roleContext = buildRoleContext({
+		baseRole: activeMembership.role,
+		requestedViewAsPlayer: found.session.viewAsPlayer === 1
+	});
 
 	return {
 		session: {
@@ -334,13 +375,17 @@ export const resolveSessionFromRequest = async (
 			userId: found.user.id,
 			clientId,
 			activeClientId: clientId,
-			role: normalizeRole(activeMembership.role),
+			role: roleContext.role,
+			baseRole: roleContext.baseRole,
+			canViewAsPlayer: roleContext.canViewAsPlayer,
+			isViewingAsPlayer: roleContext.isViewingAsPlayer,
 			authProvider: found.session.authProvider ?? AUTH_PASSWORD_PROVIDER,
 			expiresAt: effectiveExpiresAt
 		},
 		user: buildSafeUserWithContext(found.user, {
 			activeClientId: clientId,
-			activeRole: activeMembership.role
+			baseRole: roleContext.baseRole,
+			requestedViewAsPlayer: roleContext.isViewingAsPlayer
 		})
 	};
 };

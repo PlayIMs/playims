@@ -37,14 +37,14 @@ describe('localhost dev login', () => {
 				userId: 'user-1',
 				clientId: DEFAULT_CLIENT.id,
 				activeClientId: DEFAULT_CLIENT.id,
-				role: 'manager',
+				role: 'dev',
 				authProvider: 'password',
 				expiresAt: new Date().toISOString()
 			},
 			user: {
 				id: 'user-1',
 				clientId: DEFAULT_CLIENT.id,
-				role: 'manager'
+				role: 'dev'
 			}
 		} as any);
 
@@ -56,14 +56,11 @@ describe('localhost dev login', () => {
 				getByClientId: vi.fn().mockResolvedValue([
 					{
 						id: 'user-1',
-						role: 'manager',
 						status: 'active'
 					}
 				]),
 				getAuthById: vi.fn().mockResolvedValue({
 					id: 'user-1',
-					clientId: DEFAULT_CLIENT.id,
-					role: 'manager',
 					status: 'active'
 				}),
 				getAuthByEmail: vi.fn().mockResolvedValue(null),
@@ -75,7 +72,7 @@ describe('localhost dev login', () => {
 				getDefaultActiveForUser: vi.fn().mockResolvedValue({
 					userId: 'user-1',
 					clientId: DEFAULT_CLIENT.id,
-					role: 'manager',
+					role: 'dev',
 					status: 'active'
 				}),
 				getFirstActiveForUser: vi.fn().mockResolvedValue(null)
@@ -101,7 +98,7 @@ describe('localhost dev login', () => {
 			'session-secret',
 			{
 				activeClientId: DEFAULT_CLIENT.id,
-				activeRole: 'manager'
+				activeRole: 'dev'
 			}
 		);
 	});

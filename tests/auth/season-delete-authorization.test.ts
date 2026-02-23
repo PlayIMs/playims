@@ -28,6 +28,6 @@ describe('intramural season delete authorization', () => {
 		expect(response.status).toBe(403);
 		const payload = (await response.json()) as { success: boolean; error: string };
 		expect(payload.success).toBe(false);
-		expect(payload.error).toBe('Only administrators can delete seasons.');
+		expect(payload.error).toBe('Only administrators and developers can delete seasons.');
 	});
 });

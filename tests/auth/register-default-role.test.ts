@@ -42,9 +42,7 @@ describe('register defaults', () => {
 				getAuthByEmail: vi.fn().mockResolvedValue(null),
 				createAuthUser: vi.fn().mockResolvedValue({
 					id: 'user-1',
-					clientId: DEFAULT_CLIENT.id,
 					email: 'player@playims.com',
-					role: 'player',
 					status: 'active'
 				}),
 				markLoginSuccess: vi.fn().mockResolvedValue(null)
@@ -77,11 +75,9 @@ describe('register defaults', () => {
 			lastName: 'Player'
 		});
 
-		expect(dbOps.users.createAuthUser).toHaveBeenCalledWith(
-			expect.objectContaining({
-				role: 'player'
-			})
-		);
+		const createUserInput = dbOps.users.createAuthUser.mock.calls[0]?.[0] as Record<string, unknown>;
+		expect(createUserInput).toBeTruthy();
+		expect('role' in createUserInput).toBe(false);
 		expect(dbOps.userClients.ensureMembership).toHaveBeenCalledWith(
 			expect.objectContaining({
 				userId: 'user-1',

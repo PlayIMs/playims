@@ -16,6 +16,7 @@
 	import IconChevronLeft from '@tabler/icons-svelte/icons/chevron-left';
 	import IconChevronRight from '@tabler/icons-svelte/icons/chevron-right';
 	import IconMessageCircle from '@tabler/icons-svelte/icons/message-circle';
+	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 
@@ -74,160 +75,210 @@
 		return 'My Account';
 	});
 	const viewerEmail = $derived.by(() => data?.viewer?.email?.trim() ?? 'No email');
+	const isViewingAsPlayer = $derived.by(() => data?.authMode?.isViewingAsPlayer === true);
+
+	$effect(() => {
+		if (!browser) {
+			return;
+		}
+
+		const className = 'player-view-mode';
+		if (isViewingAsPlayer) {
+			document.documentElement.classList.add(className);
+			document.body.classList.add(className);
+		} else {
+			document.documentElement.classList.remove(className);
+			document.body.classList.remove(className);
+		}
+
+		return () => {
+			document.documentElement.classList.remove(className);
+			document.body.classList.remove(className);
+		};
+	});
 </script>
 
-<div class="flex min-h-screen">
-	<!-- Sidebar Navigation -->
-	<aside
-		class="bg-primary text-white flex flex-col relative transition-[width] duration-200 {menuWidth} sticky top-0 h-screen"
-		style="background-color: var(--color-primary-500);"
-	>
-		<!-- Logo Area -->
-		<div
-			class="p-4 border-b border-primary-600 flex items-center {isSidebarOpen
-				? 'justify-between'
-				: 'justify-center'}"
-		>
-			{#if isSidebarOpen}
-				<h1 class="text-xl font-bold font-serif tracking-wider">Navigation</h1>
-			{/if}
-			<button
-				onclick={toggleSidebar}
-				class="p-2 hover:bg-primary-600 transition-colors duration-150 cursor-pointer"
-				aria-label={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-				type="button"
+<div class:player-view-shell={isViewingAsPlayer}>
+	<div class:player-view-content={isViewingAsPlayer}>
+		<div class={isViewingAsPlayer ? 'flex min-h-full' : 'flex min-h-screen'}>
+			<!-- Sidebar Navigation -->
+			<aside
+				class="bg-primary text-white flex flex-col relative transition-[width] duration-200 {menuWidth} sticky top-0 {isViewingAsPlayer
+					? 'h-[calc(100vh-2rem)]'
+					: 'h-screen'}"
+				style="background-color: var(--color-primary-500);"
 			>
-				{#if isSidebarOpen}
-					<IconChevronLeft class="w-5 h-5" />
-				{:else}
-					<IconChevronRight class="w-5 h-5" />
-				{/if}
-			</button>
-		</div>
-
-		<!-- Menu -->
-		<nav
-			class="flex-1 p-2 {navBottomPadding} overflow-y-auto scrollbar-thin scrollbar-thumb-primary-700 scrollbar-track-primary-400 scrollbar-corner-primary-500 hover:scrollbar-thumb-primary-700 active:scrollbar-thumb-primary-700 scrollbar-hover:scrollbar-thumb-primary-800 scrollbar-active:scrollbar-thumb-primary-700"
-			aria-label="Dashboard navigation"
-		>
-			<ul class="space-y-1">
-				{#each menuItems as item}
-					<li>
-						<HoverTooltip text={isSidebarOpen ? '' : item.label} wrapperClass="block w-full">
-							<a
-								href={item.href}
-								class="w-full whitespace-nowrap {isSidebarOpen
-									? 'px-4 py-3 md:px-3 md:py-2.5 md:gap-2.5 xl:px-4 xl:py-3 xl:gap-3 flex items-center text-base md:text-sm xl:text-base'
-									: 'px-2 py-3 md:px-1.5 md:py-2.5 xl:px-2 xl:py-3 flex items-center justify-center'} transition-colors duration-150 cursor-pointer {activePath ===
-								item.href
-									? 'bg-primary-600 border-l-4 border-neutral-500 text-white'
-									: 'text-primary-100 hover:bg-primary-600 hover:text-white border-l-4 border-transparent'} {item.href ===
-								'#'
-									? 'opacity-70 pointer-events-none'
-									: ''}"
-								aria-current={activePath === item.href ? 'page' : undefined}
-							>
-								<item.icon class="w-5 h-5 md:w-4 md:h-4 xl:w-5 xl:h-5 shrink-0" />
-								{#if isSidebarOpen}
-									<span>{item.label}</span>
-								{/if}
-							</a>
-						</HoverTooltip>
-					</li>
-				{/each}
-			</ul>
-		</nav>
-
-		<div
-			class="absolute bottom-0 left-0 right-0 border-t border-primary-600 bg-primary-500 p-2"
-			style="background-color: var(--color-primary-500);"
-		>
-			{#if isSidebarOpen}
-				<div class="flex items-stretch gap-2">
-					<a
-						href={accountHref}
-						class="flex-1 min-w-0 px-3 py-2 flex items-center gap-3 border-l-4 transition-colors duration-150 cursor-pointer {isAccountRoute
-							? 'bg-primary-600 border-neutral-500 text-white'
-							: 'border-transparent text-primary-100 hover:bg-primary-600 hover:text-white'}"
-						aria-current={isAccountRoute ? 'page' : undefined}
+				<!-- Logo Area -->
+				<div
+					class="p-4 border-b border-primary-600 flex items-center {isSidebarOpen
+						? 'justify-between'
+						: 'justify-center'}"
+				>
+					{#if isSidebarOpen}
+						<h1 class="text-xl font-bold font-serif tracking-wider">Navigation</h1>
+					{/if}
+					<button
+						onclick={toggleSidebar}
+						class="p-2 hover:bg-primary-600 transition-colors duration-150 cursor-pointer"
+						aria-label={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+						type="button"
 					>
-						<IconUser class="w-5 h-5 shrink-0" />
-						<div class="min-w-0">
-							<p class="text-sm font-semibold truncate">{viewerName}</p>
-							<p class="text-[11px] text-primary-100 truncate">{viewerEmail}</p>
+						{#if isSidebarOpen}
+							<IconChevronLeft class="w-5 h-5" />
+						{:else}
+							<IconChevronRight class="w-5 h-5" />
+						{/if}
+					</button>
+				</div>
+
+				<!-- Menu -->
+				<nav
+					class="flex-1 p-2 {navBottomPadding} overflow-y-auto scrollbar-thin scrollbar-thumb-primary-700 scrollbar-track-primary-400 scrollbar-corner-primary-500 hover:scrollbar-thumb-primary-700 active:scrollbar-thumb-primary-700 scrollbar-hover:scrollbar-thumb-primary-800 scrollbar-active:scrollbar-thumb-primary-700"
+					aria-label="Dashboard navigation"
+				>
+					<ul class="space-y-1">
+						{#each menuItems as item}
+							<li>
+								<HoverTooltip text={isSidebarOpen ? '' : item.label} wrapperClass="block w-full">
+									<a
+										href={item.href}
+										class="w-full whitespace-nowrap {isSidebarOpen
+											? 'px-4 py-3 md:px-3 md:py-2.5 md:gap-2.5 xl:px-4 xl:py-3 xl:gap-3 flex items-center text-base md:text-sm xl:text-base'
+											: 'px-2 py-3 md:px-1.5 md:py-2.5 xl:px-2 xl:py-3 flex items-center justify-center'} transition-colors duration-150 cursor-pointer {activePath ===
+										item.href
+											? 'bg-primary-600 border-l-4 border-neutral-500 text-white'
+											: 'text-primary-100 hover:bg-primary-600 hover:text-white border-l-4 border-transparent'} {item.href ===
+										'#'
+											? 'opacity-70 pointer-events-none'
+											: ''}"
+										aria-current={activePath === item.href ? 'page' : undefined}
+									>
+										<item.icon class="w-5 h-5 md:w-4 md:h-4 xl:w-5 xl:h-5 shrink-0" />
+										{#if isSidebarOpen}
+											<span>{item.label}</span>
+										{/if}
+									</a>
+								</HoverTooltip>
+							</li>
+						{/each}
+					</ul>
+				</nav>
+
+				<div
+					class="absolute bottom-0 left-0 right-0 border-t border-primary-600 bg-primary-500 p-2"
+					style="background-color: var(--color-primary-500);"
+				>
+					{#if isSidebarOpen}
+						<div class="flex items-stretch gap-2">
+							<a
+								href={accountHref}
+								class="flex-1 min-w-0 px-3 py-2 flex items-center gap-3 border-l-4 transition-colors duration-150 cursor-pointer {isAccountRoute
+									? 'bg-primary-600 border-neutral-500 text-white'
+									: 'border-transparent text-primary-100 hover:bg-primary-600 hover:text-white'}"
+								aria-current={isAccountRoute ? 'page' : undefined}
+							>
+								<IconUser class="w-5 h-5 shrink-0" />
+								<div class="min-w-0">
+									<p class="text-sm font-semibold truncate">{viewerName}</p>
+									<p class="text-[11px] text-primary-100 truncate">{viewerEmail}</p>
+								</div>
+							</a>
+
+							<div class="flex flex-col gap-2">
+								<HoverTooltip text="Tech support">
+									<button
+										type="button"
+										class="w-10 h-10 flex items-center justify-center border border-primary-300 text-primary-50 opacity-70 cursor-not-allowed"
+										aria-label="Tech support"
+										disabled
+									>
+										<IconHeadset class="w-5 h-5" />
+									</button>
+								</HoverTooltip>
+								<HoverTooltip text="Help">
+									<button
+										type="button"
+										class="w-10 h-10 flex items-center justify-center border border-primary-300 text-primary-50 opacity-70 cursor-not-allowed"
+										aria-label="Help"
+										disabled
+									>
+										<IconHelpCircle class="w-5 h-5" />
+									</button>
+								</HoverTooltip>
+							</div>
 						</div>
-					</a>
+					{:else}
+						<div class="flex flex-col items-center gap-2">
+							<HoverTooltip text={viewerName}>
+								<a
+									href={accountHref}
+									class="w-10 h-10 flex items-center justify-center border transition-colors duration-150 cursor-pointer {isAccountRoute
+										? 'border-primary-100 bg-primary-600 text-white'
+										: 'border-primary-300 text-primary-50 hover:bg-primary-600 hover:text-white'}"
+									aria-current={isAccountRoute ? 'page' : undefined}
+								>
+									<IconUser class="w-5 h-5" />
+								</a>
+							</HoverTooltip>
+							<HoverTooltip text="Tech support">
+								<button
+									type="button"
+									class="w-10 h-10 flex items-center justify-center border border-primary-300 text-primary-50 opacity-70 cursor-not-allowed"
+									aria-label="Tech support"
+									disabled
+								>
+									<IconHeadset class="w-5 h-5" />
+								</button>
+							</HoverTooltip>
+							<HoverTooltip text="Help">
+								<button
+									type="button"
+									class="w-10 h-10 flex items-center justify-center border border-primary-300 text-primary-50 opacity-70 cursor-not-allowed"
+									aria-label="Help"
+									disabled
+								>
+									<IconHelpCircle class="w-5 h-5" />
+								</button>
+							</HoverTooltip>
+						</div>
+					{/if}
+				</div>
+			</aside>
 
-					<div class="flex flex-col gap-2">
-						<HoverTooltip text="Tech support">
-							<button
-								type="button"
-								class="w-10 h-10 flex items-center justify-center border border-primary-300 text-primary-50 opacity-70 cursor-not-allowed"
-								aria-label="Tech support"
-								disabled
-							>
-								<IconHeadset class="w-5 h-5" />
-							</button>
-						</HoverTooltip>
-						<HoverTooltip text="Help">
-							<button
-								type="button"
-								class="w-10 h-10 flex items-center justify-center border border-primary-300 text-primary-50 opacity-70 cursor-not-allowed"
-								aria-label="Help"
-								disabled
-							>
-								<IconHelpCircle class="w-5 h-5" />
-							</button>
-						</HoverTooltip>
-					</div>
-				</div>
-			{:else}
-				<div class="flex flex-col items-center gap-2">
-					<HoverTooltip text={viewerName}>
-						<a
-							href={accountHref}
-							class="w-10 h-10 flex items-center justify-center border transition-colors duration-150 cursor-pointer {isAccountRoute
-								? 'border-primary-100 bg-primary-600 text-white'
-								: 'border-primary-300 text-primary-50 hover:bg-primary-600 hover:text-white'}"
-							aria-current={isAccountRoute ? 'page' : undefined}
-						>
-							<IconUser class="w-5 h-5" />
-						</a>
-					</HoverTooltip>
-					<HoverTooltip text="Tech support">
-						<button
-							type="button"
-							class="w-10 h-10 flex items-center justify-center border border-primary-300 text-primary-50 opacity-70 cursor-not-allowed"
-							aria-label="Tech support"
-							disabled
-						>
-							<IconHeadset class="w-5 h-5" />
-						</button>
-					</HoverTooltip>
-					<HoverTooltip text="Help">
-						<button
-							type="button"
-							class="w-10 h-10 flex items-center justify-center border border-primary-300 text-primary-50 opacity-70 cursor-not-allowed"
-							aria-label="Help"
-							disabled
-						>
-							<IconHelpCircle class="w-5 h-5" />
-						</button>
-					</HoverTooltip>
-				</div>
-			{/if}
+			<!-- Main Content Area -->
+			<main class="flex-1 bg-neutral {isViewingAsPlayer ? 'min-h-full' : 'min-h-screen'}">
+				{@render children()}
+			</main>
 		</div>
-	</aside>
-
-	<!-- Main Content Area -->
-	<main class="flex-1 bg-neutral min-h-screen">
-		{@render children()}
-	</main>
+	</div>
 </div>
 
 <style>
 	/* Retro flat design: no rounded corners */
 	* {
 		border-radius: 0 !important;
+	}
+
+	/* View as mode shell */
+	.player-view-shell {
+		height: 100vh;
+		background-color: var(--color-green-500);
+		padding: 1rem;
+		box-sizing: border-box;
+		overflow: hidden;
+	}
+
+	.player-view-content {
+		height: 100%;
+		overflow: auto;
+	}
+
+	:global(html.player-view-mode) {
+		overflow: hidden;
+		scrollbar-gutter: auto;
+	}
+
+	:global(body.player-view-mode) {
+		overflow: hidden;
 	}
 </style>

@@ -3,7 +3,7 @@ import {
 	requireAuthenticatedClientId,
 	requireAuthenticatedUserId
 } from '$lib/server/client-context';
-import { normalizeRole } from '$lib/server/auth/rbac';
+import { isAdminLikeRole } from '$lib/server/auth/rbac';
 import { getTenantD1Database, getTenantDbOps } from '$lib/server/database/context';
 import {
 	createIntramuralSeasonSchema,
@@ -979,12 +979,11 @@ export const DELETE: RequestHandler = async (event) => {
 	}
 
 	const input: DeleteIntramuralSeasonInput = parsed.data;
-	const requesterRole = normalizeRole(event.locals.user?.role);
-	if (requesterRole !== 'admin') {
+	if (!isAdminLikeRole(event.locals.user?.role)) {
 		return json(
 			{
 				success: false,
-				error: 'Only administrators can delete seasons.'
+				error: 'Only administrators and developers can delete seasons.'
 			} satisfies DeleteIntramuralSeasonResponse,
 			{ status: 403 }
 		);

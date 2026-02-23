@@ -1,10 +1,9 @@
 import { canViewAsPlayerRole, normalizeRole } from '$lib/server/auth/rbac';
-import { switchClientSchema } from '$lib/server/auth/validation';
+import { viewAsPlayerSchema } from '$lib/server/auth/validation';
 import { getCentralDbOps } from '$lib/server/database/context';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
-// Authenticated endpoint: switches active client context for the current session.
 export const POST: RequestHandler = async (event) => {
 	if (!event.platform?.env?.DB) {
 		return json({ success: false, error: 'Authentication is unavailable.' }, { status: 500 });
@@ -21,52 +20,52 @@ export const POST: RequestHandler = async (event) => {
 		return json({ success: false, error: 'Invalid request payload.' }, { status: 400 });
 	}
 
-	const parsed = switchClientSchema.safeParse(body);
+	const parsed = viewAsPlayerSchema.safeParse(body);
 	if (!parsed.success) {
 		return json({ success: false, error: 'Invalid request payload.' }, { status: 400 });
 	}
 
-	const dbOps = getCentralDbOps(event);
-	const userId = event.locals.user.id;
-	const requestedClientId = parsed.data.clientId;
-	const activeMembership = await dbOps.userClients.getActiveMembership(userId, requestedClientId);
-	if (!activeMembership) {
+	const baseRole = normalizeRole(
+		event.locals.session.baseRole ??
+			event.locals.user.baseRole ??
+			event.locals.session.role ??
+			event.locals.user.role
+	);
+	const canViewAsPlayer = canViewAsPlayerRole(baseRole);
+	if (parsed.data.enabled && !canViewAsPlayer) {
 		return json(
-			{ success: false, error: 'You do not have access to that organization.' },
+			{ success: false, error: 'You are not allowed to enable player view mode.' },
 			{ status: 403 }
 		);
 	}
 
+	const dbOps = getCentralDbOps(event);
 	const nowIso = new Date().toISOString();
-	const updatedSession = await dbOps.sessions.updateClientContext(
+	const updatedSession = await dbOps.sessions.setViewAsPlayer(
 		event.locals.session.id,
-		requestedClientId,
+		parsed.data.enabled,
 		nowIso
 	);
 	if (!updatedSession) {
-		return json({ success: false, error: 'Failed to switch client context.' }, { status: 500 });
+		return json({ success: false, error: 'Failed to update view mode.' }, { status: 500 });
 	}
 
-	await dbOps.userClients.setDefaultMembership(userId, requestedClientId);
+	const isViewingAsPlayer = canViewAsPlayer && parsed.data.enabled;
+	const role = isViewingAsPlayer ? 'player' : baseRole;
 
-	const resolvedRole = normalizeRole(activeMembership.role);
-	const canViewAsPlayer = canViewAsPlayerRole(resolvedRole);
 	event.locals.session = {
 		...event.locals.session,
-		clientId: requestedClientId,
-		activeClientId: requestedClientId,
-		role: resolvedRole,
-		baseRole: resolvedRole,
+		role,
+		baseRole,
 		canViewAsPlayer,
-		isViewingAsPlayer: false
+		isViewingAsPlayer
 	};
 	event.locals.user = {
 		...event.locals.user,
-		clientId: requestedClientId,
-		role: resolvedRole,
-		baseRole: resolvedRole,
+		role,
+		baseRole,
 		canViewAsPlayer,
-		isViewingAsPlayer: false
+		isViewingAsPlayer
 	};
 
 	return json({

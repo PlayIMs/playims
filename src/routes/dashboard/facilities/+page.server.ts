@@ -4,6 +4,7 @@ import {
 	requireAuthenticatedClientId,
 	requireAuthenticatedUserId
 } from '$lib/server/client-context';
+import { canManageWrites } from '$lib/server/auth/permissions';
 import { getTenantDbOps } from '$lib/server/database/context';
 
 function asTrimmedString(value: FormDataEntryValue | null): string | null {
@@ -139,6 +140,12 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
 export const actions: Actions = {
 	createFacilityWithAreas: async ({ request, platform, locals }) => {
 		if (!platform) throw error(500, 'Platform not available');
+		if (!canManageWrites(locals)) {
+			return fail(403, {
+				message: 'You do not have permission to modify facilities in the current view mode.',
+				action: 'createFacilityWithAreas'
+			});
+		}
 		const form = await request.formData();
 
 		const clientId = requireAuthenticatedClientId(locals);
@@ -251,6 +258,12 @@ export const actions: Actions = {
 
 	createFacility: async ({ request, platform, locals }) => {
 		if (!platform) throw error(500, 'Platform not available');
+		if (!canManageWrites(locals)) {
+			return fail(403, {
+				message: 'You do not have permission to modify facilities in the current view mode.',
+				action: 'createFacility'
+			});
+		}
 		const form = await request.formData();
 
 		const clientId = requireAuthenticatedClientId(locals);
@@ -322,6 +335,12 @@ export const actions: Actions = {
 
 	updateFacility: async ({ request, platform, locals }) => {
 		if (!platform) throw error(500, 'Platform not available');
+		if (!canManageWrites(locals)) {
+			return fail(403, {
+				message: 'You do not have permission to modify facilities in the current view mode.',
+				action: 'updateFacility'
+			});
+		}
 		const form = await request.formData();
 
 		const facilityId = asTrimmedString(form.get('facilityId'));
@@ -421,6 +440,12 @@ export const actions: Actions = {
 
 	setFacilityArchived: async ({ request, platform, locals }) => {
 		if (!platform) throw error(500, 'Platform not available');
+		if (!canManageWrites(locals)) {
+			return fail(403, {
+				message: 'You do not have permission to modify facilities in the current view mode.',
+				action: 'setFacilityArchived'
+			});
+		}
 		const form = await request.formData();
 
 		const facilityId = asTrimmedString(form.get('facilityId'));
@@ -446,6 +471,12 @@ export const actions: Actions = {
 
 	createFacilityArea: async ({ request, platform, locals }) => {
 		if (!platform) throw error(500, 'Platform not available');
+		if (!canManageWrites(locals)) {
+			return fail(403, {
+				message: 'You do not have permission to modify facilities in the current view mode.',
+				action: 'createFacilityArea'
+			});
+		}
 		const form = await request.formData();
 
 		const clientId = requireAuthenticatedClientId(locals);
@@ -523,6 +554,12 @@ export const actions: Actions = {
 
 	updateFacilityArea: async ({ request, platform, locals }) => {
 		if (!platform) throw error(500, 'Platform not available');
+		if (!canManageWrites(locals)) {
+			return fail(403, {
+				message: 'You do not have permission to modify facilities in the current view mode.',
+				action: 'updateFacilityArea'
+			});
+		}
 		const form = await request.formData();
 
 		const facilityAreaId = asTrimmedString(form.get('facilityAreaId'));
@@ -605,6 +642,12 @@ export const actions: Actions = {
 
 	moveFacilityArea: async ({ request, platform, locals }) => {
 		if (!platform) throw error(500, 'Platform not available');
+		if (!canManageWrites(locals)) {
+			return fail(403, {
+				message: 'You do not have permission to modify facilities in the current view mode.',
+				action: 'moveFacilityArea'
+			});
+		}
 		const form = await request.formData();
 
 		const facilityAreaId = asTrimmedString(form.get('facilityAreaId'));
@@ -634,6 +677,12 @@ export const actions: Actions = {
 
 	setFacilityAreaArchived: async ({ request, platform, locals }) => {
 		if (!platform) throw error(500, 'Platform not available');
+		if (!canManageWrites(locals)) {
+			return fail(403, {
+				message: 'You do not have permission to modify facilities in the current view mode.',
+				action: 'setFacilityAreaArchived'
+			});
+		}
 		const form = await request.formData();
 
 		const facilityAreaId = asTrimmedString(form.get('facilityAreaId'));
@@ -659,6 +708,12 @@ export const actions: Actions = {
 
 	deleteFacility: async ({ request, platform, locals }) => {
 		if (!platform) throw error(500, 'Platform not available');
+		if (!canManageWrites(locals)) {
+			return fail(403, {
+				message: 'You do not have permission to modify facilities in the current view mode.',
+				action: 'deleteFacility'
+			});
+		}
 		const form = await request.formData();
 
 		const facilityId = asTrimmedString(form.get('facilityId'));
@@ -695,6 +750,12 @@ export const actions: Actions = {
 
 	deleteFacilityArea: async ({ request, platform, locals }) => {
 		if (!platform) throw error(500, 'Platform not available');
+		if (!canManageWrites(locals)) {
+			return fail(403, {
+				message: 'You do not have permission to modify facilities in the current view mode.',
+				action: 'deleteFacilityArea'
+			});
+		}
 		const form = await request.formData();
 
 		const facilityAreaId = asTrimmedString(form.get('facilityAreaId'));

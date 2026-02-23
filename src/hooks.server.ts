@@ -65,6 +65,7 @@ const API_ROUTE_POLICIES: ApiRoutePolicy[] = [
 	{ pattern: /^\/api\/auth\/session$/, policy: { access: 'authenticated' } },
 	{ pattern: /^\/api\/auth\/switch-client$/, policy: { access: 'authenticated' } },
 	{ pattern: /^\/api\/auth\/join-client$/, policy: { access: 'authenticated' } },
+	{ pattern: /^\/api\/auth\/view-as-player$/, policy: { access: 'authenticated' } },
 	{
 		pattern: /^\/api\/address-suggest$/,
 		policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES }
@@ -197,7 +198,8 @@ const resolveRateLimitConfig = (pathname: string): RateLimitConfig | null => {
 	if (
 		pathname === '/api/auth/session' ||
 		pathname === '/api/auth/logout' ||
-		pathname === '/api/auth/switch-client'
+		pathname === '/api/auth/switch-client' ||
+		pathname === '/api/auth/view-as-player'
 	) {
 		return AUTH_READ_RATE_LIMIT;
 	}
@@ -740,7 +742,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 		}
 
 		if (apiPolicy.access === 'role') {
-			if (!hasAnyRole(event.locals.user?.role, apiPolicy.roles)) {
+			const roleForPolicy = isMutatingRequest
+				? event.locals.user?.role
+				: event.locals.user?.baseRole ?? event.locals.user?.role;
+			if (!hasAnyRole(roleForPolicy, apiPolicy.roles)) {
 				const response = toApiErrorResponse(
 					403,
 					event.locals.requestId,
@@ -847,7 +852,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 				});
 			}
 
-			if (!hasAnyRole(event.locals.user.role, DASHBOARD_ALLOWED_ROLES)) {
+			const roleForDashboard = event.locals.user.baseRole ?? event.locals.user.role;
+			if (!hasAnyRole(roleForDashboard, DASHBOARD_ALLOWED_ROLES)) {
 				const response = toPageErrorResponse(403, 'Forbidden');
 				logRequestSummary({
 					scope: 'SSR',
@@ -869,7 +875,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		if (
 			isAuthPagePath(pathname) &&
 			event.locals.user &&
-			hasAnyRole(event.locals.user.role, DASHBOARD_ALLOWED_ROLES)
+			hasAnyRole(event.locals.user.baseRole ?? event.locals.user.role, DASHBOARD_ALLOWED_ROLES)
 		) {
 			// Logged-in users should not stay on login/register pages.
 			const nextParam = sanitizeNextPath(getSafeSearchParam(event.url, 'next'));

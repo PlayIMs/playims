@@ -25,6 +25,10 @@ PlayIMs uses a **central identity model** with **tenant-routed domain data**.
 - `clients`
 - `client_database_routes`
 
+`users` stores global identity only. Organization context and role are stored in `user_clients`.
+Current org-scoped role values are `admin`, `manager`, `player`, and `dev`.
+For now, assigning `dev` memberships is a manual DB/admin operation (no dedicated role-management UI yet).
+
 Central tables are always read/written using `getCentralDbOps(...)`.
 
 ### Tenant tables
@@ -116,6 +120,20 @@ The standard development workflow:
 ### Database Management Commands
 
 The following commands are used to manage the database schema.
+
+### Role Migration Safeguard Query
+
+Before applying migrations that remove legacy role/org columns from `users`, verify that every user has at least one active organization membership in `user_clients`:
+
+```sql
+SELECT u.id
+FROM users u
+LEFT JOIN user_clients uc ON uc.user_id = u.id
+WHERE uc.user_id IS NULL;
+```
+
+- **Expected result**: `0` rows.
+- **If non-zero**: create missing `user_clients` rows before applying the migration that drops legacy `users` role/client columns.
 
 #### 1. Generate Migrations
 

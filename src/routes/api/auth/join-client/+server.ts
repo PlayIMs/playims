@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { normalizeRole } from '$lib/server/auth/rbac';
+import { canViewAsPlayerRole, normalizeRole } from '$lib/server/auth/rbac';
 import { joinClientSchema } from '$lib/server/auth/validation';
 import { requireAuthenticatedUserId } from '$lib/server/client-context';
 import { normalizeClientSlug } from '$lib/server/client-slug';
@@ -100,16 +100,23 @@ export const POST: RequestHandler = async (event) => {
 	await dbOps.userClients.setDefaultMembership(userId, targetClient.id);
 
 	const resolvedRole = normalizeRole(membership.role);
+	const canViewAsPlayer = canViewAsPlayerRole(resolvedRole);
 	event.locals.session = {
 		...event.locals.session,
 		clientId: targetClient.id,
 		activeClientId: targetClient.id,
-		role: resolvedRole
+		role: resolvedRole,
+		baseRole: resolvedRole,
+		canViewAsPlayer,
+		isViewingAsPlayer: false
 	};
 	event.locals.user = {
 		...event.locals.user,
 		clientId: targetClient.id,
-		role: resolvedRole
+		role: resolvedRole,
+		baseRole: resolvedRole,
+		canViewAsPlayer,
+		isViewingAsPlayer: false
 	};
 
 	return json({

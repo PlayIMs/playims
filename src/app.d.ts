@@ -12,7 +12,10 @@ declare global {
 			user?: {
 				id: string;
 				clientId: string;
-				role: 'admin' | 'manager' | 'player';
+				role: 'admin' | 'manager' | 'player' | 'dev';
+				baseRole: 'admin' | 'manager' | 'player' | 'dev';
+				canViewAsPlayer: boolean;
+				isViewingAsPlayer: boolean;
 				email?: string;
 				firstName?: string | null;
 				lastName?: string | null;
@@ -25,7 +28,10 @@ declare global {
 				userId: string;
 				clientId: string;
 				activeClientId: string;
-				role: 'admin' | 'manager' | 'player';
+				role: 'admin' | 'manager' | 'player' | 'dev';
+				baseRole: 'admin' | 'manager' | 'player' | 'dev';
+				canViewAsPlayer: boolean;
+				isViewingAsPlayer: boolean;
 				authProvider: 'password' | string;
 				expiresAt: string;
 			};

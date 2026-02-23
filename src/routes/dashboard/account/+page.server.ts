@@ -4,7 +4,8 @@ import {
 } from '$lib/server/client-context';
 import { AUTH_ENV_KEYS } from '$lib/server/auth/constants';
 import { hashPassword, normalizeIterations, verifyPassword } from '$lib/server/auth/password';
-import { normalizeRole } from '$lib/server/auth/rbac';
+import { canManageWrites } from '$lib/server/auth/permissions';
+import { canViewAsPlayerRole, normalizeRole } from '$lib/server/auth/rbac';
 import { clearSessionCookie, revokeCurrentSession } from '$lib/server/auth/session';
 import { resolvePasswordPepper } from '$lib/server/auth/service';
 import {
@@ -156,6 +157,12 @@ export const load: PageServerLoad = async (event) => {
 			if (!a.isCurrent && b.isCurrent) return 1;
 			return a.clientName.localeCompare(b.clientName, 'en', { sensitivity: 'base' });
 		});
+	const currentMembership = memberships.find(({ membership }) => membership.clientId === clientId);
+	const baseRole = normalizeRole(
+		currentMembership?.membership.role ?? locals.session?.baseRole ?? locals.user?.baseRole
+	);
+	const role = normalizeRole(locals.session?.role ?? locals.user?.role ?? baseRole);
+	const isViewingAsPlayer = locals.session?.isViewingAsPlayer === true;
 
 	return {
 		organizations,
@@ -165,7 +172,9 @@ export const load: PageServerLoad = async (event) => {
 			firstName: user.firstName ?? '',
 			lastName: user.lastName ?? '',
 			cellPhone: user.cellPhone ?? '',
-			role: user.role ?? 'player',
+			role,
+			baseRole,
+			isViewingAsPlayer,
 			status: user.status ?? 'unknown',
 			createdAt: user.createdAt ?? null,
 			updatedAt: user.updatedAt ?? null,
@@ -347,6 +356,12 @@ export const actions: Actions = {
 		if (!event.locals.user || !event.locals.session) {
 			return fail(401, { action: 'createOrganization', error: 'Authentication required.' });
 		}
+		if (!canManageWrites(event.locals)) {
+			return fail(403, {
+				action: 'createOrganization',
+				error: 'You do not have permission to create organizations in the current view mode.'
+			});
+		}
 
 		const formData = await event.request.formData();
 		const parsed = accountCreateOrganizationSchema.safeParse({
@@ -459,16 +474,23 @@ export const actions: Actions = {
 			if (updatedSession) {
 				switched = true;
 				const resolvedRole = normalizeRole(membership.role);
+				const canViewAsPlayer = canViewAsPlayerRole(resolvedRole);
 				event.locals.session = {
 					...event.locals.session,
 					clientId: createdClient.id,
 					activeClientId: createdClient.id,
-					role: resolvedRole
+					role: resolvedRole,
+					baseRole: resolvedRole,
+					canViewAsPlayer,
+					isViewingAsPlayer: false
 				};
 				event.locals.user = {
 					...event.locals.user,
 					clientId: createdClient.id,
-					role: resolvedRole
+					role: resolvedRole,
+					baseRole: resolvedRole,
+					canViewAsPlayer,
+					isViewingAsPlayer: false
 				};
 			}
 		}
@@ -535,16 +557,23 @@ export const actions: Actions = {
 		await dbOps.userClients.setDefaultMembership(userId, requestedClientId);
 
 		const resolvedRole = normalizeRole(activeMembership.role);
+		const canViewAsPlayer = canViewAsPlayerRole(resolvedRole);
 		event.locals.session = {
 			...event.locals.session,
 			clientId: requestedClientId,
 			activeClientId: requestedClientId,
-			role: resolvedRole
+			role: resolvedRole,
+			baseRole: resolvedRole,
+			canViewAsPlayer,
+			isViewingAsPlayer: false
 		};
 		event.locals.user = {
 			...event.locals.user,
 			clientId: requestedClientId,
-			role: resolvedRole
+			role: resolvedRole,
+			baseRole: resolvedRole,
+			canViewAsPlayer,
+			isViewingAsPlayer: false
 		};
 
 		return {

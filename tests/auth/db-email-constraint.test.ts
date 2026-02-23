@@ -12,21 +12,21 @@ describe('normalized email uniqueness', () => {
 
 		try {
 			await client.execute(
-				'CREATE TABLE users (id text primary key not null, email text, client_id text, role text, status text);'
+				'CREATE TABLE users (id text primary key not null, email text, status text);'
 			);
 			await client.execute(
 				"CREATE UNIQUE INDEX users_email_normalized_unique ON users (lower(trim(email))) WHERE email IS NOT NULL AND trim(email) <> '';"
 			);
 
 			await client.execute({
-				sql: 'INSERT INTO users (id, email, client_id, role, status) VALUES (?, ?, ?, ?, ?);',
-				args: [randomUUID(), 'Test@PlayIMS.com', 'client-a', 'manager', 'active']
+				sql: 'INSERT INTO users (id, email, status) VALUES (?, ?, ?);',
+				args: [randomUUID(), 'Test@PlayIMS.com', 'active']
 			});
 
 			await expect(
 				client.execute({
-					sql: 'INSERT INTO users (id, email, client_id, role, status) VALUES (?, ?, ?, ?, ?);',
-					args: [randomUUID(), '  test@playims.com  ', 'client-b', 'manager', 'active']
+					sql: 'INSERT INTO users (id, email, status) VALUES (?, ?, ?);',
+					args: [randomUUID(), '  test@playims.com  ', 'active']
 				})
 			).rejects.toThrow();
 		} finally {

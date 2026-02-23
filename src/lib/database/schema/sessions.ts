@@ -27,6 +27,7 @@ export const sessions = sqliteTable(
 		userAgent: text('user_agent'),
 		locationCity: text('location_city'),
 		locationStation: text('location_station'),
+		viewAsPlayer: integer('view_as_player').default(0).notNull(),
 		sessionVersion: integer('session_version').default(1).notNull()
 	},
 	(table) => [
