@@ -30,10 +30,10 @@
 		{ id: 'Dashboard', label: 'Dashboard', icon: IconLayoutDashboard, href: '/dashboard' },
 		{ id: 'Schedule', label: 'Schedule', icon: IconCalendarWeek, href: '/dashboard/schedule' },
 		{
-			id: 'Intramural Sports',
-			label: 'Intramural Sports',
+			id: 'Intramural Offerings',
+			label: 'Intramural Offerings',
 			icon: IconBallFootball,
-			href: '/dashboard/intramural-sports'
+			href: '/dashboard/offerings'
 		},
 		{ id: 'Club Sports', label: 'Club Sports', icon: IconTrophy, href: '#' },
 		{ id: 'Member Management', label: 'Member Management', icon: IconUserCog, href: '#' },
@@ -177,7 +177,10 @@
 			>
 				VIEWING AS {viewingModeLabel}
 			</span>
-			<HoverTooltip text={`Return to ${returnModeLabel} view`} wrapperClass="inline-flex self-stretch">
+			<HoverTooltip
+				text={`Return to ${returnModeLabel} view`}
+				wrapperClass="inline-flex self-stretch"
+			>
 				<button
 					type="button"
 					class="inline-flex h-full w-7 cursor-pointer items-center justify-center bg-accent-400 text-white transition-colors duration-150 hover:bg-accent-600 focus-visible:bg-accent-800 disabled:cursor-wait disabled:opacity-70"
