@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { applyAction, enhance } from '$app/forms';
+	import { invalidateAll } from '$app/navigation';
 	import type { ActionResult } from '@sveltejs/kit';
 	import IconAlertTriangle from '@tabler/icons-svelte/icons/alert-triangle';
 	import IconAt from '@tabler/icons-svelte/icons/at';
@@ -17,6 +18,7 @@
 	import IconKey from '@tabler/icons-svelte/icons/key';
 	import IconLock from '@tabler/icons-svelte/icons/lock';
 	import IconLogout from '@tabler/icons-svelte/icons/logout';
+	import IconPencil from '@tabler/icons-svelte/icons/pencil';
 	import IconPlus from '@tabler/icons-svelte/icons/plus';
 	import IconRestore from '@tabler/icons-svelte/icons/restore';
 	import IconShieldCheck from '@tabler/icons-svelte/icons/shield-check';
@@ -26,6 +28,7 @@
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import { onDestroy, onMount, tick } from 'svelte';
 	import CreateOrganizationWizard from './_wizards/CreateOrganizationWizard.svelte';
+	import ManageOrganizationWizard from './_wizards/ManageOrganizationWizard.svelte';
 	import { WizardStepFooter, applyLiveSlugInput, slugifyFinal } from '$lib/components/wizard';
 
 	type ActiveSessionData = {
@@ -47,6 +50,9 @@
 		role: string;
 		isDefault: boolean;
 		isCurrent: boolean;
+		selfJoinEnabled: boolean;
+		metadata: string | null;
+		status: string;
 	};
 
 	type CreateOrganizationStep = 1 | 2 | 3 | 4;
@@ -69,7 +75,8 @@
 		cellPhone: string;
 		role: string;
 		baseRole: string;
-		isViewingAsPlayer: boolean;
+		isViewingAsRole: boolean;
+		viewAsRole: string | null;
 		status: string;
 		createdAt: string | null;
 		updatedAt: string | null;
@@ -323,6 +330,8 @@
 	let copiedUserId = $state(false);
 	let cellPhoneTouched = $state(false);
 	let createOrganizationOpen = $state(false);
+	let manageOrganizationOpen = $state(false);
+	let manageOrganizationSelectedClientId = $state('');
 	let createOrganizationUnsavedConfirmOpen = $state(false);
 	let createOrganizationSubmitting = $state(false);
 	let createOrganizationSlugTouched = $state(false);
@@ -331,6 +340,7 @@
 	let createOrganizationSubmitForm = $state<HTMLFormElement | null>(null);
 	let switchOrganizationForm = $state<HTMLFormElement | null>(null);
 	let organizationSwitchClientId = $state('');
+	let organizationSwitchSubmitting = $state(false);
 	let createOrganizationClientError = $state('');
 	let createOrganizationFieldErrors = $state<Record<string, string>>({});
 	let profileEssentialsCollapsed = $state(false);
@@ -353,6 +363,7 @@
 
 	const ACCOUNT_SECTION_COLLAPSE_STORAGE_KEY = 'playims:account-section-collapsed';
 	const ACCOUNT_SNAPSHOT_COLLAPSED_STORAGE_KEY = 'playims:account-snapshot-collapsed';
+	const ORGANIZATION_SWITCHING_SESSION_KEY = 'playims:organization-switching';
 
 	const CREATE_ORGANIZATION_STEP_TITLES: Record<CreateOrganizationStep, string> = {
 		1: 'Organization Basics',
@@ -683,11 +694,6 @@
 			organizations.find((organization: OrganizationMembership) => organization.isCurrent)
 				?.clientId ?? ''
 	);
-	let currentOrganizationRole = $derived.by(
-		() =>
-			organizations.find((organization: OrganizationMembership) => organization.isCurrent)?.role ??
-			''
-	);
 	let organizationDropdownOptions = $derived.by(() =>
 		organizations.map((organization: OrganizationMembership) => {
 			const statusParts: string[] = [];
@@ -697,15 +703,40 @@
 			if (organization.isDefault) {
 				statusParts.push('DEFAULT');
 			}
+			const normalizedRole = organization.role?.trim().toLowerCase() || 'participant';
 
 			return {
 				value: organization.clientId,
 				label: organization.clientName,
 				description: organization.clientSlug ? `/${organization.clientSlug}` : undefined,
-				statusLabel: statusParts.length > 0 ? statusParts.join(' / ') : undefined
+				rightLabel: statusParts.length > 0 ? statusParts.join(' / ') : undefined,
+				rightDescription: `Role: ${normalizedRole}`
 			};
 		})
 	);
+
+	function setOrganizationSwitchingState(isSwitching: boolean): void {
+		organizationSwitchSubmitting = isSwitching;
+		if (typeof window === 'undefined') {
+			return;
+		}
+
+		try {
+			if (isSwitching) {
+				window.sessionStorage.setItem(ORGANIZATION_SWITCHING_SESSION_KEY, '1');
+			} else {
+				window.sessionStorage.removeItem(ORGANIZATION_SWITCHING_SESSION_KEY);
+			}
+		} catch {
+			// Ignore storage failures; local state still gates controls.
+		}
+
+		window.dispatchEvent(
+			new CustomEvent('playims:organization-switching', {
+				detail: { active: isSwitching }
+			})
+		);
+	}
 
 	function readStoredCollapsedSections(): CollapsedSectionStorage | null {
 		if (typeof window === 'undefined') {
@@ -795,6 +826,8 @@
 	}
 
 	onMount(() => {
+		setOrganizationSwitchingState(false);
+
 		const storedCollapsedSections = readStoredCollapsedSections();
 		if (storedCollapsedSections) {
 			if (typeof storedCollapsedSections.profileEssentialsCollapsed === 'boolean') {
@@ -880,13 +913,24 @@
 		cellPhone = formatCellPhoneMaskFromDigits(target.value);
 	}
 
-	function handleOrganizationChange(clientId: string) {
-		if (!clientId || clientId === currentOrganizationId || !switchOrganizationForm) {
+	async function handleOrganizationChange(clientId: string) {
+		if (
+			organizationSwitchSubmitting ||
+			!clientId ||
+			clientId === currentOrganizationId ||
+			!switchOrganizationForm
+		) {
 			return;
 		}
 
-		organizationSwitchClientId = clientId;
-		switchOrganizationForm.requestSubmit();
+		setOrganizationSwitchingState(true);
+		try {
+			organizationSwitchClientId = clientId;
+			await tick();
+			switchOrganizationForm.requestSubmit();
+		} catch {
+			setOrganizationSwitchingState(false);
+		}
 	}
 
 	function resetCreateOrganizationWizard() {
@@ -904,6 +948,22 @@
 	function openCreateOrganizationWizard() {
 		resetCreateOrganizationWizard();
 		createOrganizationOpen = true;
+	}
+
+	function openManageOrganizationWizard() {
+		manageOrganizationSelectedClientId = currentOrganizationId || organizations[0]?.clientId || '';
+		manageOrganizationOpen = true;
+	}
+
+	function closeManageOrganizationWizard() {
+		manageOrganizationOpen = false;
+	}
+
+	async function handleManageOrganizationSaved(selectedOrganizationId?: string | null) {
+		await invalidateAll();
+		if (selectedOrganizationId) {
+			manageOrganizationSelectedClientId = selectedOrganizationId;
+		}
 	}
 
 	function closeCreateOrganizationWizard() {
@@ -1069,6 +1129,35 @@
 			}
 		};
 	};
+
+	const enhanceSwitchOrganization = () => {
+		const scrollX = typeof window !== 'undefined' ? window.scrollX : 0;
+		const scrollY = typeof window !== 'undefined' ? window.scrollY : 0;
+
+		return async ({
+			result,
+			update
+		}: {
+			result: ActionResult;
+			update: (options?: { reset?: boolean; invalidateAll?: boolean }) => Promise<void>;
+		}) => {
+			try {
+				if (result.type === 'redirect' || result.type === 'error') {
+					await applyAction(result);
+					return;
+				}
+
+				await update({ reset: false });
+				if (typeof window !== 'undefined') {
+					requestAnimationFrame(() => {
+						window.scrollTo(scrollX, scrollY);
+					});
+				}
+			} finally {
+				setOrganizationSwitchingState(false);
+			}
+		};
+	};
 </script>
 
 <svelte:head>
@@ -1109,53 +1198,55 @@
 						{actionError}
 					</p>
 				{/if}
-				{#if actionName === 'switchOrganization' && actionSuccess}
-					<p class="text-xs border border-primary-500 bg-primary-100 text-primary-900 px-3 py-2">
-						{actionSuccess}
-					</p>
-				{/if}
 
 				{#if organizations.length === 0}
 					<div class="border border-secondary-300 bg-white/85 px-3 py-2 text-xs text-neutral-950">
 						No active organization memberships found.
 					</div>
 				{:else}
-					<ListboxDropdown
-						options={organizationDropdownOptions}
-						value={currentOrganizationId}
-						ariaLabel="Active organization"
-						placeholder="Select organization"
-						emptyText="No active organization memberships found."
-						buttonClass="button-secondary-outlined !bg-neutral-05 w-full px-3 py-2 text-xs cursor-pointer justify-between gap-2 items-start normal-case tracking-normal"
-						listClass="mt-1 w-80 max-w-[calc(100vw-2rem)] border-2 border-secondary-300 bg-white z-20"
-						optionClass="w-full text-left px-3 py-2 text-xs text-neutral-950 cursor-pointer"
+						<ListboxDropdown
+							options={organizationDropdownOptions}
+							value={currentOrganizationId}
+							ariaLabel="Active organization"
+							placeholder="Select organization"
+							emptyText="No active organization memberships found."
+							disabled={organizationSwitchSubmitting}
+							buttonClass="button-secondary-outlined !bg-neutral-05 w-full px-3 py-2 text-xs cursor-pointer justify-between gap-2 items-start normal-case tracking-normal"
+							listClass="mt-1 w-80 max-w-[calc(100vw-2rem)] border-2 border-secondary-300 bg-white z-20"
+							optionClass="w-full text-left px-3 py-2 text-xs text-neutral-950 cursor-pointer"
 						activeOptionClass="bg-neutral-300 text-neutral-950"
 						selectedOptionClass="bg-primary text-white font-semibold"
 						footerActionClass="button-secondary-outlined w-full px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer inline-flex items-center justify-center gap-1"
 						footerActionAriaLabel="Create new organization"
-						noteText={currentOrganizationRole
-							? `Current role: ${currentOrganizationRole}`
-							: undefined}
+						footerSecondaryActionAriaLabel="Manage organizations"
+						footerSecondaryActionClass="button-secondary-outlined w-9 h-9 p-0 cursor-pointer inline-flex items-center justify-center"
 						on:change={(event) => {
 							handleOrganizationChange(event.detail.value);
 						}}
 						on:footerAction={openCreateOrganizationWizard}
-					>
-						{#snippet trigger(open, selectedOption)}
-							<span class="min-w-0 flex-1 text-left">
-								<span class="block truncate text-sm font-semibold text-neutral-950">
-									{selectedOption?.label ?? 'Select organization'}
+						on:footerSecondaryAction={openManageOrganizationWizard}
+						>
+							{#snippet trigger(open, selectedOption)}
+								<span class="min-w-0 flex-1 text-left">
+									{#if organizationSwitchSubmitting}
+										<span class="block h-[1.15rem] w-52 max-w-full animate-pulse bg-neutral-300/70"></span>
+										<span class="mt-1 block h-[0.85rem] w-32 max-w-[75%] animate-pulse bg-neutral-300/70"></span>
+										<span class="sr-only">Switching organization, please wait.</span>
+									{:else}
+										<span class="block truncate text-sm font-semibold text-neutral-950">
+											{selectedOption?.label ?? 'Select organization'}
+										</span>
+										{#if selectedOption?.description}
+											<span
+												class="mt-0.5 block truncate text-[11px] font-normal tracking-normal text-neutral-700"
+											>
+												{selectedOption.description}
+											</span>
+										{/if}
+									{/if}
 								</span>
-								{#if selectedOption?.description}
-									<span
-										class="mt-0.5 block truncate text-[11px] font-normal tracking-normal text-neutral-700"
-									>
-										{selectedOption.description}
-									</span>
-								{/if}
-							</span>
-							{#if open}
-								<IconChevronUp class="w-4 h-4 shrink-0 mt-0.5 text-neutral-900" />
+								{#if open}
+									<IconChevronUp class="w-4 h-4 shrink-0 mt-0.5 text-neutral-900" />
 							{:else}
 								<IconChevronDown class="w-4 h-4 shrink-0 mt-0.5 text-neutral-900" />
 							{/if}
@@ -1165,16 +1256,19 @@
 							<IconPlus class="w-4 h-4" />
 							New
 						{/snippet}
+						{#snippet footerSecondaryAction()}
+							<IconPencil class="w-4 h-4" />
+						{/snippet}
 					</ListboxDropdown>
 
 					<form
 						class="hidden"
 						method="POST"
 						action="?/switchOrganization"
-						use:enhance={enhanceNoJump}
+						use:enhance={enhanceSwitchOrganization}
 						bind:this={switchOrganizationForm}
 					>
-						<input type="hidden" name="clientId" value={organizationSwitchClientId} />
+						<input type="hidden" name="clientId" bind:value={organizationSwitchClientId} />
 					</form>
 				{/if}
 			</div>
@@ -1749,13 +1843,13 @@
 								<div>
 									<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">Role</p>
 									<p class="text-neutral-950">
-										{#if account.isViewingAsPlayer}
-											Player (view mode)
+										{#if account.isViewingAsRole}
+											{account.role} (view mode)
 										{:else}
 											{account.role}
 										{/if}
 									</p>
-									{#if account.isViewingAsPlayer}
+									{#if account.isViewingAsRole}
 										<p class="text-xs text-neutral-950 mt-0.5">Organization role: {account.baseRole}</p>
 									{/if}
 								</div>
@@ -2271,6 +2365,16 @@
 				/>
 			{/snippet}
 		</CreateOrganizationWizard>
+
+		<ManageOrganizationWizard
+			open={manageOrganizationOpen}
+			organizations={organizations}
+			selectedOrganizationId={manageOrganizationSelectedClientId || currentOrganizationId}
+			on:close={closeManageOrganizationWizard}
+			on:saved={(event) => {
+				void handleManageOrganizationSaved(event.detail.selectedOrganizationId);
+			}}
+		/>
 	{/if}
 </div>
 

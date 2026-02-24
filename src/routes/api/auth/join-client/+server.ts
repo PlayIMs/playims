@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { canViewAsPlayerRole, normalizeRole } from '$lib/server/auth/rbac';
+import { canViewAsRole, normalizeRole } from '$lib/server/auth/rbac';
 import { joinClientSchema } from '$lib/server/auth/validation';
 import { requireAuthenticatedUserId } from '$lib/server/client-context';
 import { normalizeClientSlug } from '$lib/server/client-slug';
@@ -11,7 +11,7 @@ const isActiveClient = (status: string | null | undefined): boolean =>
 
 const isActiveMembership = (status: string | null | undefined): boolean =>
 	(status?.trim().toLowerCase() ?? 'active') === 'active';
-const SELF_JOIN_DEFAULT_ROLE = 'player';
+const SELF_JOIN_DEFAULT_ROLE = 'participant';
 
 export const POST: RequestHandler = async (event) => {
 	if (!event.platform?.env?.DB) {
@@ -100,23 +100,25 @@ export const POST: RequestHandler = async (event) => {
 	await dbOps.userClients.setDefaultMembership(userId, targetClient.id);
 
 	const resolvedRole = normalizeRole(membership.role);
-	const canViewAsPlayer = canViewAsPlayerRole(resolvedRole);
+	const canViewAsRoleEnabled = canViewAsRole(resolvedRole);
 	event.locals.session = {
 		...event.locals.session,
 		clientId: targetClient.id,
 		activeClientId: targetClient.id,
 		role: resolvedRole,
 		baseRole: resolvedRole,
-		canViewAsPlayer,
-		isViewingAsPlayer: false
+		canViewAsRole: canViewAsRoleEnabled,
+		isViewingAsRole: false,
+		viewAsRole: null
 	};
 	event.locals.user = {
 		...event.locals.user,
 		clientId: targetClient.id,
 		role: resolvedRole,
 		baseRole: resolvedRole,
-		canViewAsPlayer,
-		isViewingAsPlayer: false
+		canViewAsRole: canViewAsRoleEnabled,
+		isViewingAsRole: false,
+		viewAsRole: null
 	};
 
 	return json({

@@ -26,7 +26,7 @@ export class AuthServiceError extends Error {
 const textEncoder = new TextEncoder();
 const DUMMY_PASSWORD_HASH = `pbkdf2_sha256$${AUTH_PBKDF2_DEFAULT_ITERATIONS}$AAECAwQFBgcICQoLDA0ODw$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA`;
 const LOCAL_DEV_FALLBACK_EMAIL = 'dev@localhost.playims';
-const SELF_SERVICE_DEFAULT_ROLE = 'player' as const;
+const SELF_SERVICE_DEFAULT_ROLE = 'participant' as const;
 let hasWarnedPasswordPepperFallback = false;
 
 const constantTimeStringEqual = (a: string, b: string): boolean => {

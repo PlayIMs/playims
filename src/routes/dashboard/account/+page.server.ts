@@ -5,7 +5,7 @@ import {
 import { AUTH_ENV_KEYS } from '$lib/server/auth/constants';
 import { hashPassword, normalizeIterations, verifyPassword } from '$lib/server/auth/password';
 import { canManageWrites } from '$lib/server/auth/permissions';
-import { canViewAsPlayerRole, normalizeRole } from '$lib/server/auth/rbac';
+import { canViewAsRole, normalizeRole } from '$lib/server/auth/rbac';
 import { clearSessionCookie, revokeCurrentSession } from '$lib/server/auth/session';
 import { resolvePasswordPepper } from '$lib/server/auth/service';
 import {
@@ -147,9 +147,12 @@ export const load: PageServerLoad = async (event) => {
 				clientId: membership.clientId,
 				clientName,
 				clientSlug,
-				role: membership.role ?? 'player',
+				role: membership.role ?? 'participant',
 				isDefault: membership.isDefault === 1,
-				isCurrent: membership.clientId === clientId
+				isCurrent: membership.clientId === clientId,
+				selfJoinEnabled: client?.selfJoinEnabled === 1,
+				metadata: client?.metadata?.trim() || null,
+				status: client?.status?.trim() || 'active'
 			};
 		})
 		.toSorted((a, b) => {
@@ -162,7 +165,7 @@ export const load: PageServerLoad = async (event) => {
 		currentMembership?.membership.role ?? locals.session?.baseRole ?? locals.user?.baseRole
 	);
 	const role = normalizeRole(locals.session?.role ?? locals.user?.role ?? baseRole);
-	const isViewingAsPlayer = locals.session?.isViewingAsPlayer === true;
+	const isViewingAsRole = locals.session?.isViewingAsRole === true;
 
 	return {
 		organizations,
@@ -174,7 +177,8 @@ export const load: PageServerLoad = async (event) => {
 			cellPhone: user.cellPhone ?? '',
 			role,
 			baseRole,
-			isViewingAsPlayer,
+			isViewingAsRole,
+			viewAsRole: locals.session?.viewAsRole ?? null,
 			status: user.status ?? 'unknown',
 			createdAt: user.createdAt ?? null,
 			updatedAt: user.updatedAt ?? null,
@@ -474,23 +478,25 @@ export const actions: Actions = {
 			if (updatedSession) {
 				switched = true;
 				const resolvedRole = normalizeRole(membership.role);
-				const canViewAsPlayer = canViewAsPlayerRole(resolvedRole);
+				const canViewAsRoleEnabled = canViewAsRole(resolvedRole);
 				event.locals.session = {
 					...event.locals.session,
 					clientId: createdClient.id,
 					activeClientId: createdClient.id,
 					role: resolvedRole,
 					baseRole: resolvedRole,
-					canViewAsPlayer,
-					isViewingAsPlayer: false
+					canViewAsRole: canViewAsRoleEnabled,
+					isViewingAsRole: false,
+					viewAsRole: null
 				};
 				event.locals.user = {
 					...event.locals.user,
 					clientId: createdClient.id,
 					role: resolvedRole,
 					baseRole: resolvedRole,
-					canViewAsPlayer,
-					isViewingAsPlayer: false
+					canViewAsRole: canViewAsRoleEnabled,
+					isViewingAsRole: false,
+					viewAsRole: null
 				};
 			}
 		}
@@ -554,26 +560,26 @@ export const actions: Actions = {
 			});
 		}
 
-		await dbOps.userClients.setDefaultMembership(userId, requestedClientId);
-
 		const resolvedRole = normalizeRole(activeMembership.role);
-		const canViewAsPlayer = canViewAsPlayerRole(resolvedRole);
+		const canViewAsRoleEnabled = canViewAsRole(resolvedRole);
 		event.locals.session = {
 			...event.locals.session,
 			clientId: requestedClientId,
 			activeClientId: requestedClientId,
 			role: resolvedRole,
 			baseRole: resolvedRole,
-			canViewAsPlayer,
-			isViewingAsPlayer: false
+			canViewAsRole: canViewAsRoleEnabled,
+			isViewingAsRole: false,
+			viewAsRole: null
 		};
 		event.locals.user = {
 			...event.locals.user,
 			clientId: requestedClientId,
 			role: resolvedRole,
 			baseRole: resolvedRole,
-			canViewAsPlayer,
-			isViewingAsPlayer: false
+			canViewAsRole: canViewAsRoleEnabled,
+			isViewingAsRole: false,
+			viewAsRole: null
 		};
 
 		return {

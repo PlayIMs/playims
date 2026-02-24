@@ -70,6 +70,8 @@ export class UserClientOperations {
 				name: string | null;
 				slug: string | null;
 				status: string | null;
+				selfJoinEnabled: number | null;
+				metadata: string | null;
 			} | null;
 		}>
 	> {
@@ -80,7 +82,9 @@ export class UserClientOperations {
 					id: clients.id,
 					name: clients.name,
 					slug: clients.slug,
-					status: clients.status
+					status: clients.status,
+					selfJoinEnabled: clients.selfJoinEnabled,
+					metadata: clients.metadata
 				}
 			})
 			.from(userClients)
@@ -99,7 +103,7 @@ export class UserClientOperations {
 		updatedUser?: string | null;
 	}): Promise<UserClient | null> {
 		const now = new Date().toISOString();
-		const role = input.role?.trim() || 'player';
+		const role = input.role?.trim() || 'participant';
 		const status = input.status?.trim() || 'active';
 		const isDefault = input.isDefault && status === 'active' ? 1 : 0;
 
@@ -177,6 +181,37 @@ export class UserClientOperations {
 			})
 			.where(and(eq(userClients.userId, userId), eq(userClients.clientId, clientId)))
 			.returning();
+		return updated[0] ?? null;
+	}
+
+	async deactivateMembership(
+		userId: string,
+		clientId: string,
+		updatedUser?: string | null
+	): Promise<UserClient | null> {
+		const now = new Date().toISOString();
+		const target = await this.getActiveMembership(userId, clientId);
+		if (!target) {
+			return null;
+		}
+
+		const updated = await this.db
+			.update(userClients)
+			.set({
+				status: 'inactive',
+				isDefault: 0,
+				updatedAt: now,
+				updatedUser: updatedUser ?? null
+			})
+			.where(
+				and(
+					eq(userClients.userId, userId),
+					eq(userClients.clientId, clientId),
+					eq(userClients.status, 'active')
+				)
+			)
+			.returning();
+
 		return updated[0] ?? null;
 	}
 }

@@ -13,4 +13,4 @@ INSERT OR IGNORE INTO user_clients (id, user_id, client_id, role, status, is_def
 VALUES ('9d7f3d5f-e009-4e17-af93-cdc22de39964', 'f5d5c301-9ad3-4cb4-9cfd-a6b78e67734a', '6eb657af-4ab8-4a13-980a-add993f78d65', 'admin', 'active', 1, '2025-10-18T18:17:41.000Z', '2025-10-18T18:17:41.000Z', NULL, NULL);
 
 INSERT OR IGNORE INTO user_clients (id, user_id, client_id, role, status, is_default, created_at, updated_at, created_user, updated_user)
-VALUES ('ca1379d4-f0f8-4796-85ef-fce6c4fd9bf4', 'a4613d93-f591-4e0b-b9f5-2f43e4e08639', '6eb657af-4ab8-4a13-980a-add993f78d65', 'player', 'active', 1, '2025-10-18T18:17:41.000Z', '2025-10-18T18:17:41.000Z', NULL, NULL);
+VALUES ('ca1379d4-f0f8-4796-85ef-fce6c4fd9bf4', 'a4613d93-f591-4e0b-b9f5-2f43e4e08639', '6eb657af-4ab8-4a13-980a-add993f78d65', 'participant', 'active', 1, '2025-10-18T18:17:41.000Z', '2025-10-18T18:17:41.000Z', NULL, NULL);

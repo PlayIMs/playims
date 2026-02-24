@@ -8,21 +8,21 @@ describe('register defaults', () => {
 		vi.restoreAllMocks();
 	});
 
-	it('assigns player role for invite-based self-service registration', async () => {
+	it('assigns participant role for invite-based self-service registration', async () => {
 		const createSessionSpy = vi.spyOn(sessionModule, 'createSessionForUser').mockResolvedValue({
 			session: {
 				id: 'session-1',
 				userId: 'user-1',
 				clientId: DEFAULT_CLIENT.id,
 				activeClientId: DEFAULT_CLIENT.id,
-				role: 'player',
+				role: 'participant',
 				authProvider: 'password',
 				expiresAt: new Date().toISOString()
 			},
 			user: {
 				id: 'user-1',
 				clientId: DEFAULT_CLIENT.id,
-				role: 'player'
+				role: 'participant'
 			}
 		} as any);
 
@@ -42,7 +42,7 @@ describe('register defaults', () => {
 				getAuthByEmail: vi.fn().mockResolvedValue(null),
 				createAuthUser: vi.fn().mockResolvedValue({
 					id: 'user-1',
-					email: 'player@playims.com',
+					email: 'participant@playims.com',
 					status: 'active'
 				}),
 				markLoginSuccess: vi.fn().mockResolvedValue(null)
@@ -51,7 +51,7 @@ describe('register defaults', () => {
 				ensureMembership: vi.fn().mockResolvedValue({
 					userId: 'user-1',
 					clientId: DEFAULT_CLIENT.id,
-					role: 'player',
+					role: 'participant',
 					status: 'active',
 					isDefault: 1
 				})
@@ -68,7 +68,7 @@ describe('register defaults', () => {
 		} as any;
 
 		await registerWithPassword(event, dbOps, {
-			email: 'player@playims.com',
+			email: 'participant@playims.com',
 			password: 'StrongPass123',
 			inviteKey: 'invite-key',
 			firstName: 'Pat',
@@ -82,13 +82,13 @@ describe('register defaults', () => {
 			expect.objectContaining({
 				userId: 'user-1',
 				clientId: DEFAULT_CLIENT.id,
-				role: 'player'
+				role: 'participant'
 			})
 		);
 		expect(dbOps.signupInviteKeys.consumeByHash).toHaveBeenCalledTimes(1);
 		expect(createSessionSpy).toHaveBeenCalledWith(event, dbOps, expect.any(Object), 'session-secret', {
 			activeClientId: DEFAULT_CLIENT.id,
-			activeRole: 'player'
+			activeRole: 'participant'
 		});
 	});
 });

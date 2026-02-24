@@ -16,7 +16,7 @@ export const userClients = sqliteTable(
 		clientId: text('client_id')
 			.notNull()
 			.references(() => clients.id, { onDelete: 'cascade' }),
-		role: text().notNull().default('player'),
+		role: text().notNull().default('participant'),
 		status: text().notNull().default('active'),
 		isDefault: integer('is_default').notNull().default(0),
 		createdAt: text('created_at').notNull(),

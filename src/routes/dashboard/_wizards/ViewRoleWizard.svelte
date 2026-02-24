@@ -1,0 +1,216 @@
+<script lang="ts">
+	import { tick } from 'svelte';
+	import IconAlertCircle from '@tabler/icons-svelte/icons/alert-circle';
+	import { WizardModal } from '$lib/components/wizard';
+
+	type AuthRole = 'participant' | 'manager' | 'admin' | 'dev';
+
+	interface Props {
+		open: boolean;
+		formError: string;
+		submitting: boolean;
+		effectiveRole: AuthRole;
+		allowedRoles: AuthRole[];
+		onRequestClose: () => void;
+		onSelectRole: (role: AuthRole | null) => void;
+	}
+
+	let {
+		open,
+		formError,
+		submitting,
+		effectiveRole,
+		allowedRoles,
+		onRequestClose,
+		onSelectRole
+	}: Props = $props();
+
+	const roleLabel: Record<AuthRole, string> = {
+		participant: 'Participant',
+		manager: 'Manager',
+		admin: 'Admin',
+		dev: 'Dev'
+	};
+	const roleQuickKey: Record<AuthRole, string | null> = {
+		participant: 'P',
+		manager: 'M',
+		admin: 'A',
+		dev: null
+	};
+
+	const activeRole = $derived.by(() => effectiveRole);
+	const roleOptions = $derived.by(() =>
+		allowedRoles.map((role) => ({
+			role,
+			title: roleLabel[role],
+			description: `Switch to ${roleLabel[role]} view permissions.`,
+			quickKey: roleQuickKey[role]
+		}))
+	);
+	let highlightedIndex = $state(0);
+
+	function moveHighlight(direction: 1 | -1): void {
+		if (roleOptions.length === 0) {
+			return;
+		}
+		const nextIndex = (highlightedIndex + direction + roleOptions.length) % roleOptions.length;
+		highlightedIndex = nextIndex;
+		void tick().then(() => {
+			const optionButton = document.querySelector<HTMLButtonElement>(
+				`[data-view-role-option-index="${nextIndex}"]`
+			);
+			optionButton?.focus();
+		});
+	}
+
+	function submitHighlightedOption(): void {
+		if (submitting || roleOptions.length === 0) {
+			return;
+		}
+		const option = roleOptions[highlightedIndex];
+		if (!option) {
+			return;
+		}
+		onSelectRole(option.role);
+	}
+
+	$effect(() => {
+		if (!open) {
+			highlightedIndex = 0;
+			return;
+		}
+
+		if (roleOptions.length === 0) {
+			highlightedIndex = 0;
+			return;
+		}
+
+		const activeIndex = roleOptions.findIndex((option) => option.role === activeRole);
+		highlightedIndex = activeIndex >= 0 ? activeIndex : 0;
+
+		void tick().then(() => {
+			const optionButton = document.querySelector<HTMLButtonElement>(
+				`[data-view-role-option-index="${highlightedIndex}"]`
+			);
+			optionButton?.focus();
+		});
+	});
+
+	$effect(() => {
+		if (!open || typeof window === 'undefined') {
+			return;
+		}
+
+		const handleWindowKeydown = (event: KeyboardEvent): void => {
+			if (submitting) {
+				return;
+			}
+			if (event.altKey || event.ctrlKey || event.metaKey) {
+				return;
+			}
+
+			if (event.key === 'ArrowDown' || (event.key === 'Tab' && !event.shiftKey)) {
+				event.preventDefault();
+				moveHighlight(1);
+				return;
+			}
+			if (event.key === 'ArrowUp' || (event.key === 'Tab' && event.shiftKey)) {
+				event.preventDefault();
+				moveHighlight(-1);
+				return;
+			}
+			if (event.key === 'Enter') {
+				event.preventDefault();
+				submitHighlightedOption();
+				return;
+			}
+
+			const quickKey = event.key.toUpperCase();
+			if (quickKey !== 'A' && quickKey !== 'M' && quickKey !== 'P') {
+				return;
+			}
+
+			const matchingOption = roleOptions.find((option) => option.quickKey === quickKey);
+			if (!matchingOption) {
+				return;
+			}
+
+			event.preventDefault();
+			onSelectRole(matchingOption.role);
+		};
+
+		window.addEventListener('keydown', handleWindowKeydown, true);
+		return () => {
+			window.removeEventListener('keydown', handleWindowKeydown, true);
+		};
+	});
+</script>
+
+<WizardModal
+	{open}
+	title="Switch View Role"
+	step={1}
+	stepCount={1}
+	stepTitle="Role View"
+	progressPercent={100}
+	closeAriaLabel="Close switch role wizard"
+	maxWidthClass="max-w-lg"
+	formClass="p-4 space-y-4"
+	on:requestClose={onRequestClose}
+>
+	{#snippet error()}
+		{#if formError}
+			<div class="border-2 border-error-300 bg-error-50 p-3 flex items-start gap-3">
+				<IconAlertCircle class="w-5 h-5 text-error-700 mt-0.5" />
+				<p class="text-error-700 font-sans">{formError}</p>
+			</div>
+		{/if}
+	{/snippet}
+
+	<div class="space-y-4">
+		<div class="border border-secondary-300 bg-white p-2.5">
+			<p class="text-xs text-neutral-950 font-sans">
+				Current view: <span class="font-semibold">{roleLabel[effectiveRole]}</span>
+			</p>
+			<p class="text-[11px] text-neutral-900 font-sans mt-1">
+				Use ↑ / ↓, Tab / Shift+Tab, Enter, or quick keys.
+			</p>
+		</div>
+		<div class="grid grid-cols-1 gap-2">
+			{#each roleOptions as option, optionIndex}
+				<button
+					type="button"
+					data-view-role-option-index={optionIndex}
+					tabindex={highlightedIndex === optionIndex ? 0 : -1}
+					onfocus={() => {
+						highlightedIndex = optionIndex;
+					}}
+					class={`border p-2.5 text-left cursor-pointer disabled:cursor-wait disabled:opacity-70 ${
+						highlightedIndex === optionIndex || activeRole === option.role
+							? 'border-primary-500 bg-primary-100 text-primary-900'
+							: 'border-secondary-300 bg-white text-neutral-950 hover:bg-secondary-50'
+					}`}
+					disabled={submitting}
+					onclick={() => onSelectRole(option.role)}
+				>
+					<div class="flex items-center justify-between gap-2">
+						<p class="font-semibold">{option.title}</p>
+						<div class="flex items-center gap-2">
+							{#if option.quickKey}
+								<span
+									class="inline-flex min-w-6 h-6 items-center justify-center rounded-sm border border-secondary-500 bg-neutral-200 px-1.5 text-[11px] font-mono font-bold text-neutral-950 shadow-[inset_0_-1px_0_rgba(0,0,0,0.14)]"
+								>
+									{option.quickKey}
+								</span>
+							{/if}
+							{#if activeRole === option.role}
+								<span class="text-[10px] uppercase tracking-wide font-bold">Current</span>
+							{/if}
+						</div>
+					</div>
+					<p class="text-xs mt-0.5">{option.description}</p>
+				</button>
+			{/each}
+		</div>
+	</div>
+</WizardModal>

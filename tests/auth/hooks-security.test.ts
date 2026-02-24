@@ -131,16 +131,16 @@ describe('hooks security behavior', () => {
 				user: {
 					id: 'u2',
 					clientId: '22222222-2222-2222-2222-222222222222',
-					role: 'player',
-					baseRole: 'player'
+					role: 'participant',
+					baseRole: 'participant'
 				},
 				session: {
 					id: 's2',
 					userId: 'u2',
 					clientId: '22222222-2222-2222-2222-222222222222',
 					activeClientId: '22222222-2222-2222-2222-222222222222',
-					role: 'player',
-					baseRole: 'player',
+					role: 'participant',
+					baseRole: 'participant',
 					authProvider: 'password',
 					expiresAt: new Date(Date.now() + 60_000).toISOString()
 				}
@@ -179,7 +179,7 @@ describe('hooks security behavior', () => {
 		expect(response.status).toBe(200);
 	});
 
-	it('allows role-protected API reads using base role during player view mode', async () => {
+	it('allows role-protected API reads using base role during participant view mode', async () => {
 		const event = createEvent({
 			pathname: '/api/themes',
 			method: 'GET',
@@ -188,7 +188,7 @@ describe('hooks security behavior', () => {
 				user: {
 					id: 'u4',
 					clientId: '44444444-4444-4444-8444-444444444444',
-					role: 'player',
+					role: 'participant',
 					baseRole: 'manager'
 				},
 				session: {
@@ -196,7 +196,7 @@ describe('hooks security behavior', () => {
 					userId: 'u4',
 					clientId: '44444444-4444-4444-8444-444444444444',
 					activeClientId: '44444444-4444-4444-8444-444444444444',
-					role: 'player',
+					role: 'participant',
 					baseRole: 'manager',
 					authProvider: 'password',
 					expiresAt: new Date(Date.now() + 60_000).toISOString()
@@ -208,7 +208,7 @@ describe('hooks security behavior', () => {
 		expect(response.status).toBe(200);
 	});
 
-	it('blocks mutating role-protected API calls using effective player role during player view mode', async () => {
+	it('blocks mutating role-protected API calls using effective participant role during participant view mode', async () => {
 		const event = createEvent({
 			pathname: '/api/themes',
 			method: 'POST',
@@ -218,7 +218,7 @@ describe('hooks security behavior', () => {
 				user: {
 					id: 'u5',
 					clientId: '55555555-5555-4555-8555-555555555555',
-					role: 'player',
+					role: 'participant',
 					baseRole: 'manager'
 				},
 				session: {
@@ -226,7 +226,7 @@ describe('hooks security behavior', () => {
 					userId: 'u5',
 					clientId: '55555555-5555-4555-8555-555555555555',
 					activeClientId: '55555555-5555-4555-8555-555555555555',
-					role: 'player',
+					role: 'participant',
 					baseRole: 'manager',
 					authProvider: 'password',
 					expiresAt: new Date(Date.now() + 60_000).toISOString()

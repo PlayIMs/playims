@@ -21,6 +21,9 @@
 	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
+	import ViewRoleWizard from './_wizards/ViewRoleWizard.svelte';
+
+	type AuthRole = 'participant' | 'manager' | 'admin' | 'dev';
 
 	let { children, data } = $props();
 
@@ -77,45 +80,128 @@
 		return 'My Account';
 	});
 	const viewerEmail = $derived.by(() => data?.viewer?.email?.trim() ?? 'No email');
-	const isViewingAsPlayer = $derived.by(() => data?.authMode?.isViewingAsPlayer === true);
-	const shellInsetClass = $derived.by(() => (isViewingAsPlayer ? 'inset-4' : 'inset-0'));
+	const normalizeRole = (value: unknown): AuthRole => {
+		if (typeof value !== 'string') {
+			return 'participant';
+		}
+		const normalized = value.trim().toLowerCase();
+		if (normalized === 'manager' || normalized === 'admin' || normalized === 'dev') {
+			return normalized;
+		}
+		return 'participant';
+	};
+	const resolveViewTargets = (baseRole: AuthRole): AuthRole[] => {
+		if (baseRole === 'dev') return ['admin', 'manager', 'participant'];
+		if (baseRole === 'admin') return ['manager', 'participant'];
+		if (baseRole === 'manager') return ['participant'];
+		return [];
+	};
+	const baseRole = $derived.by(() => normalizeRole(data?.authMode?.baseRole));
+	const effectiveRole = $derived.by(() => normalizeRole(data?.authMode?.effectiveRole));
+	const canViewAsRole = $derived.by(() => data?.authMode?.canViewAsRole === true);
+	const isViewingAsRole = $derived.by(() => data?.authMode?.isViewingAsRole === true);
+	const availableViewTargets = $derived.by(() => resolveViewTargets(baseRole));
+	const shellInsetClass = $derived.by(() => (isViewingAsRole ? 'inset-4' : 'inset-0'));
 	const sidebarHeightClass = $derived.by(() =>
-		isViewingAsPlayer ? 'h-[calc(100dvh-2rem)]' : 'h-dvh'
+		isViewingAsRole ? 'h-[calc(100dvh-2rem)]' : 'h-dvh'
 	);
 	const shellBorderOpacityClass = $derived.by(() =>
-		isViewingAsPlayer ? 'opacity-100' : 'opacity-0'
+		isViewingAsRole ? 'opacity-100' : 'opacity-0'
 	);
 	const viewingModeLabel = $derived.by(() => {
-		const effectiveRole = data?.authMode?.effectiveRole?.trim() ?? '';
-		if (effectiveRole.length > 0) {
-			return effectiveRole.toUpperCase();
-		}
-		return 'PLAYER';
+		return effectiveRole.toUpperCase();
 	});
 	const returnModeLabel = $derived.by(() => {
-		const baseRole = data?.authMode?.baseRole?.trim().toLowerCase() ?? '';
-		if (baseRole.length > 0) {
-			return baseRole;
-		}
-		return 'player';
+		return baseRole;
 	});
+	const ORGANIZATION_SWITCHING_SESSION_KEY = 'playims:organization-switching';
+	let roleWizardOpen = $state(false);
+	let roleWizardSubmitting = $state(false);
 	let revertingViewMode = $state(false);
 	let viewModeBadgeError = $state('');
+	let organizationSwitching = $state(false);
+
+	const syncOrganizationSwitchingState = () => {
+		if (!browser) {
+			organizationSwitching = false;
+			return;
+		}
+
+		try {
+			organizationSwitching =
+				window.sessionStorage.getItem(ORGANIZATION_SWITCHING_SESSION_KEY) === '1';
+		} catch {
+			organizationSwitching = false;
+		}
+	};
+
+	const openRoleWizard = () => {
+		if (!canViewAsRole || isViewingAsRole || roleWizardSubmitting || organizationSwitching) {
+			return;
+		}
+		roleWizardOpen = true;
+		viewModeBadgeError = '';
+	};
+
+	const closeRoleWizard = () => {
+		if (roleWizardSubmitting) {
+			return;
+		}
+		roleWizardOpen = false;
+	};
+
+	const applyViewRole = async (targetRole: AuthRole | null) => {
+		if (!browser || !canViewAsRole || roleWizardSubmitting || organizationSwitching) {
+			return;
+		}
+
+		roleWizardSubmitting = true;
+		viewModeBadgeError = '';
+		try {
+			const response = await fetch('/api/auth/view-as-role', {
+				method: 'POST',
+				headers: {
+					'content-type': 'application/json'
+				},
+				body: JSON.stringify({ targetRole })
+			});
+
+			let payload: { error?: string } | null = null;
+			try {
+				payload = (await response.json()) as { error?: string };
+			} catch {
+				payload = null;
+			}
+
+			if (!response.ok) {
+				viewModeBadgeError = payload?.error ?? 'Unable to update role view.';
+				await invalidateAll();
+				return;
+			}
+
+			roleWizardOpen = false;
+			await invalidateAll();
+		} catch {
+			viewModeBadgeError = 'Unable to update role view.';
+		} finally {
+			roleWizardSubmitting = false;
+		}
+	};
 
 	const exitViewMode = async () => {
-		if (!browser || !isViewingAsPlayer || revertingViewMode) {
+		if (!browser || !isViewingAsRole || revertingViewMode || organizationSwitching) {
 			return;
 		}
 
 		revertingViewMode = true;
 		viewModeBadgeError = '';
 		try {
-			const response = await fetch('/api/auth/view-as-player', {
+			const response = await fetch('/api/auth/view-as-role', {
 				method: 'POST',
 				headers: {
 					'content-type': 'application/json'
 				},
-				body: JSON.stringify({ enabled: false })
+				body: JSON.stringify({ targetRole: null })
 			});
 
 			let payload: { error?: string } | null = null;
@@ -138,6 +224,85 @@
 			revertingViewMode = false;
 		}
 	};
+
+	$effect(() => {
+		if (!browser) {
+			return;
+		}
+
+		syncOrganizationSwitchingState();
+
+		const handleOrganizationSwitchingEvent = (event: Event) => {
+			const customEvent = event as CustomEvent<{ active?: boolean }>;
+			if (typeof customEvent.detail?.active === 'boolean') {
+				organizationSwitching = customEvent.detail.active;
+				return;
+			}
+
+			syncOrganizationSwitchingState();
+		};
+
+		const handleStorageEvent = (event: StorageEvent) => {
+			if (event.key && event.key !== ORGANIZATION_SWITCHING_SESSION_KEY) {
+				return;
+			}
+
+			syncOrganizationSwitchingState();
+		};
+
+		window.addEventListener(
+			'playims:organization-switching',
+			handleOrganizationSwitchingEvent as EventListener
+		);
+		window.addEventListener('storage', handleStorageEvent);
+		window.addEventListener('focus', syncOrganizationSwitchingState);
+		return () => {
+			window.removeEventListener(
+				'playims:organization-switching',
+				handleOrganizationSwitchingEvent as EventListener
+			);
+			window.removeEventListener('storage', handleStorageEvent);
+			window.removeEventListener('focus', syncOrganizationSwitchingState);
+		};
+	});
+
+	$effect(() => {
+		if (!organizationSwitching) {
+			return;
+		}
+
+		roleWizardOpen = false;
+	});
+
+	$effect(() => {
+		if (!browser || !canViewAsRole) {
+			return;
+		}
+
+		const handleViewModeShortcut = (event: KeyboardEvent) => {
+			if (!(event.ctrlKey && event.shiftKey && event.code === 'KeyR')) {
+				return;
+			}
+			if (organizationSwitching) {
+				return;
+			}
+
+			event.preventDefault();
+			event.stopPropagation();
+			event.stopImmediatePropagation();
+			if (isViewingAsRole) {
+				void exitViewMode();
+				return;
+			}
+
+			openRoleWizard();
+		};
+
+		window.addEventListener('keydown', handleViewModeShortcut, true);
+		return () => {
+			window.removeEventListener('keydown', handleViewModeShortcut, true);
+		};
+	});
 
 	$effect(() => {
 		if (!browser) {
@@ -170,7 +335,7 @@
 		class="pointer-events-none fixed inset-0 z-50 shadow-[inset_0_0_0_1rem_var(--color-accent-500)] transition-opacity duration-220 {shellBorderOpacityClass}"
 		aria-hidden="true"
 	></div>
-	{#if isViewingAsPlayer}
+	{#if isViewingAsRole}
 		<div class="fixed right-4 top-4 z-60 inline-flex h-7 items-stretch bg-accent-300 text-white">
 			<span
 				class="inline-flex items-center px-2 text-[0.6rem] font-bold leading-none tracking-[0.08em] cursor-default"
@@ -185,7 +350,7 @@
 					type="button"
 					class="inline-flex h-full w-7 cursor-pointer items-center justify-center bg-accent-400 text-white transition-colors duration-150 hover:bg-accent-600 focus-visible:bg-accent-800 disabled:cursor-wait disabled:opacity-70"
 					aria-label="Return to organization role view"
-					disabled={revertingViewMode}
+					disabled={revertingViewMode || organizationSwitching}
 					onclick={exitViewMode}
 				>
 					<IconArrowBackUp class="w-4 h-4" />
@@ -348,4 +513,13 @@
 			</main>
 		</div>
 	</div>
+	<ViewRoleWizard
+		open={roleWizardOpen}
+		formError={viewModeBadgeError}
+		submitting={roleWizardSubmitting || organizationSwitching}
+		{effectiveRole}
+		allowedRoles={availableViewTargets}
+		onRequestClose={closeRoleWizard}
+		onSelectRole={(role) => void applyViewRole(role)}
+	/>
 </div>

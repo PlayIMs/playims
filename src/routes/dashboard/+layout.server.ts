@@ -6,8 +6,9 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 	const fullName = `${firstName} ${lastName}`.trim();
 	const baseRole = locals.user?.baseRole ?? locals.user?.role ?? null;
 	const effectiveRole = locals.user?.role ?? locals.user?.baseRole ?? null;
-	const canViewAsPlayer = locals.user?.canViewAsPlayer ?? false;
-	const isViewingAsPlayer = locals.user?.isViewingAsPlayer ?? false;
+	const canViewAsRole = locals.user?.canViewAsRole ?? false;
+	const isViewingAsRole = locals.user?.isViewingAsRole ?? false;
+	const viewAsRole = locals.user?.viewAsRole ?? null;
 
 	return {
 		viewer: {
@@ -17,8 +18,9 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 		authMode: {
 			baseRole,
 			effectiveRole,
-			canViewAsPlayer,
-			isViewingAsPlayer
+			canViewAsRole,
+			isViewingAsRole,
+			viewAsRole
 		}
 	};
 };

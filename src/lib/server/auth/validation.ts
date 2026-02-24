@@ -148,8 +148,8 @@ export const switchClientSchema = z.object({
 	clientId: z.string().trim().uuid('Please provide a valid client ID.')
 });
 
-export const viewAsPlayerSchema = z.object({
-	enabled: z.boolean()
+export const viewAsRoleSchema = z.object({
+	targetRole: z.enum(['participant', 'manager', 'admin', 'dev']).nullable()
 });
 
 export const joinClientSchema = z
@@ -235,4 +235,4 @@ export type AccountArchiveInput = z.infer<typeof accountArchiveSchema>;
 export type AccountCreateOrganizationInput = z.infer<typeof accountCreateOrganizationSchema>;
 export type SwitchClientInput = z.infer<typeof switchClientSchema>;
 export type JoinClientInput = z.infer<typeof joinClientSchema>;
-export type ViewAsPlayerInput = z.infer<typeof viewAsPlayerSchema>;
+export type ViewAsRoleInput = z.infer<typeof viewAsRoleSchema>;

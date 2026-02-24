@@ -11,9 +11,6 @@
 	import IconPlayerPlay from '@tabler/icons-svelte/icons/player-play';
 	import IconPlus from '@tabler/icons-svelte/icons/plus';
 	import IconBell from '@tabler/icons-svelte/icons/bell';
-	import IconEye from '@tabler/icons-svelte/icons/eye';
-	import IconEyeOff from '@tabler/icons-svelte/icons/eye-off';
-	import { invalidateAll } from '$app/navigation';
 
 	let { data } = $props();
 
@@ -23,48 +20,6 @@
 	let notificationCount = $derived(data.alerts?.length ?? 0);
 	let practicesToday = $derived(data.stats?.practicesToday ?? 0);
 	let scheduleFilter = $state<'completed' | 'in_progress' | 'scheduled'>('in_progress');
-	let viewModeSubmitting = $state(false);
-	let viewModeError = $state('');
-	let canViewAsPlayer = $derived(data.authMode?.canViewAsPlayer === true);
-	let isViewingAsPlayer = $derived(data.authMode?.isViewingAsPlayer === true);
-	let baseRole = $derived(data.authMode?.baseRole ?? 'player');
-
-	const toggleViewAsPlayer = async () => {
-		if (!canViewAsPlayer || viewModeSubmitting) {
-			return;
-		}
-
-		viewModeSubmitting = true;
-		viewModeError = '';
-		try {
-			const response = await fetch('/api/auth/view-as-player', {
-				method: 'POST',
-				headers: {
-					'content-type': 'application/json'
-				},
-				body: JSON.stringify({ enabled: !isViewingAsPlayer })
-			});
-
-			let payload: { error?: string } | null = null;
-			try {
-				payload = (await response.json()) as { error?: string };
-			} catch {
-				payload = null;
-			}
-
-			if (!response.ok) {
-				viewModeError = payload?.error ?? 'Unable to update view mode.';
-				await invalidateAll();
-				return;
-			}
-
-			await invalidateAll();
-		} catch {
-			viewModeError = 'Unable to update view mode.';
-		} finally {
-			viewModeSubmitting = false;
-		}
-	};
 
 	const filterOptions = [
 		{
@@ -249,40 +204,6 @@
 			</div>
 		</div>
 	</section>
-
-	{#if canViewAsPlayer}
-		<section class="border-2 border-secondary-300 bg-neutral p-4">
-			<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-				<div>
-					<h2 class="text-xl font-bold font-serif text-neutral-950">View Mode</h2>
-					<p class="text-xs text-neutral-950 font-sans">
-						Current view: <strong>{isViewingAsPlayer ? 'Player' : baseRole}</strong>
-					</p>
-					<p class="text-xs text-neutral-950 font-sans">Organization role: {baseRole}</p>
-				</div>
-				<button
-					type="button"
-					class={`px-4 py-2 text-xs font-bold uppercase tracking-wide flex items-center justify-center gap-2 cursor-pointer ${
-						isViewingAsPlayer ? 'button-accent' : 'button-accent-outlined'
-					}`}
-					aria-pressed={isViewingAsPlayer}
-					disabled={viewModeSubmitting}
-					onclick={toggleViewAsPlayer}
-				>
-					{#if isViewingAsPlayer}
-						<IconEyeOff class="w-4 h-4" />
-						Exit Player View
-					{:else}
-						<IconEye class="w-4 h-4" />
-						View As Player
-					{/if}
-				</button>
-			</div>
-			{#if viewModeError}
-				<p class="mt-3 text-sm text-accent-700">{viewModeError}</p>
-			{/if}
-		</section>
-	{/if}
 
 	<div class="grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-6">
 		<div class="space-y-6">

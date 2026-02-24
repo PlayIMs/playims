@@ -43,7 +43,7 @@ describe('multi-client login behavior', () => {
 					email: 'user@playims.com',
 					passwordHash: storedHash,
 					status: 'active',
-					role: 'player'
+					role: 'participant'
 				}),
 				markLoginSuccess: vi.fn().mockResolvedValue(null)
 			},

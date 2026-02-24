@@ -1,4 +1,4 @@
-import { canViewAsPlayerRole, normalizeRole } from '$lib/server/auth/rbac';
+import { canViewAsRole, normalizeRole } from '$lib/server/auth/rbac';
 import { switchClientSchema } from '$lib/server/auth/validation';
 import { getCentralDbOps } from '$lib/server/database/context';
 import { json } from '@sveltejs/kit';
@@ -47,26 +47,26 @@ export const POST: RequestHandler = async (event) => {
 		return json({ success: false, error: 'Failed to switch client context.' }, { status: 500 });
 	}
 
-	await dbOps.userClients.setDefaultMembership(userId, requestedClientId);
-
 	const resolvedRole = normalizeRole(activeMembership.role);
-	const canViewAsPlayer = canViewAsPlayerRole(resolvedRole);
+	const canViewAsRoleEnabled = canViewAsRole(resolvedRole);
 	event.locals.session = {
 		...event.locals.session,
 		clientId: requestedClientId,
 		activeClientId: requestedClientId,
 		role: resolvedRole,
 		baseRole: resolvedRole,
-		canViewAsPlayer,
-		isViewingAsPlayer: false
+		canViewAsRole: canViewAsRoleEnabled,
+		isViewingAsRole: false,
+		viewAsRole: null
 	};
 	event.locals.user = {
 		...event.locals.user,
 		clientId: requestedClientId,
 		role: resolvedRole,
 		baseRole: resolvedRole,
-		canViewAsPlayer,
-		isViewingAsPlayer: false
+		canViewAsRole: canViewAsRoleEnabled,
+		isViewingAsRole: false,
+		viewAsRole: null
 	};
 
 	return json({

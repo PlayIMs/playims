@@ -65,7 +65,8 @@ const API_ROUTE_POLICIES: ApiRoutePolicy[] = [
 	{ pattern: /^\/api\/auth\/session$/, policy: { access: 'authenticated' } },
 	{ pattern: /^\/api\/auth\/switch-client$/, policy: { access: 'authenticated' } },
 	{ pattern: /^\/api\/auth\/join-client$/, policy: { access: 'authenticated' } },
-	{ pattern: /^\/api\/auth\/view-as-player$/, policy: { access: 'authenticated' } },
+	{ pattern: /^\/api\/auth\/organizations$/, policy: { access: 'authenticated' } },
+	{ pattern: /^\/api\/auth\/view-as-role$/, policy: { access: 'authenticated' } },
 	{
 		pattern: /^\/api\/address-suggest$/,
 		policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES }
@@ -199,7 +200,8 @@ const resolveRateLimitConfig = (pathname: string): RateLimitConfig | null => {
 		pathname === '/api/auth/session' ||
 		pathname === '/api/auth/logout' ||
 		pathname === '/api/auth/switch-client' ||
-		pathname === '/api/auth/view-as-player'
+		pathname === '/api/auth/organizations' ||
+		pathname === '/api/auth/view-as-role'
 	) {
 		return AUTH_READ_RATE_LIMIT;
 	}
