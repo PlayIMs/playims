@@ -20,6 +20,8 @@
 		label: string;
 		description?: string;
 		statusLabel?: string;
+		rightLabel?: string;
+		rightDescription?: string;
 		disabled?: boolean;
 		separatorBefore?: boolean;
 		tooltip?: string;
@@ -634,7 +636,7 @@
 								aria-disabled="true"
 								class={`${optionDisabledInfoClassFor(option, index)} cursor-not-allowed`}
 							>
-								<span class="inline-flex items-start gap-2 min-w-0 text-neutral-700/50 cursor-not-allowed">
+								<span class="inline-flex w-full items-start gap-2 min-w-0 text-neutral-700/50 cursor-not-allowed">
 									<span class="min-w-0 flex-1 text-left">
 										<span class="inline-flex max-w-full items-center gap-2 min-w-0">
 											<span class="truncate">{option.label}</span>
@@ -654,6 +656,24 @@
 											</span>
 										{/if}
 									</span>
+									{#if option.rightLabel || option.rightDescription}
+										<span class="shrink-0 text-right leading-tight">
+											{#if option.rightLabel}
+												<span
+													class="block text-[10px] uppercase tracking-wide text-neutral-700/50"
+												>
+													{option.rightLabel}
+												</span>
+											{:else if option.rightDescription}
+												<span class="block h-[0.85rem]" aria-hidden="true"></span>
+											{/if}
+											{#if option.rightDescription}
+												<span class="mt-0.5 block text-[11px] text-neutral-700/50">
+													{option.rightDescription}
+												</span>
+											{/if}
+										</span>
+									{/if}
 									<HoverTooltip
 										text={optionTooltip ?? ''}
 										maxWidthClass="max-w-72"
@@ -686,22 +706,44 @@
 									if (!option.disabled) activeIndex = index;
 								}}
 							>
-								<span class="min-w-0 flex-1 text-left">
-									<span class="inline-flex max-w-full items-center gap-2 min-w-0">
-										<span class="truncate">{option.label}</span>
-										{#if option.statusLabel}
+								<span class="flex w-full min-w-0 items-start justify-between gap-3">
+									<span class="min-w-0 flex-1 text-left">
+										<span class="inline-flex max-w-full items-center gap-2 min-w-0">
+											<span class="truncate">{option.label}</span>
+											{#if option.statusLabel}
+												<span
+													class={`text-[10px] uppercase tracking-wide shrink-0 ${isSelectedOption ? 'text-white' : 'text-secondary-900'}`}
+												>
+													({option.statusLabel})
+												</span>
+											{/if}
+										</span>
+										{#if option.description}
 											<span
-												class={`text-[10px] uppercase tracking-wide shrink-0 ${isSelectedOption ? 'text-white' : 'text-secondary-900'}`}
+												class={`mt-0.5 block text-[11px] font-normal normal-case tracking-normal ${isSelectedOption ? 'text-white/85' : 'text-neutral-700'}`}
 											>
-												({option.statusLabel})
+												{option.description}
 											</span>
 										{/if}
 									</span>
-									{#if option.description}
-										<span
-											class={`mt-0.5 block text-[11px] font-normal normal-case tracking-normal ${isSelectedOption ? 'text-white/85' : 'text-neutral-700'}`}
-										>
-											{option.description}
+									{#if option.rightLabel || option.rightDescription}
+										<span class="shrink-0 text-right leading-tight">
+											{#if option.rightLabel}
+												<span
+													class={`block text-[10px] uppercase tracking-wide ${isSelectedOption ? 'text-white/90' : 'text-secondary-900'}`}
+												>
+													{option.rightLabel}
+												</span>
+											{:else if option.rightDescription}
+												<span class="block h-[0.85rem]" aria-hidden="true"></span>
+											{/if}
+											{#if option.rightDescription}
+												<span
+													class={`mt-0.5 block text-[11px] ${isSelectedOption ? 'text-white/85' : 'text-neutral-700'}`}
+												>
+													{option.rightDescription}
+												</span>
+											{/if}
 										</span>
 									{/if}
 								</span>

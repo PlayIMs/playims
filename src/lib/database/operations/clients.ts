@@ -61,4 +61,36 @@ export class ClientOperations {
 
 		return result[0] || null;
 	}
+
+	async updateDetails(
+		clientId: string,
+		data: {
+			name: string;
+			slug: string;
+			selfJoinEnabled?: boolean;
+			metadata?: string | null;
+		},
+		updatedUser?: string | null
+	): Promise<Client | null> {
+		const slugValidation = validateClientSlug(data.slug);
+		if (!slugValidation.ok) {
+			throw new Error(slugValidation.code);
+		}
+
+		const now = new Date().toISOString();
+		const updated = await this.db
+			.update(clients)
+			.set({
+				name: data.name.trim(),
+				slug: slugValidation.slug,
+				selfJoinEnabled: data.selfJoinEnabled ? 1 : 0,
+				metadata: data.metadata?.trim() || null,
+				updatedAt: now,
+				updatedUser: updatedUser ?? null
+			})
+			.where(eq(clients.id, clientId))
+			.returning();
+
+		return updated[0] ?? null;
+	}
 }
