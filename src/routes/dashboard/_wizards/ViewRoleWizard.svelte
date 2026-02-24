@@ -173,7 +173,7 @@
 				Current view: <span class="font-semibold">{roleLabel[effectiveRole]}</span>
 			</p>
 			<p class="text-[11px] text-neutral-900 font-sans mt-1">
-				Use ↑ / ↓, Tab / Shift+Tab, Enter, or quick keys.
+				Use Up/Down, Tab/Shift+Tab, Enter, or quick keys.
 			</p>
 		</div>
 		<div class="grid grid-cols-1 gap-2">
@@ -185,7 +185,7 @@
 					onfocus={() => {
 						highlightedIndex = optionIndex;
 					}}
-					class={`border p-2.5 text-left cursor-pointer disabled:cursor-wait disabled:opacity-70 ${
+					class={`group relative border p-2.5 pr-14 text-left cursor-pointer disabled:cursor-wait disabled:opacity-70 ${
 						highlightedIndex === optionIndex || activeRole === option.role
 							? 'border-primary-500 bg-primary-100 text-primary-900'
 							: 'border-secondary-300 bg-white text-neutral-950 hover:bg-secondary-50'
@@ -193,22 +193,20 @@
 					disabled={submitting}
 					onclick={() => onSelectRole(option.role)}
 				>
-					<div class="flex items-center justify-between gap-2">
+					<div class="flex items-center gap-2">
 						<p class="font-semibold">{option.title}</p>
-						<div class="flex items-center gap-2">
-							{#if option.quickKey}
-								<span
-									class="inline-flex min-w-6 h-6 items-center justify-center rounded-sm border border-secondary-500 bg-neutral-200 px-1.5 text-[11px] font-mono font-bold text-neutral-950 shadow-[inset_0_-1px_0_rgba(0,0,0,0.14)]"
-								>
-									{option.quickKey}
-								</span>
-							{/if}
-							{#if activeRole === option.role}
-								<span class="text-[10px] uppercase tracking-wide font-bold">Current</span>
-							{/if}
-						</div>
+						{#if activeRole === option.role}
+							<span class="text-[10px] uppercase tracking-wide font-bold">Current</span>
+						{/if}
 					</div>
 					<p class="text-xs mt-0.5">{option.description}</p>
+					{#if option.quickKey}
+						<span
+							class="pointer-events-none absolute right-2.5 top-1/2 inline-flex min-w-6 h-6 -translate-y-1/2 items-center justify-center rounded-sm border border-secondary-500 bg-neutral-200 px-1.5 text-[11px] font-mono font-bold text-neutral-950 shadow-[inset_0_-1px_0_rgba(0,0,0,0.14)] transition-transform duration-150 ease-out group-hover:-translate-y-[55%] group-focus-visible:-translate-y-[55%]"
+						>
+							{option.quickKey}
+						</span>
+					{/if}
 				</button>
 			{/each}
 		</div>
