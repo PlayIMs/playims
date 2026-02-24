@@ -42,6 +42,12 @@
 		font-family: var(--font-sans);
 	}
 
+	/* Keep disabled form controls visually consistent across the app. */
+	:where(input, select, textarea):disabled {
+		opacity: 0.6 !important;
+		cursor: not-allowed;
+	}
+
 	/* Apply scrollbar sizing globally so any overflow container gets themed automatically */
 	* {
 		@apply scrollbar scrollbar-thumb-secondary-500 scrollbar-track-secondary-300 scrollbar-corner-secondary-300 hover:scrollbar-thumb-secondary-500 active:scrollbar-thumb-secondary-500 scrollbar-hover:scrollbar-thumb-secondary-400 scrollbar-active:scrollbar-thumb-secondary-600;
