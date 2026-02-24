@@ -32,9 +32,7 @@ function appendLog(chunk, encoding) {
 	}
 
 	const normalizedEncoding = typeof encoding === 'string' ? encoding : 'utf8';
-	const rawText = Buffer.isBuffer(chunk)
-		? chunk.toString(normalizedEncoding)
-		: String(chunk);
+	const rawText = Buffer.isBuffer(chunk) ? chunk.toString(normalizedEncoding) : String(chunk);
 	const plainText = stripVTControlCharacters(rawText);
 	appendFileSync(logFilePath, plainText, { encoding: 'utf8' });
 }
@@ -56,7 +54,8 @@ const summary = {
 	errors: [],
 	warnings: [],
 	actions: [],
-	localProcessedMigrations: []
+	localProcessedMigrations: [],
+	localProcessedMigrationsTotal: 0
 };
 const checkTimeline = [];
 const toolingVersions = [];
@@ -377,7 +376,11 @@ function buildCloudflareEnv(authContext) {
 }
 
 function readAuthEnvKeys() {
-	const fallback = ['AUTH_SESSION_SECRET', 'AUTH_SIGNUP_INVITE_KEY', 'AUTH_PASSWORD_PBKDF2_ITERATIONS'];
+	const fallback = [
+		'AUTH_SESSION_SECRET',
+		'AUTH_SIGNUP_INVITE_KEY',
+		'AUTH_PASSWORD_PBKDF2_ITERATIONS'
+	];
 	const constantsPath = resolve('src/lib/server/auth/constants.ts');
 	if (!existsSync(constantsPath)) {
 		return fallback;
@@ -495,7 +498,11 @@ function checkPnpmVersion(installedVersion) {
 	}
 
 	const installedMajor = parseMajorVersion(installedVersion);
-	if (!Number.isNaN(requirement.major) && !Number.isNaN(installedMajor) && installedMajor !== requirement.major) {
+	if (
+		!Number.isNaN(requirement.major) &&
+		!Number.isNaN(installedMajor) &&
+		installedMajor !== requirement.major
+	) {
 		recordToolingVersion({
 			name: 'pnpm',
 			installed: installedVersion,
@@ -551,7 +558,10 @@ function runPnpmVersionCheck() {
 			recommended: recommendedText,
 			status: 'fail'
 		});
-		addError('Unable to run pnpm. Install pnpm 10.x and retry.', 'Install pnpm globally: npm i -g pnpm');
+		addError(
+			'Unable to run pnpm. Install pnpm 10.x and retry.',
+			'Install pnpm globally: npm i -g pnpm'
+		);
 		return {
 			ok: false,
 			version: ''
@@ -604,7 +614,12 @@ function runGitSync() {
 		return;
 	}
 
-	const countsCheck = runCommandCapture(gitBin, ['rev-list', '--left-right', '--count', 'HEAD...@{u}']);
+	const countsCheck = runCommandCapture(gitBin, [
+		'rev-list',
+		'--left-right',
+		'--count',
+		'HEAD...@{u}'
+	]);
 	if (!countsCheck.ok) {
 		addWarning('Failed to calculate branch ahead/behind status.');
 		return;
@@ -733,7 +748,9 @@ function checkWranglerAuth() {
 			recommended: requiredWrangler,
 			status: 'pass'
 		});
-		console.log(`[info] Wrangler authentication detected via API token (${authContext.tokenSource}).`);
+		console.log(
+			`[info] Wrangler authentication detected via API token (${authContext.tokenSource}).`
+		);
 		return true;
 	}
 
@@ -817,7 +834,10 @@ function runLocalD1Command(databaseName, sql) {
 }
 
 function readLocalProcessedMigrations(databaseName) {
-	const queryResult = runLocalD1Command(databaseName, 'SELECT name FROM d1_migrations ORDER BY name;');
+	const queryResult = runLocalD1Command(
+		databaseName,
+		'SELECT name FROM d1_migrations ORDER BY name;'
+	);
 	if (!queryResult.ok) {
 		return { ok: false, files: [] };
 	}
@@ -873,7 +893,7 @@ function reconcileLegacyLocalMigrations(databaseName) {
 	if (needsRenamed0015) {
 		const ensureRoutesTable = runLocalD1Command(
 			databaseName,
-			'CREATE TABLE IF NOT EXISTS client_database_routes (id text PRIMARY KEY NOT NULL, client_id text NOT NULL, route_mode text DEFAULT \'central_shared\' NOT NULL, binding_name text, database_id text, status text DEFAULT \'active\' NOT NULL, metadata text, created_at text NOT NULL, updated_at text NOT NULL, created_user text, updated_user text, FOREIGN KEY (client_id) REFERENCES clients(id) ON UPDATE no action ON DELETE cascade);'
+			"CREATE TABLE IF NOT EXISTS client_database_routes (id text PRIMARY KEY NOT NULL, client_id text NOT NULL, route_mode text DEFAULT 'central_shared' NOT NULL, binding_name text, database_id text, status text DEFAULT 'active' NOT NULL, metadata text, created_at text NOT NULL, updated_at text NOT NULL, created_user text, updated_user text, FOREIGN KEY (client_id) REFERENCES clients(id) ON UPDATE no action ON DELETE cascade);"
 		);
 		if (!ensureRoutesTable.ok) {
 			addError('Failed to create local compatibility table client_database_routes.');
@@ -920,7 +940,9 @@ function reconcileLegacyLocalMigrations(databaseName) {
 			"INSERT INTO d1_migrations (name) SELECT '0015_long_millenium_guard.sql' WHERE NOT EXISTS (SELECT 1 FROM d1_migrations WHERE name = '0015_long_millenium_guard.sql');"
 		);
 		if (!markRenamed0015.ok) {
-			addError('Failed to mark local compatibility migration 0015_long_millenium_guard.sql as applied.');
+			addError(
+				'Failed to mark local compatibility migration 0015_long_millenium_guard.sql as applied.'
+			);
 			return false;
 		}
 	}
@@ -948,16 +970,7 @@ function reconcileLegacyLocalMigrations(databaseName) {
 	return true;
 }
 
-function collectLocalProcessedMigrations() {
-	const databaseName = getLocalMigrationDatabaseName();
-	if (!databaseName) {
-		addWarning(
-			'Could not determine local D1 database name from package.json script "db:migrate:local".',
-			'Update scripts.db:migrate:local to follow: wrangler d1 migrations apply <db-name> --local'
-		);
-		return;
-	}
-
+function collectLocalProcessedMigrations(databaseName, beforeFiles = []) {
 	const processed = readLocalProcessedMigrations(databaseName);
 	if (!processed.ok) {
 		addWarning(
@@ -966,7 +979,10 @@ function collectLocalProcessedMigrations() {
 		);
 		return;
 	}
-	summary.localProcessedMigrations = processed.files;
+
+	const beforeSet = new Set(beforeFiles);
+	summary.localProcessedMigrations = processed.files.filter((fileName) => !beforeSet.has(fileName));
+	summary.localProcessedMigrationsTotal = processed.files.length;
 }
 
 function printSummary() {
@@ -1014,16 +1030,23 @@ function printSummary() {
 	console.log(`\n${colorize('Checks:', ansi.bold, ansi.cyan)}`);
 	for (let index = 0; index < checkTimeline.length; index++) {
 		const check = checkTimeline[index];
-		console.log(`${index + 1}. ${checkIcon(check.status)} ${statusVisual(check.status)} ${check.name}`);
+		console.log(
+			`${index + 1}. ${checkIcon(check.status)} ${statusVisual(check.status)} ${check.name}`
+		);
 		if (check.details.length > 0) {
 			console.log(`   ${colorize('->', ansi.gray)} ${check.details.join(' | ')}`);
 		}
 	}
 
 	console.log(`\n${colorize('Local SQLite migrations processed:', ansi.bold, ansi.cyan)}`);
-	console.log(`- Total processed: ${summary.localProcessedMigrations.length}`);
+	const runProcessedCount = summary.localProcessedMigrations.length;
+	const totalProcessedCount = summary.localProcessedMigrationsTotal;
+	const runCountColor = runProcessedCount > 0 ? ansi.green : ansi.yellow;
+	console.log(
+		`- ${colorize('State:', ansi.bold, ansi.cyan)} ${colorize(`run=${runProcessedCount}`, ansi.bold, runCountColor)} ${colorize(`total=${totalProcessedCount}`, ansi.bold, ansi.cyan)}`
+	);
 	if (summary.localProcessedMigrations.length === 0) {
-		console.log('- No processed migration files were found in local d1_migrations.');
+		console.log('- No migration files were newly processed during this run.');
 	} else {
 		for (const fileName of summary.localProcessedMigrations) {
 			console.log(`- ${fileName}`);
@@ -1076,6 +1099,24 @@ if (!installOk) {
 
 	const migrationCheck = startCheck('Apply local migrations');
 	const migrationDatabaseName = getLocalMigrationDatabaseName();
+	let preMigrationProcessedFiles = [];
+	if (!migrationDatabaseName) {
+		addWarning(
+			'Could not determine local D1 database name from package.json script "db:migrate:local".',
+			'Update scripts.db:migrate:local to follow: wrangler d1 migrations apply <db-name> --local'
+		);
+	}
+	if (migrationDatabaseName) {
+		const beforeMigrations = readLocalProcessedMigrations(migrationDatabaseName);
+		if (beforeMigrations.ok) {
+			preMigrationProcessedFiles = beforeMigrations.files;
+		} else {
+			addWarning(
+				'Unable to read local migration history before migration apply.',
+				'Run: pnpm exec wrangler d1 execute <db-name> --local --command "SELECT name FROM d1_migrations ORDER BY name;"'
+			);
+		}
+	}
 	let migrationPreparationOk = true;
 	if (migrationDatabaseName) {
 		migrationPreparationOk = reconcileLegacyLocalMigrations(migrationDatabaseName);
@@ -1083,11 +1124,16 @@ if (!installOk) {
 	const migrationOk =
 		migrationPreparationOk && runCommand('Apply local migrations', pnpmBin, ['db:migrate:local']);
 	if (!migrationOk) {
-		addError('Local database migration failed.', 'Run pnpm db:migrate:local after fixing migration issues.');
+		addError(
+			'Local database migration failed.',
+			'Run pnpm db:migrate:local after fixing migration issues.'
+		);
 		finishCheck(migrationCheck, { ok: false });
 	} else {
 		verifyLocalD1State();
-		collectLocalProcessedMigrations();
+		if (migrationDatabaseName) {
+			collectLocalProcessedMigrations(migrationDatabaseName, preMigrationProcessedFiles);
+		}
 		finishCheck(migrationCheck);
 	}
 
@@ -1104,4 +1150,3 @@ if (!installOk) {
 printSummary();
 console.log(`\nLog written to: ${logFilePath}`);
 process.exitCode = summary.errors.length > 0 ? 1 : 0;
-
