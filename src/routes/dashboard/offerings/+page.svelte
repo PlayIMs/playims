@@ -111,6 +111,7 @@
 	type WizardStep = 1 | 2 | 3 | 4 | 5;
 	type LeagueWizardStep = 1 | 2 | 3 | 4;
 	type SeasonWizardStep = 1 | 2 | 3 | 4;
+	type AuthRole = 'participant' | 'manager' | 'admin' | 'dev';
 	type SeasonCopyScope = 'offerings-only' | 'offerings-leagues' | 'offerings-all';
 	type LeagueChoice = 'yes' | 'no';
 	type LeagueGender = '' | 'male' | 'female' | 'mixed';
@@ -254,6 +255,19 @@
 	const FORM_DROPDOWN_BUTTON_CLASS =
 		'w-full border-2 border-secondary-400 bg-white px-4 py-2 text-base leading-6 font-normal text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2 hover:bg-white focus:outline-none focus-visible:outline-none focus-visible:border-secondary-500 focus-visible:ring-0 focus-visible:shadow-[0_0_0_1px_var(--color-secondary-500)] disabled:cursor-not-allowed disabled:opacity-60';
 	let { data } = $props<{ data: PageData }>();
+
+	function normalizeAuthRole(value: string | null | undefined): AuthRole {
+		const normalized = value?.trim().toLowerCase();
+		if (normalized === 'manager' || normalized === 'admin' || normalized === 'dev') {
+			return normalized;
+		}
+		return 'participant';
+	}
+
+	const canManageOfferings = $derived.by(() => {
+		const role = normalizeAuthRole(data?.authMode?.effectiveRole);
+		return role === 'manager' || role === 'admin' || role === 'dev';
+	});
 
 	let activities = $state<Activity[]>([]);
 	let seasons = $state<PageData['seasons']>([]);
@@ -528,6 +542,7 @@
 	}
 
 	function handleAddActionDropdown(value: string): void {
+		if (!canManageOfferings) return;
 		if (value === 'add-offering') {
 			openCreateWizard();
 			return;
@@ -854,6 +869,7 @@
 	}
 
 	function openCreateSeasonWizardWithCopy(copyFromSeasonId?: string): void {
+		if (!canManageOfferings) return;
 		resetCreateSeasonWizard();
 		const normalizedSourceSeasonId = copyFromSeasonId?.trim() ?? '';
 		if (
@@ -876,10 +892,12 @@
 	}
 
 	function openManageSeasonWizard(): void {
+		if (!canManageOfferings) return;
 		isManageSeasonModalOpen = true;
 	}
 
 	function openCreateWizard(): void {
+		if (!canManageOfferings) return;
 		resetCreateWizard();
 		createForm.offering.type = createWizardDefaultOfferingType();
 		createForm.offering.seasonId = selectedSeasonId;
@@ -888,6 +906,7 @@
 	}
 
 	function openCreateLeagueWizard(): void {
+		if (!canManageOfferings) return;
 		resetCreateLeagueWizard();
 		createLeagueOfferingFilter =
 			offeringView === 'tournaments' ? 'tournament' : offeringView === 'leagues' ? 'league' : 'all';
@@ -3679,6 +3698,7 @@
 		return offeringIdsForCurrentSeasonView(filter).size;
 	});
 	const addActionDropdownOptions = $derived.by<DropdownOption[]>(() => {
+		if (!canManageOfferings) return [];
 		const options: DropdownOption[] = [{ value: 'add-offering', label: 'Add Offering' }];
 		options.push({
 			value: 'add-entry',
@@ -3975,31 +3995,50 @@
 								}}
 							/>
 							{#if seasons.length > 0}
-								<ListboxDropdown
-									options={seasonHistoryDropdownOptions}
-									value={selectedSeasonId}
-									ariaLabel="Season history"
-									buttonClass="button-secondary-outlined p-1.5 cursor-pointer"
-									emptyText="No seasons configured."
-									footerActionLabel="Add New Season"
-									footerActionAriaLabel="Add new season"
-									footerSecondaryActionAriaLabel="Manage seasons"
-									footerSecondaryActionClass="button-secondary-outlined w-9 h-9 p-0 cursor-pointer inline-flex items-center justify-center"
-									on:change={(event) => {
-										handleSeasonHistoryChange(event.detail.value);
-									}}
-									on:footerAction={openCreateSeasonWizard}
-									on:footerSecondaryAction={openManageSeasonWizard}
-								>
-									{#snippet trigger(_, selectedOption)}
-										<IconHistory
-											class={`w-4 h-4 ${selectedOption ? 'text-secondary-900' : 'text-neutral-700'}`}
-										/>
-									{/snippet}
-									{#snippet footerSecondaryAction()}
-										<IconPencil class="w-4 h-4" />
-									{/snippet}
-								</ListboxDropdown>
+								{#if canManageOfferings}
+									<ListboxDropdown
+										options={seasonHistoryDropdownOptions}
+										value={selectedSeasonId}
+										ariaLabel="Season history"
+										buttonClass="button-secondary-outlined p-1.5 cursor-pointer"
+										emptyText="No seasons configured."
+										footerActionLabel="Add New Season"
+										footerActionAriaLabel="Add new season"
+										footerSecondaryActionAriaLabel="Manage seasons"
+										footerSecondaryActionClass="button-secondary-outlined w-9 h-9 p-0 cursor-pointer inline-flex items-center justify-center"
+										on:change={(event) => {
+											handleSeasonHistoryChange(event.detail.value);
+										}}
+										on:footerAction={openCreateSeasonWizard}
+										on:footerSecondaryAction={openManageSeasonWizard}
+									>
+										{#snippet trigger(_, selectedOption)}
+											<IconHistory
+												class={`w-4 h-4 ${selectedOption ? 'text-secondary-900' : 'text-neutral-700'}`}
+											/>
+										{/snippet}
+										{#snippet footerSecondaryAction()}
+											<IconPencil class="w-4 h-4" />
+										{/snippet}
+									</ListboxDropdown>
+								{:else}
+									<ListboxDropdown
+										options={seasonHistoryDropdownOptions}
+										value={selectedSeasonId}
+										ariaLabel="Season history"
+										buttonClass="button-secondary-outlined p-1.5 cursor-pointer"
+										emptyText="No seasons configured."
+										on:change={(event) => {
+											handleSeasonHistoryChange(event.detail.value);
+										}}
+									>
+										{#snippet trigger(_, selectedOption)}
+											<IconHistory
+												class={`w-4 h-4 ${selectedOption ? 'text-secondary-900' : 'text-neutral-700'}`}
+											/>
+										{/snippet}
+									</ListboxDropdown>
+								{/if}
 							{/if}
 						</div>
 						<div class="flex items-center gap-2 text-xs text-neutral-950 font-sans">
@@ -4011,44 +4050,46 @@
 								{badgeLeagueOrGroupCount}
 								{badgeLeagueOrGroupLabel}
 							</span>
-							{#if seasons.length > 0}
-								<div class="relative inline-flex items-stretch">
+							{#if canManageOfferings}
+								{#if seasons.length > 0}
+									<div class="relative inline-flex items-stretch">
+										<button
+											type="button"
+											class="button-primary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer"
+											onclick={openCreateWizard}
+										>
+											+ ADD
+										</button>
+										<ListboxDropdown
+											options={addActionDropdownOptions}
+											value=""
+											mode="action"
+											ariaLabel="Open add menu"
+											align="right"
+											buttonClass="button-primary-outlined -ml-[2px] px-1 py-1 cursor-pointer"
+											listClass="mt-1 w-44 border-2 border-secondary-300 bg-white z-20"
+											optionClass="w-full text-left px-3 py-2 text-sm text-neutral-950 cursor-pointer"
+											activeOptionClass="bg-neutral-100 text-neutral-950"
+											on:action={(event) => {
+												handleAddActionDropdown(event.detail.value);
+											}}
+										>
+											{#snippet trigger(open)}
+												<IconChevronDown
+													class={`w-4 h-4 transition-transform duration-200 ${open ? 'rotate-180' : 'rotate-0'}`}
+												/>
+											{/snippet}
+										</ListboxDropdown>
+									</div>
+								{:else}
 									<button
 										type="button"
-										class="button-primary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer"
-										onclick={openCreateWizard}
+										class="button-secondary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer"
+										onclick={openCreateSeasonWizard}
 									>
-										+ ADD
+										Add Season
 									</button>
-									<ListboxDropdown
-										options={addActionDropdownOptions}
-										value=""
-										mode="action"
-										ariaLabel="Open add menu"
-										align="right"
-										buttonClass="button-primary-outlined -ml-[2px] px-1 py-1 cursor-pointer"
-										listClass="mt-1 w-44 border-2 border-secondary-300 bg-white z-20"
-										optionClass="w-full text-left px-3 py-2 text-sm text-neutral-950 cursor-pointer"
-										activeOptionClass="bg-neutral-100 text-neutral-950"
-										on:action={(event) => {
-											handleAddActionDropdown(event.detail.value);
-										}}
-									>
-										{#snippet trigger(open)}
-											<IconChevronDown
-												class={`w-4 h-4 transition-transform duration-200 ${open ? 'rotate-180' : 'rotate-0'}`}
-											/>
-										{/snippet}
-									</ListboxDropdown>
-								</div>
-							{:else}
-								<button
-									type="button"
-									class="button-secondary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer"
-									onclick={openCreateSeasonWizard}
-								>
-									Add Season
-								</button>
+								{/if}
 							{/if}
 						</div>
 					</div>
@@ -4245,31 +4286,50 @@
 									handleOfferingViewChange(event.detail.value);
 								}}
 							/>
-							<ListboxDropdown
-								options={seasonHistoryDropdownOptions}
-								value={selectedSeasonId}
-								ariaLabel="Season history"
-								buttonClass="button-secondary-outlined p-1.5 cursor-pointer"
-								emptyText="No seasons configured."
-								footerActionLabel="Add New Season"
-								footerActionAriaLabel="Add new season"
-								footerSecondaryActionAriaLabel="Manage seasons"
-								footerSecondaryActionClass="button-secondary-outlined w-9 h-9 p-0 cursor-pointer inline-flex items-center justify-center"
-								on:change={(event) => {
-									handleSeasonHistoryChange(event.detail.value);
-								}}
-								on:footerAction={openCreateSeasonWizard}
-								on:footerSecondaryAction={openManageSeasonWizard}
-							>
-								{#snippet trigger(_, selectedOption)}
-									<IconHistory
-										class={`w-4 h-4 ${selectedOption ? 'text-secondary-900' : 'text-neutral-700'}`}
-									/>
-								{/snippet}
-								{#snippet footerSecondaryAction()}
-									<IconPencil class="w-4 h-4" />
-								{/snippet}
-							</ListboxDropdown>
+							{#if canManageOfferings}
+								<ListboxDropdown
+									options={seasonHistoryDropdownOptions}
+									value={selectedSeasonId}
+									ariaLabel="Season history"
+									buttonClass="button-secondary-outlined p-1.5 cursor-pointer"
+									emptyText="No seasons configured."
+									footerActionLabel="Add New Season"
+									footerActionAriaLabel="Add new season"
+									footerSecondaryActionAriaLabel="Manage seasons"
+									footerSecondaryActionClass="button-secondary-outlined w-9 h-9 p-0 cursor-pointer inline-flex items-center justify-center"
+									on:change={(event) => {
+										handleSeasonHistoryChange(event.detail.value);
+									}}
+									on:footerAction={openCreateSeasonWizard}
+									on:footerSecondaryAction={openManageSeasonWizard}
+								>
+									{#snippet trigger(_, selectedOption)}
+										<IconHistory
+											class={`w-4 h-4 ${selectedOption ? 'text-secondary-900' : 'text-neutral-700'}`}
+										/>
+									{/snippet}
+									{#snippet footerSecondaryAction()}
+										<IconPencil class="w-4 h-4" />
+									{/snippet}
+								</ListboxDropdown>
+							{:else}
+								<ListboxDropdown
+									options={seasonHistoryDropdownOptions}
+									value={selectedSeasonId}
+									ariaLabel="Season history"
+									buttonClass="button-secondary-outlined p-1.5 cursor-pointer"
+									emptyText="No seasons configured."
+									on:change={(event) => {
+										handleSeasonHistoryChange(event.detail.value);
+									}}
+								>
+									{#snippet trigger(_, selectedOption)}
+										<IconHistory
+											class={`w-4 h-4 ${selectedOption ? 'text-secondary-900' : 'text-neutral-700'}`}
+										/>
+									{/snippet}
+								</ListboxDropdown>
+							{/if}
 						</div>
 						<div class="flex items-center gap-2 text-xs text-neutral-950 font-sans">
 							<span class="border border-secondary-300 px-2 py-1">
@@ -4280,44 +4340,46 @@
 								{badgeLeagueOrGroupCount}
 								{badgeLeagueOrGroupLabel}
 							</span>
-							{#if seasons.length > 0}
-								<div class="relative inline-flex items-stretch">
+							{#if canManageOfferings}
+								{#if seasons.length > 0}
+									<div class="relative inline-flex items-stretch">
+										<button
+											type="button"
+											class="button-primary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer"
+											onclick={openCreateWizard}
+										>
+											+ ADD
+										</button>
+										<ListboxDropdown
+											options={addActionDropdownOptions}
+											value=""
+											mode="action"
+											ariaLabel="Open add menu"
+											align="right"
+											buttonClass="button-primary-outlined -ml-[2px] px-1 py-1 cursor-pointer"
+											listClass="mt-1 w-44 border-2 border-secondary-300 bg-white z-20"
+											optionClass="w-full text-left px-3 py-2 text-sm text-neutral-950 cursor-pointer"
+											activeOptionClass="bg-neutral-100 text-neutral-950"
+											on:action={(event) => {
+												handleAddActionDropdown(event.detail.value);
+											}}
+										>
+											{#snippet trigger(open)}
+												<IconChevronDown
+													class={`w-4 h-4 transition-transform duration-200 ${open ? 'rotate-180' : 'rotate-0'}`}
+												/>
+											{/snippet}
+										</ListboxDropdown>
+									</div>
+								{:else}
 									<button
 										type="button"
-										class="button-primary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer"
-										onclick={openCreateWizard}
+										class="button-secondary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer"
+										onclick={openCreateSeasonWizard}
 									>
-										+ ADD
+										Add Season
 									</button>
-									<ListboxDropdown
-										options={addActionDropdownOptions}
-										value=""
-										mode="action"
-										ariaLabel="Open add menu"
-										align="right"
-										buttonClass="button-primary-outlined -ml-[2px] px-1 py-1 cursor-pointer"
-										listClass="mt-1 w-44 border-2 border-secondary-300 bg-white z-20"
-										optionClass="w-full text-left px-3 py-2 text-sm text-neutral-950 cursor-pointer"
-										activeOptionClass="bg-neutral-100 text-neutral-950"
-										on:action={(event) => {
-											handleAddActionDropdown(event.detail.value);
-										}}
-									>
-										{#snippet trigger(open)}
-											<IconChevronDown
-												class={`w-4 h-4 transition-transform duration-200 ${open ? 'rotate-180' : 'rotate-0'}`}
-											/>
-										{/snippet}
-									</ListboxDropdown>
-								</div>
-							{:else}
-								<button
-									type="button"
-									class="button-secondary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer"
-									onclick={openCreateSeasonWizard}
-								>
-									Add Season
-								</button>
+								{/if}
 							{/if}
 						</div>
 					</div>
