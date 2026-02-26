@@ -11,6 +11,7 @@
 	import IconChevronDown from '@tabler/icons-svelte/icons/chevron-down';
 	import IconChevronUp from '@tabler/icons-svelte/icons/chevron-up';
 	import IconInfoCircle from '@tabler/icons-svelte/icons/info-circle';
+	import IconSearch from '@tabler/icons-svelte/icons/search';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import { createEventDispatcher, onDestroy, tick } from 'svelte';
 	import type { Snippet } from 'svelte';
@@ -18,10 +19,13 @@
 	interface ListboxDropdownOption {
 		value: string;
 		label: string;
+		leadingVisualClass?: string;
+		leadingVisualAriaLabel?: string;
 		description?: string;
 		statusLabel?: string;
 		rightLabel?: string;
 		rightDescription?: string;
+		searchText?: string;
 		disabled?: boolean;
 		separatorBefore?: boolean;
 		tooltip?: string;
@@ -58,6 +62,12 @@
 		autoFocus?: boolean;
 		align?: 'left' | 'right';
 		disabled?: boolean;
+		panelWidthMode?: 'auto' | 'trigger' | 'parent';
+		maxPanelHeight?: number | null;
+		searchEnabled?: boolean;
+		searchPlaceholder?: string;
+		searchAriaLabel?: string;
+		searchEmptyText?: string;
 		trigger?: Snippet<[boolean, ListboxDropdownOption | null]>;
 	}
 
@@ -89,6 +99,12 @@
 		autoFocus = false,
 		align = 'left',
 		disabled = false,
+		panelWidthMode = 'auto',
+		maxPanelHeight = null,
+		searchEnabled = false,
+		searchPlaceholder = 'Search',
+		searchAriaLabel = 'Search options',
+		searchEmptyText = 'No matching options.',
 		trigger
 	}: Props = $props();
 
@@ -102,10 +118,12 @@
 	let root = $state<HTMLDivElement | null>(null);
 	let buttonElement = $state<HTMLButtonElement | null>(null);
 	let panelElement = $state<HTMLDivElement | null>(null);
+	let searchInputElement = $state<HTMLInputElement | null>(null);
 	let listElement = $state<HTMLDivElement | null>(null);
 	let open = $state(false);
 	let activeIndex = $state(-1);
 	let listInlineStyle = $state('');
+	let searchQuery = $state('');
 	let typeaheadBuffer = '';
 	let typeaheadResetTimer: ReturnType<typeof setTimeout> | null = null;
 	const dropdownId = nextDropdownId('dropdown');
@@ -124,6 +142,26 @@
 		Boolean(footerSecondaryActionLabel || footerSecondaryAction)
 	);
 	const hasFooterAction = $derived.by(() => hasPrimaryFooterAction || hasSecondaryFooterAction);
+	const normalizedSearchQuery = $derived.by(() => normalizeText(searchQuery));
+	const hasSearch = $derived.by(() => searchEnabled && options.length > 0);
+	const visibleOptionIndexes = $derived.by(() => {
+		if (!hasSearch) {
+			return options.map((_, index) => index);
+		}
+
+		if (!normalizedSearchQuery) {
+			return options.map((_, index) => index);
+		}
+
+		return options.flatMap((option, index) =>
+			optionMatchesSearch(option, normalizedSearchQuery) ? [index] : []
+		);
+	});
+	const visibleOptionIndexSet = $derived.by(() => new Set(visibleOptionIndexes));
+	const listEmptyText = $derived.by(() =>
+		hasSearch && normalizedSearchQuery ? searchEmptyText : emptyText
+	);
+	const panelUsesFlexColumn = $derived.by(() => hasFooterAction || hasSearch);
 	const selectedOption = $derived.by(() =>
 		selectedIndex >= 0 ? (options[selectedIndex] ?? null) : null
 	);
@@ -164,27 +202,52 @@
 		return normalizedBuffer.length >= 3 && normalizedLabel.includes(normalizedBuffer);
 	}
 
+	function optionMatchesSearch(option: ListboxDropdownOption, normalizedQuery: string): boolean {
+		if (!normalizedQuery) return true;
+		const searchSource = normalizeText(
+			[
+				option.searchText ?? '',
+				option.label,
+				option.description ?? '',
+				option.rightLabel ?? '',
+				option.rightDescription ?? ''
+			].join(' ')
+		);
+		return searchSource.includes(normalizedQuery);
+	}
+
+	function getEnabledVisibleOptionIndexes(): number[] {
+		return visibleOptionIndexes.filter((index) => !options[index]?.disabled);
+	}
+
 	function findNextEnabledIndex(startIndex: number, direction: 1 | -1): number {
-		if (options.length === 0) return -1;
-		let index = startIndex;
-		for (let scanCount = 0; scanCount < options.length; scanCount += 1) {
-			index = (index + direction + options.length) % options.length;
-			const option = options[index];
-			if (option && !option.disabled) return index;
+		const enabledIndexes = getEnabledVisibleOptionIndexes();
+		if (enabledIndexes.length === 0) return -1;
+
+		const currentPosition = enabledIndexes.indexOf(startIndex);
+		if (currentPosition < 0) {
+			return direction === 1 ? enabledIndexes[0] : enabledIndexes[enabledIndexes.length - 1];
 		}
-		return -1;
+
+		const nextPosition =
+			direction === 1
+				? (currentPosition + 1) % enabledIndexes.length
+				: (currentPosition - 1 + enabledIndexes.length) % enabledIndexes.length;
+		return enabledIndexes[nextPosition] ?? -1;
 	}
 
 	function findFirstEnabledIndex(): number {
-		return findNextEnabledIndex(-1, 1);
+		const enabledIndexes = getEnabledVisibleOptionIndexes();
+		return enabledIndexes[0] ?? -1;
 	}
 
 	function findLastEnabledIndex(): number {
-		return findNextEnabledIndex(0, -1);
+		const enabledIndexes = getEnabledVisibleOptionIndexes();
+		return enabledIndexes[enabledIndexes.length - 1] ?? -1;
 	}
 
 	function setActiveIndexToSelectedOrFirst(): void {
-		if (selectedIndex >= 0) {
+		if (selectedIndex >= 0 && visibleOptionIndexSet.has(selectedIndex)) {
 			activeIndex = selectedIndex;
 			return;
 		}
@@ -221,15 +284,26 @@
 		const viewportPadding = 8;
 		const gap = 4;
 		const buttonRect = buttonElement.getBoundingClientRect();
+		const parentRect = root?.parentElement?.getBoundingClientRect() ?? null;
+		const widthAnchorRect =
+			panelWidthMode === 'parent' && parentRect
+				? parentRect
+				: panelWidthMode === 'trigger'
+					? buttonRect
+					: null;
 		const measuredRect = panelElement.getBoundingClientRect();
-		const listWidth = Math.max(1, measuredRect.width);
+		const maxWidth = Math.max(0, viewportWidth - viewportPadding * 2);
+		const anchoredWidth =
+			widthAnchorRect !== null ? clamp(widthAnchorRect.width, 0, maxWidth) : null;
+		const listWidth = Math.max(1, anchoredWidth ?? measuredRect.width);
 		const listHeight = Math.max(1, measuredRect.height);
 
-		const preferredLeft = align === 'right' ? buttonRect.right - listWidth : buttonRect.left;
+		const anchorLeft = widthAnchorRect?.left ?? buttonRect.left;
+		const anchorRight = widthAnchorRect?.right ?? buttonRect.right;
+		const preferredLeft = align === 'right' ? anchorRight - listWidth : anchorLeft;
 		const maxLeft = viewportWidth - listWidth - viewportPadding;
 		const clampedLeft = clamp(preferredLeft, viewportPadding, maxLeft);
-		const maxWidth = Math.max(0, viewportWidth - viewportPadding * 2);
-		const minWidth = clamp(buttonRect.width, 0, maxWidth);
+		const minWidth = anchoredWidth ?? clamp(buttonRect.width, 0, maxWidth);
 
 		const belowTop = buttonRect.bottom + gap;
 		const aboveBottom = buttonRect.top - gap;
@@ -237,11 +311,14 @@
 		const spaceAbove = Math.max(0, aboveBottom - viewportPadding);
 		const shouldOpenAbove = spaceBelow < listHeight && spaceAbove > spaceBelow;
 		const availableHeight = Math.max(0, shouldOpenAbove ? spaceAbove : spaceBelow);
+		const panelMaxHeight =
+			maxPanelHeight && maxPanelHeight > 0 ? Math.min(availableHeight, maxPanelHeight) : availableHeight;
 		const listTop = shouldOpenAbove
-			? Math.max(viewportPadding, buttonRect.top - gap - Math.min(listHeight, availableHeight))
+			? Math.max(viewportPadding, buttonRect.top - gap - Math.min(listHeight, panelMaxHeight))
 			: belowTop;
 
-		listInlineStyle = `position: fixed; top: ${listTop}px; left: ${clampedLeft}px; min-width: ${minWidth}px; max-width: ${maxWidth}px; max-height: ${availableHeight}px;`;
+		const widthStyle = anchoredWidth !== null ? `width: ${anchoredWidth}px;` : '';
+		listInlineStyle = `position: fixed; top: ${listTop}px; left: ${clampedLeft}px; min-width: ${minWidth}px; ${widthStyle} max-width: ${maxWidth}px; max-height: ${panelMaxHeight}px;`;
 	}
 
 	function handlePanelFocusout(event: FocusEvent): void {
@@ -257,6 +334,7 @@
 
 	async function openMenu(focusList = true): Promise<void> {
 		if (disabled) return;
+		searchQuery = '';
 		if (!open) {
 			open = true;
 			setActiveIndexToSelectedOrFirst();
@@ -264,6 +342,10 @@
 		if (!focusList) return;
 		await tick();
 		positionList();
+		if (hasSearch) {
+			searchInputElement?.focus();
+			return;
+		}
 		listElement?.focus();
 		scrollActiveOptionIntoView();
 	}
@@ -272,6 +354,7 @@
 		if (!open) return;
 		open = false;
 		activeIndex = -1;
+		searchQuery = '';
 		clearTypeaheadBuffer();
 		if (focusTrigger) buttonElement?.focus();
 	}
@@ -294,14 +377,15 @@
 		const option = options[index];
 		if (!option || option.disabled) return;
 		if (mode === 'action') {
-			dispatch('action', { value: option.value });
 			closeMenu(true);
+			dispatch('action', { value: option.value });
 			return;
 		}
-		if (option.value !== value) {
-			dispatch('change', { value: option.value });
-		}
+		const nextValue = option.value;
 		closeMenu(true);
+		if (nextValue !== value) {
+			dispatch('change', { value: nextValue });
+		}
 	}
 
 	function moveActive(direction: 1 | -1): void {
@@ -312,8 +396,76 @@
 		scrollActiveOptionIntoView();
 	}
 
+	function handleSearchKeydown(event: KeyboardEvent): void {
+		if (event.key === 'ArrowDown') {
+			event.preventDefault();
+			const firstEnabledIndex = findFirstEnabledIndex();
+			if (firstEnabledIndex >= 0) {
+				activeIndex = firstEnabledIndex;
+				listElement?.focus();
+				scrollActiveOptionIntoView();
+			}
+			return;
+		}
+
+		if (event.key === 'ArrowUp') {
+			event.preventDefault();
+			const lastEnabledIndex = findLastEnabledIndex();
+			if (lastEnabledIndex >= 0) {
+				activeIndex = lastEnabledIndex;
+				listElement?.focus();
+				scrollActiveOptionIntoView();
+			}
+			return;
+		}
+
+		if (event.key === 'Enter') {
+			event.preventDefault();
+			if (activeIndex >= 0) {
+				selectOptionAtIndex(activeIndex);
+			}
+			return;
+		}
+
+		if (event.key === 'Escape') {
+			consumeEscapeEvent(event);
+			closeMenu(true);
+		}
+	}
+
+	function redirectOpenTypingToSearch(event: KeyboardEvent): boolean {
+		if (!open || !hasSearch) {
+			return false;
+		}
+
+		if (!isTypeaheadCharacter(event.key) || event.ctrlKey || event.metaKey || event.altKey) {
+			return false;
+		}
+
+		event.preventDefault();
+		clearTypeaheadBuffer();
+		searchInputElement?.focus();
+
+		if (!searchInputElement) {
+			return true;
+		}
+
+		const currentValue = searchQuery;
+		const selectionStart = searchInputElement.selectionStart ?? currentValue.length;
+		const selectionEnd = searchInputElement.selectionEnd ?? currentValue.length;
+		searchQuery = `${currentValue.slice(0, selectionStart)}${event.key}${currentValue.slice(selectionEnd)}`;
+
+		const nextCaretPosition = selectionStart + event.key.length;
+		void tick().then(() => {
+			searchInputElement?.focus();
+			searchInputElement?.setSelectionRange(nextCaretPosition, nextCaretPosition);
+		});
+
+		return true;
+	}
+
 	function applyTypeaheadSearch(character: string): void {
-		if (options.length === 0 || !isTypeaheadCharacter(character)) return;
+		if (visibleOptionIndexes.length === 0 || !isTypeaheadCharacter(character)) return;
 		typeaheadBuffer = `${typeaheadBuffer}${character.toLowerCase()}`;
 
 		if (typeaheadResetTimer) clearTimeout(typeaheadResetTimer);
@@ -338,8 +490,12 @@
 
 		if (normalizedBuffer.length === 1) {
 			const fromIndex = activeIndex >= 0 ? activeIndex : selectedIndex >= 0 ? selectedIndex : -1;
-			for (let scanCount = 1; scanCount <= options.length; scanCount += 1) {
-				const candidateIndex = (fromIndex + scanCount + options.length) % options.length;
+			for (let scanCount = 1; scanCount <= visibleOptionIndexes.length; scanCount += 1) {
+				const startPosition = visibleOptionIndexes.indexOf(fromIndex);
+				const basePosition = startPosition < 0 ? -1 : startPosition;
+				const candidatePosition =
+					(basePosition + scanCount + visibleOptionIndexes.length) % visibleOptionIndexes.length;
+				const candidateIndex = visibleOptionIndexes[candidatePosition] ?? -1;
 				const option = options[candidateIndex];
 				if (!option || option.disabled) continue;
 				if (!optionLabelMatchesBuffer(option.label, normalizedBuffer)) continue;
@@ -350,7 +506,7 @@
 			return;
 		}
 
-		for (let candidateIndex = 0; candidateIndex < options.length; candidateIndex += 1) {
+		for (const candidateIndex of visibleOptionIndexes) {
 			const option = options[candidateIndex];
 			if (!option || option.disabled) continue;
 			if (!optionLabelMatchesBuffer(option.label, normalizedBuffer)) continue;
@@ -370,6 +526,7 @@
 
 	function handleButtonKeydown(event: KeyboardEvent): void {
 		if (disabled) return;
+		if (redirectOpenTypingToSearch(event)) return;
 		if (event.key === 'ArrowDown') {
 			event.preventDefault();
 			if (!open) {
@@ -465,14 +622,18 @@
 			closeMenu();
 			return;
 		}
+		if (redirectOpenTypingToSearch(event)) return;
 		if (!isTypeaheadCharacter(event.key) || event.ctrlKey || event.metaKey || event.altKey) return;
 		event.preventDefault();
 		applyTypeaheadSearch(event.key);
 	}
 
-	function optionClassFor(option: ListboxDropdownOption, index: number): string {
-		const nextOption = options[index + 1];
-		const hasBottomDivider = index < options.length - 1 && !nextOption?.separatorBefore;
+	function optionClassFor(
+		option: ListboxDropdownOption,
+		index: number,
+		isLastVisibleOption: boolean
+	): string {
+		const hasBottomDivider = !isLastVisibleOption;
 		const optionBorderClass = `${hasBottomDivider ? 'border-b border-secondary-200' : 'border-b-0'} ${
 			option.separatorBefore ? 'border-t border-secondary-200' : ''
 		}`;
@@ -499,9 +660,11 @@
 		return `${optionBaseClass} hover:bg-neutral-300 active:bg-neutral-300`;
 	}
 
-	function optionDisabledInfoClassFor(option: ListboxDropdownOption, index: number): string {
-		const nextOption = options[index + 1];
-		const hasBottomDivider = index < options.length - 1 && !nextOption?.separatorBefore;
+	function optionDisabledInfoClassFor(
+		option: ListboxDropdownOption,
+		isLastVisibleOption: boolean
+	): string {
+		const hasBottomDivider = !isLastVisibleOption;
 		const optionBorderClass = `${hasBottomDivider ? 'border-b border-secondary-200' : 'border-b-0'} ${
 			option.separatorBefore ? 'border-t border-secondary-200' : ''
 		}`;
@@ -512,7 +675,7 @@
 	}
 
 	function optionTooltipFor(option: ListboxDropdownOption): string | undefined {
-		const value = option.disabled ? option.disabledTooltip ?? option.tooltip : option.tooltip;
+		const value = option.disabled ? (option.disabledTooltip ?? option.tooltip) : option.tooltip;
 		if (!value) return undefined;
 		const trimmed = value.trim();
 		return trimmed.length > 0 ? trimmed : undefined;
@@ -571,8 +734,23 @@
 
 	$effect(() => {
 		if (!open) return;
-		if (activeIndex >= 0 && activeIndex < options.length && !options[activeIndex]?.disabled) return;
+		if (
+			activeIndex >= 0 &&
+			activeIndex < options.length &&
+			visibleOptionIndexSet.has(activeIndex) &&
+			!options[activeIndex]?.disabled
+		) {
+			return;
+		}
 		setActiveIndexToSelectedOrFirst();
+	});
+
+	$effect(() => {
+		if (!open) return;
+		visibleOptionIndexes.length;
+		void tick().then(() => {
+			positionList();
+		});
 	});
 </script>
 
@@ -605,11 +783,30 @@
 
 	{#if open}
 		<div
-			class={`${listClass} fixed ${hasFooterAction ? 'flex flex-col overflow-hidden' : ''}`}
+			class={`${listClass} fixed ${panelUsesFlexColumn ? 'flex flex-col overflow-hidden' : ''}`}
 			style={listInlineStyle}
 			bind:this={panelElement}
 			onfocusout={handlePanelFocusout}
 		>
+			{#if hasSearch}
+				<div class="border-b border-secondary-300 bg-neutral p-2">
+					<div class="relative">
+						<IconSearch
+							class="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary-700"
+						/>
+						<input
+							class="input-secondary min-h-10 pl-8"
+							type="text"
+							bind:value={searchQuery}
+							bind:this={searchInputElement}
+							placeholder={searchPlaceholder}
+							aria-label={searchAriaLabel}
+							onkeydown={handleSearchKeydown}
+						/>
+					</div>
+				</div>
+			{/if}
+
 			<div
 				id={listboxId}
 				role="listbox"
@@ -617,14 +814,16 @@
 				aria-labelledby={buttonId}
 				aria-activedescendant={activeOptionId}
 				tabindex="0"
-				class={`${hasFooterAction ? 'min-h-0 flex-1 overflow-y-auto' : ''} focus:outline-none focus-visible:outline-none`}
+				class={`${panelUsesFlexColumn ? 'min-h-0 flex-1 overflow-y-auto' : ''} focus:outline-none focus-visible:outline-none`}
 				bind:this={listElement}
 				onkeydown={handleListKeydown}
 			>
-				{#if options.length === 0}
-					<p class="px-3 py-2 text-xs text-neutral-900">{emptyText}</p>
+				{#if visibleOptionIndexes.length === 0}
+					<p class="px-3 py-2 text-xs text-neutral-900">{listEmptyText}</p>
 				{:else}
-					{#each options as option, index}
+					{#each visibleOptionIndexes as index, visiblePosition}
+						{@const option = options[index]!}
+						{@const isLastVisibleOption = visiblePosition === visibleOptionIndexes.length - 1}
 						{@const isSelectedOption = mode !== 'action' && option.value === value}
 						{@const optionTooltip = optionTooltipFor(option)}
 						{@const showOptionInfo = option.disabled && Boolean(optionTooltip)}
@@ -634,11 +833,21 @@
 								role="option"
 								aria-selected={mode === 'action' ? undefined : option.value === value}
 								aria-disabled="true"
-								class={`${optionDisabledInfoClassFor(option, index)} cursor-not-allowed`}
+								class={`${optionDisabledInfoClassFor(option, isLastVisibleOption)} cursor-not-allowed`}
 							>
-								<span class="inline-flex w-full items-start gap-2 min-w-0 text-neutral-700/50 cursor-not-allowed">
+								<span
+									class="inline-flex w-full items-start gap-2 min-w-0 text-neutral-700/50 cursor-not-allowed"
+								>
 									<span class="min-w-0 flex-1 text-left">
 										<span class="inline-flex max-w-full items-center gap-2 min-w-0">
+											{#if option.leadingVisualClass}
+												<span
+													class={`${option.leadingVisualClass} country-flag-icon shrink-0`}
+													aria-label={option.leadingVisualAriaLabel}
+													role={option.leadingVisualAriaLabel ? 'img' : undefined}
+													aria-hidden={option.leadingVisualAriaLabel ? undefined : 'true'}
+												></span>
+											{/if}
 											<span class="truncate">{option.label}</span>
 											{#if option.statusLabel}
 												<span
@@ -659,9 +868,7 @@
 									{#if option.rightLabel || option.rightDescription}
 										<span class="shrink-0 text-right leading-tight">
 											{#if option.rightLabel}
-												<span
-													class="block text-[10px] uppercase tracking-wide text-neutral-700/50"
-												>
+												<span class="block text-[10px] uppercase tracking-wide text-neutral-700/50">
 													{option.rightLabel}
 												</span>
 											{:else if option.rightDescription}
@@ -674,10 +881,7 @@
 											{/if}
 										</span>
 									{/if}
-									<HoverTooltip
-										text={optionTooltip ?? ''}
-										maxWidthClass="max-w-72"
-									>
+									<HoverTooltip text={optionTooltip ?? ''} maxWidthClass="max-w-72">
 										<button
 											type="button"
 											class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-neutral-700/50 cursor-help hover:bg-neutral-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-500"
@@ -698,7 +902,7 @@
 								aria-disabled={option.disabled ? 'true' : undefined}
 								tabindex="-1"
 								disabled={option.disabled}
-								class={optionClassFor(option, index)}
+								class={optionClassFor(option, index, isLastVisibleOption)}
 								onclick={() => {
 									selectOptionAtIndex(index);
 								}}
@@ -709,6 +913,14 @@
 								<span class="flex w-full min-w-0 items-start justify-between gap-3">
 									<span class="min-w-0 flex-1 text-left">
 										<span class="inline-flex max-w-full items-center gap-2 min-w-0">
+											{#if option.leadingVisualClass}
+												<span
+													class={`${option.leadingVisualClass} country-flag-icon shrink-0`}
+													aria-label={option.leadingVisualAriaLabel}
+													role={option.leadingVisualAriaLabel ? 'img' : undefined}
+													aria-hidden={option.leadingVisualAriaLabel ? undefined : 'true'}
+												></span>
+											{/if}
 											<span class="truncate">{option.label}</span>
 											{#if option.statusLabel}
 												<span

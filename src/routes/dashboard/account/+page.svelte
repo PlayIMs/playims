@@ -26,6 +26,12 @@
 	import IconUser from '@tabler/icons-svelte/icons/user';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
+	import {
+		defaultPhoneCountryIso2ByDialCode,
+		phoneCountries,
+		phoneCountryByIso2,
+		phoneCountryDialValues
+	} from '$lib/utils/phone-country-codes';
 	import { onDestroy, onMount, tick } from 'svelte';
 	import CreateOrganizationWizard from './_wizards/CreateOrganizationWizard.svelte';
 	import ManageOrganizationWizard from './_wizards/ManageOrganizationWizard.svelte';
@@ -108,200 +114,13 @@
 		form?: FormState;
 	}>();
 
-	const countryCodeOptions = [
-		'+1',
-		'+7',
-		'+20',
-		'+27',
-		'+30',
-		'+31',
-		'+32',
-		'+33',
-		'+34',
-		'+39',
-		'+40',
-		'+41',
-		'+43',
-		'+44',
-		'+45',
-		'+46',
-		'+47',
-		'+48',
-		'+49',
-		'+52',
-		'+54',
-		'+55',
-		'+56',
-		'+57',
-		'+58',
-		'+60',
-		'+61',
-		'+62',
-		'+63',
-		'+64',
-		'+65',
-		'+66',
-		'+81',
-		'+82',
-		'+84',
-		'+86',
-		'+90',
-		'+91',
-		'+92',
-		'+93',
-		'+94',
-		'+95',
-		'+98',
-		'+212',
-		'+213',
-		'+216',
-		'+218',
-		'+220',
-		'+221',
-		'+222',
-		'+223',
-		'+224',
-		'+225',
-		'+226',
-		'+227',
-		'+228',
-		'+229',
-		'+230',
-		'+231',
-		'+232',
-		'+233',
-		'+234',
-		'+235',
-		'+236',
-		'+237',
-		'+238',
-		'+239',
-		'+240',
-		'+241',
-		'+242',
-		'+243',
-		'+244',
-		'+248',
-		'+249',
-		'+250',
-		'+251',
-		'+252',
-		'+253',
-		'+254',
-		'+255',
-		'+256',
-		'+257',
-		'+258',
-		'+260',
-		'+261',
-		'+262',
-		'+263',
-		'+264',
-		'+265',
-		'+266',
-		'+267',
-		'+268',
-		'+269',
-		'+350',
-		'+351',
-		'+352',
-		'+353',
-		'+354',
-		'+355',
-		'+356',
-		'+357',
-		'+358',
-		'+359',
-		'+370',
-		'+371',
-		'+372',
-		'+373',
-		'+374',
-		'+375',
-		'+376',
-		'+377',
-		'+380',
-		'+381',
-		'+382',
-		'+385',
-		'+386',
-		'+387',
-		'+389',
-		'+420',
-		'+421',
-		'+423',
-		'+500',
-		'+501',
-		'+502',
-		'+503',
-		'+504',
-		'+505',
-		'+506',
-		'+507',
-		'+508',
-		'+509',
-		'+590',
-		'+591',
-		'+592',
-		'+593',
-		'+594',
-		'+595',
-		'+596',
-		'+597',
-		'+598',
-		'+599',
-		'+670',
-		'+672',
-		'+673',
-		'+674',
-		'+675',
-		'+676',
-		'+677',
-		'+678',
-		'+679',
-		'+680',
-		'+681',
-		'+682',
-		'+683',
-		'+685',
-		'+686',
-		'+687',
-		'+688',
-		'+689',
-		'+690',
-		'+691',
-		'+692',
-		'+850',
-		'+852',
-		'+853',
-		'+855',
-		'+856',
-		'+880',
-		'+886',
-		'+960',
-		'+961',
-		'+962',
-		'+963',
-		'+964',
-		'+965',
-		'+966',
-		'+967',
-		'+968',
-		'+970',
-		'+971',
-		'+972',
-		'+973',
-		'+974',
-		'+975',
-		'+976',
-		'+977',
-		'+992',
-		'+993',
-		'+994',
-		'+995',
-		'+996',
-		'+998'
-	] as const;
+	const cellPhoneCountryDropdownOptions = phoneCountries.map((country) => ({
+		value: country.iso2,
+		label: `${country.iso2.toUpperCase()} ${country.countryName} (${country.dialCodePlus})`,
+		leadingVisualClass: country.flagIconClass,
+		leadingVisualAriaLabel: `${country.countryName} flag`,
+		searchText: `${country.countryName} ${country.dialCodePlus} ${country.iso2.toUpperCase()}`
+	}));
 
 	const cellPhoneMaskRegex = /^\(\d{3}\)\s\d{3}-\d{4}$/;
 
@@ -314,6 +133,7 @@
 
 	let firstName = $state('');
 	let lastName = $state('');
+	let cellPhoneCountryIso2 = $state('us');
 	let cellPhoneCountryCode = $state('+1');
 	let cellPhone = $state('');
 
@@ -416,6 +236,7 @@
 	const splitStoredCellPhone = (value: string | null | undefined) => {
 		if (!value) {
 			return {
+				countryIso2: 'us',
 				countryCode: '+1',
 				nationalDigits: ''
 			};
@@ -425,12 +246,13 @@
 		const digits = trimmed.replace(/\D/g, '');
 		if (digits.length === 10) {
 			return {
+				countryIso2: 'us',
 				countryCode: '+1',
 				nationalDigits: digits
 			};
 		}
 
-		const sortedCodes = [...countryCodeOptions].sort((a, b) => b.length - a.length);
+		const sortedCodes = [...phoneCountryDialValues].sort((a, b) => b.length - a.length);
 		for (const code of sortedCodes) {
 			const codeDigits = code.slice(1);
 			if (!digits.startsWith(codeDigits)) {
@@ -440,6 +262,7 @@
 			const rest = digits.slice(codeDigits.length);
 			if (rest.length === 10) {
 				return {
+					countryIso2: defaultPhoneCountryIso2ByDialCode.get(code) ?? 'us',
 					countryCode: code,
 					nationalDigits: rest
 				};
@@ -447,6 +270,7 @@
 		}
 
 		return {
+			countryIso2: 'us',
 			countryCode: '+1',
 			nationalDigits: digits.slice(-10)
 		};
@@ -460,6 +284,7 @@
 		const parsedCellPhone = splitStoredCellPhone(account.cellPhone ?? '');
 		firstName = account.firstName ?? '';
 		lastName = account.lastName ?? '';
+		cellPhoneCountryIso2 = parsedCellPhone.countryIso2;
 		cellPhoneCountryCode = parsedCellPhone.countryCode;
 		cellPhone = formatCellPhoneMaskFromDigits(parsedCellPhone.nationalDigits);
 
@@ -505,6 +330,9 @@
 		() => cellPhone.replace(/\D/g, '').length === 0 || cellPhoneMaskRegex.test(cellPhone)
 	);
 	let showCellPhoneError = $derived.by(() => cellPhoneTouched && !cellPhoneIsValid);
+	let selectedCellPhoneCountry = $derived.by(
+		() => phoneCountryByIso2.get(cellPhoneCountryIso2) ?? null
+	);
 	let profileCanSubmit = $derived.by(() => profileDirty && cellPhoneIsValid);
 
 	let passwordCanSubmit = $derived.by(
@@ -1204,16 +1032,16 @@
 						No active organization memberships found.
 					</div>
 				{:else}
-						<ListboxDropdown
-							options={organizationDropdownOptions}
-							value={currentOrganizationId}
-							ariaLabel="Active organization"
-							placeholder="Select organization"
-							emptyText="No active organization memberships found."
-							disabled={organizationSwitchSubmitting}
-							buttonClass="button-secondary-outlined !bg-neutral-05 w-full px-3 py-2 text-xs cursor-pointer justify-between gap-2 items-start normal-case tracking-normal"
-							listClass="mt-1 w-80 max-w-[calc(100vw-2rem)] border-2 border-secondary-300 bg-white z-20"
-							optionClass="w-full text-left px-3 py-2 text-xs text-neutral-950 cursor-pointer"
+					<ListboxDropdown
+						options={organizationDropdownOptions}
+						value={currentOrganizationId}
+						ariaLabel="Active organization"
+						placeholder="Select organization"
+						emptyText="No active organization memberships found."
+						disabled={organizationSwitchSubmitting}
+						buttonClass="button-secondary-outlined !bg-neutral-05 w-full px-3 py-2 text-xs cursor-pointer justify-between gap-2 items-start normal-case tracking-normal"
+						listClass="mt-1 w-80 max-w-[calc(100vw-2rem)] border-2 border-secondary-300 bg-white z-20"
+						optionClass="w-full text-left px-3 py-2 text-xs text-neutral-950 cursor-pointer"
 						activeOptionClass="bg-neutral-300 text-neutral-950"
 						selectedOptionClass="bg-primary text-white font-semibold"
 						footerActionClass="button-secondary-outlined w-full px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer inline-flex items-center justify-center gap-1"
@@ -1225,28 +1053,31 @@
 						}}
 						on:footerAction={openCreateOrganizationWizard}
 						on:footerSecondaryAction={openManageOrganizationWizard}
-						>
-							{#snippet trigger(open, selectedOption)}
-								<span class="min-w-0 flex-1 text-left">
-									{#if organizationSwitchSubmitting}
-										<span class="block h-[1.15rem] w-52 max-w-full animate-pulse bg-neutral-300/70"></span>
-										<span class="mt-1 block h-[0.85rem] w-32 max-w-[75%] animate-pulse bg-neutral-300/70"></span>
-										<span class="sr-only">Switching organization, please wait.</span>
-									{:else}
-										<span class="block truncate text-sm font-semibold text-neutral-950">
-											{selectedOption?.label ?? 'Select organization'}
+					>
+						{#snippet trigger(open, selectedOption)}
+							<span class="min-w-0 flex-1 text-left">
+								{#if organizationSwitchSubmitting}
+									<span class="block h-[1.15rem] w-52 max-w-full animate-pulse bg-neutral-300/70"
+									></span>
+									<span
+										class="mt-1 block h-[0.85rem] w-32 max-w-[75%] animate-pulse bg-neutral-300/70"
+									></span>
+									<span class="sr-only">Switching organization, please wait.</span>
+								{:else}
+									<span class="block truncate text-sm font-semibold text-neutral-950">
+										{selectedOption?.label ?? 'Select organization'}
+									</span>
+									{#if selectedOption?.description}
+										<span
+											class="mt-0.5 block truncate text-[11px] font-normal tracking-normal text-neutral-700"
+										>
+											{selectedOption.description}
 										</span>
-										{#if selectedOption?.description}
-											<span
-												class="mt-0.5 block truncate text-[11px] font-normal tracking-normal text-neutral-700"
-											>
-												{selectedOption.description}
-											</span>
-										{/if}
 									{/if}
-								</span>
-								{#if open}
-									<IconChevronUp class="w-4 h-4 shrink-0 mt-0.5 text-neutral-900" />
+								{/if}
+							</span>
+							{#if open}
+								<IconChevronUp class="w-4 h-4 shrink-0 mt-0.5 text-neutral-900" />
 							{:else}
 								<IconChevronDown class="w-4 h-4 shrink-0 mt-0.5 text-neutral-900" />
 							{/if}
@@ -1420,19 +1251,66 @@
 											class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1"
 											>Cell phone</span
 										>
-										<div class="flex">
-											<select
-												class="select-secondary custom-select w-24 shrink-0"
-												name="cellPhoneCountryCode"
-												bind:value={cellPhoneCountryCode}
-											>
-												{#each countryCodeOptions as code}
-													<option value={code}>{code}</option>
-												{/each}
-											</select>
+										<div
+											class={`phone-input-group flex items-stretch ${showCellPhoneError ? 'phone-input-group-error' : ''}`}
+										>
 											<input
-												class={`input-secondary border-l-0 flex-1 ${
-													showCellPhoneError ? 'border-red-600 focus:border-red-700' : ''
+												type="hidden"
+												name="cellPhoneCountryCode"
+												value={cellPhoneCountryCode}
+											/>
+											<ListboxDropdown
+												options={cellPhoneCountryDropdownOptions}
+												value={cellPhoneCountryIso2}
+												ariaLabel="Cell phone country code"
+												panelWidthMode="parent"
+												maxPanelHeight={320}
+												searchEnabled
+												searchPlaceholder="Search country"
+												searchAriaLabel="Search countries"
+												searchEmptyText="No countries match your search."
+												buttonClass="phone-country-trigger relative z-10 w-16 h-11 border-2 border-secondary-300 border-r-0 bg-white px-1.5 py-2 text-sm text-neutral-950 cursor-pointer inline-flex items-center justify-center gap-1 focus-visible:outline-none"
+												listClass="mt-1 border-2 border-secondary-300 bg-white z-20"
+												optionClass="w-full text-left px-3 py-2 text-sm text-neutral-950 cursor-pointer"
+												activeOptionClass="bg-neutral-300 text-neutral-950"
+												selectedOptionClass="bg-primary text-white font-semibold"
+												on:change={(event) => {
+													const nextIso2 = event.detail.value;
+													const nextCountry = phoneCountryByIso2.get(nextIso2);
+													cellPhoneCountryIso2 = nextIso2;
+													cellPhoneCountryCode = nextCountry?.dialCodePlus ?? '+1';
+												}}
+											>
+												{#snippet trigger(open)}
+													<span class="pointer-events-none inline-flex items-center gap-1.5">
+														{#if selectedCellPhoneCountry?.flagIconClass}
+															<span
+																class={`${selectedCellPhoneCountry.flagIconClass} country-flag-icon shrink-0`}
+																aria-hidden="true"
+															></span>
+														{:else}
+															<span class="text-xs font-semibold leading-none text-neutral-950">
+																{selectedCellPhoneCountry?.iso2?.toUpperCase() ?? 'US'}
+															</span>
+														{/if}
+														{#if open}
+															<IconChevronUp class="h-3.5 w-3.5 shrink-0 text-neutral-900" />
+														{:else}
+															<IconChevronDown class="h-3.5 w-3.5 shrink-0 text-neutral-900" />
+														{/if}
+													</span>
+													<span class="sr-only">
+														{selectedCellPhoneCountry
+															? `${selectedCellPhoneCountry.countryName} ${selectedCellPhoneCountry.dialCodePlus}`
+															: 'Select country'}
+													</span>
+												{/snippet}
+											</ListboxDropdown>
+											<input
+												class={`phone-number-field relative z-0 input-secondary min-h-11 flex-1 ${
+													showCellPhoneError
+														? 'border-l-0 border-red-600 focus:border-red-700'
+														: 'border-l-0'
 												}`}
 												type="tel"
 												name="cellPhone"
@@ -1850,7 +1728,9 @@
 										{/if}
 									</p>
 									{#if account.isViewingAsRole}
-										<p class="text-xs text-neutral-950 mt-0.5">Organization role: {account.baseRole}</p>
+										<p class="text-xs text-neutral-950 mt-0.5">
+											Organization role: {account.baseRole}
+										</p>
 									{/if}
 								</div>
 							</div>
@@ -2368,7 +2248,7 @@
 
 		<ManageOrganizationWizard
 			open={manageOrganizationOpen}
-			organizations={organizations}
+			{organizations}
 			selectedOrganizationId={manageOrganizationSelectedClientId || currentOrganizationId}
 			on:close={closeManageOrganizationWizard}
 			on:saved={(event) => {
@@ -2377,4 +2257,5 @@
 		/>
 	{/if}
 </div>
+
 

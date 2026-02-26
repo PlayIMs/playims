@@ -1,8 +1,40 @@
-﻿@import 'tailwindcss';
+@import 'tailwindcss';
+@import 'flag-icons/css/flag-icons.min.css';
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
 @plugin 'tailwind-scrollbar' {
 	preferredstrategy: 'pseudoelements';
+}
+
+.country-flag-icon.fi {
+	width: 1.15rem;
+	height: 0.85rem;
+	line-height: 1;
+	background-size: cover;
+	border: 1px solid var(--color-secondary-300);
+}
+
+.phone-input-group:focus-within {
+	box-shadow: 0 0 0 1px var(--color-secondary-500);
+}
+
+.phone-input-group:focus-within .phone-country-trigger,
+.phone-input-group:focus-within .phone-number-field {
+	border-color: var(--color-secondary-500) !important;
+}
+
+.phone-input-group .phone-country-trigger:focus-visible,
+.phone-input-group .phone-number-field:focus {
+	box-shadow: none !important;
+}
+
+.phone-input-group.phone-input-group-error:focus-within {
+	box-shadow: 0 0 0 1px rgb(185 28 28);
+}
+
+.phone-input-group.phone-input-group-error:focus-within .phone-country-trigger,
+.phone-input-group.phone-input-group-error:focus-within .phone-number-field {
+	border-color: rgb(185 28 28) !important;
 }
 
 /* Base Typography */
