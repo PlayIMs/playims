@@ -19,6 +19,7 @@ import { ThemeOperations } from './themes.js';
 import { SessionOperations } from './sessions.js';
 import { UserClientOperations } from './user-clients.js';
 import { ClientDatabaseRouteOperations } from './client-database-routes.js';
+import { ClientNavigationLabelOperations } from './client-navigation-labels.js';
 import { SignupInviteKeyOperations } from './signup-invite-keys.js';
 import { AuthRateLimitOperations } from './auth-rate-limits.js';
 
@@ -43,6 +44,7 @@ export class DatabaseOperations {
 	public sessions: SessionOperations;
 	public userClients: UserClientOperations;
 	public clientDatabaseRoutes: ClientDatabaseRouteOperations;
+	public clientNavigationLabels: ClientNavigationLabelOperations;
 	public signupInviteKeys: SignupInviteKeyOperations;
 	public authRateLimits: AuthRateLimitOperations;
 
@@ -85,6 +87,7 @@ export class DatabaseOperations {
 		this.sessions = new SessionOperations(drizzleDb);
 		this.userClients = new UserClientOperations(drizzleDb);
 		this.clientDatabaseRoutes = new ClientDatabaseRouteOperations(drizzleDb);
+		this.clientNavigationLabels = new ClientNavigationLabelOperations(drizzleDb);
 		this.signupInviteKeys = new SignupInviteKeyOperations(drizzleDb);
 		this.authRateLimits = new AuthRateLimitOperations(drizzleDb);
 	}
@@ -107,5 +110,6 @@ export { ThemeOperations } from './themes.js';
 export { SessionOperations } from './sessions.js';
 export { UserClientOperations } from './user-clients.js';
 export { ClientDatabaseRouteOperations } from './client-database-routes.js';
+export { ClientNavigationLabelOperations } from './client-navigation-labels.js';
 export { SignupInviteKeyOperations } from './signup-invite-keys.js';
 export { AuthRateLimitOperations } from './auth-rate-limits.js';

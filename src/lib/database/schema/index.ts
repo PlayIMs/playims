@@ -1,6 +1,7 @@
 // Export all schemas
 export * from './clients';
 export * from './client-database-routes';
+export * from './client-navigation-labels';
 export * from './users';
 export * from './offerings';
 export * from './seasons';

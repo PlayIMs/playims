@@ -1,0 +1,1 @@
+ALTER TABLE `client_navigation_labels` ADD `sort_order` integer NOT NULL;

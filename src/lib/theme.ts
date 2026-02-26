@@ -660,6 +660,31 @@ export async function deleteTheme(themeId: string) {
 	}
 }
 
+/** renames an existing saved theme while keeping its current colors. */
+export async function renameSavedTheme(themeId: string, name: string) {
+	const trimmedName = name.trim();
+	if (!trimmedName) {
+		return false;
+	}
+
+	const themes = get(savedThemes);
+	const themeIndex = themes.findIndex((theme) => theme.id === themeId);
+	if (themeIndex === -1) {
+		return false;
+	}
+
+	try {
+		const record = await updateThemeInDatabase(themeId, trimmedName, themes[themeIndex].colors);
+		const updated = [...themes];
+		updated[themeIndex] = mapRecordToSavedTheme(record);
+		savedThemes.set(updated);
+		return true;
+	} catch (error) {
+		console.warn('Failed to rename theme:', error);
+		return false;
+	}
+}
+
 /** initializes the theme system and keeps css variables in sync. */
 export async function init(
 	initialTheme?: ThemeColors,

@@ -6,6 +6,10 @@
 	import IconCalendarWeek from '@tabler/icons-svelte/icons/calendar-week';
 	import IconClock from '@tabler/icons-svelte/icons/clock';
 	import IconLivePhoto from '@tabler/icons-svelte/icons/live-photo';
+	import {
+		mergeDashboardNavigationLabels,
+		type DashboardNavKey
+	} from '$lib/dashboard/navigation';
 
 	type ScheduleEvent = {
 		id: string;
@@ -46,6 +50,7 @@
 		offeringOptions: OptionCount[];
 		statusOptions: OptionCount[];
 		summary: ScheduleSummary;
+		navigationLabels?: Partial<Record<DashboardNavKey, string>>;
 		error?: string;
 	};
 
@@ -65,6 +70,9 @@
 	};
 
 	let { data } = $props<{ data: SchedulePageData }>();
+	const pageLabel = $derived.by(() =>
+		mergeDashboardNavigationLabels(data?.navigationLabels).schedule
+	);
 
 	let searchQuery = $state('');
 	let selectedStatus = $state('all');
@@ -297,7 +305,7 @@
 </script>
 
 <svelte:head>
-	<title>Schedule - PlayIMs</title>
+	<title>{pageLabel} - PlayIMs</title>
 	<meta
 		name="description"
 		content="View upcoming and completed intramural events, with offering and status filters."
@@ -316,7 +324,7 @@
 				</div>
 				<div>
 					<h1 class="text-5xl lg:text-6xl leading-[0.9] font-bold font-serif text-neutral-950">
-						Schedule
+						{pageLabel}
 					</h1>
 				</div>
 			</div>

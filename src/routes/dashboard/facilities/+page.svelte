@@ -32,9 +32,18 @@
 	import IconExternalLink from '@tabler/icons-svelte/icons/external-link';
 	import IconBuilding from '@tabler/icons-svelte/icons/building';
 	import IconX from '@tabler/icons-svelte/icons/x';
+	import {
+		mergeDashboardNavigationLabels,
+		type DashboardNavKey
+	} from '$lib/dashboard/navigation';
 	import { generateUuidV4 } from '$lib/utils/uuid.js';
 
 	let { data, form }: PageProps = $props();
+	const pageLabel = $derived.by(() =>
+		mergeDashboardNavigationLabels(
+			(data?.navigationLabels ?? {}) as Partial<Record<DashboardNavKey, string>>
+		).facilities
+	);
 
 	// Typed form data for accessing custom fields
 	const formData = $derived(form as unknown as Record<string, unknown> | null);
@@ -950,7 +959,7 @@
 </script>
 
 <svelte:head>
-	<title>Facilities - PlayIMs</title>
+	<title>{pageLabel} - PlayIMs</title>
 	<meta
 		name="description"
 		content="Manage sports facilities and venue areas. Create, edit, and organize your league's locations."
@@ -970,7 +979,7 @@
 				</div>
 				<div>
 					<h1 class="text-5xl lg:text-6xl leading-[0.9] font-bold font-serif text-neutral-950">
-						Facilities
+						{pageLabel}
 					</h1>
 					<p class="text-sm font-sans text-neutral-900 mt-1">
 						Manage facility locations and the playable areas inside each site.

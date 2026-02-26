@@ -20,6 +20,18 @@
 	import { invalidateAll } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
+	import { flip } from 'svelte/animate';
+	import { cubicInOut } from 'svelte/easing';
+	import {
+		DASHBOARD_NAV_KEY_SET,
+		mergeDashboardNavigationConfig,
+		mergeDashboardNavigationLabels,
+		mergeDashboardNavigationOrder,
+		orderDashboardNavigationItems,
+		type DashboardNavKey,
+		type DashboardNavigationOrder,
+		type DashboardNavigationLabels
+	} from '$lib/dashboard/navigation';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import ViewRoleWizard from './_wizards/ViewRoleWizard.svelte';
 
@@ -29,30 +41,34 @@
 
 	let isSidebarOpen = $state(true);
 
-	const menuItems = [
-		{ id: 'Dashboard', label: 'Dashboard', icon: IconLayoutDashboard, href: '/dashboard' },
-		{ id: 'Schedule', label: 'Schedule', icon: IconCalendarWeek, href: '/dashboard/schedule' },
-		{
-			id: 'Intramural Offerings',
-			label: 'Intramural Offerings',
-			icon: IconBallFootball,
-			href: '/dashboard/offerings'
-		},
-		{ id: 'Club Sports', label: 'Club Sports', icon: IconTrophy, href: '#' },
-		{ id: 'Member Management', label: 'Member Management', icon: IconUserCog, href: '#' },
-		{
-			id: 'Communication Center',
-			label: 'Communication Center',
-			icon: IconMessageCircle,
-			href: '#'
-		},
-		{ id: 'Facilities', label: 'Facilities', icon: IconBuilding, href: '/dashboard/facilities' },
-		{ id: 'Equipment Checkout', label: 'Equipment Checkout', icon: IconShoppingCart, href: '#' },
-		{ id: 'Payments', label: 'Payments', icon: IconCreditCard, href: '#' },
-		{ id: 'Forms', label: 'Forms', icon: IconFileText, href: '#' },
-		{ id: 'Reports', label: 'Reports', icon: IconChartBar, href: '#' },
-		{ id: 'Settings', label: 'Settings', icon: IconSettings, href: '#' }
-	] as const;
+	const isDashboardNavKey = (value: string): value is DashboardNavKey =>
+		DASHBOARD_NAV_KEY_SET.has(value as DashboardNavKey);
+
+	const menuItemIcons = {
+		dashboard: IconLayoutDashboard,
+		schedule: IconCalendarWeek,
+		offerings: IconBallFootball,
+		clubSports: IconTrophy,
+		memberManagement: IconUserCog,
+		communicationCenter: IconMessageCircle,
+		facilities: IconBuilding,
+		equipmentCheckout: IconShoppingCart,
+		payments: IconCreditCard,
+		forms: IconFileText,
+		reports: IconChartBar,
+		settings: IconSettings
+	} as const;
+
+	const NAVIGATION_LABELS_UPDATED_EVENT = 'playims:navigation-labels-updated';
+	let navigationLabels = $state<DashboardNavigationLabels>(mergeDashboardNavigationLabels());
+	let navigationOrder = $state<DashboardNavigationOrder>(mergeDashboardNavigationOrder());
+	const menuItems = $derived.by(() =>
+		orderDashboardNavigationItems(navigationOrder).map((item) => ({
+			...item,
+			label: navigationLabels[item.key],
+			icon: menuItemIcons[item.key]
+		}))
+	);
 
 	const menuWidth = $derived.by(() => (isSidebarOpen ? 'w-64 xl:w-66' : 'w-14 xl:w-16'));
 	const navBottomPadding = $derived.by(() => (isSidebarOpen ? 'pb-40' : 'pb-36'));
@@ -62,6 +78,15 @@
 	}
 
 	const activePath = $derived.by(() => $page.url.pathname);
+	const isMenuItemActive = (href: string): boolean => {
+		if (href === '#') {
+			return false;
+		}
+		if (href === '/dashboard') {
+			return activePath === href;
+		}
+		return activePath === href || activePath.startsWith(`${href}/`);
+	};
 	const accountHref = '/dashboard/account';
 	const isAccountRoute = $derived.by(
 		() => activePath === accountHref || activePath.startsWith(`${accountHref}/`)
@@ -120,6 +145,15 @@
 	let revertingViewMode = $state(false);
 	let viewModeBadgeError = $state('');
 	let organizationSwitching = $state(false);
+
+	$effect(() => {
+		const merged = mergeDashboardNavigationConfig({
+			labels: data?.navigationLabels,
+			order: data?.navigationOrder
+		});
+		navigationLabels = merged.labels;
+		navigationOrder = merged.order;
+	});
 
 	const syncOrganizationSwitchingState = () => {
 		if (!browser) {
@@ -230,6 +264,41 @@
 			return;
 		}
 
+		const handleNavigationLabelsUpdated = (event: Event) => {
+			const customEvent = event as CustomEvent<{
+				labels?: Partial<Record<DashboardNavKey, string>>;
+				order?: DashboardNavigationOrder;
+			}>;
+			const incomingLabels = customEvent.detail?.labels;
+			const incomingOrder = customEvent.detail?.order;
+			if (
+				(!incomingLabels || typeof incomingLabels !== 'object') &&
+				!Array.isArray(incomingOrder)
+			) {
+				return;
+			}
+
+			const sanitized: Partial<Record<DashboardNavKey, string>> = {};
+			if (incomingLabels && typeof incomingLabels === 'object') {
+				for (const [rawKey, rawLabel] of Object.entries(incomingLabels)) {
+					if (!isDashboardNavKey(rawKey) || typeof rawLabel !== 'string') {
+						continue;
+					}
+					sanitized[rawKey] = rawLabel;
+				}
+			}
+
+			const merged = mergeDashboardNavigationConfig({
+				labels: {
+					...navigationLabels,
+					...sanitized
+				},
+				order: Array.isArray(incomingOrder) ? incomingOrder : navigationOrder
+			});
+			navigationLabels = merged.labels;
+			navigationOrder = merged.order;
+		};
+
 		syncOrganizationSwitchingState();
 
 		const handleOrganizationSwitchingEvent = (event: Event) => {
@@ -254,12 +323,20 @@
 			'playims:organization-switching',
 			handleOrganizationSwitchingEvent as EventListener
 		);
+		window.addEventListener(
+			NAVIGATION_LABELS_UPDATED_EVENT,
+			handleNavigationLabelsUpdated as EventListener
+		);
 		window.addEventListener('storage', handleStorageEvent);
 		window.addEventListener('focus', syncOrganizationSwitchingState);
 		return () => {
 			window.removeEventListener(
 				'playims:organization-switching',
 				handleOrganizationSwitchingEvent as EventListener
+			);
+			window.removeEventListener(
+				NAVIGATION_LABELS_UPDATED_EVENT,
+				handleNavigationLabelsUpdated as EventListener
 			);
 			window.removeEventListener('storage', handleStorageEvent);
 			window.removeEventListener('focus', syncOrganizationSwitchingState);
@@ -400,21 +477,22 @@
 					aria-label="Dashboard navigation"
 				>
 					<ul class="space-y-1">
-						{#each menuItems as item}
-							<li>
+						{#each menuItems as item (item.key)}
+							<li animate:flip={{ duration: 280, easing: cubicInOut }}>
 								<HoverTooltip text={isSidebarOpen ? '' : item.label} wrapperClass="block w-full">
 									<a
 										href={item.href}
 										class="w-full whitespace-nowrap {isSidebarOpen
 											? 'px-4 py-3 md:px-3 md:py-2.5 md:gap-2.5 xl:px-4 xl:py-3 xl:gap-3 flex items-center text-base md:text-sm xl:text-base'
-											: 'px-2 py-3 md:px-1.5 md:py-2.5 xl:px-2 xl:py-3 flex items-center justify-center'} transition-colors duration-150 cursor-pointer {activePath ===
-										item.href
+											: 'px-2 py-3 md:px-1.5 md:py-2.5 xl:px-2 xl:py-3 flex items-center justify-center'} transition-colors duration-150 cursor-pointer {isMenuItemActive(
+											item.href
+										)
 											? 'bg-primary-600 border-l-4 border-neutral-500 text-white'
 											: 'text-primary-100 hover:bg-primary-600 hover:text-white border-l-4 border-transparent'} {item.href ===
 										'#'
 											? 'opacity-70 pointer-events-none'
 											: ''}"
-										aria-current={activePath === item.href ? 'page' : undefined}
+										aria-current={isMenuItemActive(item.href) ? 'page' : undefined}
 									>
 										<item.icon class="w-5 h-5 md:w-4 md:h-4 xl:w-5 xl:h-5 shrink-0" />
 										{#if isSidebarOpen}

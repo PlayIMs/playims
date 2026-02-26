@@ -49,6 +49,8 @@ export type {
 	NewUserClient,
 	ClientDatabaseRoute,
 	NewClientDatabaseRoute,
+	ClientNavigationLabel,
+	NewClientNavigationLabel,
 	SignupInviteKey,
 	NewSignupInviteKey,
 	AuthRateLimit,

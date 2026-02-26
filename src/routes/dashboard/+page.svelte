@@ -11,8 +11,17 @@
 	import IconPlayerPlay from '@tabler/icons-svelte/icons/player-play';
 	import IconPlus from '@tabler/icons-svelte/icons/plus';
 	import IconBell from '@tabler/icons-svelte/icons/bell';
+	import {
+		mergeDashboardNavigationLabels,
+		type DashboardNavKey
+	} from '$lib/dashboard/navigation';
 
 	let { data } = $props();
+	const pageLabel = $derived.by(() =>
+		mergeDashboardNavigationLabels(
+			(data?.navigationLabels ?? {}) as Partial<Record<DashboardNavKey, string>>
+		).dashboard
+	);
 
 	let todaysEvents = $derived(data.todaysEvents ?? []);
 	let upcomingEvents = $derived(data.upcomingEvents ?? []);
@@ -53,7 +62,7 @@
 </script>
 
 <svelte:head>
-	<title>Dashboard - PlayIMs</title>
+	<title>{pageLabel} - PlayIMs</title>
 	<meta
 		name="description"
 		content="Manage your intramural sports leagues, view today's schedule, track live games, and monitor team standings."
@@ -73,7 +82,7 @@
 				</div>
 				<div>
 					<h1 class="text-5xl lg:text-6xl leading-[0.9] font-bold font-serif text-neutral-950">
-						Dashboard
+						{pageLabel}
 					</h1>
 				</div>
 			</div>

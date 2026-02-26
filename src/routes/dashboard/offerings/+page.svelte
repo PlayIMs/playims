@@ -43,6 +43,10 @@
 	import InfoPopover from '$lib/components/InfoPopover.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
+	import {
+		mergeDashboardNavigationLabels,
+		type DashboardNavKey
+	} from '$lib/dashboard/navigation';
 	import { generateUuidV4 } from '$lib/utils/uuid.js';
 
 	type Activity = PageData['activities'][number];
@@ -255,6 +259,11 @@
 	const FORM_DROPDOWN_BUTTON_CLASS =
 		'w-full border-2 border-secondary-400 bg-white px-4 py-2 text-base leading-6 font-normal text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2 hover:bg-white focus:outline-none focus-visible:outline-none focus-visible:border-secondary-500 focus-visible:ring-0 focus-visible:shadow-[0_0_0_1px_var(--color-secondary-500)] disabled:cursor-not-allowed disabled:opacity-60';
 	let { data } = $props<{ data: PageData }>();
+	const pageLabel = $derived.by(() =>
+		mergeDashboardNavigationLabels(
+			(data?.navigationLabels ?? {}) as Partial<Record<DashboardNavKey, string>>
+		).offerings
+	);
 
 	function normalizeAuthRole(value: string | null | undefined): AuthRole {
 		const normalized = value?.trim().toLowerCase();
@@ -3938,7 +3947,7 @@
 </script>
 
 <svelte:head>
-	<title>Intramural Offerings - PlayIMs</title>
+	<title>{pageLabel} - PlayIMs</title>
 	<meta
 		name="description"
 		content="View intramural offerings by season with leagues, registration status, and deadlines."
@@ -3956,7 +3965,7 @@
 				<IconBallFootball class="w-7 h-7 lg:w-8 lg:h-8" />
 			</div>
 			<h1 class="text-5xl lg:text-6xl leading-[0.9] font-bold font-serif text-neutral-950">
-				Intramural Offerings
+				{pageLabel}
 			</h1>
 		</div>
 	</header>
