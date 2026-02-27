@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import IconDeviceFloppy from '@tabler/icons-svelte/icons/device-floppy';
+	import IconPencil from '@tabler/icons-svelte/icons/pencil';
 	import IconRestore from '@tabler/icons-svelte/icons/restore';
+	import IconTrash from '@tabler/icons-svelte/icons/trash';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import {
 		themeColors,
@@ -814,19 +816,21 @@
 									<HoverTooltip text="Rename theme">
 										<button
 											type="button"
-											class="button-secondary-outlined text-xs px-2 py-1"
+											class="button-secondary-outlined h-9 w-9 p-0 flex items-center justify-center"
 											onclick={(event) => openRenameModal(theme.id, theme.name, event)}
+											aria-label={`Rename ${theme.name}`}
 										>
-											Rename
+											<IconPencil class="w-4 h-4 text-secondary-700" />
 										</button>
 									</HoverTooltip>
 									<HoverTooltip text="Delete theme">
 										<button
 											type="button"
-											class="button-accent-outlined text-xs px-2 py-1"
+											class="button-secondary-outlined h-9 w-9 p-0 flex items-center justify-center"
 											onclick={(event) => handleDeleteTheme(theme.id, event)}
+											aria-label={`Delete ${theme.name}`}
 										>
-											Delete
+											<IconTrash class="w-4 h-4 text-error-700" />
 										</button>
 									</HoverTooltip>
 								</div>

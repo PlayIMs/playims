@@ -66,6 +66,10 @@ This skill defines the styling standards, CSS framework usage, and design princi
 - Icons should be appropriately sized (typically `w-5 h-5` or `w-4 h-4` for navigation, `w-6 h-6` for larger contexts)
 - Match icon style to the context (e.g., navigation icons, action icons, status indicators)
 - Ensure icons have proper spacing from adjacent text (use `gap-2` or `gap-3` in flex containers)
+- For row-level item actions, default to icon-only controls with tooltips:
+  - Edit: pencil icon (`IconPencil`) in neutral/dark tone
+  - Delete: trash icon (`IconTrash`) in red (`text-error-700`)
+  - Prefer compact square buttons (`h-9 w-9` or `h-10 w-10`) to stay consistent across dashboard pages
 
 ### Dashboard Design
 

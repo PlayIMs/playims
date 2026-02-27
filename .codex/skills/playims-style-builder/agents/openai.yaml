@@ -1,0 +1,4 @@
+interface:
+  display_name: "PlayIMs Style Builder"
+  short_description: "Build PlayIMs UI that matches dashboard and wizard patterns"
+  default_prompt: "Use $playims-style-builder to build this dashboard UI so it matches PlayIMs style, wizard, and form conventions."
