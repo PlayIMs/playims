@@ -21,15 +21,13 @@ export const ZINC_PALETTE: Record<string, string> = {
 export const DEFAULT_THEME = {
 	primary: 'CE1126',
 	secondary: '14213D',
-	neutral: 'F5ECE5',
-	accent: '04669A'
+	neutral: 'F5ECE5'
 } as const;
 
 export type ThemeColors = {
 	primary: string;
 	secondary: string;
 	neutral: string; // empty string means use zinc default
-	accent: string;
 };
 
 type SavedTheme = {
@@ -47,7 +45,6 @@ type ThemeRecord = {
 	primary: string;
 	secondary: string;
 	neutral: string;
-	accent: string;
 	createdAt: string;
 	updatedAt?: string;
 	createdUser?: string;
@@ -231,7 +228,7 @@ export function getReadableTextColor(
 /** validates that a color is not white, black, or grayscale. */
 export function validateColorNotGrayscale(
 	colorHex: string,
-	colorName: 'primary' | 'secondary' | 'accent'
+	colorName: 'primary' | 'secondary'
 ): { isValid: boolean; warnings: string[] } {
 	const warnings: string[] = [];
 	const cleanHex = normalizeHex(colorHex);
@@ -261,37 +258,6 @@ export function validateColorNotGrayscale(
 		warnings.push(
 			`${colorName.charAt(0).toUpperCase() + colorName.slice(1)} color is too gray. Use a more vibrant color.`
 		);
-	}
-
-	return {
-		isValid: warnings.length === 0,
-		warnings
-	};
-}
-
-/** validates accent color against neutral background contrast. */
-export function validateAccent(
-	accentHex: string,
-	neutralHex?: string
-): { isValid: boolean; warnings: string[] } {
-	const warnings: string[] = [];
-	const cleanHex = normalizeHex(accentHex);
-	const hexWithHash = `#${cleanHex}`;
-
-	// check for white, black, or grayscale
-	const grayscaleCheck = validateColorNotGrayscale(accentHex, 'accent');
-	warnings.push(...grayscaleCheck.warnings);
-
-	// check wcag aa contrast (4.5:1) against neutral
-	const neutralColorHex =
-		neutralHex && neutralHex.trim() !== ''
-			? `#${normalizeHex(neutralHex)}`
-			: `#${ZINC_PALETTE['500']}`;
-
-	const contrast = getContrastRatio(hexWithHash, neutralColorHex);
-
-	if (contrast < 4.5) {
-		warnings.push('Low contrast ratio - this color may be hard to read on the neutral background.');
 	}
 
 	return {
@@ -335,8 +301,8 @@ export function validateNeutral(neutralHex: string): { isValid: boolean; warning
 function applyThemeToDOM(colors: ThemeColors) {
 	const root = document.documentElement;
 
-	// generate and apply palettes for primary, secondary, and accent
-	const colorNames: ('primary' | 'secondary' | 'accent')[] = ['primary', 'secondary', 'accent'];
+	// generate and apply palettes for primary and secondary
+	const colorNames: ('primary' | 'secondary')[] = ['primary', 'secondary'];
 
 	for (const colorName of colorNames) {
 		const baseHex = colors[colorName];
@@ -418,8 +384,7 @@ function mapRecordToColors(record: ThemeRecord): ThemeColors {
 	return {
 		primary: record.primary,
 		secondary: record.secondary,
-		neutral: record.neutral || '',
-		accent: record.accent
+		neutral: record.neutral || ''
 	};
 }
 
@@ -516,8 +481,7 @@ async function persistCurrentThemeToDatabase(colors: ThemeColors) {
 				colors: {
 					primary: normalizeHex(colors.primary),
 					secondary: normalizeHex(colors.secondary),
-					neutral: colors.neutral ? normalizeHex(colors.neutral) : '',
-					accent: normalizeHex(colors.accent)
+					neutral: colors.neutral ? normalizeHex(colors.neutral) : ''
 				}
 			})
 		});
@@ -545,8 +509,7 @@ async function createThemeInDatabase(name: string, colors: ThemeColors) {
 			colors: {
 				primary: normalizeHex(colors.primary),
 				secondary: normalizeHex(colors.secondary),
-				neutral: colors.neutral ? normalizeHex(colors.neutral) : '',
-				accent: normalizeHex(colors.accent)
+				neutral: colors.neutral ? normalizeHex(colors.neutral) : ''
 			}
 		})
 	});
@@ -561,8 +524,7 @@ async function updateThemeInDatabase(themeId: string, name: string, colors: Them
 			colors: {
 				primary: normalizeHex(colors.primary),
 				secondary: normalizeHex(colors.secondary),
-				neutral: colors.neutral ? normalizeHex(colors.neutral) : '',
-				accent: normalizeHex(colors.accent)
+				neutral: colors.neutral ? normalizeHex(colors.neutral) : ''
 			}
 		})
 	});

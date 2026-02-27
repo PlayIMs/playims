@@ -75,7 +75,6 @@ export const POST: RequestHandler = async (event) => {
 			primary: colors.primary,
 			secondary: colors.secondary,
 			neutral: colors.neutral,
-			accent: colors.accent,
 			createdUser: userId,
 			updatedUser: userId
 		});

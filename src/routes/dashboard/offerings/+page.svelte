@@ -3971,9 +3971,9 @@
 	</header>
 
 	{#if data.error}
-		<div class="bg-accent-100 border-2 border-accent-500 text-neutral-950 p-4">
+		<div class="bg-secondary-100 border-2 border-secondary-500 text-neutral-950 p-4">
 			<div class="flex items-center gap-3">
-				<IconAlertTriangle class="w-6 h-6 text-accent-700" />
+				<IconAlertTriangle class="w-6 h-6 text-secondary-700" />
 				<p class="font-sans">{data.error}</p>
 			</div>
 		</div>

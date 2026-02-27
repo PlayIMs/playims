@@ -27,28 +27,27 @@
 	const buildThemeVarsCss = (colors: theme.ThemeColors) => {
 		const primary = theme.generatePalette(colors.primary);
 		const secondary = theme.generatePalette(colors.secondary);
-		const accent = theme.generatePalette(colors.accent);
 		const neutral =
 			colors.neutral && colors.neutral.trim() !== ''
 				? theme.generatePalette(colors.neutral)
 				: theme.ZINC_PALETTE;
 
 		const toCssVars = (
-			name: 'primary' | 'secondary' | 'neutral' | 'accent',
+			name: 'primary' | 'secondary' | 'neutral',
 			palette: Record<string, string>
 		) =>
 			Object.entries(palette)
 				.map(([shade, value]) => `--color-${name}-${shade}:#${value};`)
 				.join('');
 
-		return `:root{${toCssVars('primary', primary)}${toCssVars('secondary', secondary)}${toCssVars('neutral', neutral)}${toCssVars('accent', accent)}}`;
+		return `:root{${toCssVars('primary', primary)}${toCssVars('secondary', secondary)}${toCssVars('neutral', neutral)}}`;
 	};
 	let initialThemeVarsCss = $derived(buildThemeVarsCss(initialTheme));
 
 	/** applies the select arrow action to themed select elements. */
 	const applySelectArrowToAll = () => {
 		const selects = document.querySelectorAll<HTMLSelectElement>(
-			'select.select-primary, select.select-secondary, select.select-accent'
+			'select.select-primary, select.select-secondary'
 		);
 		selects.forEach((select) => {
 			// skip selects that already have the action
@@ -258,7 +257,6 @@
 				const root = document.documentElement;
 				const primary = generatePalette(themeInput.primary);
 				const secondary = generatePalette(themeInput.secondary);
-				const accent = generatePalette(themeInput.accent);
 				const neutral =
 					themeInput.neutral && themeInput.neutral.trim() !== ''
 						? generatePalette(themeInput.neutral)
@@ -273,9 +271,6 @@
 				for (const [shade, value] of Object.entries(neutral)) {
 					root.style.setProperty('--color-neutral-' + shade, '#' + value);
 				}
-				for (const [shade, value] of Object.entries(accent)) {
-					root.style.setProperty('--color-accent-' + shade, '#' + value);
-				}
 
 				const primary500 = primary[500] || themeInput.primary;
 				const metaColor = primary500.startsWith('#') ? primary500 : '#' + primary500;
@@ -288,8 +283,7 @@
 			const defaultTheme = {
 				primary: 'CE1126',
 				secondary: '14213D',
-				neutral: 'EEDBCE',
-				accent: '04669A'
+				neutral: 'EEDBCE'
 			};
 			const defaultZinc = {
 				'05': 'FEFEFE',

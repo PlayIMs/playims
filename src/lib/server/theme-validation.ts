@@ -15,7 +15,6 @@ export const themeIdParamSchema = z.object({
 export const themeColorsSchema = z.object({
 	primary: hexColorSchema,
 	secondary: hexColorSchema,
-	accent: hexColorSchema,
 	neutral: hexColorSchema.optional().default('')
 });
 

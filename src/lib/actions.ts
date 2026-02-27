@@ -17,7 +17,7 @@ export function selectArrow(node: HTMLSelectElement) {
 			? '--color-primary-700'
 			: node.classList.contains('select-secondary')
 				? '--color-secondary-700'
-				: '--color-accent-700';
+				: '--color-secondary-700';
 		let arrowColor = computedStyle.getPropertyValue(colorVar).trim();
 		// Ensure color has # prefix
 		if (!arrowColor.startsWith('#')) {
@@ -49,7 +49,7 @@ export function selectArrow(node: HTMLSelectElement) {
 	function handleMouseDown(event: MouseEvent) {
 		// Track if select was focused before this click
 		const wasFocused = document.activeElement === node;
-		
+
 		if (pendingClose) {
 			// We had a pending close, this click is to reopen
 			pendingClose = false;
@@ -61,7 +61,7 @@ export function selectArrow(node: HTMLSelectElement) {
 			// If it wasn't focused, the focus handler will set it to open
 			return;
 		}
-		
+
 		if (wasFocused && isOpen) {
 			// If it was already focused and open, clicking again closes the dropdown
 			pendingClose = true;
@@ -157,11 +157,7 @@ function focusAdjacentElement(current: HTMLElement, backwards: boolean): void {
 	if (currentIndex < 0) return;
 
 	const step = backwards ? -1 : 1;
-	for (
-		let index = currentIndex + step;
-		index >= 0 && index < candidates.length;
-		index += step
-	) {
+	for (let index = currentIndex + step; index >= 0 && index < candidates.length; index += step) {
 		const candidate = candidates[index];
 		if (!isFocusable(candidate)) continue;
 		candidate.focus();
@@ -221,7 +217,10 @@ export function forceRadioTabStop(node: HTMLInputElement) {
 	const observer = new MutationObserver(() => {
 		applyTabIndex();
 	});
-	observer.observe(node, { attributes: true, attributeFilter: ['disabled', 'checked', 'tabindex'] });
+	observer.observe(node, {
+		attributes: true,
+		attributeFilter: ['disabled', 'checked', 'tabindex']
+	});
 
 	return {
 		destroy() {

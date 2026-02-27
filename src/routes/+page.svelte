@@ -170,9 +170,9 @@
 
 				<!-- Feature 3 -->
 				<div
-					class="bg-white border-l-4 border-accent-500 p-6 hover:border-accent-600 transition-colors"
+					class="bg-white border-l-4 border-secondary-500 p-6 hover:border-secondary-600 transition-colors"
 				>
-					<div class="bg-accent-500 w-16 h-16 flex items-center justify-center mb-4">
+					<div class="bg-secondary-500 w-16 h-16 flex items-center justify-center mb-4">
 						<svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
 								stroke-linecap="round"
@@ -225,7 +225,7 @@
 				</div>
 
 				<div class="bg-secondary-400 border-2 border-secondary-300 p-6">
-					<div class="bg-accent-600 w-16 h-16 flex items-center justify-center mb-4">
+					<div class="bg-secondary-600 w-16 h-16 flex items-center justify-center mb-4">
 						<svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
 								stroke-linecap="round"

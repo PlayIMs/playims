@@ -88,25 +88,25 @@
 
 /* Disable Tailwind Forms plugin default blue focus ring */
 @layer base {
-	[type='text']:focus:not(.input-primary):not(.input-secondary):not(.input-accent),
-	[type='email']:focus:not(.input-primary):not(.input-secondary):not(.input-accent),
-	[type='url']:focus:not(.input-primary):not(.input-secondary):not(.input-accent),
-	[type='password']:focus:not(.input-primary):not(.input-secondary):not(.input-accent),
-	[type='number']:focus:not(.input-primary):not(.input-secondary):not(.input-accent),
-	[type='date']:focus:not(.input-primary):not(.input-secondary):not(.input-accent),
-	[type='datetime-local']:focus:not(.input-primary):not(.input-secondary):not(.input-accent),
-	[type='month']:focus:not(.input-primary):not(.input-secondary):not(.input-accent),
-	[type='week']:focus:not(.input-primary):not(.input-secondary):not(.input-accent),
-	[type='time']:focus:not(.input-primary):not(.input-secondary):not(.input-accent),
-	[type='search']:focus:not(.input-primary):not(.input-secondary):not(.input-accent),
-	[type='tel']:focus:not(.input-primary):not(.input-secondary):not(.input-accent),
-	[type='checkbox']:focus:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
-			.toggle-primary
-		):not(.toggle-secondary):not(.toggle-accent),
-	[type='radio']:focus:not(.radio-primary):not(.radio-secondary):not(.radio-accent),
+	[type='text']:focus:not(.input-primary):not(.input-secondary),
+	[type='email']:focus:not(.input-primary):not(.input-secondary),
+	[type='url']:focus:not(.input-primary):not(.input-secondary),
+	[type='password']:focus:not(.input-primary):not(.input-secondary),
+	[type='number']:focus:not(.input-primary):not(.input-secondary),
+	[type='date']:focus:not(.input-primary):not(.input-secondary),
+	[type='datetime-local']:focus:not(.input-primary):not(.input-secondary),
+	[type='month']:focus:not(.input-primary):not(.input-secondary),
+	[type='week']:focus:not(.input-primary):not(.input-secondary),
+	[type='time']:focus:not(.input-primary):not(.input-secondary),
+	[type='search']:focus:not(.input-primary):not(.input-secondary),
+	[type='tel']:focus:not(.input-primary):not(.input-secondary),
+	[type='checkbox']:focus:not(.checkbox-primary):not(.checkbox-secondary):not(
+			.checkbox-secondary
+		):not(.toggle-primary):not(.toggle-secondary),
+	[type='radio']:focus:not(.radio-primary):not(.radio-secondary),
 	[multiple]:focus,
-	textarea:focus:not(.textarea-primary):not(.textarea-secondary):not(.textarea-accent),
-	select:focus:not(.select-primary):not(.select-secondary):not(.select-accent) {
+	textarea:focus:not(.textarea-primary):not(.textarea-secondary),
+	select:focus:not(.select-primary):not(.select-secondary) {
 		--tw-ring-color: var(--color-primary-500) !important;
 	}
 
@@ -185,21 +185,6 @@
 	--color-neutral-800: var(--color-neutral-800);
 	--color-neutral-900: var(--color-neutral-900);
 	--color-neutral-950: var(--color-neutral-950);
-
-	/* Dynamic Accent Color */
-	--color-accent-05: var(--color-accent-05);
-	--color-accent-25: var(--color-accent-25);
-	--color-accent-50: var(--color-accent-50);
-	--color-accent-100: var(--color-accent-100);
-	--color-accent-200: var(--color-accent-200);
-	--color-accent-300: var(--color-accent-300);
-	--color-accent-400: var(--color-accent-400);
-	--color-accent-500: var(--color-accent-500);
-	--color-accent-600: var(--color-accent-600);
-	--color-accent-700: var(--color-accent-700);
-	--color-accent-800: var(--color-accent-800);
-	--color-accent-900: var(--color-accent-900);
-	--color-accent-950: var(--color-accent-950);
 
 	/* Error (fixed palette) */
 	--color-error-25: #fff5f5;
@@ -315,30 +300,30 @@
 		cursor: not-allowed;
 	}
 
-	input[type='checkbox'].checkbox-accent {
+	input[type='checkbox'].checkbox-secondary {
 		appearance: none;
 		-webkit-appearance: none;
 		width: 1.25rem;
 		height: 1.25rem;
-		border: 2px solid var(--color-accent-300);
+		border: 2px solid var(--color-secondary-300);
 		background-color: white;
 		position: relative;
 		cursor: pointer;
 		outline: none;
 	}
 
-	input[type='checkbox'].checkbox-accent:focus {
-		outline: 1px solid var(--color-accent-500);
+	input[type='checkbox'].checkbox-secondary:focus {
+		outline: 1px solid var(--color-secondary-500);
 		outline-offset: 1px;
-		--tw-ring-color: var(--color-accent-500) !important;
+		--tw-ring-color: var(--color-secondary-500) !important;
 	}
 
-	input[type='checkbox'].checkbox-accent:checked {
-		background-color: var(--color-accent-500);
-		border-color: var(--color-accent-500);
+	input[type='checkbox'].checkbox-secondary:checked {
+		background-color: var(--color-secondary-500);
+		border-color: var(--color-secondary-500);
 	}
 
-	input[type='checkbox'].checkbox-accent:checked::after {
+	input[type='checkbox'].checkbox-secondary:checked::after {
 		content: '';
 		position: absolute;
 		left: 50%;
@@ -351,7 +336,7 @@
 		transform: translate(-50%, -60%) rotate(45deg);
 	}
 
-	input[type='checkbox'].checkbox-accent:disabled {
+	input[type='checkbox'].checkbox-secondary:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
@@ -437,12 +422,12 @@
 		cursor: not-allowed;
 	}
 
-	input[type='radio'].radio-accent {
+	input[type='radio'].radio-secondary {
 		appearance: none;
 		-webkit-appearance: none;
 		width: 1.25rem;
 		height: 1.25rem;
-		border: 2px solid var(--color-accent-300);
+		border: 2px solid var(--color-secondary-300);
 		background-color: white;
 		border-radius: 50%;
 		position: relative;
@@ -450,17 +435,17 @@
 		outline: none;
 	}
 
-	input[type='radio'].radio-accent:focus {
-		outline: 1px solid var(--color-accent-500);
+	input[type='radio'].radio-secondary:focus {
+		outline: 1px solid var(--color-secondary-500);
 		outline-offset: 1px;
-		--tw-ring-color: var(--color-accent-500) !important;
+		--tw-ring-color: var(--color-secondary-500) !important;
 	}
 
-	input[type='radio'].radio-accent:checked {
-		border-color: var(--color-accent-500);
+	input[type='radio'].radio-secondary:checked {
+		border-color: var(--color-secondary-500);
 	}
 
-	input[type='radio'].radio-accent:checked::after {
+	input[type='radio'].radio-secondary:checked::after {
 		content: '';
 		position: absolute;
 		left: 50%;
@@ -468,11 +453,11 @@
 		transform: translate(-50%, -50%);
 		width: 0.5rem;
 		height: 0.5rem;
-		background-color: var(--color-accent-500);
+		background-color: var(--color-secondary-500);
 		border-radius: 50%;
 	}
 
-	input[type='radio'].radio-accent:disabled {
+	input[type='radio'].radio-secondary:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
@@ -620,15 +605,15 @@
 		cursor: not-allowed;
 	}
 
-	input[type='checkbox'].toggle-accent {
+	input[type='checkbox'].toggle-secondary {
 		appearance: none;
 		-webkit-appearance: none;
 		-moz-appearance: none;
 		width: 3rem;
 		height: 1.5rem;
-		border: 2px solid var(--color-accent-300);
+		border: 2px solid var(--color-secondary-300);
 		border-radius: 0;
-		background-color: var(--color-accent-100);
+		background-color: var(--color-secondary-100);
 		background-image: none !important;
 		position: relative;
 		cursor: pointer;
@@ -642,18 +627,18 @@
 		line-height: 0;
 	}
 
-	input[type='checkbox'].toggle-accent:focus {
-		outline: 1px solid var(--color-accent-500);
+	input[type='checkbox'].toggle-secondary:focus {
+		outline: 1px solid var(--color-secondary-500);
 		outline-offset: 1px;
-		--tw-ring-color: var(--color-accent-500) !important;
+		--tw-ring-color: var(--color-secondary-500) !important;
 	}
 
-	input[type='checkbox'].toggle-accent::before {
+	input[type='checkbox'].toggle-secondary::before {
 		content: '';
 		display: none;
 	}
 
-	input[type='checkbox'].toggle-accent::after {
+	input[type='checkbox'].toggle-secondary::after {
 		content: '';
 		position: absolute;
 		left: 0.125rem;
@@ -661,7 +646,7 @@
 		transform: translateY(-50%);
 		width: 1.125rem;
 		height: 1.125rem;
-		background-color: var(--color-accent-500);
+		background-color: var(--color-secondary-500);
 		border-radius: 0;
 		transition:
 			transform 0.2s,
@@ -669,24 +654,24 @@
 		z-index: 1;
 	}
 
-	input[type='checkbox'].toggle-accent:checked {
-		background-color: var(--color-accent-500);
-		border-color: var(--color-accent-500);
+	input[type='checkbox'].toggle-secondary:checked {
+		background-color: var(--color-secondary-500);
+		border-color: var(--color-secondary-500);
 		background-image: none !important;
 	}
 
-	input[type='checkbox'].toggle-accent:checked::before {
+	input[type='checkbox'].toggle-secondary:checked::before {
 		content: '';
 		display: none;
 	}
 
-	input[type='checkbox'].toggle-accent:checked::after {
+	input[type='checkbox'].toggle-secondary:checked::after {
 		transform: translate(1.5rem, -50%);
 		background-color: white;
 		background-image: none !important;
 	}
 
-	input[type='checkbox'].toggle-accent:disabled {
+	input[type='checkbox'].toggle-secondary:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
@@ -807,58 +792,58 @@
 		color: white !important;
 	}
 
-	select.select-accent option {
+	select.select-secondary option {
 		background-color: white !important;
 		background: white !important;
-		color: var(--color-accent-950) !important;
+		color: var(--color-secondary-950) !important;
 		padding: 0.5rem !important;
 		font-weight: normal !important;
 		font-size: inherit !important;
 	}
 
-	select.select-accent option:checked {
-		background-color: var(--color-accent-500) !important;
-		background: var(--color-accent-500) !important;
+	select.select-secondary option:checked {
+		background-color: var(--color-secondary-500) !important;
+		background: var(--color-secondary-500) !important;
 		color: white !important;
 		font-weight: normal !important;
 	}
 
-	select.select-accent option:checked:not(:disabled) {
-		background-color: var(--color-accent-500) !important;
-		background: var(--color-accent-500) !important;
+	select.select-secondary option:checked:not(:disabled) {
+		background-color: var(--color-secondary-500) !important;
+		background: var(--color-secondary-500) !important;
 		color: white !important;
 		font-weight: normal !important;
 	}
 
-	select.select-accent option:hover {
-		background-color: var(--color-accent-100) !important;
-		background: var(--color-accent-100) !important;
-		color: var(--color-accent-950) !important;
+	select.select-secondary option:hover {
+		background-color: var(--color-secondary-100) !important;
+		background: var(--color-secondary-100) !important;
+		color: var(--color-secondary-950) !important;
 	}
 
-	select.select-accent option:focus,
-	select.select-accent option:focus-visible {
-		background-color: var(--color-accent-500) !important;
-		background: var(--color-accent-500) !important;
+	select.select-secondary option:focus,
+	select.select-secondary option:focus-visible {
+		background-color: var(--color-secondary-500) !important;
+		background: var(--color-secondary-500) !important;
 		color: white !important;
 	}
 
-	select.select-accent option:active {
-		background-color: var(--color-accent-500) !important;
-		background: var(--color-accent-500) !important;
+	select.select-secondary option:active {
+		background-color: var(--color-secondary-500) !important;
+		background: var(--color-secondary-500) !important;
 		color: white !important;
 	}
 
 	/* Remove any blue highlights from select */
 	select.select-primary::-ms-expand,
 	select.select-secondary::-ms-expand,
-	select.select-accent::-ms-expand {
+	select.select-secondary::-ms-expand {
 		display: none;
 	}
 
 	select.select-primary::-webkit-appearance,
 	select.select-secondary::-webkit-appearance,
-	select.select-accent::-webkit-appearance {
+	select.select-secondary::-webkit-appearance {
 		-webkit-appearance: none;
 	}
 
@@ -879,12 +864,12 @@
 		--tw-ring-color: var(--color-secondary-500) !important;
 	}
 
-	select.select-accent:active,
-	select.select-accent:focus-visible {
-		outline: 1px solid var(--color-accent-500) !important;
+	select.select-secondary:active,
+	select.select-secondary:focus-visible {
+		outline: 1px solid var(--color-secondary-500) !important;
 		outline-offset: 1px !important;
-		box-shadow: 0 0 0 1px var(--color-accent-500) !important;
-		--tw-ring-color: var(--color-accent-500) !important;
+		box-shadow: 0 0 0 1px var(--color-secondary-500) !important;
+		--tw-ring-color: var(--color-secondary-500) !important;
 	}
 
 	/* Input Component Classes */
@@ -962,41 +947,41 @@
 		box-shadow: 0 0 0 1px var(--color-secondary-500) !important;
 	}
 
-	input[type='text'].input-accent,
-	input[type='email'].input-accent,
-	input[type='password'].input-accent,
-	input[type='number'].input-accent,
-	input[type='tel'].input-accent,
-	input[type='url'].input-accent,
-	input[type='search'].input-accent,
-	input[type='date'].input-accent,
-	input[type='datetime-local'].input-accent,
-	input[type='month'].input-accent,
-	input[type='week'].input-accent,
-	input[type='time'].input-accent {
-		border: 2px solid var(--color-accent-400);
+	input[type='text'].input-secondary,
+	input[type='email'].input-secondary,
+	input[type='password'].input-secondary,
+	input[type='number'].input-secondary,
+	input[type='tel'].input-secondary,
+	input[type='url'].input-secondary,
+	input[type='search'].input-secondary,
+	input[type='date'].input-secondary,
+	input[type='datetime-local'].input-secondary,
+	input[type='month'].input-secondary,
+	input[type='week'].input-secondary,
+	input[type='time'].input-secondary {
+		border: 2px solid var(--color-secondary-400);
 		padding: 0.5rem 1rem;
 		font-size: 1rem;
 		line-height: 1.5rem;
 		width: 100%;
 	}
 
-	input[type='text'].input-accent:focus,
-	input[type='email'].input-accent:focus,
-	input[type='password'].input-accent:focus,
-	input[type='number'].input-accent:focus,
-	input[type='tel'].input-accent:focus,
-	input[type='url'].input-accent:focus,
-	input[type='search'].input-accent:focus,
-	input[type='date'].input-accent:focus,
-	input[type='datetime-local'].input-accent:focus,
-	input[type='month'].input-accent:focus,
-	input[type='week'].input-accent:focus,
-	input[type='time'].input-accent:focus {
+	input[type='text'].input-secondary:focus,
+	input[type='email'].input-secondary:focus,
+	input[type='password'].input-secondary:focus,
+	input[type='number'].input-secondary:focus,
+	input[type='tel'].input-secondary:focus,
+	input[type='url'].input-secondary:focus,
+	input[type='search'].input-secondary:focus,
+	input[type='date'].input-secondary:focus,
+	input[type='datetime-local'].input-secondary:focus,
+	input[type='month'].input-secondary:focus,
+	input[type='week'].input-secondary:focus,
+	input[type='time'].input-secondary:focus {
 		outline: none;
-		border-color: var(--color-accent-500);
-		--tw-ring-color: var(--color-accent-500) !important;
-		box-shadow: 0 0 0 1px var(--color-accent-500) !important;
+		border-color: var(--color-secondary-500);
+		--tw-ring-color: var(--color-secondary-500) !important;
+		box-shadow: 0 0 0 1px var(--color-secondary-500) !important;
 	}
 
 	/* Textarea Component Classes */
@@ -1030,19 +1015,19 @@
 		box-shadow: 0 0 0 1px var(--color-secondary-500) !important;
 	}
 
-	textarea.textarea-accent {
-		border: 2px solid var(--color-accent-400);
+	textarea.textarea-secondary {
+		border: 2px solid var(--color-secondary-400);
 		padding: 0.5rem 1rem;
 		font-size: 1rem;
 		line-height: 1.5rem;
 		width: 100%;
 	}
 
-	textarea.textarea-accent:focus {
+	textarea.textarea-secondary:focus {
 		outline: none;
-		border-color: var(--color-accent-500);
-		--tw-ring-color: var(--color-accent-500) !important;
-		box-shadow: 0 0 0 1px var(--color-accent-500) !important;
+		border-color: var(--color-secondary-500);
+		--tw-ring-color: var(--color-secondary-500) !important;
+		box-shadow: 0 0 0 1px var(--color-secondary-500) !important;
 	}
 
 	/* Select Component Classes */
@@ -1120,7 +1105,7 @@
 		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
 	}
 
-	select.select-accent {
+	select.select-secondary {
 		appearance: none;
 		-webkit-appearance: none;
 		-moz-appearance: none;
@@ -1134,26 +1119,26 @@
 		outline: none !important;
 		box-shadow: none !important;
 		color-scheme: light;
-		border: 2px solid var(--color-accent-400);
+		border: 2px solid var(--color-secondary-400);
 		padding: 0.5rem 1rem;
 		font-size: 1rem;
 		line-height: 1.5rem;
-		color: var(--color-accent-950);
+		color: var(--color-secondary-950);
 		width: 100%;
 		position: relative;
 		transition: background-image 0.2s;
 	}
 
-	select.select-accent:focus {
+	select.select-secondary:focus {
 		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 3L1 8h10z'/%3E%3C/svg%3E");
-		outline: 1px solid var(--color-accent-500) !important;
+		outline: 1px solid var(--color-secondary-500) !important;
 		outline-offset: 1px !important;
-		box-shadow: 0 0 0 1px var(--color-accent-500) !important;
-		--tw-ring-color: var(--color-accent-500) !important;
-		border-color: var(--color-accent-500);
+		box-shadow: 0 0 0 1px var(--color-secondary-500) !important;
+		--tw-ring-color: var(--color-secondary-500) !important;
+		border-color: var(--color-secondary-500);
 	}
 
-	select.select-accent:hover {
+	select.select-secondary:hover {
 		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
 	}
 
@@ -1637,10 +1622,10 @@
 		background-color: var(--color-secondary-100);
 	}
 
-	/* Accent Buttons */
-	:is(button, a).button-accent {
-		background-color: var(--color-accent-500);
-		color: var(--color-accent-25);
+	/* Secondary Buttons */
+	:is(button, a).button-secondary {
+		background-color: var(--color-secondary-500);
+		color: var(--color-secondary-25);
 		padding: 0.75rem 1.5rem;
 		font-weight: 700;
 		font-size: 1rem;
@@ -1653,22 +1638,22 @@
 		border: none;
 	}
 
-	:is(button, a).button-accent:hover:not(:disabled) {
-		background-color: var(--color-accent-600);
+	:is(button, a).button-secondary:hover:not(:disabled) {
+		background-color: var(--color-secondary-600);
 	}
 
-	:is(button, a).button-accent:active:not(:disabled) {
-		background-color: var(--color-accent-700);
+	:is(button, a).button-secondary:active:not(:disabled) {
+		background-color: var(--color-secondary-700);
 	}
 
-	:is(button, a).button-accent:disabled {
+	:is(button, a).button-secondary:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
 
-	:is(button, a).button-accent-500 {
-		background-color: var(--color-accent-500);
-		color: var(--color-accent-25);
+	:is(button, a).button-secondary-500 {
+		background-color: var(--color-secondary-500);
+		color: var(--color-secondary-25);
 		padding: 0.75rem 1.5rem;
 		font-weight: 700;
 		font-size: 1rem;
@@ -1681,17 +1666,17 @@
 		border: none;
 	}
 
-	:is(button, a).button-accent-500:hover:not(:disabled) {
-		background-color: var(--color-accent-600);
+	:is(button, a).button-secondary-500:hover:not(:disabled) {
+		background-color: var(--color-secondary-600);
 	}
 
-	:is(button, a).button-accent-500:active:not(:disabled) {
-		background-color: var(--color-accent-700);
+	:is(button, a).button-secondary-500:active:not(:disabled) {
+		background-color: var(--color-secondary-700);
 	}
 
-	:is(button, a).button-accent-600 {
-		background-color: var(--color-accent-600);
-		color: var(--color-accent-25);
+	:is(button, a).button-secondary-600 {
+		background-color: var(--color-secondary-600);
+		color: var(--color-secondary-25);
 		padding: 0.75rem 1.5rem;
 		font-weight: 700;
 		font-size: 1rem;
@@ -1704,26 +1689,26 @@
 		border: none;
 	}
 
-	:is(button, a).button-accent-600:hover:not(:disabled) {
-		background-color: var(--color-accent-700);
+	:is(button, a).button-secondary-600:hover:not(:disabled) {
+		background-color: var(--color-secondary-700);
 	}
 
-	:is(button, a).button-accent-600:active:not(:disabled) {
-		background-color: var(--color-accent-800);
+	:is(button, a).button-secondary-600:active:not(:disabled) {
+		background-color: var(--color-secondary-800);
 	}
 
-	:is(button, a).button-accent-600:disabled {
+	:is(button, a).button-secondary-600:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
 
-	/* Accent Outlined Buttons */
-	:is(button, a).button-accent-outlined {
+	/* Secondary Outlined Buttons */
+	:is(button, a).button-secondary-outlined {
 		background-color: transparent;
-		outline: 2px solid var(--color-accent-500);
+		outline: 2px solid var(--color-secondary-500);
 		outline-offset: -2px;
 		border: none;
-		color: var(--color-accent-950);
+		color: var(--color-secondary-950);
 		padding: 0.75rem 1.5rem;
 		font-weight: 700;
 		font-size: 1rem;
@@ -1735,25 +1720,25 @@
 		cursor: pointer;
 	}
 
-	:is(button, a).button-accent-outlined:hover:not(:disabled) {
-		background-color: var(--color-accent-50);
+	:is(button, a).button-secondary-outlined:hover:not(:disabled) {
+		background-color: var(--color-secondary-50);
 	}
 
-	:is(button, a).button-accent-outlined:active:not(:disabled) {
-		background-color: var(--color-accent-100);
+	:is(button, a).button-secondary-outlined:active:not(:disabled) {
+		background-color: var(--color-secondary-100);
 	}
 
-	:is(button, a).button-accent-outlined:disabled {
+	:is(button, a).button-secondary-outlined:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
 
-	:is(button, a).button-accent-outlined-500 {
+	:is(button, a).button-secondary-outlined-500 {
 		background-color: transparent;
-		outline: 2px solid var(--color-accent-500);
+		outline: 2px solid var(--color-secondary-500);
 		outline-offset: -2px;
 		border: none;
-		color: var(--color-accent-950);
+		color: var(--color-secondary-950);
 		padding: 0.75rem 1.5rem;
 		font-weight: 700;
 		font-size: 1rem;
@@ -1765,12 +1750,12 @@
 		cursor: pointer;
 	}
 
-	:is(button, a).button-accent-outlined-500:hover:not(:disabled) {
-		background-color: var(--color-accent-50);
+	:is(button, a).button-secondary-outlined-500:hover:not(:disabled) {
+		background-color: var(--color-secondary-50);
 	}
 
-	:is(button, a).button-accent-outlined-500:active:not(:disabled) {
-		background-color: var(--color-accent-100);
+	:is(button, a).button-secondary-outlined-500:active:not(:disabled) {
+		background-color: var(--color-secondary-100);
 	}
 
 	/* Error Buttons */
@@ -1960,9 +1945,9 @@
 		background-color: transparent;
 	}
 
-	.badge-accent {
-		background-color: var(--color-accent-500);
-		color: var(--color-accent-05);
+	.badge-secondary {
+		background-color: var(--color-secondary-500);
+		color: var(--color-secondary-05);
 		padding: 0.25rem 0.75rem;
 		font-weight: 700;
 		font-size: 0.875rem;
@@ -1972,9 +1957,9 @@
 		justify-content: center;
 	}
 
-	.badge-accent-500 {
-		background-color: var(--color-accent-500);
-		color: var(--color-accent-05);
+	.badge-secondary-500 {
+		background-color: var(--color-secondary-500);
+		color: var(--color-secondary-05);
 		padding: 0.25rem 0.75rem;
 		font-weight: 700;
 		font-size: 0.875rem;
@@ -1984,9 +1969,9 @@
 		justify-content: center;
 	}
 
-	.badge-accent-600 {
-		background-color: var(--color-accent-600);
-		color: var(--color-accent-05);
+	.badge-secondary-600 {
+		background-color: var(--color-secondary-600);
+		color: var(--color-secondary-05);
 		padding: 0.25rem 0.75rem;
 		font-weight: 700;
 		font-size: 0.875rem;
@@ -1996,11 +1981,11 @@
 		justify-content: center;
 	}
 
-	.badge-accent-outlined {
-		outline: 2px solid var(--color-accent-500);
+	.badge-secondary-outlined {
+		outline: 2px solid var(--color-secondary-500);
 		outline-offset: -2px;
 		border: none;
-		color: var(--color-accent-500);
+		color: var(--color-secondary-500);
 		padding: 0.25rem 0.75rem;
 		font-weight: 700;
 		font-size: 0.875rem;
@@ -2011,11 +1996,11 @@
 		background-color: transparent;
 	}
 
-	.badge-accent-outlined-500 {
-		outline: 2px solid var(--color-accent-500);
+	.badge-secondary-outlined-500 {
+		outline: 2px solid var(--color-secondary-500);
 		outline-offset: -2px;
 		border: none;
-		color: var(--color-accent-500);
+		color: var(--color-secondary-500);
 		padding: 0.25rem 0.75rem;
 		font-weight: 700;
 		font-size: 0.875rem;
@@ -2091,32 +2076,32 @@
 		line-height: 1.5rem;
 	}
 
-	.card-accent {
-		border: 2px solid var(--color-accent-300);
-		background-color: var(--color-accent-50);
+	.card-secondary {
+		border: 2px solid var(--color-secondary-300);
+		background-color: var(--color-secondary-50);
 		padding: 1rem;
 		font-size: 1rem;
 		line-height: 1.5rem;
 	}
 
-	.card-accent-500 {
-		border: 2px solid var(--color-accent-300);
-		background-color: var(--color-accent-50);
+	.card-secondary-500 {
+		border: 2px solid var(--color-secondary-300);
+		background-color: var(--color-secondary-50);
 		padding: 1rem;
 		font-size: 1rem;
 		line-height: 1.5rem;
 	}
 
-	.card-accent-outlined {
-		border: 2px solid var(--color-accent-600);
+	.card-secondary-outlined {
+		border: 2px solid var(--color-secondary-600);
 		background-color: white;
 		padding: 1rem;
 		font-size: 1rem;
 		line-height: 1.5rem;
 	}
 
-	.card-accent-outlined-500 {
-		border: 2px solid var(--color-accent-600);
+	.card-secondary-outlined-500 {
+		border: 2px solid var(--color-secondary-600);
 		background-color: white;
 		padding: 1rem;
 		font-size: 1rem;
@@ -2188,32 +2173,32 @@
 		line-height: 1.5rem;
 	}
 
-	.toast-accent {
-		border: 2px solid var(--color-accent-500);
-		background-color: var(--color-accent-50);
+	.toast-secondary {
+		border: 2px solid var(--color-secondary-500);
+		background-color: var(--color-secondary-50);
 		padding: 1rem;
 		font-size: 1rem;
 		line-height: 1.5rem;
 	}
 
-	.toast-accent-500 {
-		border: 2px solid var(--color-accent-500);
-		background-color: var(--color-accent-50);
+	.toast-secondary-500 {
+		border: 2px solid var(--color-secondary-500);
+		background-color: var(--color-secondary-50);
 		padding: 1rem;
 		font-size: 1rem;
 		line-height: 1.5rem;
 	}
 
-	.toast-accent-outlined {
-		border: 2px solid var(--color-accent-500);
+	.toast-secondary-outlined {
+		border: 2px solid var(--color-secondary-500);
 		background-color: white;
 		padding: 1rem;
 		font-size: 1rem;
 		line-height: 1.5rem;
 	}
 
-	.toast-accent-outlined-500 {
-		border: 2px solid var(--color-accent-500);
+	.toast-secondary-outlined-500 {
+		border: 2px solid var(--color-secondary-500);
 		background-color: white;
 		padding: 1rem;
 		font-size: 1rem;
@@ -2253,22 +2238,6 @@
 		line-height: 1.5rem;
 	}
 
-	.alert-accent {
-		border: 2px solid var(--color-accent-500);
-		background-color: var(--color-accent-50);
-		padding: 1rem;
-		font-size: 1rem;
-		line-height: 1.5rem;
-	}
-
-	.alert-accent-500 {
-		border: 2px solid var(--color-accent-500);
-		background-color: var(--color-accent-50);
-		padding: 1rem;
-		font-size: 1rem;
-		line-height: 1.5rem;
-	}
-
 	/* Progress Bar Component Classes */
 	.progress-primary,
 	.progress-primary-500 {
@@ -2292,14 +2261,14 @@
 		height: 1.5rem;
 	}
 
-	.progress-accent,
-	.progress-accent-500 {
-		border: 2px solid var(--color-accent-300);
-		background-color: var(--color-accent-100);
+	.progress-secondary,
+	.progress-secondary-500 {
+		border: 2px solid var(--color-secondary-300);
+		background-color: var(--color-secondary-100);
 	}
 
-	.progress-accent-bar {
-		background-color: var(--color-accent-500);
+	.progress-secondary-bar {
+		background-color: var(--color-secondary-500);
 		height: 1.5rem;
 	}
 
@@ -2312,8 +2281,8 @@
 		background-color: var(--color-secondary-500);
 	}
 
-	.bg-accent {
-		background-color: var(--color-accent-500);
+	.bg-secondary {
+		background-color: var(--color-secondary-500);
 	}
 
 	.bg-neutral {
@@ -2329,8 +2298,8 @@
 		color: var(--color-secondary-500);
 	}
 
-	.text-accent {
-		color: var(--color-accent-500);
+	.text-secondary {
+		color: var(--color-secondary-500);
 	}
 
 	.text-neutral {
@@ -2346,8 +2315,8 @@
 		border-color: var(--color-secondary-500);
 	}
 
-	.border-accent {
-		border-color: var(--color-accent-500);
+	.border-secondary {
+		border-color: var(--color-secondary-500);
 	}
 
 	.border-neutral {
@@ -2355,67 +2324,67 @@
 	}
 
 	/* Global Form Element Styles - Default to primary */
-	input[type='text']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+	input[type='text']:not(.checkbox-primary):not(.checkbox-secondary):not(
 			.radio-primary
-		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-accent
-		):not(.input-primary):not(.input-secondary):not(.input-accent),
-	input[type='email']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
-			.radio-primary
-		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-accent
-		):not(.input-primary):not(.input-secondary):not(.input-accent),
-	input[type='url']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
-			.radio-primary
-		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-accent
-		):not(.input-primary):not(.input-secondary):not(.input-accent),
-	input[type='password']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
-			.radio-primary
-		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-accent
-		):not(.input-primary):not(.input-secondary):not(.input-accent),
-	input[type='number']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
-			.radio-primary
-		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-accent
-		):not(.input-primary):not(.input-secondary):not(.input-accent),
-	input[type='tel']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
-			.radio-primary
-		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-accent
-		):not(.input-primary):not(.input-secondary):not(.input-accent),
-	input[type='search']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
-			.radio-primary
-		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-accent
-		):not(.input-primary):not(.input-secondary):not(.input-accent),
-	input[type='date']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
-			.radio-primary
-		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-accent
-		):not(.input-primary):not(.input-secondary):not(.input-accent),
-	input[type='datetime-local']:not(.checkbox-primary):not(.checkbox-secondary):not(
-			.checkbox-accent
-		):not(.radio-primary):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(
+		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
 			.toggle-secondary
-		):not(.toggle-accent):not(.input-primary):not(.input-secondary):not(.input-accent),
-	input[type='month']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+		):not(.input-primary):not(.input-secondary),
+	input[type='email']:not(.checkbox-primary):not(.checkbox-secondary):not(
 			.radio-primary
-		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-accent
-		):not(.input-primary):not(.input-secondary):not(.input-accent),
-	input[type='week']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-secondary
+		):not(.input-primary):not(.input-secondary),
+	input[type='url']:not(.checkbox-primary):not(.checkbox-secondary):not(
 			.radio-primary
-		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-accent
-		):not(.input-primary):not(.input-secondary):not(.input-accent),
-	input[type='time']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-secondary
+		):not(.input-primary):not(.input-secondary),
+	input[type='password']:not(.checkbox-primary):not(.checkbox-secondary):not(
+			.checkbox-secondary
+		):not(.radio-primary):not(.radio-secondary):not(.toggle-primary):not(
+			.toggle-secondary
+		):not(.toggle-secondary):not(.input-primary):not(.input-secondary),
+	input[type='number']:not(.checkbox-primary):not(.checkbox-secondary):not(
 			.radio-primary
-		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-accent
-		):not(.input-primary):not(.input-secondary):not(.input-accent),
-	textarea:not(.textarea-primary):not(.textarea-secondary):not(.textarea-accent) {
+		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-secondary
+		):not(.input-primary):not(.input-secondary),
+	input[type='tel']:not(.checkbox-primary):not(.checkbox-secondary):not(
+			.radio-primary
+		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-secondary
+		):not(.input-primary):not(.input-secondary),
+	input[type='search']:not(.checkbox-primary):not(.checkbox-secondary):not(
+			.radio-primary
+		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-secondary
+		):not(.input-primary):not(.input-secondary),
+	input[type='date']:not(.checkbox-primary):not(.checkbox-secondary):not(
+			.radio-primary
+		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-secondary
+		):not(.input-primary):not(.input-secondary),
+	input[type='datetime-local']:not(.checkbox-primary):not(.checkbox-secondary):not(
+			.checkbox-secondary
+		):not(.radio-primary):not(.radio-secondary):not(.toggle-primary):not(
+			.toggle-secondary
+		):not(.toggle-secondary):not(.input-primary):not(.input-secondary),
+	input[type='month']:not(.checkbox-primary):not(.checkbox-secondary):not(
+			.radio-primary
+		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-secondary
+		):not(.input-primary):not(.input-secondary),
+	input[type='week']:not(.checkbox-primary):not(.checkbox-secondary):not(
+			.radio-primary
+		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-secondary
+		):not(.input-primary):not(.input-secondary),
+	input[type='time']:not(.checkbox-primary):not(.checkbox-secondary):not(
+			.radio-primary
+		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-secondary
+		):not(.input-primary):not(.input-secondary),
+	textarea:not(.textarea-primary):not(.textarea-secondary) {
 		border: 2px solid var(--color-primary-300);
 		padding: 0.5rem 1rem;
 		font-size: 1rem;
@@ -2423,72 +2392,72 @@
 		width: 100%;
 	}
 
-	input[type='text']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+	input[type='text']:not(.checkbox-primary):not(.checkbox-secondary):not(
 			.radio-primary
-		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-accent
-		):not(.input-primary):not(.input-secondary):not(.input-accent):focus,
-	input[type='email']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
-			.radio-primary
-		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-accent
-		):not(.input-primary):not(.input-secondary):not(.input-accent):focus,
-	input[type='url']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
-			.radio-primary
-		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-accent
-		):not(.input-primary):not(.input-secondary):not(.input-accent):focus,
-	input[type='password']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
-			.radio-primary
-		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-accent
-		):not(.input-primary):not(.input-secondary):not(.input-accent):focus,
-	input[type='number']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
-			.radio-primary
-		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-accent
-		):not(.input-primary):not(.input-secondary):not(.input-accent):focus,
-	input[type='tel']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
-			.radio-primary
-		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-accent
-		):not(.input-primary):not(.input-secondary):not(.input-accent):focus,
-	input[type='search']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
-			.radio-primary
-		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-accent
-		):not(.input-primary):not(.input-secondary):not(.input-accent):focus,
-	input[type='date']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
-			.radio-primary
-		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-accent
-		):not(.input-primary):not(.input-secondary):not(.input-accent):focus,
-	input[type='datetime-local']:not(.checkbox-primary):not(.checkbox-secondary):not(
-			.checkbox-accent
-		):not(.radio-primary):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(
+		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
 			.toggle-secondary
-		):not(.toggle-accent):not(.input-primary):not(.input-secondary):not(.input-accent):focus,
-	input[type='month']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+		):not(.input-primary):not(.input-secondary):focus,
+	input[type='email']:not(.checkbox-primary):not(.checkbox-secondary):not(
 			.radio-primary
-		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-accent
-		):not(.input-primary):not(.input-secondary):not(.input-accent):focus,
-	input[type='week']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-secondary
+		):not(.input-primary):not(.input-secondary):focus,
+	input[type='url']:not(.checkbox-primary):not(.checkbox-secondary):not(
 			.radio-primary
-		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-accent
-		):not(.input-primary):not(.input-secondary):not(.input-accent):focus,
-	input[type='time']:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-secondary
+		):not(.input-primary):not(.input-secondary):focus,
+	input[type='password']:not(.checkbox-primary):not(.checkbox-secondary):not(
+			.checkbox-secondary
+		):not(.radio-primary):not(.radio-secondary):not(.toggle-primary):not(
+			.toggle-secondary
+		):not(.toggle-secondary):not(.input-primary):not(.input-secondary):focus,
+	input[type='number']:not(.checkbox-primary):not(.checkbox-secondary):not(
 			.radio-primary
-		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-accent
-		):not(.input-primary):not(.input-secondary):not(.input-accent):focus,
-	textarea:not(.textarea-primary):not(.textarea-secondary):not(.textarea-accent):focus {
+		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-secondary
+		):not(.input-primary):not(.input-secondary):focus,
+	input[type='tel']:not(.checkbox-primary):not(.checkbox-secondary):not(
+			.radio-primary
+		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-secondary
+		):not(.input-primary):not(.input-secondary):focus,
+	input[type='search']:not(.checkbox-primary):not(.checkbox-secondary):not(
+			.radio-primary
+		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-secondary
+		):not(.input-primary):not(.input-secondary):focus,
+	input[type='date']:not(.checkbox-primary):not(.checkbox-secondary):not(
+			.radio-primary
+		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-secondary
+		):not(.input-primary):not(.input-secondary):focus,
+	input[type='datetime-local']:not(.checkbox-primary):not(.checkbox-secondary):not(
+			.checkbox-secondary
+		):not(.radio-primary):not(.radio-secondary):not(.toggle-primary):not(
+			.toggle-secondary
+		):not(.toggle-secondary):not(.input-primary):not(.input-secondary):focus,
+	input[type='month']:not(.checkbox-primary):not(.checkbox-secondary):not(
+			.radio-primary
+		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-secondary
+		):not(.input-primary):not(.input-secondary):focus,
+	input[type='week']:not(.checkbox-primary):not(.checkbox-secondary):not(
+			.radio-primary
+		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-secondary
+		):not(.input-primary):not(.input-secondary):focus,
+	input[type='time']:not(.checkbox-primary):not(.checkbox-secondary):not(
+			.radio-primary
+		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-secondary
+		):not(.input-primary):not(.input-secondary):focus,
+	textarea:not(.textarea-primary):not(.textarea-secondary):focus {
 		outline: none;
 		border-color: var(--color-primary-500);
 	}
 
-	select:not(.select-primary):not(.select-secondary):not(.select-accent) {
+	select:not(.select-primary):not(.select-secondary) {
 		border: 2px solid var(--color-primary-300);
 		background-color: white;
 		padding: 0.5rem 1rem;
@@ -2499,7 +2468,7 @@
 		width: 100%;
 	}
 
-	select:not(.select-primary):not(.select-secondary):not(.select-accent):focus {
+	select:not(.select-primary):not(.select-secondary):focus {
 		outline: none;
 		border-color: var(--color-primary-500);
 	}
@@ -2508,69 +2477,83 @@
 /* Override default focus styles for all form inputs */
 @layer base {
 	/* Remove blue from all form elements - exclude themed form elements */
-	*:focus:not(.checkbox-primary):not(.checkbox-secondary):not(.checkbox-accent):not(
+	*:focus:not(.checkbox-primary):not(.checkbox-secondary):not(
 			.radio-primary
-		):not(.radio-secondary):not(.radio-accent):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-accent
-		):not(.input-primary):not(.input-secondary):not(.input-accent):not(.textarea-primary):not(
+		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-secondary
+		):not(.input-primary):not(.input-secondary):not(.textarea-primary):not(
 			.textarea-secondary
-		):not(.textarea-accent):not(.select-primary):not(.select-secondary):not(.select-accent) {
+		):not(.textarea-secondary):not(.select-primary):not(.select-secondary) {
 		--tw-ring-color: var(--color-primary-500) !important;
 	}
 
 	/* Base styles for all form inputs - exclude themed classes */
-	input[type='text']:not(.input-primary):not(.input-secondary):not(.input-accent),
-	input[type='email']:not(.input-primary):not(.input-secondary):not(.input-accent),
-	input[type='password']:not(.input-primary):not(.input-secondary):not(.input-accent),
-	input[type='number']:not(.input-primary):not(.input-secondary):not(.input-accent),
-	input[type='tel']:not(.input-primary):not(.input-secondary):not(.input-accent),
-	input[type='url']:not(.input-primary):not(.input-secondary):not(.input-accent),
-	input[type='search']:not(.input-primary):not(.input-secondary):not(.input-accent),
-	textarea:not(.textarea-primary):not(.textarea-secondary):not(.textarea-accent),
-	select:not(.select-primary):not(.select-secondary):not(.select-accent) {
+	input[type='text']:not(.input-primary):not(.input-secondary),
+	input[type='email']:not(.input-primary):not(.input-secondary),
+	input[type='password']:not(.input-primary):not(.input-secondary),
+	input[type='number']:not(.input-primary):not(.input-secondary),
+	input[type='tel']:not(.input-primary):not(.input-secondary),
+	input[type='url']:not(.input-primary):not(.input-secondary),
+	input[type='search']:not(.input-primary):not(.input-secondary),
+	textarea:not(.textarea-primary):not(.textarea-secondary),
+	select:not(.select-primary):not(.select-secondary) {
 		--tw-ring-color: transparent !important;
 		outline: none !important;
 		accent-color: var(--color-primary-600);
 	}
 
 	/* Focus styles for all form inputs - exclude themed classes */
-	input[type='text']:not(.input-primary):not(.input-secondary):not(.input-accent):not(
+	input[type='text']:not(.input-primary):not(.input-secondary):not(
 			.checkbox-primary
-		):not(.checkbox-secondary):not(.checkbox-accent):not(.radio-primary):not(.radio-secondary):not(
-			.radio-accent
-		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-accent):focus,
-	input[type='email']:not(.input-primary):not(.input-secondary):not(.input-accent):not(
+		):not(.checkbox-secondary):not(.radio-primary):not(
+			.radio-secondary
+		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-secondary
+		):focus,
+	input[type='email']:not(.input-primary):not(.input-secondary):not(
 			.checkbox-primary
-		):not(.checkbox-secondary):not(.checkbox-accent):not(.radio-primary):not(.radio-secondary):not(
-			.radio-accent
-		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-accent):focus,
-	input[type='password']:not(.input-primary):not(.input-secondary):not(.input-accent):not(
+		):not(.checkbox-secondary):not(.radio-primary):not(
+			.radio-secondary
+		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-secondary
+		):focus,
+	input[type='password']:not(.input-primary):not(.input-secondary):not(
 			.checkbox-primary
-		):not(.checkbox-secondary):not(.checkbox-accent):not(.radio-primary):not(.radio-secondary):not(
-			.radio-accent
-		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-accent):focus,
-	input[type='number']:not(.input-primary):not(.input-secondary):not(.input-accent):not(
+		):not(.checkbox-secondary):not(.radio-primary):not(
+			.radio-secondary
+		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-secondary
+		):focus,
+	input[type='number']:not(.input-primary):not(.input-secondary):not(
 			.checkbox-primary
-		):not(.checkbox-secondary):not(.checkbox-accent):not(.radio-primary):not(.radio-secondary):not(
-			.radio-accent
-		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-accent):focus,
-	input[type='tel']:not(.input-primary):not(.input-secondary):not(.input-accent):not(
+		):not(.checkbox-secondary):not(.radio-primary):not(
+			.radio-secondary
+		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-secondary
+		):focus,
+	input[type='tel']:not(.input-primary):not(.input-secondary):not(
 			.checkbox-primary
-		):not(.checkbox-secondary):not(.checkbox-accent):not(.radio-primary):not(.radio-secondary):not(
-			.radio-accent
-		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-accent):focus,
-	input[type='url']:not(.input-primary):not(.input-secondary):not(.input-accent):not(
+		):not(.checkbox-secondary):not(.radio-primary):not(
+			.radio-secondary
+		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-secondary
+		):focus,
+	input[type='url']:not(.input-primary):not(.input-secondary):not(
 			.checkbox-primary
-		):not(.checkbox-secondary):not(.checkbox-accent):not(.radio-primary):not(.radio-secondary):not(
-			.radio-accent
-		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-accent):focus,
-	input[type='search']:not(.input-primary):not(.input-secondary):not(.input-accent):not(
+		):not(.checkbox-secondary):not(.radio-primary):not(
+			.radio-secondary
+		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-secondary
+		):focus,
+	input[type='search']:not(.input-primary):not(.input-secondary):not(
 			.checkbox-primary
-		):not(.checkbox-secondary):not(.checkbox-accent):not(.radio-primary):not(.radio-secondary):not(
-			.radio-accent
-		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-accent):focus,
-	textarea:not(.textarea-primary):not(.textarea-secondary):not(.textarea-accent):focus,
-	select:not(.select-primary):not(.select-secondary):not(.select-accent):focus {
+		):not(.checkbox-secondary):not(.radio-primary):not(
+			.radio-secondary
+		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+			.toggle-secondary
+		):focus,
+	textarea:not(.textarea-primary):not(.textarea-secondary):focus,
+	select:not(.select-primary):not(.select-secondary):focus {
 		outline: 1px solid var(--color-primary-500) !important;
 		outline-offset: 1px !important;
 		--tw-ring-color: var(--color-primary-500) !important;
@@ -2580,11 +2563,11 @@
 	}
 
 	/* Specific textarea styles - exclude themed classes */
-	textarea:not(.textarea-primary):not(.textarea-secondary):not(.textarea-accent) {
+	textarea:not(.textarea-primary):not(.textarea-secondary) {
 		outline: none !important;
 	}
 
-	textarea:not(.textarea-primary):not(.textarea-secondary):not(.textarea-accent):focus {
+	textarea:not(.textarea-primary):not(.textarea-secondary):focus {
 		outline: 1px solid var(--color-primary-500) !important;
 		outline-offset: 1px !important;
 		--tw-ring-color: var(--color-primary-500) !important;
@@ -2633,35 +2616,35 @@
 		--tw-ring-color: var(--color-secondary-500) !important;
 	}
 
-	input[type='checkbox'].checkbox-accent:focus,
-	input[type='radio'].radio-accent:focus,
-	input[type='checkbox'].toggle-accent:focus,
-	input[type='text'].input-accent:focus,
-	input[type='email'].input-accent:focus,
-	input[type='password'].input-accent:focus,
-	input[type='number'].input-accent:focus,
-	input[type='tel'].input-accent:focus,
-	input[type='url'].input-accent:focus,
-	input[type='search'].input-accent:focus,
-	input[type='date'].input-accent:focus,
-	input[type='datetime-local'].input-accent:focus,
-	input[type='month'].input-accent:focus,
-	input[type='week'].input-accent:focus,
-	input[type='time'].input-accent:focus,
-	textarea.textarea-accent:focus,
-	select.select-accent:focus {
-		--tw-ring-color: var(--color-accent-500) !important;
+	input[type='checkbox'].checkbox-secondary:focus,
+	input[type='radio'].radio-secondary:focus,
+	input[type='checkbox'].toggle-secondary:focus,
+	input[type='text'].input-secondary:focus,
+	input[type='email'].input-secondary:focus,
+	input[type='password'].input-secondary:focus,
+	input[type='number'].input-secondary:focus,
+	input[type='tel'].input-secondary:focus,
+	input[type='url'].input-secondary:focus,
+	input[type='search'].input-secondary:focus,
+	input[type='date'].input-secondary:focus,
+	input[type='datetime-local'].input-secondary:focus,
+	input[type='month'].input-secondary:focus,
+	input[type='week'].input-secondary:focus,
+	input[type='time'].input-secondary:focus,
+	textarea.textarea-secondary:focus,
+	select.select-secondary:focus {
+		--tw-ring-color: var(--color-secondary-500) !important;
 	}
 
 	/* Specific select styles - exclude themed classes */
-	select:not(.select-primary):not(.select-secondary):not(.select-accent) {
+	select:not(.select-primary):not(.select-secondary) {
 		outline: none !important;
 		box-shadow: none !important;
 		accent-color: var(--color-primary-600);
 		color-scheme: light;
 	}
 
-	select:not(.select-primary):not(.select-secondary):not(.select-accent):focus {
+	select:not(.select-primary):not(.select-secondary):focus {
 		outline: 1px solid var(--color-primary-500) !important;
 		outline-offset: 1px !important;
 		--tw-ring-color: var(--color-primary-500) !important;
@@ -2672,7 +2655,7 @@
 
 	/* Style all select options to use theme colors - exclude themed classes */
 	/* Aggressive styling to override browser defaults */
-	select:not(.select-primary):not(.select-secondary):not(.select-accent) option {
+	select:not(.select-primary):not(.select-secondary) option {
 		background-color: white !important;
 		background: white !important;
 		color: var(--color-primary-950) !important;
@@ -2681,7 +2664,7 @@
 	}
 
 	/* Selected option - try multiple approaches */
-	select:not(.select-primary):not(.select-secondary):not(.select-accent) option:checked {
+	select:not(.select-primary):not(.select-secondary) option:checked {
 		background-color: var(--color-primary-500) !important;
 		background: var(--color-primary-500) !important;
 		color: white !important;
@@ -2689,7 +2672,7 @@
 	}
 
 	/* Firefox specific */
-	select:not(.select-primary):not(.select-secondary):not(.select-accent)
+	select:not(.select-primary):not(.select-secondary)
 		option:checked:not(:disabled) {
 		background-color: var(--color-primary-500) !important;
 		background: var(--color-primary-500) !important;
@@ -2698,36 +2681,36 @@
 	}
 
 	/* Try to override hover/active states - limited browser support */
-	select:not(.select-primary):not(.select-secondary):not(.select-accent) option:hover {
+	select:not(.select-primary):not(.select-secondary) option:hover {
 		background-color: var(--color-primary-100) !important;
 		background: var(--color-primary-100) !important;
 		color: var(--color-primary-950) !important;
 	}
 
-	select:not(.select-primary):not(.select-secondary):not(.select-accent) option:focus,
-	select:not(.select-primary):not(.select-secondary):not(.select-accent) option:focus-visible {
+	select:not(.select-primary):not(.select-secondary) option:focus,
+	select:not(.select-primary):not(.select-secondary) option:focus-visible {
 		background-color: var(--color-primary-500) !important;
 		background: var(--color-primary-500) !important;
 		color: white !important;
 	}
 
-	select:not(.select-primary):not(.select-secondary):not(.select-accent) option:active {
+	select:not(.select-primary):not(.select-secondary) option:active {
 		background-color: var(--color-primary-500) !important;
 		background: var(--color-primary-500) !important;
 		color: white !important;
 	}
 
 	/* Additional overrides to prevent blue */
-	select:not(.select-primary):not(.select-secondary):not(.select-accent):active,
-	select:not(.select-primary):not(.select-secondary):not(.select-accent):focus-visible {
+	select:not(.select-primary):not(.select-secondary):active,
+	select:not(.select-primary):not(.select-secondary):focus-visible {
 		outline: 1px solid var(--color-primary-500) !important;
 		outline-offset: 1px !important;
 		box-shadow: 0 0 0 1px var(--color-primary-500) !important;
 		--tw-ring-color: var(--color-primary-500) !important;
 	}
 
-	textarea:not(.textarea-primary):not(.textarea-secondary):not(.textarea-accent):active,
-	textarea:not(.textarea-primary):not(.textarea-secondary):not(.textarea-accent):focus-visible {
+	textarea:not(.textarea-primary):not(.textarea-secondary):active,
+	textarea:not(.textarea-primary):not(.textarea-secondary):focus-visible {
 		outline: 1px solid var(--color-primary-500) !important;
 		outline-offset: 1px !important;
 		box-shadow: 0 0 0 1px var(--color-primary-500) !important;

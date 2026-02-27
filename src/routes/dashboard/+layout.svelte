@@ -411,11 +411,11 @@
 
 <div class="h-screen box-border">
 	<div
-		class="pointer-events-none fixed inset-0 z-50 shadow-[inset_0_0_0_1rem_var(--color-accent-500)] transition-opacity duration-220 {shellBorderOpacityClass}"
+		class="pointer-events-none fixed inset-0 z-50 shadow-[inset_0_0_0_1rem_var(--color-secondary-500)] transition-opacity duration-220 {shellBorderOpacityClass}"
 		aria-hidden="true"
 	></div>
 	{#if isViewingAsRole}
-		<div class="fixed right-4 top-4 z-60 inline-flex h-7 items-stretch bg-accent-300 text-white">
+		<div class="fixed right-4 top-4 z-60 inline-flex h-7 items-stretch bg-secondary-300 text-white">
 			<span
 				class="inline-flex items-center px-2 text-[0.6rem] font-bold leading-none tracking-[0.08em] cursor-default"
 			>
@@ -427,7 +427,7 @@
 			>
 				<button
 					type="button"
-					class="inline-flex h-full w-7 cursor-pointer items-center justify-center bg-accent-400 text-white transition-colors duration-150 hover:bg-accent-600 focus-visible:bg-accent-800 disabled:cursor-wait disabled:opacity-70"
+					class="inline-flex h-full w-7 cursor-pointer items-center justify-center bg-secondary-400 text-white transition-colors duration-150 hover:bg-secondary-600 focus-visible:bg-secondary-800 disabled:cursor-wait disabled:opacity-70"
 					aria-label="Return to organization role view"
 					disabled={revertingViewMode || organizationSwitching}
 					onclick={exitViewMode}
@@ -438,7 +438,7 @@
 		</div>
 		{#if viewModeBadgeError}
 			<p
-				class="fixed right-2 top-[2.15rem] z-60 border border-accent-900 bg-accent-800 px-2 py-0.5 text-[0.65rem] leading-none text-primary-100"
+				class="fixed right-2 top-[2.15rem] z-60 border border-secondary-900 bg-secondary-800 px-2 py-0.5 text-[0.65rem] leading-none text-primary-100"
 			>
 				{viewModeBadgeError}
 			</p>

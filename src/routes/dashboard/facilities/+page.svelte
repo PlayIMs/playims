@@ -1158,7 +1158,7 @@
 					</p>
 					{#if !viewArchiveMode}
 						<button
-							class="button-accent inline-flex items-center gap-2 cursor-pointer"
+							class="button-secondary inline-flex items-center gap-2 cursor-pointer"
 							type="button"
 							onclick={openCreateFacility}
 						>
@@ -1393,7 +1393,7 @@
 									<div class="flex items-center gap-2">
 										<button
 											type="submit"
-											class="button-accent flex items-center gap-2 cursor-pointer"
+											class="button-secondary flex items-center gap-2 cursor-pointer"
 										>
 											<IconCheck class="w-4 h-4" />
 											<span>Save</span>
@@ -1431,7 +1431,7 @@
 												{#if isArchived}
 													<span class="badge-secondary text-xs shrink-0">ARCHIVED</span>
 												{:else if isPartiallyArchived}
-													<span class="badge-accent text-xs shrink-0">HAS ARCHIVED AREAS</span>
+													<span class="badge-secondary text-xs shrink-0">HAS ARCHIVED AREAS</span>
 												{/if}
 											</div>
 											<div class="flex items-center gap-3 text-sm font-sans text-neutral-700">
@@ -1517,7 +1517,7 @@
 													{#if facility.isActive === 0}
 														<IconRestore class="w-4 h-4 text-secondary-700" />
 													{:else}
-														<IconArchive class="w-4 h-4 text-accent-600" />
+														<IconArchive class="w-4 h-4 text-secondary-600" />
 													{/if}
 												</button>
 											</form>
@@ -1547,7 +1547,7 @@
 															})}
 														aria-label="Delete facility"
 													>
-														<IconTrash class="w-4 h-4 text-accent-600" />
+														<IconTrash class="w-4 h-4 text-secondary-600" />
 													</button>
 												</form>
 											{/if}
@@ -1731,7 +1731,7 @@
 																onclick={stopEditingArea}
 																aria-label="Cancel"
 															>
-																<IconTrash class="w-4 h-4 text-accent-600" />
+																<IconTrash class="w-4 h-4 text-secondary-600" />
 															</button>
 														</div>
 													</form>
@@ -1796,7 +1796,7 @@
 																		{#if area.isActive === 0}
 																			<IconRestore class="w-4 h-4 text-secondary-700" />
 																		{:else}
-																			<IconArchive class="w-4 h-4 text-accent-600" />
+																			<IconArchive class="w-4 h-4 text-secondary-600" />
 																		{/if}
 																	</button>
 																</form>
@@ -1853,7 +1853,7 @@
 																			})}
 																		aria-label="Delete area"
 																	>
-																		<IconTrash class="w-4 h-4 text-accent-600" />
+																		<IconTrash class="w-4 h-4 text-secondary-600" />
 																	</button>
 																</form>
 															{/if}
@@ -2108,7 +2108,7 @@
 				<button type="button" class="button-secondary cursor-pointer" onclick={closeCreateArea}
 					>Cancel</button
 				>
-				<button type="submit" class="button-accent flex items-center gap-2 cursor-pointer">
+				<button type="submit" class="button-secondary flex items-center gap-2 cursor-pointer">
 					<IconPlus class="w-5 h-5" />
 					<span>Create Area</span>
 				</button>

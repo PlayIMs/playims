@@ -353,9 +353,9 @@
 		</div>
 
 		{#if !canEditNavigation}
-			<div class="bg-accent-100 border-2 border-accent-500 text-neutral-950 p-4">
+			<div class="bg-secondary-100 border-2 border-secondary-500 text-neutral-950 p-4">
 				<div class="flex items-start gap-3">
-					<IconAlertTriangle class="w-6 h-6 text-accent-700 shrink-0 mt-0.5" />
+					<IconAlertTriangle class="w-6 h-6 text-secondary-700 shrink-0 mt-0.5" />
 					<p class="font-sans text-sm">
 						You are currently in read-only mode. Switch to an organization role with manager or
 						admin permissions to edit settings.
@@ -366,7 +366,9 @@
 
 		{#if hasAnyFeedback}
 			{#if saveError}
-				<p class="text-sm border-2 border-accent-500 bg-accent-100 text-accent-900 px-3 py-2">
+				<p
+					class="text-sm border-2 border-secondary-500 bg-secondary-100 text-secondary-900 px-3 py-2"
+				>
 					{saveError}
 				</p>
 			{/if}

@@ -18,7 +18,6 @@
 		loadTheme,
 		deleteTheme,
 		renameSavedTheme,
-		validateAccent,
 		validateColorNotGrayscale,
 		ZINC_PALETTE
 	} from '$lib/theme';
@@ -35,13 +34,11 @@
 	let primaryInput = $state('');
 	let secondaryInput = $state('');
 	let neutralInput = $state('');
-	let accentInput = $state('');
 
 	let primaryWarnings = $state<string[]>([]);
 	let secondaryWarnings = $state<string[]>([]);
-	let accentWarnings = $state<string[]>([]);
 
-	let openPicker: 'primary' | 'secondary' | 'neutral' | 'accent' | null = $state(null);
+	let openPicker: 'primary' | 'secondary' | 'neutral' | null = $state(null);
 	let pickerColor = $state({ h: 0, s: 100, l: 50, saturation: 100 });
 	let isDragging = $state(false);
 	let colorAreaElement: HTMLCanvasElement | null = $state(null);
@@ -71,10 +68,8 @@
 		primaryInput = colors.primary;
 		secondaryInput = colors.secondary;
 		neutralInput = colors.neutral || '';
-		accentInput = colors.accent;
 		validatePrimaryColor();
 		validateSecondaryColor();
-		validateAccentColor();
 	}
 
 	function getPickerPosition() {
@@ -130,14 +125,6 @@
 		}
 	}
 
-	function validateAccentColor() {
-		if (validateHex(accentInput)) {
-			accentWarnings = validateAccent(accentInput, neutralInput).warnings;
-		} else {
-			accentWarnings = [];
-		}
-	}
-
 	function handlePrimaryChange() {
 		if (validateHex(primaryInput)) {
 			updateColor('primary', primaryInput);
@@ -160,14 +147,7 @@
 		}
 	}
 
-	function handleAccentChange() {
-		if (validateHex(accentInput)) {
-			updateColor('accent', accentInput);
-			validateAccentColor();
-		}
-	}
-
-	function getCurrentColorHex(colorName: 'primary' | 'secondary' | 'neutral' | 'accent'): string {
+	function getCurrentColorHex(colorName: 'primary' | 'secondary' | 'neutral'): string {
 		const color = $themeColors[colorName];
 		if (colorName === 'neutral' && (!color || color.trim() === '')) {
 			return `#${ZINC_PALETTE['500']}`;
@@ -176,8 +156,8 @@
 	}
 
 	function getSavedThemeColorHex(
-		colors: { primary: string; secondary: string; neutral: string; accent: string },
-		colorName: 'primary' | 'secondary' | 'neutral' | 'accent'
+		colors: { primary: string; secondary: string; neutral: string },
+		colorName: 'primary' | 'secondary' | 'neutral'
 	): string {
 		const color = colors[colorName];
 		if (colorName === 'neutral' && (!color || color.trim() === '')) {
@@ -369,7 +349,7 @@
 		showNeutralPalettePicker = false;
 	}
 
-	function openColorPicker(colorName: 'primary' | 'secondary' | 'neutral' | 'accent') {
+	function openColorPicker(colorName: 'primary' | 'secondary' | 'neutral') {
 		let currentHex = $themeColors[colorName];
 		if (colorName === 'neutral' && (!currentHex || currentHex.trim() === '')) {
 			currentHex = ZINC_PALETTE['500'];
@@ -400,9 +380,6 @@
 			validateSecondaryColor();
 		} else if (openPicker === 'neutral') {
 			neutralInput = hex;
-		} else if (openPicker === 'accent') {
-			accentInput = hex;
-			validateAccentColor();
 		}
 	}
 
@@ -482,7 +459,6 @@
 	function getActivePickerWarnings(): string[] {
 		if (openPicker === 'primary') return primaryWarnings;
 		if (openPicker === 'secondary') return secondaryWarnings;
-		if (openPicker === 'accent') return accentWarnings;
 		return [];
 	}
 
@@ -633,13 +609,6 @@
 			drawColorArea();
 		}
 	});
-
-	$effect(() => {
-		neutralInput;
-		if (validateHex(accentInput)) {
-			validateAccentColor();
-		}
-	});
 </script>
 
 <svelte:head>
@@ -663,7 +632,7 @@
 			<div>
 				<h3 class="text-xl font-bold font-serif text-neutral-950">Theme Colors</h3>
 				<p class="mt-1 text-xs text-neutral-950">
-					Set your primary, secondary, accent, and neutral colors.
+					Set your primary, secondary, and neutral colors.
 				</p>
 			</div>
 			<div class="flex flex-wrap gap-2">
@@ -691,8 +660,8 @@
 		</div>
 
 		<div class="p-4 lg:p-5">
-			<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-				{#each [{ key: 'primary', label: 'Primary', description: 'Your main brand color for key elements and primary calls to action.', placeholder: 'CE1126', input: primaryInput }, { key: 'secondary', label: 'Secondary', description: 'Supporting color for backgrounds and secondary elements.', placeholder: '14213D', input: secondaryInput }, { key: 'accent', label: 'Accent', description: 'Accent color for highlights and important actions.', placeholder: '04669A', input: accentInput }, { key: 'neutral', description: 'Neutral color for backgrounds and borders. Leave empty for default.', label: 'Neutral', placeholder: 'Leave empty', input: neutralInput }] as color}
+			<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+				{#each [{ key: 'primary', label: 'Primary', description: 'Your main brand color for key elements and primary calls to action.', placeholder: 'CE1126', input: primaryInput }, { key: 'secondary', label: 'Secondary', description: 'Supporting color for backgrounds and secondary elements.', placeholder: '14213D', input: secondaryInput }, { key: 'neutral', description: 'Neutral color for backgrounds and borders. Leave empty for default.', label: 'Neutral', placeholder: 'Leave empty', input: neutralInput }] as color}
 					<div class="border border-secondary-300 bg-white p-3 h-full flex flex-col">
 						<label
 							for={`branding-${color.key}`}
@@ -725,10 +694,6 @@
 											neutralInput = next;
 											handleNeutralChange();
 										}
-										if (color.key === 'accent') {
-											accentInput = next;
-											handleAccentChange();
-										}
 									}}
 									placeholder={color.placeholder}
 									class="input-secondary h-10 w-full pl-8"
@@ -741,11 +706,11 @@
 										openNeutralPaletteModal();
 										return;
 									}
-									openColorPicker(color.key as 'primary' | 'secondary' | 'neutral' | 'accent');
+									openColorPicker(color.key as 'primary' | 'secondary' | 'neutral');
 								}}
 								class="w-16 h-10 border-2 border-secondary-300 hover:border-secondary-500 transition-colors cursor-pointer"
 								style="background-color: {getCurrentColorHex(
-									color.key as 'primary' | 'secondary' | 'neutral' | 'accent'
+									color.key as 'primary' | 'secondary' | 'neutral'
 								)}"
 								aria-label={color.key === 'neutral'
 									? 'Open neutral shade picker'
@@ -755,7 +720,7 @@
 					</div>
 				{/each}
 			</div>
-			{#if primaryWarnings.length > 0 || secondaryWarnings.length > 0 || accentWarnings.length > 0}
+			{#if primaryWarnings.length > 0 || secondaryWarnings.length > 0}
 				<div class="mt-4 space-y-2">
 					{#if primaryWarnings.length > 0}
 						<div class="p-2 bg-yellow-50 border-2 border-yellow-300">
@@ -772,16 +737,6 @@
 							<p class="text-xs font-bold text-yellow-900 mb-1">Secondary Validation Warnings:</p>
 							<ul class="text-xs text-yellow-800 list-disc list-inside">
 								{#each secondaryWarnings as warning}
-									<li>{warning}</li>
-								{/each}
-							</ul>
-						</div>
-					{/if}
-					{#if accentWarnings.length > 0}
-						<div class="p-2 bg-yellow-50 border-2 border-yellow-300">
-							<p class="text-xs font-bold text-yellow-900 mb-1">Accent Validation Warnings:</p>
-							<ul class="text-xs text-yellow-800 list-disc list-inside">
-								{#each accentWarnings as warning}
 									<li>{warning}</li>
 								{/each}
 							</ul>
@@ -828,7 +783,7 @@
 										</p>
 									</div>
 									<div
-										class="grid grid-cols-4 gap-2 shrink-0"
+										class="grid grid-cols-3 gap-2 shrink-0"
 										aria-label={`Theme color preview for ${theme.name}`}
 									>
 										<span
@@ -841,12 +796,6 @@
 											class="h-6 w-6 border border-secondary-400"
 											style={`background-color: ${getSavedThemeColorHex(theme.colors, 'secondary')}`}
 											title="Secondary color"
-											aria-hidden="true"
-										></span>
-										<span
-											class="h-6 w-6 border border-secondary-400"
-											style={`background-color: ${getSavedThemeColorHex(theme.colors, 'accent')}`}
-											title="Accent color"
 											aria-hidden="true"
 										></span>
 										<span
@@ -1136,9 +1085,6 @@
 								validateSecondaryColor();
 							} else if (openPicker === 'neutral') {
 								neutralInput = hex;
-							} else if (openPicker === 'accent') {
-								accentInput = hex;
-								validateAccentColor();
 							}
 							closeColorPicker();
 						}}
@@ -1311,7 +1257,7 @@
 							class="w-full text-left border-2 border-primary-300 p-3 hover:border-primary-500 hover:bg-primary-50 transition-colors cursor-pointer"
 						>
 							<div class="flex items-center gap-3">
-								<div class="grid grid-cols-4 gap-1 shrink-0">
+								<div class="grid grid-cols-3 gap-1 shrink-0">
 									<div
 										class="w-8 h-8 border border-primary-300"
 										style="background-color: #{theme.colors.primary}"
@@ -1319,10 +1265,6 @@
 									<div
 										class="w-8 h-8 border border-primary-300"
 										style="background-color: #{theme.colors.secondary}"
-									></div>
-									<div
-										class="w-8 h-8 border border-primary-300"
-										style="background-color: #{theme.colors.accent}"
 									></div>
 									<div
 										class="w-8 h-8 border border-primary-300"

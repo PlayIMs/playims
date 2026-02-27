@@ -46,8 +46,8 @@
 		{
 			id: 'scheduled',
 			label: 'Scheduled',
-			activeClass: 'button-accent',
-			inactiveClass: 'button-accent-outlined'
+			activeClass: 'button-secondary',
+			inactiveClass: 'button-secondary-outlined'
 		}
 	] as const;
 
@@ -103,21 +103,21 @@
 				</a>
 				<a
 					href="/dashboard/schedule"
-					class="button-accent px-3 py-3 text-xs font-bold uppercase tracking-wide flex items-center justify-center gap-2"
+					class="button-secondary px-3 py-3 text-xs font-bold uppercase tracking-wide flex items-center justify-center gap-2"
 				>
 					<IconCalendarWeek class="w-4 h-4" />
 					<span>Schedule</span>
 				</a>
 				<button
 					type="button"
-					class="relative px-0.5 py-0.5 text-neutral-950 flex items-center justify-center cursor-pointer hover:text-accent"
+					class="relative px-0.5 py-0.5 text-neutral-950 flex items-center justify-center cursor-pointer hover:text-secondary"
 					aria-label="Notifications"
 				>
 					<IconBell
-						class="w-7 h-7 hover:text-accent-500 transition-colors duration-200 ease-in-out"
+						class="w-7 h-7 hover:text-secondary-500 transition-colors duration-200 ease-in-out"
 					/>
 					<span
-						class="absolute -top-1 -right-1 bg-accent-500 text-white w-5 h-5 text-[10px] font-bold flex items-center justify-center rounded-full"
+						class="absolute -top-1 -right-1 bg-secondary-500 text-white w-5 h-5 text-[10px] font-bold flex items-center justify-center rounded-full"
 					>
 						{notificationCount}
 					</span>
@@ -127,9 +127,9 @@
 	</header>
 
 	{#if data.error}
-		<div class="bg-accent-100 border-2 border-accent-500 text-neutral-950 p-4">
+		<div class="bg-secondary-100 border-2 border-secondary-500 text-neutral-950 p-4">
 			<div class="flex items-center gap-3">
-				<IconAlertTriangle class="w-6 h-6 text-accent-700" />
+				<IconAlertTriangle class="w-6 h-6 text-secondary-700" />
 				<p class="font-sans">{data.error}</p>
 			</div>
 		</div>
@@ -246,7 +246,7 @@
 						{/each}
 						<a
 							href={`/schedule?status=${encodeURIComponent(scheduleFilter)}`}
-							class="px-1 py-2 text-xs font-bold uppercase tracking-wide text-accent-500 hover:text-accent-600"
+							class="px-1 py-2 text-xs font-bold uppercase tracking-wide text-secondary-500 hover:text-secondary-600"
 						>
 							View all ->
 						</a>
@@ -297,7 +297,7 @@
 											</span>
 										{:else}
 											<span
-												class="border border-accent-500 text-accent-700 px-2 py-1 text-xs font-bold"
+												class="border border-secondary-500 text-secondary-700 px-2 py-1 text-xs font-bold"
 											>
 												UPCOMING
 											</span>
@@ -400,10 +400,10 @@
 			</section>
 
 			{#if pendingActions > 0}
-				<section class="border-2 border-accent-500 bg-accent-100 p-4">
+				<section class="border-2 border-secondary-500 bg-secondary-100 p-4">
 					<div class="flex items-center gap-4">
 						<div
-							class="bg-accent-500 text-white w-12 h-12 flex items-center justify-center font-bold text-xl font-serif"
+							class="bg-secondary-500 text-white w-12 h-12 flex items-center justify-center font-bold text-xl font-serif"
 						>
 							{pendingActions}
 						</div>
@@ -414,7 +414,7 @@
 					</div>
 					<a
 						href="/dashboard/rosters"
-						class="mt-4 block w-full text-center border border-accent-500 bg-neutral text-accent-700 py-2 text-sm font-bold font-sans"
+						class="mt-4 block w-full text-center border border-secondary-500 bg-neutral text-secondary-700 py-2 text-sm font-bold font-sans"
 					>
 						Review Now
 					</a>

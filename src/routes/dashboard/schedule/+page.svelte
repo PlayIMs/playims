@@ -241,7 +241,7 @@
 		if (status === 'in_progress') return 'bg-primary-500 text-white border-primary-500';
 		if (status === 'completed') return 'bg-secondary-500 text-secondary-25 border-secondary-500';
 		if (status === 'cancelled' || status === 'postponed')
-			return 'bg-accent-100 text-accent-800 border-accent-500';
+			return 'bg-secondary-100 text-secondary-800 border-secondary-500';
 		if (status === 'scheduled') return 'bg-neutral text-neutral-950 border-secondary-300';
 		return 'bg-neutral text-neutral-950 border-secondary-300';
 	}
@@ -334,9 +334,9 @@
 	</header>
 
 	{#if data.error}
-		<div class="bg-accent-100 border-2 border-accent-500 text-neutral-950 p-4">
+		<div class="bg-secondary-100 border-2 border-secondary-500 text-neutral-950 p-4">
 			<div class="flex items-center gap-3">
-				<IconAlertTriangle class="w-6 h-6 text-accent-700" />
+				<IconAlertTriangle class="w-6 h-6 text-secondary-700" />
 				<p class="font-sans">{data.error}</p>
 			</div>
 		</div>
@@ -364,9 +364,11 @@
 			<p class="text-xs uppercase tracking-wide text-neutral-950 font-sans">Completed</p>
 			<p class="text-3xl font-bold text-neutral-950 font-serif">{filteredSummary.completed}</p>
 		</div>
-		<div class="border-2 border-accent-500 bg-accent-100 p-4 col-span-2 md:col-span-1">
-			<p class="text-xs uppercase tracking-wide text-accent-800 font-sans">Needs Attention</p>
-			<p class="text-3xl font-bold text-accent-800 font-serif">{filteredSummary.needsAttention}</p>
+		<div class="border-2 border-secondary-500 bg-secondary-100 p-4 col-span-2 md:col-span-1">
+			<p class="text-xs uppercase tracking-wide text-secondary-800 font-sans">Needs Attention</p>
+			<p class="text-3xl font-bold text-secondary-800 font-serif">
+				{filteredSummary.needsAttention}
+			</p>
 		</div>
 	</section>
 

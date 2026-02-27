@@ -14,7 +14,6 @@ const buildEtag = (
 		primary?: string | null;
 		secondary?: string | null;
 		neutral?: string | null;
-		accent?: string | null;
 	} | null
 ) => {
 	if (!theme) {
@@ -26,8 +25,7 @@ const buildEtag = (
 		theme.updatedAt ?? '',
 		theme.primary ?? '',
 		theme.secondary ?? '',
-		theme.neutral ?? '',
-		theme.accent ?? ''
+		theme.neutral ?? ''
 	];
 
 	return `W/"${parts.join('|')}"`;
@@ -89,7 +87,6 @@ export const PUT: RequestHandler = async (event) => {
 			primary: colors.primary,
 			secondary: colors.secondary,
 			neutral: colors.neutral,
-			accent: colors.accent,
 			userId
 		});
 

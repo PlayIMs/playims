@@ -1027,7 +1027,9 @@
 			</div>
 			<div class="w-full xl:w-[24rem] space-y-2">
 				{#if actionName === 'switchOrganization' && actionError}
-					<p class="text-xs border border-accent-500 bg-accent-100 text-accent-900 px-3 py-2">
+					<p
+						class="text-xs border border-secondary-500 bg-secondary-100 text-secondary-900 px-3 py-2"
+					>
 						{actionError}
 					</p>
 				{/if}
@@ -1112,9 +1114,9 @@
 	</header>
 
 	{#if pageError}
-		<section class="border-2 border-accent-500 bg-accent-100 p-4 text-neutral-950">
+		<section class="border-2 border-secondary-500 bg-secondary-100 p-4 text-neutral-950">
 			<div class="flex items-start gap-3">
-				<IconAlertTriangle class="w-6 h-6 text-accent-800 shrink-0" />
+				<IconAlertTriangle class="w-6 h-6 text-secondary-800 shrink-0" />
 				<p>{pageError}</p>
 			</div>
 		</section>
@@ -1153,7 +1155,7 @@
 								</div>
 							</div>
 							{#if profileDirty}
-								<span class="text-xs uppercase tracking-wide text-accent-800 font-bold"
+								<span class="text-xs uppercase tracking-wide text-secondary-800 font-bold"
 									>Unsaved edits</span
 								>
 							{/if}
@@ -1178,7 +1180,9 @@
 					{#if !profileEssentialsCollapsed}
 						<div id="profile-essentials-panel" class="p-4 space-y-4">
 							{#if actionName === 'updateProfile' && actionError}
-								<p class="text-sm border border-accent-500 bg-accent-100 text-accent-900 px-3 py-2">
+								<p
+									class="text-sm border border-secondary-500 bg-secondary-100 text-secondary-900 px-3 py-2"
+								>
 									{actionError}
 								</p>
 							{/if}
@@ -1386,7 +1390,9 @@
 					{#if !passwordAccessCollapsed}
 						<div id="password-access-panel" class="p-4 space-y-4">
 							{#if actionName === 'changePassword' && actionError}
-								<p class="text-sm border border-accent-500 bg-accent-100 text-accent-900 px-3 py-2">
+								<p
+									class="text-sm border border-secondary-500 bg-secondary-100 text-secondary-900 px-3 py-2"
+								>
 									{actionError}
 								</p>
 							{/if}
@@ -1540,7 +1546,7 @@
 
 				<section class="border-2 border-error-700 bg-error-100">
 					<div
-						class="p-4 border-b border-accent-500 bg-error-700 flex items-center justify-between gap-3"
+						class="p-4 border-b border-secondary-500 bg-error-700 flex items-center justify-between gap-3"
 					>
 						<div>
 							<h2 class="text-xl font-bold font-serif text-error-950">Danger Zone</h2>
@@ -1787,7 +1793,9 @@
 					{#if !sessionControlsCollapsed}
 						<div id="session-controls-panel" class="p-4 space-y-3">
 							{#if actionName === 'signOutSession' && actionError}
-								<p class="text-sm border border-accent-500 bg-accent-100 text-accent-900 px-3 py-2">
+								<p
+									class="text-sm border border-secondary-500 bg-secondary-100 text-secondary-900 px-3 py-2"
+								>
 									{actionError}
 								</p>
 							{/if}

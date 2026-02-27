@@ -6,14 +6,15 @@ import type { LayoutServerLoad } from './$types';
 const normalizeHex = (value: string | null | undefined) =>
 	(value ?? '').replace('#', '').toUpperCase();
 
-const buildThemeEtag = (theme: {
-	id?: string | null;
-	updatedAt?: string | null;
-	primary?: string | null;
-	secondary?: string | null;
-	neutral?: string | null;
-	accent?: string | null;
-} | null) => {
+const buildThemeEtag = (
+	theme: {
+		id?: string | null;
+		updatedAt?: string | null;
+		primary?: string | null;
+		secondary?: string | null;
+		neutral?: string | null;
+	} | null
+) => {
 	if (!theme) {
 		return 'W/"theme-empty"';
 	}
@@ -23,8 +24,7 @@ const buildThemeEtag = (theme: {
 		theme.updatedAt ?? '',
 		theme.primary ?? '',
 		theme.secondary ?? '',
-		theme.neutral ?? '',
-		theme.accent ?? ''
+		theme.neutral ?? ''
 	];
 
 	return `W/"${parts.join('|')}"`;
@@ -54,8 +54,7 @@ export const load: LayoutServerLoad = async (event) => {
 			theme: {
 				primary: normalizeHex(current.primary) || DEFAULT_THEME.primary,
 				secondary: normalizeHex(current.secondary) || DEFAULT_THEME.secondary,
-				neutral: normalizeHex(current.neutral),
-				accent: normalizeHex(current.accent) || DEFAULT_THEME.accent
+				neutral: normalizeHex(current.neutral)
 			},
 			themeEtag: buildThemeEtag(current),
 			themeSource: 'db'

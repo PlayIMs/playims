@@ -13,7 +13,13 @@
 
 	type Choice = 'rock' | 'paper' | 'scissors';
 
-	let { statusText, titleText, messageText, detailText, showBackButton = false } = $props<{
+	let {
+		statusText,
+		titleText,
+		messageText,
+		detailText,
+		showBackButton = false
+	} = $props<{
 		statusText: string;
 		titleText: string;
 		messageText: string;
@@ -50,9 +56,7 @@
 		if (!choice) {
 			return null;
 		}
-		return variant === 'player'
-			? `/rps/${playerSkin}/${choice}.png`
-			: `/rps/cpu/${choice}.png`;
+		return variant === 'player' ? `/rps/${playerSkin}/${choice}.png` : `/rps/cpu/${choice}.png`;
 	};
 
 	let playerLabel = $derived(getLabel(playerChoice));
@@ -212,7 +216,7 @@
 			<div class="grid gap-4 sm:grid-cols-2">
 				<div
 					class={`border border-secondary-300 bg-secondary-500/70 p-4 outline outline-2 outline-offset-2 ${
-						result === 'win' || result === 'tie' ? 'outline-accent-300' : 'outline-transparent'
+						result === 'win' || result === 'tie' ? 'outline-secondary-300' : 'outline-transparent'
 					}`}
 				>
 					<div class="text-xs uppercase tracking-wide text-secondary-100">Your play</div>
@@ -234,7 +238,7 @@
 				</div>
 				<div
 					class={`border border-secondary-300 bg-secondary-500/70 p-4 outline outline-2 outline-offset-2 ${
-						result === 'lose' || result === 'tie' ? 'outline-accent-300' : 'outline-transparent'
+						result === 'lose' || result === 'tie' ? 'outline-secondary-300' : 'outline-transparent'
 					}`}
 				>
 					<div class="text-xs uppercase tracking-wide text-secondary-100">CPU play</div>
@@ -284,7 +288,7 @@
 			<div class="mt-4 border-t border-secondary-300 pt-4">
 				<div class="flex flex-wrap items-center justify-between gap-3 text-xs text-secondary-100">
 					<div class="flex items-center gap-2 px-4">
-						<IconTrophy class="w-4 h-4 text-accent-200" />
+						<IconTrophy class="w-4 h-4 text-secondary-200" />
 						<span>Wins: {wins}</span>
 					</div>
 					<div class="flex items-center gap-2 px-4">

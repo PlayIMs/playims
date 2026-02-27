@@ -42,7 +42,7 @@
 		{#if step < lastStep}
 			<button
 				type="button"
-				class="button-accent cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+				class="button-secondary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
 				onclick={() => dispatch('next')}
 				disabled={!canGoNext}
 			>
@@ -51,7 +51,7 @@
 		{:else}
 			<button
 				type="submit"
-				class="button-accent cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+				class="button-secondary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
 				disabled={!canSubmit}
 			>
 				{isSubmitting ? submittingLabel : submitLabel}

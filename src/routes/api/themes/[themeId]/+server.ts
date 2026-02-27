@@ -64,7 +64,6 @@ export const PUT: RequestHandler = async (event) => {
 			primary: colors.primary,
 			secondary: colors.secondary,
 			neutral: colors.neutral,
-			accent: colors.accent,
 			updatedAt: new Date().toISOString(),
 			updatedUser: userId
 		});

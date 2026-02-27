@@ -46,7 +46,6 @@ export class ThemeOperations {
 		primary: string;
 		secondary: string;
 		neutral: string;
-		accent: string;
 		createdAt?: string;
 		updatedAt?: string;
 		createdUser?: string;
@@ -66,7 +65,6 @@ export class ThemeOperations {
 				primary: data.primary,
 				secondary: data.secondary,
 				neutral: data.neutral,
-				accent: data.accent,
 				createdAt: now,
 				updatedAt,
 				createdUser: data.createdUser,
@@ -86,7 +84,6 @@ export class ThemeOperations {
 			primary: string;
 			secondary: string;
 			neutral: string;
-			accent: string;
 			createdAt: string;
 			updatedAt: string;
 			createdUser: string;
@@ -109,7 +106,6 @@ export class ThemeOperations {
 		primary: string;
 		secondary: string;
 		neutral: string;
-		accent: string;
 		userId?: string;
 	}): Promise<Theme | null> {
 		const existing = await this.getBySlug(data.clientId, 'current');
@@ -122,7 +118,6 @@ export class ThemeOperations {
 				primary: data.primary,
 				secondary: data.secondary,
 				neutral: data.neutral,
-				accent: data.accent,
 				updatedAt: now,
 				updatedUser: data.userId
 			});
@@ -135,7 +130,6 @@ export class ThemeOperations {
 			primary: data.primary,
 			secondary: data.secondary,
 			neutral: data.neutral,
-			accent: data.accent,
 			createdAt: now,
 			updatedAt: now,
 			createdUser: data.userId,
