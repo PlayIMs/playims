@@ -176,6 +176,17 @@
 		return formatHex(color);
 	}
 
+	function getSavedThemeColorHex(
+		colors: { primary: string; secondary: string; neutral: string; accent: string },
+		colorName: 'primary' | 'secondary' | 'neutral' | 'accent'
+	): string {
+		const color = colors[colorName];
+		if (colorName === 'neutral' && (!color || color.trim() === '')) {
+			return `#${ZINC_PALETTE['500']}`;
+		}
+		return formatHex(color);
+	}
+
 	function hexToHsl(hex: string): { h: number; s: number; l: number } {
 		const cleanHex = hex.replace('#', '');
 		const r = parseInt(cleanHex.substring(0, 2), 16) / 255;
@@ -547,169 +558,216 @@
 	/>
 </svelte:head>
 
-<div class="space-y-4">
-	<header class="border-2 border-primary-200 bg-white p-4 lg:p-5">
-		<h2 class="text-2xl lg:text-3xl font-bold font-serif text-primary-900">Branding</h2>
-		<p class="mt-2 text-sm text-secondary-700">Update your core colors in real time.</p>
+<div class="w-full space-y-4">
+	<header class="border-2 border-secondary-300 bg-neutral p-4 lg:p-5">
+		<h2 class="text-2xl lg:text-3xl font-bold font-serif text-neutral-950">Branding</h2>
+		<p class="mt-2 text-sm text-neutral-950">Update your core colors in real time.</p>
 	</header>
 
-	<section class="border-2 border-primary-200 bg-white p-4 lg:p-5 space-y-4">
-		<div class="flex flex-wrap gap-2">
-			<button type="button" class="button-primary" onclick={openSaveModal}>Save Theme</button>
-			<button type="button" class="button-primary-outlined" onclick={handleReset}
-				>Reset to Default</button
-			>
+	<section class="border-2 border-secondary-300 bg-neutral">
+		<div
+			class="flex flex-wrap items-start justify-between gap-3 border-b border-secondary-300 bg-neutral-600/66 p-4"
+		>
+			<div>
+				<h3 class="text-xl font-bold font-serif text-neutral-950">Theme Colors</h3>
+				<p class="mt-1 text-xs text-neutral-950">
+					Set your primary, secondary, neutral, and accent colors.
+				</p>
+			</div>
+			<div class="flex flex-wrap gap-2">
+				<button type="button" class="button-primary" onclick={openSaveModal}>Save Theme</button>
+				<button type="button" class="button-primary-outlined" onclick={handleReset}
+					>Reset to Default</button
+				>
+			</div>
 		</div>
 
-		<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-			{#each [
-				{
-					key: 'primary',
-					label: 'Primary',
-					description: 'Your main brand color for key elements and primary calls to action.',
-					placeholder: 'CE1126',
-					warnings: primaryWarnings,
-					input: primaryInput
-				},
-				{
-					key: 'secondary',
-					label: 'Secondary',
-					description: 'Supporting color for backgrounds and secondary elements.',
-					placeholder: '14213D',
-					warnings: secondaryWarnings,
-					input: secondaryInput
-				},
-				{
-					key: 'neutral',
-					label: 'Neutral',
-					description: 'Neutral color for backgrounds and borders. Leave empty for default.',
-					placeholder: 'Leave empty',
-					warnings: neutralWarnings,
-					input: neutralInput
-				},
-				{
-					key: 'accent',
-					label: 'Accent',
-					description: 'Accent color for highlights and important actions.',
-					placeholder: '04669A',
-					warnings: accentWarnings,
-					input: accentInput
-				}
-			] as color}
-				<div>
-					<label for={`branding-${color.key}`} class="block text-sm font-bold text-primary-900 mb-1">
-						{color.label}
-					</label>
-					<p class="text-xs text-secondary-700 mb-2">{color.description}</p>
-					<div class="flex gap-2">
-						<input
-							id={`branding-${color.key}`}
-							type="text"
-							value={color.input}
-							oninput={(event) => {
-								const next = (event.target as HTMLInputElement).value;
-								if (color.key === 'primary') {
-									primaryInput = next;
-									handlePrimaryChange();
-								}
-								if (color.key === 'secondary') {
-									secondaryInput = next;
-									handleSecondaryChange();
-								}
-								if (color.key === 'neutral') {
-									neutralInput = next;
-									handleNeutralChange();
-								}
-								if (color.key === 'accent') {
-									accentInput = next;
-									handleAccentChange();
-								}
-							}}
-							placeholder={color.placeholder}
-							class="flex-1"
-						/>
-						<button
-							type="button"
-							onclick={() =>
-								openColorPicker(color.key as 'primary' | 'secondary' | 'neutral' | 'accent')}
-							class="w-16 h-10 border-2 border-primary-300 hover:border-primary-500 transition-colors cursor-pointer"
-							style="background-color: {getCurrentColorHex(
-								color.key as 'primary' | 'secondary' | 'neutral' | 'accent'
-							)}"
-							aria-label={`Open ${color.label} color picker`}
-						></button>
-					</div>
-					{#if color.warnings.length > 0}
-						<div class="mt-2 p-2 bg-yellow-50 border-2 border-yellow-300">
-							<p class="text-xs font-bold text-yellow-900 mb-1">Validation Warnings:</p>
-							<ul class="text-xs text-yellow-800 list-disc list-inside">
-								{#each color.warnings as warning}
-									<li>{warning}</li>
-								{/each}
-							</ul>
+		<div class="p-4 lg:p-5">
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+				{#each [
+					{
+						key: 'primary',
+						label: 'Primary',
+						description: 'Your main brand color for key elements and primary calls to action.',
+						placeholder: 'CE1126',
+						warnings: primaryWarnings,
+						input: primaryInput
+					},
+					{
+						key: 'secondary',
+						label: 'Secondary',
+						description: 'Supporting color for backgrounds and secondary elements.',
+						placeholder: '14213D',
+						warnings: secondaryWarnings,
+						input: secondaryInput
+					},
+					{
+						key: 'neutral',
+						description: 'Neutral color for backgrounds and borders. Leave empty for default.',
+						label: 'Neutral',
+						placeholder: 'Leave empty',
+						warnings: neutralWarnings,
+						input: neutralInput
+					},
+					{
+						key: 'accent',
+						label: 'Accent',
+						description: 'Accent color for highlights and important actions.',
+						placeholder: '04669A',
+						warnings: accentWarnings,
+						input: accentInput
+					}
+				] as color}
+					<div class="border border-secondary-300 bg-white p-3">
+						<label for={`branding-${color.key}`} class="block text-sm font-bold text-neutral-950 mb-1">
+							{color.label}
+						</label>
+						<p class="text-xs text-neutral-950 mb-2">{color.description}</p>
+						<div class="flex gap-2">
+							<input
+								id={`branding-${color.key}`}
+								type="text"
+								value={color.input}
+								oninput={(event) => {
+									const next = (event.target as HTMLInputElement).value;
+									if (color.key === 'primary') {
+										primaryInput = next;
+										handlePrimaryChange();
+									}
+									if (color.key === 'secondary') {
+										secondaryInput = next;
+										handleSecondaryChange();
+									}
+									if (color.key === 'neutral') {
+										neutralInput = next;
+										handleNeutralChange();
+									}
+									if (color.key === 'accent') {
+										accentInput = next;
+										handleAccentChange();
+									}
+								}}
+								placeholder={color.placeholder}
+								class="input-secondary flex-1"
+							/>
+							<button
+								type="button"
+								onclick={() =>
+									openColorPicker(color.key as 'primary' | 'secondary' | 'neutral' | 'accent')}
+								class="w-16 h-10 border-2 border-secondary-300 hover:border-secondary-500 transition-colors cursor-pointer"
+								style="background-color: {getCurrentColorHex(
+									color.key as 'primary' | 'secondary' | 'neutral' | 'accent'
+								)}"
+								aria-label={`Open ${color.label} color picker`}
+							></button>
 						</div>
-					{/if}
-				</div>
-			{/each}
-		</div>
-	</section>
-
-	<section class="border-2 border-primary-200 bg-white p-4 lg:p-5">
-		<h3 class="text-lg font-bold text-primary-900">Saved Themes</h3>
-		<p class="text-xs text-secondary-700 mb-3">
-			Capacity: {Math.min($savedThemes.length, MAX_BRANDING_THEMES)} / {MAX_BRANDING_THEMES}
-		</p>
-
-		{#if $savedThemes.length === 0}
-			<p class="text-sm text-secondary-700">No saved themes yet.</p>
-		{:else}
-			<div class="space-y-3">
-				{#each $savedThemes as theme (theme.id)}
-					<div
-						class="border-2 border-primary-300 bg-white p-3 cursor-pointer hover:border-primary-500 transition-colors"
-						role="button"
-						tabindex="0"
-						onclick={() => handleLoadTheme(theme.id)}
-						onkeydown={(event) => {
-							if (event.key === 'Enter' || event.key === ' ') {
-								event.preventDefault();
-								handleLoadTheme(theme.id);
-							}
-						}}
-						aria-label={`Load ${theme.name}`}
-					>
-						<div class="flex flex-wrap items-center justify-between gap-2">
-							<div>
-								<h4 class="text-sm font-semibold text-primary-900">{theme.name}</h4>
-								<p class="text-xs text-secondary-700">
-									Saved {new Date(theme.createdAt).toLocaleDateString()}
-								</p>
+						{#if color.warnings.length > 0}
+							<div class="mt-2 p-2 bg-yellow-50 border-2 border-yellow-300">
+								<p class="text-xs font-bold text-yellow-900 mb-1">Validation Warnings:</p>
+								<ul class="text-xs text-yellow-800 list-disc list-inside">
+									{#each color.warnings as warning}
+										<li>{warning}</li>
+									{/each}
+								</ul>
 							</div>
-							<div class="flex gap-2">
-								<HoverTooltip text="Rename theme">
-									<button
-										type="button"
-										class="button-secondary-outlined text-xs px-2 py-1"
-										onclick={(event) => openRenameModal(theme.id, theme.name, event)}
-									>
-										Rename
-									</button>
-								</HoverTooltip>
-								<HoverTooltip text="Delete theme">
-									<button
-										type="button"
-										class="button-accent-outlined text-xs px-2 py-1"
-										onclick={(event) => handleDeleteTheme(theme.id, event)}
-									>
-										Delete
-									</button>
-								</HoverTooltip>
-							</div>
-						</div>
+						{/if}
 					</div>
 				{/each}
 			</div>
-		{/if}
+		</div>
+	</section>
+
+	<section class="border-2 border-secondary-300 bg-neutral">
+		<div class="border-b border-secondary-300 bg-neutral-600/66 p-4">
+			<h3 class="text-lg font-bold font-serif text-neutral-950">Saved Themes</h3>
+			<p class="mt-1 text-xs text-neutral-950">
+				Capacity: {Math.min($savedThemes.length, MAX_BRANDING_THEMES)} / {MAX_BRANDING_THEMES}
+			</p>
+		</div>
+
+		<div class="p-4 lg:p-5">
+			{#if $savedThemes.length === 0}
+				<p class="text-sm text-neutral-950">No saved themes yet.</p>
+			{:else}
+				<div class="space-y-3">
+					{#each $savedThemes as theme (theme.id)}
+						<div
+							class="border border-secondary-300 bg-white p-3 cursor-pointer hover:bg-neutral-05 hover:border-secondary-500 transition-colors"
+							role="button"
+							tabindex="0"
+							onclick={() => handleLoadTheme(theme.id)}
+							onkeydown={(event) => {
+								if (event.key === 'Enter' || event.key === ' ') {
+									event.preventDefault();
+									handleLoadTheme(theme.id);
+								}
+							}}
+							aria-label={`Load ${theme.name}`}
+						>
+							<div class="flex flex-wrap items-center justify-between gap-2">
+								<div>
+									<div class="flex flex-wrap items-center gap-2">
+										<h4 class="text-sm font-semibold text-neutral-950">{theme.name}</h4>
+										<div
+											class="flex items-center gap-1"
+											aria-label={`Theme color preview for ${theme.name}`}
+										>
+											<span
+												class="h-4 w-4 border border-secondary-400"
+												style={`background-color: ${getSavedThemeColorHex(theme.colors, 'primary')}`}
+												title="Primary color"
+												aria-hidden="true"
+											></span>
+											<span
+												class="h-4 w-4 border border-secondary-400"
+												style={`background-color: ${getSavedThemeColorHex(theme.colors, 'secondary')}`}
+												title="Secondary color"
+												aria-hidden="true"
+											></span>
+											<span
+												class="h-4 w-4 border border-secondary-400"
+												style={`background-color: ${getSavedThemeColorHex(theme.colors, 'neutral')}`}
+												title="Neutral color"
+												aria-hidden="true"
+											></span>
+											<span
+												class="h-4 w-4 border border-secondary-400"
+												style={`background-color: ${getSavedThemeColorHex(theme.colors, 'accent')}`}
+												title="Accent color"
+												aria-hidden="true"
+											></span>
+										</div>
+									</div>
+									<p class="text-xs text-neutral-950">
+										Saved {new Date(theme.createdAt).toLocaleDateString()}
+									</p>
+								</div>
+								<div class="flex gap-2">
+									<HoverTooltip text="Rename theme">
+										<button
+											type="button"
+											class="button-secondary-outlined text-xs px-2 py-1"
+											onclick={(event) => openRenameModal(theme.id, theme.name, event)}
+										>
+											Rename
+										</button>
+									</HoverTooltip>
+									<HoverTooltip text="Delete theme">
+										<button
+											type="button"
+											class="button-accent-outlined text-xs px-2 py-1"
+											onclick={(event) => handleDeleteTheme(theme.id, event)}
+										>
+											Delete
+										</button>
+									</HoverTooltip>
+								</div>
+							</div>
+						</div>
+					{/each}
+				</div>
+			{/if}
+		</div>
 	</section>
 
 	{#if openPicker}
