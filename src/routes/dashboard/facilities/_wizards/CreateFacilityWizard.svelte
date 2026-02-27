@@ -1,8 +1,5 @@
 <script lang="ts">
-	import IconAlertCircle from '@tabler/icons-svelte/icons/alert-circle';
-	import IconPencil from '@tabler/icons-svelte/icons/pencil';
-	import IconRestore from '@tabler/icons-svelte/icons/restore';
-	import IconTrash from '@tabler/icons-svelte/icons/trash';
+	import { IconAlertCircle, IconPencil, IconRestore, IconTrash } from '@tabler/icons-svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import {
 		WizardDraftCollection,
@@ -288,15 +285,18 @@
 							</button>
 						</HoverTooltip>
 					</div>
-					<p class="text-xs font-sans text-neutral-950 mt-1">Auto-formats to lowercase with dashes.</p>
+					<p class="text-xs font-sans text-neutral-950 mt-1">
+						Auto-formats to lowercase with dashes.
+					</p>
 					{#if fieldErrors['facility.slug']}
 						<p class="text-xs text-error-700 mt-1">{fieldErrors['facility.slug']}</p>
 					{/if}
 				</div>
 			</div>
 			<div>
-				<label for="wizard-facility-description" class="block text-sm font-sans text-neutral-950 mb-1"
-					>Description (optional)</label
+				<label
+					for="wizard-facility-description"
+					class="block text-sm font-sans text-neutral-950 mb-1">Description (optional)</label
 				>
 				<textarea
 					id="wizard-facility-description"
@@ -312,8 +312,9 @@
 		<div class="space-y-4">
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
 				<div>
-					<label for="wizard-facility-address-line1" class="block text-sm font-sans text-neutral-950 mb-1"
-						>Address line 1</label
+					<label
+						for="wizard-facility-address-line1"
+						class="block text-sm font-sans text-neutral-950 mb-1">Address line 1</label
 					>
 					<input
 						id="wizard-facility-address-line1"
@@ -324,8 +325,9 @@
 					/>
 				</div>
 				<div>
-					<label for="wizard-facility-address-line2" class="block text-sm font-sans text-neutral-950 mb-1"
-						>Address line 2</label
+					<label
+						for="wizard-facility-address-line2"
+						class="block text-sm font-sans text-neutral-950 mb-1">Address line 2</label
 					>
 					<input
 						id="wizard-facility-address-line2"
@@ -350,7 +352,9 @@
 					/>
 				</div>
 				<div>
-					<label for="wizard-facility-state" class="block text-sm font-sans text-neutral-950 mb-1">State</label>
+					<label for="wizard-facility-state" class="block text-sm font-sans text-neutral-950 mb-1"
+						>State</label
+					>
 					<input
 						id="wizard-facility-state"
 						type="text"
@@ -360,8 +364,9 @@
 					/>
 				</div>
 				<div>
-					<label for="wizard-facility-postal-code" class="block text-sm font-sans text-neutral-950 mb-1"
-						>Postal code</label
+					<label
+						for="wizard-facility-postal-code"
+						class="block text-sm font-sans text-neutral-950 mb-1">Postal code</label
 					>
 					<input
 						id="wizard-facility-postal-code"
@@ -386,8 +391,9 @@
 					/>
 				</div>
 				<div>
-					<label for="wizard-facility-timezone" class="block text-sm font-sans text-neutral-950 mb-1"
-						>Timezone</label
+					<label
+						for="wizard-facility-timezone"
+						class="block text-sm font-sans text-neutral-950 mb-1">Timezone</label
 					>
 					<input
 						id="wizard-facility-timezone"
@@ -402,8 +408,9 @@
 			</div>
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
 				<div>
-					<label for="wizard-facility-capacity" class="block text-sm font-sans text-neutral-950 mb-1"
-						>Capacity</label
+					<label
+						for="wizard-facility-capacity"
+						class="block text-sm font-sans text-neutral-950 mb-1">Capacity</label
 					>
 					<input
 						id="wizard-facility-capacity"
@@ -450,7 +457,7 @@
 				getItemName={(item) => (item as FacilityAreaDraft).name}
 				getItemSlug={(item) => (item as FacilityAreaDraft).slug}
 				showDraftNotice={areaDraftActive}
-				draftNoticeText={draftNoticeText}
+				{draftNoticeText}
 			>
 				{#snippet itemBody(item)}
 					{@const area = item as FacilityAreaDraft}
@@ -525,7 +532,9 @@
 									oninput={(event) => {
 										onWizardAreaSlugTouchedChange(true);
 										form.areaDraft.isSlugManual = true;
-										form.areaDraft.slug = applyLiveSlugInput(event.currentTarget as HTMLInputElement);
+										form.areaDraft.slug = applyLiveSlugInput(
+											event.currentTarget as HTMLInputElement
+										);
 									}}
 									autocomplete="off"
 								/>
@@ -553,8 +562,9 @@
 							{/if}
 						</div>
 						<div class="lg:col-span-2">
-							<label for="wizard-area-description" class="block text-sm font-sans text-neutral-950 mb-1"
-								>Description</label
+							<label
+								for="wizard-area-description"
+								class="block text-sm font-sans text-neutral-950 mb-1">Description</label
 							>
 							<textarea
 								id="wizard-area-description"
@@ -568,13 +578,18 @@
 					<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
 						<div class="border border-secondary-300 bg-white p-3">
 							<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-								<input type="checkbox" class="toggle-secondary" bind:checked={form.areaDraft.isActive} />
+								<input
+									type="checkbox"
+									class="toggle-secondary"
+									bind:checked={form.areaDraft.isActive}
+								/>
 								Active
 							</label>
 						</div>
 						<div>
-							<label for="wizard-area-capacity" class="block text-sm font-sans text-neutral-950 mb-1"
-								>Capacity</label
+							<label
+								for="wizard-area-capacity"
+								class="block text-sm font-sans text-neutral-950 mb-1">Capacity</label
 							>
 							<input
 								id="wizard-area-capacity"
@@ -584,7 +599,10 @@
 								step="1"
 								value={form.areaDraft.capacity > 0 ? String(form.areaDraft.capacity) : ''}
 								oninput={(event) => {
-									const parsed = Number.parseInt((event.currentTarget as HTMLInputElement).value, 10);
+									const parsed = Number.parseInt(
+										(event.currentTarget as HTMLInputElement).value,
+										10
+									);
 									form.areaDraft.capacity = Number.isNaN(parsed) ? 0 : parsed;
 								}}
 								autocomplete="off"
@@ -673,7 +691,9 @@
 				{#if form.areas.length === 0}
 					<p class="text-sm text-neutral-950 font-sans">No areas will be created.</p>
 				{:else}
-					<div class="space-y-3 max-h-[45vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 scrollbar-track-secondary-400 scrollbar-corner-secondary-500 hover:scrollbar-thumb-secondary-700 active:scrollbar-thumb-secondary-700 scrollbar-hover:scrollbar-thumb-secondary-800 scrollbar-active:scrollbar-thumb-secondary-700">
+					<div
+						class="space-y-3 max-h-[45vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 scrollbar-track-secondary-400 scrollbar-corner-secondary-500 hover:scrollbar-thumb-secondary-700 active:scrollbar-thumb-secondary-700 scrollbar-hover:scrollbar-thumb-secondary-800 scrollbar-active:scrollbar-thumb-secondary-700"
+					>
 						{#each form.areas as area (area.draftId)}
 							<div class="border border-secondary-300 bg-neutral p-3 space-y-1">
 								<p class="text-sm font-semibold text-neutral-950">{area.name || 'Untitled Area'}</p>
@@ -705,7 +725,7 @@
 			showBack={step > 1}
 			{canGoNext}
 			{canSubmit}
-			nextLabel={nextLabel}
+			{nextLabel}
 			submitLabel="Create Facility"
 			submittingLabel="Creating..."
 			isSubmitting={submitting}
@@ -724,4 +744,3 @@
 	on:confirm={onUnsavedConfirm}
 	on:cancel={onUnsavedCancel}
 />
-

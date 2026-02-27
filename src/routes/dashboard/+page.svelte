@@ -1,26 +1,26 @@
 <script lang="ts">
-	import IconLayoutDashboard from '@tabler/icons-svelte/icons/layout-dashboard';
-	import IconCalendar from '@tabler/icons-svelte/icons/calendar';
-	import IconCalendarWeek from '@tabler/icons-svelte/icons/calendar-week';
-	import IconClock from '@tabler/icons-svelte/icons/clock';
-	import IconLivePhoto from '@tabler/icons-svelte/icons/live-photo';
-	import IconUsers from '@tabler/icons-svelte/icons/users';
-	import IconUsersGroup from '@tabler/icons-svelte/icons/users-group';
-	import IconBallAmericanFootball from '@tabler/icons-svelte/icons/ball-american-football';
-	import IconAlertTriangle from '@tabler/icons-svelte/icons/alert-triangle';
-	import IconPlayerPlay from '@tabler/icons-svelte/icons/player-play';
-	import IconPlus from '@tabler/icons-svelte/icons/plus';
-	import IconBell from '@tabler/icons-svelte/icons/bell';
 	import {
-		mergeDashboardNavigationLabels,
-		type DashboardNavKey
-	} from '$lib/dashboard/navigation';
+		IconLayoutDashboard,
+		IconCalendar,
+		IconCalendarWeek,
+		IconClock,
+		IconLivePhoto,
+		IconUsers,
+		IconUsersGroup,
+		IconBallAmericanFootball,
+		IconAlertTriangle,
+		IconPlayerPlay,
+		IconPlus,
+		IconBell
+	} from '@tabler/icons-svelte';
+	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 
 	let { data } = $props();
-	const pageLabel = $derived.by(() =>
-		mergeDashboardNavigationLabels(
-			(data?.navigationLabels ?? {}) as Partial<Record<DashboardNavKey, string>>
-		).dashboard
+	const pageLabel = $derived.by(
+		() =>
+			mergeDashboardNavigationLabels(
+				(data?.navigationLabels ?? {}) as Partial<Record<DashboardNavKey, string>>
+			).dashboard
 	);
 
 	let todaysEvents = $derived(data.todaysEvents ?? []);

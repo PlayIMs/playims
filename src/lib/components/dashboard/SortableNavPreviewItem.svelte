@@ -1,6 +1,5 @@
 <script lang="ts">
-	import IconGripVertical from '@tabler/icons-svelte/icons/grip-vertical';
-	import IconRoute from '@tabler/icons-svelte/icons/route';
+	import { IconGripVertical, IconRoute } from '@tabler/icons-svelte';
 	import { useSortable } from '@dnd-kit-svelte/svelte/sortable';
 	import type { DashboardNavKey } from '$lib/dashboard/navigation';
 
@@ -43,7 +42,7 @@
 		{@attach sortable.handleRef}
 		class="h-9 w-9 shrink-0 inline-flex items-center justify-center border border-secondary-300 bg-white text-secondary-800 disabled:cursor-not-allowed disabled:opacity-50"
 		aria-label={`Reorder ${label}`}
-		disabled={disabled}
+		{disabled}
 	>
 		<IconGripVertical class="w-4 h-4" />
 	</button>

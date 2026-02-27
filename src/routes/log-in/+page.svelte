@@ -1,6 +1,5 @@
 <script lang="ts">
-	import IconEye from '@tabler/icons-svelte/icons/eye';
-	import IconEyeOff from '@tabler/icons-svelte/icons/eye-off';
+	import { IconEye, IconEyeOff } from '@tabler/icons-svelte';
 
 	let { data, form } = $props<{
 		data: {
@@ -49,7 +48,8 @@
 			code,
 			status: form.errorStatus ?? null,
 			message: form.error,
-			hint: loginErrorHints[code] ?? 'No additional diagnostic hint is available for this error code.'
+			hint:
+				loginErrorHints[code] ?? 'No additional diagnostic hint is available for this error code.'
 		});
 	});
 </script>

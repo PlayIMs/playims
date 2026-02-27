@@ -20,33 +20,32 @@
 	import CreateSeasonWizard from './_wizards/CreateSeasonWizard.svelte';
 	import ManageSeasonWizard from './_wizards/ManageSeasonWizard.svelte';
 	import type { PageData } from './$types';
-	import IconAlertTriangle from '@tabler/icons-svelte/icons/alert-triangle';
-	import IconBallAmericanFootball from '@tabler/icons-svelte/icons/ball-american-football';
-	import IconBallBaseball from '@tabler/icons-svelte/icons/ball-baseball';
-	import IconBallBasketball from '@tabler/icons-svelte/icons/ball-basketball';
-	import IconBallFootball from '@tabler/icons-svelte/icons/ball-football';
-	import IconBallTennis from '@tabler/icons-svelte/icons/ball-tennis';
-	import IconBallVolleyball from '@tabler/icons-svelte/icons/ball-volleyball';
-	import IconChevronDown from '@tabler/icons-svelte/icons/chevron-down';
-	import IconChevronUp from '@tabler/icons-svelte/icons/chevron-up';
-	import IconCalendar from '@tabler/icons-svelte/icons/calendar';
-	import IconCopy from '@tabler/icons-svelte/icons/copy';
-	import IconCrosshair from '@tabler/icons-svelte/icons/crosshair';
-	import IconHistory from '@tabler/icons-svelte/icons/history';
-	import IconPencil from '@tabler/icons-svelte/icons/pencil';
-	import IconPlus from '@tabler/icons-svelte/icons/plus';
-	import IconRestore from '@tabler/icons-svelte/icons/restore';
-	import IconShip from '@tabler/icons-svelte/icons/ship';
-	import IconTarget from '@tabler/icons-svelte/icons/target';
-	import IconTrash from '@tabler/icons-svelte/icons/trash';
+	import {
+		IconAlertTriangle,
+		IconBallAmericanFootball,
+		IconBallBaseball,
+		IconBallBasketball,
+		IconBallFootball,
+		IconBallTennis,
+		IconBallVolleyball,
+		IconChevronDown,
+		IconChevronUp,
+		IconCalendar,
+		IconCopy,
+		IconCrosshair,
+		IconHistory,
+		IconPencil,
+		IconPlus,
+		IconRestore,
+		IconShip,
+		IconTarget,
+		IconTrash
+	} from '@tabler/icons-svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import InfoPopover from '$lib/components/InfoPopover.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
-	import {
-		mergeDashboardNavigationLabels,
-		type DashboardNavKey
-	} from '$lib/dashboard/navigation';
+	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import { generateUuidV4 } from '$lib/utils/uuid.js';
 
 	type Activity = PageData['activities'][number];
@@ -259,10 +258,11 @@
 	const FORM_DROPDOWN_BUTTON_CLASS =
 		'w-full border-2 border-secondary-400 bg-white px-4 py-2 text-base leading-6 font-normal text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2 hover:bg-white focus:outline-none focus-visible:outline-none focus-visible:border-secondary-500 focus-visible:ring-0 focus-visible:shadow-[0_0_0_1px_var(--color-secondary-500)] disabled:cursor-not-allowed disabled:opacity-60';
 	let { data } = $props<{ data: PageData }>();
-	const pageLabel = $derived.by(() =>
-		mergeDashboardNavigationLabels(
-			(data?.navigationLabels ?? {}) as Partial<Record<DashboardNavKey, string>>
-		).offerings
+	const pageLabel = $derived.by(
+		() =>
+			mergeDashboardNavigationLabels(
+				(data?.navigationLabels ?? {}) as Partial<Record<DashboardNavKey, string>>
+			).offerings
 	);
 
 	function normalizeAuthRole(value: string | null | undefined): AuthRole {

@@ -1,6 +1,5 @@
 <script lang="ts">
-	import IconEye from '@tabler/icons-svelte/icons/eye';
-	import IconEyeOff from '@tabler/icons-svelte/icons/eye-off';
+	import { IconEye, IconEyeOff } from '@tabler/icons-svelte';
 
 	let { data, form } = $props<{
 		data: {
@@ -53,10 +52,7 @@
 		confirmPasswordTouched && confirmPasswordValue.length > 0 && !confirmPasswordMatches
 	);
 	let canSubmit = $derived(
-		emailIsValid &&
-			passwordIsValid &&
-			confirmPasswordMatches &&
-			inviteKeyValue.trim().length > 0
+		emailIsValid && passwordIsValid && confirmPasswordMatches && inviteKeyValue.trim().length > 0
 	);
 
 	$effect(() => {
@@ -87,7 +83,9 @@
 			code,
 			status: form.errorStatus ?? null,
 			message: form.error,
-			hint: registerErrorHints[code] ?? 'No additional diagnostic hint is available for this error code.'
+			hint:
+				registerErrorHints[code] ??
+				'No additional diagnostic hint is available for this error code.'
 		});
 	});
 </script>
@@ -138,9 +136,9 @@
 			<label class="block">
 				<span class="block text-sm font-medium text-secondary-900 mb-1">Email</span>
 				<input
-					class={`input-secondary w-full ${showEmailError
-						? 'border-red-600 focus:border-red-700'
-						: ''}`}
+					class={`input-secondary w-full ${
+						showEmailError ? 'border-red-600 focus:border-red-700' : ''
+					}`}
 					type="email"
 					name="email"
 					autocomplete="off"
@@ -158,9 +156,9 @@
 				<span class="block text-sm font-medium text-secondary-900 mb-1">Password</span>
 				<div class="relative">
 					<input
-						class={`input-secondary w-full pr-10 ${showPasswordError
-							? 'border-red-600 focus:border-red-700'
-								: ''}`}
+						class={`input-secondary w-full pr-10 ${
+							showPasswordError ? 'border-red-600 focus:border-red-700' : ''
+						}`}
 						type={showPassword ? 'text' : 'password'}
 						name="password"
 						autocomplete="off"
@@ -199,9 +197,9 @@
 				<span class="block text-sm font-medium text-secondary-900 mb-1">Confirm password</span>
 				<div class="relative">
 					<input
-						class={`input-secondary w-full pr-10 ${showConfirmPasswordError
-							? 'border-red-600 focus:border-red-700'
-								: ''}`}
+						class={`input-secondary w-full pr-10 ${
+							showConfirmPasswordError ? 'border-red-600 focus:border-red-700' : ''
+						}`}
 						type={showPassword ? 'text' : 'password'}
 						name="confirmPassword"
 						autocomplete="off"

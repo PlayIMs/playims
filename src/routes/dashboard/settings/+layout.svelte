@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import IconBell from '@tabler/icons-svelte/icons/bell';
-	import IconBuilding from '@tabler/icons-svelte/icons/building';
-	import IconCreditCard from '@tabler/icons-svelte/icons/credit-card';
-	import IconPalette from '@tabler/icons-svelte/icons/palette';
-	import IconPuzzle from '@tabler/icons-svelte/icons/puzzle';
-	import IconUserCheck from '@tabler/icons-svelte/icons/user-check';
+	import {
+		IconBell,
+		IconBuilding,
+		IconCreditCard,
+		IconPalette,
+		IconPuzzle,
+		IconUserCheck
+	} from '@tabler/icons-svelte';
 
 	let { children, data } = $props();
 

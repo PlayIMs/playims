@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { tick } from 'svelte';
-	import IconAlertCircle from '@tabler/icons-svelte/icons/alert-circle';
+	import { IconAlertCircle } from '@tabler/icons-svelte';
 	import { WizardModal } from '$lib/components/wizard';
 
 	type AuthRole = 'participant' | 'manager' | 'admin' | 'dev';

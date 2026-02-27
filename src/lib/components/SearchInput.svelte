@@ -1,6 +1,5 @@
 <script lang="ts">
-	import IconSearch from '@tabler/icons-svelte/icons/search';
-	import IconX from '@tabler/icons-svelte/icons/x';
+	import { IconSearch, IconX } from '@tabler/icons-svelte';
 	import { createEventDispatcher } from 'svelte';
 	import type { HTMLInputAttributes } from 'svelte/elements';
 

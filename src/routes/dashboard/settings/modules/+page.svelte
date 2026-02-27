@@ -2,23 +2,25 @@
 	import { applyAction, enhance } from '$app/forms';
 	import type { ActionResult } from '@sveltejs/kit';
 	import { tick } from 'svelte';
-	import IconAlertTriangle from '@tabler/icons-svelte/icons/alert-triangle';
-	import IconBallFootball from '@tabler/icons-svelte/icons/ball-football';
-	import IconBuilding from '@tabler/icons-svelte/icons/building';
-	import IconCalendarWeek from '@tabler/icons-svelte/icons/calendar-week';
-	import IconChartBar from '@tabler/icons-svelte/icons/chart-bar';
-	import IconChevronDown from '@tabler/icons-svelte/icons/chevron-down';
-	import IconChevronUp from '@tabler/icons-svelte/icons/chevron-up';
-	import IconCreditCard from '@tabler/icons-svelte/icons/credit-card';
-	import IconDeviceFloppy from '@tabler/icons-svelte/icons/device-floppy';
-	import IconFileText from '@tabler/icons-svelte/icons/file-text';
-	import IconLayoutDashboard from '@tabler/icons-svelte/icons/layout-dashboard';
-	import IconMessageCircle from '@tabler/icons-svelte/icons/message-circle';
-	import IconSettings from '@tabler/icons-svelte/icons/settings';
-	import IconShoppingCart from '@tabler/icons-svelte/icons/shopping-cart';
-	import IconRestore from '@tabler/icons-svelte/icons/restore';
-	import IconTrophy from '@tabler/icons-svelte/icons/trophy';
-	import IconUserCog from '@tabler/icons-svelte/icons/user-cog';
+	import {
+		IconAlertTriangle,
+		IconBallFootball,
+		IconBuilding,
+		IconCalendarWeek,
+		IconChartBar,
+		IconChevronDown,
+		IconChevronUp,
+		IconCreditCard,
+		IconDeviceFloppy,
+		IconFileText,
+		IconLayoutDashboard,
+		IconMessageCircle,
+		IconSettings,
+		IconShoppingCart,
+		IconRestore,
+		IconTrophy,
+		IconUserCog
+	} from '@tabler/icons-svelte';
 	import {
 		mergeDashboardNavigationConfig,
 		getDefaultDashboardNavigationLabels,

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import IconInfoCircle from '@tabler/icons-svelte/icons/info-circle';
+	import { IconInfoCircle } from '@tabler/icons-svelte';
 	import { tick, type Snippet } from 'svelte';
 	import {
 		resolveAnchoredFloatingPosition,
@@ -34,12 +34,14 @@
 		'cursor-pointer inline-flex h-4 w-4 items-center justify-center p-0 text-secondary-900 hover:text-secondary-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-secondary-600';
 	const DEFAULT_ICON_CLASS = 'w-4 h-4';
 	const LABEL_INLINE_ICON_CLASS = 'w-3.5 h-3.5';
-	const resolvedButtonClass = $derived.by(() =>
-		buttonClass ??
-		(buttonVariant === 'label-inline' ? LABEL_INLINE_BUTTON_CLASS : DEFAULT_BUTTON_CLASS)
+	const resolvedButtonClass = $derived.by(
+		() =>
+			buttonClass ??
+			(buttonVariant === 'label-inline' ? LABEL_INLINE_BUTTON_CLASS : DEFAULT_BUTTON_CLASS)
 	);
-	const resolvedIconClass = $derived.by(() =>
-		iconClass ?? (buttonVariant === 'label-inline' ? LABEL_INLINE_ICON_CLASS : DEFAULT_ICON_CLASS)
+	const resolvedIconClass = $derived.by(
+		() =>
+			iconClass ?? (buttonVariant === 'label-inline' ? LABEL_INLINE_ICON_CLASS : DEFAULT_ICON_CLASS)
 	);
 
 	let open = $state(false);

@@ -1,15 +1,14 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
-	import IconAlertTriangle from '@tabler/icons-svelte/icons/alert-triangle';
-	import IconCalendar from '@tabler/icons-svelte/icons/calendar';
-	import IconCalendarWeek from '@tabler/icons-svelte/icons/calendar-week';
-	import IconClock from '@tabler/icons-svelte/icons/clock';
-	import IconLivePhoto from '@tabler/icons-svelte/icons/live-photo';
 	import {
-		mergeDashboardNavigationLabels,
-		type DashboardNavKey
-	} from '$lib/dashboard/navigation';
+		IconAlertTriangle,
+		IconCalendar,
+		IconCalendarWeek,
+		IconClock,
+		IconLivePhoto
+	} from '@tabler/icons-svelte';
+	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 
 	type ScheduleEvent = {
 		id: string;
@@ -70,8 +69,8 @@
 	};
 
 	let { data } = $props<{ data: SchedulePageData }>();
-	const pageLabel = $derived.by(() =>
-		mergeDashboardNavigationLabels(data?.navigationLabels).schedule
+	const pageLabel = $derived.by(
+		() => mergeDashboardNavigationLabels(data?.navigationLabels).schedule
 	);
 
 	let searchQuery = $state('');

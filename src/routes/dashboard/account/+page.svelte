@@ -2,28 +2,30 @@
 	import { applyAction, enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import type { ActionResult } from '@sveltejs/kit';
-	import IconAlertTriangle from '@tabler/icons-svelte/icons/alert-triangle';
-	import IconAt from '@tabler/icons-svelte/icons/at';
-	import IconBolt from '@tabler/icons-svelte/icons/bolt';
-	import IconCalendar from '@tabler/icons-svelte/icons/calendar';
-	import IconChevronDown from '@tabler/icons-svelte/icons/chevron-down';
-	import IconChevronUp from '@tabler/icons-svelte/icons/chevron-up';
-	import IconCheck from '@tabler/icons-svelte/icons/check';
-	import IconClock from '@tabler/icons-svelte/icons/clock';
-	import IconCopy from '@tabler/icons-svelte/icons/copy';
-	import IconDeviceLaptop from '@tabler/icons-svelte/icons/device-laptop';
-	import IconEye from '@tabler/icons-svelte/icons/eye';
-	import IconEyeOff from '@tabler/icons-svelte/icons/eye-off';
-	import IconId from '@tabler/icons-svelte/icons/id';
-	import IconKey from '@tabler/icons-svelte/icons/key';
-	import IconLock from '@tabler/icons-svelte/icons/lock';
-	import IconLogout from '@tabler/icons-svelte/icons/logout';
-	import IconPencil from '@tabler/icons-svelte/icons/pencil';
-	import IconPlus from '@tabler/icons-svelte/icons/plus';
-	import IconRestore from '@tabler/icons-svelte/icons/restore';
-	import IconShieldCheck from '@tabler/icons-svelte/icons/shield-check';
-	import IconTrash from '@tabler/icons-svelte/icons/trash';
-	import IconUser from '@tabler/icons-svelte/icons/user';
+	import {
+		IconAlertTriangle,
+		IconAt,
+		IconBolt,
+		IconCalendar,
+		IconChevronDown,
+		IconChevronUp,
+		IconCheck,
+		IconClock,
+		IconCopy,
+		IconDeviceLaptop,
+		IconEye,
+		IconEyeOff,
+		IconId,
+		IconKey,
+		IconLock,
+		IconLogout,
+		IconPencil,
+		IconPlus,
+		IconRestore,
+		IconShieldCheck,
+		IconTrash,
+		IconUser
+	} from '@tabler/icons-svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import {
@@ -2260,5 +2262,3 @@
 		/>
 	{/if}
 </div>
-
-

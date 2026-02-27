@@ -1,22 +1,24 @@
 <script lang="ts">
-	import IconLayoutDashboard from '@tabler/icons-svelte/icons/layout-dashboard';
-	import IconCalendarWeek from '@tabler/icons-svelte/icons/calendar-week';
-	import IconBallFootball from '@tabler/icons-svelte/icons/ball-football';
-	import IconTrophy from '@tabler/icons-svelte/icons/trophy';
-	import IconUserCog from '@tabler/icons-svelte/icons/user-cog';
-	import IconBuilding from '@tabler/icons-svelte/icons/building';
-	import IconShoppingCart from '@tabler/icons-svelte/icons/shopping-cart';
-	import IconCreditCard from '@tabler/icons-svelte/icons/credit-card';
-	import IconFileText from '@tabler/icons-svelte/icons/file-text';
-	import IconChartBar from '@tabler/icons-svelte/icons/chart-bar';
-	import IconSettings from '@tabler/icons-svelte/icons/settings';
-	import IconHelpCircle from '@tabler/icons-svelte/icons/help-circle';
-	import IconHeadset from '@tabler/icons-svelte/icons/headset';
-	import IconUser from '@tabler/icons-svelte/icons/user';
-	import IconChevronLeft from '@tabler/icons-svelte/icons/chevron-left';
-	import IconChevronRight from '@tabler/icons-svelte/icons/chevron-right';
-	import IconMessageCircle from '@tabler/icons-svelte/icons/message-circle';
-	import IconArrowBackUp from '@tabler/icons-svelte/icons/arrow-back-up';
+	import {
+		IconLayoutDashboard,
+		IconCalendarWeek,
+		IconBallFootball,
+		IconTrophy,
+		IconUserCog,
+		IconBuilding,
+		IconShoppingCart,
+		IconCreditCard,
+		IconFileText,
+		IconChartBar,
+		IconSettings,
+		IconHelpCircle,
+		IconHeadset,
+		IconUser,
+		IconChevronLeft,
+		IconChevronRight,
+		IconMessageCircle,
+		IconArrowBackUp
+	} from '@tabler/icons-svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import { page } from '$app/stores';

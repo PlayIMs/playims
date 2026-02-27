@@ -2,7 +2,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import { tick } from 'svelte';
 	import type { Snippet } from 'svelte';
-	import IconX from '@tabler/icons-svelte/icons/x';
+	import { IconX } from '@tabler/icons-svelte';
 	import ModalShell from '$lib/components/modals/ModalShell.svelte';
 
 	interface Props {

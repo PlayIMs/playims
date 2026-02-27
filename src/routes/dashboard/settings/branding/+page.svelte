@@ -1,9 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import IconDeviceFloppy from '@tabler/icons-svelte/icons/device-floppy';
-	import IconPencil from '@tabler/icons-svelte/icons/pencil';
-	import IconRestore from '@tabler/icons-svelte/icons/restore';
-	import IconTrash from '@tabler/icons-svelte/icons/trash';
+	import {
+		IconDeviceFloppy,
+		IconHash,
+		IconPencil,
+		IconRestore,
+		IconTrash
+	} from '@tabler/icons-svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import {
 		themeColors,
@@ -16,7 +19,6 @@
 		deleteTheme,
 		renameSavedTheme,
 		validateAccent,
-		validateNeutral,
 		validateColorNotGrayscale,
 		ZINC_PALETTE
 	} from '$lib/theme';
@@ -37,7 +39,6 @@
 
 	let primaryWarnings = $state<string[]>([]);
 	let secondaryWarnings = $state<string[]>([]);
-	let neutralWarnings = $state<string[]>([]);
 	let accentWarnings = $state<string[]>([]);
 
 	let openPicker: 'primary' | 'secondary' | 'neutral' | 'accent' | null = $state(null);
@@ -50,11 +51,15 @@
 	let showReplaceModal = $state(false);
 	let showOverwriteModal = $state(false);
 	let showRenameModal = $state(false);
+	let showDeleteModal = $state(false);
 	let themeNameInput = $state('');
 	let replaceThemeIndex: number | null = $state(null);
 	let existingThemeIndex: number | null = $state(null);
 	let renameThemeId: string | null = $state(null);
 	let renameThemeNameInput = $state('');
+	let deleteThemeId: string | null = $state(null);
+	let deleteThemeName = $state('');
+	let isDeletingTheme = $state(false);
 
 	function validateHex(hex: string): boolean {
 		const cleanHex = hex.replace('#', '').toUpperCase();
@@ -69,7 +74,6 @@
 		accentInput = colors.accent;
 		validatePrimaryColor();
 		validateSecondaryColor();
-		validateNeutralColor();
 		validateAccentColor();
 	}
 
@@ -126,14 +130,6 @@
 		}
 	}
 
-	function validateNeutralColor() {
-		if (neutralInput && validateHex(neutralInput)) {
-			neutralWarnings = validateNeutral(neutralInput).warnings;
-		} else {
-			neutralWarnings = [];
-		}
-	}
-
 	function validateAccentColor() {
 		if (validateHex(accentInput)) {
 			accentWarnings = validateAccent(accentInput, neutralInput).warnings;
@@ -159,10 +155,8 @@
 	function handleNeutralChange() {
 		if (validateHex(neutralInput)) {
 			updateColor('neutral', neutralInput);
-			validateNeutralColor();
 		} else if (neutralInput === '') {
 			updateColor('neutral', '');
-			neutralWarnings = [];
 		}
 	}
 
@@ -192,31 +186,66 @@
 		return formatHex(color);
 	}
 
-	const NEUTRAL_GRAY_PRESETS = ['FAFAFA', 'F5F5F5', 'EFEFEF', 'E8E8E8'];
-	const NEUTRAL_BEIGE_PRESETS = ['FAF6F0', 'F5EEE3', 'EFE4D5', 'E7D8C5'];
+	type NeutralPaletteColumn = {
+		key: 'primary' | 'secondary' | 'beige' | 'gray';
+		label: string;
+		shades: string[];
+	};
 
-	function buildMutedNeutralShades(baseHex: string, saturation: number): string[] {
+	const NEUTRAL_GRAY_PRESETS = ['FCFCFC', 'F3F3F3', 'E9E9E9', 'DEDEDE'];
+	const NEUTRAL_BEIGE_PRESETS = ['FCF9F4', 'F6EEE3', 'EFE2D2', 'E7D4C0'];
+
+	function buildMutedNeutralShades(
+		baseHex: string,
+		saturationValues: number[],
+		lightnessValues: number[]
+	): string[] {
 		if (!validateHex(baseHex)) {
 			return [];
 		}
 
 		const { h } = hexToHsl(baseHex);
-		const lightnessValues = [96, 92, 88, 84];
-		return lightnessValues.map((lightness) => hslToHex(h, saturation, lightness));
+		const count = Math.min(saturationValues.length, lightnessValues.length);
+		return Array.from({ length: count }, (_, index) =>
+			hslToHex(h, saturationValues[index], lightnessValues[index])
+		);
 	}
 
-	function getNeutralPaletteOptions(): string[] {
+	function normalizeHexShades(shades: string[]): string[] {
+		return shades.map((hex) => hex.replace('#', '').toUpperCase()).slice(0, 4);
+	}
+
+	function getNeutralPaletteColumns(): NeutralPaletteColumn[] {
 		const primaryBase = validateHex(primaryInput) ? primaryInput : $themeColors.primary;
 		const secondaryBase = validateHex(secondaryInput) ? secondaryInput : $themeColors.secondary;
+		const lightnessValues = [97, 94, 90, 86];
 
-		const options = [
-			...buildMutedNeutralShades(primaryBase, 12),
-			...buildMutedNeutralShades(secondaryBase, 10),
-			...NEUTRAL_GRAY_PRESETS,
-			...NEUTRAL_BEIGE_PRESETS
-		].map((hex) => hex.replace('#', '').toUpperCase());
-
-		return [...new Set(options)];
+		return [
+			{
+				key: 'primary',
+				label: 'Primary',
+				shades: normalizeHexShades(
+					buildMutedNeutralShades(primaryBase, [8, 10, 12, 14], lightnessValues)
+				)
+			},
+			{
+				key: 'secondary',
+				label: 'Secondary',
+				shades: normalizeHexShades(
+					buildMutedNeutralShades(secondaryBase, [7, 9, 11, 13], lightnessValues)
+				)
+			},
+			{
+				key: 'beige',
+				label: 'Beige',
+				shades: normalizeHexShades(NEUTRAL_BEIGE_PRESETS)
+			},
+			{
+				key: 'gray',
+				label: 'Gray',
+				shades: normalizeHexShades(NEUTRAL_GRAY_PRESETS)
+			}
+		];
 	}
 
 	function hexToHsl(hex: string): { h: number; s: number; l: number } {
@@ -371,7 +400,6 @@
 			validateSecondaryColor();
 		} else if (openPicker === 'neutral') {
 			neutralInput = hex;
-			validateNeutralColor();
 		} else if (openPicker === 'accent') {
 			accentInput = hex;
 			validateAccentColor();
@@ -454,7 +482,6 @@
 	function getActivePickerWarnings(): string[] {
 		if (openPicker === 'primary') return primaryWarnings;
 		if (openPicker === 'secondary') return secondaryWarnings;
-		if (openPicker === 'neutral') return neutralWarnings;
 		if (openPicker === 'accent') return accentWarnings;
 		return [];
 	}
@@ -530,10 +557,28 @@
 		syncInputsFromStore();
 	}
 
-	async function handleDeleteTheme(themeId: string, event: Event) {
+	function openDeleteThemeModal(themeId: string, name: string, event: Event) {
 		event.stopPropagation();
-		if (confirm('Delete this saved theme?')) {
-			await deleteTheme(themeId);
+		deleteThemeId = themeId;
+		deleteThemeName = name;
+		showDeleteModal = true;
+	}
+
+	function closeDeleteThemeModal(force = false) {
+		if (isDeletingTheme && !force) return;
+		showDeleteModal = false;
+		deleteThemeId = null;
+		deleteThemeName = '';
+	}
+
+	async function handleDeleteTheme() {
+		if (!deleteThemeId || isDeletingTheme) return;
+		isDeletingTheme = true;
+		try {
+			await deleteTheme(deleteThemeId);
+			closeDeleteThemeModal(true);
+		} finally {
+			isDeletingTheme = false;
 		}
 	}
 
@@ -581,7 +626,7 @@
 
 	let pickerPos = $derived(getPickerPosition());
 	let activePickerWarnings = $derived(getActivePickerWarnings());
-	let neutralPaletteOptions = $derived(getNeutralPaletteOptions());
+	let neutralPaletteColumns = $derived(getNeutralPaletteColumns());
 
 	$effect(() => {
 		if (openPicker && colorAreaElement) {
@@ -647,72 +692,48 @@
 
 		<div class="p-4 lg:p-5">
 			<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-				{#each [
-					{
-						key: 'primary',
-						label: 'Primary',
-						description: 'Your main brand color for key elements and primary calls to action.',
-						placeholder: 'CE1126',
-						warnings: primaryWarnings,
-						input: primaryInput
-					},
-					{
-						key: 'secondary',
-						label: 'Secondary',
-						description: 'Supporting color for backgrounds and secondary elements.',
-						placeholder: '14213D',
-						warnings: secondaryWarnings,
-						input: secondaryInput
-					},
-					{
-						key: 'accent',
-						label: 'Accent',
-						description: 'Accent color for highlights and important actions.',
-						placeholder: '04669A',
-						warnings: accentWarnings,
-						input: accentInput
-					},
-					{
-						key: 'neutral',
-						description: 'Neutral color for backgrounds and borders. Leave empty for default.',
-						label: 'Neutral',
-						placeholder: 'Leave empty',
-						warnings: neutralWarnings,
-						input: neutralInput
-					}
-				] as color}
+				{#each [{ key: 'primary', label: 'Primary', description: 'Your main brand color for key elements and primary calls to action.', placeholder: 'CE1126', input: primaryInput }, { key: 'secondary', label: 'Secondary', description: 'Supporting color for backgrounds and secondary elements.', placeholder: '14213D', input: secondaryInput }, { key: 'accent', label: 'Accent', description: 'Accent color for highlights and important actions.', placeholder: '04669A', input: accentInput }, { key: 'neutral', description: 'Neutral color for backgrounds and borders. Leave empty for default.', label: 'Neutral', placeholder: 'Leave empty', input: neutralInput }] as color}
 					<div class="border border-secondary-300 bg-white p-3 h-full flex flex-col">
-						<label for={`branding-${color.key}`} class="block text-sm font-bold text-neutral-950 mb-1">
+						<label
+							for={`branding-${color.key}`}
+							class="block text-sm font-bold text-neutral-950 mb-1"
+						>
 							{color.label}
 						</label>
 						<p class="text-xs text-neutral-950 mb-2">{color.description}</p>
 						<div class="mt-auto pt-2 flex gap-2">
-							<input
-								id={`branding-${color.key}`}
-								type="text"
-								value={color.input}
-								oninput={(event) => {
-									const next = (event.target as HTMLInputElement).value;
-									if (color.key === 'primary') {
-										primaryInput = next;
-										handlePrimaryChange();
-									}
-									if (color.key === 'secondary') {
-										secondaryInput = next;
-										handleSecondaryChange();
-									}
-									if (color.key === 'neutral') {
-										neutralInput = next;
-										handleNeutralChange();
-									}
-									if (color.key === 'accent') {
-										accentInput = next;
-										handleAccentChange();
-									}
-								}}
-								placeholder={color.placeholder}
-								class="input-secondary h-10 flex-1"
-							/>
+							<div class="relative flex-1">
+								<IconHash
+									class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary-700"
+									aria-hidden="true"
+								/>
+								<input
+									id={`branding-${color.key}`}
+									type="text"
+									value={color.input}
+									oninput={(event) => {
+										const next = (event.target as HTMLInputElement).value;
+										if (color.key === 'primary') {
+											primaryInput = next;
+											handlePrimaryChange();
+										}
+										if (color.key === 'secondary') {
+											secondaryInput = next;
+											handleSecondaryChange();
+										}
+										if (color.key === 'neutral') {
+											neutralInput = next;
+											handleNeutralChange();
+										}
+										if (color.key === 'accent') {
+											accentInput = next;
+											handleAccentChange();
+										}
+									}}
+									placeholder={color.placeholder}
+									class="input-secondary h-10 w-full pl-8"
+								/>
+							</div>
 							<button
 								type="button"
 								onclick={() => {
@@ -731,19 +752,43 @@
 									: `Open ${color.label} color picker`}
 							></button>
 						</div>
-						{#if color.warnings.length > 0}
-							<div class="mt-2 p-2 bg-yellow-50 border-2 border-yellow-300">
-								<p class="text-xs font-bold text-yellow-900 mb-1">Validation Warnings:</p>
-								<ul class="text-xs text-yellow-800 list-disc list-inside">
-									{#each color.warnings as warning}
-										<li>{warning}</li>
-									{/each}
-								</ul>
-							</div>
-						{/if}
 					</div>
 				{/each}
 			</div>
+			{#if primaryWarnings.length > 0 || secondaryWarnings.length > 0 || accentWarnings.length > 0}
+				<div class="mt-4 space-y-2">
+					{#if primaryWarnings.length > 0}
+						<div class="p-2 bg-yellow-50 border-2 border-yellow-300">
+							<p class="text-xs font-bold text-yellow-900 mb-1">Primary Validation Warnings:</p>
+							<ul class="text-xs text-yellow-800 list-disc list-inside">
+								{#each primaryWarnings as warning}
+									<li>{warning}</li>
+								{/each}
+							</ul>
+						</div>
+					{/if}
+					{#if secondaryWarnings.length > 0}
+						<div class="p-2 bg-yellow-50 border-2 border-yellow-300">
+							<p class="text-xs font-bold text-yellow-900 mb-1">Secondary Validation Warnings:</p>
+							<ul class="text-xs text-yellow-800 list-disc list-inside">
+								{#each secondaryWarnings as warning}
+									<li>{warning}</li>
+								{/each}
+							</ul>
+						</div>
+					{/if}
+					{#if accentWarnings.length > 0}
+						<div class="p-2 bg-yellow-50 border-2 border-yellow-300">
+							<p class="text-xs font-bold text-yellow-900 mb-1">Accent Validation Warnings:</p>
+							<ul class="text-xs text-yellow-800 list-disc list-inside">
+								{#each accentWarnings as warning}
+									<li>{warning}</li>
+								{/each}
+							</ul>
+						</div>
+					{/if}
+				</div>
+			{/if}
 		</div>
 	</section>
 
@@ -827,7 +872,7 @@
 										<button
 											type="button"
 											class="button-secondary-outlined h-9 w-9 p-0 flex items-center justify-center"
-											onclick={(event) => handleDeleteTheme(theme.id, event)}
+											onclick={(event) => openDeleteThemeModal(theme.id, theme.name, event)}
 											aria-label={`Delete ${theme.name}`}
 										>
 											<IconTrash class="w-4 h-4 text-error-700" />
@@ -856,7 +901,7 @@
 			aria-label="Close neutral shade picker"
 		>
 			<div
-				class="bg-white border-4 border-primary-500 p-4 md:p-6 max-w-xl w-full max-h-[90vh] overflow-y-auto"
+				class="bg-white border-4 border-primary-500 p-4 md:p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto"
 				onclick={(event) => event.stopPropagation()}
 				onkeydown={(event) => event.stopPropagation()}
 				role="presentation"
@@ -872,22 +917,32 @@
 					</button>
 				</div>
 				<p class="text-sm text-secondary-700 mb-4">
-					Choose a muted neutral tone based on your primary/secondary colors, or pick a light gray/beige.
+					Choose a muted neutral tone by column. Top shades are closest to white, and lower shades
+					are slightly richer while staying neutral.
 				</p>
 
-				<div class="grid grid-cols-4 sm:grid-cols-6 gap-2 mb-4">
-					{#each neutralPaletteOptions as hex}
-						<button
-							type="button"
-							class="h-12 border-2 cursor-pointer transition-colors {neutralInput.toUpperCase() ===
-							hex.toUpperCase()
-								? 'border-primary-700'
-								: 'border-secondary-300 hover:border-secondary-500'}"
-							style="background-color: #{hex}"
-							onclick={() => applyNeutralPreset(hex)}
-							aria-label={`Select neutral shade #${hex}`}
-							title={`#${hex}`}
-						></button>
+				<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+					{#each neutralPaletteColumns as column}
+						<div class="space-y-2">
+							<p class="text-[11px] font-bold uppercase tracking-wide text-secondary-900">
+								{column.label}
+							</p>
+							<div class="space-y-2">
+								{#each column.shades as hex}
+									<button
+										type="button"
+										class="h-12 w-full border-2 cursor-pointer transition-colors {neutralInput.toUpperCase() ===
+										hex.toUpperCase()
+											? 'border-primary-700'
+											: 'border-secondary-300 hover:border-secondary-500'}"
+										style="background-color: #{hex}"
+										onclick={() => applyNeutralPreset(hex)}
+										aria-label={`Select ${column.label.toLowerCase()} neutral shade #${hex}`}
+										title={`#${hex}`}
+									></button>
+								{/each}
+							</div>
+						</div>
 					{/each}
 				</div>
 
@@ -903,8 +958,10 @@
 					>
 						Use Default Neutral
 					</button>
-					<button type="button" class="flex-1 button-secondary-outlined" onclick={closeNeutralPaletteModal}
-						>Cancel</button
+					<button
+						type="button"
+						class="flex-1 button-secondary-outlined"
+						onclick={closeNeutralPaletteModal}>Cancel</button
 					>
 				</div>
 			</div>
@@ -975,7 +1032,9 @@
 
 					<div class="lg:col-span-2">
 						<div class="mb-4">
-							<label for="hue-slider" class="block text-sm font-bold text-primary-900 mb-2">Hue</label>
+							<label for="hue-slider" class="block text-sm font-bold text-primary-900 mb-2"
+								>Hue</label
+							>
 							<div class="relative h-8 border-2 border-primary-300">
 								<div
 									class="absolute inset-0"
@@ -1077,7 +1136,6 @@
 								validateSecondaryColor();
 							} else if (openPicker === 'neutral') {
 								neutralInput = hex;
-								validateNeutralColor();
 							} else if (openPicker === 'accent') {
 								accentInput = hex;
 								validateAccentColor();
@@ -1088,7 +1146,8 @@
 					>
 						Apply
 					</button>
-					<button onclick={closeColorPicker} class="flex-1 button-secondary-outlined">Cancel</button>
+					<button onclick={closeColorPicker} class="flex-1 button-secondary-outlined">Cancel</button
+					>
 				</div>
 			</div>
 		</div>
@@ -1143,7 +1202,8 @@
 				</div>
 				<div class="flex gap-2">
 					<button onclick={handleSaveTheme} class="flex-1 button-primary">Save</button>
-					<button onclick={closeThemeModals} class="flex-1 button-secondary-outlined">Cancel</button>
+					<button onclick={closeThemeModals} class="flex-1 button-secondary-outlined">Cancel</button
+					>
 				</div>
 			</div>
 		</div>
@@ -1338,9 +1398,73 @@
 					/>
 				</div>
 				<div class="flex gap-2">
-					<button type="button" class="button-primary flex-1" onclick={handleRenameTheme}>Save</button>
+					<button type="button" class="button-primary flex-1" onclick={handleRenameTheme}
+						>Save</button
+					>
 					<button type="button" class="button-secondary-outlined flex-1" onclick={closeRenameModal}>
 						Cancel
+					</button>
+				</div>
+			</div>
+		</div>
+	{/if}
+
+	{#if showDeleteModal}
+		<div
+			class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+			onclick={() => closeDeleteThemeModal()}
+			onkeydown={(event) => {
+				if (event.key === 'Escape') {
+					closeDeleteThemeModal();
+				}
+			}}
+			role="button"
+			tabindex="0"
+			aria-label="Close delete theme modal"
+		>
+			<div
+				class="bg-white border-4 border-error-500 p-6 max-w-md w-full"
+				onclick={(event) => event.stopPropagation()}
+				onkeydown={(event) => event.stopPropagation()}
+				role="presentation"
+			>
+				<div class="flex justify-between items-center mb-4">
+					<h3 class="text-xl font-bold text-error-900">Delete Theme</h3>
+					<button
+						type="button"
+						onclick={() => closeDeleteThemeModal()}
+						class="text-error-700 hover:text-error-900 font-bold text-2xl cursor-pointer"
+						aria-label="Close delete theme modal"
+						disabled={isDeletingTheme}
+					>
+						&times;
+					</button>
+				</div>
+				<div class="border-2 border-error-300 bg-error-50 p-3 space-y-2 mb-4">
+					<p class="text-sm text-error-900 font-semibold">
+						Deleting this saved theme permanently removes it from your theme library.
+					</p>
+					<p class="text-sm text-error-700">
+						Theme:
+						<strong>{deleteThemeName}</strong>
+					</p>
+				</div>
+				<div class="flex gap-2">
+					<button
+						type="button"
+						class="flex-1 button-secondary-outlined"
+						onclick={() => closeDeleteThemeModal()}
+						disabled={isDeletingTheme}
+					>
+						Cancel
+					</button>
+					<button
+						type="button"
+						class="flex-1 button-error"
+						onclick={handleDeleteTheme}
+						disabled={isDeletingTheme}
+					>
+						{isDeletingTheme ? 'Deleting...' : 'Delete'}
 					</button>
 				</div>
 			</div>

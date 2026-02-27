@@ -2,12 +2,14 @@
 	import type { Snippet } from 'svelte';
 	import { flip } from 'svelte/animate';
 	import { cubicOut } from 'svelte/easing';
-	import IconChevronDown from '@tabler/icons-svelte/icons/chevron-down';
-	import IconChevronUp from '@tabler/icons-svelte/icons/chevron-up';
-	import IconCopy from '@tabler/icons-svelte/icons/copy';
-	import IconPencil from '@tabler/icons-svelte/icons/pencil';
-	import IconPlus from '@tabler/icons-svelte/icons/plus';
-	import IconTrash from '@tabler/icons-svelte/icons/trash';
+	import {
+		IconChevronDown,
+		IconChevronUp,
+		IconCopy,
+		IconPencil,
+		IconPlus,
+		IconTrash
+	} from '@tabler/icons-svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 
 	interface Props {
@@ -48,8 +50,7 @@
 		getItemName,
 		getItemSlug,
 		containerClass = 'border border-secondary-300 bg-white p-3 space-y-3',
-		listClass =
-			'space-y-2 max-h-[61vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 scrollbar-track-secondary-400 scrollbar-corner-secondary-500 hover:scrollbar-thumb-secondary-700 active:scrollbar-thumb-secondary-700 scrollbar-hover:scrollbar-thumb-secondary-800 scrollbar-active:scrollbar-thumb-secondary-700',
+		listClass = 'space-y-2 max-h-[61vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 scrollbar-track-secondary-400 scrollbar-corner-secondary-500 hover:scrollbar-thumb-secondary-700 active:scrollbar-thumb-secondary-700 scrollbar-hover:scrollbar-thumb-secondary-800 scrollbar-active:scrollbar-thumb-secondary-700',
 		showDraftNotice = false,
 		draftNoticeText = '',
 		itemBody
@@ -86,7 +87,10 @@
 	{:else}
 		<div class={listClass}>
 			{#each items as item, itemIndex (itemIndex)}
-				<div class="border border-secondary-300 bg-neutral p-3 space-y-2" animate:flip={{ duration: 180, easing: cubicOut }}>
+				<div
+					class="border border-secondary-300 bg-neutral p-3 space-y-2"
+					animate:flip={{ duration: 180, easing: cubicOut }}
+				>
 					<div class="flex items-start justify-between gap-3">
 						<div>
 							<p class="text-sm font-semibold text-neutral-950">

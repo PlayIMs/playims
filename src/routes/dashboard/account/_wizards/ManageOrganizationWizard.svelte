@@ -1,9 +1,11 @@
 <script lang="ts">
-	import IconDeviceFloppy from '@tabler/icons-svelte/icons/device-floppy';
-	import IconLogout from '@tabler/icons-svelte/icons/logout';
-	import IconRestore from '@tabler/icons-svelte/icons/restore';
-	import IconTarget from '@tabler/icons-svelte/icons/target';
-	import IconX from '@tabler/icons-svelte/icons/x';
+	import {
+		IconDeviceFloppy,
+		IconLogout,
+		IconRestore,
+		IconTarget,
+		IconX
+	} from '@tabler/icons-svelte';
 	import { createEventDispatcher, tick } from 'svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import InfoPopover from '$lib/components/InfoPopover.svelte';
@@ -81,13 +83,16 @@
 		});
 	});
 	const selectedOrganization = $derived.by(
-		() => sortedOrganizations.find((organization) => organization.clientId === organizationId) ?? null
+		() =>
+			sortedOrganizations.find((organization) => organization.clientId === organizationId) ?? null
 	);
 	const selectedRole = $derived.by(
 		() => selectedOrganization?.role?.trim().toLowerCase() ?? 'participant'
 	);
 	const canEditDetails = $derived.by(() => selectedRole === 'admin' || selectedRole === 'dev');
-	const canSetDefault = $derived.by(() => Boolean(selectedOrganization && !selectedOrganization.isDefault));
+	const canSetDefault = $derived.by(() =>
+		Boolean(selectedOrganization && !selectedOrganization.isDefault)
+	);
 	const canLeave = $derived.by(() => sortedOrganizations.length > 1);
 	const normalizedExpectedLeaveSlug = $derived.by(() =>
 		normalizeSlug(selectedOrganization?.clientSlug || selectedOrganization?.clientName || '')
@@ -127,7 +132,9 @@
 
 	function hydrateFromOrganization(nextOrganization: OrganizationOption | null): void {
 		organizationName = nextOrganization?.clientName ?? '';
-		organizationSlug = normalizeSlug(nextOrganization?.clientSlug || nextOrganization?.clientName || '');
+		organizationSlug = normalizeSlug(
+			nextOrganization?.clientSlug || nextOrganization?.clientName || ''
+		);
 		selfJoinEnabled = nextOrganization?.selfJoinEnabled ?? false;
 		leaveConfirmSlug = '';
 		fieldErrors = {};
@@ -145,7 +152,9 @@
 
 		if (!hasInitializedForOpen) {
 			const preferred =
-				sortedOrganizations.find((organization) => organization.clientId === selectedOrganizationId) ??
+				sortedOrganizations.find(
+					(organization) => organization.clientId === selectedOrganizationId
+				) ??
 				sortedOrganizations[0] ??
 				null;
 			organizationId = preferred?.clientId ?? '';
@@ -169,7 +178,8 @@
 	function selectOrganization(nextOrganizationId: string): void {
 		if (isSubmitting || nextOrganizationId === organizationId) return;
 		const nextOrganization =
-			sortedOrganizations.find((organization) => organization.clientId === nextOrganizationId) ?? null;
+			sortedOrganizations.find((organization) => organization.clientId === nextOrganizationId) ??
+			null;
 		if (!nextOrganization) return;
 		organizationId = nextOrganizationId;
 		isLeaveModalOpen = false;
@@ -243,12 +253,17 @@
 			}
 
 			formSuccess =
-				payload.action === 'set-default' ? 'Default organization updated.' : 'Organization updated.';
+				payload.action === 'set-default'
+					? 'Default organization updated.'
+					: 'Organization updated.';
 			dispatch('saved', {
 				activeClientId: body.data?.activeClientId ?? null,
 				defaultClientId: body.data?.defaultClientId ?? null,
 				selectedOrganizationId:
-					body.data?.clientId ?? body.data?.activeClientId ?? body.data?.defaultClientId ?? payload.clientId
+					body.data?.clientId ??
+					body.data?.activeClientId ??
+					body.data?.defaultClientId ??
+					payload.clientId
 			});
 			return true;
 		} catch {
@@ -612,7 +627,8 @@
 	<div class="p-4 space-y-3 overflow-y-auto">
 		<div class="border-2 border-error-300 bg-error-50 p-3 space-y-2">
 			<p class="text-sm text-error-900 font-semibold">
-				Leaving this organization removes your membership and access to this organization's dashboard.
+				Leaving this organization removes your membership and access to this organization's
+				dashboard.
 			</p>
 			<p class="text-sm text-error-700 font-semibold">
 				This action can only be undone by joining again or being re-added by an administrator.

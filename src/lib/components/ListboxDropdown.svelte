@@ -8,10 +8,7 @@
 </script>
 
 <script lang="ts">
-	import IconChevronDown from '@tabler/icons-svelte/icons/chevron-down';
-	import IconChevronUp from '@tabler/icons-svelte/icons/chevron-up';
-	import IconInfoCircle from '@tabler/icons-svelte/icons/info-circle';
-	import IconSearch from '@tabler/icons-svelte/icons/search';
+	import { IconChevronDown, IconChevronUp, IconInfoCircle, IconSearch } from '@tabler/icons-svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import { createEventDispatcher, onDestroy, tick } from 'svelte';
 	import type { Snippet } from 'svelte';
@@ -312,7 +309,9 @@
 		const shouldOpenAbove = spaceBelow < listHeight && spaceAbove > spaceBelow;
 		const availableHeight = Math.max(0, shouldOpenAbove ? spaceAbove : spaceBelow);
 		const panelMaxHeight =
-			maxPanelHeight && maxPanelHeight > 0 ? Math.min(availableHeight, maxPanelHeight) : availableHeight;
+			maxPanelHeight && maxPanelHeight > 0
+				? Math.min(availableHeight, maxPanelHeight)
+				: availableHeight;
 		const listTop = shouldOpenAbove
 			? Math.max(viewportPadding, buttonRect.top - gap - Math.min(listHeight, panelMaxHeight))
 			: belowTop;

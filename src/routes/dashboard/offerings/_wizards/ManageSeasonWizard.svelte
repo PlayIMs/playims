@@ -1,12 +1,14 @@
 <script lang="ts">
-	import IconArchive from '@tabler/icons-svelte/icons/archive';
-	import IconCopy from '@tabler/icons-svelte/icons/copy';
-	import IconDeviceFloppy from '@tabler/icons-svelte/icons/device-floppy';
-	import IconRefresh from '@tabler/icons-svelte/icons/refresh';
-	import IconRestore from '@tabler/icons-svelte/icons/restore';
-	import IconTarget from '@tabler/icons-svelte/icons/target';
-	import IconTrash from '@tabler/icons-svelte/icons/trash';
-	import IconX from '@tabler/icons-svelte/icons/x';
+	import {
+		IconArchive,
+		IconCopy,
+		IconDeviceFloppy,
+		IconRefresh,
+		IconRestore,
+		IconTarget,
+		IconTrash,
+		IconX
+	} from '@tabler/icons-svelte';
 	import { createEventDispatcher, tick } from 'svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import InfoPopover from '$lib/components/InfoPopover.svelte';
@@ -559,7 +561,8 @@
 					</div>
 					<div>
 						<div class="mb-1 flex h-5 items-center gap-1.5 leading-none">
-							<label for="manage-season-slug" class="text-sm leading-5 text-neutral-950">Slug</label>
+							<label for="manage-season-slug" class="text-sm leading-5 text-neutral-950">Slug</label
+							>
 							<InfoPopover
 								buttonAriaLabel="Season slug help"
 								buttonVariant="label-inline"
@@ -741,5 +744,3 @@
 		</button>
 	</div>
 </ModalShell>
-
-
