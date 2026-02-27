@@ -1,6 +1,9 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
+	import { goto } from '$app/navigation';
 	import { onDestroy, onMount } from 'svelte';
 	import {
+		IconArrowLeft,
 		IconHome,
 		IconLayoutDashboard,
 		IconTrophy,
@@ -10,11 +13,12 @@
 
 	type Choice = 'rock' | 'paper' | 'scissors';
 
-	let { statusText, titleText, messageText, detailText } = $props<{
+	let { statusText, titleText, messageText, detailText, showBackButton = false } = $props<{
 		statusText: string;
 		titleText: string;
 		messageText: string;
 		detailText?: string | null;
+		showBackButton?: boolean;
 	}>();
 
 	const choices = [
@@ -147,6 +151,17 @@
 		}, 180);
 	};
 
+	const goBack = async () => {
+		if (!browser) {
+			return;
+		}
+		if (window.history.length > 1) {
+			window.history.back();
+			return;
+		}
+		await goto('/');
+	};
+
 	onDestroy(() => {
 		clearShake();
 	});
@@ -167,6 +182,16 @@
 		</div>
 
 		<div class="flex flex-col sm:flex-row gap-4 justify-center">
+			{#if showBackButton}
+				<button
+					type="button"
+					class="cursor-pointer border-2 border-secondary-300 bg-secondary-400 text-secondary-25 hover:bg-secondary-300 px-8 py-3 text-base font-medium inline-flex items-center justify-center gap-2 transition-colors duration-200"
+					onclick={goBack}
+				>
+					<IconArrowLeft class="w-5 h-5" />
+					Go back
+				</button>
+			{/if}
 			<a
 				href="/"
 				class="border-2 border-primary-500 bg-primary-500 text-white hover:bg-primary-600 px-8 py-3 text-base font-medium inline-flex items-center justify-center gap-2 transition-colors duration-200"

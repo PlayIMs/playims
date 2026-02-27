@@ -66,7 +66,7 @@
 	<meta name="description" content="Organization settings and configuration center." />
 </svelte:head>
 
-<div class="mx-auto w-full max-w-[78rem] p-4 lg:p-6 space-y-5">
+<div class="w-full p-4 lg:p-6 space-y-5">
 	<header class="border-2 border-secondary-300 bg-neutral p-4 lg:p-5">
 		<h1 class="text-4xl lg:text-5xl leading-[0.9] font-bold font-serif text-neutral-950">
 			{settingsTitle}
@@ -76,8 +76,8 @@
 		</p>
 	</header>
 
-	<div class="grid grid-cols-1 gap-4 lg:grid-cols-[17rem_1fr]">
-		<aside class="border-2 border-secondary-300 bg-neutral p-3">
+	<div class="grid grid-cols-1 items-start gap-4 lg:grid-cols-[17rem_1fr]">
+		<aside class="self-start border-2 border-secondary-300 bg-neutral p-3 lg:sticky lg:top-4">
 			<nav aria-label="Settings sections">
 				<ul class="space-y-2">
 					{#each tabs as tab}

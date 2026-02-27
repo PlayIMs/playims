@@ -12,6 +12,7 @@
 	let detailText = $derived(
 		$page.status !== 404 && $page.error?.message ? $page.error.message : null
 	);
+	let showBackButton = $derived($page.status === 404);
 </script>
 
 <svelte:head>
@@ -23,4 +24,4 @@
 	<meta name="robots" content="noindex, follow" />
 </svelte:head>
 
-<ErrorView {statusText} {titleText} {messageText} {detailText} />
+<ErrorView {statusText} {titleText} {messageText} {detailText} {showBackButton} />

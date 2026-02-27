@@ -36,6 +36,11 @@
 	let neutralWarnings = $state<string[]>([]);
 	let accentWarnings = $state<string[]>([]);
 
+	let openPicker: 'primary' | 'secondary' | 'neutral' | 'accent' | null = $state(null);
+	let pickerColor = $state({ h: 0, s: 100, l: 50, saturation: 100 });
+	let isDragging = $state(false);
+	let colorAreaElement: HTMLCanvasElement | null = $state(null);
+
 	let showSaveModal = $state(false);
 	let showReplaceModal = $state(false);
 	let showOverwriteModal = $state(false);
@@ -63,12 +68,41 @@
 		validateAccentColor();
 	}
 
+	function getPickerPosition() {
+		const s = pickerColor.s / 100;
+		const l = pickerColor.l / 100;
+		const v = l + s * Math.min(l, 1 - l);
+		const s_v = v === 0 ? 0 : 2 * (1 - l / v);
+
+		return {
+			x: s_v * 100,
+			y: (1 - v) * 100
+		};
+	}
+
 	onMount(() => {
 		const unsubscribe = themeColors.subscribe(() => {
 			syncInputsFromStore();
 		});
+
+		function handleGlobalMouseMove(event: MouseEvent) {
+			handleColorAreaMouseMove(event);
+		}
+
+		function handleGlobalMouseUp() {
+			handleColorAreaMouseUp();
+		}
+
+		window.addEventListener('mousemove', handleGlobalMouseMove);
+		window.addEventListener('mouseup', handleGlobalMouseUp);
+
 		syncInputsFromStore();
-		return () => unsubscribe();
+
+		return () => {
+			unsubscribe();
+			window.removeEventListener('mousemove', handleGlobalMouseMove);
+			window.removeEventListener('mouseup', handleGlobalMouseUp);
+		};
 	});
 
 	function validatePrimaryColor() {
@@ -142,21 +176,230 @@
 		return formatHex(color);
 	}
 
-	function handleColorPickerChange(
-		colorName: 'primary' | 'secondary' | 'neutral' | 'accent',
-		event: Event
-	) {
+	function hexToHsl(hex: string): { h: number; s: number; l: number } {
+		const cleanHex = hex.replace('#', '');
+		const r = parseInt(cleanHex.substring(0, 2), 16) / 255;
+		const g = parseInt(cleanHex.substring(2, 4), 16) / 255;
+		const b = parseInt(cleanHex.substring(4, 6), 16) / 255;
+
+		const max = Math.max(r, g, b);
+		const min = Math.min(r, g, b);
+		let h = 0;
+		let s = 0;
+		const l = (max + min) / 2;
+
+		if (max !== min) {
+			const d = max - min;
+			s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+			switch (max) {
+				case r:
+					h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+					break;
+				case g:
+					h = ((b - r) / d + 2) / 6;
+					break;
+				case b:
+					h = ((r - g) / d + 4) / 6;
+					break;
+			}
+		}
+
+		return {
+			h: Math.round(h * 360),
+			s: Math.round(s * 100),
+			l: Math.round(l * 100)
+		};
+	}
+
+	function hslToHex(h: number, s: number, l: number): string {
+		s /= 100;
+		l /= 100;
+
+		const c = (1 - Math.abs(2 * l - 1)) * s;
+		const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+		const m = l - c / 2;
+		let r = 0;
+		let g = 0;
+		let b = 0;
+
+		if (0 <= h && h < 60) {
+			r = c;
+			g = x;
+			b = 0;
+		} else if (60 <= h && h < 120) {
+			r = x;
+			g = c;
+			b = 0;
+		} else if (120 <= h && h < 180) {
+			r = 0;
+			g = c;
+			b = x;
+		} else if (180 <= h && h < 240) {
+			r = 0;
+			g = x;
+			b = c;
+		} else if (240 <= h && h < 300) {
+			r = x;
+			g = 0;
+			b = c;
+		} else if (300 <= h && h < 360) {
+			r = c;
+			g = 0;
+			b = x;
+		}
+
+		r = Math.round((r + m) * 255);
+		g = Math.round((g + m) * 255);
+		b = Math.round((b + m) * 255);
+
+		return [r, g, b]
+			.map((value) => {
+				const hex = value.toString(16);
+				return hex.length === 1 ? `0${hex}` : hex;
+			})
+			.join('')
+			.toUpperCase();
+	}
+
+	function applySaturationToHex(hex: string, saturation: number): string {
+		const cleanHex = hex.replace('#', '');
+		const factor = Math.max(0, Math.min(100, saturation)) / 100;
+		const r = parseInt(cleanHex.substring(0, 2), 16);
+		const g = parseInt(cleanHex.substring(2, 4), 16);
+		const b = parseInt(cleanHex.substring(4, 6), 16);
+
+		const toHex = (value: number) => {
+			const saturated = Math.round(255 - (255 - value) * factor);
+			const clamped = Math.max(0, Math.min(255, saturated));
+			const result = clamped.toString(16);
+			return result.length === 1 ? `0${result}` : result;
+		};
+
+		return `${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+	}
+
+	function getPickerHex(): string {
+		const baseHex = hslToHex(pickerColor.h, pickerColor.s, pickerColor.l);
+		return applySaturationToHex(baseHex, pickerColor.saturation);
+	}
+
+	function openColorPicker(colorName: 'primary' | 'secondary' | 'neutral' | 'accent') {
+		let currentHex = $themeColors[colorName];
+		if (colorName === 'neutral' && (!currentHex || currentHex.trim() === '')) {
+			currentHex = ZINC_PALETTE['500'];
+		}
+		const hsl = hexToHsl(currentHex);
+		pickerColor = { ...hsl, saturation: 100 };
+		openPicker = colorName;
+
+		setTimeout(() => {
+			drawColorArea();
+		}, 0);
+	}
+
+	function closeColorPicker() {
+		openPicker = null;
+	}
+
+	function updatePickerColor() {
+		if (!openPicker) return;
+		const hex = getPickerHex();
+		updateColor(openPicker, hex);
+
+		if (openPicker === 'primary') {
+			primaryInput = hex;
+			validatePrimaryColor();
+		} else if (openPicker === 'secondary') {
+			secondaryInput = hex;
+			validateSecondaryColor();
+		} else if (openPicker === 'neutral') {
+			neutralInput = hex;
+			validateNeutralColor();
+		} else if (openPicker === 'accent') {
+			accentInput = hex;
+			validateAccentColor();
+		}
+	}
+
+	function drawColorArea() {
+		if (!colorAreaElement) return;
+		const canvas = colorAreaElement;
+		const ctx = canvas.getContext('2d');
+		if (!ctx) return;
+
+		const width = canvas.width;
+		const height = canvas.height;
+
+		ctx.fillStyle = `hsl(${pickerColor.h}, 100%, 50%)`;
+		ctx.fillRect(0, 0, width, height);
+
+		const gradWhite = ctx.createLinearGradient(0, 0, width, 0);
+		gradWhite.addColorStop(0, 'rgba(255,255,255,1)');
+		gradWhite.addColorStop(1, 'rgba(255,255,255,0)');
+		ctx.fillStyle = gradWhite;
+		ctx.fillRect(0, 0, width, height);
+
+		const gradBlack = ctx.createLinearGradient(0, 0, 0, height);
+		gradBlack.addColorStop(0, 'rgba(0,0,0,0)');
+		gradBlack.addColorStop(1, 'rgba(0,0,0,1)');
+		ctx.fillStyle = gradBlack;
+		ctx.fillRect(0, 0, width, height);
+	}
+
+	function updateColorFromPosition(x: number, y: number, element: HTMLCanvasElement) {
+		const rect = element.getBoundingClientRect();
+		const relX = Math.max(0, Math.min(rect.width, x - rect.left));
+		const relY = Math.max(0, Math.min(rect.height, y - rect.top));
+		const s_hsv = relX / rect.width;
+		const v = 1 - relY / rect.height;
+		const l = v * (1 - s_hsv / 2);
+		let s_hsl = 0;
+		if (l > 0 && l < 1) {
+			s_hsl = (v - l) / Math.min(l, 1 - l);
+		}
+
+		pickerColor.s = Math.round(s_hsl * 100);
+		pickerColor.l = Math.round(l * 100);
+		updatePickerColor();
+	}
+
+	function handleColorAreaMouseDown(event: MouseEvent) {
+		isDragging = true;
+		updateColorFromPosition(event.clientX, event.clientY, event.currentTarget as HTMLCanvasElement);
+	}
+
+	function handleColorAreaMouseMove(event: MouseEvent) {
+		if (isDragging && colorAreaElement) {
+			updateColorFromPosition(event.clientX, event.clientY, colorAreaElement);
+		}
+	}
+
+	function handleColorAreaMouseUp() {
+		isDragging = false;
+	}
+
+	function handleColorAreaClick(event: MouseEvent) {
+		updateColorFromPosition(event.clientX, event.clientY, event.currentTarget as HTMLCanvasElement);
+	}
+
+	function handleHueChange(event: Event) {
 		const target = event.target as HTMLInputElement;
-		const value = target.value.replace('#', '').toUpperCase();
-		updateColor(colorName, value);
-		if (colorName === 'primary') primaryInput = value;
-		if (colorName === 'secondary') secondaryInput = value;
-		if (colorName === 'neutral') neutralInput = value;
-		if (colorName === 'accent') accentInput = value;
-		validatePrimaryColor();
-		validateSecondaryColor();
-		validateNeutralColor();
-		validateAccentColor();
+		pickerColor.h = parseInt(target.value, 10);
+		updatePickerColor();
+	}
+
+	function handleSaturationChange(event: Event) {
+		const target = event.target as HTMLInputElement;
+		pickerColor.saturation = parseInt(target.value, 10);
+		updatePickerColor();
+	}
+
+	function getActivePickerWarnings(): string[] {
+		if (openPicker === 'primary') return primaryWarnings;
+		if (openPicker === 'secondary') return secondaryWarnings;
+		if (openPicker === 'neutral') return neutralWarnings;
+		if (openPicker === 'accent') return accentWarnings;
+		return [];
 	}
 
 	function openSaveModal() {
@@ -279,6 +522,15 @@
 		resetTheme();
 	}
 
+	let pickerPos = $derived(getPickerPosition());
+	let activePickerWarnings = $derived(getActivePickerWarnings());
+
+	$effect(() => {
+		if (openPicker && colorAreaElement) {
+			drawColorArea();
+		}
+	});
+
 	$effect(() => {
 		neutralInput;
 		if (validateHex(accentInput)) {
@@ -296,12 +548,12 @@
 </svelte:head>
 
 <div class="space-y-4">
-	<header class="border-2 border-secondary-300 bg-neutral p-4 lg:p-5">
-		<h2 class="text-2xl lg:text-3xl font-bold font-serif text-neutral-950">Branding</h2>
-		<p class="mt-2 text-sm text-neutral-950">Update your core colors in real time.</p>
+	<header class="border-2 border-primary-200 bg-white p-4 lg:p-5">
+		<h2 class="text-2xl lg:text-3xl font-bold font-serif text-primary-900">Branding</h2>
+		<p class="mt-2 text-sm text-secondary-700">Update your core colors in real time.</p>
 	</header>
 
-	<section class="border-2 border-secondary-300 bg-white p-4 lg:p-5 space-y-4">
+	<section class="border-2 border-primary-200 bg-white p-4 lg:p-5 space-y-4">
 		<div class="flex flex-wrap gap-2">
 			<button type="button" class="button-primary" onclick={openSaveModal}>Save Theme</button>
 			<button type="button" class="button-primary-outlined" onclick={handleReset}
@@ -309,15 +561,46 @@
 			>
 		</div>
 
-		<div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-			{#each [{ key: 'primary', label: 'Primary', placeholder: 'CE1126', warnings: primaryWarnings, input: primaryInput }, { key: 'secondary', label: 'Secondary', placeholder: '14213D', warnings: secondaryWarnings, input: secondaryInput }, { key: 'neutral', label: 'Neutral', placeholder: 'Leave empty', warnings: neutralWarnings, input: neutralInput }, { key: 'accent', label: 'Accent', placeholder: '04669A', warnings: accentWarnings, input: accentInput }] as color}
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+			{#each [
+				{
+					key: 'primary',
+					label: 'Primary',
+					description: 'Your main brand color for key elements and primary calls to action.',
+					placeholder: 'CE1126',
+					warnings: primaryWarnings,
+					input: primaryInput
+				},
+				{
+					key: 'secondary',
+					label: 'Secondary',
+					description: 'Supporting color for backgrounds and secondary elements.',
+					placeholder: '14213D',
+					warnings: secondaryWarnings,
+					input: secondaryInput
+				},
+				{
+					key: 'neutral',
+					label: 'Neutral',
+					description: 'Neutral color for backgrounds and borders. Leave empty for default.',
+					placeholder: 'Leave empty',
+					warnings: neutralWarnings,
+					input: neutralInput
+				},
+				{
+					key: 'accent',
+					label: 'Accent',
+					description: 'Accent color for highlights and important actions.',
+					placeholder: '04669A',
+					warnings: accentWarnings,
+					input: accentInput
+				}
+			] as color}
 				<div>
-					<label
-						for={`branding-${color.key}`}
-						class="block text-sm font-semibold text-neutral-950 mb-1"
-					>
+					<label for={`branding-${color.key}`} class="block text-sm font-bold text-primary-900 mb-1">
 						{color.label}
 					</label>
+					<p class="text-xs text-secondary-700 mb-2">{color.description}</p>
 					<div class="flex gap-2">
 						<input
 							id={`branding-${color.key}`}
@@ -343,25 +626,23 @@
 								}
 							}}
 							placeholder={color.placeholder}
-							class="w-full"
+							class="flex-1"
 						/>
-						<input
-							type="color"
-							value={getCurrentColorHex(
+						<button
+							type="button"
+							onclick={() =>
+								openColorPicker(color.key as 'primary' | 'secondary' | 'neutral' | 'accent')}
+							class="w-16 h-10 border-2 border-primary-300 hover:border-primary-500 transition-colors cursor-pointer"
+							style="background-color: {getCurrentColorHex(
 								color.key as 'primary' | 'secondary' | 'neutral' | 'accent'
-							)}
-							oninput={(event) =>
-								handleColorPickerChange(
-									color.key as 'primary' | 'secondary' | 'neutral' | 'accent',
-									event
-								)}
-							class="h-10 w-14 border-2 border-secondary-300 bg-white cursor-pointer"
-							aria-label={`Pick ${color.label} color`}
-						/>
+							)}"
+							aria-label={`Open ${color.label} color picker`}
+						></button>
 					</div>
 					{#if color.warnings.length > 0}
-						<div class="mt-2 border border-yellow-300 bg-yellow-50 p-2">
-							<ul class="list-disc list-inside text-xs text-yellow-800">
+						<div class="mt-2 p-2 bg-yellow-50 border-2 border-yellow-300">
+							<p class="text-xs font-bold text-yellow-900 mb-1">Validation Warnings:</p>
+							<ul class="text-xs text-yellow-800 list-disc list-inside">
 								{#each color.warnings as warning}
 									<li>{warning}</li>
 								{/each}
@@ -373,8 +654,8 @@
 		</div>
 	</section>
 
-	<section class="border-2 border-secondary-300 bg-white p-4 lg:p-5">
-		<h3 class="text-lg font-bold text-neutral-950">Saved Themes</h3>
+	<section class="border-2 border-primary-200 bg-white p-4 lg:p-5">
+		<h3 class="text-lg font-bold text-primary-900">Saved Themes</h3>
 		<p class="text-xs text-secondary-700 mb-3">
 			Capacity: {Math.min($savedThemes.length, MAX_BRANDING_THEMES)} / {MAX_BRANDING_THEMES}
 		</p>
@@ -385,7 +666,7 @@
 			<div class="space-y-3">
 				{#each $savedThemes as theme (theme.id)}
 					<div
-						class="border-2 border-secondary-300 bg-neutral p-3 cursor-pointer hover:border-primary-500 transition-colors"
+						class="border-2 border-primary-300 bg-white p-3 cursor-pointer hover:border-primary-500 transition-colors"
 						role="button"
 						tabindex="0"
 						onclick={() => handleLoadTheme(theme.id)}
@@ -399,7 +680,7 @@
 					>
 						<div class="flex flex-wrap items-center justify-between gap-2">
 							<div>
-								<h4 class="text-sm font-semibold text-neutral-950">{theme.name}</h4>
+								<h4 class="text-sm font-semibold text-primary-900">{theme.name}</h4>
 								<p class="text-xs text-secondary-700">
 									Saved {new Date(theme.createdAt).toLocaleDateString()}
 								</p>
@@ -431,36 +712,239 @@
 		{/if}
 	</section>
 
+	{#if openPicker}
+		<div
+			class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+			onclick={closeColorPicker}
+			onkeydown={(event) => {
+				if (event.key === 'Escape') {
+					closeColorPicker();
+				}
+			}}
+			role="button"
+			tabindex="0"
+			aria-label="Close color picker"
+		>
+			<div
+				class="bg-white border-4 border-primary-500 p-4 md:p-6 max-w-md lg:max-w-5xl w-full max-h-[90vh] overflow-y-auto"
+				onclick={(event) => event.stopPropagation()}
+				onkeydown={(event) => event.stopPropagation()}
+				role="presentation"
+			>
+				<div class="flex justify-between items-center mb-4">
+					<h3 class="text-xl font-bold text-primary-900 capitalize">{openPicker} Color Picker</h3>
+					<button
+						onclick={closeColorPicker}
+						class="text-primary-600 hover:text-primary-800 font-bold text-2xl cursor-pointer"
+						aria-label="Close color picker"
+					>
+						&times;
+					</button>
+				</div>
+
+				<div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-4">
+					<div class="mb-4 lg:mb-0 relative lg:col-span-3 lg:self-stretch">
+						<canvas
+							bind:this={colorAreaElement}
+							class="w-full h-64 lg:h-full border-2 border-primary-300 cursor-crosshair select-none"
+							width="400"
+							height="256"
+							onmousedown={handleColorAreaMouseDown}
+							onclick={handleColorAreaClick}
+							onkeydown={(event) => {
+								if (event.key === 'Enter' || event.key === ' ') {
+									event.preventDefault();
+									if (colorAreaElement) {
+										const rect = colorAreaElement.getBoundingClientRect();
+										updateColorFromPosition(
+											rect.left + rect.width / 2,
+											rect.top + rect.height / 2,
+											colorAreaElement
+										);
+									}
+								}
+							}}
+							role="button"
+							tabindex="0"
+							aria-label="Color picker area. Use arrow keys to adjust, Enter or Space to select center color."
+						></canvas>
+						<div
+							class="absolute w-4 h-4 border-2 border-white pointer-events-none"
+							style="left: {pickerPos.x}%; top: {pickerPos.y}%; transform: translate(-50%, -50%); box-shadow: 0 0 0 1px rgba(0,0,0,0.5);"
+						></div>
+					</div>
+
+					<div class="lg:col-span-2">
+						<div class="mb-4">
+							<label for="hue-slider" class="block text-sm font-bold text-primary-900 mb-2">Hue</label>
+							<div class="relative h-8 border-2 border-primary-300">
+								<div
+									class="absolute inset-0"
+									style="background: linear-gradient(to right, hsl(0,100%,50%), hsl(60,100%,50%), hsl(120,100%,50%), hsl(180,100%,50%), hsl(240,100%,50%), hsl(300,100%,50%), hsl(360,100%,50%))"
+								></div>
+								<input
+									id="hue-slider"
+									type="range"
+									min="0"
+									max="360"
+									bind:value={pickerColor.h}
+									oninput={handleHueChange}
+									class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+								/>
+								<div
+									class="absolute top-0 w-1 h-full bg-white border border-primary-900 pointer-events-none"
+									style="left: {(pickerColor.h / 360) * 100}%"
+								></div>
+							</div>
+							<div class="text-xs text-secondary-600 mt-1">{pickerColor.h}&deg;</div>
+						</div>
+
+						<div class="mb-4">
+							<label for="saturation-slider" class="block text-sm font-bold text-primary-900 mb-2"
+								>Saturation</label
+							>
+							<div class="relative h-8 border-2 border-primary-300">
+								<div
+									class="absolute inset-0"
+									style="background: linear-gradient(to right, #FFFFFF, #{hslToHex(
+										pickerColor.h,
+										pickerColor.s,
+										pickerColor.l
+									)})"
+								></div>
+								<input
+									id="saturation-slider"
+									type="range"
+									min="0"
+									max="100"
+									bind:value={pickerColor.saturation}
+									oninput={handleSaturationChange}
+									class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+								/>
+								<div
+									class="absolute top-0 w-1 h-full bg-white border border-primary-900 pointer-events-none"
+									style="left: {pickerColor.saturation}%"
+								></div>
+							</div>
+							<div class="text-xs text-secondary-600 mt-1">{pickerColor.saturation}%</div>
+						</div>
+
+						<div class="mb-4 p-4 border-2 border-primary-200">
+							<div class="grid grid-cols-2 gap-4 text-sm">
+								<div>
+									<div class="font-bold text-primary-900">HSL</div>
+									<div class="text-secondary-700 font-mono">
+										{pickerColor.h}&deg;, {pickerColor.s}%, {pickerColor.l}%
+									</div>
+								</div>
+								<div>
+									<div class="font-bold text-primary-900">Hex</div>
+									<div class="text-secondary-700 font-mono">#{getPickerHex()}</div>
+								</div>
+							</div>
+						</div>
+
+						<div>
+							<div class="text-sm font-bold text-primary-900 mb-2">Preview</div>
+							<div
+								class="w-full h-16 border-2 border-primary-300"
+								style="background-color: #{getPickerHex()}"
+							></div>
+						</div>
+					</div>
+				</div>
+
+				{#if activePickerWarnings.length > 0}
+					<div class="mb-4 p-2 bg-yellow-50 border-2 border-yellow-300">
+						<p class="text-xs font-bold text-yellow-900 mb-1">Validation Warnings:</p>
+						<ul class="text-xs text-yellow-800 list-disc list-inside">
+							{#each activePickerWarnings as warning}
+								<li>{warning}</li>
+							{/each}
+						</ul>
+					</div>
+				{/if}
+
+				<div class="flex flex-col sm:flex-row gap-2">
+					<button
+						onclick={() => {
+							const hex = getPickerHex();
+							updateColor(openPicker!, hex);
+							if (openPicker === 'primary') {
+								primaryInput = hex;
+								validatePrimaryColor();
+							} else if (openPicker === 'secondary') {
+								secondaryInput = hex;
+								validateSecondaryColor();
+							} else if (openPicker === 'neutral') {
+								neutralInput = hex;
+								validateNeutralColor();
+							} else if (openPicker === 'accent') {
+								accentInput = hex;
+								validateAccentColor();
+							}
+							closeColorPicker();
+						}}
+						class="flex-1 button-primary"
+					>
+						Apply
+					</button>
+					<button onclick={closeColorPicker} class="flex-1 button-secondary-outlined">Cancel</button>
+				</div>
+			</div>
+		</div>
+	{/if}
+
 	{#if showSaveModal}
 		<div
-			class="fixed inset-0 z-50 bg-black/50 p-4 flex items-center justify-center"
+			class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+			onclick={closeThemeModals}
+			onkeydown={(event) => {
+				if (event.key === 'Escape') {
+					closeThemeModals();
+				}
+			}}
 			role="button"
 			tabindex="0"
 			aria-label="Close save theme modal"
-			onclick={closeThemeModals}
-			onkeydown={(event) => event.key === 'Escape' && closeThemeModals()}
 		>
 			<div
-				class="w-full max-w-md border-4 border-primary-500 bg-white p-5"
-				role="presentation"
+				class="bg-white border-4 border-primary-500 p-6 max-w-md w-full"
 				onclick={(event) => event.stopPropagation()}
 				onkeydown={(event) => event.stopPropagation()}
+				role="presentation"
 			>
-				<h4 class="text-xl font-bold text-primary-900 mb-3">Save Theme</h4>
-				<input
-					type="text"
-					bind:value={themeNameInput}
-					placeholder="Theme name"
-					class="w-full"
-					onkeydown={(event) => event.key === 'Enter' && handleSaveTheme()}
-					use:autofocus
-				/>
-				<div class="mt-4 flex gap-2">
-					<button type="button" class="button-primary flex-1" onclick={handleSaveTheme}>Save</button
+				<div class="flex justify-between items-center mb-4">
+					<h3 class="text-xl font-bold text-primary-900">Save Theme</h3>
+					<button
+						onclick={closeThemeModals}
+						class="text-primary-600 hover:text-primary-800 font-bold text-2xl cursor-pointer"
+						aria-label="Close save theme modal"
 					>
-					<button type="button" class="button-secondary-outlined flex-1" onclick={closeThemeModals}>
-						Cancel
+						&times;
 					</button>
+				</div>
+				<div class="mb-4">
+					<label for="theme-name-input" class="block text-sm font-bold text-primary-900 mb-2"
+						>Theme Name</label
+					>
+					<input
+						id="theme-name-input"
+						type="text"
+						bind:value={themeNameInput}
+						placeholder="Enter theme name..."
+						class="w-full"
+						onkeydown={(event) => {
+							if (event.key === 'Enter') {
+								handleSaveTheme();
+							}
+						}}
+						use:autofocus
+					/>
+				</div>
+				<div class="flex gap-2">
+					<button onclick={handleSaveTheme} class="flex-1 button-primary">Save</button>
+					<button onclick={closeThemeModals} class="flex-1 button-secondary-outlined">Cancel</button>
 				</div>
 			</div>
 		</div>
@@ -468,10 +952,7 @@
 
 	{#if showOverwriteModal}
 		<div
-			class="fixed inset-0 z-50 bg-black/50 p-4 flex items-center justify-center"
-			role="button"
-			tabindex="0"
-			aria-label="Close overwrite theme modal"
+			class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
 			onclick={() => {
 				showOverwriteModal = false;
 				showSaveModal = true;
@@ -482,28 +963,41 @@
 					showSaveModal = true;
 				}
 			}}
+			role="button"
+			tabindex="0"
+			aria-label="Close overwrite theme modal"
 		>
 			<div
-				class="w-full max-w-md border-4 border-primary-500 bg-white p-5"
-				role="presentation"
+				class="bg-white border-4 border-primary-500 p-6 max-w-md w-full"
 				onclick={(event) => event.stopPropagation()}
 				onkeydown={(event) => event.stopPropagation()}
+				role="presentation"
 			>
-				<h4 class="text-xl font-bold text-primary-900 mb-3">Overwrite Theme?</h4>
-				<p class="text-sm text-secondary-700">
-					A theme named <strong>{themeNameInput}</strong> already exists.
-				</p>
-				<div class="mt-4 flex gap-2">
-					<button type="button" class="button-primary flex-1" onclick={handleOverwriteTheme}>
-						Overwrite
-					</button>
+				<div class="flex justify-between items-center mb-4">
+					<h3 class="text-xl font-bold text-primary-900">Overwrite Theme?</h3>
 					<button
-						type="button"
-						class="button-secondary-outlined flex-1"
 						onclick={() => {
 							showOverwriteModal = false;
 							showSaveModal = true;
 						}}
+						class="text-primary-600 hover:text-primary-800 font-bold text-2xl cursor-pointer"
+						aria-label="Close overwrite theme modal"
+					>
+						&times;
+					</button>
+				</div>
+				<p class="text-secondary-700 mb-4">
+					A theme with the name "<strong>{themeNameInput}</strong>" already exists. Do you want to
+					overwrite it?
+				</p>
+				<div class="flex gap-2">
+					<button onclick={handleOverwriteTheme} class="flex-1 button-primary">Overwrite</button>
+					<button
+						onclick={() => {
+							showOverwriteModal = false;
+							showSaveModal = true;
+						}}
+						class="flex-1 button-secondary-outlined"
 					>
 						Cancel
 					</button>
@@ -514,10 +1008,7 @@
 
 	{#if showReplaceModal}
 		<div
-			class="fixed inset-0 z-50 bg-black/50 p-4 flex items-center justify-center"
-			role="button"
-			tabindex="0"
-			aria-label="Close replace theme modal"
+			class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
 			onclick={() => {
 				showReplaceModal = false;
 				showSaveModal = true;
@@ -528,35 +1019,76 @@
 					showSaveModal = true;
 				}
 			}}
+			role="button"
+			tabindex="0"
+			aria-label="Close replace theme modal"
 		>
 			<div
-				class="w-full max-w-md border-4 border-primary-500 bg-white p-5"
-				role="presentation"
+				class="bg-white border-4 border-primary-500 p-6 max-w-md w-full"
 				onclick={(event) => event.stopPropagation()}
 				onkeydown={(event) => event.stopPropagation()}
+				role="presentation"
 			>
-				<h4 class="text-xl font-bold text-primary-900 mb-3">Replace a Theme</h4>
-				<p class="text-sm text-secondary-700 mb-3">
+				<div class="flex justify-between items-center mb-4">
+					<h3 class="text-xl font-bold text-primary-900">Replace Theme</h3>
+					<button
+						onclick={() => {
+							showReplaceModal = false;
+							showSaveModal = true;
+						}}
+						class="text-primary-600 hover:text-primary-800 font-bold text-2xl cursor-pointer"
+						aria-label="Close replace theme modal"
+					>
+						&times;
+					</button>
+				</div>
+				<p class="text-secondary-700 mb-4">
 					You can save up to {MAX_BRANDING_THEMES} themes. Choose one to replace.
 				</p>
-				<div class="max-h-72 overflow-y-auto space-y-2">
+				<div class="space-y-2 mb-4 max-h-64 overflow-y-auto">
 					{#each $savedThemes as theme, index}
 						<button
-							type="button"
-							class="w-full border-2 border-secondary-300 bg-neutral p-2 text-left hover:border-primary-500 cursor-pointer transition-colors"
 							onclick={() => handleReplaceTheme(index)}
+							class="w-full text-left border-2 border-primary-300 p-3 hover:border-primary-500 hover:bg-primary-50 transition-colors cursor-pointer"
 						>
-							{theme.name}
+							<div class="flex items-center gap-3">
+								<div class="grid grid-cols-4 gap-1 shrink-0">
+									<div
+										class="w-8 h-8 border border-primary-300"
+										style="background-color: #{theme.colors.primary}"
+									></div>
+									<div
+										class="w-8 h-8 border border-primary-300"
+										style="background-color: #{theme.colors.secondary}"
+									></div>
+									<div
+										class="w-8 h-8 border border-primary-300"
+										style="background-color: {theme.colors.neutral &&
+										theme.colors.neutral.trim() !== ''
+											? '#' + theme.colors.neutral
+											: '#' + ZINC_PALETTE['500']}"
+									></div>
+									<div
+										class="w-8 h-8 border border-primary-300"
+										style="background-color: #{theme.colors.accent}"
+									></div>
+								</div>
+								<div class="flex-1">
+									<div class="font-bold text-primary-900">{theme.name}</div>
+									<div class="text-xs text-secondary-600">
+										{new Date(theme.createdAt).toLocaleDateString()}
+									</div>
+								</div>
+							</div>
 						</button>
 					{/each}
 				</div>
 				<button
-					type="button"
-					class="button-secondary-outlined w-full mt-3"
 					onclick={() => {
 						showReplaceModal = false;
 						showSaveModal = true;
 					}}
+					class="w-full button-secondary-outlined"
 				>
 					Cancel
 				</button>
@@ -566,31 +1098,48 @@
 
 	{#if showRenameModal}
 		<div
-			class="fixed inset-0 z-50 bg-black/50 p-4 flex items-center justify-center"
+			class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+			onclick={closeRenameModal}
+			onkeydown={(event) => {
+				if (event.key === 'Escape') {
+					closeRenameModal();
+				}
+			}}
 			role="button"
 			tabindex="0"
 			aria-label="Close rename theme modal"
-			onclick={closeRenameModal}
-			onkeydown={(event) => event.key === 'Escape' && closeRenameModal()}
 		>
 			<div
-				class="w-full max-w-md border-4 border-primary-500 bg-white p-5"
-				role="presentation"
+				class="bg-white border-4 border-primary-500 p-6 max-w-md w-full"
 				onclick={(event) => event.stopPropagation()}
 				onkeydown={(event) => event.stopPropagation()}
+				role="presentation"
 			>
-				<h4 class="text-xl font-bold text-primary-900 mb-3">Rename Theme</h4>
-				<input
-					type="text"
-					bind:value={renameThemeNameInput}
-					class="w-full"
-					onkeydown={(event) => event.key === 'Enter' && handleRenameTheme()}
-					use:autofocus
-				/>
-				<div class="mt-4 flex gap-2">
-					<button type="button" class="button-primary flex-1" onclick={handleRenameTheme}
-						>Save</button
+				<div class="flex justify-between items-center mb-4">
+					<h3 class="text-xl font-bold text-primary-900">Rename Theme</h3>
+					<button
+						onclick={closeRenameModal}
+						class="text-primary-600 hover:text-primary-800 font-bold text-2xl cursor-pointer"
+						aria-label="Close rename theme modal"
 					>
+						&times;
+					</button>
+				</div>
+				<div class="mb-4">
+					<label for="rename-theme-input" class="block text-sm font-bold text-primary-900 mb-2"
+						>Theme Name</label
+					>
+					<input
+						id="rename-theme-input"
+						type="text"
+						bind:value={renameThemeNameInput}
+						class="w-full"
+						onkeydown={(event) => event.key === 'Enter' && handleRenameTheme()}
+						use:autofocus
+					/>
+				</div>
+				<div class="flex gap-2">
+					<button type="button" class="button-primary flex-1" onclick={handleRenameTheme}>Save</button>
 					<button type="button" class="button-secondary-outlined flex-1" onclick={closeRenameModal}>
 						Cancel
 					</button>
