@@ -679,12 +679,12 @@
 						input: neutralInput
 					}
 				] as color}
-					<div class="border border-secondary-300 bg-white p-3">
+					<div class="border border-secondary-300 bg-white p-3 h-full flex flex-col">
 						<label for={`branding-${color.key}`} class="block text-sm font-bold text-neutral-950 mb-1">
 							{color.label}
 						</label>
 						<p class="text-xs text-neutral-950 mb-2">{color.description}</p>
-						<div class="flex gap-2">
+						<div class="mt-auto pt-2 flex gap-2">
 							<input
 								id={`branding-${color.key}`}
 								type="text"
