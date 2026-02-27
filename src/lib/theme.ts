@@ -75,6 +75,7 @@ const MAX_SAVED_THEMES = 15;
 const API_BASE = '/api/themes';
 let currentThemeETag: string | null = null;
 const THEME_API_PROTECTED_PREFIXES = ['/dashboard', '/schedule', '/colors'];
+let themeStoreSubscriptionInitialized = false;
 
 // store the current theme in memory for immediate use
 export const themeColors = writable<ThemeColors>(DEFAULT_THEME);
@@ -707,6 +708,8 @@ export async function init(
 	// keep the store in sync with the first paint
 	themeColors.set(fallbackTheme);
 	applyThemeToDOM(fallbackTheme);
+	// clear saved themes immediately so stale org data is not shown during a client switch
+	savedThemes.set([]);
 
 	try {
 		const canUseThemeApi = canUseThemeApiFromCurrentPath();
@@ -739,9 +742,12 @@ export async function init(
 	}
 
 	// keep css variables in sync with store changes
-	themeColors.subscribe((colors) => {
-		applyThemeToDOM(colors);
-	});
+	if (!themeStoreSubscriptionInitialized) {
+		themeStoreSubscriptionInitialized = true;
+		themeColors.subscribe((colors) => {
+			applyThemeToDOM(colors);
+		});
+	}
 
 	// allow the body to display after theme and styles are fully settled
 	await markThemeReady();

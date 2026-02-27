@@ -975,7 +975,10 @@
 					return;
 				}
 
-				await update({ reset: false });
+				await update({ reset: false, invalidateAll: true });
+				if (result.type === 'success') {
+					await invalidateAll();
+				}
 				if (typeof window !== 'undefined') {
 					requestAnimationFrame(() => {
 						window.scrollTo(scrollX, scrollY);

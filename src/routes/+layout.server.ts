@@ -32,6 +32,7 @@ const buildThemeEtag = (theme: {
 
 export const load: LayoutServerLoad = async (event) => {
 	const { locals } = event;
+	const activeClientId = locals.session?.activeClientId ?? null;
 	try {
 		const centralDbOps = getCentralDbOps(event);
 		await ensureDefaultClient(centralDbOps);
@@ -41,6 +42,7 @@ export const load: LayoutServerLoad = async (event) => {
 
 		if (!current) {
 			return {
+				activeClientId,
 				theme: { ...DEFAULT_THEME },
 				themeEtag: buildThemeEtag(null),
 				themeSource: 'fallback'
@@ -48,6 +50,7 @@ export const load: LayoutServerLoad = async (event) => {
 		}
 
 		return {
+			activeClientId,
 			theme: {
 				primary: normalizeHex(current.primary) || DEFAULT_THEME.primary,
 				secondary: normalizeHex(current.secondary) || DEFAULT_THEME.secondary,
@@ -60,6 +63,7 @@ export const load: LayoutServerLoad = async (event) => {
 	} catch (error) {
 		console.error('Failed to load theme for layout:', error);
 		return {
+			activeClientId,
 			theme: { ...DEFAULT_THEME },
 			themeEtag: buildThemeEtag(null),
 			themeSource: 'fallback'

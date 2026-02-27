@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { invalidateAll } from '$app/navigation';
 	import 'virtual:pwa-assets/head';
 	// import { injectSpeedInsights } from '@vercel/speed-insights/sveltekit';
 
@@ -14,6 +15,9 @@
 	let initialTheme = $derived((data?.theme as theme.ThemeColors | null) ?? theme.DEFAULT_THEME);
 	// only fetch the current theme when the server did not provide one
 	let shouldFetchCurrent = $derived((data?.themeSource as 'db' | 'fallback' | undefined) !== 'db');
+	let activeClientId = $derived((data?.activeClientId as string | null | undefined) ?? null);
+	let lastActiveClientId = $state<string | null>(null);
+	let clientSwitchRefreshInFlight = $state(false);
 
 	let themeEtag = $derived((data?.themeEtag as string | undefined) ?? 'W/"theme-empty"');
 	// serialize theme payloads for a blocking script in svelte:head
@@ -108,6 +112,37 @@
 	};
 
 	onMount(handleMount);
+
+	$effect(() => {
+		if (typeof window === 'undefined') {
+			return;
+		}
+
+		if (lastActiveClientId === null) {
+			lastActiveClientId = activeClientId;
+			return;
+		}
+
+		if (
+			clientSwitchRefreshInFlight ||
+			!activeClientId ||
+			!lastActiveClientId ||
+			activeClientId === lastActiveClientId
+		) {
+			return;
+		}
+
+		lastActiveClientId = activeClientId;
+		clientSwitchRefreshInFlight = true;
+		void (async () => {
+			try {
+				await theme.init(initialTheme, { fetchCurrent: shouldFetchCurrent });
+				await invalidateAll();
+			} finally {
+				clientSwitchRefreshInFlight = false;
+			}
+		})();
+	});
 </script>
 
 <svelte:head>

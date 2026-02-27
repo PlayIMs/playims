@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import IconDeviceFloppy from '@tabler/icons-svelte/icons/device-floppy';
+	import IconRestore from '@tabler/icons-svelte/icons/restore';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import {
 		themeColors,
@@ -40,6 +42,7 @@
 	let pickerColor = $state({ h: 0, s: 100, l: 50, saturation: 100 });
 	let isDragging = $state(false);
 	let colorAreaElement: HTMLCanvasElement | null = $state(null);
+	let showNeutralPalettePicker = $state(false);
 
 	let showSaveModal = $state(false);
 	let showReplaceModal = $state(false);
@@ -187,6 +190,33 @@
 		return formatHex(color);
 	}
 
+	const NEUTRAL_GRAY_PRESETS = ['FAFAFA', 'F5F5F5', 'EFEFEF', 'E8E8E8'];
+	const NEUTRAL_BEIGE_PRESETS = ['FAF6F0', 'F5EEE3', 'EFE4D5', 'E7D8C5'];
+
+	function buildMutedNeutralShades(baseHex: string, saturation: number): string[] {
+		if (!validateHex(baseHex)) {
+			return [];
+		}
+
+		const { h } = hexToHsl(baseHex);
+		const lightnessValues = [96, 92, 88, 84];
+		return lightnessValues.map((lightness) => hslToHex(h, saturation, lightness));
+	}
+
+	function getNeutralPaletteOptions(): string[] {
+		const primaryBase = validateHex(primaryInput) ? primaryInput : $themeColors.primary;
+		const secondaryBase = validateHex(secondaryInput) ? secondaryInput : $themeColors.secondary;
+
+		const options = [
+			...buildMutedNeutralShades(primaryBase, 12),
+			...buildMutedNeutralShades(secondaryBase, 10),
+			...NEUTRAL_GRAY_PRESETS,
+			...NEUTRAL_BEIGE_PRESETS
+		].map((hex) => hex.replace('#', '').toUpperCase());
+
+		return [...new Set(options)];
+	}
+
 	function hexToHsl(hex: string): { h: number; s: number; l: number } {
 		const cleanHex = hex.replace('#', '');
 		const r = parseInt(cleanHex.substring(0, 2), 16) / 255;
@@ -292,6 +322,20 @@
 	function getPickerHex(): string {
 		const baseHex = hslToHex(pickerColor.h, pickerColor.s, pickerColor.l);
 		return applySaturationToHex(baseHex, pickerColor.saturation);
+	}
+
+	function openNeutralPaletteModal() {
+		showNeutralPalettePicker = true;
+	}
+
+	function closeNeutralPaletteModal() {
+		showNeutralPalettePicker = false;
+	}
+
+	function applyNeutralPreset(hex: string) {
+		neutralInput = hex.replace('#', '').toUpperCase();
+		handleNeutralChange();
+		showNeutralPalettePicker = false;
 	}
 
 	function openColorPicker(colorName: 'primary' | 'secondary' | 'neutral' | 'accent') {
@@ -535,6 +579,7 @@
 
 	let pickerPos = $derived(getPickerPosition());
 	let activePickerWarnings = $derived(getActivePickerWarnings());
+	let neutralPaletteOptions = $derived(getNeutralPaletteOptions());
 
 	$effect(() => {
 		if (openPicker && colorAreaElement) {
@@ -571,19 +616,35 @@
 			<div>
 				<h3 class="text-xl font-bold font-serif text-neutral-950">Theme Colors</h3>
 				<p class="mt-1 text-xs text-neutral-950">
-					Set your primary, secondary, neutral, and accent colors.
+					Set your primary, secondary, accent, and neutral colors.
 				</p>
 			</div>
 			<div class="flex flex-wrap gap-2">
-				<button type="button" class="button-primary" onclick={openSaveModal}>Save Theme</button>
-				<button type="button" class="button-primary-outlined" onclick={handleReset}
-					>Reset to Default</button
-				>
+				<HoverTooltip text="Save Theme">
+					<button
+						type="button"
+						class="button-primary h-10 w-10 p-0 flex items-center justify-center"
+						onclick={openSaveModal}
+						aria-label="Save Theme"
+					>
+						<IconDeviceFloppy class="h-5 w-5" />
+					</button>
+				</HoverTooltip>
+				<HoverTooltip text="Reset to Default">
+					<button
+						type="button"
+						class="button-primary-outlined h-10 w-10 p-0 flex items-center justify-center"
+						onclick={handleReset}
+						aria-label="Reset to Default"
+					>
+						<IconRestore class="h-5 w-5" />
+					</button>
+				</HoverTooltip>
 			</div>
 		</div>
 
 		<div class="p-4 lg:p-5">
-			<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+			<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
 				{#each [
 					{
 						key: 'primary',
@@ -602,20 +663,20 @@
 						input: secondaryInput
 					},
 					{
-						key: 'neutral',
-						description: 'Neutral color for backgrounds and borders. Leave empty for default.',
-						label: 'Neutral',
-						placeholder: 'Leave empty',
-						warnings: neutralWarnings,
-						input: neutralInput
-					},
-					{
 						key: 'accent',
 						label: 'Accent',
 						description: 'Accent color for highlights and important actions.',
 						placeholder: '04669A',
 						warnings: accentWarnings,
 						input: accentInput
+					},
+					{
+						key: 'neutral',
+						description: 'Neutral color for backgrounds and borders. Leave empty for default.',
+						label: 'Neutral',
+						placeholder: 'Leave empty',
+						warnings: neutralWarnings,
+						input: neutralInput
 					}
 				] as color}
 					<div class="border border-secondary-300 bg-white p-3">
@@ -648,17 +709,24 @@
 									}
 								}}
 								placeholder={color.placeholder}
-								class="input-secondary flex-1"
+								class="input-secondary h-10 flex-1"
 							/>
 							<button
 								type="button"
-								onclick={() =>
-									openColorPicker(color.key as 'primary' | 'secondary' | 'neutral' | 'accent')}
+								onclick={() => {
+									if (color.key === 'neutral') {
+										openNeutralPaletteModal();
+										return;
+									}
+									openColorPicker(color.key as 'primary' | 'secondary' | 'neutral' | 'accent');
+								}}
 								class="w-16 h-10 border-2 border-secondary-300 hover:border-secondary-500 transition-colors cursor-pointer"
 								style="background-color: {getCurrentColorHex(
 									color.key as 'primary' | 'secondary' | 'neutral' | 'accent'
 								)}"
-								aria-label={`Open ${color.label} color picker`}
+								aria-label={color.key === 'neutral'
+									? 'Open neutral shade picker'
+									: `Open ${color.label} color picker`}
 							></button>
 						</div>
 						{#if color.warnings.length > 0}
@@ -704,43 +772,43 @@
 							}}
 							aria-label={`Load ${theme.name}`}
 						>
-							<div class="flex flex-wrap items-center justify-between gap-2">
-								<div>
-									<div class="flex flex-wrap items-center gap-2">
+							<div class="flex flex-wrap items-start justify-between gap-2">
+								<div class="flex items-center gap-3 min-w-0">
+									<div class="min-w-0">
 										<h4 class="text-sm font-semibold text-neutral-950">{theme.name}</h4>
-										<div
-											class="flex items-center gap-1"
-											aria-label={`Theme color preview for ${theme.name}`}
-										>
-											<span
-												class="h-4 w-4 border border-secondary-400"
-												style={`background-color: ${getSavedThemeColorHex(theme.colors, 'primary')}`}
-												title="Primary color"
-												aria-hidden="true"
-											></span>
-											<span
-												class="h-4 w-4 border border-secondary-400"
-												style={`background-color: ${getSavedThemeColorHex(theme.colors, 'secondary')}`}
-												title="Secondary color"
-												aria-hidden="true"
-											></span>
-											<span
-												class="h-4 w-4 border border-secondary-400"
-												style={`background-color: ${getSavedThemeColorHex(theme.colors, 'neutral')}`}
-												title="Neutral color"
-												aria-hidden="true"
-											></span>
-											<span
-												class="h-4 w-4 border border-secondary-400"
-												style={`background-color: ${getSavedThemeColorHex(theme.colors, 'accent')}`}
-												title="Accent color"
-												aria-hidden="true"
-											></span>
-										</div>
+										<p class="text-xs text-neutral-950 mt-1">
+											Saved {new Date(theme.createdAt).toLocaleDateString()}
+										</p>
 									</div>
-									<p class="text-xs text-neutral-950">
-										Saved {new Date(theme.createdAt).toLocaleDateString()}
-									</p>
+									<div
+										class="grid grid-cols-4 gap-2 shrink-0"
+										aria-label={`Theme color preview for ${theme.name}`}
+									>
+										<span
+											class="h-6 w-6 border border-secondary-400"
+											style={`background-color: ${getSavedThemeColorHex(theme.colors, 'primary')}`}
+											title="Primary color"
+											aria-hidden="true"
+										></span>
+										<span
+											class="h-6 w-6 border border-secondary-400"
+											style={`background-color: ${getSavedThemeColorHex(theme.colors, 'secondary')}`}
+											title="Secondary color"
+											aria-hidden="true"
+										></span>
+										<span
+											class="h-6 w-6 border border-secondary-400"
+											style={`background-color: ${getSavedThemeColorHex(theme.colors, 'accent')}`}
+											title="Accent color"
+											aria-hidden="true"
+										></span>
+										<span
+											class="h-6 w-6 border border-secondary-400"
+											style={`background-color: ${getSavedThemeColorHex(theme.colors, 'neutral')}`}
+											title="Neutral color"
+											aria-hidden="true"
+										></span>
+									</div>
 								</div>
 								<div class="flex gap-2">
 									<HoverTooltip text="Rename theme">
@@ -769,6 +837,75 @@
 			{/if}
 		</div>
 	</section>
+
+	{#if showNeutralPalettePicker}
+		<div
+			class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+			onclick={closeNeutralPaletteModal}
+			onkeydown={(event) => {
+				if (event.key === 'Escape') {
+					closeNeutralPaletteModal();
+				}
+			}}
+			role="button"
+			tabindex="0"
+			aria-label="Close neutral shade picker"
+		>
+			<div
+				class="bg-white border-4 border-primary-500 p-4 md:p-6 max-w-xl w-full max-h-[90vh] overflow-y-auto"
+				onclick={(event) => event.stopPropagation()}
+				onkeydown={(event) => event.stopPropagation()}
+				role="presentation"
+			>
+				<div class="flex justify-between items-center mb-3">
+					<h3 class="text-xl font-bold text-primary-900">Neutral Shade Picker</h3>
+					<button
+						onclick={closeNeutralPaletteModal}
+						class="text-primary-600 hover:text-primary-800 font-bold text-2xl cursor-pointer"
+						aria-label="Close neutral shade picker"
+					>
+						&times;
+					</button>
+				</div>
+				<p class="text-sm text-secondary-700 mb-4">
+					Choose a muted neutral tone based on your primary/secondary colors, or pick a light gray/beige.
+				</p>
+
+				<div class="grid grid-cols-4 sm:grid-cols-6 gap-2 mb-4">
+					{#each neutralPaletteOptions as hex}
+						<button
+							type="button"
+							class="h-12 border-2 cursor-pointer transition-colors {neutralInput.toUpperCase() ===
+							hex.toUpperCase()
+								? 'border-primary-700'
+								: 'border-secondary-300 hover:border-secondary-500'}"
+							style="background-color: #{hex}"
+							onclick={() => applyNeutralPreset(hex)}
+							aria-label={`Select neutral shade #${hex}`}
+							title={`#${hex}`}
+						></button>
+					{/each}
+				</div>
+
+				<div class="flex flex-col sm:flex-row gap-2">
+					<button
+						type="button"
+						class="flex-1 button-primary-outlined"
+						onclick={() => {
+							neutralInput = '';
+							handleNeutralChange();
+							closeNeutralPaletteModal();
+						}}
+					>
+						Use Default Neutral
+					</button>
+					<button type="button" class="flex-1 button-secondary-outlined" onclick={closeNeutralPaletteModal}
+						>Cancel</button
+					>
+				</div>
+			</div>
+		</div>
+	{/if}
 
 	{#if openPicker}
 		<div
@@ -1121,14 +1258,14 @@
 									></div>
 									<div
 										class="w-8 h-8 border border-primary-300"
+										style="background-color: #{theme.colors.accent}"
+									></div>
+									<div
+										class="w-8 h-8 border border-primary-300"
 										style="background-color: {theme.colors.neutral &&
 										theme.colors.neutral.trim() !== ''
 											? '#' + theme.colors.neutral
 											: '#' + ZINC_PALETTE['500']}"
-									></div>
-									<div
-										class="w-8 h-8 border border-primary-300"
-										style="background-color: #{theme.colors.accent}"
 									></div>
 								</div>
 								<div class="flex-1">
