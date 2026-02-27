@@ -114,6 +114,8 @@ Behavior pattern:
 
 For delete/leave/archive operations:
 
+- Always use a custom modal implementation (`ModalShell`-based danger modal or shared wizard confirm component).
+- Never use browser-native dialogs (`window.confirm`, `confirm()`).
 - Use `ModalShell` with error-themed panel:
   - `border-4 border-error-700 bg-error-25`
 - Include impact summary block:

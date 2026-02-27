@@ -112,6 +112,8 @@ When legacy guidance and current implementation differ, prefer current implement
 - Do not introduce native `<select>` for new dashboard selectors; use `ListboxDropdown`.
 - Do not ship new helper popover variants; use `InfoPopover`.
 - Do not ship new hover hints using native `title`; use `HoverTooltip`.
+- Do not use browser/native confirmation dialogs (`window.confirm`) for destructive actions.
+- All destructive confirmations (delete, leave, archive, remove) must use a custom confirmation modal pattern.
 - Do not bypass shared wizard primitives for new multi-step modals.
 - Do not nest `<form>` elements.
 - Keep Svelte 5 runes patterns and snippet/render conventions consistent with current codebase.

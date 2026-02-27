@@ -61,6 +61,8 @@ pnpm build
 - New action hover hints use `HoverTooltip`; no native `title` for new work.
 - Wizard modals use shared wizard primitives and footer behavior.
 - Destructive flows include impact copy + typed confirmation + disabled destructive CTA until valid.
+- No new `window.confirm`/native confirm usage for destructive confirmations.
+- Delete/remove/leave/archive confirmations use a custom confirmation modal.
 - Flat/square default is maintained except documented hybrid exceptions.
 
 ## 4) Responsive/Interaction Checklist

@@ -64,6 +64,7 @@ Use border-2 for high-severity modal/step errors.
 
 For high-impact actions:
 
+0. Use a proper custom confirmation modal; do not use browser-native `window.confirm`.
 1. Include impact summary text that explains exact data loss scope.
 2. Include irreversible warning text.
 3. Require user typed confirmation (usually normalized slug).
@@ -90,3 +91,7 @@ Buttons:
 - Destructive: `button-error cursor-pointer inline-flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-60`
 
 Keep copy precise and specific to the entity being destroyed/left/archived.
+
+Hard requirement:
+
+- Any delete/remove/leave/archive confirmation in future UI must follow this custom modal pattern.
