@@ -29,6 +29,7 @@ export const TOAST_DESKTOP_PLACEMENTS: ToastDesktopPlacement[] = [
 export const TOAST_PLACEMENTS = TOAST_DESKTOP_PLACEMENTS;
 export const TOAST_MOBILE_PLACEMENTS: ToastMobilePlacement[] = ['top', 'middle', 'bottom'];
 export const TOAST_STACK_LIMIT = 6;
+export const TOAST_MOBILE_STACK_LIMIT = 3;
 
 export interface ToastAction {
 	id?: string;
@@ -116,7 +117,7 @@ const normalizeToast = (input: ToastInput): ToastRecord => {
 		id: input.id ?? createToastId(),
 		variant,
 		placement,
-		mobilePlacement: input.mobilePlacement ?? deriveMobilePlacement(placement),
+		mobilePlacement: input.mobilePlacement ?? 'top',
 		title: input.title?.trim() ?? '',
 		description: input.description.trim(),
 		duration:

@@ -1,4 +1,4 @@
-<svelte:head>
+﻿<svelte:head>
 	<title>Toast Lab | PlayIMs</title>
 </svelte:head>
 
@@ -18,6 +18,7 @@
 	import {
 		TOAST_DESKTOP_PLACEMENTS,
 		TOAST_MOBILE_PLACEMENTS,
+		TOAST_MOBILE_STACK_LIMIT,
 		TOAST_STACK_LIMIT,
 		toast,
 		type ToastAction,
@@ -25,12 +26,12 @@
 		type ToastDesktopPlacement,
 		type ToastInput,
 		type ToastMobilePlacement,
-		type ToastPlacement,
 		type ToastRecord,
 		type ToastVariant
 	} from '$lib/toasts';
 
 	type DurationMode = 'default' | 'custom' | 'persistent';
+	type PreviewViewport = 'desktop' | 'mobile';
 	type ActionBehavior =
 		| 'dismiss'
 		| 'success-followup'
@@ -155,6 +156,13 @@
 		});
 	}
 
+	function formatMobilePreviewTime(timestamp: number): string {
+		return new Intl.DateTimeFormat(undefined, {
+			hour: 'numeric',
+			minute: '2-digit'
+		}).format(timestamp);
+	}
+
 	function parseIntegerInput(
 		value: string,
 		fallback: number,
@@ -224,9 +232,10 @@
 
 	let variant = $state<ToastVariant>('success');
 	let placement = $state<ToastDesktopPlacement>('bottom-right');
-	let mobilePlacement = $state<ToastMobilePlacement>('bottom');
+	let mobilePlacement = $state<ToastMobilePlacement>('top');
 	let title = $state('Offering saved');
 	let description = $state('Your new offering is live and ready for schedule setup.');
+	let previewViewport = $state<PreviewViewport>('desktop');
 	let durationMode = $state<DurationMode>('default');
 	let customDurationMs = $state('4800');
 	let dismissible = $state(true);
@@ -245,7 +254,16 @@
 	let stressIncludeActions = $state(false);
 	let stressFinalImportant = $state(true);
 	let stressRunning = $state(false);
-	let mobileStageTotal = $state(String(TOAST_STACK_LIMIT + 1));
+	let mobileStageTotal = $state('1');
+	let mobilePreviewNow = $state(Date.now());
+
+	const mobileStageRequestedTotal = $derived.by(() =>
+		parseIntegerInput(mobileStageTotal, TOAST_STACK_LIMIT + 1, 1, 12)
+	);
+
+	const mobileStageVisibleCount = $derived.by(() =>
+		Math.min(mobileStageRequestedTotal, TOAST_MOBILE_STACK_LIMIT)
+	);
 
 	const previewActions = $derived.by(() =>
 		actionDrafts
@@ -281,8 +299,8 @@
 	});
 
 	const mobileStageVisibleToasts = $derived.by<ToastRecord[]>(() => {
-		const total = parseIntegerInput(mobileStageTotal, TOAST_STACK_LIMIT + 1, 1, 12);
-		const visibleCount = Math.min(total, TOAST_STACK_LIMIT);
+		const total = mobileStageRequestedTotal;
+		const visibleCount = mobileStageVisibleCount;
 		const startingNumber = total - visibleCount + 1;
 		const visible = Array.from({ length: visibleCount }, (_, index) => {
 			const number = startingNumber + index;
@@ -306,10 +324,23 @@
 	});
 
 	const mobileStageOverflowCount = $derived.by(() =>
-		Math.max(0, parseIntegerInput(mobileStageTotal, TOAST_STACK_LIMIT + 1, 1, 12) - TOAST_STACK_LIMIT)
+		Math.max(0, mobileStageRequestedTotal - TOAST_MOBILE_STACK_LIMIT)
 	);
 
 	const mobileStageOverflowAtTop = $derived.by(() => mobilePlacement !== 'bottom');
+	const mobilePreviewTime = $derived.by(() => formatMobilePreviewTime(mobilePreviewNow));
+
+	$effect(() => {
+		const tick = () => {
+			mobilePreviewNow = Date.now();
+		};
+
+		tick();
+		const interval = setInterval(tick, 30_000);
+		return () => {
+			clearInterval(interval);
+		};
+	});
 
 	function updateAction(
 		index: number,
@@ -427,28 +458,6 @@
 
 	function clearToasts(): void {
 		toast.dismissAll();
-	}
-
-	function runQueuePreset(): void {
-		void runStressScenario({
-			count: TOAST_STACK_LIMIT + 4,
-			intervalMs: 100,
-			mode: 'unique',
-			clearFirst: true,
-			includeActions: false,
-			finalImportant: false
-		});
-	}
-
-	function runImportantBypassDemo(): void {
-		void runStressScenario({
-			count: TOAST_STACK_LIMIT + 2,
-			intervalMs: 120,
-			mode: 'unique',
-			clearFirst: true,
-			includeActions: false,
-			finalImportant: true
-		});
 	}
 
 	function applyPreset(preset: 'success' | 'error' | 'warning' | 'loading'): void {
@@ -989,14 +998,14 @@
 						</div>
 					</div>
 
-					<div class="grid gap-3 p-4">
+					<div class="flex flex-wrap gap-3 p-4">
 						<button
 							type="button"
 							class="button-primary inline-flex cursor-pointer items-center justify-center gap-2 px-4 py-3"
 							onclick={showToast}
 						>
 							<IconBellRinging class="h-4 w-4" />
-							Show with `toast.show`
+							Demo Toast
 						</button>
 						<button
 							type="button"
@@ -1004,284 +1013,139 @@
 							onclick={clearToasts}
 						>
 							<IconTrash class="h-4 w-4" />
-							Clear all toasts
+							Clear All Toasts
 						</button>
 					</div>
 				</section>
 
 				<section class="border border-secondary-300 bg-white/80">
 					<div class="border-b border-secondary-300 bg-secondary-50 px-4 py-3">
-						<div class="flex items-center gap-2">
-							<IconBolt class="h-5 w-5 text-secondary-800" />
-							<h2 class="font-serif text-xl text-secondary-900">Stack Stress Tests</h2>
-						</div>
-					</div>
-
-					<div class="space-y-4 p-4">
-						<div class="border border-secondary-300 bg-neutral-100 px-3 py-3 text-sm text-secondary-800">
-							<p class="font-semibold text-secondary-950">Stress the real shared toaster</p>
-							<p class="mt-2 leading-6">
-								Use this to test stack growth, queueing, duplicate collapsing, and important-toast
-								interruption using the same live toaster the rest of the app uses.
-							</p>
-						</div>
-
-						<div class="grid gap-3 sm:grid-cols-2">
-							<div class="space-y-1">
-								<label
-									class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-700"
-									for="stress-count"
+						<div class="flex flex-wrap items-center justify-between gap-3">
+							<h2 class="font-serif text-xl text-secondary-900">Live Toast Preview</h2>
+							<div class="inline-flex border border-secondary-300 bg-white">
+								<button
+									type="button"
+									class={`px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] ${
+										previewViewport === 'desktop'
+											? 'bg-secondary text-white'
+											: 'bg-white text-secondary-900'
+									}`}
+									onclick={() => (previewViewport = 'desktop')}
 								>
-									Toast Count
-								</label>
-								<input
-									id="stress-count"
-									type="number"
-									min="1"
-									max="24"
-									step="1"
-									class="input-secondary w-full"
-									bind:value={stressCount}
-								/>
-							</div>
-
-							<div class="space-y-1">
-								<label
-									class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-700"
-									for="stress-interval"
+									Desktop
+								</button>
+								<button
+									type="button"
+									class={`border-l border-secondary-300 px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] ${
+										previewViewport === 'mobile'
+											? 'bg-secondary text-white'
+											: 'bg-white text-secondary-900'
+									}`}
+									onclick={() => (previewViewport = 'mobile')}
 								>
-									Interval (ms)
-								</label>
-								<input
-									id="stress-interval"
-									type="number"
-									min="0"
-									max="5000"
-									step="20"
-									class="input-secondary w-full"
-									bind:value={stressIntervalMs}
-								/>
+									Mobile
+								</button>
 							</div>
-						</div>
-
-						<div class="space-y-2">
-							<p class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-700">
-								Stress Mode
-							</p>
-							<div class="space-y-2">
-								{#each stressModeOptions as option}
-									<label class="flex cursor-pointer gap-3 border border-secondary-300 bg-white px-3 py-3">
-										<input
-											class="radio-secondary mt-1"
-											type="radio"
-											name="stress-mode"
-											value={option.value}
-											checked={stressMode === option.value}
-											onchange={() => (stressMode = option.value)}
-										/>
-										<span>
-											<span class="block text-sm font-semibold text-secondary-950">
-												{option.label}
-											</span>
-											<span class="block text-xs text-secondary-700">
-												{option.description}
-											</span>
-										</span>
-									</label>
-								{/each}
-							</div>
-						</div>
-
-						<div class="grid gap-3 sm:grid-cols-2">
-							<label class="flex items-start gap-3 border border-secondary-300 bg-secondary-50 px-3 py-3">
-								<input class="checkbox-secondary mt-1" type="checkbox" bind:checked={stressClearFirst} />
-								<span>
-									<span class="block text-sm font-semibold text-secondary-950">Clear first</span>
-									<span class="block text-xs text-secondary-700">
-										Start from an empty toaster so stack motion is easier to judge.
-									</span>
-								</span>
-							</label>
-							<label class="flex items-start gap-3 border border-secondary-300 bg-secondary-50 px-3 py-3">
-								<input
-									class="checkbox-secondary mt-1"
-									type="checkbox"
-									bind:checked={stressIncludeActions}
-								/>
-								<span>
-									<span class="block text-sm font-semibold text-secondary-950">Include actions</span>
-									<span class="block text-xs text-secondary-700">
-										Useful when you want to inspect stack height with action rows included.
-									</span>
-								</span>
-							</label>
-							<label class="flex items-start gap-3 border border-secondary-300 bg-secondary-50 px-3 py-3 sm:col-span-2">
-								<input
-									class="checkbox-secondary mt-1"
-									type="checkbox"
-									bind:checked={stressFinalImportant}
-								/>
-								<span>
-									<span class="block text-sm font-semibold text-secondary-950">
-										Make the last toast important
-									</span>
-									<span class="block text-xs text-secondary-700">
-										Helpful for checking the “important toast replaces the oldest visible one”
-										behavior once the stack is full.
-									</span>
-								</span>
-							</label>
-						</div>
-
-						<div class="grid gap-3 sm:grid-cols-3">
-							<button
-								type="button"
-								class="button-primary inline-flex cursor-pointer items-center justify-center gap-2 px-4 py-3 disabled:cursor-wait disabled:opacity-60"
-								disabled={stressRunning}
-								onclick={() => void runStressScenario()}
-							>
-								<IconBolt class="h-4 w-4" />
-								{stressRunning ? 'Running...' : 'Run custom stress test'}
-							</button>
-							<button
-								type="button"
-								class="button-secondary-outlined inline-flex cursor-pointer items-center justify-center gap-2 px-4 py-3"
-								onclick={runQueuePreset}
-							>
-								<IconBellRinging class="h-4 w-4" />
-								Queue preset
-							</button>
-							<button
-								type="button"
-								class="button-secondary-outlined inline-flex cursor-pointer items-center justify-center gap-2 px-4 py-3"
-								onclick={runImportantBypassDemo}
-							>
-								<IconRefresh class="h-4 w-4" />
-								Important overflow demo
-							</button>
-						</div>
-					</div>
-				</section>
-
-				<section class="border border-secondary-300 bg-white/80">
-					<div class="border-b border-secondary-300 bg-secondary-50 px-4 py-3">
-						<div class="flex items-center gap-2">
-							<IconFlask class="h-5 w-5 text-secondary-800" />
-							<h2 class="font-serif text-xl text-secondary-900">Mobile Position Simulator</h2>
 						</div>
 					</div>
 
-					<div class="space-y-4 p-4">
-						<div class="border border-secondary-300 bg-neutral-100 px-3 py-3 text-sm text-secondary-800">
-							<p class="font-semibold text-secondary-950">Preview mobile stack behavior in place</p>
-							<p class="mt-2 leading-6">
-								This phone frame uses the current composer settings and the current mobile placement,
-								then stacks multiple preview toasts so you can inspect top, middle, and bottom
-								behavior without shrinking your whole browser first.
-							</p>
-						</div>
+					<div class="space-y-3 p-4">
+						{#if previewViewport === 'desktop'}
+							<div class="border border-secondary-300 bg-neutral-100/70 p-4">
+								<div class="rounded-sm border border-dashed border-secondary-300 bg-[linear-gradient(180deg,rgba(255,255,255,0.82),rgba(245,245,244,0.9))] p-5">
+									<div class="mx-auto w-full max-w-[26rem]">
+										<ToastItem item={previewToast} index={0} preview={true} />
+									</div>
+								</div>
+							</div>
+						{:else}
+							<div class="space-y-4">
+								<div class="grid gap-3 sm:grid-cols-[auto_auto] sm:justify-end">
+									<div class="border border-secondary-300 bg-white px-3 py-2 text-xs text-secondary-800">
+										<span class="font-bold uppercase tracking-[0.12em] text-secondary-700">Visible:</span>
+										<span class="ml-1">{mobileStageVisibleCount}</span>
+									</div>
+									<div class="border border-secondary-300 bg-white px-3 py-2 text-xs text-secondary-800">
+										<span class="font-bold uppercase tracking-[0.12em] text-secondary-700">Queued:</span>
+										<span class="ml-1">{mobileStageOverflowCount}</span>
+									</div>
+								</div>
 
-						<div class="space-y-1">
-							<label
-								class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-700"
-								for="mobile-stage-total"
-							>
-								Total mobile toasts
-							</label>
-							<input
-								id="mobile-stage-total"
-								type="number"
-								min="1"
-								max="12"
-								step="1"
-								class="input-secondary w-full"
-								bind:value={mobileStageTotal}
-							/>
-							<p class="text-xs text-secondary-700">
-								Anything above {TOAST_STACK_LIMIT} shows the queued overflow notice inside the phone
-								frame.
-							</p>
-						</div>
-
-						<div class="overflow-hidden border border-secondary-300 bg-[linear-gradient(180deg,rgba(238,219,206,0.35),rgba(255,255,255,0.9))] p-4">
-							<div class="mx-auto w-full max-w-[19rem]">
-								<div class="border-2 border-secondary-900 bg-neutral-950 p-1 shadow-[0_18px_36px_rgba(15,23,42,0.18)]">
-									<div class="flex h-[38rem] flex-col border border-secondary-300 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(245,245,244,0.95))]">
-										<div class="flex justify-center px-4 py-2">
-											<div class="h-1.5 w-20 bg-secondary-900/70"></div>
-										</div>
-										<div class="flex items-center justify-between border-y border-secondary-300 bg-white/90 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-secondary-700">
-											<span>Mobile {mobilePlacement}</span>
-											<span>{Math.min(parseIntegerInput(mobileStageTotal, TOAST_STACK_LIMIT + 1, 1, 12), TOAST_STACK_LIMIT)} visible</span>
-										</div>
-										<div class={`relative flex-1 p-3 ${mobileStageAlignmentClassByPlacement[mobilePlacement]}`}>
-											<div class="flex h-full w-full">
-												<div class="flex w-full flex-col gap-3">
-													{#if mobileStageOverflowCount > 0 && mobileStageOverflowAtTop}
-														<div class="border border-secondary-300 bg-neutral-05/95 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-secondary-900 shadow-[0_8px_18px_rgba(20,33,61,0.14)]">
-															{mobileStageOverflowCount} more notification{mobileStageOverflowCount === 1 ? '' : 's'}
+								<div class="overflow-hidden border border-secondary-300 bg-[linear-gradient(180deg,rgba(20,33,61,0.06),rgba(255,255,255,0.96))] p-4">
+									<div class="mx-auto w-full max-w-[18.8rem]">
+										<div class="rounded-[2.45rem] bg-black p-[0.2rem] shadow-[0_22px_48px_rgba(15,23,42,0.24)]">
+											<div class="relative overflow-hidden rounded-[2.25rem] bg-white">
+												<div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle,rgba(20,33,61,0.16)_1px,transparent_1.2px)] [background-position:0_0] [background-size:8px_8px] opacity-25"></div>
+												<div class="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-center pt-2">
+													<div class="flex h-7 w-32 items-center justify-center rounded-b-[1.1rem] bg-black">
+														<div class="flex items-center gap-2">
+															<div class="h-1 w-10 rounded-full bg-white/90"></div>
+															<div class="h-2 w-2 rounded-full bg-white/85"></div>
 														</div>
-													{/if}
-
-													{#each mobileStageVisibleToasts as item, index (item.id)}
-														<ToastItem {item} {index} preview={true} />
-													{/each}
-
-													{#if mobileStageOverflowCount > 0 && !mobileStageOverflowAtTop}
-														<div class="border border-secondary-300 bg-neutral-05/95 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-secondary-900 shadow-[0_8px_18px_rgba(20,33,61,0.14)]">
-															{mobileStageOverflowCount} more notification{mobileStageOverflowCount === 1 ? '' : 's'}
+													</div>
+												</div>
+												<div class="relative flex h-[38rem] flex-col px-4 pb-4 pt-3">
+													<div class="flex items-center justify-between px-2 pt-1 text-[0.62rem] font-bold text-neutral-950">
+														<span>{mobilePreviewTime}</span>
+														<div class="flex items-center gap-1.5 text-neutral-950">
+															<span class="h-1.5 w-1.5 rounded-full bg-current opacity-90"></span>
+															<span class="h-1.5 w-1.5 rounded-full bg-current opacity-75"></span>
+															<span class="h-1.5 w-4 rounded-[2px] bg-current opacity-85"></span>
 														</div>
-													{/if}
+													</div>
+													<div class="mt-8 h-full overflow-hidden">
+														<div class={`flex h-full ${mobileStageAlignmentClassByPlacement[mobilePlacement]}`}>
+															<div class="w-full overflow-hidden">
+																<div class="mx-auto flex max-w-[15rem] flex-col gap-2.5">
+																	{#if mobileStageOverflowCount > 0 && mobileStageOverflowAtTop}
+																		<div class="border border-secondary-300 bg-neutral-05/95 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-secondary-900 shadow-[0_10px_24px_rgba(20,33,61,0.16)] backdrop-blur">
+																			{mobileStageOverflowCount} more notification{mobileStageOverflowCount === 1 ? '' : 's'}
+																		</div>
+																	{/if}
+
+																	{#each mobileStageVisibleToasts as item, index (item.id)}
+																		<ToastItem
+																			{item}
+																			{index}
+																			preview={true}
+																			forceMobileLayout={true}
+																		/>
+																	{/each}
+
+																	{#if mobileStageOverflowCount > 0 && !mobileStageOverflowAtTop}
+																		<div class="border border-secondary-300 bg-neutral-05/95 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-secondary-900 shadow-[0_10px_24px_rgba(20,33,61,0.16)] backdrop-blur">
+																			{mobileStageOverflowCount} more notification{mobileStageOverflowCount === 1 ? '' : 's'}
+																		</div>
+																	{/if}
+																</div>
+															</div>
+														</div>
+													</div>
 												</div>
 											</div>
 										</div>
 									</div>
 								</div>
-							</div>
-						</div>
 
-						<div class="grid gap-2 text-xs text-secondary-800 sm:grid-cols-3">
-							<div class="border border-secondary-300 bg-white px-3 py-2">
-								<span class="font-bold uppercase tracking-[0.12em] text-secondary-700">Placement:</span>
-								<span class="ml-1 uppercase">{mobilePlacement}</span>
-							</div>
-							<div class="border border-secondary-300 bg-white px-3 py-2">
-								<span class="font-bold uppercase tracking-[0.12em] text-secondary-700">Visible:</span>
-								<span class="ml-1">{mobileStageVisibleToasts.length}</span>
-							</div>
-							<div class="border border-secondary-300 bg-white px-3 py-2">
-								<span class="font-bold uppercase tracking-[0.12em] text-secondary-700">Queued:</span>
-								<span class="ml-1">{mobileStageOverflowCount}</span>
-							</div>
-						</div>
-					</div>
-				</section>
-
-				<section class="border border-secondary-300 bg-white/80">
-					<div class="border-b border-secondary-300 bg-secondary-50 px-4 py-3">
-						<h2 class="font-serif text-xl text-secondary-900">Live Toast Preview</h2>
-					</div>
-					<div class="space-y-3 p-4">
-						<div class="border border-secondary-300 bg-neutral-100 px-3 py-3 text-sm text-secondary-800">
-							<p class="font-semibold text-secondary-950">Static visual preview</p>
-							<p class="mt-2 leading-6">
-								This uses the real toast card component, but it stays pinned in place so you can
-								study the layout, spacing, icon treatment, actions, and progress bar styling while
-								you tune the controls.
-							</p>
-							<p class="mt-2 leading-6">
-								The desktop and mobile placement settings below only affect actual triggered toasts.
-								This preview stays fixed here on purpose so it is easier to compare visual changes.
-							</p>
-						</div>
-
-						<div class="border border-secondary-300 bg-neutral-100/70 p-4">
-							<div class="rounded-sm border border-dashed border-secondary-300 bg-[linear-gradient(180deg,rgba(255,255,255,0.82),rgba(245,245,244,0.9))] p-5">
-								<div class="mx-auto w-full max-w-[26rem]">
-									<ToastItem item={previewToast} index={0} preview={true} />
+								<div class="space-y-1">
+									<label
+										class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-700"
+										for="mobile-stage-total"
+									>
+										Total Mobile Toasts
+									</label>
+									<input
+										id="mobile-stage-total"
+										type="number"
+										min="1"
+										max="12"
+										step="1"
+										class="input-secondary w-full"
+										bind:value={mobileStageTotal}
+									/>
 								</div>
 							</div>
-						</div>
+						{/if}
 
 						<div class="border border-secondary-300 bg-white">
 							<div class="border-b border-secondary-300 bg-neutral-100 px-3 py-2">
@@ -1337,6 +1201,136 @@
 								<span class="ml-1">{important ? 'Assertive' : 'Polite'}</span>
 							</div>
 						</div>
+					</div>
+				</section>
+
+				<section class="border border-secondary-300 bg-white/80">
+					<div class="border-b border-secondary-300 bg-secondary-50 px-4 py-3">
+						<div class="flex items-center gap-2">
+							<IconBolt class="h-5 w-5 text-secondary-800" />
+							<h2 class="font-serif text-xl text-secondary-900">Stack Stress Tests</h2>
+						</div>
+					</div>
+					<div class="space-y-4 p-4">
+						<p class="text-sm leading-6 text-secondary-800">
+							Fire multiple live toasts through the real shared toaster to inspect stacking,
+							queueing, duplicate merging, and important-toast replacement.
+						</p>
+
+						<div class="grid gap-3 sm:grid-cols-2">
+							<div class="space-y-1">
+								<label
+									class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-700"
+									for="stress-count"
+								>
+									Toast Count
+								</label>
+								<input
+									id="stress-count"
+									type="number"
+									min="1"
+									max="24"
+									step="1"
+									class="input-secondary w-full"
+									bind:value={stressCount}
+								/>
+							</div>
+							<div class="space-y-1">
+								<label
+									class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-700"
+									for="stress-interval"
+								>
+									Interval (ms)
+								</label>
+								<input
+									id="stress-interval"
+									type="number"
+									min="0"
+									max="5000"
+									step="20"
+									class="input-secondary w-full"
+									bind:value={stressIntervalMs}
+								/>
+							</div>
+						</div>
+
+						<div class="space-y-2">
+							<p class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-700">
+								Stress Mode
+							</p>
+							<div class="grid gap-2 sm:grid-cols-3">
+								{#each stressModeOptions as option}
+									<label
+										class={`flex cursor-pointer flex-col gap-1 border px-3 py-3 ${
+											stressMode === option.value
+												? 'border-secondary-900 bg-secondary text-white'
+												: 'border-secondary-300 bg-white text-secondary-900'
+										}`}
+									>
+										<input
+											class="radio-secondary sr-only"
+											type="radio"
+											name="stress-mode"
+											value={option.value}
+											checked={stressMode === option.value}
+											onchange={() => (stressMode = option.value)}
+										/>
+										<span class="text-sm font-semibold uppercase tracking-[0.08em]">
+											{option.label}
+										</span>
+										<span
+											class={`text-xs leading-5 ${
+												stressMode === option.value ? 'text-white/85' : 'text-secondary-700'
+											}`}
+										>
+											{option.description}
+										</span>
+									</label>
+								{/each}
+							</div>
+						</div>
+
+						<div class="grid gap-2 sm:grid-cols-3">
+							<label class="flex items-start gap-3 border border-secondary-300 bg-secondary-50 px-3 py-3">
+								<input class="checkbox-secondary mt-1" type="checkbox" bind:checked={stressClearFirst} />
+								<span>
+									<span class="block text-sm font-semibold text-secondary-950">Clear first</span>
+									<span class="block text-xs text-secondary-700">Start from an empty stack.</span>
+								</span>
+							</label>
+							<label class="flex items-start gap-3 border border-secondary-300 bg-secondary-50 px-3 py-3">
+								<input
+									class="checkbox-secondary mt-1"
+									type="checkbox"
+									bind:checked={stressIncludeActions}
+								/>
+								<span>
+									<span class="block text-sm font-semibold text-secondary-950">Include actions</span>
+									<span class="block text-xs text-secondary-700">Test taller toasts too.</span>
+								</span>
+							</label>
+							<label class="flex items-start gap-3 border border-secondary-300 bg-secondary-50 px-3 py-3">
+								<input
+									class="checkbox-secondary mt-1"
+									type="checkbox"
+									bind:checked={stressFinalImportant}
+								/>
+								<span>
+									<span class="block text-sm font-semibold text-secondary-950">Last one important</span>
+									<span class="block text-xs text-secondary-700">Force replacement when full.</span>
+								</span>
+							</label>
+						</div>
+
+						<button
+							type="button"
+							class="button-primary inline-flex w-full cursor-pointer items-center justify-center gap-2 px-4 py-3 disabled:cursor-wait disabled:opacity-60"
+							disabled={stressRunning}
+							onclick={() => void runStressScenario()}
+						>
+							<IconBolt class="h-4 w-4" />
+							{stressRunning ? 'Running...' : 'Run Stress Test'}
+						</button>
 					</div>
 				</section>
 			</div>

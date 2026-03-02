@@ -6,6 +6,7 @@
 	import {
 		TOAST_DESKTOP_PLACEMENTS,
 		TOAST_MOBILE_PLACEMENTS,
+		TOAST_MOBILE_STACK_LIMIT,
 		TOAST_STACK_LIMIT,
 		toast,
 		toastStore,
@@ -25,9 +26,9 @@
 		'bottom-right': 'bottom-4 justify-end'
 	};
 	const mobileViewportClassByPlacement: Record<ToastMobilePlacement, string> = {
-		top: 'top-4 justify-center',
+		top: 'top-3 justify-center',
 		middle: 'top-1/2 -translate-y-1/2 justify-center',
-		bottom: 'bottom-4 justify-center'
+		bottom: 'bottom-3 justify-center'
 	};
 	const VIEWPORT_EDGE_GAP_PX = 16;
 	const RIGHT_STACK_EXTRA_GAP_PX = 18;
@@ -63,9 +64,10 @@
 
 	function getVisibleToasts<T extends ToastDesktopPlacement | ToastMobilePlacement>(
 		placement: T,
-		placementToasts: typeof $toastStore
+		placementToasts: typeof $toastStore,
+		limit: number
 	) {
-		const visible = placementToasts.slice(0, TOAST_STACK_LIMIT);
+		const visible = placementToasts.slice(0, limit);
 		const shouldReverse =
 			placement.startsWith('top') ||
 			placement === 'middle' ||
@@ -136,7 +138,7 @@
 	const desktopPlacementGroups = $derived.by(() =>
 		TOAST_DESKTOP_PLACEMENTS.map((placement) => {
 			const placementToasts = $toastStore.filter((item) => item.placement === placement);
-			const visible = getVisibleToasts(placement, placementToasts);
+			const visible = getVisibleToasts(placement, placementToasts, TOAST_STACK_LIMIT);
 			return {
 				placement,
 				visible,
@@ -149,7 +151,7 @@
 	const mobilePlacementGroups = $derived.by(() =>
 		TOAST_MOBILE_PLACEMENTS.map((placement) => {
 			const placementToasts = $toastStore.filter((item) => item.mobilePlacement === placement);
-			const visible = getVisibleToasts(placement, placementToasts);
+			const visible = getVisibleToasts(placement, placementToasts, TOAST_MOBILE_STACK_LIMIT);
 			return {
 				placement,
 				visible,
@@ -191,7 +193,7 @@
 		aria-live="polite"
 		aria-atomic="true"
 	>
-		<div class="w-full max-w-[26rem] space-y-3">
+		<div class="w-full max-w-[22rem] space-y-2.5 sm:max-w-[26rem] sm:space-y-3">
 			{#if group.overflowCount > 0 && group.placeOverflowBefore}
 				{@render overflowNotice(group.overflowCount, visibleIds)}
 			{/if}

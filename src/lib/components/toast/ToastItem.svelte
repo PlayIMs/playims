@@ -21,6 +21,7 @@
 		item: ToastRecord;
 		index: number;
 		preview?: boolean;
+		forceMobileLayout?: boolean;
 		animateEntry?: boolean;
 		enterOffsetX?: number;
 		enterOffsetY?: number;
@@ -30,6 +31,7 @@
 		item,
 		index,
 		preview = false,
+		forceMobileLayout = false,
 		animateEntry = true,
 		enterOffsetX = 0,
 		enterOffsetY = -18
@@ -127,7 +129,9 @@
 		const style = action.style ?? 'outline';
 		const toneClass = toastActionClassByVariant[toastVariant][style];
 
-		return `inline-flex items-center justify-center border px-2.5 py-1 text-[10px] leading-none font-bold uppercase tracking-wide transition-colors duration-150 cursor-pointer ${toneClass}`;
+		return forceMobileLayout
+			? `inline-flex items-center justify-center border px-1.5 py-0.5 text-[8px] leading-none font-bold uppercase tracking-wide transition-colors duration-150 cursor-pointer ${toneClass}`
+			: `inline-flex items-center justify-center border px-1.5 py-0.5 text-[8px] leading-none font-bold uppercase tracking-wide transition-colors duration-150 cursor-pointer sm:px-2.5 sm:py-1 sm:text-[10px] ${toneClass}`;
 	}
 
 	let remainingMs = $state(0);
@@ -136,12 +140,82 @@
 	let actionDismissClosing = $state(false);
 	let startedAt = 0;
 	let activeDurationMs = 0;
-	let intervalHandle: ReturnType<typeof setInterval> | null = null;
+	let frameHandle: number | null = null;
+	let clockToken = 0;
 	let ToastIcon = $derived(iconByVariant[item.variant]);
 	const ACTION_DISMISS_EXIT_MS = 160;
-	const TIMER_TICK_MS = 40;
 	const duplicateCountLabel = $derived(
 		item.duplicateCount > 1 ? `(${item.duplicateCount}x)` : ''
+	);
+	const contentPaddingClass = $derived.by(() => {
+		if (forceMobileLayout) {
+			return item.showProgress && item.duration !== null
+				? 'px-2.5 pt-2.5 pb-3.5'
+				: 'px-2.5 pt-2.5 pb-2.5';
+		}
+
+		return item.showProgress && item.duration !== null
+			? 'px-2.5 pt-2.5 pb-3.5 sm:px-4 sm:pt-3.5 sm:pb-5'
+			: 'px-2.5 pt-2.5 pb-2.5 sm:px-4 sm:pt-3.5 sm:pb-3.5';
+	});
+	const rowGapClass = $derived(forceMobileLayout ? 'gap-2' : 'gap-2 sm:gap-3');
+	const iconWrapClass = $derived(
+		forceMobileLayout
+			? 'mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center border-2'
+			: 'mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center border-2 sm:h-9 sm:w-9'
+	);
+	const iconClass = $derived(
+		forceMobileLayout
+			? `h-3.5 w-3.5 ${item.variant === 'loading' ? 'animate-spin' : ''}`
+			: `h-3.5 w-3.5 sm:h-5 sm:w-5 ${item.variant === 'loading' ? 'animate-spin' : ''}`
+	);
+	const bodyPaddingClass = $derived(
+		forceMobileLayout
+			? item.dismissible
+				? 'min-w-0 flex-1 pr-4'
+				: 'min-w-0 flex-1'
+			: item.dismissible
+				? 'min-w-0 flex-1 pr-4 sm:pr-6'
+				: 'min-w-0 flex-1'
+	);
+	const bodySpacingClass = $derived(forceMobileLayout ? 'space-y-0.5' : 'space-y-0.5 sm:space-y-1');
+	const titleClass = $derived(
+		forceMobileLayout
+			? `font-serif text-[0.62rem] font-bold uppercase tracking-[0.11em] ${titleClassByVariant[item.variant]}`
+			: `font-serif text-[0.62rem] font-bold uppercase tracking-[0.11em] sm:text-[0.72rem] sm:tracking-[0.14em] ${titleClassByVariant[item.variant]}`
+	);
+	const duplicateLabelClass = $derived(
+		forceMobileLayout
+			? `font-serif text-[0.58rem] font-bold tracking-[0.08em] opacity-90 ${titleClassByVariant[item.variant]}`
+			: `font-serif text-[0.58rem] font-bold tracking-[0.08em] opacity-90 sm:text-[0.68rem] sm:tracking-[0.12em] ${titleClassByVariant[item.variant]}`
+	);
+	const descriptionClass = $derived(
+		forceMobileLayout
+			? `text-xs leading-[1.125rem] font-sans ${descriptionClassByVariant[item.variant]}`
+			: `text-xs leading-[1.125rem] font-sans sm:text-sm sm:leading-5 ${descriptionClassByVariant[item.variant]}`
+	);
+	const dismissButtonClass = $derived(
+		forceMobileLayout
+			? `absolute right-1.5 top-1.5 inline-flex h-4 w-4 items-center justify-center bg-transparent transition-opacity duration-150 ${closeButtonClassByVariant[item.variant]} ${
+					preview ? 'cursor-default opacity-55' : 'cursor-pointer opacity-85 hover:opacity-100'
+				}`
+			: `absolute right-1.5 top-1.5 inline-flex h-4 w-4 items-center justify-center bg-transparent transition-opacity duration-150 sm:right-2 sm:top-2 sm:h-5 sm:w-5 ${closeButtonClassByVariant[item.variant]} ${
+					preview ? 'cursor-default opacity-55' : 'cursor-pointer opacity-85 hover:opacity-100'
+				}`
+	);
+	const dismissIconClass = $derived(forceMobileLayout ? 'h-3 w-3' : 'h-3 w-3 sm:h-4 sm:w-4');
+	const actionsWrapClass = $derived(
+		forceMobileLayout
+			? 'mt-2 flex flex-wrap justify-end gap-1.5 pr-3'
+			: 'mt-2 flex flex-wrap justify-end gap-1.5 pr-3 sm:mt-3 sm:gap-2 sm:pr-5'
+	);
+	const actionLoadingIconClass = $derived(
+		forceMobileLayout ? 'h-2 w-2 animate-spin' : 'h-2 w-2 animate-spin sm:h-3 sm:w-3'
+	);
+	const progressClass = $derived(
+		forceMobileLayout
+			? `absolute bottom-0 left-0 h-1 transition-[width] duration-75 ease-linear ${progressClassByVariant[item.variant]}`
+			: `absolute bottom-0 left-0 h-1 transition-[width] duration-75 ease-linear sm:h-1.5 ${progressClassByVariant[item.variant]}`
 	);
 
 	const progressWidth = $derived.by(() => {
@@ -152,10 +226,15 @@
 	});
 
 	function clearClock(): void {
-		if (intervalHandle) {
-			clearInterval(intervalHandle);
-			intervalHandle = null;
+		clockToken += 1;
+		if (frameHandle !== null) {
+			cancelAnimationFrame(frameHandle);
+			frameHandle = null;
 		}
+	}
+
+	function scheduleFrame(callback: FrameRequestCallback): void {
+		frameHandle = requestAnimationFrame(callback);
 	}
 
 	function startClock(duration: number): void {
@@ -163,24 +242,43 @@
 		activeDurationMs = duration;
 		startedAt = Date.now();
 		remainingMs = duration;
-		intervalHandle = setInterval(() => {
+		const token = clockToken;
+		const tick = () => {
+			if (token !== clockToken || paused) {
+				return;
+			}
+
 			const nextRemaining = Math.max(0, activeDurationMs - (Date.now() - startedAt));
 			remainingMs = nextRemaining;
 			if (nextRemaining === 0) {
 				clearClock();
 				toast.dismiss(item.id);
+				return;
 			}
-		}, TIMER_TICK_MS);
+
+			scheduleFrame(tick);
+		};
+
+		scheduleFrame(tick);
 	}
 
 	function startPreviewLoop(duration: number): void {
 		clearClock();
 		startedAt = Date.now();
 		remainingMs = duration;
-		intervalHandle = setInterval(() => {
+		const token = clockToken;
+		const tick = () => {
+			if (token !== clockToken) {
+				return;
+			}
+
 			const elapsedInCycle = (Date.now() - startedAt) % duration;
 			remainingMs = elapsedInCycle === 0 ? duration : duration - elapsedInCycle;
-		}, TIMER_TICK_MS);
+
+			scheduleFrame(tick);
+		};
+
+		scheduleFrame(tick);
 	}
 
 	function pauseClock(): void {
@@ -262,6 +360,21 @@
 			clearClock();
 		};
 	});
+
+	function handleFocusIn(): void {
+		pauseClock();
+	}
+
+	function handleFocusOut(event: FocusEvent): void {
+		const nextTarget = event.relatedTarget;
+		if (nextTarget instanceof Node && event.currentTarget instanceof HTMLElement) {
+			if (event.currentTarget.contains(nextTarget)) {
+				return;
+			}
+		}
+
+		resumeClock();
+	}
 </script>
 
 <article
@@ -274,8 +387,8 @@
 	style={`z-index:${100 - index};`}
 	onmouseenter={pauseClock}
 	onmouseleave={resumeClock}
-	onfocusin={pauseClock}
-	onfocusout={resumeClock}
+	onfocusin={handleFocusIn}
+	onfocusout={handleFocusOut}
 	in:fly={
 		!preview && animateEntry
 			? { x: enterOffsetX, y: enterOffsetY, duration: 260, easing: cubicOut }
@@ -283,47 +396,29 @@
 	}
 	out:scale={!preview ? { duration: 160, easing: cubicOut, start: 1, opacity: 0.2 } : undefined}
 >
-	<div
-		class={`px-4 pt-3.5 ${
-			item.showProgress && item.duration !== null ? 'pb-5' : 'pb-3.5'
-		}`}
-	>
-		<div class="flex items-start gap-3">
-			<div
-				class={`mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center border-2 ${iconWrapClassByVariant[item.variant]}`}
-			>
-				<ToastIcon class={`h-5 w-5 ${item.variant === 'loading' ? 'animate-spin' : ''}`} />
+	<div class={contentPaddingClass}>
+		<div class={`flex items-start ${rowGapClass}`}>
+			<div class={`${iconWrapClass} ${iconWrapClassByVariant[item.variant]}`}>
+				<ToastIcon class={iconClass} />
 			</div>
-			<div class={`min-w-0 flex-1 ${item.dismissible ? 'pr-6' : ''}`}>
-				<div class="space-y-1">
+			<div class={bodyPaddingClass}>
+				<div class={bodySpacingClass}>
 					{#if item.title}
 						<div class="flex items-baseline gap-2">
-							<p
-								class={`font-serif text-[0.72rem] font-bold uppercase tracking-[0.14em] ${titleClassByVariant[item.variant]}`}
-							>
-								{item.title}
-							</p>
+							<p class={titleClass}>{item.title}</p>
 							{#if item.duplicateCount > 1}
-								<span
-									class={`font-serif text-[0.68rem] font-bold tracking-[0.12em] opacity-90 ${titleClassByVariant[item.variant]}`}
-								>
-									{duplicateCountLabel}
-								</span>
+								<span class={duplicateLabelClass}>{duplicateCountLabel}</span>
 							{/if}
 						</div>
 					{/if}
-					<p class={`text-sm leading-5 font-sans ${descriptionClassByVariant[item.variant]}`}>
-						{item.description}
-					</p>
+					<p class={descriptionClass}>{item.description}</p>
 				</div>
 			</div>
 
 			{#if item.dismissible}
 				<button
 					type="button"
-					class={`absolute right-2 top-2 inline-flex h-5 w-5 items-center justify-center bg-transparent transition-opacity duration-150 ${closeButtonClassByVariant[item.variant]} ${
-						preview ? 'cursor-default opacity-55' : 'cursor-pointer opacity-85 hover:opacity-100'
-					}`}
+					class={dismissButtonClass}
 					aria-label={preview ? 'Preview dismiss button' : 'Dismiss notification'}
 					disabled={preview}
 					onclick={() => {
@@ -332,13 +427,13 @@
 						}
 					}}
 				>
-					<IconX class="h-4 w-4" />
+					<IconX class={dismissIconClass} />
 				</button>
 			{/if}
 		</div>
 
 		{#if item.actions.length > 0}
-			<div class="mt-3 flex flex-wrap justify-end gap-2">
+			<div class={actionsWrapClass}>
 				{#each item.actions as action}
 					<button
 						type="button"
@@ -348,7 +443,7 @@
 					>
 						{#if actionLoadingId === (action.id ?? action.label)}
 							<span class="inline-flex items-center gap-1">
-								<IconLoader2 class="h-3 w-3 animate-spin" />
+								<IconLoader2 class={actionLoadingIconClass} />
 								Working
 							</span>
 						{:else}
@@ -361,9 +456,6 @@
 	</div>
 
 	{#if item.showProgress && item.duration !== null}
-		<div
-			class={`absolute bottom-0 left-0 h-1.5 transition-[width] duration-75 ease-linear ${progressClassByVariant[item.variant]}`}
-			style={`width:${progressWidth}%;`}
-		></div>
+		<div class={progressClass} style={`width:${progressWidth}%;`}></div>
 	{/if}
 </article>

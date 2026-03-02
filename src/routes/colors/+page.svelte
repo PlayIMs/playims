@@ -563,7 +563,7 @@
 				color picker.
 			</p>
 
-			<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+			<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
 				<div class="relative">
 					<label for="primary" class="block text-sm font-bold text-primary-900 mb-2">
 						Primary
@@ -1676,51 +1676,6 @@
 				</div>
 			</div>
 
-			<!-- Toasts -->
-			<div class="mb-8">
-				<h3 class="text-xl font-bold text-primary-950 mb-3">Toasts</h3>
-				<div class="space-y-3">
-					<!-- Primary, Secondary, Secondary Toasts -->
-					<div class="toast-primary">
-						<div class="font-bold text-primary-950">Primary Toast</div>
-						<div class="text-primary-900 text-sm mt-1">
-							This is a primary toast notification message.
-						</div>
-					</div>
-					<div class="toast-secondary">
-						<div class="font-bold text-secondary-950">Secondary Toast</div>
-						<div class="text-secondary-900 text-sm mt-1">
-							This is a secondary toast notification message.
-						</div>
-					</div>
-					<div class="toast-secondary">
-						<div class="font-bold text-secondary-950">Secondary Toast</div>
-						<div class="text-secondary-900 text-sm mt-1">
-							This is an Secondary toast notification message.
-						</div>
-					</div>
-					<!-- Outlined versions -->
-					<div class="toast-primary-outlined">
-						<div class="font-bold text-primary-950">Outlined Primary Toast</div>
-						<div class="text-primary-900 text-sm mt-1">
-							This is an outlined primary toast notification message.
-						</div>
-					</div>
-					<div class="toast-secondary-outlined">
-						<div class="font-bold text-secondary-950">Outlined Secondary Toast</div>
-						<div class="text-secondary-900 text-sm mt-1">
-							This is an outlined secondary toast notification message.
-						</div>
-					</div>
-					<div class="toast-secondary-outlined">
-						<div class="font-bold text-secondary-950">Outlined Secondary Toast</div>
-						<div class="text-secondary-900 text-sm mt-1">
-							This is an outlined Secondary toast notification message.
-						</div>
-					</div>
-				</div>
-			</div>
-
 			<!-- Tables -->
 			<div class="mb-8">
 				<h3 class="text-xl font-bold text-primary-950 mb-3">Tables</h3>
@@ -1769,14 +1724,10 @@
 			<!-- Color Swatches -->
 			<div>
 				<h3 class="text-xl font-bold text-primary-950 mb-3">Color Swatches</h3>
-				<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+				<div class="grid grid-cols-2 md:grid-cols-3 gap-4">
 					<div>
 						<div class="bg-primary h-16 border-2 border-primary-300 mb-2"></div>
 						<div class="text-xs font-bold text-primary-950">primary-500</div>
-					</div>
-					<div>
-						<div class="bg-secondary h-16 border-2 border-primary-300 mb-2"></div>
-						<div class="text-xs font-bold text-primary-950">secondary-500</div>
 					</div>
 					<div>
 						<div class="bg-secondary h-16 border-2 border-primary-300 mb-2"></div>
