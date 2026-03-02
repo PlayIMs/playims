@@ -14,6 +14,7 @@
 		IconBell
 	} from '@tabler/icons-svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
+	import { toast } from '$lib/toasts';
 
 	let { data } = $props();
 	const pageLabel = $derived.by(
@@ -59,6 +60,27 @@
 	let activeFilterLabel = $derived(
 		filterOptions.find((option) => option.id === scheduleFilter)?.label ?? 'Scheduled'
 	);
+	let lastPageError = $state('');
+
+	$effect(() => {
+		const message = (data?.error ?? '').trim();
+		if (!message) {
+			lastPageError = '';
+			return;
+		}
+
+		if (message === lastPageError) {
+			return;
+		}
+
+		lastPageError = message;
+		toast.error(message, {
+			id: 'dashboard-page-error',
+			title: pageLabel,
+			duration: null,
+			showProgress: false
+		});
+	});
 </script>
 
 <svelte:head>
@@ -125,15 +147,6 @@
 			</div>
 		</div>
 	</header>
-
-	{#if data.error}
-		<div class="bg-secondary-100 border-2 border-secondary-500 text-neutral-950 p-4">
-			<div class="flex items-center gap-3">
-				<IconAlertTriangle class="w-6 h-6 text-secondary-700" />
-				<p class="font-sans">{data.error}</p>
-			</div>
-		</div>
-	{/if}
 
 	<section class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
 		<div

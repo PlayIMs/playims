@@ -7,13 +7,13 @@ All gates in this file are required for changes using `playims-style-builder`.
 Run from repo root:
 
 ```powershell
-python "C:\Users\jh6\.codex\skills\.system\skill-creator\scripts\quick_validate.py" ".codex/skills/playims-style-builder"
+python "C:\Users\Jake\.codex\skills\.system\skill-creator\scripts\quick_validate.py" ".codex/skills/playims-style-builder"
 ```
 
 If `agents/openai.yaml` was changed manually, regenerate deterministically:
 
 ```powershell
-python "C:\Users\jh6\.codex\skills\.system\skill-creator\scripts\generate_openai_yaml.py" ".codex/skills/playims-style-builder" --interface "display_name=PlayIMs Style Builder" --interface "short_description=Build PlayIMs UI that matches dashboard and wizard patterns" --interface "default_prompt=Use $playims-style-builder to build this dashboard UI so it matches PlayIMs style, wizard, and form conventions."
+python "C:\Users\Jake\.codex\skills\.system\skill-creator\scripts\generate_openai_yaml.py" ".codex/skills/playims-style-builder" --interface "display_name=PlayIMs Style Builder" --interface "short_description=Build PlayIMs UI that matches dashboard and wizard patterns" --interface "default_prompt=Use $playims-style-builder to build this dashboard UI so it matches PlayIMs style, wizard, and form conventions."
 ```
 
 Verify reference files exist:
@@ -25,7 +25,7 @@ Get-ChildItem ".codex/skills/playims-style-builder/references/*.md" | Select-Obj
 Verify `SKILL.md` links all required references:
 
 ```powershell
-Select-String -Path ".codex/skills/playims-style-builder/SKILL.md" -Pattern "style-foundation.md|dashboard-layout-recipes.md|wizard-recipes.md|forms-and-controls.md|feedback-and-danger-patterns.md|class-recipes.md|migration-map.md|qa-gates.md"
+Select-String -Path ".codex/skills/playims-style-builder/SKILL.md" -Pattern "style-foundation.md|dashboard-layout-recipes.md|wizard-recipes.md|forms-and-controls.md|toast-patterns.md|feedback-and-danger-patterns.md|class-recipes.md|migration-map.md|qa-gates.md"
 ```
 
 Confirm no accidental changes to legacy cursor skill:
@@ -59,6 +59,7 @@ pnpm build
 - New dropdowns use `ListboxDropdown`; no new native select patterns.
 - New helper popovers use `InfoPopover`.
 - New action hover hints use `HoverTooltip`; no native `title` for new work.
+- New transient success/error feedback uses the shared toast system instead of banners.
 - Wizard modals use shared wizard primitives and footer behavior.
 - Destructive flows include impact copy + typed confirmation + disabled destructive CTA until valid.
 - No new `window.confirm`/native confirm usage for destructive confirmations.

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { IconEye, IconEyeOff } from '@tabler/icons-svelte';
+	import { toast } from '$lib/toasts';
 
 	let { data, form } = $props<{
 		data: {
@@ -87,6 +88,11 @@
 				registerErrorHints[code] ??
 				'No additional diagnostic hint is available for this error code.'
 		});
+		toast.error(form.error, {
+			id: `register-error:${signature}`,
+			title: 'Registration failed',
+			duration: 8000
+		});
 	});
 </script>
 
@@ -100,10 +106,6 @@
 		<p class="text-sm text-secondary-900 mb-6">
 			Registration currently requires an invite key from a PlayIMs developer.
 		</p>
-
-		{#if form?.error}
-			<p class="mb-4 text-sm text-red-700 bg-red-100 border border-red-200 p-2">{form.error}</p>
-		{/if}
 
 		<form method="POST" class="space-y-4">
 			<!-- Preserve safe post-register destination from server-side validation. -->

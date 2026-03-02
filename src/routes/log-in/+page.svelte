@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { IconEye, IconEyeOff } from '@tabler/icons-svelte';
+	import { toast } from '$lib/toasts';
 
 	let { data, form } = $props<{
 		data: {
@@ -51,6 +52,11 @@
 			hint:
 				loginErrorHints[code] ?? 'No additional diagnostic hint is available for this error code.'
 		});
+		toast.error(form.error, {
+			id: `login-error:${signature}`,
+			title: 'Sign in failed',
+			duration: 8000
+		});
 	});
 </script>
 
@@ -62,10 +68,6 @@
 	<div class="w-full max-w-md bg-white border border-neutral-200 p-6">
 		<h1 class="text-2xl font-bold text-primary-950 mb-2">Sign in</h1>
 		<p class="text-sm text-secondary-900 mb-6">Use your PlayIMs account to continue.</p>
-
-		{#if form?.error}
-			<p class="mb-4 text-sm text-red-700 bg-red-100 border border-red-200 p-2">{form.error}</p>
-		{/if}
 
 		<form method="POST" class="space-y-4">
 			<!-- Preserve safe post-login destination from server-side validation. -->

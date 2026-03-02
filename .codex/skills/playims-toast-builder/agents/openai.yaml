@@ -1,0 +1,4 @@
+interface:
+  display_name: "PlayIMs Toast Builder"
+  short_description: "Build PlayIMs toast notifications and banner migrations"
+  default_prompt: "Use -toast-builder to add or refactor PlayIMs toasts so transient success and error feedback uses the shared toast system instead of inline banners."

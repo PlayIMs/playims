@@ -38,6 +38,7 @@
 	import CreateOrganizationWizard from './_wizards/CreateOrganizationWizard.svelte';
 	import ManageOrganizationWizard from './_wizards/ManageOrganizationWizard.svelte';
 	import { WizardStepFooter, applyLiveSlugInput, slugifyFinal } from '$lib/components/wizard';
+	import { toast } from '$lib/toasts';
 
 	type ActiveSessionData = {
 		id: string;
@@ -173,6 +174,8 @@
 	let activityHighlightsCollapsed = $state(false);
 	let collapseStorageHydrated = $state(false);
 	let copyUserIdResetTimeout: ReturnType<typeof setTimeout> | null = null;
+	let lastPageErrorToast = $state('');
+	let lastActionToast = $state('');
 
 	type CollapsedSectionStorage = {
 		profileEssentialsCollapsed?: boolean;
@@ -991,6 +994,46 @@
 			}
 		};
 	};
+
+	$effect(() => {
+		const message = pageError.trim();
+		if (!message) {
+			lastPageErrorToast = '';
+			return;
+		}
+
+		if (message === lastPageErrorToast) {
+			return;
+		}
+
+		lastPageErrorToast = message;
+		toast.error(message, {
+			id: 'account-page-error',
+			title: 'Account',
+			duration: null,
+			showProgress: false
+		});
+	});
+
+	$effect(() => {
+		const feedback = actionError.trim() || actionSuccess.trim();
+		if (!feedback || !actionName) {
+			lastActionToast = '';
+			return;
+		}
+
+		const variant = actionError.trim() ? 'error' : 'success';
+		const signature = `${actionName}:${variant}:${feedback}`;
+		if (signature === lastActionToast) {
+			return;
+		}
+
+		lastActionToast = signature;
+		toast[variant](feedback, {
+			id: `account-action:${actionName}`,
+			title: 'Account'
+		});
+	});
 </script>
 
 <svelte:head>
@@ -1026,14 +1069,6 @@
 				</div>
 			</div>
 			<div class="w-full xl:w-[24rem] space-y-2">
-				{#if actionName === 'switchOrganization' && actionError}
-					<p
-						class="text-xs border border-secondary-500 bg-secondary-100 text-secondary-900 px-3 py-2"
-					>
-						{actionError}
-					</p>
-				{/if}
-
 				{#if organizations.length === 0}
 					<div class="border border-secondary-300 bg-white/85 px-3 py-2 text-xs text-neutral-950">
 						No active organization memberships found.
@@ -1113,15 +1148,6 @@
 		</div>
 	</header>
 
-	{#if pageError}
-		<section class="border-2 border-secondary-500 bg-secondary-100 p-4 text-neutral-950">
-			<div class="flex items-start gap-3">
-				<IconAlertTriangle class="w-6 h-6 text-secondary-800 shrink-0" />
-				<p>{pageError}</p>
-			</div>
-		</section>
-	{/if}
-
 	{#if !account}
 		<section class="border-2 border-secondary-300 bg-neutral p-6">
 			<p class="text-neutral-950">Account details are unavailable right now.</p>
@@ -1179,21 +1205,6 @@
 
 					{#if !profileEssentialsCollapsed}
 						<div id="profile-essentials-panel" class="p-4 space-y-4">
-							{#if actionName === 'updateProfile' && actionError}
-								<p
-									class="text-sm border border-secondary-500 bg-secondary-100 text-secondary-900 px-3 py-2"
-								>
-									{actionError}
-								</p>
-							{/if}
-							{#if actionName === 'updateProfile' && actionSuccess}
-								<p
-									class="text-sm border border-primary-500 bg-primary-100 text-primary-900 px-3 py-2"
-								>
-									{actionSuccess}
-								</p>
-							{/if}
-
 							<form
 								method="POST"
 								action="?/updateProfile"
@@ -1389,21 +1400,6 @@
 
 					{#if !passwordAccessCollapsed}
 						<div id="password-access-panel" class="p-4 space-y-4">
-							{#if actionName === 'changePassword' && actionError}
-								<p
-									class="text-sm border border-secondary-500 bg-secondary-100 text-secondary-900 px-3 py-2"
-								>
-									{actionError}
-								</p>
-							{/if}
-							{#if actionName === 'changePassword' && actionSuccess}
-								<p
-									class="text-sm border border-primary-500 bg-primary-100 text-primary-900 px-3 py-2"
-								>
-									{actionSuccess}
-								</p>
-							{/if}
-
 							<form
 								method="POST"
 								action="?/changePassword"
@@ -1572,12 +1568,6 @@
 					</div>
 					{#if !dangerZoneCollapsed}
 						<div id="danger-zone-panel" class="p-4 space-y-4">
-							{#if actionName === 'archiveAccount' && actionError}
-								<p class="text-sm border border-error-700 bg-error-200 text-error-950 px-3 py-2">
-									{actionError}
-								</p>
-							{/if}
-
 							<form
 								method="POST"
 								action="?/archiveAccount"
@@ -1792,21 +1782,6 @@
 					</div>
 					{#if !sessionControlsCollapsed}
 						<div id="session-controls-panel" class="p-4 space-y-3">
-							{#if actionName === 'signOutSession' && actionError}
-								<p
-									class="text-sm border border-secondary-500 bg-secondary-100 text-secondary-900 px-3 py-2"
-								>
-									{actionError}
-								</p>
-							{/if}
-							{#if actionName === 'signOutSession' && actionSuccess}
-								<p
-									class="text-sm border border-primary-500 bg-primary-100 text-primary-900 px-3 py-2"
-								>
-									{actionSuccess}
-								</p>
-							{/if}
-
 							<div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
 								<form method="POST" action="?/signOut" use:enhance={enhanceNoJump}>
 									<button

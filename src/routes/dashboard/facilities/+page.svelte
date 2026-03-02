@@ -35,6 +35,7 @@
 		IconX
 	} from '@tabler/icons-svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
+	import { toast } from '$lib/toasts';
 	import { generateUuidV4 } from '$lib/utils/uuid.js';
 
 	let { data, form }: PageProps = $props();
@@ -136,6 +137,8 @@
 	let creatingAreaForFacilityId = $state<string | null>(null);
 	let facilitiesData = $state<FacilityRecord[]>([]);
 	let facilityAreasData = $state<FacilityAreaRecord[]>([]);
+	let lastFacilityFeedbackToast = $state('');
+	let lastFacilitySuccessToast = $state('');
 
 	function createAreaDraftId(): string {
 		return generateUuidV4();
@@ -935,6 +938,116 @@
 		confirmOpen = true;
 	}
 
+	const getFormDataString = (key: string): string | null => {
+		const value = formData?.[key];
+		return typeof value === 'string' && value.trim().length > 0 ? value : null;
+	};
+
+	const facilityFeedbackTitle = (action: string): string => {
+		if (action === 'createFacilityArea') return 'Create area';
+		if (action === 'updateFacilityArea') return 'Update area';
+		if (action === 'updateFacility') return 'Update facility';
+		return pageLabel;
+	};
+
+	$effect(() => {
+		const message = (form?.message ?? '').trim();
+		const action = form?.action ?? '';
+		if (!message || !action) {
+			lastFacilityFeedbackToast = '';
+			return;
+		}
+
+		const duplicateType = getFormDataString('duplicateType') ?? 'none';
+		const archivedFacilityId = getFormDataString('archivedFacilityId');
+		const archivedAreaId = getFormDataString('archivedAreaId');
+		const signature = `${action}:${message}:${duplicateType}:${archivedFacilityId ?? 'none'}:${archivedAreaId ?? 'none'}`;
+		if (signature === lastFacilityFeedbackToast) {
+			return;
+		}
+
+		lastFacilityFeedbackToast = signature;
+		const actions = [];
+		if (duplicateType === 'archived' && archivedFacilityId) {
+			actions.push(
+				{
+					label: 'Restore',
+					style: 'solid' as const,
+					onClick: () =>
+						submitAction('setFacilityArchived', {
+							facilityId: archivedFacilityId,
+							isActive: '1'
+						})
+				},
+				{
+					label: 'Delete',
+					style: 'outline' as const,
+					onClick: () => {
+						const archivedFacility = facilitiesData.find((facility) => facility.id === archivedFacilityId);
+						if (!archivedFacility) return;
+						openConfirm({
+							kind: 'facility-delete',
+							facilityId: archivedFacility.id,
+							slug: archivedFacility.slug || ''
+						});
+					}
+				}
+			);
+		}
+
+		if (duplicateType === 'archived' && archivedAreaId) {
+			actions.push(
+				{
+					label: 'Restore area',
+					style: 'solid' as const,
+					onClick: () =>
+						submitAction('setFacilityAreaArchived', {
+							facilityAreaId: archivedAreaId,
+							isActive: '1'
+						})
+				},
+				{
+					label: 'Delete area',
+					style: 'outline' as const,
+					onClick: () => {
+						const archivedArea = facilityAreasData.find((area) => area.id === archivedAreaId);
+						if (!archivedArea) return;
+						openConfirm({
+							kind: 'area-delete',
+							facilityAreaId: archivedArea.id,
+							slug: archivedArea.slug || ''
+						});
+					}
+				}
+			);
+		}
+
+		toast.error(message, {
+			id: `facilities-feedback:${action}`,
+			title: facilityFeedbackTitle(action),
+			duration: actions.length > 0 ? 9000 : 7200,
+			actions
+		});
+	});
+
+	$effect(() => {
+		const message = createFacilitySuccessMessage.trim();
+		if (!message) {
+			lastFacilitySuccessToast = '';
+			return;
+		}
+
+		if (message === lastFacilitySuccessToast) {
+			return;
+		}
+
+		lastFacilitySuccessToast = message;
+		toast.success(message, {
+			id: 'facility-create-success',
+			title: pageLabel
+		});
+	});
+
 	function closeConfirm() {
 		confirmOpen = false;
 		confirmIntent = null;
@@ -1001,82 +1114,6 @@
 				<span>New Facility</span>
 			</button>
 		</div>
-		{#if form?.message}
-			<div class="border-2 border-error-300 bg-error-50 p-4 flex items-start gap-3">
-				<IconAlertCircle class="w-5 h-5 text-error-700 mt-0.5" />
-				<div class="flex-1">
-					<p class="text-error-700 font-sans">{form.message}</p>
-					{#if formData?.duplicateType === 'archived'}
-						<div class="flex items-center gap-2 mt-2">
-							{#if formData?.archivedFacilityId}
-								<form method="POST" action="?/setFacilityArchived" use:enhance class="inline">
-									<input type="hidden" name="facilityId" value={formData?.archivedFacilityId} />
-									<input type="hidden" name="isActive" value="1" />
-									<button type="submit" class="button-secondary text-sm flex items-center gap-1">
-										<IconRestore class="w-4 h-4" />
-										Restore
-									</button>
-								</form>
-								<button
-									type="button"
-									class="button-secondary-outlined text-sm flex items-center gap-1 border-error-700 text-error-700"
-									onclick={() => {
-										if (formData?.archivedFacilityId) {
-											const archivedFacility = facilitiesData.find(
-												(f) => f.id === formData?.archivedFacilityId
-											);
-											if (archivedFacility) {
-												openConfirm({
-													kind: 'facility-delete',
-													facilityId: archivedFacility.id,
-													slug: archivedFacility.slug || ''
-												});
-											}
-										}
-									}}
-								>
-									<IconTrash class="w-4 h-4" />
-									Delete
-								</button>
-							{:else if formData?.archivedAreaId && formData?.archivedAreaFacilityId}
-								{@const archivedArea = facilityAreasData.find(
-									(a) => a.id === formData?.archivedAreaId
-								)}
-								<form method="POST" action="?/setFacilityAreaArchived" use:enhance class="inline">
-									<input type="hidden" name="facilityAreaId" value={formData?.archivedAreaId} />
-									<input type="hidden" name="isActive" value="1" />
-									<button type="submit" class="button-secondary text-sm flex items-center gap-1">
-										<IconRestore class="w-4 h-4" />
-										Restore
-									</button>
-								</form>
-								<button
-									type="button"
-									class="button-secondary-outlined text-sm flex items-center gap-1 border-error-700 text-error-700"
-									onclick={() => {
-										if (formData?.archivedAreaId && archivedArea) {
-											openConfirm({
-												kind: 'area-delete',
-												facilityAreaId: archivedArea.id,
-												slug: archivedArea.slug || ''
-											});
-										}
-									}}
-								>
-									<IconTrash class="w-4 h-4" />
-									Delete
-								</button>
-							{/if}
-						</div>
-					{/if}
-				</div>
-			</div>
-		{/if}
-		{#if createFacilitySuccessMessage}
-			<div class="border-2 border-primary-500 bg-primary-100 p-4">
-				<p class="text-neutral-950 font-sans text-sm">{createFacilitySuccessMessage}</p>
-			</div>
-		{/if}
 	</header>
 
 	<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
@@ -1200,52 +1237,6 @@
 									class="space-y-4"
 								>
 									<input type="hidden" name="facilityId" value={facility.id} />
-									{#if form?.action === 'updateFacility' && form?.message}
-										<div class="border-2 border-error-300 bg-error-50 p-3 flex items-start gap-3">
-											<IconAlertCircle class="w-5 h-5 text-error-700 mt-0.5" />
-											<div class="flex-1">
-												<p class="text-error-700 font-sans">{form.message}</p>
-												{#if formData?.duplicateType === 'archived' && formData?.archivedFacilityId}
-													<div class="flex items-center gap-2 mt-2">
-														<button
-															type="button"
-															class="button-secondary text-sm flex items-center gap-1"
-															onclick={() =>
-																submitAction('setFacilityArchived', {
-																	facilityId: String(formData?.archivedFacilityId),
-																	isActive: '1'
-																})}
-														>
-															<IconRestore class="w-4 h-4" />
-															Restore
-														</button>
-														<button
-															type="button"
-															class="button-secondary-outlined text-sm flex items-center gap-1 border-error-700 text-error-700"
-															onclick={() => {
-																if (formData?.archivedFacilityId) {
-																	const archivedFacility = facilitiesData.find(
-																		(f) => f.id === formData.archivedFacilityId
-																	);
-																	if (archivedFacility) {
-																		openConfirm({
-																			kind: 'facility-delete',
-																			facilityId: archivedFacility.id,
-																			slug: archivedFacility.slug || '',
-																			name: archivedFacility.name || ''
-																		});
-																	}
-																}
-															}}
-														>
-															<IconTrash class="w-4 h-4" />
-															Delete
-														</button>
-													</div>
-												{/if}
-											</div>
-										</div>
-									{/if}
 									<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 										<div>
 											<label class="block text-sm font-sans text-neutral-950 mb-1"
@@ -1624,51 +1615,6 @@
 														class="space-y-3"
 													>
 														<input type="hidden" name="facilityAreaId" value={area.id} />
-														{#if form?.action === 'updateFacilityArea' && form?.message}
-															<div
-																class="border-2 border-error-300 bg-error-50 p-3 flex items-start gap-3"
-															>
-																<IconAlertCircle class="w-5 h-5 text-error-700 mt-0.5" />
-																<div class="flex-1">
-																	<p class="text-error-700 font-sans">{form.message}</p>
-																	{#if formData?.duplicateType === 'archived' && formData?.archivedAreaId}
-																		{@const archivedArea = facilityAreasData.find(
-																			(a) => a.id === formData.archivedAreaId
-																		)}
-																		<div class="flex items-center gap-2 mt-2">
-																			<button
-																				type="button"
-																				class="button-secondary text-sm flex items-center gap-1"
-																				onclick={() =>
-																					submitAction('setFacilityAreaArchived', {
-																						facilityAreaId: String(formData?.archivedAreaId),
-																						isActive: '1'
-																					})}
-																			>
-																				<IconRestore class="w-4 h-4" />
-																				Restore
-																			</button>
-																			<button
-																				type="button"
-																				class="button-secondary-outlined text-sm flex items-center gap-1 border-error-700 text-error-700"
-																				onclick={() => {
-																					if (formData?.archivedAreaId && archivedArea) {
-																						openConfirm({
-																							kind: 'area-delete',
-																							facilityAreaId: archivedArea.id,
-																							slug: archivedArea.slug || ''
-																						});
-																					}
-																				}}
-																			>
-																				<IconTrash class="w-4 h-4" />
-																				Delete
-																			</button>
-																		</div>
-																	{/if}
-																</div>
-															</div>
-														{/if}
 														<div class="flex-1 grid grid-cols-2 gap-3">
 															<input
 																type="text"
@@ -1984,49 +1930,6 @@
 			}}
 			class="p-5 space-y-5"
 		>
-			{#if form?.action === 'createFacilityArea' && form?.message}
-				<div class="border-2 border-error-300 bg-error-50 p-3 flex items-start gap-3">
-					<IconAlertCircle class="w-5 h-5 text-error-700 mt-0.5" />
-					<div class="flex-1">
-						<p class="text-error-700 font-sans">{form.message}</p>
-						{#if formData?.duplicateType === 'archived' && formData?.archivedAreaId}
-							{@const archivedArea = facilityAreasData.find(
-								(a) => a.id === formData.archivedAreaId
-							)}
-							<div class="flex items-center gap-2 mt-2">
-								<button
-									type="button"
-									class="button-secondary text-sm flex items-center gap-1"
-									onclick={() =>
-										submitAction('setFacilityAreaArchived', {
-											facilityAreaId: String(formData?.archivedAreaId),
-											isActive: '1'
-										})}
-								>
-									<IconRestore class="w-4 h-4" />
-									Restore
-								</button>
-								<button
-									type="button"
-									class="button-secondary-outlined text-sm flex items-center gap-1 border-error-700 text-error-700"
-									onclick={() => {
-										if (formData?.archivedAreaId && archivedArea) {
-											openConfirm({
-												kind: 'area-delete',
-												facilityAreaId: archivedArea.id,
-												slug: archivedArea.slug || ''
-											});
-										}
-									}}
-								>
-									<IconTrash class="w-4 h-4" />
-									Delete
-								</button>
-							</div>
-						{/if}
-					</div>
-				</div>
-			{/if}
 			<input type="hidden" name="facilityId" value={creatingAreaForFacilityId} />
 
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-5">

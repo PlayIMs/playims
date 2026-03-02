@@ -5,6 +5,7 @@
 	// import { injectSpeedInsights } from '@vercel/speed-insights/sveltekit';
 
 	import '../app.css';
+	import Toaster from '$lib/components/toast/Toaster.svelte';
 	import * as theme from '$lib/theme';
 	import { forceRadioTabStop, selectArrow, skipDatePickerTabStop } from '$lib/actions';
 
@@ -329,4 +330,5 @@
 	<main>
 		{@render children()}
 	</main>
+	<Toaster />
 </div>

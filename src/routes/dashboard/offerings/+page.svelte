@@ -46,6 +46,7 @@
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
+	import { toast } from '$lib/toasts';
 	import { generateUuidV4 } from '$lib/utils/uuid.js';
 
 	type Activity = PageData['activities'][number];
@@ -339,10 +340,50 @@
 	let createLeagueForm = $state<LeagueWizardFormState>(createEmptyCreateLeagueForm());
 	let createSeasonStartDateInput = $state<HTMLInputElement | null>(null);
 	let createSeasonEndDateInput = $state<HTMLInputElement | null>(null);
+	let lastPageErrorToast = $state('');
+	let lastSuccessToast = $state('');
 
 	function padTwo(value: number): string {
 		return String(value).padStart(2, '0');
 	}
+
+	$effect(() => {
+		const message = (data?.error ?? '').trim();
+		if (!message) {
+			lastPageErrorToast = '';
+			return;
+		}
+
+		if (message === lastPageErrorToast) {
+			return;
+		}
+
+		lastPageErrorToast = message;
+		toast.error(message, {
+			id: 'offerings-page-error',
+			title: pageLabel,
+			duration: null,
+			showProgress: false
+		});
+	});
+
+	$effect(() => {
+		const message = createSuccessMessage.trim();
+		if (!message) {
+			lastSuccessToast = '';
+			return;
+		}
+
+		if (message === lastSuccessToast) {
+			return;
+		}
+
+		lastSuccessToast = message;
+		toast.success(message, {
+			id: 'offerings-success',
+			title: pageLabel
+		});
+	});
 
 	function todayDateString(): string {
 		const now = new Date();
@@ -3969,21 +4010,6 @@
 			</h1>
 		</div>
 	</header>
-
-	{#if data.error}
-		<div class="bg-secondary-100 border-2 border-secondary-500 text-neutral-950 p-4">
-			<div class="flex items-center gap-3">
-				<IconAlertTriangle class="w-6 h-6 text-secondary-700" />
-				<p class="font-sans">{data.error}</p>
-			</div>
-		</div>
-	{/if}
-
-	{#if createSuccessMessage}
-		<div class="bg-primary-100 border-2 border-primary-500 text-neutral-950 p-4">
-			<p class="font-sans text-sm">{createSuccessMessage}</p>
-		</div>
-	{/if}
 
 	{#if seasonBoards.length === 0}
 		<div class="grid grid-cols-1 2xl:grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)] gap-6">

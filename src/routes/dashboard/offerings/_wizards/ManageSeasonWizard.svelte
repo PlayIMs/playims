@@ -15,6 +15,7 @@
 	import ModalShell from '$lib/components/modals/ModalShell.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import { WizardModal } from '$lib/components/wizard';
+	import { toast } from '$lib/toasts';
 
 	interface SeasonOption {
 		id: string;
@@ -73,6 +74,7 @@
 	let hasInitializedForOpen = $state(false);
 	let seasonSearchTerm = $state('');
 	let nameInput = $state<HTMLInputElement | null>(null);
+	let lastToastSignature = $state('');
 
 	const sortedSeasons = $derived.by(() =>
 		[...seasons].sort((a, b) => b.startDate.localeCompare(a.startDate))
@@ -135,6 +137,26 @@
 		formError = '';
 		formSuccess = '';
 	}
+
+	$effect(() => {
+		const feedback = formError.trim() || formSuccess.trim();
+		if (!feedback) {
+			lastToastSignature = '';
+			return;
+		}
+
+		const variant = formError.trim() ? 'error' : 'success';
+		const signature = `${open ? 'open' : 'closed'}:${variant}:${feedback}`;
+		if (signature === lastToastSignature) {
+			return;
+		}
+
+		lastToastSignature = signature;
+		toast[variant](feedback, {
+			id: 'manage-season-feedback',
+			title: 'Season management'
+		});
+	});
 
 	$effect(() => {
 		if (!open) {
@@ -367,19 +389,6 @@
 	}}
 	maxWidthClass="max-w-6xl"
 >
-	{#snippet error()}
-		{#if formError}
-			<div class="border-2 border-error-300 bg-error-50 p-3">
-				<p class="text-error-700 text-sm font-sans">{formError}</p>
-			</div>
-		{/if}
-		{#if formSuccess}
-			<div class="border-2 border-primary-300 bg-primary-100 p-3">
-				<p class="text-primary-900 text-sm font-sans">{formSuccess}</p>
-			</div>
-		{/if}
-	{/snippet}
-
 	<div class="grid grid-cols-1 lg:grid-cols-[16rem_minmax(0,1fr)] gap-4 min-h-0">
 		<section class="border-2 border-secondary-300 bg-white min-h-0 flex flex-col">
 			<div class="px-3 py-2 border-b border-secondary-200 flex items-center gap-2">

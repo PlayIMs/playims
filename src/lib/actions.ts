@@ -209,7 +209,10 @@ export function forceRadioTabStop(node: HTMLInputElement) {
 
 	const applyTabIndex = () => {
 		if (node.disabled) return;
-		node.tabIndex = 0;
+		// Avoid re-writing the same tabindex value, which can trigger an observer loop.
+		if (node.tabIndex !== 0 || node.getAttribute('tabindex') !== '0') {
+			node.tabIndex = 0;
+		}
 	};
 
 	applyTabIndex();
@@ -219,7 +222,9 @@ export function forceRadioTabStop(node: HTMLInputElement) {
 	});
 	observer.observe(node, {
 		attributes: true,
-		attributeFilter: ['disabled', 'checked', 'tabindex']
+		// Watch state changes that may cause the browser to change focus behavior,
+		// but do not observe tabindex itself because this action owns that attribute.
+		attributeFilter: ['disabled', 'checked']
 	});
 
 	return {

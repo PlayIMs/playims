@@ -12,12 +12,9 @@
 
 ## Success Feedback
 
-Top-level success message recipe:
+Use `references/toast-patterns.md` for transient success feedback.
 
-- Wrapper: `bg-primary-100 border-2 border-primary-500 text-neutral-950 p-4`
-- Message text: `font-sans text-sm`
-
-Use for post-submit confirmation banners within dashboard pages.
+Keep success content inline only when it is part of a persistent review/result section that must remain visible in the layout.
 
 ## Warning/Caution Feedback
 
@@ -30,19 +27,9 @@ Use for non-destructive caution states (filters, no-match conditions, setup remi
 
 ## Error Feedback
 
-Top-level route error recipe:
+Use `references/toast-patterns.md` for transient page and wizard failure feedback.
 
-- Wrapper: `bg-accent-100 border-2 border-accent-500 text-neutral-950 p-4`
-- Icon row: `flex items-center gap-3`
-- Icon tone: `text-accent-700`
-
-Wizard error panel recipe:
-
-- Wrapper: `border-2 border-error-300 bg-error-50 p-3 flex items-start gap-3`
-- Icon tone: `text-error-700`
-- Copy tone: `text-error-700`
-
-Use border-2 for high-severity modal/step errors.
+Keep inline error panels only when the message must remain attached to a destructive review surface or other persistent content block.
 
 ## Inline Field Errors
 

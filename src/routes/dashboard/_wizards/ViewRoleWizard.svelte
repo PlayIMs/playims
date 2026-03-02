@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte';
-	import { IconAlertCircle } from '@tabler/icons-svelte';
 	import { WizardModal } from '$lib/components/wizard';
+	import { toast } from '$lib/toasts';
 
 	type AuthRole = 'participant' | 'manager' | 'admin' | 'dev';
 
@@ -48,6 +48,7 @@
 		}))
 	);
 	let highlightedIndex = $state(0);
+	let lastToastSignature = $state('');
 
 	function moveHighlight(direction: 1 | -1): void {
 		if (roleOptions.length === 0) {
@@ -73,6 +74,25 @@
 		}
 		onSelectRole(option.role);
 	}
+
+	$effect(() => {
+		const message = formError.trim();
+		if (!message) {
+			lastToastSignature = '';
+			return;
+		}
+
+		const signature = `${open ? 'open' : 'closed'}:${message}`;
+		if (signature === lastToastSignature) {
+			return;
+		}
+
+		lastToastSignature = signature;
+		toast.error(message, {
+			id: 'view-role-error',
+			title: 'Role switch'
+		});
+	});
 
 	$effect(() => {
 		if (!open) {
@@ -158,15 +178,6 @@
 	formClass="p-4 space-y-4"
 	on:requestClose={onRequestClose}
 >
-	{#snippet error()}
-		{#if formError}
-			<div class="border-2 border-error-300 bg-error-50 p-3 flex items-start gap-3">
-				<IconAlertCircle class="w-5 h-5 text-error-700 mt-0.5" />
-				<p class="text-error-700 font-sans">{formError}</p>
-			</div>
-		{/if}
-	{/snippet}
-
 	<div class="space-y-4">
 		<div class="border border-secondary-300 bg-white p-2.5">
 			<p class="text-xs text-neutral-950 font-sans">

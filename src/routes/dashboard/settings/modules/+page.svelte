@@ -33,6 +33,7 @@
 		type DashboardNavigationLabels
 	} from '$lib/dashboard/navigation';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
+	import { toast } from '$lib/toasts';
 	import type { PageProps } from './$types';
 
 	type SaveNavigationFailure = {
@@ -93,6 +94,8 @@
 	let orderSaveSubmitting = $state(false);
 	let saveNavigationOrderForm = $state<HTMLFormElement | null>(null);
 	let orderRollbackSnapshot = $state<DashboardNavigationOrder | null>(null);
+	let lastFeedbackSignature = $state('');
+	let readOnlyToastShown = $state(false);
 
 	const canEditNavigation = $derived.by(() => data.canEditNavigation === true);
 	const maxLabelLength = $derived.by(() => data.maxLabelLength ?? 25);
@@ -106,6 +109,48 @@
 	const orderJson = $derived.by(() => JSON.stringify(order));
 	const orderOnlyJson = $derived.by(() => JSON.stringify(order));
 	const hasAnyFeedback = $derived.by(() => saveError.length > 0 || saveSuccess.length > 0);
+
+	$effect(() => {
+		if (!canEditNavigation) {
+			if (readOnlyToastShown) {
+				return;
+			}
+
+			readOnlyToastShown = true;
+			toast.warning(
+				'You are in read-only mode. Switch to a manager or admin role to edit module labels and order.',
+				{
+					id: 'settings-modules-read-only',
+					title: 'Module settings',
+					duration: null,
+					showProgress: false
+				}
+			);
+			return;
+		}
+
+		readOnlyToastShown = false;
+	});
+
+	$effect(() => {
+		const feedback = saveError.trim() || saveSuccess.trim();
+		if (!feedback) {
+			lastFeedbackSignature = '';
+			return;
+		}
+
+		const variant = saveError.trim() ? 'error' : 'success';
+		const signature = `${variant}:${feedback}`;
+		if (signature === lastFeedbackSignature) {
+			return;
+		}
+
+		lastFeedbackSignature = signature;
+		toast[variant](feedback, {
+			id: 'settings-modules-feedback',
+			title: 'Module settings'
+		});
+	});
 
 	$effect(() => {
 		const latest = resolveDataConfig();
@@ -351,33 +396,6 @@
 				>
 			{/if}
 		</div>
-
-		{#if !canEditNavigation}
-			<div class="bg-secondary-100 border-2 border-secondary-500 text-neutral-950 p-4">
-				<div class="flex items-start gap-3">
-					<IconAlertTriangle class="w-6 h-6 text-secondary-700 shrink-0 mt-0.5" />
-					<p class="font-sans text-sm">
-						You are currently in read-only mode. Switch to an organization role with manager or
-						admin permissions to edit settings.
-					</p>
-				</div>
-			</div>
-		{/if}
-
-		{#if hasAnyFeedback}
-			{#if saveError}
-				<p
-					class="text-sm border-2 border-secondary-500 bg-secondary-100 text-secondary-900 px-3 py-2"
-				>
-					{saveError}
-				</p>
-			{/if}
-			{#if saveSuccess}
-				<p class="text-sm border-2 border-primary-500 bg-primary-100 text-primary-900 px-3 py-2">
-					{saveSuccess}
-				</p>
-			{/if}
-		{/if}
 
 		<div class="space-y-2.5">
 			{#each orderedNavItems as item, index (item.key)}

@@ -1,8 +1,11 @@
 <script lang="ts">
+	import { toast } from '$lib/toasts';
+
 	let { data } = $props();
 
 	let isSubmitting = $state(false);
 	let actionError = $state('');
+	let lastActionError = $state('');
 
 	const isCurrentClient = $derived(data.auth.activeClientId === data.client.id);
 	const isActiveMember = $derived(data.auth.membershipState === 'active');
@@ -54,6 +57,24 @@
 	const handleSwitch = async () => {
 		await submitClientAction('/api/auth/switch-client', { clientId: data.client.id });
 	};
+
+	$effect(() => {
+		const message = actionError.trim();
+		if (!message) {
+			lastActionError = '';
+			return;
+		}
+
+		if (message === lastActionError) {
+			return;
+		}
+
+		lastActionError = message;
+		toast.error(message, {
+			id: `client-access-error:${data.client.id}`,
+			title: 'Organization access'
+		});
+	});
 </script>
 
 <svelte:head>
@@ -68,12 +89,6 @@
 			</p>
 			<h1 class="text-4xl font-bold text-primary-950">{data.client.name}</h1>
 			<p class="text-secondary-900">Join this organization to access its PlayIMs workspace.</p>
-
-			{#if actionError}
-				<div class="border border-red-700 bg-red-50 text-red-900 px-4 py-3" role="alert">
-					{actionError}
-				</div>
-			{/if}
 
 			{#if !data.auth.isAuthenticated}
 				<div class="space-y-3">

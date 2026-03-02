@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { IconAlertCircle, IconPencil, IconRestore, IconTrash } from '@tabler/icons-svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
+	import { toast } from '$lib/toasts';
 	import {
 		WizardDraftCollection,
 		WizardModal,
@@ -142,6 +143,66 @@
 		() =>
 			`Area draft is open. Continue to Step 4 to ${areaEditingIndex === null ? 'add this area' : 'update this area'}.`
 	);
+
+	let lastToastSignature = $state('');
+
+	$effect(() => {
+		const message = formError.trim();
+		if (!message) {
+			lastToastSignature = '';
+			return;
+		}
+
+		const signature = `${open ? 'open' : 'closed'}:${step}:${message}:${conflictMeta.duplicateType ?? 'none'}:${conflictMeta.archivedFacilityId ?? 'none'}:${conflictMeta.archivedAreaId ?? 'none'}`;
+		if (signature === lastToastSignature) {
+			return;
+		}
+
+		lastToastSignature = signature;
+		toast.error(message, {
+			id: `create-facility-error:${step}`,
+			title: 'Facility wizard',
+			duration: 9000,
+			actions: [
+				...(conflictMeta.duplicateType === 'archived' && conflictMeta.archivedFacilityId
+					? [
+							{
+								label: 'Restore facility',
+								style: 'solid' as const,
+								onClick: () =>
+									onSubmitAction('setFacilityArchived', {
+										facilityId: String(conflictMeta.archivedFacilityId),
+										isActive: '1'
+									})
+							},
+							{
+								label: 'Delete facility',
+								style: 'outline' as const,
+								onClick: () => onOpenArchivedFacilityDelete(String(conflictMeta.archivedFacilityId))
+							}
+						]
+					: []),
+				...(conflictMeta.duplicateType === 'archived' && conflictMeta.archivedAreaId
+					? [
+							{
+								label: 'Restore area',
+								style: 'solid' as const,
+								onClick: () =>
+									onSubmitAction('setFacilityAreaArchived', {
+										facilityAreaId: String(conflictMeta.archivedAreaId),
+										isActive: '1'
+									})
+							},
+							{
+								label: 'Delete area',
+								style: 'outline' as const,
+								onClick: () => onOpenArchivedAreaDelete(String(conflictMeta.archivedAreaId))
+							}
+						]
+					: [])
+			]
+		});
+	});
 </script>
 
 <WizardModal
@@ -156,73 +217,6 @@
 	on:submit={onSubmit}
 	on:input={onInput}
 >
-	{#snippet error()}
-		{#if formError}
-			<div class="border-2 border-error-300 bg-error-50 p-3 flex items-start gap-3">
-				<IconAlertCircle class="w-5 h-5 text-error-700 mt-0.5" />
-				<div class="flex-1">
-					<p class="text-error-700 font-sans">{formError}</p>
-					{#if conflictMeta.duplicateType === 'archived' && conflictMeta.archivedFacilityId}
-						<div class="flex items-center gap-2 mt-2">
-							<button
-								type="button"
-								class="button-secondary text-sm flex items-center gap-1"
-								onclick={() =>
-									onSubmitAction('setFacilityArchived', {
-										facilityId: String(conflictMeta.archivedFacilityId),
-										isActive: '1'
-									})}
-							>
-								<IconRestore class="w-4 h-4" />
-								Restore Facility
-							</button>
-							<button
-								type="button"
-								class="button-secondary-outlined text-sm flex items-center gap-1 border-error-700 text-error-700"
-								onclick={() => {
-									if (conflictMeta.archivedFacilityId) {
-										onOpenArchivedFacilityDelete(String(conflictMeta.archivedFacilityId));
-									}
-								}}
-							>
-								<IconTrash class="w-4 h-4 text-error-700" />
-								Delete Facility
-							</button>
-						</div>
-					{/if}
-					{#if conflictMeta.duplicateType === 'archived' && conflictMeta.archivedAreaId}
-						<div class="flex items-center gap-2 mt-2">
-							<button
-								type="button"
-								class="button-secondary text-sm flex items-center gap-1"
-								onclick={() =>
-									onSubmitAction('setFacilityAreaArchived', {
-										facilityAreaId: String(conflictMeta.archivedAreaId),
-										isActive: '1'
-									})}
-							>
-								<IconRestore class="w-4 h-4" />
-								Restore Area
-							</button>
-							<button
-								type="button"
-								class="button-secondary-outlined text-sm flex items-center gap-1 border-error-700 text-error-700"
-								onclick={() => {
-									if (conflictMeta.archivedAreaId) {
-										onOpenArchivedAreaDelete(String(conflictMeta.archivedAreaId));
-									}
-								}}
-							>
-								<IconTrash class="w-4 h-4 text-error-700" />
-								Delete Area
-							</button>
-						</div>
-					{/if}
-				</div>
-			</div>
-		{/if}
-	{/snippet}
-
 	{#if step === 1}
 		<div class="space-y-4">
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">

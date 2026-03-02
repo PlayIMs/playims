@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { WizardModal, WizardUnsavedConfirm } from '$lib/components/wizard';
+	import { toast } from '$lib/toasts';
 
 	interface Props {
 		open: boolean;
@@ -37,6 +38,27 @@
 		children,
 		footer
 	}: Props = $props();
+
+	let lastToastSignature = $state('');
+
+	$effect(() => {
+		const message = formError.trim();
+		if (!message) {
+			lastToastSignature = '';
+			return;
+		}
+
+		const signature = `${open ? 'open' : 'closed'}:${step}:${message}`;
+		if (signature === lastToastSignature) {
+			return;
+		}
+
+		lastToastSignature = signature;
+		toast.error(message, {
+			id: `create-league-error:${step}`,
+			title
+		});
+	});
 </script>
 
 <WizardModal
@@ -53,14 +75,6 @@
 	maxWidthClass="max-w-4xl"
 	{formClass}
 >
-	{#snippet error()}
-		{#if formError}
-			<div class="border-2 border-error-300 bg-error-50 p-3">
-				<p class="text-error-700 text-sm font-sans">{formError}</p>
-			</div>
-		{/if}
-	{/snippet}
-
 	{@render children?.()}
 	{@render footer?.()}
 </WizardModal>
