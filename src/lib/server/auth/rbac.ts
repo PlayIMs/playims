@@ -48,6 +48,8 @@ export const hasAnyRole = (
 export const isAdminLikeRole = (role: string | null | undefined): boolean =>
 	hasAnyRole(role, ADMIN_LIKE_ROLES);
 
+export const isDevRole = (role: string | null | undefined): boolean => normalizeRole(role) === 'dev';
+
 export const canViewAsRole = (role: string | null | undefined): boolean =>
 	hasAnyRole(role, VIEW_AS_ROLE_ALLOWED_ROLES);
 

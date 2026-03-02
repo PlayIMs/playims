@@ -17,7 +17,8 @@
 		IconChevronLeft,
 		IconChevronRight,
 		IconMessageCircle,
-		IconArrowBackUp
+		IconArrowBackUp,
+		IconCode
 	} from '@tabler/icons-svelte';
 	import { invalidateAll } from '$app/navigation';
 	import { browser } from '$app/environment';
@@ -71,6 +72,28 @@
 			icon: menuItemIcons[item.key]
 		}))
 	);
+	const navigationEntries = $derived.by(() => {
+		if (!isDeveloperRole) {
+			return menuItems;
+		}
+
+		const developerItem = {
+			key: 'developer',
+			label: 'Developer',
+			href: '/dashboard/dev',
+			icon: IconCode
+		};
+		const settingsIndex = menuItems.findIndex((item) => item.key === 'settings');
+		if (settingsIndex === -1) {
+			return [...menuItems, developerItem];
+		}
+
+		return [
+			...menuItems.slice(0, settingsIndex + 1),
+			developerItem,
+			...menuItems.slice(settingsIndex + 1)
+		];
+	});
 
 	const menuWidth = $derived.by(() => (isSidebarOpen ? 'w-64 xl:w-66' : 'w-14 xl:w-16'));
 	const navBottomPadding = $derived.by(() => (isSidebarOpen ? 'pb-40' : 'pb-36'));
@@ -125,6 +148,7 @@
 	};
 	const baseRole = $derived.by(() => normalizeRole(data?.authMode?.baseRole));
 	const effectiveRole = $derived.by(() => normalizeRole(data?.authMode?.effectiveRole));
+	const isDeveloperRole = $derived.by(() => effectiveRole === 'dev');
 	const canViewAsRole = $derived.by(() => data?.authMode?.canViewAsRole === true);
 	const isViewingAsRole = $derived.by(() => data?.authMode?.isViewingAsRole === true);
 	const availableViewTargets = $derived.by(() => resolveViewTargets(baseRole));
@@ -436,13 +460,6 @@
 				</button>
 			</HoverTooltip>
 		</div>
-		{#if viewModeBadgeError}
-			<p
-				class="fixed right-2 top-[2.15rem] z-60 border border-secondary-900 bg-secondary-800 px-2 py-0.5 text-[0.65rem] leading-none text-primary-100"
-			>
-				{viewModeBadgeError}
-			</p>
-		{/if}
 	{/if}
 	<div class="fixed overflow-auto bg-neutral-500 transition-[inset] duration-220 {shellInsetClass}">
 		<div class="flex min-h-full items-start">
@@ -479,7 +496,7 @@
 					aria-label="Dashboard navigation"
 				>
 					<ul class="space-y-1">
-						{#each menuItems as item (item.key)}
+						{#each navigationEntries as item (item.key)}
 							<li animate:flip={{ duration: 280, easing: cubicInOut }}>
 								<HoverTooltip text={isSidebarOpen ? '' : item.label} wrapperClass="block w-full">
 									<a
