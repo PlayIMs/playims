@@ -232,7 +232,7 @@
 								style={`image-rendering: pixelated; transform: translateY(${isRevealing ? shakeOffset : 0}px) rotate(45deg); transition: transform 180ms linear;`}
 							/>
 						{:else}
-							<span class="text-xs text-secondary-100">Ready</span>
+							<span class="text-xs text-secondary-100">Waiting...</span>
 						{/if}
 					</div>
 				</div>
@@ -292,12 +292,12 @@
 						<span>Wins: {wins}</span>
 					</div>
 					<div class="flex items-center gap-2 px-4">
-						<IconShieldX class="w-4 h-4 text-primary-200" />
-						<span>Losses: {losses}</span>
-					</div>
-					<div class="flex items-center gap-2 px-4">
 						<IconArrowsShuffle class="w-4 h-4 text-secondary-100" />
 						<span>Ties: {ties}</span>
+					</div>
+					<div class="flex items-center gap-2 px-4">
+						<IconShieldX class="w-4 h-4 text-primary-200" />
+						<span>Losses: {losses}</span>
 					</div>
 				</div>
 			</div>
