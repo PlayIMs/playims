@@ -47,6 +47,8 @@ export type {
 	NewSession,
 	UserClient,
 	NewUserClient,
+	MemberInvite,
+	NewMemberInvite,
 	ClientDatabaseRoute,
 	NewClientDatabaseRoute,
 	ClientNavigationLabel,

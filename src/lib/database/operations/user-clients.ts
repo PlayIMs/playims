@@ -98,6 +98,8 @@ export class UserClientOperations {
 		clientId: string;
 		role?: string | null;
 		status?: string | null;
+		studentId?: string | null;
+		sex?: string | null;
 		isDefault?: boolean;
 		createdUser?: string | null;
 		updatedUser?: string | null;
@@ -105,6 +107,8 @@ export class UserClientOperations {
 		const now = new Date().toISOString();
 		const role = input.role?.trim() || 'participant';
 		const status = input.status?.trim() || 'active';
+		const studentId = input.studentId?.trim() || null;
+		const sex = input.sex?.trim() || null;
 		const isDefault = input.isDefault && status === 'active' ? 1 : 0;
 
 		if (isDefault === 1) {
@@ -130,6 +134,8 @@ export class UserClientOperations {
 				.set({
 					role,
 					status,
+					studentId,
+					sex,
 					isDefault,
 					updatedAt: now,
 					updatedUser: input.updatedUser ?? input.createdUser ?? null
@@ -147,6 +153,8 @@ export class UserClientOperations {
 				clientId: input.clientId,
 				role,
 				status,
+				studentId,
+				sex,
 				isDefault,
 				createdAt: now,
 				updatedAt: now,

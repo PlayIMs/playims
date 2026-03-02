@@ -162,6 +162,20 @@
       "when": 1772217112330,
       "tag": "0022_narrow_namor",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1772315827381,
+      "tag": "0023_fancy_albert_cleary",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1772317375627,
+      "tag": "0024_purple_doctor_spectrum",
+      "breakpoints": true
     }
   ]
 }

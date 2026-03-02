@@ -7,7 +7,7 @@ export const DASHBOARD_NAV_ITEMS = [
 		href: '/dashboard/offerings'
 	},
 	{ key: 'clubSports', defaultLabel: 'Club Sports', href: '#' },
-	{ key: 'memberManagement', defaultLabel: 'Member Management', href: '#' },
+	{ key: 'memberManagement', defaultLabel: 'Member Management', href: '/dashboard/members' },
 	{
 		key: 'communicationCenter',
 		defaultLabel: 'Communication Center',

@@ -19,7 +19,8 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"check": "svelte-check",
-		"test:auth": "vitest run tests/auth"
+		"test:auth": "vitest run tests/auth",
+		"test:members": "vitest run tests/members"
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^4.20260304.0",

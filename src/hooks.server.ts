@@ -61,6 +61,7 @@ type ApiRoutePolicy = {
 const API_ROUTE_POLICIES: ApiRoutePolicy[] = [
 	{ pattern: /^\/api\/auth\/login$/, policy: { access: 'public' } },
 	{ pattern: /^\/api\/auth\/register$/, policy: { access: 'public' } },
+	{ pattern: /^\/api\/member-invites\/accept$/, policy: { access: 'public' } },
 	{ pattern: /^\/api\/auth\/logout$/, policy: { access: 'authenticated' } },
 	{ pattern: /^\/api\/auth\/session$/, policy: { access: 'authenticated' } },
 	{ pattern: /^\/api\/auth\/switch-client$/, policy: { access: 'authenticated' } },
@@ -91,6 +92,22 @@ const API_ROUTE_POLICIES: ApiRoutePolicy[] = [
 	},
 	{
 		pattern: /^\/api\/facilities$/,
+		policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES }
+	},
+	{
+		pattern: /^\/api\/members$/,
+		policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES }
+	},
+	{
+		pattern: /^\/api\/members\/[^/]+$/,
+		policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES }
+	},
+	{
+		pattern: /^\/api\/member-invites$/,
+		policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES }
+	},
+	{
+		pattern: /^\/api\/member-invites\/[^/]+$/,
 		policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES }
 	}
 ];
@@ -133,6 +150,11 @@ const INTRAMURAL_OFFERINGS_RATE_LIMIT: RateLimitConfig = {
 const FACILITIES_RATE_LIMIT: RateLimitConfig = {
 	windowMs: 60_000,
 	maxRequests: 60
+};
+
+const MEMBERS_RATE_LIMIT: RateLimitConfig = {
+	windowMs: 60_000,
+	maxRequests: 90
 };
 
 const RATE_LIMIT_ACCOUNT_PATHS = new Set([
@@ -197,6 +219,15 @@ const resolveRateLimitConfig = (pathname: string): RateLimitConfig | null => {
 	}
 
 	if (
+		pathname === '/api/members' ||
+		/^\/api\/members\/[^/]+$/.test(pathname) ||
+		pathname === '/api/member-invites' ||
+		/^\/api\/member-invites\/[^/]+$/.test(pathname)
+	) {
+		return MEMBERS_RATE_LIMIT;
+	}
+
+	if (
 		pathname === '/api/auth/session' ||
 		pathname === '/api/auth/logout' ||
 		pathname === '/api/auth/switch-client' ||
@@ -208,6 +239,10 @@ const resolveRateLimitConfig = (pathname: string): RateLimitConfig | null => {
 
 	if (pathname === '/api/auth/join-client') {
 		return JOIN_CLIENT_RATE_LIMIT;
+	}
+
+	if (pathname === '/api/member-invites/accept') {
+		return REGISTER_RATE_LIMIT;
 	}
 
 	return null;
