@@ -135,13 +135,13 @@
 	}
 
 	let remainingMs = $state(0);
-	let paused = $state(false);
+	let hovered = $state(false);
+	let focusWithin = $state(false);
 	let actionLoadingId = $state('');
 	let actionDismissClosing = $state(false);
-	let startedAt = 0;
 	let activeDurationMs = 0;
-	let frameHandle: number | null = null;
-	let clockToken = 0;
+	let clockHandle: ReturnType<typeof setInterval> | null = null;
+	let lastTickAt = 0;
 	let ToastIcon = $derived(iconByVariant[item.variant]);
 	const ACTION_DISMISS_EXIT_MS = 160;
 	const duplicateCountLabel = $derived(
@@ -226,76 +226,67 @@
 	});
 
 	function clearClock(): void {
-		clockToken += 1;
-		if (frameHandle !== null) {
-			cancelAnimationFrame(frameHandle);
-			frameHandle = null;
+		if (clockHandle !== null) {
+			clearInterval(clockHandle);
+			clockHandle = null;
 		}
-	}
-
-	function scheduleFrame(callback: FrameRequestCallback): void {
-		frameHandle = requestAnimationFrame(callback);
+		lastTickAt = 0;
 	}
 
 	function startClock(duration: number): void {
 		clearClock();
 		activeDurationMs = duration;
-		startedAt = Date.now();
 		remainingMs = duration;
-		const token = clockToken;
-		const tick = () => {
-			if (token !== clockToken || paused) {
+		lastTickAt = Date.now();
+		clockHandle = setInterval(() => {
+			if (item.duration === null || isClockPaused()) {
+				lastTickAt = 0;
 				return;
 			}
 
-			const nextRemaining = Math.max(0, activeDurationMs - (Date.now() - startedAt));
-			remainingMs = nextRemaining;
-			if (nextRemaining === 0) {
-				clearClock();
-				toast.dismiss(item.id);
+			const now = Date.now();
+			if (lastTickAt === 0) {
+				lastTickAt = now;
 				return;
 			}
 
-			scheduleFrame(tick);
-		};
+			const elapsed = now - lastTickAt;
+			lastTickAt = now;
+			remainingMs = Math.max(0, remainingMs - elapsed);
 
-		scheduleFrame(tick);
+			if (remainingMs > 0) {
+				return;
+			}
+
+			clearClock();
+			toast.dismiss(item.id);
+		}, 50);
 	}
 
 	function startPreviewLoop(duration: number): void {
 		clearClock();
-		startedAt = Date.now();
 		remainingMs = duration;
-		const token = clockToken;
-		const tick = () => {
-			if (token !== clockToken) {
+		lastTickAt = Date.now();
+		clockHandle = setInterval(() => {
+			const now = Date.now();
+			const elapsed = lastTickAt === 0 ? 0 : now - lastTickAt;
+			lastTickAt = now;
+			remainingMs = remainingMs - elapsed;
+
+			if (remainingMs > 0) {
 				return;
 			}
 
-			const elapsedInCycle = (Date.now() - startedAt) % duration;
-			remainingMs = elapsedInCycle === 0 ? duration : duration - elapsedInCycle;
-
-			scheduleFrame(tick);
-		};
-
-		scheduleFrame(tick);
+			remainingMs = duration;
+		}, 50);
 	}
 
-	function pauseClock(): void {
-		if (preview || item.duration === null || paused) {
-			return;
+	function isClockPaused(): boolean {
+		if (preview || item.duration === null) {
+			return false;
 		}
-		paused = true;
-		remainingMs = Math.max(0, activeDurationMs - (Date.now() - startedAt));
-		clearClock();
-	}
 
-	function resumeClock(): void {
-		if (preview || item.duration === null || !paused) {
-			return;
-		}
-		paused = false;
-		startClock(remainingMs);
+		return actionDismissClosing || actionLoadingId.length > 0 || hovered || focusWithin;
 	}
 
 	async function dismissAfterActionExit(): Promise<void> {
@@ -354,15 +345,28 @@
 			return;
 		}
 
-		paused = false;
 		startClock(item.duration);
 		return () => {
 			clearClock();
 		};
 	});
 
+	$effect(() => {
+		item.updatedAt;
+		hovered = false;
+		focusWithin = false;
+	});
+
+	function handleMouseEnter(): void {
+		hovered = true;
+	}
+
+	function handleMouseLeave(): void {
+		hovered = false;
+	}
+
 	function handleFocusIn(): void {
-		pauseClock();
+		focusWithin = true;
 	}
 
 	function handleFocusOut(event: FocusEvent): void {
@@ -373,7 +377,7 @@
 			}
 		}
 
-		resumeClock();
+		focusWithin = false;
 	}
 </script>
 
@@ -385,8 +389,8 @@
 	aria-live={item.important ? 'assertive' : 'polite'}
 	aria-atomic="true"
 	style={`z-index:${100 - index};`}
-	onmouseenter={pauseClock}
-	onmouseleave={resumeClock}
+	onmouseenter={handleMouseEnter}
+	onmouseleave={handleMouseLeave}
 	onfocusin={handleFocusIn}
 	onfocusout={handleFocusOut}
 	in:fly={

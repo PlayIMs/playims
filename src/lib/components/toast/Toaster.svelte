@@ -36,6 +36,7 @@
 	let scrollbarWidth = $state(0);
 	let viewportWidth = $state(0);
 	let viewportHeight = $state(0);
+	let hasMeasuredViewport = $state(false);
 
 	type EnterMotion = {
 		x?: number;
@@ -51,6 +52,7 @@
 		scrollbarWidth = Math.max(0, window.innerWidth - document.documentElement.clientWidth);
 		viewportWidth = window.innerWidth;
 		viewportHeight = window.innerHeight;
+		hasMeasuredViewport = true;
 	}
 
 	function getViewportStyle(placement: ToastDesktopPlacement): string {
@@ -160,6 +162,8 @@
 			};
 		})
 	);
+	const showMobileViewport = $derived(hasMeasuredViewport && viewportWidth < 640);
+	const showDesktopViewport = $derived(!showMobileViewport);
 </script>
 
 {#snippet overflowNotice(count: number, visibleIds: string[])}
@@ -184,74 +188,78 @@
 	</div>
 {/snippet}
 
-{#each desktopPlacementGroups as group (group.placement)}
-	{@const enterMotion = getDesktopEnterMotion(group.placement)}
-	{@const visibleIds = group.visible.map((item) => item.id)}
-	<div
-		class={`pointer-events-none fixed z-[100] hidden sm:flex ${desktopViewportClassByPlacement[group.placement]}`}
-		style={getViewportStyle(group.placement)}
-		aria-live="polite"
-		aria-atomic="true"
-	>
-		<div class="w-full max-w-[22rem] space-y-2.5 sm:max-w-[26rem] sm:space-y-3">
-			{#if group.overflowCount > 0 && group.placeOverflowBefore}
-				{@render overflowNotice(group.overflowCount, visibleIds)}
-			{/if}
+{#if showDesktopViewport}
+	{#each desktopPlacementGroups as group (group.placement)}
+		{@const enterMotion = getDesktopEnterMotion(group.placement)}
+		{@const visibleIds = group.visible.map((item) => item.id)}
+		<div
+			class={`pointer-events-none fixed z-[100] hidden sm:flex ${desktopViewportClassByPlacement[group.placement]}`}
+			style={getViewportStyle(group.placement)}
+			aria-live="polite"
+			aria-atomic="true"
+		>
+			<div class="w-full max-w-[22rem] space-y-2.5 sm:max-w-[26rem] sm:space-y-3">
+				{#if group.overflowCount > 0 && group.placeOverflowBefore}
+					{@render overflowNotice(group.overflowCount, visibleIds)}
+				{/if}
 
-			{#each group.visible as item, index (item.id)}
-				<div
-					class="will-change-transform"
-					animate:flip={{ duration: 280, easing: cubicOut }}
-				>
-					<ToastItem
-						{item}
-						{index}
-						enterOffsetX={enterMotion.x}
-						enterOffsetY={enterMotion.y}
-						animateEntry={enterMotion.enabled}
-					/>
-				</div>
-			{/each}
+				{#each group.visible as item, index (item.id)}
+					<div
+						class="will-change-transform"
+						animate:flip={{ duration: 280, easing: cubicOut }}
+					>
+						<ToastItem
+							{item}
+							{index}
+							enterOffsetX={enterMotion.x}
+							enterOffsetY={enterMotion.y}
+							animateEntry={enterMotion.enabled}
+						/>
+					</div>
+				{/each}
 
-			{#if group.overflowCount > 0 && !group.placeOverflowBefore}
-				{@render overflowNotice(group.overflowCount, visibleIds)}
-			{/if}
+				{#if group.overflowCount > 0 && !group.placeOverflowBefore}
+					{@render overflowNotice(group.overflowCount, visibleIds)}
+				{/if}
+			</div>
 		</div>
-	</div>
-{/each}
+	{/each}
+{/if}
 
-{#each mobilePlacementGroups as group (group.placement)}
-	{@const enterMotion = getMobileEnterMotion(group.placement)}
-	{@const visibleIds = group.visible.map((item) => item.id)}
-	<div
-		class={`pointer-events-none fixed z-[100] flex sm:hidden ${mobileViewportClassByPlacement[group.placement]}`}
-		style={getMobileViewportStyle()}
-		aria-live="polite"
-		aria-atomic="true"
-	>
-		<div class="w-full max-w-[26rem] space-y-3">
-			{#if group.overflowCount > 0 && group.placeOverflowBefore}
-				{@render overflowNotice(group.overflowCount, visibleIds)}
-			{/if}
+{#if showMobileViewport}
+	{#each mobilePlacementGroups as group (group.placement)}
+		{@const enterMotion = getMobileEnterMotion(group.placement)}
+		{@const visibleIds = group.visible.map((item) => item.id)}
+		<div
+			class={`pointer-events-none fixed z-[100] flex sm:hidden ${mobileViewportClassByPlacement[group.placement]}`}
+			style={getMobileViewportStyle()}
+			aria-live="polite"
+			aria-atomic="true"
+		>
+			<div class="w-full max-w-[26rem] space-y-3">
+				{#if group.overflowCount > 0 && group.placeOverflowBefore}
+					{@render overflowNotice(group.overflowCount, visibleIds)}
+				{/if}
 
-			{#each group.visible as item, index (item.id)}
-				<div
-					class="will-change-transform"
-					animate:flip={{ duration: 280, easing: cubicOut }}
-				>
-					<ToastItem
-						{item}
-						{index}
-						enterOffsetX={enterMotion.x}
-						enterOffsetY={enterMotion.y}
-						animateEntry={enterMotion.enabled}
-					/>
-				</div>
-			{/each}
+				{#each group.visible as item, index (item.id)}
+					<div
+						class="will-change-transform"
+						animate:flip={{ duration: 280, easing: cubicOut }}
+					>
+						<ToastItem
+							{item}
+							{index}
+							enterOffsetX={enterMotion.x}
+							enterOffsetY={enterMotion.y}
+							animateEntry={enterMotion.enabled}
+						/>
+					</div>
+				{/each}
 
-			{#if group.overflowCount > 0 && !group.placeOverflowBefore}
-				{@render overflowNotice(group.overflowCount, visibleIds)}
-			{/if}
+				{#if group.overflowCount > 0 && !group.placeOverflowBefore}
+					{@render overflowNotice(group.overflowCount, visibleIds)}
+				{/if}
+			</div>
 		</div>
-	</div>
-{/each}
+	{/each}
+{/if}
