@@ -4,7 +4,7 @@
 	import { tick } from 'svelte';
 	import {
 		IconAlertTriangle,
-		IconBallFootball,
+	IconBallAmericanFootball,
 		IconBuilding,
 		IconCalendarWeek,
 		IconChartBar,
@@ -355,7 +355,7 @@
 	const navIconByKey = {
 		dashboard: IconLayoutDashboard,
 		schedule: IconCalendarWeek,
-		offerings: IconBallFootball,
+	offerings: IconBallAmericanFootball,
 		clubSports: IconTrophy,
 		memberManagement: IconUserCog,
 		communicationCenter: IconMessageCircle,

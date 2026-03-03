@@ -682,7 +682,7 @@
 		<div class="border-b border-secondary-300 bg-neutral-600/66 p-4">
 			<div class="flex items-center gap-3 py-2 lg:py-3">
 				<div
-					class="bg-primary text-white w-[2.75rem] h-[2.75rem] lg:w-[3.4rem] lg:h-[3.4rem] flex items-center justify-center"
+					class="bg-primary text-white border-2 border-primary-700 w-[2.75rem] h-[2.75rem] lg:w-[3.4rem] lg:h-[3.4rem] flex items-center justify-center"
 					aria-hidden="true"
 				>
 					<IconUsers class="w-7 h-7 lg:w-8 lg:h-8" />

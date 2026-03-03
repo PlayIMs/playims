@@ -7,7 +7,7 @@ description: Build or refactor PlayIMs dashboard pages and wizard UI with codeba
 
 ## Goal
 
-Build UI that is visually and behaviorally consistent with the current PlayIMs app, especially the patterns established in `src/routes/dashboard/offerings/+page.svelte`, the page-header structure in `src/routes/dashboard/facilities/+page.svelte`, and shared wizard primitives.
+Build UI that is visually and behaviorally consistent with the current PlayIMs app, especially the module-page shell established in `src/routes/dashboard/offerings/+page.svelte`, the matching page-header pattern now used across dashboard module pages, and shared wizard primitives.
 
 ## Trigger Conditions
 
@@ -33,6 +33,8 @@ Use companion skills with this one:
 Read these files before editing UI:
 
 - `src/routes/dashboard/offerings/+page.svelte`
+- `src/routes/dashboard/members/+page.svelte`
+- `src/routes/dashboard/settings/+layout.svelte`
 - `src/routes/dashboard/facilities/+page.svelte`
 - `src/lib/components/wizard/WizardModal.svelte`
 - `src/lib/components/wizard/WizardStepFooter.svelte`
@@ -62,7 +64,9 @@ Do not replace these with ad-hoc alternatives for new work.
 
 Ground in existing app usage before implementing:
 
-- `src/routes/dashboard/offerings/+page.svelte` (heavy usage of all three).
+- `src/routes/dashboard/offerings/+page.svelte` (canonical module-page shell and heavy shared-component usage).
+- `src/routes/dashboard/members/+page.svelte` (matching clean module header with relocated page action).
+- `src/routes/dashboard/settings/+layout.svelte` (settings-area shell that inherits the same module header structure).
 - `src/routes/dashboard/account/+page.svelte` and `src/routes/dashboard/account/_wizards/ManageOrganizationWizard.svelte`.
 - `src/routes/dashboard/offerings/_wizards/ManageSeasonWizard.svelte`.
 - `src/routes/dashboard/facilities/_wizards/CreateFacilityWizard.svelte`.
@@ -70,16 +74,46 @@ Ground in existing app usage before implementing:
 
 Default class recipes to copy first:
 
-- Page hero header: outer `border-2 border-secondary-300 bg-neutral` section with inner `p-4 border-b border-secondary-300 bg-neutral-600/66 space-y-3`, icon tile, large serif `h1`, supporting sentence, and right-aligned primary action matching `src/routes/dashboard/facilities/+page.svelte`
+- Module page shell: outer `w-full space-y-4` root with a full-width header strip followed by a body wrapper
+- Module header strip: `<header class="bg-neutral">` with inner `border-b border-secondary-300 bg-neutral-600/66 p-4`
+- Module header row: `flex items-center gap-3 py-2 lg:py-3`
+- Module header icon tile: `bg-primary text-white border-2 border-primary-700 w-[2.75rem] h-[2.75rem] lg:w-[3.4rem] lg:h-[3.4rem] flex items-center justify-center`
+- Module page title: `text-5xl lg:text-6xl leading-[0.9] tracking-[0.01em] font-bold font-serif text-neutral-950`
+- Module body wrapper: `px-4 lg:px-6`
+- Module action/meta row: place page actions, timestamps, counts, and utility controls below the header inside the body wrapper, not inside the title strip
 - Compact icon dropdown trigger: `button-secondary-outlined p-1.5 cursor-pointer`
 - Split add-menu dropdown trigger: `button-primary-outlined -ml-[2px] px-1 py-1 cursor-pointer`
 - Label-inline helper popover row: `mb-1 flex min-h-6 items-center gap-1.5`
 - Slug revert tooltip button: `border-0 bg-transparent ... text-secondary-700 hover:text-secondary-900`
 
+## Module Page Shell
+
+Use `src/routes/dashboard/offerings/+page.svelte` as the source of truth for dashboard module pages.
+
+Required structure:
+
+1. Root page wrapper uses `w-full space-y-4`.
+2. Header stays full-width and uses only the thin bottom divider.
+3. Header contains only the icon tile and page title unless the user explicitly asks for another header element.
+4. Body content lives in a separate wrapper using `px-4 lg:px-6`.
+5. Actions, timestamps, badges, counts, filters, and helper controls live below the header inside the padded body area.
+
+Do not use the older boxed hero shell for module pages:
+
+- Do not wrap the whole page in `p-6 lg:p-8` when the goal is a standard dashboard module page.
+- Do not use `border-2 border-secondary-300 bg-neutral p-5` as the module header container.
+- Do not put page subtitles in the module header by default.
+- Do not place primary action buttons in the module header by default.
+
+For settings pages:
+
+- Prefer updating `src/routes/dashboard/settings/+layout.svelte` when the whole settings area should share the shell.
+- Keep individual settings child pages focused on their local content cards/sections instead of reintroducing separate hero headers.
+
 ## Required Workflow
 
 1. Ground existing UI patterns in the nearest dashboard page and wizard route.
-2. Match the dashboard page header to the facilities-page hero pattern unless the existing route already has a stronger established variant.
+2. Match dashboard module pages to the offerings-page module shell unless the user explicitly requests a deliberate exception.
 3. Choose layout recipes from `references/dashboard-layout-recipes.md`.
 4. Choose wizard recipes from `references/wizard-recipes.md` if modals/steps are involved.
 5. Apply form/control recipes from `references/forms-and-controls.md`.
@@ -123,6 +157,10 @@ When legacy guidance and current implementation differ, prefer current implement
 - Do not introduce native `<select>` for new dashboard selectors; use `ListboxDropdown`.
 - Do not ship new helper popover variants; use `InfoPopover`.
 - Do not ship new hover hints using native `title`; use `HoverTooltip`.
+- Do not use the old boxed module hero pattern when building or refactoring dashboard module pages.
+- Do not place default module actions, subtitles, timestamps, or helper copy inside the module header strip.
+- Do not remove body gutters after moving to the full-width header pattern; preserve body spacing with `px-4 lg:px-6` or a route-specific equivalent derived from the offerings page.
+- Do not mix full-width header strips with page-wide outer padding that insets the header away from the sidebar or scrollbar.
 - Do not ship new transient success/error banners; use the shared toast system.
 - Use the shared toast system for success, error, and warning confirmation because it avoids shifting the page layout the way banners do.
 - Do not replace input validation with toasts; validation should stay next to the relevant field.

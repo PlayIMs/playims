@@ -3996,454 +3996,176 @@
 	<meta name="robots" content="noindex, follow" />
 </svelte:head>
 
-<div class="p-6 lg:p-8 space-y-6">
-	<header class="border-2 border-secondary-300 bg-neutral p-5 space-y-4">
-		<div class="flex items-start gap-4">
-			<div
-				class="bg-primary text-white w-11 h-11 flex items-center justify-center"
-				aria-hidden="true"
-			>
-				<IconBallFootball class="w-7 h-7 lg:w-8 lg:h-8" />
+<div class="w-full space-y-4">
+	<header class="bg-neutral">
+		<div class="border-b border-secondary-300 bg-neutral-600/66 p-4">
+			<div class="flex items-center gap-3 py-2 lg:py-3">
+				<div
+					class="bg-primary text-white border-2 border-primary-700 w-[2.75rem] h-[2.75rem] lg:w-[3.4rem] lg:h-[3.4rem] flex items-center justify-center"
+					aria-hidden="true"
+				>
+					<IconBallAmericanFootball class="w-7 h-7 lg:w-8 lg:h-8" />
+				</div>
+				<h1
+					class="text-5xl lg:text-6xl leading-[0.9] tracking-[0.01em] font-bold font-serif text-neutral-950"
+				>
+					{pageLabel}
+				</h1>
 			</div>
-			<h1 class="text-5xl lg:text-6xl leading-[0.9] font-bold font-serif text-neutral-950">
-				{pageLabel}
-			</h1>
 		</div>
 	</header>
 
-	{#if seasonBoards.length === 0}
-		<div class="grid grid-cols-1 2xl:grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)] gap-6">
-			<section class="min-w-0 border-2 border-secondary-300 bg-neutral">
-				<div class="p-4 border-b border-secondary-300 bg-neutral-600/66 space-y-3">
-					<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-						<div class="flex items-center gap-2">
-							<h2 class="text-2xl font-bold font-serif text-neutral-950">
-								{selectedSeason?.name ?? 'Season'}
-							</h2>
-							<ListboxDropdown
-								options={offeringViewDropdownOptions}
-								value={offeringView}
-								ariaLabel="Offering type"
-								buttonClass={COMPACT_DROPDOWN_BUTTON_CLASS}
-								on:change={(event) => {
-									handleOfferingViewChange(event.detail.value);
-								}}
-							/>
-							{#if seasons.length > 0}
+	<div class="px-4 lg:px-6">
+		{#if seasonBoards.length === 0}
+			<div class="grid grid-cols-1 2xl:grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)] gap-6">
+				<section class="min-w-0 border-2 border-secondary-300 bg-neutral">
+					<div class="p-4 border-b border-secondary-300 bg-neutral-600/66 space-y-3">
+						<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+							<div class="flex items-center gap-2">
+								<h2 class="text-2xl font-bold font-serif text-neutral-950">
+									{selectedSeason?.name ?? 'Season'}
+								</h2>
+								<ListboxDropdown
+									options={offeringViewDropdownOptions}
+									value={offeringView}
+									ariaLabel="Offering type"
+									buttonClass={COMPACT_DROPDOWN_BUTTON_CLASS}
+									on:change={(event) => {
+										handleOfferingViewChange(event.detail.value);
+									}}
+								/>
+								{#if seasons.length > 0}
+									{#if canManageOfferings}
+										<ListboxDropdown
+											options={seasonHistoryDropdownOptions}
+											value={selectedSeasonId}
+											ariaLabel="Season history"
+											buttonClass="button-secondary-outlined p-1.5 cursor-pointer"
+											emptyText="No seasons configured."
+											footerActionLabel="Add New Season"
+											footerActionAriaLabel="Add new season"
+											footerSecondaryActionAriaLabel="Manage seasons"
+											footerSecondaryActionClass="button-secondary-outlined w-9 h-9 p-0 cursor-pointer inline-flex items-center justify-center"
+											on:change={(event) => {
+												handleSeasonHistoryChange(event.detail.value);
+											}}
+											on:footerAction={openCreateSeasonWizard}
+											on:footerSecondaryAction={openManageSeasonWizard}
+										>
+											{#snippet trigger(_, selectedOption)}
+												<IconHistory
+													class={`w-4 h-4 ${selectedOption ? 'text-secondary-900' : 'text-neutral-700'}`}
+												/>
+											{/snippet}
+											{#snippet footerSecondaryAction()}
+												<IconPencil class="w-4 h-4" />
+											{/snippet}
+										</ListboxDropdown>
+									{:else}
+										<ListboxDropdown
+											options={seasonHistoryDropdownOptions}
+											value={selectedSeasonId}
+											ariaLabel="Season history"
+											buttonClass="button-secondary-outlined p-1.5 cursor-pointer"
+											emptyText="No seasons configured."
+											on:change={(event) => {
+												handleSeasonHistoryChange(event.detail.value);
+											}}
+										>
+											{#snippet trigger(_, selectedOption)}
+												<IconHistory
+													class={`w-4 h-4 ${selectedOption ? 'text-secondary-900' : 'text-neutral-700'}`}
+												/>
+											{/snippet}
+										</ListboxDropdown>
+									{/if}
+								{/if}
+							</div>
+							<div class="flex items-center gap-2 text-xs text-neutral-950 font-sans">
+								<span class="border border-secondary-300 px-2 py-1">
+									{badgeOfferingCount}
+									{pluralize(badgeOfferingCount, 'offering', 'offerings')}
+								</span>
+								<span class="border border-secondary-300 px-2 py-1">
+									{badgeLeagueOrGroupCount}
+									{badgeLeagueOrGroupLabel}
+								</span>
 								{#if canManageOfferings}
-									<ListboxDropdown
-										options={seasonHistoryDropdownOptions}
-										value={selectedSeasonId}
-										ariaLabel="Season history"
-										buttonClass="button-secondary-outlined p-1.5 cursor-pointer"
-										emptyText="No seasons configured."
-										footerActionLabel="Add New Season"
-										footerActionAriaLabel="Add new season"
-										footerSecondaryActionAriaLabel="Manage seasons"
-										footerSecondaryActionClass="button-secondary-outlined w-9 h-9 p-0 cursor-pointer inline-flex items-center justify-center"
-										on:change={(event) => {
-											handleSeasonHistoryChange(event.detail.value);
-										}}
-										on:footerAction={openCreateSeasonWizard}
-										on:footerSecondaryAction={openManageSeasonWizard}
-									>
-										{#snippet trigger(_, selectedOption)}
-											<IconHistory
-												class={`w-4 h-4 ${selectedOption ? 'text-secondary-900' : 'text-neutral-700'}`}
-											/>
-										{/snippet}
-										{#snippet footerSecondaryAction()}
-											<IconPencil class="w-4 h-4" />
-										{/snippet}
-									</ListboxDropdown>
-								{:else}
-									<ListboxDropdown
-										options={seasonHistoryDropdownOptions}
-										value={selectedSeasonId}
-										ariaLabel="Season history"
-										buttonClass="button-secondary-outlined p-1.5 cursor-pointer"
-										emptyText="No seasons configured."
-										on:change={(event) => {
-											handleSeasonHistoryChange(event.detail.value);
-										}}
-									>
-										{#snippet trigger(_, selectedOption)}
-											<IconHistory
-												class={`w-4 h-4 ${selectedOption ? 'text-secondary-900' : 'text-neutral-700'}`}
-											/>
-										{/snippet}
-									</ListboxDropdown>
-								{/if}
-							{/if}
-						</div>
-						<div class="flex items-center gap-2 text-xs text-neutral-950 font-sans">
-							<span class="border border-secondary-300 px-2 py-1">
-								{badgeOfferingCount}
-								{pluralize(badgeOfferingCount, 'offering', 'offerings')}
-							</span>
-							<span class="border border-secondary-300 px-2 py-1">
-								{badgeLeagueOrGroupCount}
-								{badgeLeagueOrGroupLabel}
-							</span>
-							{#if canManageOfferings}
-								{#if seasons.length > 0}
-									<div class="relative inline-flex items-stretch">
-										<button
-											type="button"
-											class="button-primary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer"
-											onclick={openCreateWizard}
-										>
-											+ ADD
-										</button>
-										<ListboxDropdown
-											options={addActionDropdownOptions}
-											value=""
-											mode="action"
-											ariaLabel="Open add menu"
-											align="right"
-											buttonClass="button-primary-outlined -ml-[2px] px-1 py-1 cursor-pointer"
-											listClass="mt-1 w-44 border-2 border-secondary-300 bg-white z-20"
-											optionClass="w-full text-left px-3 py-2 text-sm text-neutral-950 cursor-pointer"
-											activeOptionClass="bg-neutral-100 text-neutral-950"
-											on:action={(event) => {
-												handleAddActionDropdown(event.detail.value);
-											}}
-										>
-											{#snippet trigger(open)}
-												<IconChevronDown
-													class={`w-4 h-4 transition-transform duration-200 ${open ? 'rotate-180' : 'rotate-0'}`}
-												/>
-											{/snippet}
-										</ListboxDropdown>
-									</div>
-								{:else}
-									<button
-										type="button"
-										class="button-secondary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer"
-										onclick={openCreateSeasonWizard}
-									>
-										Add Season
-									</button>
-								{/if}
-							{/if}
-						</div>
-					</div>
-					<SearchInput
-						id="tournament-search-empty"
-						label="Search offerings and deadlines"
-						value={searchQuery}
-						disabled
-						placeholder={`Search offering, ${showTournaments ? 'group' : showAllOfferings ? 'league/group' : 'league'}, or deadline`}
-						autocomplete="off"
-						wrapperClass="relative"
-						iconClass="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-950"
-						inputClass="input-secondary pl-10 pr-10 py-1 text-sm disabled:cursor-not-allowed"
-						clearButtonClass="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-950 hover:text-secondary-900 cursor-pointer"
-						clearIconClass="w-4 h-4"
-						clearAriaLabel="Clear search"
-						on:input={(event) => {
-							searchQuery = event.detail.value;
-						}}
-					/>
-				</div>
-
-				<div class="p-4 space-y-4 min-h-[34rem]">
-					<div class="border border-secondary-300 bg-white p-4 space-y-2">
-						<h3 class="text-xl font-bold font-serif text-neutral-950">
-							{#if seasons.length === 0}
-								No seasons yet
-							{:else}
-								No offerings yet
-							{/if}
-						</h3>
-						<p class="text-sm text-neutral-950 font-sans">
-							{#if seasons.length === 0}
-								Create a season to start managing offerings, leagues, and groups.
-							{:else}
-								Add or enable offerings to populate this board.
-							{/if}
-						</p>
-					</div>
-
-					{#each [0, 1] as _, skeletonOfferingIndex}
-						<article class="border border-secondary-300 bg-white p-4 space-y-3" aria-hidden="true">
-							<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-								<div class="space-y-2">
-									<div
-										class={`h-7 ${skeletonOfferingIndex === 0 ? 'w-44' : 'w-36'} bg-neutral-100`}
-									></div>
-									<div class="h-3 w-28 bg-neutral-100"></div>
-								</div>
-								<div class="flex flex-wrap items-center gap-1">
-									<div class="h-5 w-16 bg-neutral-100"></div>
-									<div class="h-5 w-16 bg-neutral-100"></div>
-									<div class="h-5 w-16 bg-neutral-100"></div>
-								</div>
-							</div>
-
-							<div class="border border-secondary-300 bg-white overflow-x-auto">
-								<table class="min-w-full border-collapse">
-									<thead>
-										<tr class="border-b border-secondary-300 bg-neutral">
-											<th scope="col" class="px-2 py-1 text-left min-w-48">
-												<div class="h-3 w-20 bg-neutral-100"></div>
-											</th>
-											<th scope="col" class="px-2 py-1 text-left min-w-24">
-												<div class="h-3 w-12 bg-neutral-100"></div>
-											</th>
-											<th scope="col" class="px-2 py-1 text-left min-w-44">
-												<div class="h-3 w-24 bg-neutral-100"></div>
-											</th>
-											<th scope="col" class="px-2 py-1 text-left min-w-40">
-												<div class="h-3 w-24 bg-neutral-100"></div>
-											</th>
-											<th scope="col" class="px-2 py-1 text-left min-w-44">
-												<div class="h-3 w-20 bg-neutral-100"></div>
-											</th>
-										</tr>
-									</thead>
-									<tbody>
-										{#each [0, 1, 2, 3] as _, leagueIndex}
-											<tr
-												class={`align-middle ${leagueIndex < 3 ? 'border-b border-secondary-200' : ''} ${leagueIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}
+									{#if seasons.length > 0}
+										<div class="relative inline-flex items-stretch">
+											<button
+												type="button"
+												class="button-primary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer"
+												onclick={openCreateWizard}
 											>
-												<th scope="row" class="px-2 py-1 text-left">
-													<div class="flex items-center gap-2">
-														<div
-															class="w-9 h-9 border border-secondary-300 bg-neutral-100 flex items-center justify-center shrink-0"
-															aria-hidden="true"
-														>
-															<div class="w-4 h-4 bg-neutral-300"></div>
-														</div>
-														<div class="h-4 w-32 bg-neutral-100"></div>
-													</div>
-												</th>
-												<td class="px-2 py-1">
-													<div class="h-5 w-16 bg-neutral-100"></div>
-												</td>
-												<td class="px-2 py-1">
-													<div class="space-y-1">
-														<div class="h-3 w-28 bg-neutral-100"></div>
-														<div class="h-3 w-24 bg-neutral-100"></div>
-													</div>
-												</td>
-												<td class="px-2 py-1">
-													<div class="h-3 w-24 bg-neutral-100"></div>
-												</td>
-												<td class="px-2 py-1">
-													<div class="h-3 w-32 bg-neutral-100"></div>
-												</td>
-											</tr>
-										{/each}
-									</tbody>
-								</table>
-							</div>
-						</article>
-					{/each}
-				</div>
-			</section>
-
-			<aside class="w-full min-w-0 space-y-6">
-				<section class="border-2 border-secondary-300 bg-neutral">
-					<div
-						class="p-4 border-b border-secondary-300 bg-neutral-600/66 flex items-center justify-between"
-					>
-						<h2 class="text-xl font-bold font-serif text-neutral-950">Upcoming Deadlines</h2>
-						<IconCalendar class="w-5 h-5 text-secondary-700" />
-					</div>
-					<div class="p-4 space-y-3 min-h-56" aria-hidden="true">
-						<div class="border border-secondary-300 bg-white p-3 space-y-2">
-							<div class="h-3 w-4/5 bg-neutral-100"></div>
-							<div class="h-3 w-3/5 bg-neutral-100"></div>
-							<div class="h-3 w-5/6 bg-neutral-100"></div>
-						</div>
-						<div class="border border-secondary-300 bg-white p-3 space-y-2">
-							<div class="h-3 w-3/4 bg-neutral-100"></div>
-							<div class="h-3 w-2/3 bg-neutral-100"></div>
-						</div>
-					</div>
-				</section>
-
-				<section class="border-2 border-secondary-300 bg-neutral">
-					<div class="p-4 border-b border-secondary-300 bg-neutral-600/66">
-						<h2 class="text-xl font-bold font-serif text-neutral-950">Season Snapshot</h2>
-					</div>
-					<div class="grid grid-cols-2 gap-2 p-4 sm:grid-cols-3">
-						<div class="card-secondary-outlined">
-							<p class="text-[11px] uppercase tracking-wide text-neutral-950 font-bold">
-								Offerings
-							</p>
-							<p class="text-2xl font-bold font-serif text-neutral-950">0</p>
-						</div>
-						<div class="card-secondary-outlined">
-							<p class="text-[11px] uppercase tracking-wide text-neutral-950 font-bold">
-								{showTournaments ? 'Groups' : showAllOfferings ? 'Leagues/Groups' : 'Leagues'}
-							</p>
-							<p class="text-2xl font-bold font-serif text-neutral-950">0</p>
-						</div>
-						<div class="card-secondary-outlined">
-							<p class="text-[11px] uppercase tracking-wide text-neutral-950 font-bold">
-								Divisions
-							</p>
-							<p class="text-2xl font-bold font-serif text-neutral-950">0</p>
-						</div>
-						<div class="card-primary-outlined">
-							<p class="text-[11px] uppercase tracking-wide text-primary-700 font-bold">Open</p>
-							<p class="text-2xl font-bold font-serif text-primary-700">0</p>
-						</div>
-						<div class="card-primary-outlined">
-							<p class="text-[11px] uppercase tracking-wide text-primary-700 font-bold">Waitlist</p>
-							<p class="text-2xl font-bold font-serif text-primary-700">0</p>
-						</div>
-						<div class="card-secondary-outlined">
-							<p class="text-[11px] uppercase tracking-wide text-secondary-900 font-bold">Closed</p>
-							<p class="text-2xl font-bold font-serif text-secondary-900">0</p>
-						</div>
-					</div>
-				</section>
-			</aside>
-		</div>
-	{:else}
-		<div class="grid grid-cols-1 2xl:grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)] gap-6">
-			<section class="min-w-0 border-2 border-secondary-300 bg-neutral">
-				<div class="p-4 border-b border-secondary-300 bg-neutral-600/66 space-y-3">
-					<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-						<div class="flex items-center gap-2">
-							<h2 class="text-2xl font-bold font-serif text-neutral-950">
-								{selectedSeason?.name ?? activeSeasonBoard?.label ?? 'Season'}
-							</h2>
-							<ListboxDropdown
-								options={offeringViewDropdownOptions}
-								value={offeringView}
-								ariaLabel="Offering type"
-								buttonClass={COMPACT_DROPDOWN_BUTTON_CLASS}
-								on:change={(event) => {
-									handleOfferingViewChange(event.detail.value);
-								}}
-							/>
-							{#if canManageOfferings}
-								<ListboxDropdown
-									options={seasonHistoryDropdownOptions}
-									value={selectedSeasonId}
-									ariaLabel="Season history"
-									buttonClass="button-secondary-outlined p-1.5 cursor-pointer"
-									emptyText="No seasons configured."
-									footerActionLabel="Add New Season"
-									footerActionAriaLabel="Add new season"
-									footerSecondaryActionAriaLabel="Manage seasons"
-									footerSecondaryActionClass="button-secondary-outlined w-9 h-9 p-0 cursor-pointer inline-flex items-center justify-center"
-									on:change={(event) => {
-										handleSeasonHistoryChange(event.detail.value);
-									}}
-									on:footerAction={openCreateSeasonWizard}
-									on:footerSecondaryAction={openManageSeasonWizard}
-								>
-									{#snippet trigger(_, selectedOption)}
-										<IconHistory
-											class={`w-4 h-4 ${selectedOption ? 'text-secondary-900' : 'text-neutral-700'}`}
-										/>
-									{/snippet}
-									{#snippet footerSecondaryAction()}
-										<IconPencil class="w-4 h-4" />
-									{/snippet}
-								</ListboxDropdown>
-							{:else}
-								<ListboxDropdown
-									options={seasonHistoryDropdownOptions}
-									value={selectedSeasonId}
-									ariaLabel="Season history"
-									buttonClass="button-secondary-outlined p-1.5 cursor-pointer"
-									emptyText="No seasons configured."
-									on:change={(event) => {
-										handleSeasonHistoryChange(event.detail.value);
-									}}
-								>
-									{#snippet trigger(_, selectedOption)}
-										<IconHistory
-											class={`w-4 h-4 ${selectedOption ? 'text-secondary-900' : 'text-neutral-700'}`}
-										/>
-									{/snippet}
-								</ListboxDropdown>
-							{/if}
-						</div>
-						<div class="flex items-center gap-2 text-xs text-neutral-950 font-sans">
-							<span class="border border-secondary-300 px-2 py-1">
-								{badgeOfferingCount}
-								{pluralize(badgeOfferingCount, 'offering', 'offerings')}
-							</span>
-							<span class="border border-secondary-300 px-2 py-1">
-								{badgeLeagueOrGroupCount}
-								{badgeLeagueOrGroupLabel}
-							</span>
-							{#if canManageOfferings}
-								{#if seasons.length > 0}
-									<div class="relative inline-flex items-stretch">
+												+ ADD
+											</button>
+											<ListboxDropdown
+												options={addActionDropdownOptions}
+												value=""
+												mode="action"
+												ariaLabel="Open add menu"
+												align="right"
+												buttonClass="button-primary-outlined -ml-[2px] px-1 py-1 cursor-pointer"
+												listClass="mt-1 w-44 border-2 border-secondary-300 bg-white z-20"
+												optionClass="w-full text-left px-3 py-2 text-sm text-neutral-950 cursor-pointer"
+												activeOptionClass="bg-neutral-100 text-neutral-950"
+												on:action={(event) => {
+													handleAddActionDropdown(event.detail.value);
+												}}
+											>
+												{#snippet trigger(open)}
+													<IconChevronDown
+														class={`w-4 h-4 transition-transform duration-200 ${open ? 'rotate-180' : 'rotate-0'}`}
+													/>
+												{/snippet}
+											</ListboxDropdown>
+										</div>
+									{:else}
 										<button
 											type="button"
-											class="button-primary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer"
-											onclick={openCreateWizard}
+											class="button-secondary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer"
+											onclick={openCreateSeasonWizard}
 										>
-											+ ADD
+											Add Season
 										</button>
-										<ListboxDropdown
-											options={addActionDropdownOptions}
-											value=""
-											mode="action"
-											ariaLabel="Open add menu"
-											align="right"
-											buttonClass="button-primary-outlined -ml-[2px] px-1 py-1 cursor-pointer"
-											listClass="mt-1 w-44 border-2 border-secondary-300 bg-white z-20"
-											optionClass="w-full text-left px-3 py-2 text-sm text-neutral-950 cursor-pointer"
-											activeOptionClass="bg-neutral-100 text-neutral-950"
-											on:action={(event) => {
-												handleAddActionDropdown(event.detail.value);
-											}}
-										>
-											{#snippet trigger(open)}
-												<IconChevronDown
-													class={`w-4 h-4 transition-transform duration-200 ${open ? 'rotate-180' : 'rotate-0'}`}
-												/>
-											{/snippet}
-										</ListboxDropdown>
-									</div>
-								{:else}
-									<button
-										type="button"
-										class="button-secondary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer"
-										onclick={openCreateSeasonWizard}
-									>
-										Add Season
-									</button>
+									{/if}
 								{/if}
-							{/if}
+							</div>
 						</div>
+						<SearchInput
+							id="tournament-search-empty"
+							label="Search offerings and deadlines"
+							value={searchQuery}
+							disabled
+							placeholder={`Search offering, ${showTournaments ? 'group' : showAllOfferings ? 'league/group' : 'league'}, or deadline`}
+							autocomplete="off"
+							wrapperClass="relative"
+							iconClass="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-950"
+							inputClass="input-secondary pl-10 pr-10 py-1 text-sm disabled:cursor-not-allowed"
+							clearButtonClass="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-950 hover:text-secondary-900 cursor-pointer"
+							clearIconClass="w-4 h-4"
+							clearAriaLabel="Clear search"
+							on:input={(event) => {
+								searchQuery = event.detail.value;
+							}}
+						/>
 					</div>
-					<SearchInput
-						id="tournament-search"
-						label="Search offerings and deadlines"
-						value={searchQuery}
-						placeholder={`Search offering, ${showTournaments ? 'group' : showAllOfferings ? 'league/group' : 'league'}, or deadline`}
-						autocomplete="off"
-						wrapperClass="relative"
-						iconClass="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-950"
-						inputClass="input-secondary pl-10 pr-10 py-1 text-sm disabled:cursor-not-allowed"
-						clearButtonClass="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-950 hover:text-secondary-900 cursor-pointer"
-						clearIconClass="w-4 h-4"
-						clearAriaLabel="Clear search"
-						on:input={(event) => {
-							searchQuery = event.detail.value;
-						}}
-					/>
-				</div>
 
-				{#if visibleOfferings.length === 0}
 					<div class="p-4 space-y-4 min-h-[34rem]">
-						<div class="border border-warning-300 bg-warning-50 p-3">
-							<p class="text-sm text-neutral-950 font-sans">
-								{#if searchQuery.trim().length > 0}
-									No {offeringTypeLabel.toLowerCase()} match "{searchQuery.trim()}" for this season.
+						<div class="border border-secondary-300 bg-white p-4 space-y-2">
+							<h3 class="text-xl font-bold font-serif text-neutral-950">
+								{#if seasons.length === 0}
+									No seasons yet
 								{:else}
-									No {offeringTypeLabel.toLowerCase()} match this search for this season.
+									No offerings yet
+								{/if}
+							</h3>
+							<p class="text-sm text-neutral-950 font-sans">
+								{#if seasons.length === 0}
+									Create a season to start managing offerings, leagues, and groups.
+								{:else}
+									Add or enable offerings to populate this board.
 								{/if}
 							</p>
 						</div>
@@ -4527,393 +4249,691 @@
 							</article>
 						{/each}
 					</div>
-				{:else}
-					<div class="divide-y divide-secondary-300">
-						{#each renderedOfferings as offering}
-							<article id={offering.offeringSlug} class="p-4 space-y-3">
-								<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-									<div>
-										<div class="flex items-center gap-2">
-											<h3 class="text-2xl font-bold font-serif text-neutral-950">
-												{offering.offeringName}
-											</h3>
-											{#if showAllOfferings}
-												<span
-													class="badge-secondary-outlined text-[10px] uppercase tracking-wide px-1.5 py-0 self-center"
-												>
-													{offering.offeringType === 'tournament' ? 'Tournament' : 'League'}
-												</span>
-											{/if}
-										</div>
-										<p class="text-xs text-neutral-950 font-sans">
-											{offering.leagues.length}
-											{entryLabelFor(offering)} offer{offering.leagues.length === 1
-												? 'ing'
-												: 'ings'}
-										</p>
-									</div>
-									<div class="flex flex-wrap items-center gap-1">
-										{#if selectedSeasonIsHistorical}
-											<span class="badge-secondary text-xs uppercase tracking-wide">
-												Concluded
-											</span>
-										{:else}
-											<span class="badge-primary text-xs uppercase tracking-wide"
-												>{offering.openCount} Open</span
-											>
-											<span class="badge-primary-outlined text-xs uppercase tracking-wide">
-												{offering.waitlistedCount} Waitlist
-											</span>
-											<span class="badge-secondary-outlined text-xs uppercase tracking-wide">
-												{offering.closedCount} Closed
-											</span>
-										{/if}
-									</div>
-								</div>
+				</section>
 
-								<div class="border border-secondary-300 bg-white overflow-x-auto">
-									<table class="min-w-full border-collapse">
-										<thead>
-											<tr class="border-b border-secondary-300 bg-neutral">
-												<th
-													scope="col"
-													class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-48"
-												>
-													{columnHeaderFor(offering, 'league')}
-												</th>
-												<th
-													scope="col"
-													class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-24"
-												>
-													Status
-												</th>
-												<th
-													scope="col"
-													class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-44"
-												>
-													{columnHeaderFor(offering, 'registration')}
-												</th>
-												<th
-													scope="col"
-													class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-40"
-												>
-													Join Team Deadline
-												</th>
-												<th
-													scope="col"
-													class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-44"
-												>
-													{columnHeaderFor(offering, 'range')}
-												</th>
-											</tr>
-										</thead>
-										<tbody>
-											{#each offering.leagues as league, leagueIndex}
-												{@const OfferingIcon = offeringIconFor(offering.offeringName)}
-												{@const rowId = getLeagueRowId(offering.offeringSlug, league.id)}
-												<tr
-													id={rowId}
-													class={`align-middle ${leagueIndex < offering.leagues.length - 1 ? 'border-b border-secondary-200' : ''} ${leagueIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}
-													class:league-row-highlight={highlightedLeagueRowId === rowId}
-												>
-													<th scope="row" class="px-2 py-1 text-left">
-														<div class="flex items-center gap-2">
-															<div
-																class="w-9 h-9 bg-primary text-white flex items-center justify-center shrink-0 cursor-pointer transition-colors hover:bg-primary-700"
-																aria-hidden="true"
-															>
-																<OfferingIcon class="w-6 h-6" />
-															</div>
-															<div>
-																<p
-																	class="text-sm font-bold text-neutral-950 font-sans hover:underline cursor-pointer"
-																>
-																	{league.categoryLabel}
-																</p>
-															</div>
-														</div>
-													</th>
-													<td class="px-2 py-1">
-														<span
-															class={`${statusClass(league.status)} text-xs uppercase tracking-wide`}
-														>
-															{league.statusLabel}
-														</span>
-													</td>
-													<td class="px-2 py-1">
-														<p class="text-xs text-neutral-950 font-sans">
-															{league.teamRegistrationOpenText}
-														</p>
-														<p class="text-xs text-neutral-950 font-sans mt-1">
-															{league.teamRegistrationCloseText}
-														</p>
-													</td>
-													<td class="px-2 py-1 align-top">
-														<p class="text-xs text-neutral-950 font-sans">
-															{league.joinTeamText}
-														</p>
-													</td>
-													<td class="px-2 py-1 align-top">
-														<p class="text-xs text-neutral-950 font-sans">
-															{league.seasonRangeText}
-														</p>
-													</td>
-												</tr>
-											{/each}
-										</tbody>
-									</table>
-								</div>
-							</article>
-						{/each}
+				<aside class="w-full min-w-0 space-y-6">
+					<section class="border-2 border-secondary-300 bg-neutral">
+						<div
+							class="p-4 border-b border-secondary-300 bg-neutral-600/66 flex items-center justify-between"
+						>
+							<h2 class="text-xl font-bold font-serif text-neutral-950">Upcoming Deadlines</h2>
+							<IconCalendar class="w-5 h-5 text-secondary-700" />
+						</div>
+						<div class="p-4 space-y-3 min-h-56" aria-hidden="true">
+							<div class="border border-secondary-300 bg-white p-3 space-y-2">
+								<div class="h-3 w-4/5 bg-neutral-100"></div>
+								<div class="h-3 w-3/5 bg-neutral-100"></div>
+								<div class="h-3 w-5/6 bg-neutral-100"></div>
+							</div>
+							<div class="border border-secondary-300 bg-white p-3 space-y-2">
+								<div class="h-3 w-3/4 bg-neutral-100"></div>
+								<div class="h-3 w-2/3 bg-neutral-100"></div>
+							</div>
+						</div>
+					</section>
 
-						{#if collapsibleConcludedOfferings.length > 0}
-							<section class="p-4 space-y-3">
-								<button
-									type="button"
-									class="w-full button-secondary-outlined px-3 py-2 justify-between text-left"
-									onclick={() => {
-										showConcludedSeasons = !showConcludedSeasons;
+					<section class="border-2 border-secondary-300 bg-neutral">
+						<div class="p-4 border-b border-secondary-300 bg-neutral-600/66">
+							<h2 class="text-xl font-bold font-serif text-neutral-950">Season Snapshot</h2>
+						</div>
+						<div class="grid grid-cols-2 gap-2 p-4 sm:grid-cols-3">
+							<div class="card-secondary-outlined">
+								<p class="text-[11px] uppercase tracking-wide text-neutral-950 font-bold">
+									Offerings
+								</p>
+								<p class="text-2xl font-bold font-serif text-neutral-950">0</p>
+							</div>
+							<div class="card-secondary-outlined">
+								<p class="text-[11px] uppercase tracking-wide text-neutral-950 font-bold">
+									{showTournaments ? 'Groups' : showAllOfferings ? 'Leagues/Groups' : 'Leagues'}
+								</p>
+								<p class="text-2xl font-bold font-serif text-neutral-950">0</p>
+							</div>
+							<div class="card-secondary-outlined">
+								<p class="text-[11px] uppercase tracking-wide text-neutral-950 font-bold">
+									Divisions
+								</p>
+								<p class="text-2xl font-bold font-serif text-neutral-950">0</p>
+							</div>
+							<div class="card-primary-outlined">
+								<p class="text-[11px] uppercase tracking-wide text-primary-700 font-bold">Open</p>
+								<p class="text-2xl font-bold font-serif text-primary-700">0</p>
+							</div>
+							<div class="card-primary-outlined">
+								<p class="text-[11px] uppercase tracking-wide text-primary-700 font-bold">
+									Waitlist
+								</p>
+								<p class="text-2xl font-bold font-serif text-primary-700">0</p>
+							</div>
+							<div class="card-secondary-outlined">
+								<p class="text-[11px] uppercase tracking-wide text-secondary-900 font-bold">
+									Closed
+								</p>
+								<p class="text-2xl font-bold font-serif text-secondary-900">0</p>
+							</div>
+						</div>
+					</section>
+				</aside>
+			</div>
+		{:else}
+			<div class="grid grid-cols-1 2xl:grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)] gap-6">
+				<section class="min-w-0 border-2 border-secondary-300 bg-neutral">
+					<div class="p-4 border-b border-secondary-300 bg-neutral-600/66 space-y-3">
+						<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+							<div class="flex items-center gap-2">
+								<h2 class="text-2xl font-bold font-serif text-neutral-950">
+									{selectedSeason?.name ?? activeSeasonBoard?.label ?? 'Season'}
+								</h2>
+								<ListboxDropdown
+									options={offeringViewDropdownOptions}
+									value={offeringView}
+									ariaLabel="Offering type"
+									buttonClass={COMPACT_DROPDOWN_BUTTON_CLASS}
+									on:change={(event) => {
+										handleOfferingViewChange(event.detail.value);
 									}}
-									aria-expanded={showConcludedSeasons}
-								>
-									<span
-										class="text-sm font-bold font-sans text-neutral-950 uppercase tracking-wide"
+								/>
+								{#if canManageOfferings}
+									<ListboxDropdown
+										options={seasonHistoryDropdownOptions}
+										value={selectedSeasonId}
+										ariaLabel="Season history"
+										buttonClass="button-secondary-outlined p-1.5 cursor-pointer"
+										emptyText="No seasons configured."
+										footerActionLabel="Add New Season"
+										footerActionAriaLabel="Add new season"
+										footerSecondaryActionAriaLabel="Manage seasons"
+										footerSecondaryActionClass="button-secondary-outlined w-9 h-9 p-0 cursor-pointer inline-flex items-center justify-center"
+										on:change={(event) => {
+											handleSeasonHistoryChange(event.detail.value);
+										}}
+										on:footerAction={openCreateSeasonWizard}
+										on:footerSecondaryAction={openManageSeasonWizard}
 									>
-										Concluded Offerings ({collapsibleConcludedOfferings.length})
-									</span>
-									{#if showConcludedSeasons}
-										<IconChevronUp class="w-5 h-5 text-secondary-900" />
-									{:else}
-										<IconChevronDown class="w-5 h-5 text-secondary-900" />
-									{/if}
-								</button>
-
-								{#if showConcludedSeasons}
-									<div class="divide-y divide-secondary-300 border border-secondary-300">
-										{#each collapsibleConcludedOfferings as offering}
-											<article id={offering.offeringSlug} class="p-4 space-y-3 bg-neutral">
-												<div
-													class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
-												>
-													<div>
-														<div class="flex items-center gap-2">
-															<h3 class="text-2xl font-bold font-serif text-neutral-950">
-																{offering.offeringName}
-															</h3>
-															{#if showAllOfferings}
-																<span
-																	class="badge-secondary-outlined text-[10px] uppercase tracking-wide px-1 py-0 self-center"
-																>
-																	{offering.offeringType === 'tournament' ? 'Tournament' : 'League'}
-																</span>
-															{/if}
-														</div>
-														<p class="text-xs text-neutral-950 font-sans">
-															{offering.leagues.length}
-															{entryLabelFor(offering)} offer{offering.leagues.length === 1
-																? 'ing'
-																: 'ings'}
-														</p>
-													</div>
-													<div class="flex flex-wrap items-center gap-1">
-														<span class="badge-secondary text-xs uppercase tracking-wide">
-															Concluded
-														</span>
-													</div>
-												</div>
-
-												<div class="border border-secondary-300 bg-white overflow-x-auto">
-													<table class="min-w-full border-collapse">
-														<thead>
-															<tr class="border-b border-secondary-300 bg-neutral">
-																<th
-																	scope="col"
-																	class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-48"
-																>
-																	{columnHeaderFor(offering, 'league')}
-																</th>
-																<th
-																	scope="col"
-																	class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-24"
-																>
-																	Status
-																</th>
-																<th
-																	scope="col"
-																	class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-44"
-																>
-																	{columnHeaderFor(offering, 'registration')}
-																</th>
-																<th
-																	scope="col"
-																	class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-40"
-																>
-																	Join Team Deadline
-																</th>
-																<th
-																	scope="col"
-																	class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-44"
-																>
-																	{columnHeaderFor(offering, 'range')}
-																</th>
-															</tr>
-														</thead>
-														<tbody>
-															{#each offering.leagues as league, leagueIndex}
-																{@const OfferingIcon = offeringIconFor(offering.offeringName)}
-																{@const rowId = getLeagueRowId(offering.offeringSlug, league.id)}
-																<tr
-																	id={rowId}
-																	class={`align-middle ${leagueIndex < offering.leagues.length - 1 ? 'border-b border-secondary-200' : ''} ${leagueIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}
-																	class:league-row-highlight={highlightedLeagueRowId === rowId}
-																>
-																	<th scope="row" class="px-2 py-1 text-left">
-																		<div class="flex items-center gap-2">
-																			<div
-																				class="w-9 h-9 bg-primary text-white flex items-center justify-center shrink-0 cursor-pointer transition-colors hover:bg-primary-700"
-																				aria-hidden="true"
-																			>
-																				<OfferingIcon class="w-6 h-6" />
-																			</div>
-																			<div>
-																				<p
-																					class="text-sm font-bold text-neutral-950 font-sans hover:underline cursor-pointer"
-																				>
-																					{league.categoryLabel}
-																				</p>
-																			</div>
-																		</div>
-																	</th>
-																	<td class="px-2 py-1">
-																		<span
-																			class={`${statusClass(league.status)} text-xs uppercase tracking-wide`}
-																		>
-																			{league.statusLabel}
-																		</span>
-																	</td>
-																	<td class="px-2 py-1">
-																		<p class="text-xs text-neutral-950 font-sans">
-																			{league.teamRegistrationOpenText}
-																		</p>
-																		<p class="text-xs text-neutral-950 font-sans mt-1">
-																			{league.teamRegistrationCloseText}
-																		</p>
-																	</td>
-																	<td class="px-2 py-1 align-top">
-																		<p class="text-xs text-neutral-950 font-sans">
-																			{league.joinTeamText}
-																		</p>
-																	</td>
-																	<td class="px-2 py-1 align-top">
-																		<p class="text-xs text-neutral-950 font-sans">
-																			{league.seasonRangeText}
-																		</p>
-																	</td>
-																</tr>
-															{/each}
-														</tbody>
-													</table>
-												</div>
-											</article>
-										{/each}
-									</div>
+										{#snippet trigger(_, selectedOption)}
+											<IconHistory
+												class={`w-4 h-4 ${selectedOption ? 'text-secondary-900' : 'text-neutral-700'}`}
+											/>
+										{/snippet}
+										{#snippet footerSecondaryAction()}
+											<IconPencil class="w-4 h-4" />
+										{/snippet}
+									</ListboxDropdown>
+								{:else}
+									<ListboxDropdown
+										options={seasonHistoryDropdownOptions}
+										value={selectedSeasonId}
+										ariaLabel="Season history"
+										buttonClass="button-secondary-outlined p-1.5 cursor-pointer"
+										emptyText="No seasons configured."
+										on:change={(event) => {
+											handleSeasonHistoryChange(event.detail.value);
+										}}
+									>
+										{#snippet trigger(_, selectedOption)}
+											<IconHistory
+												class={`w-4 h-4 ${selectedOption ? 'text-secondary-900' : 'text-neutral-700'}`}
+											/>
+										{/snippet}
+									</ListboxDropdown>
 								{/if}
-							</section>
-						{/if}
+							</div>
+							<div class="flex items-center gap-2 text-xs text-neutral-950 font-sans">
+								<span class="border border-secondary-300 px-2 py-1">
+									{badgeOfferingCount}
+									{pluralize(badgeOfferingCount, 'offering', 'offerings')}
+								</span>
+								<span class="border border-secondary-300 px-2 py-1">
+									{badgeLeagueOrGroupCount}
+									{badgeLeagueOrGroupLabel}
+								</span>
+								{#if canManageOfferings}
+									{#if seasons.length > 0}
+										<div class="relative inline-flex items-stretch">
+											<button
+												type="button"
+												class="button-primary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer"
+												onclick={openCreateWizard}
+											>
+												+ ADD
+											</button>
+											<ListboxDropdown
+												options={addActionDropdownOptions}
+												value=""
+												mode="action"
+												ariaLabel="Open add menu"
+												align="right"
+												buttonClass="button-primary-outlined -ml-[2px] px-1 py-1 cursor-pointer"
+												listClass="mt-1 w-44 border-2 border-secondary-300 bg-white z-20"
+												optionClass="w-full text-left px-3 py-2 text-sm text-neutral-950 cursor-pointer"
+												activeOptionClass="bg-neutral-100 text-neutral-950"
+												on:action={(event) => {
+													handleAddActionDropdown(event.detail.value);
+												}}
+											>
+												{#snippet trigger(open)}
+													<IconChevronDown
+														class={`w-4 h-4 transition-transform duration-200 ${open ? 'rotate-180' : 'rotate-0'}`}
+													/>
+												{/snippet}
+											</ListboxDropdown>
+										</div>
+									{:else}
+										<button
+											type="button"
+											class="button-secondary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer"
+											onclick={openCreateSeasonWizard}
+										>
+											Add Season
+										</button>
+									{/if}
+								{/if}
+							</div>
+						</div>
+						<SearchInput
+							id="tournament-search"
+							label="Search offerings and deadlines"
+							value={searchQuery}
+							placeholder={`Search offering, ${showTournaments ? 'group' : showAllOfferings ? 'league/group' : 'league'}, or deadline`}
+							autocomplete="off"
+							wrapperClass="relative"
+							iconClass="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-950"
+							inputClass="input-secondary pl-10 pr-10 py-1 text-sm disabled:cursor-not-allowed"
+							clearButtonClass="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-950 hover:text-secondary-900 cursor-pointer"
+							clearIconClass="w-4 h-4"
+							clearAriaLabel="Clear search"
+							on:input={(event) => {
+								searchQuery = event.detail.value;
+							}}
+						/>
 					</div>
-				{/if}
-			</section>
 
-			<aside class="w-full min-w-0 space-y-6">
-				<section class="border-2 border-secondary-300 bg-neutral">
-					<div
-						class="p-4 border-b border-secondary-300 bg-neutral-600/66 flex items-center justify-between"
-					>
-						<h2 class="text-xl font-bold font-serif text-neutral-950">Upcoming Deadlines</h2>
-						<IconCalendar class="w-5 h-5 text-secondary-700" />
-					</div>
-					{#if activeDeadlines.length === 0}
-						<div class="p-4">
-							<p class="text-sm text-neutral-950 font-sans">No deadlines available.</p>
+					{#if visibleOfferings.length === 0}
+						<div class="p-4 space-y-4 min-h-[34rem]">
+							<div class="border border-warning-300 bg-warning-50 p-3">
+								<p class="text-sm text-neutral-950 font-sans">
+									{#if searchQuery.trim().length > 0}
+										No {offeringTypeLabel.toLowerCase()} match "{searchQuery.trim()}" for this
+										season.
+									{:else}
+										No {offeringTypeLabel.toLowerCase()} match this search for this season.
+									{/if}
+								</p>
+							</div>
+
+							{#each [0, 1] as _, skeletonOfferingIndex}
+								<article
+									class="border border-secondary-300 bg-white p-4 space-y-3"
+									aria-hidden="true"
+								>
+									<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+										<div class="space-y-2">
+											<div
+												class={`h-7 ${skeletonOfferingIndex === 0 ? 'w-44' : 'w-36'} bg-neutral-100`}
+											></div>
+											<div class="h-3 w-28 bg-neutral-100"></div>
+										</div>
+										<div class="flex flex-wrap items-center gap-1">
+											<div class="h-5 w-16 bg-neutral-100"></div>
+											<div class="h-5 w-16 bg-neutral-100"></div>
+											<div class="h-5 w-16 bg-neutral-100"></div>
+										</div>
+									</div>
+
+									<div class="border border-secondary-300 bg-white overflow-x-auto">
+										<table class="min-w-full border-collapse">
+											<thead>
+												<tr class="border-b border-secondary-300 bg-neutral">
+													<th scope="col" class="px-2 py-1 text-left min-w-48">
+														<div class="h-3 w-20 bg-neutral-100"></div>
+													</th>
+													<th scope="col" class="px-2 py-1 text-left min-w-24">
+														<div class="h-3 w-12 bg-neutral-100"></div>
+													</th>
+													<th scope="col" class="px-2 py-1 text-left min-w-44">
+														<div class="h-3 w-24 bg-neutral-100"></div>
+													</th>
+													<th scope="col" class="px-2 py-1 text-left min-w-40">
+														<div class="h-3 w-24 bg-neutral-100"></div>
+													</th>
+													<th scope="col" class="px-2 py-1 text-left min-w-44">
+														<div class="h-3 w-20 bg-neutral-100"></div>
+													</th>
+												</tr>
+											</thead>
+											<tbody>
+												{#each [0, 1, 2, 3] as _, leagueIndex}
+													<tr
+														class={`align-middle ${leagueIndex < 3 ? 'border-b border-secondary-200' : ''} ${leagueIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}
+													>
+														<th scope="row" class="px-2 py-1 text-left">
+															<div class="flex items-center gap-2">
+																<div
+																	class="w-9 h-9 border border-secondary-300 bg-neutral-100 flex items-center justify-center shrink-0"
+																	aria-hidden="true"
+																>
+																	<div class="w-4 h-4 bg-neutral-300"></div>
+																</div>
+																<div class="h-4 w-32 bg-neutral-100"></div>
+															</div>
+														</th>
+														<td class="px-2 py-1">
+															<div class="h-5 w-16 bg-neutral-100"></div>
+														</td>
+														<td class="px-2 py-1">
+															<div class="space-y-1">
+																<div class="h-3 w-28 bg-neutral-100"></div>
+																<div class="h-3 w-24 bg-neutral-100"></div>
+															</div>
+														</td>
+														<td class="px-2 py-1">
+															<div class="h-3 w-24 bg-neutral-100"></div>
+														</td>
+														<td class="px-2 py-1">
+															<div class="h-3 w-32 bg-neutral-100"></div>
+														</td>
+													</tr>
+												{/each}
+											</tbody>
+										</table>
+									</div>
+								</article>
+							{/each}
 						</div>
 					{:else}
 						<div class="divide-y divide-secondary-300">
-							{#each activeDeadlines as deadline, deadlineIndex}
-								<div class={`p-3 ${deadlineIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}>
-									<p class="text-sm font-semibold text-neutral-950 font-sans">
-										Registration Deadline: {deadline.deadlineText}
-									</p>
-									<div class="mt-2 flex flex-wrap gap-1">
-										{#each deadline.leagues as league}
-											<button
-												type="button"
-												class="badge-secondary-outlined text-xs cursor-pointer transition-colors duration-150 hover:bg-secondary-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-500"
-												onclick={() => {
-													void scrollToLeagueRow(league.offeringSlug, league.id);
-												}}
-											>
-												{league.offeringName} - {league.categoryLabel}
-											</button>
-										{/each}
+							{#each renderedOfferings as offering}
+								<article id={offering.offeringSlug} class="p-4 space-y-3">
+									<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+										<div>
+											<div class="flex items-center gap-2">
+												<h3 class="text-2xl font-bold font-serif text-neutral-950">
+													{offering.offeringName}
+												</h3>
+												{#if showAllOfferings}
+													<span
+														class="badge-secondary-outlined text-[10px] uppercase tracking-wide px-1.5 py-0 self-center"
+													>
+														{offering.offeringType === 'tournament' ? 'Tournament' : 'League'}
+													</span>
+												{/if}
+											</div>
+											<p class="text-xs text-neutral-950 font-sans">
+												{offering.leagues.length}
+												{entryLabelFor(offering)} offer{offering.leagues.length === 1
+													? 'ing'
+													: 'ings'}
+											</p>
+										</div>
+										<div class="flex flex-wrap items-center gap-1">
+											{#if selectedSeasonIsHistorical}
+												<span class="badge-secondary text-xs uppercase tracking-wide">
+													Concluded
+												</span>
+											{:else}
+												<span class="badge-primary text-xs uppercase tracking-wide"
+													>{offering.openCount} Open</span
+												>
+												<span class="badge-primary-outlined text-xs uppercase tracking-wide">
+													{offering.waitlistedCount} Waitlist
+												</span>
+												<span class="badge-secondary-outlined text-xs uppercase tracking-wide">
+													{offering.closedCount} Closed
+												</span>
+											{/if}
+										</div>
 									</div>
-								</div>
+
+									<div class="border border-secondary-300 bg-white overflow-x-auto">
+										<table class="min-w-full border-collapse">
+											<thead>
+												<tr class="border-b border-secondary-300 bg-neutral">
+													<th
+														scope="col"
+														class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-48"
+													>
+														{columnHeaderFor(offering, 'league')}
+													</th>
+													<th
+														scope="col"
+														class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-24"
+													>
+														Status
+													</th>
+													<th
+														scope="col"
+														class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-44"
+													>
+														{columnHeaderFor(offering, 'registration')}
+													</th>
+													<th
+														scope="col"
+														class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-40"
+													>
+														Join Team Deadline
+													</th>
+													<th
+														scope="col"
+														class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-44"
+													>
+														{columnHeaderFor(offering, 'range')}
+													</th>
+												</tr>
+											</thead>
+											<tbody>
+												{#each offering.leagues as league, leagueIndex}
+													{@const OfferingIcon = offeringIconFor(offering.offeringName)}
+													{@const rowId = getLeagueRowId(offering.offeringSlug, league.id)}
+													<tr
+														id={rowId}
+														class={`align-middle ${leagueIndex < offering.leagues.length - 1 ? 'border-b border-secondary-200' : ''} ${leagueIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}
+														class:league-row-highlight={highlightedLeagueRowId === rowId}
+													>
+														<th scope="row" class="px-2 py-1 text-left">
+															<div class="flex items-center gap-2">
+																<div
+																	class="w-9 h-9 bg-primary text-white flex items-center justify-center shrink-0 cursor-pointer transition-colors hover:bg-primary-700"
+																	aria-hidden="true"
+																>
+																	<OfferingIcon class="w-6 h-6" />
+																</div>
+																<div>
+																	<p
+																		class="text-sm font-bold text-neutral-950 font-sans hover:underline cursor-pointer"
+																	>
+																		{league.categoryLabel}
+																	</p>
+																</div>
+															</div>
+														</th>
+														<td class="px-2 py-1">
+															<span
+																class={`${statusClass(league.status)} text-xs uppercase tracking-wide`}
+															>
+																{league.statusLabel}
+															</span>
+														</td>
+														<td class="px-2 py-1">
+															<p class="text-xs text-neutral-950 font-sans">
+																{league.teamRegistrationOpenText}
+															</p>
+															<p class="text-xs text-neutral-950 font-sans mt-1">
+																{league.teamRegistrationCloseText}
+															</p>
+														</td>
+														<td class="px-2 py-1 align-top">
+															<p class="text-xs text-neutral-950 font-sans">
+																{league.joinTeamText}
+															</p>
+														</td>
+														<td class="px-2 py-1 align-top">
+															<p class="text-xs text-neutral-950 font-sans">
+																{league.seasonRangeText}
+															</p>
+														</td>
+													</tr>
+												{/each}
+											</tbody>
+										</table>
+									</div>
+								</article>
 							{/each}
+
+							{#if collapsibleConcludedOfferings.length > 0}
+								<section class="p-4 space-y-3">
+									<button
+										type="button"
+										class="w-full button-secondary-outlined px-3 py-2 justify-between text-left"
+										onclick={() => {
+											showConcludedSeasons = !showConcludedSeasons;
+										}}
+										aria-expanded={showConcludedSeasons}
+									>
+										<span
+											class="text-sm font-bold font-sans text-neutral-950 uppercase tracking-wide"
+										>
+											Concluded Offerings ({collapsibleConcludedOfferings.length})
+										</span>
+										{#if showConcludedSeasons}
+											<IconChevronUp class="w-5 h-5 text-secondary-900" />
+										{:else}
+											<IconChevronDown class="w-5 h-5 text-secondary-900" />
+										{/if}
+									</button>
+
+									{#if showConcludedSeasons}
+										<div class="divide-y divide-secondary-300 border border-secondary-300">
+											{#each collapsibleConcludedOfferings as offering}
+												<article id={offering.offeringSlug} class="p-4 space-y-3 bg-neutral">
+													<div
+														class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
+													>
+														<div>
+															<div class="flex items-center gap-2">
+																<h3 class="text-2xl font-bold font-serif text-neutral-950">
+																	{offering.offeringName}
+																</h3>
+																{#if showAllOfferings}
+																	<span
+																		class="badge-secondary-outlined text-[10px] uppercase tracking-wide px-1 py-0 self-center"
+																	>
+																		{offering.offeringType === 'tournament'
+																			? 'Tournament'
+																			: 'League'}
+																	</span>
+																{/if}
+															</div>
+															<p class="text-xs text-neutral-950 font-sans">
+																{offering.leagues.length}
+																{entryLabelFor(offering)} offer{offering.leagues.length === 1
+																	? 'ing'
+																	: 'ings'}
+															</p>
+														</div>
+														<div class="flex flex-wrap items-center gap-1">
+															<span class="badge-secondary text-xs uppercase tracking-wide">
+																Concluded
+															</span>
+														</div>
+													</div>
+
+													<div class="border border-secondary-300 bg-white overflow-x-auto">
+														<table class="min-w-full border-collapse">
+															<thead>
+																<tr class="border-b border-secondary-300 bg-neutral">
+																	<th
+																		scope="col"
+																		class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-48"
+																	>
+																		{columnHeaderFor(offering, 'league')}
+																	</th>
+																	<th
+																		scope="col"
+																		class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-24"
+																	>
+																		Status
+																	</th>
+																	<th
+																		scope="col"
+																		class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-44"
+																	>
+																		{columnHeaderFor(offering, 'registration')}
+																	</th>
+																	<th
+																		scope="col"
+																		class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-40"
+																	>
+																		Join Team Deadline
+																	</th>
+																	<th
+																		scope="col"
+																		class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-44"
+																	>
+																		{columnHeaderFor(offering, 'range')}
+																	</th>
+																</tr>
+															</thead>
+															<tbody>
+																{#each offering.leagues as league, leagueIndex}
+																	{@const OfferingIcon = offeringIconFor(offering.offeringName)}
+																	{@const rowId = getLeagueRowId(offering.offeringSlug, league.id)}
+																	<tr
+																		id={rowId}
+																		class={`align-middle ${leagueIndex < offering.leagues.length - 1 ? 'border-b border-secondary-200' : ''} ${leagueIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}
+																		class:league-row-highlight={highlightedLeagueRowId === rowId}
+																	>
+																		<th scope="row" class="px-2 py-1 text-left">
+																			<div class="flex items-center gap-2">
+																				<div
+																					class="w-9 h-9 bg-primary text-white flex items-center justify-center shrink-0 cursor-pointer transition-colors hover:bg-primary-700"
+																					aria-hidden="true"
+																				>
+																					<OfferingIcon class="w-6 h-6" />
+																				</div>
+																				<div>
+																					<p
+																						class="text-sm font-bold text-neutral-950 font-sans hover:underline cursor-pointer"
+																					>
+																						{league.categoryLabel}
+																					</p>
+																				</div>
+																			</div>
+																		</th>
+																		<td class="px-2 py-1">
+																			<span
+																				class={`${statusClass(league.status)} text-xs uppercase tracking-wide`}
+																			>
+																				{league.statusLabel}
+																			</span>
+																		</td>
+																		<td class="px-2 py-1">
+																			<p class="text-xs text-neutral-950 font-sans">
+																				{league.teamRegistrationOpenText}
+																			</p>
+																			<p class="text-xs text-neutral-950 font-sans mt-1">
+																				{league.teamRegistrationCloseText}
+																			</p>
+																		</td>
+																		<td class="px-2 py-1 align-top">
+																			<p class="text-xs text-neutral-950 font-sans">
+																				{league.joinTeamText}
+																			</p>
+																		</td>
+																		<td class="px-2 py-1 align-top">
+																			<p class="text-xs text-neutral-950 font-sans">
+																				{league.seasonRangeText}
+																			</p>
+																		</td>
+																	</tr>
+																{/each}
+															</tbody>
+														</table>
+													</div>
+												</article>
+											{/each}
+										</div>
+									{/if}
+								</section>
+							{/if}
 						</div>
 					{/if}
 				</section>
 
-				<section class="border-2 border-secondary-300 bg-neutral">
-					<div class="p-4 border-b border-secondary-300 bg-neutral-600/66">
-						<h2 class="text-xl font-bold font-serif text-neutral-950">Season Snapshot</h2>
-					</div>
-					<div class="grid grid-cols-2 gap-2 p-4 sm:grid-cols-3">
-						<div class="card-secondary-outlined">
-							<p class="text-[11px] uppercase tracking-wide text-neutral-950 font-bold">
-								Offerings
-							</p>
-							<p class="text-2xl font-bold font-serif text-neutral-950">
-								{activeSeasonBoard?.totalOfferings ?? 0}
-							</p>
+				<aside class="w-full min-w-0 space-y-6">
+					<section class="border-2 border-secondary-300 bg-neutral">
+						<div
+							class="p-4 border-b border-secondary-300 bg-neutral-600/66 flex items-center justify-between"
+						>
+							<h2 class="text-xl font-bold font-serif text-neutral-950">Upcoming Deadlines</h2>
+							<IconCalendar class="w-5 h-5 text-secondary-700" />
 						</div>
-						<div class="card-secondary-outlined">
-							<p class="text-[11px] uppercase tracking-wide text-neutral-950 font-bold">
-								{showTournaments ? 'Groups' : showAllOfferings ? 'Leagues/Groups' : 'Leagues'}
-							</p>
-							<p class="text-2xl font-bold font-serif text-neutral-950">
-								{activeSeasonBoard?.totalLeagues ?? 0}
-							</p>
+						{#if activeDeadlines.length === 0}
+							<div class="p-4">
+								<p class="text-sm text-neutral-950 font-sans">No deadlines available.</p>
+							</div>
+						{:else}
+							<div class="divide-y divide-secondary-300">
+								{#each activeDeadlines as deadline, deadlineIndex}
+									<div class={`p-3 ${deadlineIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}>
+										<p class="text-sm font-semibold text-neutral-950 font-sans">
+											Registration Deadline: {deadline.deadlineText}
+										</p>
+										<div class="mt-2 flex flex-wrap gap-1">
+											{#each deadline.leagues as league}
+												<button
+													type="button"
+													class="badge-secondary-outlined text-xs cursor-pointer transition-colors duration-150 hover:bg-secondary-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-500"
+													onclick={() => {
+														void scrollToLeagueRow(league.offeringSlug, league.id);
+													}}
+												>
+													{league.offeringName} - {league.categoryLabel}
+												</button>
+											{/each}
+										</div>
+									</div>
+								{/each}
+							</div>
+						{/if}
+					</section>
+
+					<section class="border-2 border-secondary-300 bg-neutral">
+						<div class="p-4 border-b border-secondary-300 bg-neutral-600/66">
+							<h2 class="text-xl font-bold font-serif text-neutral-950">Season Snapshot</h2>
 						</div>
-						<div class="card-secondary-outlined">
-							<p class="text-[11px] uppercase tracking-wide text-neutral-950 font-bold">
-								Divisions
-							</p>
-							<p class="text-2xl font-bold font-serif text-neutral-950">
-								{activeSeasonBoard?.totalDivisions ?? 0}
-							</p>
+						<div class="grid grid-cols-2 gap-2 p-4 sm:grid-cols-3">
+							<div class="card-secondary-outlined">
+								<p class="text-[11px] uppercase tracking-wide text-neutral-950 font-bold">
+									Offerings
+								</p>
+								<p class="text-2xl font-bold font-serif text-neutral-950">
+									{activeSeasonBoard?.totalOfferings ?? 0}
+								</p>
+							</div>
+							<div class="card-secondary-outlined">
+								<p class="text-[11px] uppercase tracking-wide text-neutral-950 font-bold">
+									{showTournaments ? 'Groups' : showAllOfferings ? 'Leagues/Groups' : 'Leagues'}
+								</p>
+								<p class="text-2xl font-bold font-serif text-neutral-950">
+									{activeSeasonBoard?.totalLeagues ?? 0}
+								</p>
+							</div>
+							<div class="card-secondary-outlined">
+								<p class="text-[11px] uppercase tracking-wide text-neutral-950 font-bold">
+									Divisions
+								</p>
+								<p class="text-2xl font-bold font-serif text-neutral-950">
+									{activeSeasonBoard?.totalDivisions ?? 0}
+								</p>
+							</div>
+							<div class="card-primary-outlined">
+								<p class="text-[11px] uppercase tracking-wide text-primary-700 font-bold">Open</p>
+								<p class="text-2xl font-bold font-serif text-primary-700">
+									{activeSeasonBoard?.openCount ?? 0}
+								</p>
+							</div>
+							<div class="card-primary-outlined">
+								<p class="text-[11px] uppercase tracking-wide text-primary-700 font-bold">
+									Waitlist
+								</p>
+								<p class="text-2xl font-bold font-serif text-primary-700">
+									{activeSeasonBoard?.waitlistedCount ?? 0}
+								</p>
+							</div>
+							<div class="card-secondary-outlined">
+								<p class="text-[11px] uppercase tracking-wide text-secondary-900 font-bold">
+									Closed
+								</p>
+								<p class="text-2xl font-bold font-serif text-secondary-900">
+									{activeSeasonBoard?.closedCount ?? 0}
+								</p>
+							</div>
 						</div>
-						<div class="card-primary-outlined">
-							<p class="text-[11px] uppercase tracking-wide text-primary-700 font-bold">Open</p>
-							<p class="text-2xl font-bold font-serif text-primary-700">
-								{activeSeasonBoard?.openCount ?? 0}
-							</p>
-						</div>
-						<div class="card-primary-outlined">
-							<p class="text-[11px] uppercase tracking-wide text-primary-700 font-bold">Waitlist</p>
-							<p class="text-2xl font-bold font-serif text-primary-700">
-								{activeSeasonBoard?.waitlistedCount ?? 0}
-							</p>
-						</div>
-						<div class="card-secondary-outlined">
-							<p class="text-[11px] uppercase tracking-wide text-secondary-900 font-bold">Closed</p>
-							<p class="text-2xl font-bold font-serif text-secondary-900">
-								{activeSeasonBoard?.closedCount ?? 0}
-							</p>
-						</div>
-					</div>
-				</section>
-			</aside>
-		</div>
-	{/if}
+					</section>
+				</aside>
+			</div>
+		{/if}
+	</div>
 </div>
 
 <CreateSeasonWizard

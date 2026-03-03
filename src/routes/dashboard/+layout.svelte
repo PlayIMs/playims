@@ -2,7 +2,7 @@
 	import {
 		IconLayoutDashboard,
 		IconCalendarWeek,
-		IconBallFootball,
+		IconBallAmericanFootball,
 		IconTrophy,
 		IconUserCog,
 		IconBuilding,
@@ -50,7 +50,7 @@
 	const menuItemIcons = {
 		dashboard: IconLayoutDashboard,
 		schedule: IconCalendarWeek,
-		offerings: IconBallFootball,
+		offerings: IconBallAmericanFootball,
 		clubSports: IconTrophy,
 		memberManagement: IconUserCog,
 		communicationCenter: IconMessageCircle,

@@ -334,240 +334,243 @@
 	/>
 </svelte:head>
 
-<div class="p-6 lg:p-8 space-y-6">
-	<header class="border-2 border-secondary-300 bg-neutral p-5">
-		<div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-			<div class="flex items-start gap-4">
+<div class="w-full space-y-4">
+	<header class="bg-neutral">
+		<div class="border-b border-secondary-300 bg-neutral-600/66 p-4">
+			<div class="flex items-center gap-3 py-2 lg:py-3">
 				<div
-					class="bg-primary text-white w-[2.75rem] h-[2.75rem] lg:w-[3.4rem] lg:h-[3.4rem] flex items-center justify-center"
+					class="bg-primary text-white border-2 border-primary-700 w-[2.75rem] h-[2.75rem] lg:w-[3.4rem] lg:h-[3.4rem] flex items-center justify-center"
 					aria-hidden="true"
 				>
 					<IconCalendarWeek class="w-7 h-7 lg:w-8 lg:h-8" />
 				</div>
-				<div>
-					<h1 class="text-5xl lg:text-6xl leading-[0.9] font-bold font-serif text-neutral-950">
-						{pageLabel}
-					</h1>
-				</div>
-			</div>
-			<div class="text-xs text-neutral-950 font-sans">
-				Last refreshed: {new Date(data.generatedAt).toLocaleString('en-US')}
+				<h1 class="text-5xl lg:text-6xl leading-[0.9] font-bold font-serif text-neutral-950">
+					{pageLabel}
+				</h1>
 			</div>
 		</div>
 	</header>
 
-	<section class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
-		<div class="border-2 border-secondary-300 bg-neutral p-4">
-			<p class="text-xs uppercase tracking-wide text-neutral-950 font-sans">Visible Events</p>
-			<p class="text-3xl font-bold text-neutral-950 font-serif">{filteredSummary.total}</p>
-		</div>
-		<div class="border-2 border-primary-500 bg-neutral p-4">
-			<p class="text-xs uppercase tracking-wide text-primary-700 font-sans">Live</p>
-			<div class="flex items-center gap-2">
-				<p class="text-3xl font-bold text-primary-700 font-serif">{filteredSummary.live}</p>
-				{#if filteredSummary.live > 0}
-					<IconLivePhoto class="w-5 h-5 text-primary-700 animate-pulse" />
-				{/if}
-			</div>
-		</div>
-		<div class="border-2 border-secondary-300 bg-neutral p-4">
-			<p class="text-xs uppercase tracking-wide text-neutral-950 font-sans">Scheduled</p>
-			<p class="text-3xl font-bold text-neutral-950 font-serif">{filteredSummary.scheduled}</p>
-		</div>
-		<div class="border-2 border-secondary-300 bg-neutral p-4">
-			<p class="text-xs uppercase tracking-wide text-neutral-950 font-sans">Completed</p>
-			<p class="text-3xl font-bold text-neutral-950 font-serif">{filteredSummary.completed}</p>
-		</div>
-		<div class="border-2 border-secondary-500 bg-secondary-100 p-4 col-span-2 md:col-span-1">
-			<p class="text-xs uppercase tracking-wide text-secondary-800 font-sans">Needs Attention</p>
-			<p class="text-3xl font-bold text-secondary-800 font-serif">
-				{filteredSummary.needsAttention}
-			</p>
-		</div>
-	</section>
-
-	<section class="border-2 border-secondary-300 bg-neutral p-4 space-y-4">
-		<div class="flex flex-col gap-1">
-			<h2 class="text-xl font-bold font-serif text-neutral-950">Filters</h2>
+	<div class="px-4 lg:px-6 space-y-6">
+		<div class="flex justify-end">
 			<p class="text-xs text-neutral-950 font-sans">
-				Filter by text, offering, status, and date range.
+				Last refreshed: {new Date(data.generatedAt).toLocaleString('en-US')}
 			</p>
 		</div>
 
-		<div class="grid grid-cols-1 lg:grid-cols-4 gap-3">
-			<div class="lg:col-span-2">
-				<label
-					class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1"
-					for="schedule-search"
-				>
-					Search
-				</label>
-				<input
-					id="schedule-search"
-					type="text"
-					class="input-primary"
-					placeholder="Team, league, location, or note"
-					bind:value={searchQuery}
-				/>
+		<section class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
+			<div class="border-2 border-secondary-300 bg-neutral p-4">
+				<p class="text-xs uppercase tracking-wide text-neutral-950 font-sans">Visible Events</p>
+				<p class="text-3xl font-bold text-neutral-950 font-serif">{filteredSummary.total}</p>
 			</div>
-			<div>
-				<label
-					class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1"
-					for="schedule-status"
-				>
-					Status
-				</label>
-				<select
-					id="schedule-status"
-					class="select-primary custom-select"
-					bind:value={selectedStatus}
-				>
-					<option value="all">All statuses</option>
-					{#each statusOptions as option}
-						<option value={option.value}>
-							{option.label} ({option.count})
-						</option>
-					{/each}
-				</select>
+			<div class="border-2 border-primary-500 bg-neutral p-4">
+				<p class="text-xs uppercase tracking-wide text-primary-700 font-sans">Live</p>
+				<div class="flex items-center gap-2">
+					<p class="text-3xl font-bold text-primary-700 font-serif">{filteredSummary.live}</p>
+					{#if filteredSummary.live > 0}
+						<IconLivePhoto class="w-5 h-5 text-primary-700 animate-pulse" />
+					{/if}
+				</div>
 			</div>
-			<div>
-				<label
-					class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1"
-					for="schedule-offering"
-				>
-					Offering
-				</label>
-				<select
-					id="schedule-offering"
-					class="select-primary custom-select"
-					bind:value={selectedOffering}
-				>
-					<option value="all">All offerings</option>
-					{#each offeringOptions as option}
-						<option value={option.value}>
-							{option.label} ({option.count})
-						</option>
-					{/each}
-				</select>
+			<div class="border-2 border-secondary-300 bg-neutral p-4">
+				<p class="text-xs uppercase tracking-wide text-neutral-950 font-sans">Scheduled</p>
+				<p class="text-3xl font-bold text-neutral-950 font-serif">{filteredSummary.scheduled}</p>
 			</div>
-		</div>
-
-		<div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-			<div class="w-full lg:w-72">
-				<label
-					class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1"
-					for="schedule-window"
-				>
-					Date Window
-				</label>
-				<select
-					id="schedule-window"
-					class="select-primary custom-select"
-					bind:value={selectedWindow}
-				>
-					{#each windowOptions as option}
-						<option value={option.value}>{option.label}</option>
-					{/each}
-				</select>
+			<div class="border-2 border-secondary-300 bg-neutral p-4">
+				<p class="text-xs uppercase tracking-wide text-neutral-950 font-sans">Completed</p>
+				<p class="text-3xl font-bold text-neutral-950 font-serif">{filteredSummary.completed}</p>
 			</div>
-
-			<button
-				type="button"
-				class="button-primary-outlined px-4 py-2 text-xs font-bold uppercase tracking-wide w-full lg:w-auto"
-				onclick={resetFilters}
-			>
-				Reset Filters
-			</button>
-		</div>
-	</section>
-
-	{#if groupedEvents.length === 0}
-		<section class="border-2 border-secondary-300 bg-neutral p-8 text-center">
-			<div class="bg-secondary p-3 inline-flex mb-4" aria-hidden="true">
-				<IconCalendar class="w-8 h-8 text-white" />
+			<div class="border-2 border-secondary-500 bg-secondary-100 p-4 col-span-2 md:col-span-1">
+				<p class="text-xs uppercase tracking-wide text-secondary-800 font-sans">Needs Attention</p>
+				<p class="text-3xl font-bold text-secondary-800 font-serif">
+					{filteredSummary.needsAttention}
+				</p>
 			</div>
-			<h2 class="text-2xl font-bold font-serif text-neutral-950 mb-1">No matching events</h2>
-			<p class="text-sm text-neutral-950 font-sans">
-				Try widening your filters or clearing the search.
-			</p>
 		</section>
-	{:else}
-		<div class="space-y-4">
-			{#each groupedEvents as group}
-				<section class="border-2 border-secondary-300 bg-neutral">
-					<div class="p-4 border-b border-secondary-300 flex items-center justify-between gap-4">
-						<div>
-							<h2 class="text-xl font-bold font-serif text-neutral-950">{group.label}</h2>
-							<p class="text-xs text-neutral-950 font-sans">
-								{group.events.length} event{group.events.length === 1 ? '' : 's'}
-							</p>
-						</div>
-					</div>
 
-					<div class="divide-y divide-secondary-300">
-						{#each group.events as event}
-							<article class="p-4">
-								<div class="grid grid-cols-1 xl:grid-cols-[190px_1fr_auto] gap-4 xl:items-center">
-									<div class="space-y-2">
-										<div class="flex items-center gap-2 text-neutral-950">
-											<IconClock class="w-4 h-4" />
-											<p class="text-sm font-bold font-sans">
-												{formatTimeRange(event.scheduledStartAt, event.scheduledEndAt)}
-											</p>
-										</div>
-										{#if event.roundLabel || event.weekNumber !== null}
-											<p class="text-xs text-neutral-950 font-sans">
-												{#if event.roundLabel}
-													{event.roundLabel}
-												{/if}
-												{#if event.roundLabel && event.weekNumber !== null}
-													<span> - </span>
-												{/if}
-												{#if event.weekNumber !== null}
-													Week {event.weekNumber}
-												{/if}
-											</p>
-										{/if}
-									</div>
+		<section class="border-2 border-secondary-300 bg-neutral p-4 space-y-4">
+			<div class="flex flex-col gap-1">
+				<h2 class="text-xl font-bold font-serif text-neutral-950">Filters</h2>
+				<p class="text-xs text-neutral-950 font-sans">
+					Filter by text, offering, status, and date range.
+				</p>
+			</div>
 
-									<div class="space-y-1">
-										<p class="text-base font-bold text-neutral-950 font-serif">{event.matchup}</p>
-										<p class="text-sm text-neutral-950 font-sans">
-											{event.offeringName} - {event.leagueName} - {event.divisionName}
-										</p>
-										<p class="text-sm text-neutral-950 font-sans">{event.location}</p>
-										{#if event.notes}
-											<p class="text-xs text-neutral-950 font-sans">{event.notes}</p>
-										{/if}
-									</div>
-
-									<div class="flex flex-wrap items-center gap-2 xl:justify-end">
-										{#if event.score}
-											<span
-												class="border border-secondary-300 bg-secondary-500 text-secondary-25 px-2 py-1 text-xs font-bold"
-											>
-												{event.score}
-											</span>
-										{/if}
-										{#if event.isPostseason}
-											<span
-												class="border border-primary-500 text-primary-700 px-2 py-1 text-xs font-bold"
-											>
-												POSTSEASON
-											</span>
-										{/if}
-										<span
-											class={`border px-2 py-1 text-xs font-bold ${statusBadgeClass(event.status)}`}
-										>
-											{event.statusLabel}
-										</span>
-									</div>
-								</div>
-							</article>
+			<div class="grid grid-cols-1 lg:grid-cols-4 gap-3">
+				<div class="lg:col-span-2">
+					<label
+						class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1"
+						for="schedule-search"
+					>
+						Search
+					</label>
+					<input
+						id="schedule-search"
+						type="text"
+						class="input-primary"
+						placeholder="Team, league, location, or note"
+						bind:value={searchQuery}
+					/>
+				</div>
+				<div>
+					<label
+						class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1"
+						for="schedule-status"
+					>
+						Status
+					</label>
+					<select
+						id="schedule-status"
+						class="select-primary custom-select"
+						bind:value={selectedStatus}
+					>
+						<option value="all">All statuses</option>
+						{#each statusOptions as option}
+							<option value={option.value}>
+								{option.label} ({option.count})
+							</option>
 						{/each}
-					</div>
-				</section>
-			{/each}
-		</div>
-	{/if}
+					</select>
+				</div>
+				<div>
+					<label
+						class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1"
+						for="schedule-offering"
+					>
+						Offering
+					</label>
+					<select
+						id="schedule-offering"
+						class="select-primary custom-select"
+						bind:value={selectedOffering}
+					>
+						<option value="all">All offerings</option>
+						{#each offeringOptions as option}
+							<option value={option.value}>
+								{option.label} ({option.count})
+							</option>
+						{/each}
+					</select>
+				</div>
+			</div>
+
+			<div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+				<div class="w-full lg:w-72">
+					<label
+						class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1"
+						for="schedule-window"
+					>
+						Date Window
+					</label>
+					<select
+						id="schedule-window"
+						class="select-primary custom-select"
+						bind:value={selectedWindow}
+					>
+						{#each windowOptions as option}
+							<option value={option.value}>{option.label}</option>
+						{/each}
+					</select>
+				</div>
+
+				<button
+					type="button"
+					class="button-primary-outlined px-4 py-2 text-xs font-bold uppercase tracking-wide w-full lg:w-auto"
+					onclick={resetFilters}
+				>
+					Reset Filters
+				</button>
+			</div>
+		</section>
+
+		{#if groupedEvents.length === 0}
+			<section class="border-2 border-secondary-300 bg-neutral p-8 text-center">
+				<div class="bg-secondary p-3 inline-flex mb-4" aria-hidden="true">
+					<IconCalendar class="w-8 h-8 text-white" />
+				</div>
+				<h2 class="text-2xl font-bold font-serif text-neutral-950 mb-1">No matching events</h2>
+				<p class="text-sm text-neutral-950 font-sans">
+					Try widening your filters or clearing the search.
+				</p>
+			</section>
+		{:else}
+			<div class="space-y-4">
+				{#each groupedEvents as group}
+					<section class="border-2 border-secondary-300 bg-neutral">
+						<div class="p-4 border-b border-secondary-300 flex items-center justify-between gap-4">
+							<div>
+								<h2 class="text-xl font-bold font-serif text-neutral-950">{group.label}</h2>
+								<p class="text-xs text-neutral-950 font-sans">
+									{group.events.length} event{group.events.length === 1 ? '' : 's'}
+								</p>
+							</div>
+						</div>
+
+						<div class="divide-y divide-secondary-300">
+							{#each group.events as event}
+								<article class="p-4">
+									<div class="grid grid-cols-1 xl:grid-cols-[190px_1fr_auto] gap-4 xl:items-center">
+										<div class="space-y-2">
+											<div class="flex items-center gap-2 text-neutral-950">
+												<IconClock class="w-4 h-4" />
+												<p class="text-sm font-bold font-sans">
+													{formatTimeRange(event.scheduledStartAt, event.scheduledEndAt)}
+												</p>
+											</div>
+											{#if event.roundLabel || event.weekNumber !== null}
+												<p class="text-xs text-neutral-950 font-sans">
+													{#if event.roundLabel}
+														{event.roundLabel}
+													{/if}
+													{#if event.roundLabel && event.weekNumber !== null}
+														<span> - </span>
+													{/if}
+													{#if event.weekNumber !== null}
+														Week {event.weekNumber}
+													{/if}
+												</p>
+											{/if}
+										</div>
+
+										<div class="space-y-1">
+											<p class="text-base font-bold text-neutral-950 font-serif">{event.matchup}</p>
+											<p class="text-sm text-neutral-950 font-sans">
+												{event.offeringName} - {event.leagueName} - {event.divisionName}
+											</p>
+											<p class="text-sm text-neutral-950 font-sans">{event.location}</p>
+											{#if event.notes}
+												<p class="text-xs text-neutral-950 font-sans">{event.notes}</p>
+											{/if}
+										</div>
+
+										<div class="flex flex-wrap items-center gap-2 xl:justify-end">
+											{#if event.score}
+												<span
+													class="border border-secondary-300 bg-secondary-500 text-secondary-25 px-2 py-1 text-xs font-bold"
+												>
+													{event.score}
+												</span>
+											{/if}
+											{#if event.isPostseason}
+												<span
+													class="border border-primary-500 text-primary-700 px-2 py-1 text-xs font-bold"
+												>
+													POSTSEASON
+												</span>
+											{/if}
+											<span
+												class={`border px-2 py-1 text-xs font-bold ${statusBadgeClass(event.status)}`}
+											>
+												{event.statusLabel}
+											</span>
+										</div>
+									</div>
+								</article>
+							{/each}
+						</div>
+					</section>
+				{/each}
+			</div>
+		{/if}
+	</div>
 </div>
