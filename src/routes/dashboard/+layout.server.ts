@@ -5,8 +5,11 @@ import {
 	mergeDashboardNavigationOrder,
 	type DashboardNavKey
 } from '$lib/dashboard/navigation';
-import { requireAuthenticatedClientId } from '$lib/server/client-context';
-import { getTenantDbOps } from '$lib/server/database/context';
+import {
+	requireAuthenticatedClientId,
+	requireAuthenticatedUserId
+} from '$lib/server/client-context';
+import { getCentralDbOps, getTenantDbOps } from '$lib/server/database/context';
 import type { LayoutServerLoad } from './$types';
 
 const isDashboardNavKey = (value: string): value is DashboardNavKey =>
@@ -14,12 +17,25 @@ const isDashboardNavKey = (value: string): value is DashboardNavKey =>
 
 export const load: LayoutServerLoad = async ({ locals, platform }) => {
 	let navigation = mergeDashboardNavigationConfig();
+	let organizations: Array<{
+		clientId: string;
+		clientName: string;
+		clientSlug: string | null;
+		role: string;
+		isCurrent: boolean;
+		isDefault: boolean;
+	}> = [];
 
 	if (platform?.env?.DB) {
 		try {
 			const clientId = requireAuthenticatedClientId(locals);
+			const userId = requireAuthenticatedUserId(locals);
+			const centralDb = getCentralDbOps({ locals, platform });
 			const db = await getTenantDbOps({ locals, platform }, clientId);
-			const storedLabels = await db.clientNavigationLabels.getByClientId(clientId);
+			const [storedLabels, memberships] = await Promise.all([
+				db.clientNavigationLabels.getByClientId(clientId),
+				centralDb.userClients.listActiveForUserWithClientDetails(userId)
+			]);
 
 			const overrides: Partial<Record<DashboardNavKey, string>> = {};
 			const orderEntries: Array<{ key: DashboardNavKey; sortOrder: number }> = [];
@@ -47,6 +63,20 @@ export const load: LayoutServerLoad = async ({ locals, platform }) => {
 				labels: mergeDashboardNavigationLabels(overrides),
 				order: resolvedOrder
 			});
+			organizations = memberships
+				.map(({ membership, client }) => ({
+					clientId: membership.clientId,
+					clientName: client?.name?.trim() || 'Organization',
+					clientSlug: client?.slug?.trim() || null,
+					role: membership.role ?? 'participant',
+					isCurrent: membership.clientId === clientId,
+					isDefault: membership.isDefault === 1
+				}))
+				.toSorted((a, b) => {
+					if (a.isCurrent && !b.isCurrent) return -1;
+					if (!a.isCurrent && b.isCurrent) return 1;
+					return a.clientName.localeCompare(b.clientName, 'en', { sensitivity: 'base' });
+				});
 		} catch (error) {
 			const message = error instanceof Error ? error.message : '';
 			if (
@@ -72,6 +102,7 @@ export const load: LayoutServerLoad = async ({ locals, platform }) => {
 			name: fullName.length > 0 ? fullName : null,
 			email: locals.user?.email?.trim() ?? null
 		},
+		organizations,
 		navigationLabels: navigation.labels,
 		navigationOrder: navigation.order,
 		authMode: {

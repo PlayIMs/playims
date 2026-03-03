@@ -10,8 +10,7 @@
 		IconBallAmericanFootball,
 		IconAlertTriangle,
 		IconPlayerPlay,
-		IconPlus,
-		IconBell
+		IconPlus
 	} from '@tabler/icons-svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import { toast } from '$lib/toasts';
@@ -27,7 +26,6 @@
 	let todaysEvents = $derived(data.todaysEvents ?? []);
 	let upcomingEvents = $derived(data.upcomingEvents ?? []);
 	let pendingActions = $derived(data.stats?.pendingActions ?? 0);
-	let notificationCount = $derived(data.alerts?.length ?? 0);
 	let practicesToday = $derived(data.stats?.practicesToday ?? 0);
 	let scheduleFilter = $state<'completed' | 'in_progress' | 'scheduled'>('in_progress');
 
@@ -110,46 +108,28 @@
 	</header>
 
 	<div class="px-4 lg:px-6 space-y-6">
-		<div class="flex flex-wrap items-center justify-between gap-3">
-			<div class="flex flex-wrap items-center gap-2">
-				<a
-					href="/dashboard/events/new"
-					class="button-primary px-3 py-3 text-xs font-bold uppercase tracking-wide flex items-center justify-center gap-2"
-				>
-					<IconPlus class="w-4 h-4" />
-					<span>New Game</span>
-				</a>
-				<a
-					href="/dashboard/teams/new"
-					class="button-secondary px-3 py-3 text-xs font-bold uppercase tracking-wide flex items-center justify-center gap-2"
-				>
-					<IconUsers class="w-4 h-4" />
-					<span>Add Team</span>
-				</a>
-				<a
-					href="/dashboard/schedule"
-					class="button-secondary px-3 py-3 text-xs font-bold uppercase tracking-wide flex items-center justify-center gap-2"
-				>
-					<IconCalendarWeek class="w-4 h-4" />
-					<span>Schedule</span>
-				</a>
-			</div>
-			<div>
-				<button
-					type="button"
-					class="relative px-0.5 py-0.5 text-neutral-950 flex items-center justify-center cursor-pointer hover:text-secondary"
-					aria-label="Notifications"
-				>
-					<IconBell
-						class="w-7 h-7 hover:text-secondary-500 transition-colors duration-200 ease-in-out"
-					/>
-					<span
-						class="absolute -top-1 -right-1 bg-secondary-500 text-white w-5 h-5 text-[10px] font-bold flex items-center justify-center rounded-full"
-					>
-						{notificationCount}
-					</span>
-				</button>
-			</div>
+		<div class="flex flex-wrap items-center gap-3">
+			<a
+				href="/dashboard/events/new"
+				class="button-primary px-3 py-3 text-xs font-bold uppercase tracking-wide flex items-center justify-center gap-2"
+			>
+				<IconPlus class="w-4 h-4" />
+				<span>New Game</span>
+			</a>
+			<a
+				href="/dashboard/teams/new"
+				class="button-secondary px-3 py-3 text-xs font-bold uppercase tracking-wide flex items-center justify-center gap-2"
+			>
+				<IconUsers class="w-4 h-4" />
+				<span>Add Team</span>
+			</a>
+			<a
+				href="/dashboard/schedule"
+				class="button-secondary px-3 py-3 text-xs font-bold uppercase tracking-wide flex items-center justify-center gap-2"
+			>
+				<IconCalendarWeek class="w-4 h-4" />
+				<span>Schedule</span>
+			</a>
 		</div>
 
 		<section class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">

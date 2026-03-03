@@ -13,6 +13,9 @@
 		IconSettings,
 		IconHelpCircle,
 		IconHeadset,
+		IconBell,
+		IconBuildingCommunity,
+		IconEye,
 		IconUser,
 		IconChevronLeft,
 		IconChevronRight,
@@ -36,9 +39,18 @@
 		type DashboardNavigationLabels
 	} from '$lib/dashboard/navigation';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
+	import SwitchOrganizationWizard from './_wizards/SwitchOrganizationWizard.svelte';
 	import ViewRoleWizard from './_wizards/ViewRoleWizard.svelte';
 
 	type AuthRole = 'participant' | 'manager' | 'admin' | 'dev';
+	type OrganizationOption = {
+		clientId: string;
+		clientName: string;
+		clientSlug: string | null;
+		role: string;
+		isCurrent: boolean;
+		isDefault: boolean;
+	};
 
 	let { children, data } = $props();
 
@@ -96,7 +108,7 @@
 	});
 
 	const menuWidth = $derived.by(() => (isSidebarOpen ? 'w-64 xl:w-66' : 'w-14 xl:w-16'));
-	const navBottomPadding = $derived.by(() => (isSidebarOpen ? 'pb-40' : 'pb-36'));
+	const navBottomPadding = $derived.by(() => (isSidebarOpen ? 'pb-52' : 'pb-72'));
 
 	function toggleSidebar() {
 		isSidebarOpen = !isSidebarOpen;
@@ -113,8 +125,12 @@
 		return activePath === href || activePath.startsWith(`${href}/`);
 	};
 	const accountHref = '/dashboard/account';
+	const notificationsHref = '/dashboard/settings/notifications';
 	const isAccountRoute = $derived.by(
 		() => activePath === accountHref || activePath.startsWith(`${accountHref}/`)
+	);
+	const isNotificationsRoute = $derived.by(
+		() => activePath === notificationsHref || activePath.startsWith(`${notificationsHref}/`)
 	);
 	const viewerName = $derived.by(() => {
 		const name = data?.viewer?.name?.trim() ?? '';
@@ -130,6 +146,11 @@
 		return 'My Account';
 	});
 	const viewerEmail = $derived.by(() => data?.viewer?.email?.trim() ?? 'No email');
+	const organizations = $derived.by(() => (data?.organizations ?? []) as OrganizationOption[]);
+	const currentOrganization = $derived.by(
+		() => organizations.find((organization) => organization.isCurrent) ?? organizations[0] ?? null
+	);
+	const currentOrganizationId = $derived.by(() => currentOrganization?.clientId ?? '');
 	const normalizeRole = (value: unknown): AuthRole => {
 		if (typeof value !== 'string') {
 			return 'participant';
@@ -165,9 +186,47 @@
 	const returnModeLabel = $derived.by(() => {
 		return baseRole;
 	});
+	const notificationCount = $derived.by(() => {
+		const alerts = $page.data?.alerts;
+		return Array.isArray(alerts) ? alerts.length : 0;
+	});
+	const utilityButtonClass =
+		'flex h-10 w-10 items-center justify-center border border-primary-300 text-primary-50 transition-colors duration-150';
+	const utilityButtonDisabledClass = 'cursor-not-allowed opacity-70';
+	const isViewRoleButtonDisabled = $derived.by(
+		() => !canViewAsRole || isViewingAsRole || roleWizardSubmitting || organizationSwitching
+	);
+	const canSwitchOrganization = $derived.by(() => organizations.length > 1);
+	const isOrganizationButtonDisabled = $derived.by(
+		() => !canSwitchOrganization || organizationSwitching || organizationWizardSubmitting
+	);
+	const viewRoleTooltipText = $derived.by(() => {
+		if (organizationSwitching) {
+			return 'Unavailable while switching organizations';
+		}
+		if (isViewingAsRole) {
+			return `Currently viewing as ${viewingModeLabel}`;
+		}
+		if (!canViewAsRole) {
+			return 'View as role unavailable';
+		}
+		return 'View as role';
+	});
+	const organizationTooltipText = $derived.by(() => {
+		if (organizationSwitching) {
+			return 'Switching organizations';
+		}
+		if (!canSwitchOrganization) {
+			return 'No other organizations available';
+		}
+		return 'Switch organization';
+	});
 	const ORGANIZATION_SWITCHING_SESSION_KEY = 'playims:organization-switching';
 	let roleWizardOpen = $state(false);
 	let roleWizardSubmitting = $state(false);
+	let organizationWizardOpen = $state(false);
+	let organizationWizardSubmitting = $state(false);
+	let organizationWizardError = $state('');
 	let revertingViewMode = $state(false);
 	let viewModeBadgeError = $state('');
 	let organizationSwitching = $state(false);
@@ -195,10 +254,34 @@
 		}
 	};
 
+	function setOrganizationSwitchingState(isSwitching: boolean): void {
+		organizationSwitching = isSwitching;
+		if (!browser) {
+			return;
+		}
+
+		try {
+			if (isSwitching) {
+				window.sessionStorage.setItem(ORGANIZATION_SWITCHING_SESSION_KEY, '1');
+			} else {
+				window.sessionStorage.removeItem(ORGANIZATION_SWITCHING_SESSION_KEY);
+			}
+		} catch {
+			// Ignore storage failures; local state still gates controls.
+		}
+
+		window.dispatchEvent(
+			new CustomEvent('playims:organization-switching', {
+				detail: { active: isSwitching }
+			})
+		);
+	}
+
 	const openRoleWizard = () => {
 		if (!canViewAsRole || isViewingAsRole || roleWizardSubmitting || organizationSwitching) {
 			return;
 		}
+		organizationWizardOpen = false;
 		roleWizardOpen = true;
 		viewModeBadgeError = '';
 	};
@@ -208,6 +291,22 @@
 			return;
 		}
 		roleWizardOpen = false;
+	};
+
+	const openOrganizationWizard = () => {
+		if (!canSwitchOrganization || organizationSwitching || organizationWizardSubmitting) {
+			return;
+		}
+		roleWizardOpen = false;
+		organizationWizardOpen = true;
+		organizationWizardError = '';
+	};
+
+	const closeOrganizationWizard = () => {
+		if (organizationWizardSubmitting) {
+			return;
+		}
+		organizationWizardOpen = false;
 	};
 
 	const applyViewRole = async (targetRole: AuthRole | null) => {
@@ -282,6 +381,51 @@
 			viewModeBadgeError = 'Unable to restore role view.';
 		} finally {
 			revertingViewMode = false;
+		}
+	};
+
+	const switchOrganization = async (clientId: string) => {
+		if (
+			!browser ||
+			!clientId ||
+			clientId === currentOrganizationId ||
+			organizationSwitching ||
+			organizationWizardSubmitting
+		) {
+			return;
+		}
+
+		organizationWizardSubmitting = true;
+		organizationWizardError = '';
+		setOrganizationSwitchingState(true);
+		try {
+			const response = await fetch('/api/auth/switch-client', {
+				method: 'POST',
+				headers: {
+					'content-type': 'application/json'
+				},
+				body: JSON.stringify({ clientId })
+			});
+
+			let payload: { error?: string } | null = null;
+			try {
+				payload = (await response.json()) as { error?: string };
+			} catch {
+				payload = null;
+			}
+
+			if (!response.ok) {
+				organizationWizardError = payload?.error ?? 'Unable to switch organizations right now.';
+				return;
+			}
+
+			organizationWizardOpen = false;
+			await invalidateAll();
+		} catch {
+			organizationWizardError = 'Unable to switch organizations right now.';
+		} finally {
+			organizationWizardSubmitting = false;
+			setOrganizationSwitchingState(false);
 		}
 	};
 
@@ -375,6 +519,7 @@
 		}
 
 		roleWizardOpen = false;
+		organizationWizardOpen = false;
 	});
 
 	$effect(() => {
@@ -528,10 +673,76 @@
 					class="absolute bottom-0 left-0 right-0 border-t border-primary-600 bg-primary-500 p-2"
 				>
 					{#if isSidebarOpen}
-						<div class="flex items-stretch gap-2">
+						<div class="space-y-2">
+							<div class="flex items-center gap-2">
+								<HoverTooltip text="Help">
+									<button
+										type="button"
+										class="{utilityButtonClass} {utilityButtonDisabledClass}"
+										aria-label="Help"
+										disabled
+									>
+										<IconHelpCircle class="w-5 h-5" />
+									</button>
+								</HoverTooltip>
+								<HoverTooltip text="Tech support">
+									<button
+										type="button"
+										class="{utilityButtonClass} {utilityButtonDisabledClass}"
+										aria-label="Tech support"
+										disabled
+									>
+										<IconHeadset class="w-5 h-5" />
+									</button>
+								</HoverTooltip>
+								<HoverTooltip text="Notifications">
+									<a
+										href={notificationsHref}
+										class="{utilityButtonClass} relative cursor-pointer {isNotificationsRoute
+											? 'bg-primary-600 text-white'
+											: 'hover:bg-primary-600 hover:text-white'}"
+										aria-current={isNotificationsRoute ? 'page' : undefined}
+									>
+										<IconBell class="w-5 h-5" />
+										{#if notificationCount > 0}
+											<span
+												class="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center bg-secondary-500 px-1 text-[9px] font-bold leading-none text-white"
+											>
+												{notificationCount}
+											</span>
+										{/if}
+									</a>
+								</HoverTooltip>
+								<HoverTooltip text={viewRoleTooltipText}>
+									<button
+										type="button"
+										class="{utilityButtonClass} {isViewRoleButtonDisabled
+											? utilityButtonDisabledClass
+											: 'cursor-pointer hover:bg-primary-600 hover:text-white'}"
+										aria-label="View as role"
+										disabled={isViewRoleButtonDisabled}
+										onclick={openRoleWizard}
+									>
+										<IconEye class="w-5 h-5" />
+									</button>
+								</HoverTooltip>
+								<HoverTooltip text={organizationTooltipText}>
+									<button
+										type="button"
+										class="{utilityButtonClass} {isOrganizationButtonDisabled
+											? utilityButtonDisabledClass
+											: 'cursor-pointer hover:bg-primary-600 hover:text-white'}"
+										aria-label="Switch organization"
+										disabled={isOrganizationButtonDisabled}
+										onclick={openOrganizationWizard}
+									>
+										<IconBuildingCommunity class="w-5 h-5" />
+									</button>
+								</HoverTooltip>
+							</div>
 							<a
 								href={accountHref}
-								class="flex-1 min-w-0 px-3 py-2 flex items-center gap-3 border-l-4 transition-colors duration-150 cursor-pointer {isAccountRoute
+								class="w-full min-w-0 px-3 py-3 flex items-center gap-3 border-l-4 transition-colors duration-150 cursor-pointer {isAccountRoute
 									? 'bg-primary-600 border-neutral-500 text-white'
 									: 'border-transparent text-primary-100 hover:bg-primary-600 hover:text-white'}"
 								aria-current={isAccountRoute ? 'page' : undefined}
@@ -542,62 +753,83 @@
 									<p class="text-[11px] text-primary-100 truncate">{viewerEmail}</p>
 								</div>
 							</a>
-
-							<div class="flex flex-col gap-2">
-								<HoverTooltip text="Tech support">
-									<button
-										type="button"
-										class="w-10 h-10 flex items-center justify-center border border-primary-300 text-primary-50 opacity-70 cursor-not-allowed"
-										aria-label="Tech support"
-										disabled
-									>
-										<IconHeadset class="w-5 h-5" />
-									</button>
-								</HoverTooltip>
-								<HoverTooltip text="Help">
-									<button
-										type="button"
-										class="w-10 h-10 flex items-center justify-center border border-primary-300 text-primary-50 opacity-70 cursor-not-allowed"
-										aria-label="Help"
-										disabled
-									>
-										<IconHelpCircle class="w-5 h-5" />
-									</button>
-								</HoverTooltip>
-							</div>
 						</div>
 					{:else}
 						<div class="flex flex-col items-center gap-2">
-							<HoverTooltip text={viewerName}>
-								<a
-									href={accountHref}
-									class="w-10 h-10 flex items-center justify-center border transition-colors duration-150 cursor-pointer {isAccountRoute
-										? 'border-primary-100 bg-primary-600 text-white'
-										: 'border-primary-300 text-primary-50 hover:bg-primary-600 hover:text-white'}"
-									aria-current={isAccountRoute ? 'page' : undefined}
+							<HoverTooltip text="Help">
+								<button
+									type="button"
+									class="{utilityButtonClass} {utilityButtonDisabledClass}"
+									aria-label="Help"
+									disabled
 								>
-									<IconUser class="w-5 h-5" />
-								</a>
+									<IconHelpCircle class="w-5 h-5" />
+								</button>
 							</HoverTooltip>
 							<HoverTooltip text="Tech support">
 								<button
 									type="button"
-									class="w-10 h-10 flex items-center justify-center border border-primary-300 text-primary-50 opacity-70 cursor-not-allowed"
+									class="{utilityButtonClass} {utilityButtonDisabledClass}"
 									aria-label="Tech support"
 									disabled
 								>
 									<IconHeadset class="w-5 h-5" />
 								</button>
 							</HoverTooltip>
-							<HoverTooltip text="Help">
+							<HoverTooltip text="Notifications">
+								<a
+									href={notificationsHref}
+									class="{utilityButtonClass} relative cursor-pointer {isNotificationsRoute
+										? 'bg-primary-600 text-white'
+										: 'hover:bg-primary-600 hover:text-white'}"
+									aria-current={isNotificationsRoute ? 'page' : undefined}
+								>
+									<IconBell class="w-5 h-5" />
+									{#if notificationCount > 0}
+										<span
+											class="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center bg-secondary-500 px-1 text-[9px] font-bold leading-none text-white"
+										>
+											{notificationCount}
+										</span>
+									{/if}
+								</a>
+							</HoverTooltip>
+							<HoverTooltip text={viewRoleTooltipText}>
 								<button
 									type="button"
-									class="w-10 h-10 flex items-center justify-center border border-primary-300 text-primary-50 opacity-70 cursor-not-allowed"
-									aria-label="Help"
-									disabled
+									class="{utilityButtonClass} {isViewRoleButtonDisabled
+										? utilityButtonDisabledClass
+										: 'cursor-pointer hover:bg-primary-600 hover:text-white'}"
+									aria-label="View as role"
+									disabled={isViewRoleButtonDisabled}
+									onclick={openRoleWizard}
 								>
-									<IconHelpCircle class="w-5 h-5" />
+									<IconEye class="w-5 h-5" />
 								</button>
+							</HoverTooltip>
+							<HoverTooltip text={organizationTooltipText}>
+								<button
+									type="button"
+									class="{utilityButtonClass} {isOrganizationButtonDisabled
+										? utilityButtonDisabledClass
+										: 'cursor-pointer hover:bg-primary-600 hover:text-white'}"
+									aria-label="Switch organization"
+									disabled={isOrganizationButtonDisabled}
+									onclick={openOrganizationWizard}
+								>
+									<IconBuildingCommunity class="w-5 h-5" />
+								</button>
+							</HoverTooltip>
+							<HoverTooltip text={viewerName}>
+								<a
+									href={accountHref}
+									class="flex aspect-square w-full items-center justify-center border transition-colors duration-150 cursor-pointer {isAccountRoute
+										? 'border-primary-100 bg-primary-600 text-white'
+										: 'border-primary-300 text-primary-50 hover:bg-primary-600 hover:text-white'}"
+									aria-current={isAccountRoute ? 'page' : undefined}
+								>
+									<IconUser class="w-5 h-5" />
+								</a>
 							</HoverTooltip>
 						</div>
 					{/if}
@@ -618,5 +850,14 @@
 		allowedRoles={availableViewTargets}
 		onRequestClose={closeRoleWizard}
 		onSelectRole={(role) => void applyViewRole(role)}
+	/>
+	<SwitchOrganizationWizard
+		open={organizationWizardOpen}
+		formError={organizationWizardError}
+		submitting={organizationWizardSubmitting || organizationSwitching}
+		{organizations}
+		selectedOrganizationId={currentOrganizationId}
+		onRequestClose={closeOrganizationWizard}
+		onSelectOrganization={(clientId) => void switchOrganization(clientId)}
 	/>
 </div>

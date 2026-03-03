@@ -31,20 +31,13 @@
 		admin: 'Admin',
 		dev: 'Dev'
 	};
-	const roleQuickKey: Record<AuthRole, string | null> = {
-		participant: 'P',
-		manager: 'M',
-		admin: 'A',
-		dev: null
-	};
-
 	const activeRole = $derived.by(() => effectiveRole);
 	const roleOptions = $derived.by(() =>
-		allowedRoles.map((role) => ({
+		allowedRoles.map((role, index) => ({
 			role,
 			title: roleLabel[role],
 			description: `Switch to ${roleLabel[role]} view permissions.`,
-			quickKey: roleQuickKey[role]
+			quickKey: index < 9 ? String(index + 1) : null
 		}))
 	);
 	let highlightedIndex = $state(0);
@@ -145,12 +138,11 @@
 				return;
 			}
 
-			const quickKey = event.key.toUpperCase();
-			if (quickKey !== 'A' && quickKey !== 'M' && quickKey !== 'P') {
+			if (!/^[1-9]$/.test(event.key)) {
 				return;
 			}
 
-			const matchingOption = roleOptions.find((option) => option.quickKey === quickKey);
+			const matchingOption = roleOptions.find((option) => option.quickKey === event.key);
 			if (!matchingOption) {
 				return;
 			}
@@ -184,7 +176,7 @@
 				Current view: <span class="font-semibold">{roleLabel[effectiveRole]}</span>
 			</p>
 			<p class="text-[11px] text-neutral-900 font-sans mt-1">
-				Use Up/Down, Tab/Shift+Tab, Enter, or quick keys.
+				Use Up/Down, Tab/Shift+Tab, Enter, or number keys 1-9.
 			</p>
 		</div>
 		<div class="grid grid-cols-1 gap-2">
