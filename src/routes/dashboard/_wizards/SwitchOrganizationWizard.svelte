@@ -33,14 +33,16 @@
 	}: Props = $props();
 
 	const organizationOptions = $derived.by(() =>
-		organizations.map((organization, index) => ({
-			...organization,
-			quickKey: index < 9 ? String(index + 1) : null
-		}))
+		organizations
+			.filter((organization) => organization.clientId !== selectedOrganizationId)
+			.map((organization, index) => ({
+				...organization,
+				quickKey: index < 9 ? String(index + 1) : null
+			}))
 	);
 	const currentOrganization = $derived.by(
 		() =>
-			organizationOptions.find((organization) => organization.clientId === selectedOrganizationId) ?? null
+			organizations.find((organization) => organization.clientId === selectedOrganizationId) ?? null
 	);
 	let highlightedIndex = $state(0);
 	let lastToastSignature = $state('');
@@ -101,10 +103,7 @@
 			return;
 		}
 
-		const currentIndex = organizationOptions.findIndex(
-			(option) => option.clientId === selectedOrganizationId
-		);
-		highlightedIndex = currentIndex >= 0 ? currentIndex : 0;
+		highlightedIndex = 0;
 
 		void tick().then(() => {
 			const optionButton = document.querySelector<HTMLButtonElement>(
@@ -148,7 +147,7 @@
 			}
 
 			const matchingOption = organizationOptions.find((option) => option.quickKey === event.key);
-			if (!matchingOption || matchingOption.clientId === selectedOrganizationId) {
+			if (!matchingOption) {
 				return;
 			}
 
@@ -171,7 +170,7 @@
 	stepTitle="Organization Picker"
 	progressPercent={100}
 	closeAriaLabel="Close switch organization wizard"
-	maxWidthClass="max-w-2xl"
+	maxWidthClass="max-w-lg"
 	formClass="p-4 space-y-4"
 	on:requestClose={onRequestClose}
 >
@@ -182,14 +181,16 @@
 				<span class="font-semibold">{currentOrganization?.clientName ?? 'None selected'}</span>
 			</p>
 			<p class="mt-1 text-[11px] font-sans text-neutral-900">
-				Use Up/Down, Tab/Shift+Tab, Enter, or number keys 1-9.
-			</p>
-			<p class="mt-1 text-[11px] font-sans text-neutral-900">
-				Switching organizations returns you to that organization's base role.
+				Use Up/Down arrows, Shift, Enter, or number keys.
 			</p>
 		</div>
 
-		<div class="grid grid-cols-1 gap-2">
+		{#if organizationOptions.length === 0}
+			<div class="border border-secondary-300 bg-white p-2.5">
+				<p class="text-xs font-sans text-neutral-950">No other organizations available.</p>
+			</div>
+		{:else}
+			<div class="grid grid-cols-1 gap-2">
 			{#each organizationOptions as option, optionIndex}
 				<button
 					type="button"
@@ -198,24 +199,23 @@
 					onfocus={() => {
 						highlightedIndex = optionIndex;
 					}}
-					class={`group relative border p-3 pr-14 text-left cursor-pointer disabled:cursor-wait disabled:opacity-70 ${
-						highlightedIndex === optionIndex || option.clientId === selectedOrganizationId
+					class={`group relative border p-2.5 pr-14 text-left cursor-pointer focus-visible:outline-none focus-visible:border-primary-700 disabled:cursor-wait disabled:opacity-70 ${
+						highlightedIndex === optionIndex
 							? 'border-primary-500 bg-primary-100 text-primary-900'
 							: 'border-secondary-300 bg-white text-neutral-950 hover:bg-secondary-50'
 					}`}
-					disabled={submitting || option.clientId === selectedOrganizationId}
+					disabled={submitting}
 					onclick={() => onSelectOrganization(option.clientId)}
 				>
 					<div class="flex items-center gap-2">
 						<p class="font-semibold">{option.clientName}</p>
-						{#if option.clientId === selectedOrganizationId}
-							<span class="text-[10px] font-bold uppercase tracking-wide">Current</span>
-						{/if}
 						{#if option.isDefault}
 							<span class="text-[10px] font-bold uppercase tracking-wide">Default</span>
 						{/if}
 					</div>
-					<p class="mt-0.5 text-xs">/{option.clientSlug ?? 'organization'} - Role: {option.role}</p>
+					<p class="mt-0.5 text-xs">
+						Switch to {option.clientName} organization. Role: {option.role}.
+					</p>
 					{#if option.quickKey}
 						<span
 							class="pointer-events-none absolute right-2.5 top-1/2 inline-flex h-6 min-w-6 -translate-y-1/2 items-center justify-center rounded-sm border border-secondary-500 bg-neutral-200 px-1.5 text-[11px] font-mono font-bold text-neutral-950 shadow-[inset_0_-1px_0_rgba(0,0,0,0.14)] transition-transform duration-150 ease-out group-hover:-translate-y-[55%] group-focus-visible:-translate-y-[55%]"
@@ -225,6 +225,7 @@
 					{/if}
 				</button>
 			{/each}
-		</div>
+			</div>
+		{/if}
 	</div>
 </WizardModal>

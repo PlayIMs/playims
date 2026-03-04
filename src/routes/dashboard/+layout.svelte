@@ -23,7 +23,7 @@
 		IconArrowBackUp,
 		IconCode
 	} from '@tabler/icons-svelte';
-	import { invalidateAll } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
 	import { flip } from 'svelte/animate';
@@ -115,6 +115,7 @@
 	}
 
 	const activePath = $derived.by(() => $page.url.pathname);
+	const activeSearch = $derived.by(() => $page.url.search);
 	const isMenuItemActive = (href: string): boolean => {
 		if (href === '#') {
 			return false;
@@ -420,6 +421,19 @@
 			}
 
 			organizationWizardOpen = false;
+			const currentUrl = `${activePath}${activeSearch}`;
+			const routeProbe = await fetch(currentUrl, {
+				method: 'GET',
+				headers: {
+					accept: 'text/html'
+				}
+			});
+
+			if (!routeProbe.ok) {
+				await goto('/dashboard', { invalidateAll: true });
+				return;
+			}
+
 			await invalidateAll();
 		} catch {
 			organizationWizardError = 'Unable to switch organizations right now.';
@@ -523,27 +537,39 @@
 	});
 
 	$effect(() => {
-		if (!browser || !canViewAsRole) {
+		if (!browser || (!canViewAsRole && !canSwitchOrganization)) {
 			return;
 		}
 
 		const handleViewModeShortcut = (event: KeyboardEvent) => {
-			if (!(event.ctrlKey && event.shiftKey && event.code === 'KeyR')) {
+			if (!(event.ctrlKey && event.shiftKey)) {
 				return;
 			}
 			if (organizationSwitching) {
 				return;
 			}
 
-			event.preventDefault();
-			event.stopPropagation();
-			event.stopImmediatePropagation();
-			if (isViewingAsRole) {
-				void exitViewMode();
+			if (event.code === 'KeyR' && canViewAsRole) {
+				event.preventDefault();
+				event.stopPropagation();
+				event.stopImmediatePropagation();
+				if (isViewingAsRole) {
+					void exitViewMode();
+					return;
+				}
+
+				openRoleWizard();
 				return;
 			}
 
-			openRoleWizard();
+			if (event.code !== 'KeyO' || !canSwitchOrganization) {
+				return;
+			}
+
+			event.preventDefault();
+			event.stopPropagation();
+			event.stopImmediatePropagation();
+			openOrganizationWizard();
 		};
 
 		window.addEventListener('keydown', handleViewModeShortcut, true);
@@ -794,36 +820,10 @@
 									{/if}
 								</a>
 							</HoverTooltip>
-							<HoverTooltip text={viewRoleTooltipText}>
-								<button
-									type="button"
-									class="{utilityButtonClass} {isViewRoleButtonDisabled
-										? utilityButtonDisabledClass
-										: 'cursor-pointer hover:bg-primary-600 hover:text-white'}"
-									aria-label="View as role"
-									disabled={isViewRoleButtonDisabled}
-									onclick={openRoleWizard}
-								>
-									<IconEye class="w-5 h-5" />
-								</button>
-							</HoverTooltip>
-							<HoverTooltip text={organizationTooltipText}>
-								<button
-									type="button"
-									class="{utilityButtonClass} {isOrganizationButtonDisabled
-										? utilityButtonDisabledClass
-										: 'cursor-pointer hover:bg-primary-600 hover:text-white'}"
-									aria-label="Switch organization"
-									disabled={isOrganizationButtonDisabled}
-									onclick={openOrganizationWizard}
-								>
-									<IconBuildingCommunity class="w-5 h-5" />
-								</button>
-							</HoverTooltip>
 							<HoverTooltip text={viewerName}>
 								<a
 									href={accountHref}
-									class="flex aspect-square w-full items-center justify-center border transition-colors duration-150 cursor-pointer {isAccountRoute
+									class="flex h-10 w-10 items-center justify-center border transition-colors duration-150 cursor-pointer {isAccountRoute
 										? 'border-primary-100 bg-primary-600 text-white'
 										: 'border-primary-300 text-primary-50 hover:bg-primary-600 hover:text-white'}"
 									aria-current={isAccountRoute ? 'page' : undefined}

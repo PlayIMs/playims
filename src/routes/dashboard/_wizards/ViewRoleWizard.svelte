@@ -31,15 +31,38 @@
 		admin: 'Admin',
 		dev: 'Dev'
 	};
+	const roleQuickKey: Record<AuthRole, string> = {
+		participant: 'P',
+		manager: 'M',
+		admin: 'A',
+		dev: 'D'
+	};
 	const activeRole = $derived.by(() => effectiveRole);
 	const roleOptions = $derived.by(() =>
-		allowedRoles.map((role, index) => ({
+		allowedRoles.map((role) => ({
 			role,
 			title: roleLabel[role],
 			description: `Switch to ${roleLabel[role]} view permissions.`,
-			quickKey: index < 9 ? String(index + 1) : null
+			quickKey: roleQuickKey[role]
 		}))
 	);
+	const quickKeyInstruction = $derived.by(() => {
+		const quickKeys = roleOptions
+			.map((option) => option.quickKey)
+			.filter((quickKey): quickKey is string => Boolean(quickKey));
+		if (quickKeys.length === 0) {
+			return 'Use Up/Down arrows, Shift, or Enter.';
+		}
+		if (quickKeys.length === 1) {
+			return `Use Up/Down arrows, Shift, Enter, or quick key ${quickKeys[0]}.`;
+		}
+		if (quickKeys.length === 2) {
+			return `Use Up/Down arrows, Shift, Enter, or quick keys ${quickKeys[0]} and ${quickKeys[1]}.`;
+		}
+		const leadingKeys = quickKeys.slice(0, -1).join(', ');
+		const lastKey = quickKeys[quickKeys.length - 1];
+		return `Use Up/Down arrows, Shift, Enter, or quick keys ${leadingKeys}, and ${lastKey}.`;
+	});
 	let highlightedIndex = $state(0);
 	let lastToastSignature = $state('');
 
@@ -138,11 +161,12 @@
 				return;
 			}
 
-			if (!/^[1-9]$/.test(event.key)) {
+			const quickKey = event.key.toUpperCase();
+			if (!['P', 'M', 'A', 'D'].includes(quickKey)) {
 				return;
 			}
 
-			const matchingOption = roleOptions.find((option) => option.quickKey === event.key);
+			const matchingOption = roleOptions.find((option) => option.quickKey === quickKey);
 			if (!matchingOption) {
 				return;
 			}
@@ -176,7 +200,7 @@
 				Current view: <span class="font-semibold">{roleLabel[effectiveRole]}</span>
 			</p>
 			<p class="text-[11px] text-neutral-900 font-sans mt-1">
-				Use Up/Down, Tab/Shift+Tab, Enter, or number keys 1-9.
+				{quickKeyInstruction}
 			</p>
 		</div>
 		<div class="grid grid-cols-1 gap-2">
@@ -188,7 +212,7 @@
 					onfocus={() => {
 						highlightedIndex = optionIndex;
 					}}
-					class={`group relative border p-2.5 pr-14 text-left cursor-pointer disabled:cursor-wait disabled:opacity-70 ${
+					class={`group relative border p-2.5 pr-14 text-left cursor-pointer focus-visible:outline-none focus-visible:border-primary-700 disabled:cursor-wait disabled:opacity-70 ${
 						highlightedIndex === optionIndex || activeRole === option.role
 							? 'border-primary-500 bg-primary-100 text-primary-900'
 							: 'border-secondary-300 bg-white text-neutral-950 hover:bg-secondary-50'
