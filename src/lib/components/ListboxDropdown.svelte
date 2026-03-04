@@ -418,6 +418,17 @@
 			return;
 		}
 
+		if (event.key === 'Tab') {
+			event.preventDefault();
+			const targetIndex = event.shiftKey ? findLastEnabledIndex() : findFirstEnabledIndex();
+			if (targetIndex >= 0) {
+				activeIndex = targetIndex;
+				listElement?.focus();
+				scrollActiveOptionIntoView();
+			}
+			return;
+		}
+
 		if (event.key === 'Enter') {
 			event.preventDefault();
 			if (activeIndex >= 0) {
@@ -570,7 +581,9 @@
 			return;
 		}
 		if (event.key === 'Tab') {
-			if (open) closeMenu();
+			if (!open) return;
+			event.preventDefault();
+			moveActive(event.shiftKey ? -1 : 1);
 			return;
 		}
 		if (!isTypeaheadCharacter(event.key) || event.ctrlKey || event.metaKey || event.altKey) return;
@@ -615,10 +628,8 @@
 			return;
 		}
 		if (event.key === 'Tab') {
-			if (hasFooterAction && !event.shiftKey) {
-				return;
-			}
-			closeMenu();
+			event.preventDefault();
+			moveActive(event.shiftKey ? -1 : 1);
 			return;
 		}
 		if (redirectOpenTypingToSearch(event)) return;
