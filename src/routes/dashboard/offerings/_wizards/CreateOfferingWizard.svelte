@@ -59,7 +59,7 @@
 
 <WizardModal
 	{open}
-	title="New Intramural Offering"
+	title="New Offering"
 	{step}
 	stepCount={5}
 	{stepTitle}

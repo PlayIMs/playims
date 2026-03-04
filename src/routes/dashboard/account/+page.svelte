@@ -1423,6 +1423,7 @@
 										/>
 										<button
 											type="button"
+											tabindex="-1"
 											class="absolute right-3 top-1/2 -translate-y-1/2 text-secondary-800 hover:text-secondary-950 cursor-pointer"
 											aria-label={showCurrentPassword
 												? 'Hide current password'
@@ -1458,6 +1459,7 @@
 											/>
 											<button
 												type="button"
+												tabindex="-1"
 												class="absolute right-3 top-1/2 -translate-y-1/2 text-secondary-800 hover:text-secondary-950 cursor-pointer"
 												aria-label={showNewPassword ? 'Hide new password' : 'Show new password'}
 												onclick={() => {
@@ -1490,6 +1492,7 @@
 											/>
 											<button
 												type="button"
+												tabindex="-1"
 												class="absolute right-3 top-1/2 -translate-y-1/2 text-secondary-800 hover:text-secondary-950 cursor-pointer"
 												aria-label={showConfirmPassword
 													? 'Hide confirmation password'
@@ -1603,6 +1606,7 @@
 										/>
 										<button
 											type="button"
+											tabindex="-1"
 											class="absolute right-3 top-1/2 -translate-y-1/2 text-error-950 hover:text-error-950 cursor-pointer"
 											aria-label={showArchivePassword
 												? 'Hide archive password'

@@ -282,6 +282,7 @@
 	let seasons = $state<PageData['seasons']>([]);
 	let selectedSeasonId = $state('');
 	let leagueTemplates = $state<LeagueTemplate[]>([]);
+	let leagueOfferingOptions = $state<PageData['leagueOfferingOptions']>([]);
 	let searchQuery = $state('');
 	let offeringView = $state<OfferingView>('all');
 	let offeringViewHydrated = $state(false);
@@ -437,6 +438,23 @@
 
 	function defaultLeagueSlug(leagueName: string, offeringName: string): string {
 		return slugifyFinal(`${leagueName} ${offeringName}`);
+	}
+
+	function defaultLeagueNamePlaceholder(isTournament: boolean): string {
+		return isTournament ? 'Pool A' : "Men's";
+	}
+
+	function defaultLeagueSlugPlaceholder(input: {
+		leagueName: string;
+		offeringName: string;
+		isTournament: boolean;
+	}): string {
+		const fallbackLeagueName = defaultLeagueNamePlaceholder(input.isTournament);
+		const resolvedLeagueName = input.leagueName.trim() || fallbackLeagueName;
+		const resolvedOfferingName = input.offeringName.trim();
+		const slug = defaultLeagueSlug(resolvedLeagueName, resolvedOfferingName);
+		if (slug) return slug;
+		return input.isTournament ? 'pool-a' : 'mens-league';
 	}
 
 	function handleSeasonHistoryChange(value: string): void {
@@ -800,6 +818,10 @@
 
 	$effect(() => {
 		leagueTemplates = [...(data.leagueTemplates ?? [])];
+	});
+
+	$effect(() => {
+		leagueOfferingOptions = [...(data.leagueOfferingOptions ?? [])];
 	});
 
 	function isOfferingView(value: string | null): value is OfferingView {
@@ -1335,6 +1357,31 @@
 		return 4;
 	}
 
+	function getTakenOfferingSlugsForSeason(seasonId: string): Set<string> {
+		const normalizedSeasonId = seasonId.trim();
+		if (!normalizedSeasonId) return new Set<string>();
+		return new Set(
+			leagueOfferingOptions
+				.filter((offering) => offering.seasonId === normalizedSeasonId)
+				.map((offering) => slugifyFinal(offering.slug || ''))
+				.filter((slug) => slug.length > 0)
+		);
+	}
+
+	function suggestNextOfferingSlug(slug: string, seasonId: string): string | null {
+		const normalizedSlug = slugifyFinal(slug);
+		if (!normalizedSlug) return null;
+		const takenSlugs = getTakenOfferingSlugsForSeason(seasonId);
+		if (!takenSlugs.has(normalizedSlug)) return normalizedSlug;
+		let suffix = 1;
+		let suggestedSlug = `${normalizedSlug}-${suffix}`;
+		while (takenSlugs.has(suggestedSlug)) {
+			suffix += 1;
+			suggestedSlug = `${normalizedSlug}-${suffix}`;
+		}
+		return suggestedSlug;
+	}
+
 	function getOfferingFieldErrors(values: WizardOfferingInput): Record<string, string> {
 		const errors: Record<string, string> = {};
 		const seasonId = values.seasonId.trim();
@@ -1347,6 +1394,15 @@
 		if (!name) errors['offering.name'] = 'Offering name is required.';
 		if (!slug) errors['offering.slug'] = 'Offering slug is required.';
 		if (!values.type) errors['offering.type'] = 'Type is required.';
+		if (seasonId && slug) {
+			const takenSlugs = getTakenOfferingSlugsForSeason(seasonId);
+			if (takenSlugs.has(slug)) {
+				const suggestedSlug = suggestNextOfferingSlug(slug, seasonId);
+				errors['offering.slug'] = suggestedSlug
+					? `An offering with this slug already exists for the selected season. Try "${suggestedSlug}".`
+					: 'An offering with this slug already exists for the selected season.';
+			}
+		}
 
 		if (imageUrl && !isValidUrl(imageUrl)) {
 			errors['offering.imageUrl'] = 'Enter a valid image URL.';
@@ -1892,6 +1948,20 @@
 			}
 
 			activities = [...body.data.activities, ...activities];
+			leagueOfferingOptions = [
+				{
+					id: body.data.offeringId,
+					name: payload.offering.name,
+					slug: payload.offering.slug,
+					sport: payload.offering.sport ?? 'Unspecified sport',
+					type: payload.offering.type,
+					seasonId: payload.offering.seasonId,
+					isActive: payload.offering.isActive
+				},
+				...leagueOfferingOptions.filter(
+					(offeringOption) => offeringOption.id !== body.data?.offeringId
+				)
+			];
 			searchQuery = '';
 			const createdLeagueCount = body.data.leagueIds.length;
 			createSuccessMessage =
@@ -2052,7 +2122,7 @@
 	}
 
 	function getLeagueOfferingById(offeringId: string): LeagueOfferingOption | null {
-		const selectedOffering = data.leagueOfferingOptions.find(
+		const selectedOffering = leagueOfferingOptions.find(
 			(offering: LeagueOfferingOption) => offering.id === offeringId
 		);
 		return selectedOffering ?? null;
@@ -3148,6 +3218,47 @@
 		return a.offeringType === 'league' ? -1 : 1;
 	}
 
+	function offeringGroupKey(
+		offeringName: string,
+		offeringType: 'league' | 'tournament',
+		splitByOfferingType: boolean
+	): string {
+		return splitByOfferingType ? `${offeringName}::${offeringType}` : offeringName;
+	}
+
+	function offeringCardSlug(
+		offeringName: string,
+		offeringType: 'league' | 'tournament',
+		seasonKey: string,
+		slugHint = ''
+	): string {
+		const normalizedSlug = slugifyFinal(slugHint) || slugifyFinal(offeringName) || 'offering';
+		return `offering-${normalizedSlug}-${offeringType}-${seasonKey}`;
+	}
+
+	function createEmptyOfferingGroup(input: {
+		offeringName: string;
+		offeringType: 'league' | 'tournament';
+		offeringSlugHint?: string;
+		seasonKey: string;
+	}): OfferingGroup {
+		return {
+			offeringName: input.offeringName,
+			offeringSlug: offeringCardSlug(
+				input.offeringName,
+				input.offeringType,
+				input.seasonKey,
+				input.offeringSlugHint ?? ''
+			),
+			offeringType: input.offeringType,
+			divisionCount: 0,
+			openCount: 0,
+			waitlistedCount: 0,
+			closedCount: 0,
+			leagues: []
+		};
+	}
+
 	function mostRecentOfferingEndMs(offering: OfferingGroup): number {
 		return offering.leagues.reduce((latestEndMs, league) => {
 			const endMs = parseDate(league.seasonEndDate)?.getTime() ?? Number.NEGATIVE_INFINITY;
@@ -3187,7 +3298,11 @@
 		return group.offeringType === 'tournament' ? 'group' : 'league';
 	}
 
-	function buildBoards(source: Activity[], splitByOfferingType = false): SeasonBoard[] {
+	function buildBoards(
+		source: Activity[],
+		splitByOfferingType = false,
+		offeringSeeds: LeagueOfferingOption[] = []
+	): SeasonBoard[] {
 		const now = new Date();
 		const seasonMap = new Map<
 			string,
@@ -3197,6 +3312,35 @@
 				offerings: Map<string, OfferingGroup>;
 			}
 		>();
+
+		for (const offeringSeed of offeringSeeds) {
+			if (!offeringSeed.seasonId) continue;
+			const season = getSeasonById(offeringSeed.seasonId);
+			if (!season) continue;
+			if (!seasonMap.has(season.id)) {
+				seasonMap.set(season.id, {
+					key: season.id,
+					label: season.name,
+					offerings: new Map<string, OfferingGroup>()
+				});
+			}
+
+			const bucket = seasonMap.get(season.id);
+			if (!bucket) continue;
+			const offeringName = offeringSeed.name?.trim() || 'General Recreation';
+			const offeringKey = offeringGroupKey(offeringName, offeringSeed.type, splitByOfferingType);
+			if (!bucket.offerings.has(offeringKey)) {
+				bucket.offerings.set(
+					offeringKey,
+					createEmptyOfferingGroup({
+						offeringName,
+						offeringType: offeringSeed.type,
+						offeringSlugHint: offeringSeed.slug,
+						seasonKey: season.id
+					})
+				);
+			}
+		}
 
 		for (const activity of source) {
 			const season = getSeasonMeta(activity);
@@ -3211,20 +3355,16 @@
 			if (!bucket) continue;
 
 			const offeringName = activity.offeringName?.trim() || 'General Recreation';
-			const offeringKey = splitByOfferingType
-				? `${offeringName}::${activity.offeringType}`
-				: offeringName;
+			const offeringKey = offeringGroupKey(offeringName, activity.offeringType, splitByOfferingType);
 			if (!bucket.offerings.has(offeringKey)) {
-				bucket.offerings.set(offeringKey, {
-					offeringName,
-					offeringSlug: `offering-${slugifyFinal(offeringName)}-${activity.offeringType}-${season.key}`,
-					offeringType: activity.offeringType,
-					divisionCount: 0,
-					openCount: 0,
-					waitlistedCount: 0,
-					closedCount: 0,
-					leagues: []
-				});
+				bucket.offerings.set(
+					offeringKey,
+					createEmptyOfferingGroup({
+						offeringName,
+						offeringType: activity.offeringType,
+						seasonKey: season.key
+					})
+				);
 			}
 
 			const offeringGroup = bucket.offerings.get(offeringKey);
@@ -3437,20 +3577,28 @@
 		{ value: '', label: 'Select season...' },
 		...seasonHistory.map((season) => ({
 			value: season.id,
-			label: season.name
+			label: season.name,
+			statusLabel: seasonStatusLabelForHistory(season)
 		}))
 	]);
 	const seasonDropdownOptions = $derived.by<DropdownOption[]>(() => [
 		{ value: '', label: 'Select season...' },
 		...seasons.map((season) => ({
 			value: season.id,
-			label: season.name
+			label: season.name,
+			statusLabel: seasonStatusLabelForHistory(season)
 		}))
 	]);
 	const createOfferingLeagueSeasonDropdownOptions = $derived.by<DropdownOption[]>(() => {
 		const offeringSeason = seasons.find((season) => season.id === createForm.offering.seasonId);
 		if (!offeringSeason) return seasonDropdownOptions;
-		return [{ value: offeringSeason.id, label: offeringSeason.name }];
+		return [
+			{
+				value: offeringSeason.id,
+				label: offeringSeason.name,
+				statusLabel: seasonStatusLabelForHistory(offeringSeason)
+			}
+		];
 	});
 	const leagueGenderDropdownOptions = $derived.by<DropdownOption[]>(() => [
 		{ value: '', label: 'Select...' },
@@ -3496,12 +3644,32 @@
 		)
 	);
 
+	function offeringOptionsForSeasonView(
+		filter: 'league' | 'tournament' | 'all'
+	): LeagueOfferingOption[] {
+		if (!selectedSeasonId) return [];
+		return leagueOfferingOptions
+			.filter((offering: LeagueOfferingOption) => {
+				if (!offering.isActive) return false;
+				if (offering.seasonId !== selectedSeasonId) return false;
+				if (filter !== 'all' && offering.type !== filter) return false;
+				return true;
+			})
+			.sort((a, b) => a.name.localeCompare(b.name));
+	}
+
 	const seasonBoards = $derived.by(() => {
-		if (showTournaments) return buildBoards(tournamentActivities);
-		if (showAllOfferings) {
-			return buildBoards([...leagueActivities, ...tournamentActivities], true);
+		if (showTournaments) {
+			return buildBoards(tournamentActivities, false, offeringOptionsForSeasonView('tournament'));
 		}
-		return buildBoards(leagueActivities);
+		if (showAllOfferings) {
+			return buildBoards(
+				[...leagueActivities, ...tournamentActivities],
+				true,
+				offeringOptionsForSeasonView('all')
+			);
+		}
+		return buildBoards(leagueActivities, false, offeringOptionsForSeasonView('league'));
 	});
 
 	$effect(() => {
@@ -3733,11 +3901,15 @@
 				: filter === 'league'
 					? leagueActivities
 					: [...leagueActivities, ...tournamentActivities];
-		return new Set(
+		const ids = new Set(
 			sourceActivities
 				.map((activity: Activity) => activity.offeringId)
 				.filter((offeringId): offeringId is string => Boolean(offeringId))
 		);
+		for (const offering of offeringOptionsForSeasonView(filter)) {
+			ids.add(offering.id);
+		}
+		return ids;
 	}
 	const addEntryOptionCount = $derived.by(() => {
 		const filter =
@@ -3760,7 +3932,7 @@
 		return options;
 	});
 	const createLeagueOfferingOptions = $derived.by(() =>
-		data.leagueOfferingOptions.filter((offering: LeagueOfferingOption) => {
+		leagueOfferingOptions.filter((offering: LeagueOfferingOption) => {
 			if (!selectedSeasonId) return false;
 			if (createLeagueOfferingFilter !== 'all' && offering.type !== createLeagueOfferingFilter) {
 				return false;
@@ -4625,58 +4797,93 @@
 											</tr>
 										</thead>
 										<tbody>
-											{#each offering.leagues as league, leagueIndex}
-												{@const OfferingIcon = offeringIconFor(offering.offeringName)}
-												{@const rowId = getLeagueRowId(offering.offeringSlug, league.id)}
-												<tr
-													id={rowId}
-													class={`align-middle ${leagueIndex < offering.leagues.length - 1 ? 'border-b border-secondary-200' : ''} ${leagueIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}
-													class:league-row-highlight={highlightedLeagueRowId === rowId}
-												>
-													<th scope="row" class="px-2 py-1 text-left">
-														<div class="flex items-center gap-2">
-															<div
-																class="w-9 h-9 bg-primary text-white flex items-center justify-center shrink-0 cursor-pointer transition-colors hover:bg-primary-700"
-																aria-hidden="true"
-															>
-																<OfferingIcon class="w-6 h-6" />
-															</div>
-															<div class="min-w-0">
-																<p
-																	class="text-sm font-bold text-neutral-950 font-sans hover:underline cursor-pointer"
+											{#if offering.leagues.length === 0}
+												{#each [0, 1, 2] as placeholderIndex}
+													<tr
+														class={`align-middle ${placeholderIndex < 2 ? 'border-b border-secondary-200' : ''} ${placeholderIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}
+														aria-hidden="true"
+													>
+														<th scope="row" class="px-2 py-1 text-left">
+															<div class="flex items-center gap-2">
+																<div
+																	class="w-9 h-9 border border-secondary-300 bg-neutral-100 flex items-center justify-center shrink-0"
 																>
-																	{league.categoryLabel}
-																</p>
+																	<div class="w-4 h-4 bg-neutral-300"></div>
+																</div>
+																<div class="h-4 w-32 bg-neutral-100"></div>
 															</div>
-														</div>
-													</th>
-													<td class="px-2 py-1">
-														<span
-															class={`${statusClass(league.status)} text-xs uppercase tracking-wide`}
-														>
-															{league.statusLabel}
-														</span>
-													</td>
-													<td class="px-2 py-1 align-top">
-														<p class="text-xs leading-snug text-neutral-950 font-sans">
-															{league.teamRegistrationOpenText}
-														</p>
-														<p class="mt-1 text-xs leading-snug text-neutral-950 font-sans">
-															{league.teamRegistrationCloseText}
-														</p>
-													</td>
-													<td class="px-2 py-1 align-top">
-														<p class="text-xs leading-snug text-neutral-950 font-sans">
-															{league.joinTeamText}
-														</p>
-													</td>
-													<td class="px-2 py-1 align-top">
-														<p class="text-xs leading-snug text-neutral-950 font-sans">
-															{league.seasonRangeText}
-														</p>
-													</td>
-												</tr>
-											{/each}
+														</th>
+														<td class="px-2 py-1">
+															<div class="h-5 w-16 bg-neutral-100"></div>
+														</td>
+														<td class="px-2 py-1">
+															<div class="space-y-1">
+																<div class="h-3 w-28 bg-neutral-100"></div>
+																<div class="h-3 w-24 bg-neutral-100"></div>
+															</div>
+														</td>
+														<td class="px-2 py-1">
+															<div class="h-3 w-24 bg-neutral-100"></div>
+														</td>
+														<td class="px-2 py-1">
+															<div class="h-3 w-32 bg-neutral-100"></div>
+														</td>
+													</tr>
+												{/each}
+											{:else}
+												{#each offering.leagues as league, leagueIndex}
+													{@const OfferingIcon = offeringIconFor(offering.offeringName)}
+													{@const rowId = getLeagueRowId(offering.offeringSlug, league.id)}
+													<tr
+														id={rowId}
+														class={`align-middle ${leagueIndex < offering.leagues.length - 1 ? 'border-b border-secondary-200' : ''} ${leagueIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}
+														class:league-row-highlight={highlightedLeagueRowId === rowId}
+													>
+														<th scope="row" class="px-2 py-1 text-left">
+															<div class="flex items-center gap-2">
+																<div
+																	class="w-9 h-9 bg-primary text-white flex items-center justify-center shrink-0 cursor-pointer transition-colors hover:bg-primary-700"
+																	aria-hidden="true"
+																>
+																	<OfferingIcon class="w-6 h-6" />
+																</div>
+																<div class="min-w-0">
+																	<p
+																		class="text-sm font-bold text-neutral-950 font-sans hover:underline cursor-pointer"
+																	>
+																		{league.categoryLabel}
+																	</p>
+																</div>
+															</div>
+														</th>
+														<td class="px-2 py-1">
+															<span
+																class={`${statusClass(league.status)} text-xs uppercase tracking-wide`}
+															>
+																{league.statusLabel}
+															</span>
+														</td>
+														<td class="px-2 py-1 align-top">
+															<p class="text-xs leading-snug text-neutral-950 font-sans">
+																{league.teamRegistrationOpenText}
+															</p>
+															<p class="mt-1 text-xs leading-snug text-neutral-950 font-sans">
+																{league.teamRegistrationCloseText}
+															</p>
+														</td>
+														<td class="px-2 py-1 align-top">
+															<p class="text-xs leading-snug text-neutral-950 font-sans">
+																{league.joinTeamText}
+															</p>
+														</td>
+														<td class="px-2 py-1 align-top">
+															<p class="text-xs leading-snug text-neutral-950 font-sans">
+																{league.seasonRangeText}
+															</p>
+														</td>
+													</tr>
+												{/each}
+											{/if}
 										</tbody>
 									</table>
 								</div>
@@ -5677,15 +5884,15 @@
 						<label for="league-wizard-name" class="block text-sm font-sans text-neutral-950 mb-1"
 							>Name <span class="text-error-700">*</span></label
 						>
-						<input
-							id="league-wizard-name"
-							type="text"
-							class="input-secondary"
-							value={createLeagueForm.league.name}
-							placeholder={wizardEntryType() === 'tournament' ? 'Pool A' : "Men's"}
-							oninput={(event) => {
-								const value = (event.currentTarget as HTMLInputElement).value;
-								createLeagueForm.league.name = value;
+							<input
+								id="league-wizard-name"
+								type="text"
+								class="input-secondary"
+								value={createLeagueForm.league.name}
+								placeholder={defaultLeagueNamePlaceholder(wizardEntryType() === 'tournament')}
+								oninput={(event) => {
+									const value = (event.currentTarget as HTMLInputElement).value;
+									createLeagueForm.league.name = value;
 								if (!createLeagueSlugTouched) {
 									const offeringName = selectedLeagueWizardOffering?.name ?? '';
 									createLeagueForm.league.slug = defaultLeagueSlug(value, offeringName);
@@ -5721,7 +5928,11 @@
 								type="text"
 								class="input-secondary pr-10"
 								value={createLeagueForm.league.slug}
-								placeholder={wizardEntryType() === 'tournament' ? 'pool-a' : 'mens-soccer'}
+								placeholder={defaultLeagueSlugPlaceholder({
+									leagueName: createLeagueForm.league.name,
+									offeringName: selectedLeagueWizardOffering?.name ?? '',
+									isTournament: wizardEntryType() === 'tournament'
+								})}
 								oninput={(event) => {
 									createLeagueSlugTouched = true;
 									createLeagueForm.league.isSlugManual = true;
@@ -6600,7 +6811,7 @@
 							type="text"
 							class="input-secondary"
 							value={createForm.league.name}
-							placeholder="Men's"
+							placeholder={defaultLeagueNamePlaceholder(isTournamentWizard())}
 							oninput={(event) => {
 								const value = (event.currentTarget as HTMLInputElement).value;
 								createForm.league.name = value;
@@ -6638,7 +6849,11 @@
 								type="text"
 								class="input-secondary pr-10"
 								value={createForm.league.slug}
-								placeholder="mens-soccer"
+								placeholder={defaultLeagueSlugPlaceholder({
+									leagueName: createForm.league.name,
+									offeringName: createForm.offering.name,
+									isTournament: isTournamentWizard()
+								})}
 								oninput={(event) => {
 									leagueSlugTouched = true;
 									createForm.league.isSlugManual = true;

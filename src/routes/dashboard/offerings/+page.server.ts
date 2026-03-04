@@ -45,6 +45,7 @@ interface SeasonOption {
 interface LeagueOfferingOption {
 	id: string;
 	name: string;
+	slug: string;
 	sport: string;
 	type: ActivityType;
 	seasonId: string | null;
@@ -278,6 +279,7 @@ export const load: PageServerLoad = async (event) => {
 				})(),
 				id: offering.id,
 				name: offering.name?.trim() || 'Untitled Offering',
+				slug: offering.slug?.trim() || '',
 				sport: offering.sport?.trim() || 'Unspecified sport',
 				type: toActivityType(offering.type),
 				isActive: offering.isActive !== 0

@@ -869,9 +869,9 @@
 											<span class="truncate">{option.label}</span>
 											{#if option.statusLabel}
 												<span
-													class="text-[10px] uppercase tracking-wide shrink-0 text-neutral-700/50"
+													class="text-[10px] uppercase tracking-wide shrink-0 text-neutral-600/45"
 												>
-													({option.statusLabel})
+													{option.statusLabel}
 												</span>
 											{/if}
 										</span>
@@ -942,9 +942,9 @@
 											<span class="truncate">{option.label}</span>
 											{#if option.statusLabel}
 												<span
-													class={`text-[10px] uppercase tracking-wide shrink-0 ${isSelectedOption ? 'text-white' : 'text-secondary-900'}`}
+													class={`text-[10px] uppercase tracking-wide shrink-0 ${isSelectedOption ? 'text-white/80' : 'text-secondary-700/70'}`}
 												>
-													({option.statusLabel})
+													{option.statusLabel}
 												</span>
 											{/if}
 										</span>

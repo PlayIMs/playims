@@ -71,6 +71,7 @@
 	{#if getValueText().trim().length > 0}
 		<button
 			type="button"
+			tabindex="-1"
 			class={`border-0 bg-transparent p-0 leading-none ${clearButtonClass}`}
 			aria-label={clearAriaLabel}
 			onclick={clearValue}

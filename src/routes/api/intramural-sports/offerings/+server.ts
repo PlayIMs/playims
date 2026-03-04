@@ -89,6 +89,23 @@ const toFieldErrorMap = (
 	return fieldErrors;
 };
 
+const normalizeSlug = (value: string | null | undefined): string => value?.trim().toLowerCase() ?? '';
+
+const suggestNextSlug = (inputSlug: string, existingSlugs: Set<string>): string | null => {
+	const baseSlug = normalizeSlug(inputSlug);
+	if (!baseSlug) return null;
+	if (!existingSlugs.has(baseSlug)) return baseSlug;
+
+	let suffix = 1;
+	let nextSlug = `${baseSlug}-${suffix}`;
+	while (existingSlugs.has(nextSlug)) {
+		suffix += 1;
+		nextSlug = `${baseSlug}-${suffix}`;
+	}
+
+	return nextSlug;
+};
+
 export const POST: RequestHandler = async (event) => {
 	if (!event.platform?.env?.DB) {
 		return json(
@@ -150,9 +167,20 @@ export const POST: RequestHandler = async (event) => {
 			input.offering.seasonId
 		);
 		if (existingOfferingSlug) {
+			const seasonOfferings = await dbOps.offerings.getByClientId(clientId);
+			const seasonOfferingSlugs = new Set(
+				seasonOfferings
+					.filter((offering) => offering.seasonId === input.offering.seasonId)
+					.map((offering) => normalizeSlug(offering.slug))
+					.filter((slug) => slug.length > 0)
+			);
+			const suggestedSlug = suggestNextSlug(input.offering.slug, seasonOfferingSlugs);
+			const duplicateSlugMessage = suggestedSlug
+				? `An offering with this slug already exists for the selected season. Try "${suggestedSlug}".`
+				: 'An offering with this slug already exists for the selected season.';
 			issues.push({
 				path: ['offering', 'slug'],
-				message: 'An offering with this slug already exists for the selected season.'
+				message: duplicateSlugMessage
 			});
 		}
 

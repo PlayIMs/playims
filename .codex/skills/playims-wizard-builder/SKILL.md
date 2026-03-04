@@ -138,6 +138,9 @@ For single-step switchers such as `Switch View Role`, `Switch Organization`, or 
 - Validate the current step before advancing on every Next action; do not defer validation to final submit.
 - Include uniqueness checks (for example name/slug duplicates) on the earliest relevant step when local data allows it.
 - Keep final submit validation as a safety net, but users should get actionable errors before they progress.
+- Keep Next disabled whenever current-step client validation fails.
+- Merge server field errors into the current-step error map so users see conflicts on the step where they entered data.
+- If validation fails on Next, keep focus in-step and do not advance step index.
 
 11. Validate.
 
@@ -160,6 +163,7 @@ For single-step switchers such as `Switch View Role`, `Switch Organization`, or 
 - Do not let compact switcher modals drift into separate visual systems; keep role/org/context switchers matched in width, structure, and interaction model by default.
 - For destructive wizard actions, do not rely on single-click confirmations; require typed confirmation when data loss scope is broad.
 - Do not allow step advancement when current-step validation fails; Next handlers must run explicit current-step validation before incrementing the step.
+- Do not ship wizards that rely on submit-only validation for required fields, duplicates, or format errors.
 - Keep scope to dashboard routes unless user expands scope.
 
 ## Delivery Checklist
@@ -170,3 +174,7 @@ Always report:
 2. Behavioral parity notes and any intentional UX deviations.
 3. Validation command results.
 4. Manual QA coverage summary.
+5. Step-validation proof:
+   - Confirmed Next blocks advancement when current step has errors.
+   - Confirmed duplicate/uniqueness checks surface on the earliest relevant step.
+   - Confirmed final submit validation remains as a safety net.

@@ -46,6 +46,7 @@ Common field add-ons:
 - Input with inline action icon: `input-secondary pr-10`
 - Search-like field with left icon: `input-secondary pl-10`
 - Error state override: `input-secondary border-error-400 focus:border-error-600`
+- Inline icon buttons rendered inside an input wrapper must use `tabindex="-1"` when they are secondary conveniences (clear, reveal password, revert, open date picker, inline helper affordances) so the main field stays in the keyboard tab flow.
 
 ## Date Field Pattern
 
@@ -53,6 +54,7 @@ When custom calendar trigger is rendered:
 
 - Input: `input-secondary pr-9 no-native-date-picker`
 - Trigger button: `absolute right-2 top-1/2 -translate-y-1/2 text-secondary-900 hover:text-secondary-700 cursor-pointer`
+- Trigger button also uses `tabindex="-1"` because it is an in-field convenience control, not a primary stop in the form sequence.
 
 Keep native date value handling intact and avoid nesting extra form controls.
 
@@ -98,6 +100,7 @@ Common selection-card recipe:
 - Use `InfoPopover` for click-persistent helper content (paragraphs, explanatory notes).
 - Use `HoverTooltip` for short action hints (edit/duplicate/remove/revert icons).
 - Do not use native `title` attributes for new hints.
+- If a tooltip-wrapped icon button lives inside an input field or as an inline field affordance, keep it out of the tab order with `tabindex="-1"`. Do not apply this to primary page actions, menu items, or standalone buttons that need normal keyboard focus.
 - Ground popover/tooltip behavior against current hotspots:
   - `src/routes/dashboard/offerings/+page.svelte`
   - `src/routes/dashboard/account/_wizards/ManageOrganizationWizard.svelte`
