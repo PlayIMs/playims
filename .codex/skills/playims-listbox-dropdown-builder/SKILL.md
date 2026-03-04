@@ -42,6 +42,9 @@ Behavioral guarantees from current implementation:
 
 - Supports keyboard navigation (`ArrowUp/Down`, `Home`, `End`, `Enter`, `Space`, `Escape`, `Tab`).
 - Supports 500ms typeahead buffer on option labels.
+- In `mode="select"`, typing while focus is on a closed trigger performs closed-state typeahead selection and dispatches `change` without opening the panel (native-select behavior).
+- In `mode="select"`, `Space` on a closed trigger opens the panel; it should not be repurposed for closed-state typeahead.
+- In `mode="action"` (button-style menus), keep typing behavior menu-oriented (no closed-state persistent selection).
 - Skips disabled options for active navigation and selection.
 - Closes on outside pointer down and global `Escape`.
 - Focuses listbox when opened; returns focus to trigger after selection or `Escape`.
@@ -193,6 +196,9 @@ Example action-menu usage (non-persistent):
 
 - Run keyboard/pointer QA from `references/qa-matrix.md`.
 - Confirm screen-reader labels and `aria-expanded` transitions.
+- Confirm closed-trigger typing selects matching options in `mode="select"` without opening.
+- Confirm `Space` still opens the menu from a closed trigger in `mode="select"`.
+- Confirm `mode="action"` dropdowns keep action-menu behavior (no closed persistent selection).
 8. Validate disabled-option helper tooltip behavior.
 
 - Ensure helper tooltip follows cursor and remains viewport-visible when hovering the info icon.
@@ -208,6 +214,8 @@ Example action-menu usage (non-persistent):
 - Do not mutate `value` inside `ListboxDropdown`; parent state owns selection.
 - Do not remove keyboard/typeahead/outside-click behavior when editing component internals.
 - For transient action menus, use `mode="action"` and keep actions non-persistent.
+- Do not reintroduce auto-open-on-letter behavior for `mode="select"` closed triggers.
+- Do not implement closed-state typeahead selection for `mode="action"` dropdowns.
 - Prefer `statusLabel` for compact contextual tags (CURRENT/PAST/FUTURE) rather than embedding metadata in primary labels.
 - Use the optional footer action only for secondary contextual actions, not for replacing primary option selection.
 - Keep option `value` strings stable and unique.

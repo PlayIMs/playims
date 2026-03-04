@@ -588,6 +588,13 @@
 		}
 		if (!isTypeaheadCharacter(event.key) || event.ctrlKey || event.metaKey || event.altKey) return;
 		event.preventDefault();
+		if (!open && mode === 'select') {
+			applyTypeaheadSearch(event.key);
+			if (activeIndex >= 0) {
+				selectOptionAtIndex(activeIndex);
+			}
+			return;
+		}
 		if (!open) {
 			void openMenu();
 		}
