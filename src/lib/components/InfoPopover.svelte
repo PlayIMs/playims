@@ -142,6 +142,7 @@
 <div class="relative shrink-0" bind:this={root}>
 	<button
 		type="button"
+		tabindex="-1"
 		class={resolvedButtonClass}
 		aria-label={buttonAriaLabel}
 		aria-haspopup="dialog"
