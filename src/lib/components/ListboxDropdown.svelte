@@ -641,9 +641,10 @@
 	function optionClassFor(
 		option: ListboxDropdownOption,
 		index: number,
-		isLastVisibleOption: boolean
+		isLastVisibleOption: boolean,
+		skipBottomDivider: boolean
 	): string {
-		const hasBottomDivider = !isLastVisibleOption;
+		const hasBottomDivider = !isLastVisibleOption && !skipBottomDivider;
 		const optionBorderClass = `${hasBottomDivider ? 'border-b border-secondary-200' : 'border-b-0'} ${
 			option.separatorBefore ? 'border-t border-secondary-200' : ''
 		}`;
@@ -672,9 +673,10 @@
 
 	function optionDisabledInfoClassFor(
 		option: ListboxDropdownOption,
-		isLastVisibleOption: boolean
+		isLastVisibleOption: boolean,
+		skipBottomDivider: boolean
 	): string {
-		const hasBottomDivider = !isLastVisibleOption;
+		const hasBottomDivider = !isLastVisibleOption && !skipBottomDivider;
 		const optionBorderClass = `${hasBottomDivider ? 'border-b border-secondary-200' : 'border-b-0'} ${
 			option.separatorBefore ? 'border-t border-secondary-200' : ''
 		}`;
@@ -834,6 +836,12 @@
 					{#each visibleOptionIndexes as index, visiblePosition}
 						{@const option = options[index]!}
 						{@const isLastVisibleOption = visiblePosition === visibleOptionIndexes.length - 1}
+						{@const nextVisibleIndex =
+							visiblePosition < visibleOptionIndexes.length - 1
+								? visibleOptionIndexes[visiblePosition + 1]
+								: -1}
+						{@const hasNextSeparator =
+							nextVisibleIndex >= 0 && options[nextVisibleIndex]?.separatorBefore === true}
 						{@const isSelectedOption = mode !== 'action' && option.value === value}
 						{@const optionTooltip = optionTooltipFor(option)}
 						{@const showOptionInfo = option.disabled && Boolean(optionTooltip)}
@@ -843,7 +851,7 @@
 								role="option"
 								aria-selected={mode === 'action' ? undefined : option.value === value}
 								aria-disabled="true"
-								class={`${optionDisabledInfoClassFor(option, isLastVisibleOption)} cursor-not-allowed`}
+								class={`${optionDisabledInfoClassFor(option, isLastVisibleOption, hasNextSeparator)} cursor-not-allowed`}
 							>
 								<span
 									class="inline-flex w-full items-start gap-2 min-w-0 text-neutral-700/50 cursor-not-allowed"
@@ -912,7 +920,7 @@
 								aria-disabled={option.disabled ? 'true' : undefined}
 								tabindex="-1"
 								disabled={option.disabled}
-								class={optionClassFor(option, index, isLastVisibleOption)}
+								class={optionClassFor(option, index, isLastVisibleOption, hasNextSeparator)}
 								onclick={() => {
 									selectOptionAtIndex(index);
 								}}
