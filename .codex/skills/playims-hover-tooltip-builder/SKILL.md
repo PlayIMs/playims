@@ -59,6 +59,8 @@ Behavioral guarantees from current implementation:
 5. Keep long helper text constrained with `maxWidthClass` and rely on viewport clamping for edge cases.
 6. For persistent click-to-dismiss help content, use `InfoPopover` instead of `HoverTooltip`.
 - `InfoPopover` uses the same shared floating-position engine but intentionally does not follow cursor.
+7. For any displayed date/datetime text, use `DateHoverText` instead of wiring `HoverTooltip` manually.
+- `DateHoverText` standardizes full-date tooltip formatting and timezone behavior for date displays.
 
 Default usage:
 
@@ -98,6 +100,7 @@ Full-width wrapper example:
 - Do not use `InfoPopover` for short hover-only action hints.
 - Do not use `HoverTooltip` for long, paragraph-heavy instructional content.
 - Do not reintroduce native `title` attributes where `HoverTooltip` is expected.
+- Do not hand-roll date display tooltips with raw `HoverTooltip`; use `DateHoverText`.
 - Keep tooltip text supplemental; critical required instructions should stay visible inline.
 - Preserve route behavior and handlers when migrating tooltip wrappers.
 

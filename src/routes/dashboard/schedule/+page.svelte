@@ -8,6 +8,7 @@
 		IconClock,
 		IconLivePhoto
 	} from '@tabler/icons-svelte';
+	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import { toast } from '$lib/toasts';
 
@@ -354,7 +355,13 @@
 	<div class="px-4 lg:px-6 space-y-6">
 		<div class="flex justify-end">
 			<p class="text-xs text-neutral-950 font-sans">
-				Last refreshed: {new Date(data.generatedAt).toLocaleString('en-US')}
+				Last refreshed:
+				<DateHoverText
+					display={new Date(data.generatedAt).toLocaleString('en-US')}
+					value={data.generatedAt}
+					includeTime
+					textClass="ml-1"
+				/>
 			</p>
 		</div>
 
@@ -499,7 +506,13 @@
 					<section class="border-2 border-secondary-300 bg-neutral">
 						<div class="p-4 border-b border-secondary-300 flex items-center justify-between gap-4">
 							<div>
-								<h2 class="text-xl font-bold font-serif text-neutral-950">{group.label}</h2>
+								<h2 class="text-xl font-bold font-serif text-neutral-950">
+									{#if group.key === 'unscheduled'}
+										{group.label}
+									{:else}
+										<DateHoverText display={group.label} value={group.key} />
+									{/if}
+								</h2>
 								<p class="text-xs text-neutral-950 font-sans">
 									{group.events.length} event{group.events.length === 1 ? '' : 's'}
 								</p>

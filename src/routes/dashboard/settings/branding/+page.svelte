@@ -7,6 +7,7 @@
 		IconRestore,
 		IconTrash
 	} from '@tabler/icons-svelte';
+	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import {
 		themeColors,
@@ -779,7 +780,13 @@
 									<div class="min-w-0">
 										<h4 class="text-sm font-semibold text-neutral-950">{theme.name}</h4>
 										<p class="text-xs text-neutral-950 mt-1">
-											Saved {new Date(theme.createdAt).toLocaleDateString()}
+											Saved
+											<DateHoverText
+												display={new Date(theme.createdAt).toLocaleDateString()}
+												value={theme.createdAt}
+												includeTime={false}
+												textClass="ml-1"
+											/>
 										</p>
 									</div>
 									<div
@@ -1277,7 +1284,11 @@
 								<div class="flex-1">
 									<div class="font-bold text-primary-900">{theme.name}</div>
 									<div class="text-xs text-secondary-600">
-										{new Date(theme.createdAt).toLocaleDateString()}
+										<DateHoverText
+											display={new Date(theme.createdAt).toLocaleDateString()}
+											value={theme.createdAt}
+											includeTime={false}
+										/>
 									</div>
 								</div>
 							</div>

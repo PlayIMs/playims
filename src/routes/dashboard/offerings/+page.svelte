@@ -40,6 +40,7 @@
 		IconTarget,
 		IconTrash
 	} from '@tabler/icons-svelte';
+	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import InfoPopover from '$lib/components/InfoPopover.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
@@ -3889,7 +3890,7 @@
 			.sort(sortConcludedOfferings)
 	);
 	const selectedSeasonIsHistorical = $derived.by(() =>
-		Boolean(selectedSeason && !selectedSeason.isCurrent)
+		selectedSeason ? seasonStatusLabelForHistory(selectedSeason) === 'PAST' : false
 	);
 	const renderedOfferings = $derived.by(() =>
 		selectedSeasonIsHistorical ? concludedOfferings : nonConcludedOfferings
@@ -4727,12 +4728,6 @@
 												</span>
 											{/if}
 										</div>
-										<p class="text-xs text-neutral-950 font-sans">
-											{offering.leagues.length}
-											{entryLabelFor(offering)} offer{offering.leagues.length === 1
-												? 'ing'
-												: 'ings'}
-										</p>
 									</div>
 									<div class="flex flex-wrap items-center gap-1">
 										{#if concluded}
@@ -4865,20 +4860,40 @@
 														</td>
 														<td class="px-2 py-1 align-top">
 															<p class="text-xs leading-snug text-neutral-950 font-sans">
-																{league.teamRegistrationOpenText}
+																<DateHoverText
+																	display={league.teamRegistrationOpenText}
+																	value={league.teamRegistrationOpenDate}
+																	includeTime
+																	wrapperClass="inline"
+																/>
 															</p>
 															<p class="mt-1 text-xs leading-snug text-neutral-950 font-sans">
-																{league.teamRegistrationCloseText}
+																<DateHoverText
+																	display={league.teamRegistrationCloseText}
+																	value={league.teamRegistrationCloseDate}
+																	includeTime
+																	wrapperClass="inline"
+																/>
 															</p>
 														</td>
 														<td class="px-2 py-1 align-top">
 															<p class="text-xs leading-snug text-neutral-950 font-sans">
-																{league.joinTeamText}
+																<DateHoverText
+																	display={league.joinTeamText}
+																	value={league.joinTeamDate}
+																	includeTime
+																	wrapperClass="inline"
+																/>
 															</p>
 														</td>
 														<td class="px-2 py-1 align-top">
 															<p class="text-xs leading-snug text-neutral-950 font-sans">
-																{league.seasonRangeText}
+																<DateHoverText
+																	display={league.seasonRangeText}
+																	value={league.seasonStartDate}
+																	endValue={league.seasonEndDate}
+																	wrapperClass="inline"
+																/>
 															</p>
 														</td>
 													</tr>
@@ -4940,7 +4955,13 @@
 								{#each activeDeadlines as deadline, deadlineIndex}
 									<div class={`p-3 ${deadlineIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}>
 										<p class="text-sm font-semibold text-neutral-950 font-sans">
-											Registration Deadline: {deadline.deadlineText}
+											Registration Deadline:
+											<DateHoverText
+												display={deadline.deadlineText}
+												value={deadline.deadlineDate}
+												includeTime
+												textClass="ml-1"
+											/>
 										</p>
 										<div class="mt-2 flex flex-wrap gap-1">
 											{#each deadline.leagues as league}
@@ -5481,7 +5502,11 @@
 							</p>
 							<p class="text-sm font-semibold text-neutral-950">{existingCurrentSeason.name}</p>
 							<p class="text-xs text-neutral-900">
-								{formatReviewRange(existingCurrentSeason.startDate, existingCurrentSeason.endDate)}
+								<DateHoverText
+									display={formatReviewRange(existingCurrentSeason.startDate, existingCurrentSeason.endDate)}
+									value={existingCurrentSeason.startDate}
+									endValue={existingCurrentSeason.endDate}
+								/>
 							</p>
 						</div>
 						<div
@@ -5498,7 +5523,11 @@
 								{createSeasonForm.name || 'New Season'}
 							</p>
 							<p class="text-xs text-neutral-900">
-								{formatReviewRange(createSeasonForm.startDate, createSeasonForm.endDate || null)}
+								<DateHoverText
+									display={formatReviewRange(createSeasonForm.startDate, createSeasonForm.endDate || null)}
+									value={createSeasonForm.startDate}
+									endValue={createSeasonForm.endDate || null}
+								/>
 							</p>
 						</div>
 					</div>
@@ -5594,7 +5623,12 @@
 				</p>
 				<p class="text-sm leading-5 text-neutral-950">
 					<span class="font-semibold">Date Range:</span>
-					{formatReviewRange(createSeasonForm.startDate, createSeasonForm.endDate || null)}
+					<DateHoverText
+						display={formatReviewRange(createSeasonForm.startDate, createSeasonForm.endDate || null)}
+						value={createSeasonForm.startDate}
+						endValue={createSeasonForm.endDate || null}
+						textClass="ml-1"
+					/>
 				</p>
 				<p class="text-sm leading-5 text-neutral-950">
 					<span class="font-semibold">Status:</span>
@@ -5767,13 +5801,13 @@
 									Copy Existing {wizardEntryUnitTitleSingular()}
 								</p>
 								<div
-									class="space-y-2 max-h-52 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 scrollbar-track-secondary-400"
+									class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-52 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 scrollbar-track-secondary-400"
 								>
 									{#each selectedOfferingLeagueTemplates as existingLeague}
 										<HoverTooltip text={`Duplicate ${wizardEntryUnitSingular()} settings`}>
 											<button
 												type="button"
-												class="w-full border border-secondary-300 bg-white p-2 flex items-center justify-between gap-3 text-left cursor-pointer hover:bg-neutral-200 active:bg-neutral-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+												class="h-14 w-full border border-secondary-300 bg-white px-2 py-1.5 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 text-left cursor-pointer hover:bg-neutral-200 active:bg-neutral-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
 												aria-label={`Duplicate ${existingLeague.name}`}
 												onclick={() => {
 													copyFromExistingLeagueTemplate(existingLeague);
@@ -5783,7 +5817,7 @@
 													<span class="block text-sm font-semibold text-neutral-950 truncate">
 														{existingLeague.name}
 													</span>
-													<span class="block text-xs text-neutral-900">
+													<span class="block text-xs text-neutral-900 truncate">
 														{getSeasonLabel(existingLeague.seasonId)}
 													</span>
 												</span>
@@ -5850,22 +5884,49 @@
 								</p>
 								<p class="sm:col-span-2">
 									<span class="font-semibold">Registration:</span>
-									{formatReviewRange(league.regStartDate, league.regEndDate, true)}
+									<DateHoverText
+										display={formatReviewRange(league.regStartDate, league.regEndDate, true)}
+										value={league.regStartDate}
+										endValue={league.regEndDate}
+										includeTime
+										textClass="ml-1"
+									/>
 								</p>
 								<p class="sm:col-span-2">
 									<span class="font-semibold">Season Dates:</span>
-									{formatReviewRange(league.seasonStartDate, league.seasonEndDate)}
+									<DateHoverText
+										display={formatReviewRange(league.seasonStartDate, league.seasonEndDate)}
+										value={league.seasonStartDate}
+										endValue={league.seasonEndDate}
+										textClass="ml-1"
+									/>
 								</p>
 								{#if league.hasPreseason}
 									<p class="sm:col-span-2">
 										<span class="font-semibold">Preseason:</span>
-										{formatReviewRange(league.preseasonStartDate, league.preseasonEndDate)}
+										<DateHoverText
+											display={formatReviewRange(
+												league.preseasonStartDate,
+												league.preseasonEndDate
+											)}
+											value={league.preseasonStartDate}
+											endValue={league.preseasonEndDate}
+											textClass="ml-1"
+										/>
 									</p>
 								{/if}
 								{#if league.hasPostseason}
 									<p class="sm:col-span-2">
 										<span class="font-semibold">Postseason:</span>
-										{formatReviewRange(league.postseasonStartDate, league.postseasonEndDate)}
+										<DateHoverText
+											display={formatReviewRange(
+												league.postseasonStartDate,
+												league.postseasonEndDate
+											)}
+											value={league.postseasonStartDate}
+											endValue={league.postseasonEndDate}
+											textClass="ml-1"
+										/>
 									</p>
 								{/if}
 							</div>
@@ -6051,7 +6112,10 @@
 						<label
 							for="league-wizard-reg-start"
 							class="block text-sm font-sans text-neutral-950 mb-1"
-							>Registration Opens <span class="text-error-700">*</span></label
+							>{wizardEntryType() === 'tournament'
+								? 'Tournament Registration Opens'
+								: 'Team Registration Opens'}
+							<span class="text-error-700">*</span></label
 						>
 						<input
 							id="league-wizard-reg-start"
@@ -6072,7 +6136,10 @@
 					</div>
 					<div>
 						<label for="league-wizard-reg-end" class="block text-sm font-sans text-neutral-950 mb-1"
-							>Registration Deadline <span class="text-error-700">*</span></label
+							>{wizardEntryType() === 'tournament'
+								? 'Tournament Registration Deadline'
+								: 'Team Registration Deadline'}
+							<span class="text-error-700">*</span></label
 						>
 						<input
 							id="league-wizard-reg-end"
@@ -6384,22 +6451,49 @@
 									</p>
 									<p class="sm:col-span-2">
 										<span class="font-semibold">Registration:</span>
-										{formatReviewRange(league.regStartDate, league.regEndDate, true)}
+										<DateHoverText
+											display={formatReviewRange(league.regStartDate, league.regEndDate, true)}
+											value={league.regStartDate}
+											endValue={league.regEndDate}
+											includeTime
+											textClass="ml-1"
+										/>
 									</p>
 									<p class="sm:col-span-2">
 										<span class="font-semibold">Season Dates:</span>
-										{formatReviewRange(league.seasonStartDate, league.seasonEndDate)}
+										<DateHoverText
+											display={formatReviewRange(league.seasonStartDate, league.seasonEndDate)}
+											value={league.seasonStartDate}
+											endValue={league.seasonEndDate}
+											textClass="ml-1"
+										/>
 									</p>
 									{#if league.hasPreseason}
 										<p class="sm:col-span-2">
 											<span class="font-semibold">Preseason:</span>
-											{formatReviewRange(league.preseasonStartDate, league.preseasonEndDate)}
+											<DateHoverText
+												display={formatReviewRange(
+													league.preseasonStartDate,
+													league.preseasonEndDate
+												)}
+												value={league.preseasonStartDate}
+												endValue={league.preseasonEndDate}
+												textClass="ml-1"
+											/>
 										</p>
 									{/if}
 									{#if league.hasPostseason}
 										<p class="sm:col-span-2">
 											<span class="font-semibold">Postseason:</span>
-											{formatReviewRange(league.postseasonStartDate, league.postseasonEndDate)}
+											<DateHoverText
+												display={formatReviewRange(
+													league.postseasonStartDate,
+													league.postseasonEndDate
+												)}
+												value={league.postseasonStartDate}
+												endValue={league.postseasonEndDate}
+												textClass="ml-1"
+											/>
 										</p>
 									{/if}
 								</div>
@@ -6773,22 +6867,49 @@
 							</p>
 							<p class="sm:col-span-2">
 								<span class="font-semibold">Registration:</span>
-								{formatReviewRange(league.regStartDate, league.regEndDate, true)}
+								<DateHoverText
+									display={formatReviewRange(league.regStartDate, league.regEndDate, true)}
+									value={league.regStartDate}
+									endValue={league.regEndDate}
+									includeTime
+									textClass="ml-1"
+								/>
 							</p>
 							<p class="sm:col-span-2">
 								<span class="font-semibold">Season Dates:</span>
-								{formatReviewRange(league.seasonStartDate, league.seasonEndDate)}
+								<DateHoverText
+									display={formatReviewRange(league.seasonStartDate, league.seasonEndDate)}
+									value={league.seasonStartDate}
+									endValue={league.seasonEndDate}
+									textClass="ml-1"
+								/>
 							</p>
 							{#if league.hasPreseason}
 								<p class="sm:col-span-2">
 									<span class="font-semibold">Preseason:</span>
-									{formatReviewRange(league.preseasonStartDate, league.preseasonEndDate)}
+									<DateHoverText
+										display={formatReviewRange(
+											league.preseasonStartDate,
+											league.preseasonEndDate
+										)}
+										value={league.preseasonStartDate}
+										endValue={league.preseasonEndDate}
+										textClass="ml-1"
+									/>
 								</p>
 							{/if}
 							{#if league.hasPostseason}
 								<p class="sm:col-span-2">
 									<span class="font-semibold">Postseason:</span>
-									{formatReviewRange(league.postseasonStartDate, league.postseasonEndDate)}
+									<DateHoverText
+										display={formatReviewRange(
+											league.postseasonStartDate,
+											league.postseasonEndDate
+										)}
+										value={league.postseasonStartDate}
+										endValue={league.postseasonEndDate}
+										textClass="ml-1"
+									/>
 								</p>
 							{/if}
 						</div>
@@ -6967,7 +7088,10 @@
 				<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
 					<div>
 						<label for="league-reg-start" class="block text-sm font-sans text-neutral-950 mb-1"
-							>Registration Opens <span class="text-error-700">*</span></label
+							>{isTournamentWizard()
+								? 'Tournament Registration Opens'
+								: 'Team Registration Opens'}
+							<span class="text-error-700">*</span></label
 						>
 						<input
 							id="league-reg-start"
@@ -6988,7 +7112,10 @@
 					</div>
 					<div>
 						<label for="league-reg-end" class="block text-sm font-sans text-neutral-950 mb-1"
-							>Registration Deadline <span class="text-error-700">*</span></label
+							>{isTournamentWizard()
+								? 'Tournament Registration Deadline'
+								: 'Team Registration Deadline'}
+							<span class="text-error-700">*</span></label
 						>
 						<input
 							id="league-reg-end"
@@ -7309,22 +7436,49 @@
 									</p>
 									<p class="sm:col-span-2">
 										<span class="font-semibold">Registration:</span>
-										{formatReviewRange(league.regStartDate, league.regEndDate, true)}
+										<DateHoverText
+											display={formatReviewRange(league.regStartDate, league.regEndDate, true)}
+											value={league.regStartDate}
+											endValue={league.regEndDate}
+											includeTime
+											textClass="ml-1"
+										/>
 									</p>
 									<p class="sm:col-span-2">
 										<span class="font-semibold">Season Dates:</span>
-										{formatReviewRange(league.seasonStartDate, league.seasonEndDate)}
+										<DateHoverText
+											display={formatReviewRange(league.seasonStartDate, league.seasonEndDate)}
+											value={league.seasonStartDate}
+											endValue={league.seasonEndDate}
+											textClass="ml-1"
+										/>
 									</p>
 									{#if league.hasPreseason}
 										<p class="sm:col-span-2">
 											<span class="font-semibold">Preseason:</span>
-											{formatReviewRange(league.preseasonStartDate, league.preseasonEndDate)}
+											<DateHoverText
+												display={formatReviewRange(
+													league.preseasonStartDate,
+													league.preseasonEndDate
+												)}
+												value={league.preseasonStartDate}
+												endValue={league.preseasonEndDate}
+												textClass="ml-1"
+											/>
 										</p>
 									{/if}
 									{#if league.hasPostseason}
 										<p class="sm:col-span-2">
 											<span class="font-semibold">Postseason:</span>
-											{formatReviewRange(league.postseasonStartDate, league.postseasonEndDate)}
+											<DateHoverText
+												display={formatReviewRange(
+													league.postseasonStartDate,
+													league.postseasonEndDate
+												)}
+												value={league.postseasonStartDate}
+												endValue={league.postseasonEndDate}
+												textClass="ml-1"
+											/>
 										</p>
 									{/if}
 								</div>

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import {
 		themeColors,
@@ -739,7 +740,13 @@
 									</HoverTooltip>
 								</div>
 								<p class="text-xs text-secondary-600">
-									Saved {new Date(theme.createdAt).toLocaleDateString()}
+									Saved
+									<DateHoverText
+										display={new Date(theme.createdAt).toLocaleDateString()}
+										value={theme.createdAt}
+										includeTime={false}
+										textClass="ml-1"
+									/>
 								</p>
 							</div>
 						{/each}
@@ -1129,7 +1136,11 @@
 									<div class="flex-1">
 										<div class="font-bold text-primary-900">{theme.name}</div>
 										<div class="text-xs text-secondary-600">
-											{new Date(theme.createdAt).toLocaleDateString()}
+											<DateHoverText
+												display={new Date(theme.createdAt).toLocaleDateString()}
+												value={theme.createdAt}
+												includeTime={false}
+											/>
 										</div>
 									</div>
 								</div>

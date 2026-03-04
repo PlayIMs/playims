@@ -235,3 +235,20 @@ After any theme/layout/bootstrap change, verify:
 2. Hard refresh `/colors` with cache disabled.
 3. Confirm no frame where sidebar/button backgrounds go transparent or default.
 4. Confirm theme persists correctly across refresh and route navigation.
+
+## Date Tooltip Contract
+
+All visible dates and datetimes in the web app must provide a hover tooltip with full normalized formatting.
+
+Implementation rule:
+
+- Use `src/lib/components/DateHoverText.svelte` for displayed dates instead of raw text.
+- Pass compact visible text as `display`, and pass raw source values via `value` (and `endValue` for ranges).
+- Set `includeTime` when the displayed value includes time.
+
+Tooltip format:
+
+- Date-only: `Monday, January 01, 2026`
+- Date-time: `Monday, January 01, 2026, 11:59PM EST`
+
+Do not use native `title` attributes or ad-hoc tooltip implementations for date displays.

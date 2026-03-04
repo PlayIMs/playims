@@ -80,6 +80,7 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 
 			return {
 				id: evt.id,
+				scheduledStartAt: evt.scheduledStartAt ?? null,
 				time:
 					startTime?.toLocaleTimeString('en-US', {
 						hour: 'numeric',
@@ -120,7 +121,8 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 		const recentActivity = recentTeams.map((t) => ({
 			type: 'team_registered',
 			message: `Team "${t.name}" registered`,
-			time: t.dateRegistered ? new Date(t.dateRegistered).toLocaleDateString() : 'Recently'
+			time: t.dateRegistered ? new Date(t.dateRegistered).toLocaleDateString() : 'Recently',
+			timeValue: t.dateRegistered ?? null
 		}));
 
 		// Priority alerts from announcements

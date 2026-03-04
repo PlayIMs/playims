@@ -1,4 +1,5 @@
 <script lang="ts">
+	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import ModalShell from '$lib/components/modals/ModalShell.svelte';
 	import type { MemberDetail } from '$lib/members/types.js';
 	import { toast } from '$lib/toasts';
@@ -32,6 +33,13 @@
 			title: 'Member details'
 		});
 	});
+
+	function formatDisplayDateTime(value: string | null): string {
+		if (!value) return '--';
+		const parsed = new Date(value);
+		if (Number.isNaN(parsed.getTime())) return '--';
+		return parsed.toLocaleString();
+	}
 </script>
 
 <ModalShell
@@ -70,7 +78,11 @@
 				<div class="border-2 border-secondary-300 bg-white p-3">
 					<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Last Active</p>
 					<p class="mt-1 text-base text-neutral-950">
-						{member.lastActiveAt ? new Date(member.lastActiveAt).toLocaleString() : '--'}
+						<DateHoverText
+							display={formatDisplayDateTime(member.lastActiveAt)}
+							value={member.lastActiveAt}
+							includeTime
+						/>
 					</p>
 				</div>
 			</div>

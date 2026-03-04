@@ -10,6 +10,7 @@
 		IconX
 	} from '@tabler/icons-svelte';
 	import { createEventDispatcher, tick } from 'svelte';
+	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import InfoPopover from '$lib/components/InfoPopover.svelte';
 	import ModalShell from '$lib/components/modals/ModalShell.svelte';
@@ -436,7 +437,11 @@
 						>
 							<p class="text-lg font-bold font-serif text-neutral-950 truncate">{season.name}</p>
 							<p class="text-xs text-neutral-900">
-								{dateRangeText(season.startDate, season.endDate)}
+								<DateHoverText
+									display={dateRangeText(season.startDate, season.endDate)}
+									value={season.startDate}
+									endValue={season.endDate}
+								/>
 							</p>
 							<p class="text-[10px] uppercase tracking-wide text-neutral-950 mt-1">
 								{getTemporalSeasonLabel(season)}
@@ -456,7 +461,11 @@
 					<div class="space-y-1">
 						<h3 class="text-3xl font-bold font-serif text-neutral-950">{selectedSeason.name}</h3>
 						<p class="text-sm text-neutral-900">
-							{dateRangeText(selectedSeason.startDate, selectedSeason.endDate)}
+							<DateHoverText
+								display={dateRangeText(selectedSeason.startDate, selectedSeason.endDate)}
+								value={selectedSeason.startDate}
+								endValue={selectedSeason.endDate}
+							/>
 						</p>
 						<p class="text-xs uppercase tracking-wide text-neutral-950">
 							{getTemporalSeasonLabel(selectedSeason)} season

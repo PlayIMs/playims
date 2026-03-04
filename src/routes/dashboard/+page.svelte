@@ -12,6 +12,7 @@
 		IconPlayerPlay,
 		IconPlus
 	} from '@tabler/icons-svelte';
+	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import { toast } from '$lib/toasts';
 
@@ -265,7 +266,13 @@
 												<p class="text-base font-bold text-neutral-950 font-serif">
 													{game.time}
 												</p>
-												<p class="text-xs text-neutral-950 font-sans">{game.date}</p>
+												<p class="text-xs text-neutral-950 font-sans">
+													<DateHoverText
+														display={game.date}
+														value={game.scheduledStartAt ?? game.date}
+														includeTime={false}
+													/>
+												</p>
 											</div>
 										</div>
 										<div>
@@ -337,7 +344,11 @@
 									<div class="grid grid-cols-1 md:grid-cols-[120px_1fr_auto] gap-4 items-center">
 										<div>
 											<p class="text-xs text-neutral-950 font-sans uppercase tracking-wide">
-												{game.date}
+												<DateHoverText
+													display={game.date}
+													value={game.scheduledStartAt ?? game.date}
+													includeTime={false}
+												/>
 											</p>
 											<p class="text-sm font-semibold text-neutral-950 font-sans">
 												{game.time}
@@ -385,7 +396,13 @@
 											<p class="text-sm text-neutral-950 font-sans truncate">
 												{activity.message}
 											</p>
-											<p class="text-xs text-neutral-950 font-sans">{activity.time}</p>
+											<p class="text-xs text-neutral-950 font-sans">
+												<DateHoverText
+													display={activity.time}
+													value={activity.timeValue ?? activity.time}
+													includeTime={false}
+												/>
+											</p>
 										</div>
 									</div>
 								</div>

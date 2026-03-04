@@ -14,6 +14,7 @@
 		IconX
 	} from '@tabler/icons-svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
+	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import InfoPopover from '$lib/components/InfoPopover.svelte';
@@ -1154,7 +1155,13 @@
 							</div>
 							<div class="space-y-1">
 								<p class="text-[11px] font-bold uppercase tracking-wide">Expires</p>
-								<p class="break-words leading-5">{new Date(invite.expiresAt).toLocaleString()}</p>
+								<p class="break-words leading-5">
+									<DateHoverText
+										display={new Date(invite.expiresAt).toLocaleString()}
+										value={invite.expiresAt}
+										includeTime
+									/>
+								</p>
 							</div>
 						</div>
 					</div>

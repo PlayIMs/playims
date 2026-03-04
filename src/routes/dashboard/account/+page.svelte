@@ -26,6 +26,7 @@
 		IconTrash,
 		IconUser
 	} from '@tabler/icons-svelte';
+	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import {
@@ -1673,7 +1674,13 @@
 									<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">
 										Member since
 									</p>
-									<p class="text-neutral-950">{formatDateTime(account.createdAt)}</p>
+									<p class="text-neutral-950">
+										<DateHoverText
+											display={formatDateTime(account.createdAt)}
+											value={account.createdAt}
+											includeTime
+										/>
+									</p>
 								</div>
 							</div>
 
@@ -1693,7 +1700,13 @@
 									<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">
 										Last active
 									</p>
-									<p class="text-neutral-950">{formatSessionDateTime(account.lastActiveAt)}</p>
+									<p class="text-neutral-950">
+										<DateHoverText
+											display={formatSessionDateTime(account.lastActiveAt)}
+											value={account.lastActiveAt}
+											includeTime
+										/>
+									</p>
 								</div>
 							</div>
 
@@ -1704,7 +1717,13 @@
 										Current session
 									</p>
 									<p class="text-neutral-950">
-										Expires {formatSessionDateTime(account.currentSessionExpiresAt)}
+										Expires
+										<DateHoverText
+											display={formatSessionDateTime(account.currentSessionExpiresAt)}
+											value={account.currentSessionExpiresAt}
+											includeTime
+											textClass="ml-1"
+										/>
 									</p>
 								</div>
 							</div>
@@ -1856,10 +1875,22 @@
 													)}
 												</p>
 												<p class="text-neutral-950">
-													Last active: {formatSessionDateTime(session.lastSeenAt)}
+													Last active:
+													<DateHoverText
+														display={formatSessionDateTime(session.lastSeenAt)}
+														value={session.lastSeenAt}
+														includeTime
+														textClass="ml-1"
+													/>
 												</p>
 												<p class="text-neutral-950">
-													Expires: {formatSessionDateTime(session.expiresAt)}
+													Expires:
+													<DateHoverText
+														display={formatSessionDateTime(session.expiresAt)}
+														value={session.expiresAt}
+														includeTime
+														textClass="ml-1"
+													/>
 												</p>
 											</div>
 										{/each}
@@ -1899,17 +1930,42 @@
 							</div>
 							<div class="border border-secondary-300 bg-white px-3 py-2 flex items-center gap-2">
 								<IconKey class="w-4 h-4 text-primary-700" />
-								<span>First login: <strong>{formatDateTime(account.firstLoginAt)}</strong></span>
+								<span
+									>First login:
+									<strong>
+										<DateHoverText
+											display={formatDateTime(account.firstLoginAt)}
+											value={account.firstLoginAt}
+											includeTime
+										/>
+									</strong></span
+								>
 							</div>
 							<div class="border border-secondary-300 bg-white px-3 py-2 flex items-center gap-2">
 								<IconTrash class="w-4 h-4 text-primary-700" />
 								<span
-									>Last account update: <strong>{formatDateTime(account.updatedAt)}</strong></span
+									>Last account update:
+									<strong>
+										<DateHoverText
+											display={formatDateTime(account.updatedAt)}
+											value={account.updatedAt}
+											includeTime
+										/>
+									</strong></span
 								>
 							</div>
 							<div class="border border-secondary-300 bg-white px-3 py-2 flex items-center gap-2">
 								<IconAlertTriangle class="w-4 h-4 text-primary-700" />
-								<span>Last login: <strong>{formatDateTime(account.lastLoginAt)}</strong></span>
+								<span
+									>Last login:
+									<strong>
+										<DateHoverText
+											display={formatDateTime(account.lastLoginAt)}
+											value={account.lastLoginAt}
+											includeTime
+										/>
+									</strong></span
+								>
 							</div>
 						</div>
 					{/if}
