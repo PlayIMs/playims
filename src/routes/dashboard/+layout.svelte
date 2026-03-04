@@ -197,6 +197,7 @@
 	const isViewRoleButtonDisabled = $derived.by(
 		() => !canViewAsRole || isViewingAsRole || roleWizardSubmitting || organizationSwitching
 	);
+	const showViewRoleButton = $derived.by(() => effectiveRole !== 'participant');
 	const canSwitchOrganization = $derived.by(() => organizations.length > 1);
 	const isOrganizationButtonDisabled = $derived.by(
 		() => !canSwitchOrganization || organizationSwitching || organizationWizardSubmitting
@@ -700,7 +701,7 @@
 				>
 					{#if isSidebarOpen}
 						<div class="space-y-2">
-							<div class="flex items-center gap-2">
+							<div class="flex w-full items-center justify-around gap-2">
 								<HoverTooltip text="Help">
 									<button
 										type="button"
@@ -739,19 +740,21 @@
 										{/if}
 									</a>
 								</HoverTooltip>
-								<HoverTooltip text={viewRoleTooltipText}>
-									<button
-										type="button"
-										class="{utilityButtonClass} {isViewRoleButtonDisabled
-											? utilityButtonDisabledClass
-											: 'cursor-pointer hover:bg-primary-600 hover:text-white'}"
-										aria-label="View as role"
-										disabled={isViewRoleButtonDisabled}
-										onclick={openRoleWizard}
-									>
-										<IconEye class="w-5 h-5" />
-									</button>
-								</HoverTooltip>
+								{#if showViewRoleButton}
+									<HoverTooltip text={viewRoleTooltipText}>
+										<button
+											type="button"
+											class="{utilityButtonClass} {isViewRoleButtonDisabled
+												? utilityButtonDisabledClass
+												: 'cursor-pointer hover:bg-primary-600 hover:text-white'}"
+											aria-label="View as role"
+											disabled={isViewRoleButtonDisabled}
+											onclick={openRoleWizard}
+										>
+											<IconEye class="w-5 h-5" />
+										</button>
+									</HoverTooltip>
+								{/if}
 								<HoverTooltip text={organizationTooltipText}>
 									<button
 										type="button"

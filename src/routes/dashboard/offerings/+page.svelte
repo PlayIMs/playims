@@ -29,7 +29,6 @@
 		IconBallTennis,
 		IconBallVolleyball,
 		IconChevronDown,
-		IconChevronUp,
 		IconCalendar,
 		IconCopy,
 		IconCrosshair,
@@ -284,7 +283,6 @@
 	let selectedSeasonId = $state('');
 	let leagueTemplates = $state<LeagueTemplate[]>([]);
 	let searchQuery = $state('');
-	let showConcludedSeasons = $state(false);
 	let offeringView = $state<OfferingView>('all');
 	let offeringViewHydrated = $state(false);
 	let seasonSelectionHydrated = $state(false);
@@ -444,7 +442,6 @@
 	function handleSeasonHistoryChange(value: string): void {
 		if (!value || value === selectedSeasonId) return;
 		selectedSeasonId = value;
-		showConcludedSeasons = false;
 	}
 
 	function openDatePicker(input: HTMLInputElement | null): void {
@@ -738,17 +735,6 @@
 				await tick();
 				rowElement = document.getElementById(rowId);
 			}
-		}
-
-		if (
-			!rowElement &&
-			concludedOfferings.some((offering) =>
-				offering.leagues.some((league) => league.id === leagueId)
-			)
-		) {
-			showConcludedSeasons = true;
-			await tick();
-			rowElement = document.getElementById(rowId);
 		}
 
 		if (!rowElement) return;
@@ -2028,7 +2014,6 @@
 			seasons = mergedSeasons.sort((a, b) => b.startDate.localeCompare(a.startDate));
 
 			selectedSeasonId = createdSeason.id;
-			showConcludedSeasons = false;
 
 			const copySummary = body.data.copySummary;
 			if (copySummary) {
@@ -3163,6 +3148,19 @@
 		return a.offeringType === 'league' ? -1 : 1;
 	}
 
+	function mostRecentOfferingEndMs(offering: OfferingGroup): number {
+		return offering.leagues.reduce((latestEndMs, league) => {
+			const endMs = parseDate(league.seasonEndDate)?.getTime() ?? Number.NEGATIVE_INFINITY;
+			return Math.max(latestEndMs, endMs);
+		}, Number.NEGATIVE_INFINITY);
+	}
+
+	function sortConcludedOfferings(a: OfferingGroup, b: OfferingGroup): number {
+		const endDiff = mostRecentOfferingEndMs(b) - mostRecentOfferingEndMs(a);
+		if (endDiff !== 0) return endDiff;
+		return sortOfferingsByName(a, b);
+	}
+
 	function offeringIconFor(offeringName: string) {
 		const key = offeringName.trim().toLowerCase();
 		if (key.includes('flag football')) return IconBallAmericanFootball;
@@ -3508,7 +3506,6 @@
 
 	$effect(() => {
 		offeringView;
-		showConcludedSeasons = false;
 	});
 
 	$effect(() => {
@@ -3718,16 +3715,16 @@
 		visibleOfferings.filter((offering) => !isOfferingConcluded(offering))
 	);
 	const concludedOfferings = $derived.by(() =>
-		visibleOfferings.filter((offering) => isOfferingConcluded(offering))
+		visibleOfferings
+			.filter((offering) => isOfferingConcluded(offering))
+			.slice()
+			.sort(sortConcludedOfferings)
 	);
 	const selectedSeasonIsHistorical = $derived.by(() =>
 		Boolean(selectedSeason && !selectedSeason.isCurrent)
 	);
 	const renderedOfferings = $derived.by(() =>
-		selectedSeasonIsHistorical ? visibleOfferings : nonConcludedOfferings
-	);
-	const collapsibleConcludedOfferings = $derived.by(() =>
-		selectedSeasonIsHistorical ? [] : concludedOfferings
+		selectedSeasonIsHistorical ? concludedOfferings : nonConcludedOfferings
 	);
 	function offeringIdsForCurrentSeasonView(filter: 'league' | 'tournament' | 'all'): Set<string> {
 		const sourceActivities =
@@ -4189,23 +4186,30 @@
 									</div>
 								</div>
 
-								<div class="border border-secondary-300 bg-white overflow-x-auto">
-									<table class="min-w-full border-collapse">
+								<div class="border border-secondary-300 bg-white overflow-x-auto scrollbar-thin">
+									<table class="w-full table-fixed border-collapse">
+										<colgroup>
+											<col class="w-[24%]" />
+											<col class="w-[12%]" />
+											<col class="w-[22%]" />
+											<col class="w-[20%]" />
+											<col class="w-[22%]" />
+										</colgroup>
 										<thead>
 											<tr class="border-b border-secondary-300 bg-neutral">
-												<th scope="col" class="px-2 py-1 text-left min-w-48">
+												<th scope="col" class="px-2 py-1 text-left">
 													<div class="h-3 w-20 bg-neutral-100"></div>
 												</th>
-												<th scope="col" class="px-2 py-1 text-left min-w-24">
+												<th scope="col" class="px-2 py-1 text-left">
 													<div class="h-3 w-12 bg-neutral-100"></div>
 												</th>
-												<th scope="col" class="px-2 py-1 text-left min-w-44">
+												<th scope="col" class="px-2 py-1 text-left">
 													<div class="h-3 w-24 bg-neutral-100"></div>
 												</th>
-												<th scope="col" class="px-2 py-1 text-left min-w-40">
+												<th scope="col" class="px-2 py-1 text-left">
 													<div class="h-3 w-24 bg-neutral-100"></div>
 												</th>
-												<th scope="col" class="px-2 py-1 text-left min-w-44">
+												<th scope="col" class="px-2 py-1 text-left">
 													<div class="h-3 w-20 bg-neutral-100"></div>
 												</th>
 											</tr>
@@ -4274,42 +4278,29 @@
 
 					<section class="border-2 border-secondary-300 bg-neutral">
 						<div class="p-4 border-b border-secondary-300 bg-neutral-600/66">
-							<h2 class="text-xl font-bold font-serif text-neutral-950">Season Snapshot</h2>
+							<h2 class="text-xl font-bold font-serif text-neutral-950">Advertising Spot</h2>
 						</div>
-						<div class="grid grid-cols-2 gap-2 p-4 sm:grid-cols-3">
-							<div class="card-secondary-outlined">
-								<p class="text-[11px] uppercase tracking-wide text-neutral-950 font-bold">
-									Offerings
-								</p>
-								<p class="text-2xl font-bold font-serif text-neutral-950">0</p>
-							</div>
-							<div class="card-secondary-outlined">
-								<p class="text-[11px] uppercase tracking-wide text-neutral-950 font-bold">
-									{showTournaments ? 'Groups' : showAllOfferings ? 'Leagues/Groups' : 'Leagues'}
-								</p>
-								<p class="text-2xl font-bold font-serif text-neutral-950">0</p>
-							</div>
-							<div class="card-secondary-outlined">
-								<p class="text-[11px] uppercase tracking-wide text-neutral-950 font-bold">
-									Divisions
-								</p>
-								<p class="text-2xl font-bold font-serif text-neutral-950">0</p>
-							</div>
-							<div class="card-primary-outlined">
-								<p class="text-[11px] uppercase tracking-wide text-primary-700 font-bold">Open</p>
-								<p class="text-2xl font-bold font-serif text-primary-700">0</p>
-							</div>
-							<div class="card-primary-outlined">
-								<p class="text-[11px] uppercase tracking-wide text-primary-700 font-bold">
-									Waitlist
-								</p>
-								<p class="text-2xl font-bold font-serif text-primary-700">0</p>
-							</div>
-							<div class="card-secondary-outlined">
-								<p class="text-[11px] uppercase tracking-wide text-secondary-900 font-bold">
-									Closed
-								</p>
-								<p class="text-2xl font-bold font-serif text-secondary-900">0</p>
+						<div class="p-3" aria-hidden="true">
+							<div class="border-2 border-dashed border-secondary-400 bg-white px-4 py-5 space-y-4">
+								<div class="space-y-2">
+									<div class="h-3 w-32 bg-neutral-100"></div>
+									<div class="h-6 w-4/5 bg-neutral-100"></div>
+									<div class="h-3 w-full bg-neutral-100"></div>
+									<div class="h-3 w-5/6 bg-neutral-100"></div>
+								</div>
+								<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+									<div class="border border-secondary-300 bg-neutral-25 px-3 py-2 space-y-2">
+										<div class="h-3 w-14 bg-neutral-100"></div>
+										<div class="h-3 w-24 bg-neutral-100"></div>
+									</div>
+									<div class="border border-secondary-300 bg-neutral-25 px-3 py-2 space-y-2">
+										<div class="h-3 w-14 bg-neutral-100"></div>
+										<div class="h-3 w-20 bg-neutral-100"></div>
+									</div>
+								</div>
+								<div class="border-t border-secondary-300 pt-3">
+									<div class="h-3 w-3/4 bg-neutral-100"></div>
+								</div>
 							</div>
 						</div>
 					</section>
@@ -4480,26 +4471,33 @@
 										</div>
 									</div>
 
-									<div class="border border-secondary-300 bg-white overflow-x-auto">
-										<table class="min-w-full border-collapse">
-											<thead>
-												<tr class="border-b border-secondary-300 bg-neutral">
-													<th scope="col" class="px-2 py-1 text-left min-w-48">
-														<div class="h-3 w-20 bg-neutral-100"></div>
-													</th>
-													<th scope="col" class="px-2 py-1 text-left min-w-24">
-														<div class="h-3 w-12 bg-neutral-100"></div>
-													</th>
-													<th scope="col" class="px-2 py-1 text-left min-w-44">
-														<div class="h-3 w-24 bg-neutral-100"></div>
-													</th>
-													<th scope="col" class="px-2 py-1 text-left min-w-40">
-														<div class="h-3 w-24 bg-neutral-100"></div>
-													</th>
-													<th scope="col" class="px-2 py-1 text-left min-w-44">
-														<div class="h-3 w-20 bg-neutral-100"></div>
-													</th>
-												</tr>
+								<div class="border border-secondary-300 bg-white overflow-x-auto scrollbar-thin">
+									<table class="w-full table-fixed border-collapse">
+										<colgroup>
+											<col class="w-[24%]" />
+											<col class="w-[12%]" />
+											<col class="w-[22%]" />
+											<col class="w-[20%]" />
+											<col class="w-[22%]" />
+										</colgroup>
+										<thead>
+											<tr class="border-b border-secondary-300 bg-neutral">
+												<th scope="col" class="px-2 py-1 text-left">
+													<div class="h-3 w-20 bg-neutral-100"></div>
+												</th>
+												<th scope="col" class="px-2 py-1 text-left">
+													<div class="h-3 w-12 bg-neutral-100"></div>
+												</th>
+												<th scope="col" class="px-2 py-1 text-left">
+													<div class="h-3 w-24 bg-neutral-100"></div>
+												</th>
+												<th scope="col" class="px-2 py-1 text-left">
+													<div class="h-3 w-24 bg-neutral-100"></div>
+												</th>
+												<th scope="col" class="px-2 py-1 text-left">
+													<div class="h-3 w-20 bg-neutral-100"></div>
+												</th>
+											</tr>
 											</thead>
 											<tbody>
 												{#each [0, 1, 2, 3] as _, leagueIndex}
@@ -4541,301 +4539,180 @@
 							{/each}
 						</div>
 					{:else}
-						<div class="divide-y divide-secondary-300">
-							{#each renderedOfferings as offering}
-								<article id={offering.offeringSlug} class="p-4 space-y-3">
-									<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-										<div>
-											<div class="flex items-center gap-2">
-												<h3 class="text-2xl font-bold font-serif text-neutral-950">
-													{offering.offeringName}
-												</h3>
-												{#if showAllOfferings}
-													<span
-														class="badge-secondary-outlined text-[10px] uppercase tracking-wide px-1.5 py-0 self-center"
-													>
-														{offering.offeringType === 'tournament' ? 'Tournament' : 'League'}
-													</span>
-												{/if}
-											</div>
-											<p class="text-xs text-neutral-950 font-sans">
-												{offering.leagues.length}
-												{entryLabelFor(offering)} offer{offering.leagues.length === 1
-													? 'ing'
-													: 'ings'}
-											</p>
-										</div>
-										<div class="flex flex-wrap items-center gap-1">
-											{#if selectedSeasonIsHistorical}
-												<span class="badge-secondary text-xs uppercase tracking-wide">
-													Concluded
-												</span>
-											{:else}
-												<span class="badge-primary text-xs uppercase tracking-wide"
-													>{offering.openCount} Open</span
+						{#snippet offeringArticle(offering: OfferingGroup, concluded: boolean)}
+							<article id={offering.offeringSlug} class="p-4 space-y-3">
+								<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+									<div>
+										<div class="flex items-center gap-2">
+											<h3 class="text-2xl font-bold font-serif text-neutral-950">
+												{offering.offeringName}
+											</h3>
+											{#if showAllOfferings}
+												<span
+													class="badge-secondary-outlined text-[10px] uppercase tracking-wide px-1.5 py-0 self-center"
 												>
-												<span class="badge-primary-outlined text-xs uppercase tracking-wide">
-													{offering.waitlistedCount} Waitlist
-												</span>
-												<span class="badge-secondary-outlined text-xs uppercase tracking-wide">
-													{offering.closedCount} Closed
+													{offering.offeringType === 'tournament' ? 'Tournament' : 'League'}
 												</span>
 											{/if}
 										</div>
+										<p class="text-xs text-neutral-950 font-sans">
+											{offering.leagues.length}
+											{entryLabelFor(offering)} offer{offering.leagues.length === 1
+												? 'ing'
+												: 'ings'}
+										</p>
 									</div>
-
-									<div class="border border-secondary-300 bg-white overflow-x-auto">
-										<table class="min-w-full border-collapse">
-											<thead>
-												<tr class="border-b border-secondary-300 bg-neutral">
-													<th
-														scope="col"
-														class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-48"
-													>
-														{columnHeaderFor(offering, 'league')}
-													</th>
-													<th
-														scope="col"
-														class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-24"
-													>
-														Status
-													</th>
-													<th
-														scope="col"
-														class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-44"
-													>
-														{columnHeaderFor(offering, 'registration')}
-													</th>
-													<th
-														scope="col"
-														class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-40"
-													>
-														Join Team Deadline
-													</th>
-													<th
-														scope="col"
-														class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-44"
-													>
-														{columnHeaderFor(offering, 'range')}
-													</th>
-												</tr>
-											</thead>
-											<tbody>
-												{#each offering.leagues as league, leagueIndex}
-													{@const OfferingIcon = offeringIconFor(offering.offeringName)}
-													{@const rowId = getLeagueRowId(offering.offeringSlug, league.id)}
-													<tr
-														id={rowId}
-														class={`align-middle ${leagueIndex < offering.leagues.length - 1 ? 'border-b border-secondary-200' : ''} ${leagueIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}
-														class:league-row-highlight={highlightedLeagueRowId === rowId}
-													>
-														<th scope="row" class="px-2 py-1 text-left">
-															<div class="flex items-center gap-2">
-																<div
-																	class="w-9 h-9 bg-primary text-white flex items-center justify-center shrink-0 cursor-pointer transition-colors hover:bg-primary-700"
-																	aria-hidden="true"
-																>
-																	<OfferingIcon class="w-6 h-6" />
-																</div>
-																<div>
-																	<p
-																		class="text-sm font-bold text-neutral-950 font-sans hover:underline cursor-pointer"
-																	>
-																		{league.categoryLabel}
-																	</p>
-																</div>
-															</div>
-														</th>
-														<td class="px-2 py-1">
-															<span
-																class={`${statusClass(league.status)} text-xs uppercase tracking-wide`}
-															>
-																{league.statusLabel}
-															</span>
-														</td>
-														<td class="px-2 py-1">
-															<p class="text-xs text-neutral-950 font-sans">
-																{league.teamRegistrationOpenText}
-															</p>
-															<p class="text-xs text-neutral-950 font-sans mt-1">
-																{league.teamRegistrationCloseText}
-															</p>
-														</td>
-														<td class="px-2 py-1 align-top">
-															<p class="text-xs text-neutral-950 font-sans">
-																{league.joinTeamText}
-															</p>
-														</td>
-														<td class="px-2 py-1 align-top">
-															<p class="text-xs text-neutral-950 font-sans">
-																{league.seasonRangeText}
-															</p>
-														</td>
-													</tr>
-												{/each}
-											</tbody>
-										</table>
-									</div>
-								</article>
-							{/each}
-
-							{#if collapsibleConcludedOfferings.length > 0}
-								<section class="p-4 space-y-3">
-									<button
-										type="button"
-										class="w-full button-secondary-outlined px-3 py-2 justify-between text-left"
-										onclick={() => {
-											showConcludedSeasons = !showConcludedSeasons;
-										}}
-										aria-expanded={showConcludedSeasons}
-									>
-										<span
-											class="text-sm font-bold font-sans text-neutral-950 uppercase tracking-wide"
-										>
-											Concluded Offerings ({collapsibleConcludedOfferings.length})
-										</span>
-										{#if showConcludedSeasons}
-											<IconChevronUp class="w-5 h-5 text-secondary-900" />
+									<div class="flex flex-wrap items-center gap-1">
+										{#if concluded}
+											<span class="badge-secondary text-xs uppercase tracking-wide">
+												Concluded
+											</span>
 										{:else}
-											<IconChevronDown class="w-5 h-5 text-secondary-900" />
+											<span class="badge-primary text-xs uppercase tracking-wide"
+												>{offering.openCount} Open</span
+											>
+											<span class="badge-primary-outlined text-xs uppercase tracking-wide">
+												{offering.waitlistedCount} Waitlist
+											</span>
+											<span class="badge-secondary-outlined text-xs uppercase tracking-wide">
+												{offering.closedCount} Closed
+											</span>
 										{/if}
-									</button>
+									</div>
+								</div>
 
-									{#if showConcludedSeasons}
-										<div class="divide-y divide-secondary-300 border border-secondary-300">
-											{#each collapsibleConcludedOfferings as offering}
-												<article id={offering.offeringSlug} class="p-4 space-y-3 bg-neutral">
-													<div
-														class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
-													>
-														<div>
-															<div class="flex items-center gap-2">
-																<h3 class="text-2xl font-bold font-serif text-neutral-950">
-																	{offering.offeringName}
-																</h3>
-																{#if showAllOfferings}
-																	<span
-																		class="badge-secondary-outlined text-[10px] uppercase tracking-wide px-1 py-0 self-center"
-																	>
-																		{offering.offeringType === 'tournament'
-																			? 'Tournament'
-																			: 'League'}
-																	</span>
-																{/if}
+								<div class="border border-secondary-300 bg-white overflow-x-auto scrollbar-thin">
+									<table class="w-full table-fixed border-collapse">
+										<colgroup>
+											<col class="w-[24%]" />
+											<col class="w-[12%]" />
+											<col class="w-[22%]" />
+											<col class="w-[20%]" />
+											<col class="w-[22%]" />
+										</colgroup>
+										<thead>
+											<tr class="border-b border-secondary-300 bg-neutral">
+												<th
+													scope="col"
+													class="px-2 py-1 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950"
+												>
+													{columnHeaderFor(offering, 'league')}
+												</th>
+												<th
+													scope="col"
+													class="px-2 py-1 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950"
+												>
+													Status
+												</th>
+												<th
+													scope="col"
+													class="px-2 py-1 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950"
+												>
+													{columnHeaderFor(offering, 'registration')}
+												</th>
+												<th
+													scope="col"
+													class="px-2 py-1 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950"
+												>
+													Join Team Deadline
+												</th>
+												<th
+													scope="col"
+													class="px-2 py-1 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950"
+												>
+													{columnHeaderFor(offering, 'range')}
+												</th>
+											</tr>
+										</thead>
+										<tbody>
+											{#each offering.leagues as league, leagueIndex}
+												{@const OfferingIcon = offeringIconFor(offering.offeringName)}
+												{@const rowId = getLeagueRowId(offering.offeringSlug, league.id)}
+												<tr
+													id={rowId}
+													class={`align-middle ${leagueIndex < offering.leagues.length - 1 ? 'border-b border-secondary-200' : ''} ${leagueIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}
+													class:league-row-highlight={highlightedLeagueRowId === rowId}
+												>
+													<th scope="row" class="px-2 py-1 text-left">
+														<div class="flex items-center gap-2">
+															<div
+																class="w-9 h-9 bg-primary text-white flex items-center justify-center shrink-0 cursor-pointer transition-colors hover:bg-primary-700"
+																aria-hidden="true"
+															>
+																<OfferingIcon class="w-6 h-6" />
 															</div>
-															<p class="text-xs text-neutral-950 font-sans">
-																{offering.leagues.length}
-																{entryLabelFor(offering)} offer{offering.leagues.length === 1
-																	? 'ing'
-																	: 'ings'}
-															</p>
+															<div class="min-w-0">
+																<p
+																	class="text-sm font-bold text-neutral-950 font-sans hover:underline cursor-pointer"
+																>
+																	{league.categoryLabel}
+																</p>
+															</div>
 														</div>
-														<div class="flex flex-wrap items-center gap-1">
-															<span class="badge-secondary text-xs uppercase tracking-wide">
-																Concluded
-															</span>
-														</div>
-													</div>
-
-													<div class="border border-secondary-300 bg-white overflow-x-auto">
-														<table class="min-w-full border-collapse">
-															<thead>
-																<tr class="border-b border-secondary-300 bg-neutral">
-																	<th
-																		scope="col"
-																		class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-48"
-																	>
-																		{columnHeaderFor(offering, 'league')}
-																	</th>
-																	<th
-																		scope="col"
-																		class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-24"
-																	>
-																		Status
-																	</th>
-																	<th
-																		scope="col"
-																		class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-44"
-																	>
-																		{columnHeaderFor(offering, 'registration')}
-																	</th>
-																	<th
-																		scope="col"
-																		class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-40"
-																	>
-																		Join Team Deadline
-																	</th>
-																	<th
-																		scope="col"
-																		class="text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 px-2 py-1 min-w-44"
-																	>
-																		{columnHeaderFor(offering, 'range')}
-																	</th>
-																</tr>
-															</thead>
-															<tbody>
-																{#each offering.leagues as league, leagueIndex}
-																	{@const OfferingIcon = offeringIconFor(offering.offeringName)}
-																	{@const rowId = getLeagueRowId(offering.offeringSlug, league.id)}
-																	<tr
-																		id={rowId}
-																		class={`align-middle ${leagueIndex < offering.leagues.length - 1 ? 'border-b border-secondary-200' : ''} ${leagueIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}
-																		class:league-row-highlight={highlightedLeagueRowId === rowId}
-																	>
-																		<th scope="row" class="px-2 py-1 text-left">
-																			<div class="flex items-center gap-2">
-																				<div
-																					class="w-9 h-9 bg-primary text-white flex items-center justify-center shrink-0 cursor-pointer transition-colors hover:bg-primary-700"
-																					aria-hidden="true"
-																				>
-																					<OfferingIcon class="w-6 h-6" />
-																				</div>
-																				<div>
-																					<p
-																						class="text-sm font-bold text-neutral-950 font-sans hover:underline cursor-pointer"
-																					>
-																						{league.categoryLabel}
-																					</p>
-																				</div>
-																			</div>
-																		</th>
-																		<td class="px-2 py-1">
-																			<span
-																				class={`${statusClass(league.status)} text-xs uppercase tracking-wide`}
-																			>
-																				{league.statusLabel}
-																			</span>
-																		</td>
-																		<td class="px-2 py-1">
-																			<p class="text-xs text-neutral-950 font-sans">
-																				{league.teamRegistrationOpenText}
-																			</p>
-																			<p class="text-xs text-neutral-950 font-sans mt-1">
-																				{league.teamRegistrationCloseText}
-																			</p>
-																		</td>
-																		<td class="px-2 py-1 align-top">
-																			<p class="text-xs text-neutral-950 font-sans">
-																				{league.joinTeamText}
-																			</p>
-																		</td>
-																		<td class="px-2 py-1 align-top">
-																			<p class="text-xs text-neutral-950 font-sans">
-																				{league.seasonRangeText}
-																			</p>
-																		</td>
-																	</tr>
-																{/each}
-															</tbody>
-														</table>
-													</div>
-												</article>
+													</th>
+													<td class="px-2 py-1">
+														<span
+															class={`${statusClass(league.status)} text-xs uppercase tracking-wide`}
+														>
+															{league.statusLabel}
+														</span>
+													</td>
+													<td class="px-2 py-1 align-top">
+														<p class="text-xs leading-snug text-neutral-950 font-sans">
+															{league.teamRegistrationOpenText}
+														</p>
+														<p class="mt-1 text-xs leading-snug text-neutral-950 font-sans">
+															{league.teamRegistrationCloseText}
+														</p>
+													</td>
+													<td class="px-2 py-1 align-top">
+														<p class="text-xs leading-snug text-neutral-950 font-sans">
+															{league.joinTeamText}
+														</p>
+													</td>
+													<td class="px-2 py-1 align-top">
+														<p class="text-xs leading-snug text-neutral-950 font-sans">
+															{league.seasonRangeText}
+														</p>
+													</td>
+												</tr>
 											{/each}
-										</div>
-									{/if}
-								</section>
-							{/if}
+										</tbody>
+									</table>
+								</div>
+							</article>
+						{/snippet}
+
+						<div class="divide-y divide-secondary-300">
+							{#each renderedOfferings as offering}
+								{@render offeringArticle(offering, selectedSeasonIsHistorical)}
+							{/each}
 						</div>
+
+						{#if !selectedSeasonIsHistorical && concludedOfferings.length > 0}
+							<section class="border-t-4 border-secondary-600 bg-neutral-100/70">
+								<div
+									class="flex flex-col gap-1 border-b border-secondary-300 px-4 py-3 sm:flex-row sm:items-end sm:justify-between"
+								>
+									<div>
+										<h3 class="text-lg font-bold font-serif text-neutral-950">
+											Concluded Offerings
+										</h3>
+										<p class="text-xs text-neutral-950 font-sans">
+											Most recently ended to least recently ended.
+										</p>
+									</div>
+									<span class="badge-secondary-outlined text-xs uppercase tracking-wide">
+										{concludedOfferings.length} total
+									</span>
+								</div>
+								<div class="divide-y divide-secondary-300">
+									{#each concludedOfferings as offering}
+										{@render offeringArticle(offering, true)}
+									{/each}
+								</div>
+							</section>
+						{/if}
 					{/if}
 				</section>
 
@@ -4879,54 +4756,42 @@
 
 					<section class="border-2 border-secondary-300 bg-neutral">
 						<div class="p-4 border-b border-secondary-300 bg-neutral-600/66">
-							<h2 class="text-xl font-bold font-serif text-neutral-950">Season Snapshot</h2>
+							<h2 class="text-xl font-bold font-serif text-neutral-950">Advertising Spot</h2>
 						</div>
-						<div class="grid grid-cols-2 gap-2 p-4 sm:grid-cols-3">
-							<div class="card-secondary-outlined">
-								<p class="text-[11px] uppercase tracking-wide text-neutral-950 font-bold">
-									Offerings
-								</p>
-								<p class="text-2xl font-bold font-serif text-neutral-950">
-									{activeSeasonBoard?.totalOfferings ?? 0}
-								</p>
-							</div>
-							<div class="card-secondary-outlined">
-								<p class="text-[11px] uppercase tracking-wide text-neutral-950 font-bold">
-									{showTournaments ? 'Groups' : showAllOfferings ? 'Leagues/Groups' : 'Leagues'}
-								</p>
-								<p class="text-2xl font-bold font-serif text-neutral-950">
-									{activeSeasonBoard?.totalLeagues ?? 0}
-								</p>
-							</div>
-							<div class="card-secondary-outlined">
-								<p class="text-[11px] uppercase tracking-wide text-neutral-950 font-bold">
-									Divisions
-								</p>
-								<p class="text-2xl font-bold font-serif text-neutral-950">
-									{activeSeasonBoard?.totalDivisions ?? 0}
-								</p>
-							</div>
-							<div class="card-primary-outlined">
-								<p class="text-[11px] uppercase tracking-wide text-primary-700 font-bold">Open</p>
-								<p class="text-2xl font-bold font-serif text-primary-700">
-									{activeSeasonBoard?.openCount ?? 0}
-								</p>
-							</div>
-							<div class="card-primary-outlined">
-								<p class="text-[11px] uppercase tracking-wide text-primary-700 font-bold">
-									Waitlist
-								</p>
-								<p class="text-2xl font-bold font-serif text-primary-700">
-									{activeSeasonBoard?.waitlistedCount ?? 0}
-								</p>
-							</div>
-							<div class="card-secondary-outlined">
-								<p class="text-[11px] uppercase tracking-wide text-secondary-900 font-bold">
-									Closed
-								</p>
-								<p class="text-2xl font-bold font-serif text-secondary-900">
-									{activeSeasonBoard?.closedCount ?? 0}
-								</p>
+						<div class="p-3">
+							<div class="border-2 border-dashed border-secondary-400 bg-white px-4 py-5 space-y-4">
+								<div class="space-y-1">
+									<p class="text-[11px] font-bold uppercase tracking-[0.18em] text-secondary-700">
+										Reserved Placement
+									</p>
+									<h3 class="text-lg font-bold font-serif text-neutral-950">
+										Future Sponsor or Promo Module
+									</h3>
+									<p class="text-sm font-sans text-neutral-950">
+										This area is reserved for paid placements, featured campaigns, or house ads.
+									</p>
+								</div>
+
+								<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+									<div class="border border-secondary-300 bg-neutral-25 px-3 py-2">
+										<p class="text-[10px] font-bold uppercase tracking-wide text-secondary-700">
+											Format
+										</p>
+										<p class="mt-1 text-sm font-sans text-neutral-950">Sidebar card / creative unit</p>
+									</div>
+									<div class="border border-secondary-300 bg-neutral-25 px-3 py-2">
+										<p class="text-[10px] font-bold uppercase tracking-wide text-secondary-700">
+											Status
+										</p>
+										<p class="mt-1 text-sm font-sans text-neutral-950">Placeholder only</p>
+									</div>
+								</div>
+
+								<div class="border-t border-secondary-300 pt-3">
+									<p class="text-xs font-sans uppercase tracking-wide text-secondary-800">
+										TODO: wire campaign content, artwork, CTA, and tracking.
+									</p>
+								</div>
 							</div>
 						</div>
 					</section>
