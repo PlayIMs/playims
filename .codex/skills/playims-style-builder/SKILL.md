@@ -86,6 +86,23 @@ Default class recipes to copy first:
 - Label-inline helper popover row: `mb-1 flex min-h-6 items-center gap-1.5`
 - Slug revert tooltip button: `border-0 bg-transparent ... text-secondary-700 hover:text-secondary-900`
 
+### Switcher Modal Recipe
+
+Use this recipe for compact single-step switchers such as role switchers, organization switchers, or similar context pickers:
+
+- Keep the modal width aligned to the existing switcher pattern: `maxWidthClass="max-w-lg"`.
+- Start with a small summary block: `border border-secondary-300 bg-white p-2.5`.
+- Summary copy should stay to one or two short lines and describe the current state first.
+- Use a single-column option stack: `grid grid-cols-1 gap-2`.
+- Option cards should use `group relative border p-2.5 pr-14 text-left cursor-pointer`.
+- Focus styling should stay square and border-based: `focus-visible:outline-none focus-visible:border-primary-700`.
+- Active or highlighted cards should use `border-primary-500 bg-primary-100 text-primary-900`.
+- Inactive cards should use `border-secondary-300 bg-white text-neutral-950 hover:bg-secondary-50`.
+- Keyboard keycaps should use the same small chip treatment as the role switcher and org switcher; do not invent a second visual style.
+- Do not rely on browser default focus rings or rounded black outlines for switcher cards.
+- Keep switcher option descriptions terse and action-oriented so parallel switchers read like siblings.
+- Do not include the current state as a selectable option when it is already summarized at the top of the switcher; mirror the role/org switcher pattern and list only valid alternatives.
+
 ## Module Page Shell
 
 Use `src/routes/dashboard/offerings/+page.svelte` as the source of truth for dashboard module pages.

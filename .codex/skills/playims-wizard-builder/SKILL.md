@@ -72,6 +72,20 @@ Follow this structure:
 - Keep the revert icon button visually unboxed (`border-0 bg-transparent`) and out of keyboard tab order with `tabindex="-1"`.
 - Revert behavior must reset slug manual/touched state and restore the auto-generated default slug from the current source name(s).
 
+### Compact Switcher Modals
+
+For single-step switchers such as `Switch View Role`, `Switch Organization`, or similar account/context pickers:
+
+- Use `WizardModal`, not ad-hoc modal markup.
+- Keep them visually and behaviorally aligned across routes; a new switcher should look like a sibling of the existing role/org switchers, not a separate modal family.
+- Use `maxWidthClass="max-w-lg"` unless the user explicitly asks for a larger switcher.
+- Use one summary panel at the top with current-state context and concise keyboard guidance.
+- Use a single-column list of selectable button cards with matching spacing, padding, and keycap placement across switchers.
+- Keep focus treatment square and token-based: use border changes like `focus-visible:outline-none focus-visible:border-primary-700`; do not rely on browser default outlines.
+- Preserve the shared keyboard model unless the user asks otherwise: Up/Down navigation, Shift-assisted reverse traversal, Enter to submit, and context-appropriate quick keys.
+- Quick-key instructions must reflect only the keys actually available to the user in that switcher.
+- When one switcher in a route is updated, compare nearby switchers and keep parity unless the user explicitly requests divergence.
+
 ## Workflow
 
 1. Ground current behavior.
@@ -108,19 +122,24 @@ Follow this structure:
 - Replace wizard-native `title` hover hints with `HoverTooltip` wrappers when touched.
 - Keep tooltip text concise and action-specific (for example: `Edit facility`, `Edit areas`, `Sign out this session`).
 
-8. Apply destructive action standards when needed.
+8. Standardize compact switchers when present.
+
+- Align any new or edited switcher wizard with the existing compact switcher pattern before inventing a new structure.
+- Reuse the same summary block, option card structure, and keycap placement as nearby switchers unless there is a clear product reason not to.
+
+9. Apply destructive action standards when needed.
 
 - For delete/archive flows, include explicit impact copy, typed slug confirmation, and irreversible warning language.
 - Disable destructive submit until typed confirmation matches normalized target slug.
 - Keep destructive controls visually isolated in a dedicated danger section.
 
-9. Enforce step-by-step validation.
+10. Enforce step-by-step validation.
 
 - Validate the current step before advancing on every Next action; do not defer validation to final submit.
 - Include uniqueness checks (for example name/slug duplicates) on the earliest relevant step when local data allows it.
 - Keep final submit validation as a safety net, but users should get actionable errors before they progress.
 
-10. Validate.
+11. Validate.
 
 - Run `pnpm check`.
 - Run `pnpm build` for larger changes.
@@ -138,6 +157,7 @@ Follow this structure:
 - For all wizard form labels that include an info popover, use the shared label-row alignment pattern and `buttonVariant="label-inline"` for consistent field alignment.
 - For wizard slug fields, include the shared inline revert control with `HoverTooltip` and reset touched/manual flags when reverting.
 - Do not ship wizard hover hints with native `title` attributes; use shared `HoverTooltip`.
+- Do not let compact switcher modals drift into separate visual systems; keep role/org/context switchers matched in width, structure, and interaction model by default.
 - For destructive wizard actions, do not rely on single-click confirmations; require typed confirmation when data loss scope is broad.
 - Do not allow step advancement when current-step validation fails; Next handlers must run explicit current-step validation before incrementing the step.
 - Keep scope to dashboard routes unless user expands scope.
