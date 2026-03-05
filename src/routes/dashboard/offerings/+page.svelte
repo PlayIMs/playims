@@ -54,14 +54,14 @@
 	type LeagueTemplate = PageData['leagueTemplates'][number];
 	type OfferingStatus = 'open' | 'waitlisted' | 'closed';
 
-	interface LeagueOffering {
+interface LeagueOffering {
 		id: string;
 		leagueName: string;
 		stackOrder: number;
 		categoryLabel: string;
 		divisionCount: number;
 		status: OfferingStatus;
-		statusLabel: 'Open' | 'Waitlist' | 'Closed';
+	statusLabel: 'Open' | 'Waitlist' | 'Closed' | 'Upcoming';
 		teamRegistrationOpenText: string;
 		teamRegistrationCloseText: string;
 		teamRegistrationOpenDate: string | null;
@@ -3384,7 +3384,14 @@
 				categoryLabel,
 				divisionCount: activity.divisionCount ?? 0,
 				status,
-				statusLabel: status === 'open' ? 'Open' : status === 'waitlisted' ? 'Waitlist' : 'Closed',
+				statusLabel:
+					registrationWindow.windowState === 'upcoming'
+						? 'Upcoming'
+						: status === 'open'
+							? 'Open'
+							: status === 'waitlisted'
+								? 'Waitlist'
+								: 'Closed',
 				teamRegistrationOpenText: registrationWindow.openText,
 				teamRegistrationCloseText: registrationWindow.closeText,
 				teamRegistrationOpenDate: activity.registrationStart ?? null,
@@ -4150,10 +4157,24 @@
 		previousCreateStep();
 	}
 
-	function statusClass(status: OfferingStatus): string {
+	function statusClass(
+		status: OfferingStatus,
+		statusLabel: LeagueOffering['statusLabel']
+	): string {
+		if (statusLabel === 'Upcoming') return 'badge-primary-outlined';
 		if (status === 'open') return 'badge-primary';
 		if (status === 'waitlisted') return 'badge-primary-outlined';
 		return 'badge-secondary-outlined';
+	}
+
+	function statusTooltipText(
+		status: OfferingStatus,
+		statusLabel: LeagueOffering['statusLabel']
+	): string {
+		if (statusLabel === 'Upcoming') return 'Team registration has not opened yet';
+		if (status === 'open') return 'Team registration is currently open';
+		if (status === 'waitlisted') return 'Teams may register on the waitlist';
+		return 'Team registration is now closed';
 	}
 </script>
 
@@ -4852,11 +4873,16 @@
 															</div>
 														</th>
 														<td class="px-2 py-1">
-															<span
-																class={`${statusClass(league.status)} text-xs uppercase tracking-wide`}
+															<HoverTooltip
+																text={statusTooltipText(league.status, league.statusLabel)}
+																wrapperClass="inline-block"
 															>
-																{league.statusLabel}
-															</span>
+																<span
+																	class={`${statusClass(league.status, league.statusLabel)} text-xs uppercase tracking-wide`}
+																>
+																	{league.statusLabel}
+																</span>
+															</HoverTooltip>
 														</td>
 														<td class="px-2 py-1 align-top">
 															<p class="text-xs leading-snug text-neutral-950 font-sans">
