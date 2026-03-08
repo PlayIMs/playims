@@ -59,11 +59,12 @@
 ## Border And Shape Hierarchy
 
 - Outer containers generally use stronger borders:
-  - `border-2 border-secondary-300` for page/section shells.
+  - `border-2 border-neutral-950` for page/section shells.
   - `border-4 border-secondary` or `border-4 border-error-700` for modal panels.
 - Inner nested content uses thinner borders:
-  - `border border-secondary-300` for cards/rows/subsections.
+  - `border border-neutral-950` for cards/rows/subsections.
 - This preserves old style guidance that nested inner boundaries should be thinner.
+- Interactive controls may still use `secondary-300` when that lighter border communicates an unselected or inactive control state.
 
 Shape defaults:
 

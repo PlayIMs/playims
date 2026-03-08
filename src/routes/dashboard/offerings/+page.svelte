@@ -4232,7 +4232,7 @@
 
 <div class="w-full space-y-4">
 	<header class="bg-neutral">
-		<div class="border-b border-secondary-300 bg-neutral-600/66 p-4">
+		<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
 			<div class="flex items-center gap-3 py-2 lg:py-3">
 				<div
 					class="bg-primary text-white border-2 border-primary-700 w-[2.75rem] h-[2.75rem] lg:w-[3.4rem] lg:h-[3.4rem] flex items-center justify-center"
@@ -4252,8 +4252,8 @@
 	<div class="px-4 lg:px-6">
 		{#if seasonBoards.length === 0}
 			<div class="grid grid-cols-1 2xl:grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)] gap-6">
-				<section class="min-w-0 border-2 border-secondary-300 bg-neutral">
-					<div class="p-4 border-b border-secondary-300 bg-neutral-600/66 space-y-3">
+				<section class="min-w-0 border-2 border-neutral-950 bg-neutral">
+					<div class="p-4 border-b border-neutral-950 bg-neutral-600/66 space-y-3">
 						<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
 							<div class="flex items-center gap-2">
 								<h2 class="text-2xl font-bold font-serif text-neutral-950">
@@ -4341,7 +4341,7 @@
 												ariaLabel="Open add menu"
 												align="right"
 												buttonClass="button-primary-outlined -ml-[2px] px-1 py-1 cursor-pointer"
-												listClass="mt-1 w-44 border-2 border-secondary-300 bg-white z-20"
+												listClass="mt-1 w-44 border-2 border-neutral-950 bg-white z-20"
 												optionClass="w-full text-left px-3 py-2 text-sm text-neutral-950 cursor-pointer"
 												activeOptionClass="bg-neutral-100 text-neutral-950"
 												on:action={(event) => {
@@ -4387,7 +4387,7 @@
 					</div>
 
 					<div class="p-4 space-y-4 min-h-[34rem]">
-						<div class="border border-secondary-300 bg-white p-4 space-y-2">
+						<div class="border border-neutral-950 bg-white p-4 space-y-2">
 							<h3 class="text-xl font-bold font-serif text-neutral-950">
 								{#if seasons.length === 0}
 									No seasons yet
@@ -4406,7 +4406,7 @@
 
 						{#each [0, 1] as _, skeletonOfferingIndex}
 							<article
-								class="border border-secondary-300 bg-white p-4 space-y-3"
+								class="border border-neutral-950 bg-white p-4 space-y-3"
 								aria-hidden="true"
 							>
 								<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -4423,7 +4423,7 @@
 									</div>
 								</div>
 
-								<div class="border border-secondary-300 bg-white overflow-x-auto scrollbar-thin">
+								<div class="border border-neutral-950 bg-white overflow-x-auto scrollbar-thin">
 									<table class="w-full table-fixed border-collapse">
 										<colgroup>
 											<col class="w-[24%]" />
@@ -4433,7 +4433,7 @@
 											<col class="w-[22%]" />
 										</colgroup>
 										<thead>
-											<tr class="border-b border-secondary-300 bg-neutral">
+											<tr class="border-b border-neutral-950 bg-neutral">
 												<th scope="col" class="px-2 py-1 text-left">
 													<div class="h-3 w-20 bg-neutral-100"></div>
 												</th>
@@ -4459,7 +4459,7 @@
 													<th scope="row" class="px-2 py-1 text-left">
 														<div class="flex items-center gap-2">
 															<div
-																class="w-9 h-9 border border-secondary-300 bg-neutral-100 flex items-center justify-center shrink-0"
+																class="w-9 h-9 border border-neutral-950 bg-neutral-100 flex items-center justify-center shrink-0"
 																aria-hidden="true"
 															>
 																<div class="w-4 h-4 bg-neutral-300"></div>
@@ -4493,28 +4493,28 @@
 				</section>
 
 				<aside class="w-full min-w-0 space-y-6">
-					<section class="border-2 border-secondary-300 bg-neutral">
+					<section class="border-2 border-neutral-950 bg-neutral">
 						<div
-							class="p-4 border-b border-secondary-300 bg-neutral-600/66 flex items-center justify-between"
+							class="p-4 border-b border-neutral-950 bg-neutral-600/66 flex items-center justify-between"
 						>
 							<h2 class="text-xl font-bold font-serif text-neutral-950">Upcoming Deadlines</h2>
 							<IconCalendar class="w-5 h-5 text-secondary-700" />
 						</div>
 						<div class="p-4 space-y-3 min-h-56" aria-hidden="true">
-							<div class="border border-secondary-300 bg-white p-3 space-y-2">
+							<div class="border border-neutral-950 bg-white p-3 space-y-2">
 								<div class="h-3 w-4/5 bg-neutral-100"></div>
 								<div class="h-3 w-3/5 bg-neutral-100"></div>
 								<div class="h-3 w-5/6 bg-neutral-100"></div>
 							</div>
-							<div class="border border-secondary-300 bg-white p-3 space-y-2">
+							<div class="border border-neutral-950 bg-white p-3 space-y-2">
 								<div class="h-3 w-3/4 bg-neutral-100"></div>
 								<div class="h-3 w-2/3 bg-neutral-100"></div>
 							</div>
 						</div>
 					</section>
 
-					<section class="border-2 border-secondary-300 bg-neutral">
-						<div class="p-4 border-b border-secondary-300 bg-neutral-600/66">
+					<section class="border-2 border-neutral-950 bg-neutral">
+						<div class="p-4 border-b border-neutral-950 bg-neutral-600/66">
 							<h2 class="text-xl font-bold font-serif text-neutral-950">Advertising Spot</h2>
 						</div>
 						<div class="p-3" aria-hidden="true">
@@ -4526,16 +4526,16 @@
 									<div class="h-3 w-5/6 bg-neutral-100"></div>
 								</div>
 								<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-									<div class="border border-secondary-300 bg-neutral-25 px-3 py-2 space-y-2">
+									<div class="border border-neutral-950 bg-neutral-25 px-3 py-2 space-y-2">
 										<div class="h-3 w-14 bg-neutral-100"></div>
 										<div class="h-3 w-24 bg-neutral-100"></div>
 									</div>
-									<div class="border border-secondary-300 bg-neutral-25 px-3 py-2 space-y-2">
+									<div class="border border-neutral-950 bg-neutral-25 px-3 py-2 space-y-2">
 										<div class="h-3 w-14 bg-neutral-100"></div>
 										<div class="h-3 w-20 bg-neutral-100"></div>
 									</div>
 								</div>
-								<div class="border-t border-secondary-300 pt-3">
+								<div class="border-t border-neutral-950 pt-3">
 									<div class="h-3 w-3/4 bg-neutral-100"></div>
 								</div>
 							</div>
@@ -4545,8 +4545,8 @@
 			</div>
 		{:else}
 			<div class="grid grid-cols-1 2xl:grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)] gap-6">
-				<section class="min-w-0 border-2 border-secondary-300 bg-neutral">
-					<div class="p-4 border-b border-secondary-300 bg-neutral-600/66 space-y-3">
+				<section class="min-w-0 border-2 border-neutral-950 bg-neutral">
+					<div class="p-4 border-b border-neutral-950 bg-neutral-600/66 space-y-3">
 						<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
 							<div class="flex items-center gap-2">
 								<h2 class="text-2xl font-bold font-serif text-neutral-950">
@@ -4632,7 +4632,7 @@
 												ariaLabel="Open add menu"
 												align="right"
 												buttonClass="button-primary-outlined -ml-[2px] px-1 py-1 cursor-pointer"
-												listClass="mt-1 w-44 border-2 border-secondary-300 bg-white z-20"
+												listClass="mt-1 w-44 border-2 border-neutral-950 bg-white z-20"
 												optionClass="w-full text-left px-3 py-2 text-sm text-neutral-950 cursor-pointer"
 												activeOptionClass="bg-neutral-100 text-neutral-950"
 												on:action={(event) => {
@@ -4691,7 +4691,7 @@
 
 							{#each [0, 1] as _, skeletonOfferingIndex}
 								<article
-									class="border border-secondary-300 bg-white p-4 space-y-3"
+									class="border border-neutral-950 bg-white p-4 space-y-3"
 									aria-hidden="true"
 								>
 									<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -4708,7 +4708,7 @@
 										</div>
 									</div>
 
-									<div class="border border-secondary-300 bg-white overflow-x-auto scrollbar-thin">
+									<div class="border border-neutral-950 bg-white overflow-x-auto scrollbar-thin">
 										<table class="w-full table-fixed border-collapse">
 											<colgroup>
 												<col class="w-[24%]" />
@@ -4718,7 +4718,7 @@
 												<col class="w-[22%]" />
 											</colgroup>
 											<thead>
-												<tr class="border-b border-secondary-300 bg-neutral">
+												<tr class="border-b border-neutral-950 bg-neutral">
 													<th scope="col" class="px-2 py-1 text-left">
 														<div class="h-3 w-20 bg-neutral-100"></div>
 													</th>
@@ -4744,7 +4744,7 @@
 														<th scope="row" class="px-2 py-1 text-left">
 															<div class="flex items-center gap-2">
 																<div
-																	class="w-9 h-9 border border-secondary-300 bg-neutral-100 flex items-center justify-center shrink-0"
+																	class="w-9 h-9 border border-neutral-950 bg-neutral-100 flex items-center justify-center shrink-0"
 																	aria-hidden="true"
 																>
 																	<div class="w-4 h-4 bg-neutral-300"></div>
@@ -4837,7 +4837,7 @@
 												<th scope="row" class="px-2 py-1 text-left">
 													<div class="flex items-center gap-2">
 														<div
-															class="w-9 h-9 border border-secondary-300 bg-neutral-100 flex items-center justify-center shrink-0"
+															class="w-9 h-9 border border-neutral-950 bg-neutral-100 flex items-center justify-center shrink-0"
 														>
 															<div class="w-4 h-4 bg-neutral-300"></div>
 														</div>
@@ -4940,7 +4940,7 @@
 							</article>
 						{/snippet}
 
-						<div class="divide-y divide-secondary-300">
+						<div class="divide-y divide-neutral-950">
 							{#each renderedOfferings as offering}
 								{@render offeringArticle(offering, selectedSeasonIsHistorical)}
 							{/each}
@@ -4949,7 +4949,7 @@
 						{#if !selectedSeasonIsHistorical && concludedOfferings.length > 0}
 							<section class="border-t-4 border-secondary-600 bg-neutral-100/70">
 								<div
-									class="flex flex-col gap-1 border-b border-secondary-300 px-4 py-3 sm:flex-row sm:items-end sm:justify-between"
+									class="flex flex-col gap-1 border-b border-neutral-950 px-4 py-3 sm:flex-row sm:items-end sm:justify-between"
 								>
 									<div>
 										<h3 class="text-lg font-bold font-serif text-neutral-950">
@@ -4963,7 +4963,7 @@
 										{concludedOfferings.length} total
 									</span>
 								</div>
-								<div class="divide-y divide-secondary-300">
+								<div class="divide-y divide-neutral-950">
 									{#each concludedOfferings as offering}
 										{@render offeringArticle(offering, true)}
 									{/each}
@@ -4974,9 +4974,9 @@
 				</section>
 
 				<aside class="w-full min-w-0 space-y-6">
-					<section class="border-2 border-secondary-300 bg-neutral">
+					<section class="border-2 border-neutral-950 bg-neutral">
 						<div
-							class="p-4 border-b border-secondary-300 bg-neutral-600/66 flex items-center justify-between"
+							class="p-4 border-b border-neutral-950 bg-neutral-600/66 flex items-center justify-between"
 						>
 							<h2 class="text-xl font-bold font-serif text-neutral-950">Upcoming Deadlines</h2>
 							<IconCalendar class="w-5 h-5 text-secondary-700" />
@@ -4986,7 +4986,7 @@
 								<p class="text-sm text-neutral-950 font-sans">No deadlines available.</p>
 							</div>
 						{:else}
-							<div class="divide-y divide-secondary-300">
+							<div class="divide-y divide-neutral-950">
 								{#each activeDeadlines as deadline, deadlineIndex}
 									<div class={`p-3 ${deadlineIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}>
 										<p class="text-sm font-semibold text-neutral-950 font-sans">
@@ -5017,8 +5017,8 @@
 						{/if}
 					</section>
 
-					<section class="border-2 border-secondary-300 bg-neutral">
-						<div class="p-4 border-b border-secondary-300 bg-neutral-600/66">
+					<section class="border-2 border-neutral-950 bg-neutral">
+						<div class="p-4 border-b border-neutral-950 bg-neutral-600/66">
 							<h2 class="text-xl font-bold font-serif text-neutral-950">Advertising Spot</h2>
 						</div>
 						<div class="p-3">
@@ -5036,7 +5036,7 @@
 								</div>
 
 								<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-									<div class="border border-secondary-300 bg-neutral-25 px-3 py-2">
+									<div class="border border-neutral-950 bg-neutral-25 px-3 py-2">
 										<p class="text-[10px] font-bold uppercase tracking-wide text-secondary-700">
 											Format
 										</p>
@@ -5044,7 +5044,7 @@
 											Sidebar card / creative unit
 										</p>
 									</div>
-									<div class="border border-secondary-300 bg-neutral-25 px-3 py-2">
+									<div class="border border-neutral-950 bg-neutral-25 px-3 py-2">
 										<p class="text-[10px] font-bold uppercase tracking-wide text-secondary-700">
 											Status
 										</p>
@@ -5052,7 +5052,7 @@
 									</div>
 								</div>
 
-								<div class="border-t border-secondary-300 pt-3">
+								<div class="border-t border-neutral-950 pt-3">
 									<p class="text-xs font-sans uppercase tracking-wide text-secondary-800">
 										TODO: wire campaign content, artwork, CTA, and tracking.
 									</p>
@@ -5241,7 +5241,7 @@
 				</div>
 			</div>
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-				<div class="border border-secondary-300 bg-white p-3">
+				<div class="border border-neutral-950 bg-white p-3">
 					<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
 						<input
 							type="checkbox"
@@ -5258,7 +5258,7 @@
 						Set as current season
 					</label>
 				</div>
-				<div class="border border-secondary-300 bg-white p-3">
+				<div class="border border-neutral-950 bg-white p-3">
 					<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
 						<input
 							type="checkbox"
@@ -5274,7 +5274,7 @@
 
 	{#if createSeasonStep === 2 && createSeasonCopyStepAvailable}
 		<div class="space-y-4">
-			<div class="border-2 border-secondary-300 bg-white p-4 space-y-4">
+			<div class="border-2 border-neutral-950 bg-white p-4 space-y-4">
 				<div class="flex items-start justify-between gap-3">
 					<div>
 						<p class="text-[11px] uppercase tracking-wide font-bold text-secondary-900">Optional</p>
@@ -5345,7 +5345,7 @@
 				{/if}
 
 				{#if createSeasonCopy.enabled}
-					<div class="border border-secondary-300 bg-neutral p-3 space-y-3">
+					<div class="border border-neutral-950 bg-neutral p-3 space-y-3">
 						<div>
 							<p class="block text-sm font-sans text-neutral-950 mb-1">
 								Source Season <span class="text-error-700">*</span>
@@ -5447,7 +5447,7 @@
 							</div>
 						</fieldset>
 
-						<div class="border border-secondary-300 bg-white p-2.5">
+						<div class="border border-neutral-950 bg-white p-2.5">
 							<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
 								<input
 									type="checkbox"
@@ -5464,7 +5464,7 @@
 							{/if}
 						</div>
 
-						<div class="border border-secondary-300 bg-white p-3 space-y-2">
+						<div class="border border-neutral-950 bg-white p-3 space-y-2">
 							<p class="text-[11px] uppercase tracking-wide font-bold text-secondary-900">
 								Copy Preview
 							</p>
@@ -5474,13 +5474,13 @@
 								</p>
 							{/if}
 							<div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-neutral-950">
-								<div class="border border-secondary-300 bg-neutral p-2">
+								<div class="border border-neutral-950 bg-neutral p-2">
 									<p class="text-[11px] uppercase tracking-wide font-bold">Offerings</p>
 									<p class="text-lg font-bold font-serif">
 										{createSeasonCopyPreview.offeringCount}
 									</p>
 								</div>
-								<div class="border border-secondary-300 bg-neutral p-2">
+								<div class="border border-neutral-950 bg-neutral p-2">
 									<p class="text-[11px] uppercase tracking-wide font-bold">
 										{createSeasonCopyIncludesTournaments ? 'Leagues/Groups' : 'Leagues'}
 									</p>
@@ -5489,7 +5489,7 @@
 											createSeasonCopyPreview.tournamentGroupCount}
 									</p>
 								</div>
-								<div class="border border-secondary-300 bg-neutral p-2">
+								<div class="border border-neutral-950 bg-neutral p-2">
 									<p class="text-[11px] uppercase tracking-wide font-bold">
 										{createSeasonCopyIncludesTournaments ? 'Divisions/Groups' : 'Divisions'}
 									</p>
@@ -5508,7 +5508,7 @@
 	{#if createSeasonStep === 3}
 		<div class="space-y-4">
 			{#if createSeasonCurrentTransitionRequired && existingCurrentSeason}
-				<div class="border-2 border-secondary-300 bg-white p-4 space-y-4">
+				<div class="border-2 border-neutral-950 bg-white p-4 space-y-4">
 					<div class="flex items-start justify-between gap-3">
 						<div>
 							<p class="text-[11px] uppercase tracking-wide font-bold text-secondary-900">
@@ -5531,7 +5531,7 @@
 							class={`bg-neutral p-3 space-y-1 ${
 								!createSeasonReplaceExistingCurrent
 									? 'border-2 border-primary-500'
-									: 'border border-secondary-300'
+									: 'border border-neutral-950'
 							}`}
 						>
 							<p class="text-[11px] uppercase tracking-wide font-bold text-secondary-900">
@@ -5553,7 +5553,7 @@
 							class={`bg-white p-3 space-y-1 ${
 								createSeasonReplaceExistingCurrent
 									? 'border-2 border-primary-500'
-									: 'border border-secondary-300'
+									: 'border border-neutral-950'
 							}`}
 						>
 							<p class="text-[11px] uppercase tracking-wide font-bold text-secondary-900">
@@ -5627,7 +5627,7 @@
 
 					{#if createSeasonReplaceExistingCurrent}
 						{#if existingCurrentSeason.isActive}
-							<div class="border border-secondary-300 bg-neutral p-3">
+							<div class="border border-neutral-950 bg-neutral p-3">
 								<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
 									<input
 										type="checkbox"
@@ -5645,7 +5645,7 @@
 					{/if}
 				</div>
 			{:else}
-				<div class="border-2 border-secondary-300 bg-white p-4">
+				<div class="border-2 border-neutral-950 bg-white p-4">
 					<p class="text-sm leading-5 text-neutral-950">
 						No current-season transition is needed for this season.
 					</p>
@@ -5656,7 +5656,7 @@
 
 	{#if createSeasonStep === 4}
 		<div class="space-y-4">
-			<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
+			<div class="border-2 border-neutral-950 bg-white p-4 space-y-2">
 				<h3 class="text-lg font-bold font-serif text-neutral-950">Season</h3>
 				<p class="text-sm leading-5 text-neutral-950">
 					<span class="font-semibold">Name:</span>
@@ -5685,7 +5685,7 @@
 			</div>
 
 			{#if createSeasonCopy.enabled && createSeasonCopySourceSeason}
-				<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
+				<div class="border-2 border-neutral-950 bg-white p-4 space-y-2">
 					<h3 class="text-lg font-bold font-serif text-neutral-950">Copy Plan</h3>
 					<p class="text-sm leading-5 text-neutral-950">
 						<span class="font-semibold">Source:</span>
@@ -5721,7 +5721,7 @@
 			{/if}
 
 			{#if createSeasonCurrentTransitionRequired && existingCurrentSeason}
-				<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
+				<div class="border-2 border-neutral-950 bg-white p-4 space-y-2">
 					<h3 class="text-lg font-bold font-serif text-neutral-950">Current Season Transition</h3>
 					<p class="text-sm leading-5 text-neutral-950">
 						<span class="font-semibold">{existingCurrentSeason.name}</span>
@@ -5790,7 +5790,7 @@
 	{#if createLeagueStep === 1}
 		<div class="space-y-4">
 			{#if createLeagueOfferingOptions.length === 0}
-				<div class="border-2 border-secondary-300 bg-white p-4 space-y-3">
+				<div class="border-2 border-neutral-950 bg-white p-4 space-y-3">
 					<p class="text-sm leading-5 text-neutral-950">
 						Create an offering that matches this view before adding {wizardEntryUnitPlural()}.
 					</p>
@@ -5826,7 +5826,7 @@
 				</div>
 
 				{#if selectedLeagueWizardOffering}
-					<div class="border border-secondary-300 bg-white p-3 text-sm text-neutral-950 space-y-2">
+					<div class="border border-neutral-950 bg-white p-3 text-sm text-neutral-950 space-y-2">
 						<div class="flex items-center justify-between gap-2">
 							<p>
 								<span class="font-semibold">Type:</span>
@@ -5883,7 +5883,7 @@
 	{#if createLeagueStep === 2}
 		<div class="space-y-4">
 			{#if selectedLeagueWizardOffering}
-				<div class="border border-secondary-300 bg-white p-3 text-sm text-neutral-950">
+				<div class="border border-neutral-950 bg-white p-3 text-sm text-neutral-950">
 					Adding to
 					<span class="font-semibold">{selectedLeagueWizardOffering.name}</span>
 				</div>
@@ -6146,7 +6146,7 @@
 	{#if createLeagueStep === 3}
 		<div class="space-y-4">
 			{#if !createLeagueDraftActive}
-				<div class="border border-secondary-300 bg-white p-4">
+				<div class="border border-neutral-950 bg-white p-4">
 					<p class="text-sm leading-5 font-sans text-neutral-950">
 						No {wizardEntryUnitSingular()} draft is open. Go back to {createLeagueStepTitle(2)}
 						and click the plus button to add one.
@@ -6249,7 +6249,7 @@
 				{/if}
 
 				<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-					<div class="border border-secondary-300 bg-white p-3 space-y-3">
+					<div class="border border-neutral-950 bg-white p-3 space-y-3">
 						<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
 							<input
 								type="checkbox"
@@ -6304,7 +6304,7 @@
 						{/if}
 					</div>
 
-					<div class="border border-secondary-300 bg-white p-3 space-y-3">
+					<div class="border border-neutral-950 bg-white p-3 space-y-3">
 						<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
 							<input
 								type="checkbox"
@@ -6361,7 +6361,7 @@
 				</div>
 
 				<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-					<div class="border border-secondary-300 bg-white p-3">
+					<div class="border border-neutral-950 bg-white p-3">
 						<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
 							<input
 								type="checkbox"
@@ -6371,7 +6371,7 @@
 							Active
 						</label>
 					</div>
-					<div class="border border-secondary-300 bg-white p-3">
+					<div class="border border-neutral-950 bg-white p-3">
 						<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
 							<input
 								type="checkbox"
@@ -6407,7 +6407,7 @@
 
 	{#if createLeagueStep === 4}
 		<div class="space-y-4">
-			<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
+			<div class="border-2 border-neutral-950 bg-white p-4 space-y-2">
 				<div class="flex items-start justify-between gap-2">
 					<h3 class="text-lg font-bold font-serif text-neutral-950">Offering</h3>
 					{#if !createLeagueCopiedFromExisting}
@@ -6439,7 +6439,7 @@
 				{/if}
 			</div>
 
-			<div class="border-2 border-secondary-300 bg-white p-4 space-y-3">
+			<div class="border-2 border-neutral-950 bg-white p-4 space-y-3">
 				<div class="flex items-start justify-between gap-2">
 					<h3 class="text-lg font-bold font-serif text-neutral-950">
 						{wizardEntryUnitTitlePlural()}
@@ -6467,7 +6467,7 @@
 						class="space-y-3 max-h-[45vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 scrollbar-track-secondary-400"
 					>
 						{#each createLeagueForm.leagues as league}
-							<div class="border border-secondary-300 bg-neutral p-3 space-y-2">
+							<div class="border border-neutral-950 bg-neutral p-3 space-y-2">
 								<div>
 									<p class="text-sm font-semibold text-neutral-950">
 										{league.name.trim() || `Untitled ${wizardEntryUnitTitleSingular()}`}
@@ -6861,7 +6861,7 @@
 				</div>
 			</div>
 
-			<div class="border border-secondary-300 bg-white p-3">
+			<div class="border border-neutral-950 bg-white p-3">
 				<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
 					<input
 						type="checkbox"
@@ -7121,7 +7121,7 @@
 	{#if createStep === 4}
 		<div class="space-y-4">
 			{#if !leagueDraftActive}
-				<div class="border border-secondary-300 bg-white p-4">
+				<div class="border border-neutral-950 bg-white p-4">
 					<p class="text-sm leading-5 font-sans text-neutral-950">
 						No {wizardUnitSingular()} draft is open. Go back to {wizardStepTitle(3)} and click the plus
 						button to add one.
@@ -7214,7 +7214,7 @@
 				{/if}
 
 				<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-					<div class="border border-secondary-300 bg-white p-3 space-y-3">
+					<div class="border border-neutral-950 bg-white p-3 space-y-3">
 						<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
 							<input
 								type="checkbox"
@@ -7269,7 +7269,7 @@
 						{/if}
 					</div>
 
-					<div class="border border-secondary-300 bg-white p-3 space-y-3">
+					<div class="border border-neutral-950 bg-white p-3 space-y-3">
 						<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
 							<input
 								type="checkbox"
@@ -7326,7 +7326,7 @@
 				</div>
 
 				<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-					<div class="border border-secondary-300 bg-white p-3">
+					<div class="border border-neutral-950 bg-white p-3">
 						<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
 							<input
 								type="checkbox"
@@ -7336,7 +7336,7 @@
 							Active
 						</label>
 					</div>
-					<div class="border border-secondary-300 bg-white p-3">
+					<div class="border border-neutral-950 bg-white p-3">
 						<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
 							<input
 								type="checkbox"
@@ -7370,7 +7370,7 @@
 
 	{#if createStep === 5}
 		<div class="space-y-4">
-			<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
+			<div class="border-2 border-neutral-950 bg-white p-4 space-y-2">
 				<div class="flex items-start justify-between gap-2">
 					<h3 class="text-lg font-bold font-serif text-neutral-950">Offering</h3>
 					<HoverTooltip text="Edit offering">
@@ -7415,7 +7415,7 @@
 				{/if}
 			</div>
 
-			<div class="border-2 border-secondary-300 bg-white p-4 space-y-3">
+			<div class="border-2 border-neutral-950 bg-white p-4 space-y-3">
 				<div class="flex items-start justify-between gap-2">
 					<h3 class="text-lg font-bold font-serif text-neutral-950">
 						{wizardUnitTitlePlural()}
@@ -7445,7 +7445,7 @@
 						class="space-y-3 max-h-[45vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 scrollbar-track-secondary-400 scrollbar-corner-secondary-500 hover:scrollbar-thumb-secondary-700 active:scrollbar-thumb-secondary-700 scrollbar-hover:scrollbar-thumb-secondary-800 scrollbar-active:scrollbar-thumb-secondary-700"
 					>
 						{#each createForm.leagues as league}
-							<div class="border border-secondary-300 bg-neutral p-3 space-y-2">
+							<div class="border border-neutral-950 bg-neutral p-3 space-y-2">
 								<div>
 									<div>
 										<p class="text-sm font-semibold text-neutral-950">

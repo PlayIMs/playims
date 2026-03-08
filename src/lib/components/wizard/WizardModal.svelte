@@ -106,7 +106,7 @@
 			</button>
 		</div>
 		{#if showStepMeta}
-			<div class="border border-secondary-300 bg-white h-3" aria-hidden="true">
+			<div class="border border-neutral-950 bg-white h-3" aria-hidden="true">
 				<div class="h-full bg-secondary" style={`width: ${progressPercent}%`}></div>
 			</div>
 		{/if}

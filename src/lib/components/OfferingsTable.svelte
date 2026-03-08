@@ -18,7 +18,7 @@
 		columns,
 		rows,
 		caption,
-		wrapperClass = 'border border-secondary-300 bg-white overflow-x-auto scrollbar-thin',
+		wrapperClass = 'border border-neutral-950 bg-white overflow-x-auto scrollbar-thin',
 		tableClass = 'w-full table-fixed border-collapse',
 		rowId,
 		rowClass,
@@ -50,7 +50,7 @@
 			{/each}
 		</colgroup>
 		<thead>
-			<tr class="border-b border-secondary-300 bg-neutral">
+			<tr class="border-b border-neutral-950 bg-neutral">
 				{#each columns as column}
 					<th
 						scope="col"

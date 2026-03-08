@@ -57,8 +57,8 @@
 </script>
 
 <div class="space-y-6 p-4">
-	<section class="border-2 border-secondary-300 bg-neutral">
-		<div class="border-b border-secondary-300 bg-neutral-600/66 p-4">
+	<section class="border-2 border-neutral-950 bg-neutral">
+		<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
 			<div class="flex items-start gap-3">
 				<div
 					class="flex h-12 w-12 shrink-0 items-center justify-center border-2 border-secondary-300 bg-secondary text-white"
@@ -83,7 +83,7 @@
 				{#if card.href}
 					<a
 						href={card.href}
-						class="group border border-secondary-300 bg-white p-4 transition-colors duration-150 hover:bg-secondary-50"
+						class="group border border-neutral-950 bg-white p-4 transition-colors duration-150 hover:bg-secondary-50"
 					>
 						<div class="flex items-start gap-3">
 							<div
@@ -108,10 +108,10 @@
 						</div>
 					</a>
 				{:else}
-					<div class="border border-dashed border-secondary-300 bg-neutral-100/70 p-4">
+					<div class="border border-dashed border-neutral-950 bg-neutral-100/70 p-4">
 						<div class="flex items-start gap-3">
 							<div
-								class="flex h-10 w-10 shrink-0 items-center justify-center border border-secondary-300 bg-white text-secondary-800"
+								class="flex h-10 w-10 shrink-0 items-center justify-center border border-neutral-950 bg-white text-secondary-800"
 							>
 								<card.icon class="h-5 w-5" />
 							</div>
@@ -133,3 +133,4 @@
 		</div>
 	</section>
 </div>
+

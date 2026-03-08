@@ -1,4 +1,4 @@
-﻿<svelte:head>
+<svelte:head>
 	<title>Toast Lab | PlayIMs</title>
 </svelte:head>
 
@@ -557,8 +557,8 @@
 </script>
 
 <div class="space-y-6">
-	<section class="border-2 border-secondary-300 bg-neutral">
-		<div class="border-b border-secondary-300 bg-neutral-600/66 p-4">
+	<section class="border-2 border-neutral-950 bg-neutral">
+		<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
 			<div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
 				<div class="flex items-start gap-3">
 					<div
@@ -582,7 +582,7 @@
 			</div>
 		</div>
 
-		<div class="grid gap-3 border-b border-secondary-300 bg-neutral-100/70 p-4 md:grid-cols-2 xl:grid-cols-4">
+		<div class="grid gap-3 border-b border-neutral-950 bg-neutral-100/70 p-4 md:grid-cols-2 xl:grid-cols-4">
 			<button
 				type="button"
 				class="button-secondary-outlined inline-flex cursor-pointer items-center justify-center gap-2 px-3 py-2 text-xs font-bold uppercase tracking-[0.14em]"
@@ -619,8 +619,8 @@
 
 		<div class="grid gap-6 p-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
 			<div class="space-y-6">
-				<section class="border border-secondary-300 bg-white/80">
-					<div class="border-b border-secondary-300 bg-secondary-50 px-4 py-3">
+				<section class="border border-neutral-950 bg-white/80">
+					<div class="border-b border-neutral-950 bg-secondary-50 px-4 py-3">
 						<div class="flex items-center gap-2">
 							<IconWand class="h-5 w-5 text-secondary-800" />
 							<h2 class="font-serif text-xl text-secondary-900">Composer</h2>
@@ -860,8 +860,8 @@
 					</div>
 				</section>
 
-				<section class="border border-secondary-300 bg-white/80">
-					<div class="border-b border-secondary-300 bg-secondary-50 px-4 py-3">
+				<section class="border border-neutral-950 bg-white/80">
+					<div class="border-b border-neutral-950 bg-secondary-50 px-4 py-3">
 						<div class="flex items-center gap-2">
 							<IconChecklist class="h-5 w-5 text-secondary-800" />
 							<h2 class="font-serif text-xl text-secondary-900">Toast Actions</h2>
@@ -870,7 +870,7 @@
 
 					<div class="grid gap-4 p-4 xl:grid-cols-2">
 						{#each actionDrafts as draft, index}
-							<div class="space-y-3 border border-secondary-300 bg-neutral-50 p-4">
+							<div class="space-y-3 border border-neutral-950 bg-neutral-50 p-4">
 								<div class="flex items-start justify-between gap-3">
 									<div>
 										<p class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-700">
@@ -990,8 +990,8 @@
 			</div>
 
 			<div class="space-y-6">
-				<section class="border border-secondary-300 bg-white/80">
-					<div class="border-b border-secondary-300 bg-secondary-50 px-4 py-3">
+				<section class="border border-neutral-950 bg-white/80">
+					<div class="border-b border-neutral-950 bg-secondary-50 px-4 py-3">
 						<div class="flex items-center gap-2">
 							<IconPlayerPlay class="h-5 w-5 text-secondary-800" />
 							<h2 class="font-serif text-xl text-secondary-900">Trigger Tests</h2>
@@ -1018,8 +1018,8 @@
 					</div>
 				</section>
 
-				<section class="border border-secondary-300 bg-white/80">
-					<div class="border-b border-secondary-300 bg-secondary-50 px-4 py-3">
+				<section class="border border-neutral-950 bg-white/80">
+					<div class="border-b border-neutral-950 bg-secondary-50 px-4 py-3">
 						<div class="flex flex-wrap items-center justify-between gap-3">
 							<h2 class="font-serif text-xl text-secondary-900">Live Toast Preview</h2>
 							<div class="inline-flex border border-secondary-300 bg-white">
@@ -1051,8 +1051,8 @@
 
 					<div class="space-y-3 p-4">
 						{#if previewViewport === 'desktop'}
-							<div class="border border-secondary-300 bg-neutral-100/70 p-4">
-								<div class="rounded-sm border border-dashed border-secondary-300 bg-[linear-gradient(180deg,rgba(255,255,255,0.82),rgba(245,245,244,0.9))] p-5">
+							<div class="border border-neutral-950 bg-neutral-100/70 p-4">
+								<div class="rounded-sm border border-dashed border-neutral-950 bg-[linear-gradient(180deg,rgba(255,255,255,0.82),rgba(245,245,244,0.9))] p-5">
 									<div class="mx-auto w-full max-w-[26rem]">
 										<ToastItem item={previewToast} index={0} preview={true} />
 									</div>
@@ -1061,17 +1061,17 @@
 						{:else}
 							<div class="space-y-4">
 								<div class="grid gap-3 sm:grid-cols-[auto_auto] sm:justify-end">
-									<div class="border border-secondary-300 bg-white px-3 py-2 text-xs text-secondary-800">
+									<div class="border border-neutral-950 bg-white px-3 py-2 text-xs text-secondary-800">
 										<span class="font-bold uppercase tracking-[0.12em] text-secondary-700">Visible:</span>
 										<span class="ml-1">{mobileStageVisibleCount}</span>
 									</div>
-									<div class="border border-secondary-300 bg-white px-3 py-2 text-xs text-secondary-800">
+									<div class="border border-neutral-950 bg-white px-3 py-2 text-xs text-secondary-800">
 										<span class="font-bold uppercase tracking-[0.12em] text-secondary-700">Queued:</span>
 										<span class="ml-1">{mobileStageOverflowCount}</span>
 									</div>
 								</div>
 
-								<div class="overflow-hidden border border-secondary-300 bg-[linear-gradient(180deg,rgba(20,33,61,0.06),rgba(255,255,255,0.96))] p-4">
+								<div class="overflow-hidden border border-neutral-950 bg-[linear-gradient(180deg,rgba(20,33,61,0.06),rgba(255,255,255,0.96))] p-4">
 									<div class="mx-auto w-full max-w-[18.8rem]">
 										<div class="rounded-[2.45rem] bg-black p-[0.2rem] shadow-[0_22px_48px_rgba(15,23,42,0.24)]">
 											<div class="relative overflow-hidden rounded-[2.25rem] bg-white">
@@ -1098,7 +1098,7 @@
 															<div class="w-full overflow-hidden">
 																<div class="mx-auto flex max-w-[15rem] flex-col gap-2.5">
 																	{#if mobileStageOverflowCount > 0 && mobileStageOverflowAtTop}
-																		<div class="border border-secondary-300 bg-neutral-05/95 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-secondary-900 shadow-[0_10px_24px_rgba(20,33,61,0.16)] backdrop-blur">
+																		<div class="border border-neutral-950 bg-neutral-05/95 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-secondary-900 shadow-[0_10px_24px_rgba(20,33,61,0.16)] backdrop-blur">
 																			{mobileStageOverflowCount} more notification{mobileStageOverflowCount === 1 ? '' : 's'}
 																		</div>
 																	{/if}
@@ -1113,7 +1113,7 @@
 																	{/each}
 
 																	{#if mobileStageOverflowCount > 0 && !mobileStageOverflowAtTop}
-																		<div class="border border-secondary-300 bg-neutral-05/95 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-secondary-900 shadow-[0_10px_24px_rgba(20,33,61,0.16)] backdrop-blur">
+																		<div class="border border-neutral-950 bg-neutral-05/95 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-secondary-900 shadow-[0_10px_24px_rgba(20,33,61,0.16)] backdrop-blur">
 																			{mobileStageOverflowCount} more notification{mobileStageOverflowCount === 1 ? '' : 's'}
 																		</div>
 																	{/if}
@@ -1147,14 +1147,14 @@
 							</div>
 						{/if}
 
-						<div class="border border-secondary-300 bg-white">
-							<div class="border-b border-secondary-300 bg-neutral-100 px-3 py-2">
+						<div class="border border-neutral-950 bg-white">
+							<div class="border-b border-neutral-950 bg-neutral-100 px-3 py-2">
 								<p class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-700">
 									Action Preview
 								</p>
 							</div>
 							{#if previewActions.length > 0}
-								<div class="divide-y divide-secondary-300">
+								<div class="divide-y divide-neutral-950">
 									{#each previewActions as action}
 										<div class="grid gap-2 px-3 py-3 text-sm text-secondary-900 sm:grid-cols-[auto_1fr_auto_auto] sm:items-center">
 											<p class="font-bold uppercase tracking-[0.12em] text-secondary-700">
@@ -1174,7 +1174,7 @@
 						</div>
 
 						<div class="grid gap-2 text-xs text-secondary-800 sm:grid-cols-2 xl:grid-cols-4">
-							<div class="border border-secondary-300 bg-white px-3 py-2">
+							<div class="border border-neutral-950 bg-white px-3 py-2">
 								<span class="font-bold uppercase tracking-[0.12em] text-secondary-700">Duration:</span>
 								<span class="ml-1">
 									{durationMode === 'default'
@@ -1184,19 +1184,19 @@
 											: `${getDurationValue(durationMode, customDurationMs)}ms`}
 								</span>
 							</div>
-							<div class="border border-secondary-300 bg-white px-3 py-2">
+							<div class="border border-neutral-950 bg-white px-3 py-2">
 								<span class="font-bold uppercase tracking-[0.12em] text-secondary-700">
 									Desktop:
 								</span>
 								<span class="ml-1 uppercase">{placement.replace('-', ' ')}</span>
 							</div>
-							<div class="border border-secondary-300 bg-white px-3 py-2">
+							<div class="border border-neutral-950 bg-white px-3 py-2">
 								<span class="font-bold uppercase tracking-[0.12em] text-secondary-700">
 									Mobile:
 								</span>
 								<span class="ml-1 uppercase">{mobilePlacement}</span>
 							</div>
-							<div class="border border-secondary-300 bg-white px-3 py-2">
+							<div class="border border-neutral-950 bg-white px-3 py-2">
 								<span class="font-bold uppercase tracking-[0.12em] text-secondary-700">Importance:</span>
 								<span class="ml-1">{important ? 'Assertive' : 'Polite'}</span>
 							</div>
@@ -1204,8 +1204,8 @@
 					</div>
 				</section>
 
-				<section class="border border-secondary-300 bg-white/80">
-					<div class="border-b border-secondary-300 bg-secondary-50 px-4 py-3">
+				<section class="border border-neutral-950 bg-white/80">
+					<div class="border-b border-neutral-950 bg-secondary-50 px-4 py-3">
 						<div class="flex items-center gap-2">
 							<IconBolt class="h-5 w-5 text-secondary-800" />
 							<h2 class="font-serif text-xl text-secondary-900">Stack Stress Tests</h2>
@@ -1337,3 +1337,4 @@
 		</div>
 	</section>
 </div>
+

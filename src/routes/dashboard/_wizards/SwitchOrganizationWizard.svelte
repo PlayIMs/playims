@@ -175,7 +175,7 @@
 	on:requestClose={onRequestClose}
 >
 	<div class="space-y-4">
-		<div class="border border-secondary-300 bg-white p-2.5">
+		<div class="border border-neutral-950 bg-white p-2.5">
 			<p class="text-xs font-sans text-neutral-950">
 				Current organization:
 				<span class="font-semibold">{currentOrganization?.clientName ?? 'None selected'}</span>
@@ -186,7 +186,7 @@
 		</div>
 
 		{#if organizationOptions.length === 0}
-			<div class="border border-secondary-300 bg-white p-2.5">
+			<div class="border border-neutral-950 bg-white p-2.5">
 				<p class="text-xs font-sans text-neutral-950">No other organizations available.</p>
 			</div>
 		{:else}
@@ -229,3 +229,4 @@
 		{/if}
 	</div>
 </WizardModal>
+

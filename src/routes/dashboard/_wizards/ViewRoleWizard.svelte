@@ -195,7 +195,7 @@
 	on:requestClose={onRequestClose}
 >
 	<div class="space-y-4">
-		<div class="border border-secondary-300 bg-white p-2.5">
+		<div class="border border-neutral-950 bg-white p-2.5">
 			<p class="text-xs text-neutral-950 font-sans">
 				Current view: <span class="font-semibold">{roleLabel[effectiveRole]}</span>
 			</p>
@@ -239,3 +239,4 @@
 		</div>
 	</div>
 </WizardModal>
+

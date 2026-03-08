@@ -93,7 +93,7 @@
 
 <div class="w-full space-y-4">
 	<header class="bg-neutral">
-		<div class="border-b border-secondary-300 bg-neutral-600/66 p-4">
+		<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
 			<div class="flex items-center gap-3 py-2 lg:py-3">
 				<div
 					class="bg-primary text-white border-2 border-primary-700 w-[2.75rem] h-[2.75rem] lg:w-[3.4rem] lg:h-[3.4rem] flex items-center justify-center"
@@ -135,7 +135,7 @@
 
 		<section class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
 			<div
-				class="border-2 border-secondary-300 bg-neutral p-4 flex items-center justify-between gap-4"
+				class="border-2 border-neutral-950 bg-neutral p-4 flex items-center justify-between gap-4"
 			>
 				<div>
 					<p class="text-xs uppercase tracking-wide text-neutral-950 font-sans">Active Players</p>
@@ -148,7 +148,7 @@
 				</div>
 			</div>
 			<div
-				class="border-2 border-secondary-300 bg-neutral p-4 flex items-center justify-between gap-4"
+				class="border-2 border-neutral-950 bg-neutral p-4 flex items-center justify-between gap-4"
 			>
 				<div>
 					<p class="text-xs uppercase tracking-wide text-neutral-950 font-sans">Active Teams</p>
@@ -161,7 +161,7 @@
 				</div>
 			</div>
 			<div
-				class="border-2 border-secondary-300 bg-neutral p-4 flex items-center justify-between gap-4"
+				class="border-2 border-neutral-950 bg-neutral p-4 flex items-center justify-between gap-4"
 			>
 				<div>
 					<p class="text-xs uppercase tracking-wide text-neutral-950 font-sans">Active Leagues</p>
@@ -174,7 +174,7 @@
 				</div>
 			</div>
 			<div
-				class="border-2 border-secondary-300 bg-neutral p-4 flex items-center justify-between gap-4"
+				class="border-2 border-neutral-950 bg-neutral p-4 flex items-center justify-between gap-4"
 			>
 				<div>
 					<p class="text-xs uppercase tracking-wide text-neutral-950 font-sans">Games Today</p>
@@ -187,7 +187,7 @@
 				</div>
 			</div>
 			<div
-				class="border-2 border-secondary-300 bg-neutral p-4 flex items-center justify-between gap-4"
+				class="border-2 border-neutral-950 bg-neutral p-4 flex items-center justify-between gap-4"
 			>
 				<div>
 					<p class="text-xs uppercase tracking-wide text-neutral-950 font-sans">Practices Today</p>
@@ -216,9 +216,9 @@
 
 		<div class="grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-6">
 			<div class="space-y-6">
-				<section class="border-2 border-secondary-300 bg-neutral">
+				<section class="border-2 border-neutral-950 bg-neutral">
 					<div
-						class="p-4 border-b border-secondary-300 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+						class="p-4 border-b border-neutral-950 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
 					>
 						<div>
 							<h2 class="text-xl font-bold font-serif text-neutral-950">Today's Lineup</h2>
@@ -254,7 +254,7 @@
 					</div>
 
 					{#if filteredEvents.length > 0}
-						<div class="divide-y divide-secondary-300">
+						<div class="divide-y divide-neutral-950">
 							{#each filteredEvents as game}
 								<div class="p-4">
 									<div class="grid grid-cols-1 lg:grid-cols-[170px_1fr_auto] gap-4 items-center">
@@ -330,15 +330,15 @@
 					{/if}
 				</section>
 
-				<section class="border-2 border-secondary-300 bg-neutral">
-					<div class="p-4 border-b border-secondary-300 flex items-center justify-between">
+				<section class="border-2 border-neutral-950 bg-neutral">
+					<div class="p-4 border-b border-neutral-950 flex items-center justify-between">
 						<h2 class="text-xl font-bold font-serif text-neutral-950">This Week</h2>
 						<span class="text-xs uppercase tracking-wide text-neutral-950 font-sans">
 							Next 7 Days
 						</span>
 					</div>
 					{#if upcomingEvents.length > 0}
-						<div class="divide-y divide-secondary-300">
+						<div class="divide-y divide-neutral-950">
 							{#each upcomingEvents as game}
 								<div class="p-4">
 									<div class="grid grid-cols-1 md:grid-cols-[120px_1fr_auto] gap-4 items-center">
@@ -379,13 +379,13 @@
 			</div>
 
 			<aside class="space-y-6">
-				<section class="border-2 border-secondary-300 bg-neutral">
-					<div class="p-4 border-b border-secondary-300 flex items-center justify-between">
+				<section class="border-2 border-neutral-950 bg-neutral">
+					<div class="p-4 border-b border-neutral-950 flex items-center justify-between">
 						<h2 class="text-xl font-bold font-serif text-neutral-950">Recent Activity</h2>
 						<span class="text-xs uppercase tracking-wide text-neutral-950 font-sans">Latest</span>
 					</div>
 					{#if data.recentActivity && data.recentActivity.length > 0}
-						<div class="divide-y divide-secondary-300">
+						<div class="divide-y divide-neutral-950">
 							{#each data.recentActivity as activity}
 								<div class="p-4">
 									<div class="flex items-center gap-3">
@@ -440,3 +440,4 @@
 		</div>
 	</div>
 </div>
+

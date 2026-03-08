@@ -382,7 +382,7 @@
 </svelte:head>
 
 <div class="w-full space-y-4">
-	<section class="border-2 border-secondary-300 bg-neutral p-3 lg:p-4 space-y-3">
+	<section class="border-2 border-neutral-950 bg-neutral p-3 lg:p-4 space-y-3">
 		<div class="flex items-start justify-between gap-3">
 			<div>
 				<h2 class="text-2xl font-bold font-serif text-neutral-950">Modules</h2>
@@ -400,7 +400,7 @@
 		<div class="space-y-2.5">
 			{#each orderedNavItems as item, index (item.key)}
 				{@const RowIcon = navIconByKey[item.key]}
-				<div class="border-2 border-secondary-300 bg-white p-2">
+				<div class="border-2 border-neutral-950 bg-white p-2">
 					<div class="flex flex-wrap items-start gap-2 lg:flex-nowrap">
 						<div class="min-w-0 flex-1">
 							<label
@@ -542,3 +542,4 @@
 		</form>
 	</section>
 </div>
+

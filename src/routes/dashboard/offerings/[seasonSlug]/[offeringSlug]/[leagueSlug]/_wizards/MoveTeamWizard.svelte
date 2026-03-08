@@ -101,19 +101,19 @@
 	on:input={onInput}
 >
 	<div class="space-y-4">
-		<div class="border border-secondary-300 bg-white p-3 text-sm leading-6 text-neutral-950">
+		<div class="border border-neutral-950 bg-white p-3 text-sm leading-6 text-neutral-950">
 			Move <span class="font-bold">{teamName || 'this team'}</span> into another division or place
 			it on the waitlist without editing the row inline.
 		</div>
 
 		<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-			<div class="border border-secondary-300 bg-white p-3">
+			<div class="border border-neutral-950 bg-white p-3">
 				<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
 					Current Division
 				</p>
 				<p class="mt-2 text-sm font-semibold text-neutral-950">{currentDivisionName || 'Unknown'}</p>
 			</div>
-			<div class="border border-secondary-300 bg-white p-3">
+			<div class="border border-neutral-950 bg-white p-3">
 				<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
 					Current Placement
 				</p>
@@ -159,7 +159,7 @@
 			</div>
 		</div>
 
-		<div class="border border-secondary-300 bg-white p-3 text-sm leading-6 text-neutral-950">
+		<div class="border border-neutral-950 bg-white p-3 text-sm leading-6 text-neutral-950">
 			If you move a team to <span class="font-semibold">Waitlist</span>, it stays tied to its preferred
 			division for later placement.
 		</div>

@@ -33,7 +33,7 @@ Architecture baseline:
 
 - Panel: `w-full max-w-* border-4 border-secondary bg-neutral-400 overflow-hidden flex flex-col`
 - Header: `p-4 border-b border-secondary space-y-3`
-- Progress bar shell: `border border-secondary-300 bg-white h-3`
+- Progress bar shell: `border border-neutral-950 bg-white h-3`
 - Form shell default: `p-4 space-y-5 flex-1 min-h-0 overflow-y-auto`
 
 Behavior expectations:
@@ -48,8 +48,8 @@ Standard step layout:
 
 - Root: `space-y-4`
 - Field grids: `grid grid-cols-1 lg:grid-cols-2 gap-4`
-- Section block: `border-2 border-secondary-300 bg-white p-4 space-y-4`
-- Nested helper/informational block: `border border-secondary-300 bg-white p-3`
+- Section block: `border-2 border-neutral-950 bg-white p-4 space-y-4`
+- Nested helper/informational block: `border border-neutral-950 bg-white p-3`
 
 Required patterns:
 
@@ -61,7 +61,7 @@ Required patterns:
 
 Use `WizardStepFooter` pattern:
 
-- Container: `pt-2 border-t border-secondary-300 flex justify-end`
+- Container: `pt-2 border-t border-neutral-950 flex justify-end`
 - Secondary/back: `button-secondary-outlined cursor-pointer`
 - Next/submit: `button-accent cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`
 
@@ -76,9 +76,9 @@ Use `WizardDraftCollection` for add/edit/copy/move/remove flows.
 
 Defaults:
 
-- Container: `border border-secondary-300 bg-white p-3 space-y-3`
+- Container: `border border-neutral-950 bg-white p-3 space-y-3`
 - List: scrollable max-height with secondary scrollbar tokens.
-- Item row: `border border-secondary-300 bg-neutral p-3 space-y-2`
+- Item row: `border border-neutral-950 bg-neutral p-3 space-y-2`
 - Item action icons: `button-secondary-outlined p-1.5 cursor-pointer` inside `HoverTooltip`.
 
 When overriding list height, keep scrollbar style and vertical rhythm.
@@ -87,7 +87,7 @@ When overriding list height, keep scrollbar style and vertical rhythm.
 
 Recommended review structure:
 
-- Summary wrapper: `border border-secondary-300 bg-white p-3 text-sm text-neutral-950`
+- Summary wrapper: `border border-neutral-950 bg-white p-3 text-sm text-neutral-950`
 - Dense metadata grid: `grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 text-xs text-neutral-950`
 - Use short label/value spans with `font-semibold` labels.
 

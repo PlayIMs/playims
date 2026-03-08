@@ -423,7 +423,7 @@
 						<p class="text-xs text-error-700 mt-1">{fieldErrors['facility.capacity']}</p>
 					{/if}
 				</div>
-				<div class="border border-secondary-300 bg-white p-3 flex items-center">
+				<div class="border border-neutral-950 bg-white p-3 flex items-center">
 					<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
 						<input type="checkbox" class="toggle-secondary" bind:checked={form.facility.isActive} />
 						Active
@@ -479,13 +479,13 @@
 	{#if step === 4}
 		<div class="space-y-4">
 			{#if !areaDraftActive}
-				<div class="border border-secondary-300 bg-white p-4">
+				<div class="border border-neutral-950 bg-white p-4">
 					<p class="text-sm font-sans text-neutral-950">
 						No area draft is open. Go back to Facility Areas and click the plus button to add one.
 					</p>
 				</div>
 			{:else}
-				<div class="border border-secondary-300 bg-white p-3 space-y-4">
+				<div class="border border-neutral-950 bg-white p-3 space-y-4">
 					<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
 						<div>
 							<label for="wizard-area-name" class="block text-sm font-sans text-neutral-950 mb-1"
@@ -570,7 +570,7 @@
 					</div>
 
 					<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-						<div class="border border-secondary-300 bg-white p-3">
+						<div class="border border-neutral-950 bg-white p-3">
 							<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
 								<input
 									type="checkbox"
@@ -613,7 +613,7 @@
 
 	{#if step === 5}
 		<div class="space-y-4">
-			<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
+			<div class="border-2 border-neutral-950 bg-white p-4 space-y-2">
 				<div class="flex items-start justify-between gap-2">
 					<h3 class="text-lg font-bold font-serif text-neutral-950">Facility</h3>
 					<HoverTooltip text="Edit facility">
@@ -668,7 +668,7 @@
 				{/if}
 			</div>
 
-			<div class="border-2 border-secondary-300 bg-white p-4 space-y-3">
+			<div class="border-2 border-neutral-950 bg-white p-4 space-y-3">
 				<div class="flex items-start justify-between gap-2">
 					<h3 class="text-lg font-bold font-serif text-neutral-950">Facility Areas</h3>
 					<HoverTooltip text="Edit areas">
@@ -689,7 +689,7 @@
 						class="space-y-3 max-h-[45vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 scrollbar-track-secondary-400 scrollbar-corner-secondary-500 hover:scrollbar-thumb-secondary-700 active:scrollbar-thumb-secondary-700 scrollbar-hover:scrollbar-thumb-secondary-800 scrollbar-active:scrollbar-thumb-secondary-700"
 					>
 						{#each form.areas as area (area.draftId)}
-							<div class="border border-secondary-300 bg-neutral p-3 space-y-1">
+							<div class="border border-neutral-950 bg-neutral p-3 space-y-1">
 								<p class="text-sm font-semibold text-neutral-950">{area.name || 'Untitled Area'}</p>
 								<p class="text-xs text-neutral-900">Slug: {slugifyFinal(area.slug) || 'TBD'}</p>
 								<p class="text-xs text-neutral-950">
@@ -738,3 +738,4 @@
 	on:confirm={onUnsavedConfirm}
 	on:cancel={onUnsavedCancel}
 />
+

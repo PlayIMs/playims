@@ -83,7 +83,7 @@
 				}}
 			/>
 		</div>
-		<div class="flex flex-col-reverse gap-2 border-t border-secondary-300 p-4 sm:flex-row sm:justify-end">
+		<div class="flex flex-col-reverse gap-2 border-t border-neutral-950 p-4 sm:flex-row sm:justify-end">
 			<button type="button" class="button-secondary-outlined w-full cursor-pointer sm:w-auto" onclick={onClose}>Cancel</button>
 			<button type="submit" class="button-secondary w-full cursor-pointer sm:w-auto" disabled={submitting}>
 				{submitting ? 'Saving...' : 'Save Role'}
@@ -91,3 +91,4 @@
 		</div>
 	</form>
 </ModalShell>
+

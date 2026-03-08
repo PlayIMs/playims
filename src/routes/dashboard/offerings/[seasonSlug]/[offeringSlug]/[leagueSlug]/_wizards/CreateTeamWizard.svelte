@@ -102,7 +102,7 @@
 	on:input={onInput}
 >
 	<div class="space-y-4">
-		<div class="border border-secondary-300 bg-white p-3 text-sm leading-6 text-neutral-950">
+		<div class="border border-neutral-950 bg-white p-3 text-sm leading-6 text-neutral-950">
 			Create the team, choose where it starts, and decide whether it should enter the league
 			directly or wait for an open spot.
 		</div>

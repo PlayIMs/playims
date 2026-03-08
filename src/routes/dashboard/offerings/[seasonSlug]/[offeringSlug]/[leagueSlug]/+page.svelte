@@ -99,7 +99,7 @@
 		'w-full min-w-[10rem] border border-secondary-300 bg-white px-3 py-1.5 text-xs leading-5 font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2 hover:bg-neutral-50 focus:outline-none focus-visible:outline-none focus-visible:border-secondary-500 focus-visible:ring-0';
 	const ACTION_DROPDOWN_BUTTON_CLASS =
 		'inline-flex h-9 w-9 items-center justify-center border-0 bg-transparent p-0 text-secondary-700 cursor-pointer opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 hover:bg-neutral-100 hover:text-secondary-900 focus:outline-none focus-visible:bg-neutral-100 focus-visible:text-secondary-900';
-	const ACTION_DROPDOWN_LIST_CLASS = 'mt-1 w-52 border-2 border-secondary-300 bg-white z-20';
+	const ACTION_DROPDOWN_LIST_CLASS = 'mt-1 w-52 border-2 border-neutral-950 bg-white z-20';
 	const ACTION_DROPDOWN_OPTION_CLASS =
 		'w-full px-3 py-2 text-left text-sm text-neutral-950 cursor-pointer';
 
@@ -1071,7 +1071,7 @@
 
 <div class="w-full space-y-4">
 	<header class="bg-neutral">
-		<div class="border-b border-secondary-300 bg-neutral-600/66 p-4">
+		<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
 			<div class="flex items-center gap-3 py-2 lg:py-3">
 				<div
 					class="bg-primary text-white border-2 border-primary-700 w-[2.75rem] h-[2.75rem] lg:w-[3.4rem] lg:h-[3.4rem] flex items-center justify-center"
@@ -1135,8 +1135,8 @@
 		{#if data.league}
 			<div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
 				<aside class="order-2 space-y-4">
-					<section class="border-2 border-secondary-300 bg-white">
-						<div class="border-b border-secondary-300 px-3 py-2">
+					<section class="border-2 border-neutral-950 bg-white">
+						<div class="border-b border-neutral-950 px-3 py-2">
 							<h2 class="text-xl font-serif font-bold text-neutral-950">League Info</h2>
 						</div>
 						<div class="p-3">
@@ -1208,8 +1208,8 @@
 
 					<section class="space-y-3">
 						{#each data.divisions as division}
-							<div class="border-2 border-secondary-300 bg-white">
-								<div class="border-b border-secondary-300 px-3 py-2">
+							<div class="border-2 border-neutral-950 bg-white">
+								<div class="border-b border-neutral-950 px-3 py-2">
 									<div class="flex items-center justify-between gap-2">
 										<a
 											href={divisionHref(division)}
@@ -1275,8 +1275,8 @@
 						{/each}
 					</section>
 
-					<section class="border-2 border-secondary-300 bg-white">
-						<div class="border-b border-secondary-300 bg-secondary-700/65 px-3 py-2 text-white">
+					<section class="border-2 border-neutral-950 bg-white">
+						<div class="border-b border-neutral-950 bg-secondary-700/65 px-3 py-2 text-white">
 							<h2 class="text-xl font-serif font-bold">League Description</h2>
 						</div>
 						<div class="p-5 text-center">
@@ -1303,8 +1303,8 @@
 						</div>
 					</section>
 
-					<section class="border-2 border-secondary-300 bg-white">
-						<div class="border-b border-secondary-300 bg-secondary-700/65 px-3 py-2 text-white">
+					<section class="border-2 border-neutral-950 bg-white">
+						<div class="border-b border-neutral-950 bg-secondary-700/65 px-3 py-2 text-white">
 							<div class="flex items-center justify-between gap-3">
 								<h2 class="text-xl font-serif font-bold">Announcements</h2>
 								<span
@@ -1318,8 +1318,8 @@
 					</section>
 
 					{#if canManageLeague}
-						<section class="border-2 border-secondary-300 bg-neutral">
-							<div class="border-b border-secondary-300 px-4 py-3">
+						<section class="border-2 border-neutral-950 bg-neutral">
+							<div class="border-b border-neutral-950 px-4 py-3">
 								<div class="flex flex-col gap-3">
 									<div>
 										<p class="text-[11px] font-bold uppercase tracking-[0.18em] text-neutral-950">
@@ -1342,7 +1342,7 @@
 								</div>
 							</div>
 							<div class="grid gap-3 p-4">
-								<div class="border border-secondary-300 bg-white p-3">
+								<div class="border border-neutral-950 bg-white p-3">
 									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
 										Division Capacity
 									</p>
@@ -1351,7 +1351,7 @@
 										space opens.
 									</p>
 								</div>
-								<div class="border border-secondary-300 bg-white p-3">
+								<div class="border border-neutral-950 bg-white p-3">
 									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
 										Team Movement
 									</p>
@@ -1360,7 +1360,7 @@
 										of the waitlist.
 									</p>
 								</div>
-								<div class="border border-secondary-300 bg-white p-3">
+								<div class="border border-neutral-950 bg-white p-3">
 									<div class="mb-1 flex min-h-6 items-center gap-1.5">
 										<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
 											Admin Notes
@@ -1383,8 +1383,8 @@
 				</aside>
 
 				<div class="order-1 space-y-4">
-					<section class="hidden border-2 border-secondary-300 bg-white">
-						<div class="border-b border-secondary-300 bg-secondary-700/65 px-3 py-2 text-white">
+					<section class="hidden border-2 border-neutral-950 bg-white">
+						<div class="border-b border-neutral-950 bg-secondary-700/65 px-3 py-2 text-white">
 							<h2 class="text-xl font-serif font-bold">League Description</h2>
 						</div>
 						<div class="p-5 text-center">
@@ -1411,8 +1411,8 @@
 						</div>
 					</section>
 
-					<section class="hidden border-2 border-secondary-300 bg-white">
-						<div class="border-b border-secondary-300 bg-secondary-700/65 px-3 py-2 text-white">
+					<section class="hidden border-2 border-neutral-950 bg-white">
+						<div class="border-b border-neutral-950 bg-secondary-700/65 px-3 py-2 text-white">
 							<div class="flex items-center justify-between gap-3">
 								<h2 class="text-xl font-serif font-bold">Announcements</h2>
 								<span
@@ -1426,8 +1426,8 @@
 					</section>
 
 					{#if canManageLeague}
-						<section class="hidden border-2 border-secondary-300 bg-neutral">
-							<div class="border-b border-secondary-300 px-4 py-3">
+						<section class="hidden border-2 border-neutral-950 bg-neutral">
+							<div class="border-b border-neutral-950 px-4 py-3">
 								<div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 									<div>
 										<p class="text-[11px] font-bold uppercase tracking-[0.18em] text-neutral-950">
@@ -1450,7 +1450,7 @@
 								</div>
 							</div>
 							<div class="grid gap-3 p-4 md:grid-cols-3">
-								<div class="border border-secondary-300 bg-white p-3">
+								<div class="border border-neutral-950 bg-white p-3">
 									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
 										Division Capacity
 									</p>
@@ -1459,7 +1459,7 @@
 										space opens.
 									</p>
 								</div>
-								<div class="border border-secondary-300 bg-white p-3">
+								<div class="border border-neutral-950 bg-white p-3">
 									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
 										Team Movement
 									</p>
@@ -1468,7 +1468,7 @@
 										of the waitlist.
 									</p>
 								</div>
-								<div class="border border-secondary-300 bg-white p-3">
+								<div class="border border-neutral-950 bg-white p-3">
 									<div class="mb-1 flex min-h-6 items-center gap-1.5">
 										<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
 											Admin Notes
@@ -1492,10 +1492,10 @@
 					{#each data.divisions as division}
 						<section
 							id={`division-${division.slug || division.id}`}
-							class="border-2 border-secondary-300 bg-white scroll-mt-4"
+							class="border-2 border-neutral-950 bg-white scroll-mt-4"
 						>
 							<div
-								class="border-b border-secondary-300 bg-neutral-200 px-3 py-2.5 text-neutral-950"
+								class="border-b border-neutral-950 bg-neutral-200 px-3 py-2.5 text-neutral-950"
 							>
 								<div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 									<div class="flex items-start gap-3">
@@ -1636,8 +1636,8 @@
 						</section>
 					{/each}
 
-					<section class="border-2 border-secondary-300 bg-white">
-						<div class="border-b border-secondary-300 bg-neutral-200 px-3 py-2.5 text-neutral-950">
+					<section class="border-2 border-neutral-950 bg-white">
+						<div class="border-b border-neutral-950 bg-neutral-200 px-3 py-2.5 text-neutral-950">
 							<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 								<div>
 									<h2 class="text-xl font-serif font-bold">League Waitlist</h2>
@@ -1754,7 +1754,7 @@
 				</div>
 			</div>
 		{:else}
-			<div class="border-2 border-secondary-300 bg-white p-6 text-sm text-neutral-950">
+			<div class="border-2 border-neutral-950 bg-white p-6 text-sm text-neutral-950">
 				League details are not available right now.
 			</div>
 		{/if}

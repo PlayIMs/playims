@@ -90,7 +90,7 @@
 	on:input={onInput}
 >
 	<div class="space-y-4">
-		<div class="border border-secondary-300 bg-white p-3 text-sm leading-6 text-neutral-950">
+		<div class="border border-neutral-950 bg-white p-3 text-sm leading-6 text-neutral-950">
 			Create a division with its own team capacity, schedule slot, and lock state. Teams can be
 			added later through the team wizard.
 		</div>
@@ -256,7 +256,7 @@
 			></textarea>
 		</div>
 
-		<div class="border border-secondary-300 bg-white p-3">
+		<div class="border border-neutral-950 bg-white p-3">
 			<label class="inline-flex items-center gap-2 text-sm text-neutral-950">
 				<input type="checkbox" class="toggle-secondary" bind:checked={form.isLocked} />
 				Start this division locked

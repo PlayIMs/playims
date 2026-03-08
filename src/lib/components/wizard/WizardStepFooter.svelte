@@ -28,7 +28,7 @@
 	const dispatch = createEventDispatcher<{ back: void; next: void }>();
 </script>
 
-<div class="pt-2 border-t border-secondary-300 flex justify-end">
+<div class="pt-2 border-t border-neutral-950 flex justify-end">
 	<div class="flex items-center gap-2 justify-end">
 		{#if showBack}
 			<button

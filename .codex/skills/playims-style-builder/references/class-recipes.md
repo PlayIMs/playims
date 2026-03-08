@@ -7,10 +7,10 @@ Use this as a quick copy/paste matrix. Prefer these recipes before inventing new
 | Use Case | Canonical Classes |
 | --- | --- |
 | Page wrapper | `p-6 lg:p-8 space-y-6` |
-| Page hero/header | `border-2 border-secondary-300 bg-neutral p-5 space-y-4` |
-| Main board shell | `min-w-0 border-2 border-secondary-300 bg-neutral` |
-| Section strip/header | `p-4 border-b border-secondary-300 bg-neutral-600/66` |
-| Standard white card | `border border-secondary-300 bg-white p-4 space-y-3` |
+| Page hero/header | `border-2 border-neutral-950 bg-neutral p-5 space-y-4` |
+| Main board shell | `min-w-0 border-2 border-neutral-950 bg-neutral` |
+| Section strip/header | `p-4 border-b border-neutral-950 bg-neutral-600/66` |
+| Standard white card | `border border-neutral-950 bg-white p-4 space-y-3` |
 | Nested neutral subsection | `border border-secondary-200 bg-neutral p-2 space-y-2` |
 | Warning panel | `border border-warning-300 bg-warning-50 p-3` |
 | Success panel | `bg-primary-100 border-2 border-primary-500 text-neutral-950 p-4` |
@@ -71,7 +71,7 @@ Use this as a quick copy/paste matrix. Prefer these recipes before inventing new
 | Default trigger (component default) | `button-secondary-outlined px-3 py-1 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center gap-2 ...` |
 | Compact icon trigger | `button-secondary-outlined p-1.5 cursor-pointer` |
 | Split add-menu trigger | `button-primary-outlined -ml-[2px] px-1 py-1 cursor-pointer` |
-| Compact action list panel | `mt-1 w-44 border-2 border-secondary-300 bg-white z-20` |
+| Compact action list panel | `mt-1 w-44 border-2 border-neutral-950 bg-white z-20` |
 | Compact option row | `w-full text-left px-3 py-2 text-sm text-neutral-950 cursor-pointer` |
 | Active compact option | `bg-neutral-100 text-neutral-950` |
 | Footer primary action | `w-full button-primary-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer justify-center` |
@@ -84,9 +84,9 @@ Use this as a quick copy/paste matrix. Prefer these recipes before inventing new
 | Wizard modal panel | `wizard-modal-panel ... border-4 border-secondary bg-neutral-400 overflow-hidden flex flex-col` |
 | Wizard header | `p-4 border-b border-secondary space-y-3` |
 | Wizard form default | `p-4 space-y-5 flex-1 min-h-0 overflow-y-auto` |
-| Wizard footer container | `pt-2 border-t border-secondary-300 flex justify-end` |
-| Draft collection container | `border border-secondary-300 bg-white p-3 space-y-3` |
-| Draft item card | `border border-secondary-300 bg-neutral p-3 space-y-2` |
+| Wizard footer container | `pt-2 border-t border-neutral-950 flex justify-end` |
+| Draft collection container | `border border-neutral-950 bg-white p-3 space-y-3` |
+| Draft item card | `border border-neutral-950 bg-neutral p-3 space-y-2` |
 | Draft list scroll region | `space-y-2 max-h-[61vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 ...` |
 
 ## Dangerous Modal Recipes

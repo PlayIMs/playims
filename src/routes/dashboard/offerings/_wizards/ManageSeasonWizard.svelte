@@ -391,7 +391,7 @@
 	maxWidthClass="max-w-6xl"
 >
 	<div class="grid grid-cols-1 lg:grid-cols-[16rem_minmax(0,1fr)] gap-4 min-h-0">
-		<section class="border-2 border-secondary-300 bg-white min-h-0 flex flex-col">
+		<section class="border-2 border-neutral-950 bg-white min-h-0 flex flex-col">
 			<div class="px-3 py-2 border-b border-secondary-200 flex items-center gap-2">
 				<p
 					class="h-6 inline-flex items-center text-xs font-semibold uppercase tracking-wide text-neutral-950 shrink-0"
@@ -456,7 +456,7 @@
 		</section>
 
 		{#if selectedSeason}
-			<section class="border-2 border-secondary-300 bg-white p-4 space-y-4">
+			<section class="border-2 border-neutral-950 bg-white p-4 space-y-4">
 				<div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
 					<div class="space-y-1">
 						<h3 class="text-3xl font-bold font-serif text-neutral-950">{selectedSeason.name}</h3>
@@ -662,7 +662,7 @@
 	</div>
 
 	{#snippet footer()}
-		<div class="pt-2 border-t border-secondary-300 flex justify-end">
+		<div class="pt-2 border-t border-neutral-950 flex justify-end">
 			<button
 				type="button"
 				class="button-secondary-outlined cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
@@ -740,7 +740,7 @@
 		</div>
 	</div>
 
-	<div class="p-4 border-t border-secondary-300 flex justify-end gap-2">
+	<div class="p-4 border-t border-neutral-950 flex justify-end gap-2">
 		<button
 			type="button"
 			class="button-secondary-outlined cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"

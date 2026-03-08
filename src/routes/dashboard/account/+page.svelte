@@ -1047,7 +1047,7 @@
 </svelte:head>
 
 <div class="p-6 lg:p-8 space-y-6">
-	<header class="border-2 border-secondary-300 bg-neutral p-5 relative overflow-hidden">
+	<header class="border-2 border-neutral-950 bg-neutral p-5 relative overflow-hidden">
 		<div class="absolute inset-0 pointer-events-none" aria-hidden="true">
 			<div
 				class="absolute top-0 left-0 w-full h-full bg-[linear-gradient(120deg,var(--color-primary-100)_0%,transparent_65%)] opacity-45"
@@ -1071,7 +1071,7 @@
 			</div>
 			<div class="w-full xl:w-[24rem] space-y-2">
 				{#if organizations.length === 0}
-					<div class="border border-secondary-300 bg-white/85 px-3 py-2 text-xs text-neutral-950">
+					<div class="border border-neutral-950 bg-white/85 px-3 py-2 text-xs text-neutral-950">
 						No active organization memberships found.
 					</div>
 				{:else}
@@ -1083,7 +1083,7 @@
 						emptyText="No active organization memberships found."
 						disabled={organizationSwitchSubmitting}
 						buttonClass="button-secondary-outlined !bg-neutral-05 w-full px-3 py-2 text-xs cursor-pointer justify-between gap-2 items-start normal-case tracking-normal"
-						listClass="mt-1 w-80 max-w-[calc(100vw-2rem)] border-2 border-secondary-300 bg-white z-20"
+						listClass="mt-1 w-80 max-w-[calc(100vw-2rem)] border-2 border-neutral-950 bg-white z-20"
 						optionClass="w-full text-left px-3 py-2 text-xs text-neutral-950 cursor-pointer"
 						activeOptionClass="bg-neutral-300 text-neutral-950"
 						selectedOptionClass="bg-primary text-white font-semibold"
@@ -1150,15 +1150,15 @@
 	</header>
 
 	{#if !account}
-		<section class="border-2 border-secondary-300 bg-neutral p-6">
+		<section class="border-2 border-neutral-950 bg-neutral p-6">
 			<p class="text-neutral-950">Account details are unavailable right now.</p>
 		</section>
 	{:else}
 		<div class="grid grid-cols-1 2xl:grid-cols-[1.75fr_1fr] gap-6">
 			<div class="space-y-6">
-				<section class="border-2 border-secondary-300 bg-neutral">
+				<section class="border-2 border-neutral-950 bg-neutral">
 					<div
-						class="p-4 border-b border-secondary-300 bg-neutral-600/66 flex items-center justify-between gap-4"
+						class="p-4 border-b border-neutral-950 bg-neutral-600/66 flex items-center justify-between gap-4"
 					>
 						<div class="flex items-center gap-3">
 							<div class="bg-secondary text-white p-2">
@@ -1291,7 +1291,7 @@
 												searchAriaLabel="Search countries"
 												searchEmptyText="No countries match your search."
 												buttonClass="phone-country-trigger relative z-10 w-16 h-11 border-2 border-secondary-300 border-r-0 bg-white px-1.5 py-2 text-sm text-neutral-950 cursor-pointer inline-flex items-center justify-center gap-1 focus-visible:outline-none"
-												listClass="mt-1 border-2 border-secondary-300 bg-white z-20"
+												listClass="mt-1 border-2 border-neutral-950 bg-white z-20"
 												optionClass="w-full text-left px-3 py-2 text-sm text-neutral-950 cursor-pointer"
 												activeOptionClass="bg-neutral-300 text-neutral-950"
 												selectedOptionClass="bg-primary text-white font-semibold"
@@ -1372,9 +1372,9 @@
 					{/if}
 				</section>
 
-				<section class="border-2 border-secondary-300 bg-neutral">
+				<section class="border-2 border-neutral-950 bg-neutral">
 					<div
-						class="p-4 border-b border-secondary-300 bg-neutral-600/66 flex items-center justify-between gap-3"
+						class="p-4 border-b border-neutral-950 bg-neutral-600/66 flex items-center justify-between gap-3"
 					>
 						<div>
 							<h2 class="text-xl font-bold font-serif text-neutral-950">Password and Access</h2>
@@ -1645,9 +1645,9 @@
 			</div>
 
 			<aside class="space-y-6">
-				<section class="border-2 border-secondary-300 bg-neutral">
+				<section class="border-2 border-neutral-950 bg-neutral">
 					<div
-						class="p-4 border-b border-secondary-300 bg-neutral-600/66 flex items-center justify-between gap-3"
+						class="p-4 border-b border-neutral-950 bg-neutral-600/66 flex items-center justify-between gap-3"
 					>
 						<h2 class="text-xl font-bold font-serif text-neutral-950">Account Snapshot</h2>
 						<button
@@ -1668,7 +1668,7 @@
 					</div>
 					{#if !accountSnapshotCollapsed}
 						<div id="account-snapshot-panel" class="p-4 space-y-3 text-sm">
-							<div class="border border-secondary-300 bg-white p-3 flex items-start gap-3">
+							<div class="border border-neutral-950 bg-white p-3 flex items-start gap-3">
 								<IconCalendar class="w-5 h-5 text-secondary-700 shrink-0 mt-0.5" />
 								<div>
 									<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">
@@ -1684,7 +1684,7 @@
 								</div>
 							</div>
 
-							<div class="border border-secondary-300 bg-white p-3 flex items-start gap-3">
+							<div class="border border-neutral-950 bg-white p-3 flex items-start gap-3">
 								<IconCalendar class="w-5 h-5 text-secondary-700 shrink-0 mt-0.5" />
 								<div>
 									<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">
@@ -1694,7 +1694,7 @@
 								</div>
 							</div>
 
-							<div class="border border-secondary-300 bg-white p-3 flex items-start gap-3">
+							<div class="border border-neutral-950 bg-white p-3 flex items-start gap-3">
 								<IconClock class="w-5 h-5 text-secondary-700 shrink-0 mt-0.5" />
 								<div>
 									<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">
@@ -1710,7 +1710,7 @@
 								</div>
 							</div>
 
-							<div class="border border-secondary-300 bg-white p-3 flex items-start gap-3">
+							<div class="border border-neutral-950 bg-white p-3 flex items-start gap-3">
 								<IconBolt class="w-5 h-5 text-secondary-700 shrink-0 mt-0.5" />
 								<div>
 									<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">
@@ -1728,7 +1728,7 @@
 								</div>
 							</div>
 
-							<div class="border border-secondary-300 bg-white p-3 flex items-start gap-3">
+							<div class="border border-neutral-950 bg-white p-3 flex items-start gap-3">
 								<IconAt class="w-5 h-5 text-secondary-700 shrink-0 mt-0.5" />
 								<div>
 									<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">
@@ -1740,7 +1740,7 @@
 								</div>
 							</div>
 
-							<div class="border border-secondary-300 bg-white p-3 flex items-start gap-3">
+							<div class="border border-neutral-950 bg-white p-3 flex items-start gap-3">
 								<IconShieldCheck class="w-5 h-5 text-secondary-700 shrink-0 mt-0.5" />
 								<div>
 									<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">Role</p>
@@ -1759,7 +1759,7 @@
 								</div>
 							</div>
 
-							<div class="border border-secondary-300 bg-white p-3 flex items-start gap-3">
+							<div class="border border-neutral-950 bg-white p-3 flex items-start gap-3">
 								<IconId class="w-5 h-5 text-secondary-700 shrink-0 mt-0.5" />
 								<div class="min-w-0">
 									<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">
@@ -1782,9 +1782,9 @@
 					{/if}
 				</section>
 
-				<section class="border-2 border-secondary-300 bg-neutral">
+				<section class="border-2 border-neutral-950 bg-neutral">
 					<div
-						class="p-4 border-b border-secondary-300 bg-neutral-600/66 flex items-center justify-between gap-3"
+						class="p-4 border-b border-neutral-950 bg-neutral-600/66 flex items-center justify-between gap-3"
 					>
 						<h2 class="text-xl font-bold font-serif text-neutral-950">Session Controls</h2>
 						<button
@@ -1827,7 +1827,7 @@
 								</form>
 							</div>
 
-							<div class="border border-secondary-300 bg-white p-3 space-y-2">
+							<div class="border border-neutral-950 bg-white p-3 space-y-2">
 								<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">
 									Logged-in Devices
 								</p>
@@ -1836,7 +1836,7 @@
 								{:else}
 									<div class="space-y-2">
 										{#each orderedActiveSessions as session (session.id)}
-											<div class="border border-secondary-300 bg-neutral p-2 text-xs">
+											<div class="border border-neutral-950 bg-neutral p-2 text-xs">
 												<div class="flex items-center justify-between gap-2">
 													<div class="flex items-center gap-2">
 														<IconDeviceLaptop class="w-4 h-4 text-secondary-700" />
@@ -1901,9 +1901,9 @@
 					{/if}
 				</section>
 
-				<section class="border-2 border-secondary-300 bg-neutral">
+				<section class="border-2 border-neutral-950 bg-neutral">
 					<div
-						class="p-4 border-b border-secondary-300 bg-neutral-600/66 flex items-center justify-between gap-3"
+						class="p-4 border-b border-neutral-950 bg-neutral-600/66 flex items-center justify-between gap-3"
 					>
 						<h2 class="text-xl font-bold font-serif text-neutral-950">Activity Highlights</h2>
 						<button
@@ -1924,11 +1924,11 @@
 					</div>
 					{#if !activityHighlightsCollapsed}
 						<div id="activity-highlights-panel" class="p-4 space-y-2 text-sm">
-							<div class="border border-secondary-300 bg-white px-3 py-2 flex items-center gap-2">
+							<div class="border border-neutral-950 bg-white px-3 py-2 flex items-center gap-2">
 								<IconCheck class="w-4 h-4 text-primary-700" />
 								<span>Sessions started: <strong>{account.sessionCount}</strong></span>
 							</div>
-							<div class="border border-secondary-300 bg-white px-3 py-2 flex items-center gap-2">
+							<div class="border border-neutral-950 bg-white px-3 py-2 flex items-center gap-2">
 								<IconKey class="w-4 h-4 text-primary-700" />
 								<span
 									>First login:
@@ -1941,7 +1941,7 @@
 									</strong></span
 								>
 							</div>
-							<div class="border border-secondary-300 bg-white px-3 py-2 flex items-center gap-2">
+							<div class="border border-neutral-950 bg-white px-3 py-2 flex items-center gap-2">
 								<IconTrash class="w-4 h-4 text-primary-700" />
 								<span
 									>Last account update:
@@ -1954,7 +1954,7 @@
 									</strong></span
 								>
 							</div>
-							<div class="border border-secondary-300 bg-white px-3 py-2 flex items-center gap-2">
+							<div class="border border-neutral-950 bg-white px-3 py-2 flex items-center gap-2">
 								<IconAlertTriangle class="w-4 h-4 text-primary-700" />
 								<span
 									>Last login:
@@ -2026,7 +2026,7 @@
 		>
 			{#if createOrganizationStep === 1}
 				<div class="space-y-4">
-					<div class="border border-secondary-300 bg-white p-3">
+					<div class="border border-neutral-950 bg-white p-3">
 						<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">
 							Action Required
 						</p>
@@ -2119,7 +2119,7 @@
 
 			{#if createOrganizationStep === 2}
 				<div class="space-y-4">
-					<div class="border border-secondary-300 bg-white p-3">
+					<div class="border border-neutral-950 bg-white p-3">
 						<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">
 							Access Settings
 						</p>
@@ -2152,7 +2152,7 @@
 							</button>
 						</div>
 					</div>
-					<div class="border border-secondary-300 bg-white p-3">
+					<div class="border border-neutral-950 bg-white p-3">
 						<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
 							<input
 								type="checkbox"
@@ -2175,14 +2175,14 @@
 
 			{#if createOrganizationStep === 3}
 				<div class="space-y-4">
-					<div class="border border-secondary-300 bg-white p-3">
+					<div class="border border-neutral-950 bg-white p-3">
 						<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">Defaults</p>
 						<p class="text-sm text-neutral-950 mt-1">
 							Choose how this new organization should apply to your account right away.
 						</p>
 					</div>
 					<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-						<div class="border border-secondary-300 bg-white p-3">
+						<div class="border border-neutral-950 bg-white p-3">
 							<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
 								<input
 									type="checkbox"
@@ -2197,7 +2197,7 @@
 								Switch to this organization after create
 							</label>
 						</div>
-						<div class="border border-secondary-300 bg-white p-3">
+						<div class="border border-neutral-950 bg-white p-3">
 							<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
 								<input
 									type="checkbox"
@@ -2238,7 +2238,7 @@
 
 			{#if createOrganizationStep === 4}
 				<div class="space-y-4">
-					<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
+					<div class="border-2 border-neutral-950 bg-white p-4 space-y-2">
 						<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">Organization</p>
 						<p class="text-sm text-neutral-950">
 							<span class="font-semibold">Name:</span>
@@ -2253,7 +2253,7 @@
 							{createOrganizationForm.selfJoinEnabled ? 'Enabled' : 'Disabled'}
 						</p>
 					</div>
-					<div class="border-2 border-secondary-300 bg-white p-4 space-y-2">
+					<div class="border-2 border-neutral-950 bg-white p-4 space-y-2">
 						<p class="text-xs uppercase tracking-wide font-bold text-neutral-950">Membership</p>
 						<p class="text-sm text-neutral-950">
 							<span class="font-semibold">Role:</span>
@@ -2305,3 +2305,4 @@
 		/>
 	{/if}
 </div>
+

@@ -621,14 +621,14 @@
 </svelte:head>
 
 <div class="w-full space-y-4">
-	<header class="border-2 border-secondary-300 bg-neutral p-4 lg:p-5">
+	<header class="border-2 border-neutral-950 bg-neutral p-4 lg:p-5">
 		<h2 class="text-2xl lg:text-3xl font-bold font-serif text-neutral-950">Branding</h2>
 		<p class="mt-2 text-sm text-neutral-950">Update your core colors in real time.</p>
 	</header>
 
-	<section class="border-2 border-secondary-300 bg-neutral">
+	<section class="border-2 border-neutral-950 bg-neutral">
 		<div
-			class="flex flex-wrap items-start justify-between gap-3 border-b border-secondary-300 bg-neutral-600/66 p-4"
+			class="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-950 bg-neutral-600/66 p-4"
 		>
 			<div>
 				<h3 class="text-xl font-bold font-serif text-neutral-950">Theme Colors</h3>
@@ -663,7 +663,7 @@
 		<div class="p-4 lg:p-5">
 			<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
 				{#each [{ key: 'primary', label: 'Primary', description: 'Your main brand color for key elements and primary calls to action.', placeholder: 'CE1126', input: primaryInput }, { key: 'secondary', label: 'Secondary', description: 'Supporting color for backgrounds and secondary elements.', placeholder: '14213D', input: secondaryInput }, { key: 'neutral', description: 'Neutral color for backgrounds and borders. Leave empty for default.', label: 'Neutral', placeholder: 'Leave empty', input: neutralInput }] as color}
-					<div class="border border-secondary-300 bg-white p-3 h-full flex flex-col">
+					<div class="border border-neutral-950 bg-white p-3 h-full flex flex-col">
 						<label
 							for={`branding-${color.key}`}
 							class="block text-sm font-bold text-neutral-950 mb-1"
@@ -748,8 +748,8 @@
 		</div>
 	</section>
 
-	<section class="border-2 border-secondary-300 bg-neutral">
-		<div class="border-b border-secondary-300 bg-neutral-600/66 p-4">
+	<section class="border-2 border-neutral-950 bg-neutral">
+		<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
 			<h3 class="text-lg font-bold font-serif text-neutral-950">Saved Themes</h3>
 			<p class="mt-1 text-xs text-neutral-950">
 				Capacity: {Math.min($savedThemes.length, MAX_BRANDING_THEMES)} / {MAX_BRANDING_THEMES}
@@ -763,7 +763,7 @@
 				<div class="space-y-3">
 					{#each $savedThemes as theme (theme.id)}
 						<div
-							class="border border-secondary-300 bg-white p-3 cursor-pointer hover:bg-neutral-05 hover:border-secondary-500 transition-colors"
+							class="border border-neutral-950 bg-white p-3 cursor-pointer hover:bg-neutral-05 hover:border-secondary-500 transition-colors"
 							role="button"
 							tabindex="0"
 							onclick={() => handleLoadTheme(theme.id)}
@@ -1424,3 +1424,4 @@
 		</div>
 	{/if}
 </div>
+

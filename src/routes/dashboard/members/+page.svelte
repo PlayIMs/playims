@@ -51,7 +51,7 @@
 	const canManageRoles = $derived.by(() => data.capabilities.canManageRoles === true);
 	const canRemoveMembers = $derived.by(() => data.capabilities.canRemoveMembers === true);
 	const ACTION_DROPDOWN_BUTTON_CLASS = 'button-secondary-outlined p-1.5 cursor-pointer';
-	const ACTION_DROPDOWN_LIST_CLASS = 'mt-1 w-44 border-2 border-secondary-300 bg-white z-20';
+	const ACTION_DROPDOWN_LIST_CLASS = 'mt-1 w-44 border-2 border-neutral-950 bg-white z-20';
 	const ACTION_DROPDOWN_OPTION_CLASS =
 		'w-full px-3 py-2 text-left text-sm text-neutral-950 cursor-pointer';
 	const MOBILE_FILTER_BUTTON_CLASS =
@@ -680,7 +680,7 @@
 
 <div class="w-full space-y-4">
 	<section class="bg-neutral">
-		<div class="border-b border-secondary-300 bg-neutral-600/66 p-4">
+		<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
 			<div class="flex items-center gap-3 py-2 lg:py-3">
 				<div
 					class="bg-primary text-white border-2 border-primary-700 w-[2.75rem] h-[2.75rem] lg:w-[3.4rem] lg:h-[3.4rem] flex items-center justify-center"
@@ -709,7 +709,7 @@
 			{/if}
 			{#if latestInviteUrl}
 				<div
-					class="space-y-2 border-2 border-secondary-300 bg-white px-3 py-3 text-sm text-neutral-950"
+					class="space-y-2 border-2 border-neutral-950 bg-white px-3 py-3 text-sm text-neutral-950"
 				>
 					<div class="flex flex-wrap items-center justify-between gap-2">
 						<p class="font-semibold">Latest invite link</p>
@@ -727,7 +727,7 @@
 			{/if}
 
 			<div class="grid gap-4 xl:grid-cols-[18rem_minmax(0,1fr)]">
-				<aside class="space-y-4 border-2 border-secondary-300 bg-white p-4">
+				<aside class="space-y-4 border-2 border-neutral-950 bg-white p-4">
 					<div class="space-y-1">
 						<p class="text-[11px] font-bold uppercase tracking-[0.18em] text-neutral-950">
 							Filters
@@ -777,7 +777,7 @@
 				</aside>
 
 				<div class="min-w-0 space-y-4">
-					<div class="border-2 border-secondary-300 bg-white p-4">
+					<div class="border-2 border-neutral-950 bg-white p-4">
 						<SearchInput
 							id="member-search"
 							label="Search members"
@@ -790,10 +790,10 @@
 						/>
 					</div>
 
-					<div class="hidden overflow-x-auto border-2 border-secondary-300 bg-white lg:block">
+					<div class="hidden overflow-x-auto border-2 border-neutral-950 bg-white lg:block">
 						<table class="min-w-full border-collapse">
 							<thead
-								class="border-b-2 border-secondary-300 bg-neutral-100 text-left text-xs uppercase tracking-wide text-neutral-950"
+								class="border-b-2 border-neutral-950 bg-neutral-100 text-left text-xs uppercase tracking-wide text-neutral-950"
 							>
 								<tr>
 									<th aria-sort={ariaSort('studentId')} class="px-3 py-2">
@@ -941,13 +941,13 @@
 					<div class="grid gap-3 lg:hidden">
 						{#if members.length === 0}
 							<div
-								class="border-2 border-secondary-300 bg-white px-4 py-8 text-center text-sm text-neutral-950"
+								class="border-2 border-neutral-950 bg-white px-4 py-8 text-center text-sm text-neutral-950"
 							>
 								No members match the current search.
 							</div>
 						{:else}
 							{#each members as row (row.membershipId)}
-								<div class="overflow-hidden border-2 border-secondary-300 bg-white">
+								<div class="overflow-hidden border-2 border-neutral-950 bg-white">
 									<div
 										class="flex items-start justify-between gap-3 border-b border-secondary-200 bg-neutral-100 px-4 py-3"
 									>
@@ -1023,7 +1023,7 @@
 					</div>
 
 					<div
-						class="flex flex-col gap-3 border-t border-secondary-300 pt-3 lg:flex-row lg:items-center lg:justify-between"
+						class="flex flex-col gap-3 border-t border-neutral-950 pt-3 lg:flex-row lg:items-center lg:justify-between"
 					>
 						<p class="text-sm text-neutral-950">
 							Showing {visibleRangeStart} to {visibleRangeEnd} of {totalCount} members
@@ -1031,7 +1031,7 @@
 						<div class="flex flex-wrap items-center justify-end gap-1.5">
 							<button
 								type="button"
-								class="inline-flex h-9 items-center justify-center gap-1 border-2 border-secondary-300 bg-white px-3 text-sm text-neutral-950 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+								class="inline-flex h-9 items-center justify-center gap-1 border-2 border-neutral-950 bg-white px-3 text-sm text-neutral-950 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
 								disabled={!hasPreviousPage || membersLoading || currentPage <= 1}
 								onclick={() => changePage(currentPage - 1)}
 							>
@@ -1062,7 +1062,7 @@
 							{/each}
 							<button
 								type="button"
-								class="inline-flex h-9 items-center justify-center gap-1 border-2 border-secondary-300 bg-white px-3 text-sm text-neutral-950 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+								class="inline-flex h-9 items-center justify-center gap-1 border-2 border-neutral-950 bg-white px-3 text-sm text-neutral-950 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
 								disabled={!hasNextPage || membersLoading || currentPage >= totalPages}
 								onclick={() => changePage(currentPage + 1)}
 							>
@@ -1076,7 +1076,7 @@
 		</div>
 	</section>
 
-	<section class="space-y-3 border-2 border-secondary-300 bg-neutral p-3 lg:p-4">
+	<section class="space-y-3 border-2 border-neutral-950 bg-neutral p-3 lg:p-4">
 		<div class="flex items-center gap-2">
 			<h3 class="text-xl font-bold font-serif text-neutral-950">Pending Invites</h3>
 			<InfoPopover buttonVariant="label-inline" buttonAriaLabel="Pending invite help">
@@ -1090,13 +1090,13 @@
 				>{/if}
 		</div>
 		{#if pendingInvites.length === 0}
-			<div class="border-2 border-secondary-300 bg-white p-4 text-sm text-neutral-950">
+			<div class="border-2 border-neutral-950 bg-white p-4 text-sm text-neutral-950">
 				No pending member invites right now.
 			</div>
 		{:else}
 			<div class="space-y-3">
 				{#each pendingInvites as invite (invite.inviteId)}
-					<div class="space-y-3 border-2 border-secondary-300 bg-white p-4">
+					<div class="space-y-3 border-2 border-neutral-950 bg-white p-4">
 						<div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 							<div class="min-w-0">
 								<p class="break-all font-semibold text-neutral-950">{invite.email}</p>
@@ -1220,3 +1220,4 @@
 	onClose={() => (removeOpen = false)}
 	onSubmit={() => void submitRemove()}
 />
+

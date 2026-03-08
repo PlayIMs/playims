@@ -75,7 +75,7 @@ Ground in existing app usage before implementing:
 Default class recipes to copy first:
 
 - Module page shell: outer `w-full space-y-4` root with a full-width header strip followed by a body wrapper
-- Module header strip: `<header class="bg-neutral">` with inner `border-b border-secondary-300 bg-neutral-600/66 p-4`
+- Module header strip: `<header class="bg-neutral">` with inner `border-b border-neutral-950 bg-neutral-600/66 p-4`
 - Module header row: `flex items-center gap-3 py-2 lg:py-3`
 - Module header icon tile: `bg-primary text-white border-2 border-primary-700 w-[2.75rem] h-[2.75rem] lg:w-[3.4rem] lg:h-[3.4rem] flex items-center justify-center`
 - Module page title: `text-5xl lg:text-6xl leading-[0.9] tracking-[0.01em] font-bold font-serif text-neutral-950`
@@ -91,7 +91,7 @@ Default class recipes to copy first:
 Use this recipe for compact single-step switchers such as role switchers, organization switchers, or similar context pickers:
 
 - Keep the modal width aligned to the existing switcher pattern: `maxWidthClass="max-w-lg"`.
-- Start with a small summary block: `border border-secondary-300 bg-white p-2.5`.
+- Start with a small summary block: `border border-neutral-950 bg-white p-2.5`.
 - Summary copy should stay to one or two short lines and describe the current state first.
 - Use a single-column option stack: `grid grid-cols-1 gap-2`.
 - Option cards should use `group relative border p-2.5 pr-14 text-left cursor-pointer`.
@@ -118,7 +118,12 @@ Required structure:
 Do not use the older boxed hero shell for module pages:
 
 - Do not wrap the whole page in `p-6 lg:p-8` when the goal is a standard dashboard module page.
-- Do not use `border-2 border-secondary-300 bg-neutral p-5` as the module header container.
+- Do not use `border-2 border-neutral-950 bg-neutral p-5` as the module header container.
+
+Border token policy:
+
+- Use `neutral-950` for non-interactive page chrome: module shells, section shells, header dividers, card borders, table wrappers, draft containers, and wizard footers.
+- Keep `secondary-300` for inactive interactive states when the border is part of the control affordance itself, such as badge-like chips, unselected option cards, and button-adjacent control states, unless the user asks to restyle those controls too.
 - Do not put page subtitles in the module header by default.
 - Do not place primary action buttons in the module header by default.
 

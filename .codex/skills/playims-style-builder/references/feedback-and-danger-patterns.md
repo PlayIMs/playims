@@ -70,7 +70,7 @@ Use error-themed `ModalShell` composition:
 - Panel: `w-full max-w-2xl ... border-4 border-error-700 bg-error-25 overflow-hidden flex flex-col`
 - Header: `p-4 border-b border-error-300 bg-error-50 ...`
 - Body warning block: `border-2 border-error-300 bg-error-50 p-3 space-y-2`
-- Footer: `p-4 border-t border-secondary-300 flex justify-end gap-2`
+- Footer: `p-4 border-t border-neutral-950 flex justify-end gap-2`
 
 Buttons:
 

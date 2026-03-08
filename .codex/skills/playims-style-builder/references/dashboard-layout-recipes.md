@@ -24,7 +24,7 @@ Use for dashboard pages with title block + content sections.
 
 Primary recipe:
 
-- Header wrapper: `border-2 border-secondary-300 bg-neutral p-5 space-y-4`
+- Header wrapper: `border-2 border-neutral-950 bg-neutral p-5 space-y-4`
 - Top row: `flex items-start gap-4`
 - Icon tile: `bg-primary text-white w-11 h-11 flex items-center justify-center`
 - Page title: `text-5xl lg:text-6xl leading-[0.9] font-bold font-serif text-neutral-950`
@@ -36,8 +36,8 @@ When no icon tile is needed, keep the same heading rhythm and border shell.
 Two-column board pattern for dashboard + snapshot:
 
 - Grid: `grid grid-cols-1 2xl:grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)] gap-6`
-- Primary panel shell: `min-w-0 border-2 border-secondary-300 bg-neutral`
-- Panel header strip: `p-4 border-b border-secondary-300 bg-neutral-600/66`
+- Primary panel shell: `min-w-0 border-2 border-neutral-950 bg-neutral`
+- Panel header strip: `p-4 border-b border-neutral-950 bg-neutral-600/66`
 - Panel body: `p-4 space-y-4`
 
 Use `min-w-0` on primary content columns to prevent flex/grid overflow.
@@ -79,15 +79,15 @@ If disabled, keep `disabled:cursor-not-allowed`.
 
 Standard content card:
 
-- `border border-secondary-300 bg-white p-4 space-y-3`
+- `border border-neutral-950 bg-white p-4 space-y-3`
 
 Subsection callout:
 
-- `border border-secondary-300 bg-white p-3 text-sm text-neutral-950 space-y-2`
+- `border border-neutral-950 bg-white p-3 text-sm text-neutral-950 space-y-2`
 
 Scrollable table region:
 
-- Wrapper: `border border-secondary-300 bg-white overflow-x-auto`
+- Wrapper: `border border-neutral-950 bg-white overflow-x-auto`
 - Table: `min-w-full border-collapse`
 
 Nested helper container:
@@ -98,7 +98,7 @@ Nested helper container:
 
 Sidebar shell:
 
-- `border-2 border-secondary-300 bg-neutral`
+- `border-2 border-neutral-950 bg-neutral`
 
 Stat card blocks:
 
@@ -117,7 +117,7 @@ Stat value:
 
 No-data message block:
 
-- `border border-secondary-300 bg-white p-4 space-y-2`
+- `border border-neutral-950 bg-white p-4 space-y-2`
 
 Filtered-empty warning:
 
