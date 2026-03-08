@@ -1,0 +1,4 @@
+interface:
+  display_name: 'PlayIMs Offerings Table Builder'
+  short_description: 'Build PlayIMs tables that match the offerings page'
+  default_prompt: 'Use $playims-offerings-table-builder to build this table so it matches the PlayIMs offerings-page table styles and component pattern.'
