@@ -45,6 +45,8 @@ Behavioral guarantees from current implementation:
 - Clamps to visible viewport with edge padding.
 - Applies minimum width for readability (`minWidthPx`) and avoids viewport overflow.
 - Uses `position: fixed`, so tooltip panel does not affect ancestor layout/scroll.
+- Ports the tooltip panel to `document.body` to escape ancestor stacking contexts.
+- Forces a max-safe z-index so the tooltip stays above surrounding page chrome, sticky regions, and modals.
 - Uses `pointer-events-none` on panel to avoid stealing hover state from the trigger.
 
 ## Required Integration Pattern
@@ -61,6 +63,8 @@ Behavioral guarantees from current implementation:
 - `InfoPopover` uses the same shared floating-position engine but intentionally does not follow cursor.
 7. For any displayed date/datetime text, use `DateHoverText` instead of wiring `HoverTooltip` manually.
 - `DateHoverText` standardizes full-date tooltip formatting and timezone behavior for date displays.
+8. Preserve the shared portal behavior.
+- Tooltip panels must continue rendering from `document.body`; do not move them back inside trigger containers or reduce their enforced z-index.
 
 Default usage:
 
@@ -101,6 +105,7 @@ Full-width wrapper example:
 - Do not use `HoverTooltip` for long, paragraph-heavy instructional content.
 - Do not reintroduce native `title` attributes where `HoverTooltip` is expected.
 - Do not hand-roll date display tooltips with raw `HoverTooltip`; use `DateHoverText`.
+- Do not remove the body-portal behavior or replace the enforced top-layer z-index with local stacking classes.
 - Keep tooltip text supplemental; critical required instructions should stay visible inline.
 - Preserve route behavior and handlers when migrating tooltip wrappers.
 

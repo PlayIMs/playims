@@ -40,16 +40,31 @@
 		children
 	}: Props = $props();
 
+	const HOVER_TOOLTIP_Z_INDEX = 2147483647;
+	const HIDDEN_PANEL_STYLE = `position: fixed; left: 0px; top: 0px; visibility: hidden; z-index: ${HOVER_TOOLTIP_Z_INDEX};`;
+
 	let root = $state<HTMLElement | null>(null);
 	let panel = $state<HTMLElement | null>(null);
 	let open = $state(false);
-	let panelStyle = $state('position: fixed; left: 0px; top: 0px; visibility: hidden;');
+	let panelStyle = $state(HIDDEN_PANEL_STYLE);
 	let focusInside = $state(false);
 	let pointerX = $state<number | null>(null);
 	let pointerY = $state<number | null>(null);
 	let frameId: number | null = null;
 	const tooltipId = nextTooltipId('hover-tooltip');
 	const normalizedText = $derived.by(() => String(text ?? '').trim());
+
+	function portalToBody(node: HTMLElement): { destroy(): void } | void {
+		if (typeof document === 'undefined' || !document.body) return;
+		document.body.appendChild(node);
+		return {
+			destroy() {
+				if (node.parentNode === document.body) {
+					document.body.removeChild(node);
+				}
+			}
+		};
+	}
 
 	function clearScheduledFrame(): void {
 		if (typeof window === 'undefined' || frameId === null) return;
@@ -100,19 +115,22 @@
 			requiresEdgeProtection && resolvedMinWidth > 0 ? `min-width: ${resolvedMinWidth}px;` : '';
 		const maxWidthStyle =
 			panelRect.width > position.maxWidth ? `max-width: ${Math.round(position.maxWidth)}px;` : '';
-		panelStyle = toFixedStyle(position, `${minWidthStyle} ${maxWidthStyle}`.trim());
+		panelStyle = toFixedStyle(
+			position,
+			`z-index: ${HOVER_TOOLTIP_Z_INDEX}; ${minWidthStyle} ${maxWidthStyle}`.trim()
+		);
 	}
 
 	function show(): void {
 		if (!normalizedText) return;
 		open = true;
-		panelStyle = 'position: fixed; left: 0px; top: 0px; visibility: hidden;';
+		panelStyle = HIDDEN_PANEL_STYLE;
 		schedulePositionUpdate();
 	}
 
 	function hide(): void {
 		open = false;
-		panelStyle = 'position: fixed; left: 0px; top: 0px; visibility: hidden;';
+		panelStyle = HIDDEN_PANEL_STYLE;
 		clearScheduledFrame();
 	}
 
@@ -194,9 +212,10 @@
 			id={tooltipId}
 			role="tooltip"
 			aria-live="polite"
-			class={`pointer-events-none z-[300] whitespace-normal break-words ${maxWidthClass} ${panelClass}`}
+			class={`pointer-events-none whitespace-normal break-words ${maxWidthClass} ${panelClass}`}
 			style={panelStyle}
 			bind:this={panel}
+			use:portalToBody
 		>
 			{normalizedText}
 		</span>

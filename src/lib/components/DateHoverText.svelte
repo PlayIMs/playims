@@ -39,5 +39,7 @@
 		<span class={textClass}>{display}</span>
 	</HoverTooltip>
 {:else}
-	<span class={textClass}>{display}</span>
+	<span class={wrapperClass}>
+		<span class={textClass}>{display}</span>
+	</span>
 {/if}

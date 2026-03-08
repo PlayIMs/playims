@@ -22,7 +22,8 @@ Use this checklist after adding or refactoring any `HoverTooltip` usage.
 ## Layout Safety
 - Tooltip does not alter ancestor width, height, or scrollability.
 - In modal/wizard contexts, tooltip may extend beyond modal bounds but stays within viewport.
-- Tooltip z-index is sufficient above surrounding controls.
+- Tooltip renders from `document.body`, not inside the trigger subtree.
+- Tooltip z-index is sufficient above surrounding controls, sidebars, sticky headers, and modal chrome.
 
 ## Content Quality
 - Text is concise and action-specific.
