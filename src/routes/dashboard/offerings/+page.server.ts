@@ -11,8 +11,11 @@ type ActivityType = 'league' | 'tournament';
 interface ActivityCard {
 	id: string;
 	offeringId: string | null;
+	offeringSlug: string | null;
 	leagueId: string | null;
+	leagueSlug: string | null;
 	seasonId: string | null;
+	seasonSlug: string | null;
 	stackOrder: number | null;
 	offeringType: ActivityType;
 	offeringName: string;
@@ -236,8 +239,11 @@ export const load: PageServerLoad = async (event) => {
 				return {
 					id: resolvedId,
 					offeringId: league.offeringId ?? null,
+					offeringSlug: offering?.slug?.trim() || null,
 					leagueId: league.id ?? null,
+					leagueSlug: league.slug?.trim() || null,
 					seasonId: linkedSeason?.id ?? resolvedSeasonId ?? null,
+					seasonSlug: linkedSeason?.slug?.trim() || null,
 					stackOrder: league.stackOrder ?? null,
 					offeringType,
 					offeringName,

@@ -1,0 +1,290 @@
+<script lang="ts">
+	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
+	import InfoPopover from '$lib/components/InfoPopover.svelte';
+	import {
+		WizardModal,
+		WizardStepFooter,
+		WizardUnsavedConfirm,
+		slugifyFinal,
+		applyLiveSlugInput
+	} from '$lib/components/wizard';
+	import { toast } from '$lib/toasts';
+	import { IconRestore } from '@tabler/icons-svelte';
+
+	interface DivisionWizardForm {
+		name: string;
+		slug: string;
+		maxTeams: string;
+		description: string;
+		dayOfWeek: string;
+		gameTime: string;
+		location: string;
+		startDate: string;
+		isLocked: boolean;
+	}
+
+	interface Props {
+		open: boolean;
+		form: DivisionWizardForm;
+		fieldErrors: Record<string, string>;
+		formError: string;
+		submitting: boolean;
+		canSubmit: boolean;
+		slugTouched: boolean;
+		unsavedConfirmOpen: boolean;
+		onSlugTouchedChange: (value: boolean) => void;
+		onRequestClose: () => void;
+		onSubmit: () => void;
+		onInput: () => void;
+		onUnsavedConfirm: () => void;
+		onUnsavedCancel: () => void;
+	}
+
+	let {
+		open,
+		form,
+		fieldErrors,
+		formError,
+		submitting,
+		canSubmit,
+		slugTouched,
+		unsavedConfirmOpen,
+		onSlugTouchedChange,
+		onRequestClose,
+		onSubmit,
+		onInput,
+		onUnsavedConfirm,
+		onUnsavedCancel
+	}: Props = $props();
+
+	let lastToastSignature = $state('');
+
+	$effect(() => {
+		const message = formError.trim();
+		if (!message) {
+			lastToastSignature = '';
+			return;
+		}
+
+		const signature = `${open ? 'open' : 'closed'}:${message}`;
+		if (signature === lastToastSignature) return;
+		lastToastSignature = signature;
+		toast.error(message, {
+			id: 'create-division-wizard-error',
+			title: 'Create division'
+		});
+	});
+</script>
+
+<WizardModal
+	{open}
+	title="New Division"
+	step={1}
+	stepCount={1}
+	stepTitle="Division Details"
+	progressPercent={100}
+	closeAriaLabel="Close create division wizard"
+	maxWidthClass="max-w-3xl"
+	on:requestClose={onRequestClose}
+	on:submit={onSubmit}
+	on:input={onInput}
+>
+	<div class="space-y-4">
+		<div class="border border-secondary-300 bg-white p-3 text-sm leading-6 text-neutral-950">
+			Create a division with its own team capacity, schedule slot, and lock state. Teams can be
+			added later through the team wizard.
+		</div>
+
+		<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+			<div>
+				<div class="mb-1 flex min-h-6 items-center gap-1.5">
+					<label for="create-division-name" class="text-sm leading-6 text-neutral-950">
+						Name <span class="text-error-700">*</span>
+					</label>
+					<InfoPopover buttonVariant="label-inline" buttonAriaLabel="Division name help">
+						<div class="space-y-2">
+							<p>Use the division name teams will recognize when registering.</p>
+						</div>
+					</InfoPopover>
+				</div>
+				<input
+					id="create-division-name"
+					type="text"
+					class="input-secondary"
+					placeholder="Monday 6:00 PM"
+					value={form.name}
+					data-wizard-autofocus
+					oninput={(event) => {
+						const value = (event.currentTarget as HTMLInputElement).value;
+						form.name = value;
+						if (!slugTouched) {
+							form.slug = slugifyFinal(value);
+						}
+					}}
+					autocomplete="off"
+				/>
+				{#if fieldErrors['name']}
+					<p class="mt-1 text-xs text-error-700">{fieldErrors['name']}</p>
+				{/if}
+			</div>
+
+			<div>
+				<div class="mb-1 flex min-h-6 items-center gap-1.5">
+					<label for="create-division-slug" class="text-sm leading-6 text-neutral-950">
+						Slug <span class="text-error-700">*</span>
+					</label>
+					<InfoPopover buttonVariant="label-inline" buttonAriaLabel="Division slug help">
+						<div class="space-y-2">
+							<p>The slug keeps division URLs and records readable.</p>
+						</div>
+					</InfoPopover>
+				</div>
+				<div class="relative">
+					<input
+						id="create-division-slug"
+						type="text"
+						class="input-secondary pr-10"
+						placeholder="monday-6-00-pm"
+						value={form.slug}
+						oninput={(event) => {
+							onSlugTouchedChange(true);
+							form.slug = applyLiveSlugInput(event.currentTarget as HTMLInputElement);
+						}}
+						autocomplete="off"
+					/>
+					<HoverTooltip
+						text="Revert to default"
+						wrapperClass="absolute right-2 top-1/2 inline-flex shrink-0 z-10"
+					>
+						<button
+							type="button"
+							tabindex="-1"
+							class="-translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
+							aria-label="Revert division slug to default"
+							onclick={() => {
+								onSlugTouchedChange(false);
+								form.slug = slugifyFinal(form.name);
+							}}
+						>
+							<IconRestore class="h-4 w-4" />
+						</button>
+					</HoverTooltip>
+				</div>
+				{#if fieldErrors['slug']}
+					<p class="mt-1 text-xs text-error-700">{fieldErrors['slug']}</p>
+				{/if}
+			</div>
+		</div>
+
+		<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+			<div>
+				<label for="create-division-max-teams" class="mb-1 block text-sm text-neutral-950">
+					Max Teams <span class="text-error-700">*</span>
+				</label>
+				<input
+					id="create-division-max-teams"
+					type="number"
+					min="1"
+					step="1"
+					class="input-secondary"
+					bind:value={form.maxTeams}
+				/>
+				{#if fieldErrors['maxTeams']}
+					<p class="mt-1 text-xs text-error-700">{fieldErrors['maxTeams']}</p>
+				{/if}
+			</div>
+			<div>
+				<label for="create-division-start-date" class="mb-1 block text-sm text-neutral-950">
+					Start Date
+				</label>
+				<input
+					id="create-division-start-date"
+					type="date"
+					class="input-secondary"
+					bind:value={form.startDate}
+				/>
+			</div>
+		</div>
+
+		<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+			<div>
+				<label for="create-division-day" class="mb-1 block text-sm text-neutral-950"
+					>Day of Week</label
+				>
+				<input
+					id="create-division-day"
+					type="text"
+					class="input-secondary"
+					bind:value={form.dayOfWeek}
+					autocomplete="off"
+				/>
+			</div>
+			<div>
+				<label for="create-division-time" class="mb-1 block text-sm text-neutral-950"
+					>Game Time</label
+				>
+				<input
+					id="create-division-time"
+					type="text"
+					class="input-secondary"
+					bind:value={form.gameTime}
+					autocomplete="off"
+				/>
+			</div>
+			<div>
+				<label for="create-division-location" class="mb-1 block text-sm text-neutral-950"
+					>Location</label
+				>
+				<input
+					id="create-division-location"
+					type="text"
+					class="input-secondary"
+					bind:value={form.location}
+					autocomplete="off"
+				/>
+			</div>
+		</div>
+
+		<div>
+			<label for="create-division-description" class="mb-1 block text-sm text-neutral-950">
+				Description
+			</label>
+			<textarea
+				id="create-division-description"
+				class="textarea-secondary min-h-28"
+				bind:value={form.description}
+			></textarea>
+		</div>
+
+		<div class="border border-secondary-300 bg-white p-3">
+			<label class="inline-flex items-center gap-2 text-sm text-neutral-950">
+				<input type="checkbox" class="toggle-secondary" bind:checked={form.isLocked} />
+				Start this division locked
+			</label>
+		</div>
+	</div>
+
+	{#snippet footer()}
+		<WizardStepFooter
+			step={1}
+			lastStep={1}
+			showBack={false}
+			canGoNext={false}
+			{canSubmit}
+			nextLabel="Next"
+			submitLabel="Create Division"
+			submittingLabel="Creating..."
+			isSubmitting={submitting}
+		/>
+	{/snippet}
+</WizardModal>
+
+<WizardUnsavedConfirm
+	open={unsavedConfirmOpen}
+	title="Discard Wizard Changes?"
+	message="You have unsaved division changes. Close without saving?"
+	confirmLabel="Discard Changes"
+	cancelLabel="Keep Editing"
+	on:confirm={onUnsavedConfirm}
+	on:cancel={onUnsavedCancel}
+/>

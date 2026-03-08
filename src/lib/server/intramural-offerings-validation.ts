@@ -167,6 +167,60 @@ const manageSeasonSetActiveSchema = z.object({
 	isActive: z.boolean()
 });
 
+const intramuralDivisionInputSchema = z.object({
+	name: requiredText('Division name', 140),
+	slug: slugField('Division slug'),
+	description: optionalText('Division description', 2000),
+	dayOfWeek: optionalText('Day of week', 40),
+	gameTime: optionalText('Game time', 40),
+	maxTeams: z
+		.number()
+		.int('Division team limit must be a whole number.')
+		.min(1, 'Division team limit must be at least 1.')
+		.max(128, 'Division team limit must be 128 or less.'),
+	location: optionalText('Division location', 140),
+	isLocked: z.boolean(),
+	startDate: optionalDate
+});
+
+const intramuralTeamPlacementSchema = z.enum(['active', 'waitlist']);
+
+const intramuralTeamInputSchema = z.object({
+	divisionId: requiredText('Division', 120),
+	name: requiredText('Team name', 140),
+	slug: slugField('Team slug'),
+	description: optionalText('Team description', 2000),
+	imageUrl: optionalUrl('Team image URL'),
+	teamColor: optionalText('Team color', 40),
+	placement: intramuralTeamPlacementSchema
+});
+
+export const createIntramuralDivisionSchema = z.object({
+	action: z.literal('create-division'),
+	leagueId: requiredText('League', 120),
+	division: intramuralDivisionInputSchema
+});
+
+export const createIntramuralTeamSchema = z.object({
+	action: z.literal('create-team'),
+	leagueId: requiredText('League', 120),
+	team: intramuralTeamInputSchema
+});
+
+export const moveIntramuralTeamSchema = z.object({
+	action: z.literal('move-team'),
+	leagueId: requiredText('League', 120),
+	teamId: requiredText('Team', 120),
+	divisionId: requiredText('Division', 120),
+	placement: intramuralTeamPlacementSchema
+});
+
+export const removeIntramuralTeamSchema = z.object({
+	action: z.literal('remove-team'),
+	leagueId: requiredText('League', 120),
+	teamId: requiredText('Team', 120)
+});
+
 export const manageIntramuralSeasonSchema = z
 	.discriminatedUnion('action', [
 		manageSeasonUpdateDetailsSchema,
@@ -517,6 +571,10 @@ export type CreateIntramuralLeagueInput = z.infer<typeof createIntramuralLeagueS
 export type CreateIntramuralSeasonInput = z.infer<typeof createIntramuralSeasonSchema>;
 export type ManageIntramuralSeasonInput = z.infer<typeof manageIntramuralSeasonSchema>;
 export type DeleteIntramuralSeasonInput = z.infer<typeof deleteIntramuralSeasonSchema>;
+export type CreateIntramuralDivisionInput = z.infer<typeof createIntramuralDivisionSchema>;
+export type CreateIntramuralTeamInput = z.infer<typeof createIntramuralTeamSchema>;
+export type MoveIntramuralTeamInput = z.infer<typeof moveIntramuralTeamSchema>;
+export type RemoveIntramuralTeamInput = z.infer<typeof removeIntramuralTeamSchema>;
 
 export type CreatedIntramuralActivity = {
 	id: string;
@@ -594,6 +652,17 @@ export type DeleteIntramuralSeasonResponse = {
 	data?: {
 		deletedSeasonId: string;
 		currentSeasonId?: string | null;
+	};
+	error?: string;
+	fieldErrors?: Record<string, string[] | undefined>;
+};
+
+export type ManageIntramuralLeagueResponse = {
+	success: boolean;
+	data?: {
+		leagueId: string;
+		divisionId?: string;
+		teamId?: string;
 	};
 	error?: string;
 	fieldErrors?: Record<string, string[] | undefined>;

@@ -24,6 +24,16 @@ export class LeagueOperations {
 		return result[0] ?? null;
 	}
 
+	async getByClientIdAndId(clientId: string, leagueId: string): Promise<League | null> {
+		const result = await this.db
+			.select()
+			.from(leagues)
+			.where(and(eq(leagues.clientId, clientId), eq(leagues.id, leagueId)))
+			.limit(1);
+
+		return result[0] ?? null;
+	}
+
 	async getByClientIdSeasonIdAndSlug(
 		clientId: string,
 		seasonId: string,

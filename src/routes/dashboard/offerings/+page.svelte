@@ -44,8 +44,10 @@
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import InfoPopover from '$lib/components/InfoPopover.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
+	import OfferingsTable from '$lib/components/OfferingsTable.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
+	import type { OfferingsTableColumn } from '$lib/components/offerings-table.js';
 	import { toast } from '$lib/toasts';
 	import { generateUuidV4 } from '$lib/utils/uuid.js';
 
@@ -54,14 +56,15 @@
 	type LeagueTemplate = PageData['leagueTemplates'][number];
 	type OfferingStatus = 'open' | 'waitlisted' | 'closed';
 
-interface LeagueOffering {
+	interface LeagueOffering {
 		id: string;
+		leagueSlug: string | null;
 		leagueName: string;
 		stackOrder: number;
 		categoryLabel: string;
 		divisionCount: number;
 		status: OfferingStatus;
-	statusLabel: 'Open' | 'Waitlist' | 'Closed' | 'Upcoming';
+		statusLabel: 'Open' | 'Waitlist' | 'Closed' | 'Upcoming';
 		teamRegistrationOpenText: string;
 		teamRegistrationCloseText: string;
 		teamRegistrationOpenDate: string | null;
@@ -3222,35 +3225,28 @@ interface LeagueOffering {
 	function offeringGroupKey(
 		offeringName: string,
 		offeringType: 'league' | 'tournament',
+		offeringSlug: string,
 		splitByOfferingType: boolean
 	): string {
+		const normalizedSlug = slugifyFinal(offeringSlug);
+		if (normalizedSlug) {
+			return splitByOfferingType ? `${normalizedSlug}::${offeringType}` : normalizedSlug;
+		}
 		return splitByOfferingType ? `${offeringName}::${offeringType}` : offeringName;
 	}
 
-	function offeringCardSlug(
-		offeringName: string,
-		offeringType: 'league' | 'tournament',
-		seasonKey: string,
-		slugHint = ''
-	): string {
-		const normalizedSlug = slugifyFinal(slugHint) || slugifyFinal(offeringName) || 'offering';
-		return `offering-${normalizedSlug}-${offeringType}-${seasonKey}`;
+	function offeringCardSlug(offeringName: string, slugHint = ''): string {
+		return slugifyFinal(slugHint) || slugifyFinal(offeringName) || 'offering';
 	}
 
 	function createEmptyOfferingGroup(input: {
 		offeringName: string;
 		offeringType: 'league' | 'tournament';
 		offeringSlugHint?: string;
-		seasonKey: string;
 	}): OfferingGroup {
 		return {
 			offeringName: input.offeringName,
-			offeringSlug: offeringCardSlug(
-				input.offeringName,
-				input.offeringType,
-				input.seasonKey,
-				input.offeringSlugHint ?? ''
-			),
+			offeringSlug: offeringCardSlug(input.offeringName, input.offeringSlugHint ?? ''),
 			offeringType: input.offeringType,
 			divisionCount: 0,
 			openCount: 0,
@@ -3295,6 +3291,46 @@ interface LeagueOffering {
 		return group.offeringType === 'tournament' ? 'Tournament Date(s)' : 'Season Date Range';
 	}
 
+	function offeringTableColumnsFor(group: OfferingGroup): OfferingsTableColumn[] {
+		return [
+			{
+				key: 'league',
+				label: columnHeaderFor(group, 'league'),
+				widthClass: 'w-[24%]',
+				rowHeader: true
+			},
+			{
+				key: 'status',
+				label: 'Status',
+				widthClass: 'w-[12%]'
+			},
+			{
+				key: 'registration',
+				label: columnHeaderFor(group, 'registration'),
+				widthClass: 'w-[22%]',
+				cellClass: 'align-top'
+			},
+			{
+				key: 'join-team',
+				label: 'Join Team Deadline',
+				widthClass: 'w-[20%]',
+				cellClass: 'align-top'
+			},
+			{
+				key: 'range',
+				label: columnHeaderFor(group, 'range'),
+				widthClass: 'w-[22%]',
+				cellClass: 'align-top'
+			}
+		];
+	}
+
+	function leagueRowHighlightClass(offeringSlug: string, leagueId: string): string {
+		return highlightedLeagueRowId === getLeagueRowId(offeringSlug, leagueId)
+			? 'league-row-highlight'
+			: '';
+	}
+
 	function entryLabelFor(group: OfferingGroup): 'league' | 'group' {
 		return group.offeringType === 'tournament' ? 'group' : 'league';
 	}
@@ -3329,15 +3365,19 @@ interface LeagueOffering {
 			const bucket = seasonMap.get(season.id);
 			if (!bucket) continue;
 			const offeringName = offeringSeed.name?.trim() || 'General Recreation';
-			const offeringKey = offeringGroupKey(offeringName, offeringSeed.type, splitByOfferingType);
+			const offeringKey = offeringGroupKey(
+				offeringName,
+				offeringSeed.type,
+				offeringSeed.slug,
+				splitByOfferingType
+			);
 			if (!bucket.offerings.has(offeringKey)) {
 				bucket.offerings.set(
 					offeringKey,
 					createEmptyOfferingGroup({
 						offeringName,
 						offeringType: offeringSeed.type,
-						offeringSlugHint: offeringSeed.slug,
-						seasonKey: season.id
+						offeringSlugHint: offeringSeed.slug
 					})
 				);
 			}
@@ -3356,14 +3396,19 @@ interface LeagueOffering {
 			if (!bucket) continue;
 
 			const offeringName = activity.offeringName?.trim() || 'General Recreation';
-			const offeringKey = offeringGroupKey(offeringName, activity.offeringType, splitByOfferingType);
+			const offeringKey = offeringGroupKey(
+				offeringName,
+				activity.offeringType,
+				activity.offeringSlug ?? '',
+				splitByOfferingType
+			);
 			if (!bucket.offerings.has(offeringKey)) {
 				bucket.offerings.set(
 					offeringKey,
 					createEmptyOfferingGroup({
 						offeringName,
 						offeringType: activity.offeringType,
-						seasonKey: season.key
+						offeringSlugHint: activity.offeringSlug ?? ''
 					})
 				);
 			}
@@ -3379,6 +3424,7 @@ interface LeagueOffering {
 
 			const leagueOffering: LeagueOffering = {
 				id: activity.id,
+				leagueSlug: activity.leagueSlug ?? null,
 				leagueName: activity.leagueName,
 				stackOrder: activity.stackOrder ?? Number.MAX_SAFE_INTEGER,
 				categoryLabel,
@@ -4157,10 +4203,7 @@ interface LeagueOffering {
 		previousCreateStep();
 	}
 
-	function statusClass(
-		status: OfferingStatus,
-		statusLabel: LeagueOffering['statusLabel']
-	): string {
+	function statusClass(status: OfferingStatus, statusLabel: LeagueOffering['statusLabel']): string {
 		if (statusLabel === 'Upcoming') return 'badge-primary-outlined';
 		if (status === 'open') return 'badge-primary';
 		if (status === 'waitlisted') return 'badge-primary-outlined';
@@ -4665,33 +4708,33 @@ interface LeagueOffering {
 										</div>
 									</div>
 
-								<div class="border border-secondary-300 bg-white overflow-x-auto scrollbar-thin">
-									<table class="w-full table-fixed border-collapse">
-										<colgroup>
-											<col class="w-[24%]" />
-											<col class="w-[12%]" />
-											<col class="w-[22%]" />
-											<col class="w-[20%]" />
-											<col class="w-[22%]" />
-										</colgroup>
-										<thead>
-											<tr class="border-b border-secondary-300 bg-neutral">
-												<th scope="col" class="px-2 py-1 text-left">
-													<div class="h-3 w-20 bg-neutral-100"></div>
-												</th>
-												<th scope="col" class="px-2 py-1 text-left">
-													<div class="h-3 w-12 bg-neutral-100"></div>
-												</th>
-												<th scope="col" class="px-2 py-1 text-left">
-													<div class="h-3 w-24 bg-neutral-100"></div>
-												</th>
-												<th scope="col" class="px-2 py-1 text-left">
-													<div class="h-3 w-24 bg-neutral-100"></div>
-												</th>
-												<th scope="col" class="px-2 py-1 text-left">
-													<div class="h-3 w-20 bg-neutral-100"></div>
-												</th>
-											</tr>
+									<div class="border border-secondary-300 bg-white overflow-x-auto scrollbar-thin">
+										<table class="w-full table-fixed border-collapse">
+											<colgroup>
+												<col class="w-[24%]" />
+												<col class="w-[12%]" />
+												<col class="w-[22%]" />
+												<col class="w-[20%]" />
+												<col class="w-[22%]" />
+											</colgroup>
+											<thead>
+												<tr class="border-b border-secondary-300 bg-neutral">
+													<th scope="col" class="px-2 py-1 text-left">
+														<div class="h-3 w-20 bg-neutral-100"></div>
+													</th>
+													<th scope="col" class="px-2 py-1 text-left">
+														<div class="h-3 w-12 bg-neutral-100"></div>
+													</th>
+													<th scope="col" class="px-2 py-1 text-left">
+														<div class="h-3 w-24 bg-neutral-100"></div>
+													</th>
+													<th scope="col" class="px-2 py-1 text-left">
+														<div class="h-3 w-24 bg-neutral-100"></div>
+													</th>
+													<th scope="col" class="px-2 py-1 text-left">
+														<div class="h-3 w-20 bg-neutral-100"></div>
+													</th>
+												</tr>
 											</thead>
 											<tbody>
 												{#each [0, 1, 2, 3] as _, leagueIndex}
@@ -4738,9 +4781,18 @@ interface LeagueOffering {
 								<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
 									<div>
 										<div class="flex items-center gap-2">
-											<h3 class="text-2xl font-bold font-serif text-neutral-950">
-												{offering.offeringName}
-											</h3>
+											{#if selectedSeason?.slug && offering.offeringSlug}
+												<a
+													href={`/dashboard/offerings/${selectedSeason.slug}/${offering.offeringSlug}`}
+													class="text-2xl font-bold font-serif text-neutral-950 hover:underline"
+												>
+													{offering.offeringName}
+												</a>
+											{:else}
+												<h3 class="text-2xl font-bold font-serif text-neutral-950">
+													{offering.offeringName}
+												</h3>
+											{/if}
 											{#if showAllOfferings}
 												<span
 													class="badge-secondary-outlined text-[10px] uppercase tracking-wide px-1.5 py-0 self-center"
@@ -4769,165 +4821,122 @@ interface LeagueOffering {
 									</div>
 								</div>
 
-								<div class="border border-secondary-300 bg-white overflow-x-auto scrollbar-thin">
-									<table class="w-full table-fixed border-collapse">
-										<colgroup>
-											<col class="w-[24%]" />
-											<col class="w-[12%]" />
-											<col class="w-[22%]" />
-											<col class="w-[20%]" />
-											<col class="w-[22%]" />
-										</colgroup>
-										<thead>
-											<tr class="border-b border-secondary-300 bg-neutral">
-												<th
-													scope="col"
-													class="px-2 py-1 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950"
-												>
-													{columnHeaderFor(offering, 'league')}
+								<OfferingsTable
+									columns={offeringTableColumnsFor(offering)}
+									rows={offering.leagues}
+									caption={`${offering.offeringName} ${entryLabelFor(offering)} table`}
+									rowId={(league) => getLeagueRowId(offering.offeringSlug, league.id)}
+									rowClass={(league) => leagueRowHighlightClass(offering.offeringSlug, league.id)}
+								>
+									{#snippet emptyBody()}
+										{#each [0, 1, 2] as placeholderIndex}
+											<tr
+												class={`align-middle ${placeholderIndex < 2 ? 'border-b border-secondary-200' : ''} ${placeholderIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}
+												aria-hidden="true"
+											>
+												<th scope="row" class="px-2 py-1 text-left">
+													<div class="flex items-center gap-2">
+														<div
+															class="w-9 h-9 border border-secondary-300 bg-neutral-100 flex items-center justify-center shrink-0"
+														>
+															<div class="w-4 h-4 bg-neutral-300"></div>
+														</div>
+														<div class="h-4 w-32 bg-neutral-100"></div>
+													</div>
 												</th>
-												<th
-													scope="col"
-													class="px-2 py-1 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950"
-												>
-													Status
-												</th>
-												<th
-													scope="col"
-													class="px-2 py-1 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950"
-												>
-													{columnHeaderFor(offering, 'registration')}
-												</th>
-												<th
-													scope="col"
-													class="px-2 py-1 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950"
-												>
-													Join Team Deadline
-												</th>
-												<th
-													scope="col"
-													class="px-2 py-1 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950"
-												>
-													{columnHeaderFor(offering, 'range')}
-												</th>
+												<td class="px-2 py-1">
+													<div class="h-5 w-16 bg-neutral-100"></div>
+												</td>
+												<td class="px-2 py-1">
+													<div class="space-y-1">
+														<div class="h-3 w-28 bg-neutral-100"></div>
+														<div class="h-3 w-24 bg-neutral-100"></div>
+													</div>
+												</td>
+												<td class="px-2 py-1">
+													<div class="h-3 w-24 bg-neutral-100"></div>
+												</td>
+												<td class="px-2 py-1">
+													<div class="h-3 w-32 bg-neutral-100"></div>
+												</td>
 											</tr>
-										</thead>
-										<tbody>
-											{#if offering.leagues.length === 0}
-												{#each [0, 1, 2] as placeholderIndex}
-													<tr
-														class={`align-middle ${placeholderIndex < 2 ? 'border-b border-secondary-200' : ''} ${placeholderIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}
-														aria-hidden="true"
-													>
-														<th scope="row" class="px-2 py-1 text-left">
-															<div class="flex items-center gap-2">
-																<div
-																	class="w-9 h-9 border border-secondary-300 bg-neutral-100 flex items-center justify-center shrink-0"
-																>
-																	<div class="w-4 h-4 bg-neutral-300"></div>
-																</div>
-																<div class="h-4 w-32 bg-neutral-100"></div>
-															</div>
-														</th>
-														<td class="px-2 py-1">
-															<div class="h-5 w-16 bg-neutral-100"></div>
-														</td>
-														<td class="px-2 py-1">
-															<div class="space-y-1">
-																<div class="h-3 w-28 bg-neutral-100"></div>
-																<div class="h-3 w-24 bg-neutral-100"></div>
-															</div>
-														</td>
-														<td class="px-2 py-1">
-															<div class="h-3 w-24 bg-neutral-100"></div>
-														</td>
-														<td class="px-2 py-1">
-															<div class="h-3 w-32 bg-neutral-100"></div>
-														</td>
-													</tr>
-												{/each}
-											{:else}
-												{#each offering.leagues as league, leagueIndex}
-													{@const OfferingIcon = offeringIconFor(offering.offeringName)}
-													{@const rowId = getLeagueRowId(offering.offeringSlug, league.id)}
-													<tr
-														id={rowId}
-														class={`align-middle ${leagueIndex < offering.leagues.length - 1 ? 'border-b border-secondary-200' : ''} ${leagueIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}
-														class:league-row-highlight={highlightedLeagueRowId === rowId}
-													>
-														<th scope="row" class="px-2 py-1 text-left">
-															<div class="flex items-center gap-2">
-																<div
-																	class="w-9 h-9 bg-primary text-white flex items-center justify-center shrink-0 cursor-pointer transition-colors hover:bg-primary-700"
-																	aria-hidden="true"
-																>
-																	<OfferingIcon class="w-6 h-6" />
-																</div>
-																<div class="min-w-0">
-																	<p
-																		class="text-sm font-bold text-neutral-950 font-sans hover:underline cursor-pointer"
-																	>
-																		{league.categoryLabel}
-																	</p>
-																</div>
-															</div>
-														</th>
-														<td class="px-2 py-1">
-															<HoverTooltip
-																text={statusTooltipText(league.status, league.statusLabel)}
-																wrapperClass="inline-block"
-															>
-																<span
-																	class={`${statusClass(league.status, league.statusLabel)} text-xs uppercase tracking-wide`}
-																>
-																	{league.statusLabel}
-																</span>
-															</HoverTooltip>
-														</td>
-														<td class="px-2 py-1 align-top">
-															<p class="text-xs leading-snug text-neutral-950 font-sans">
-																<DateHoverText
-																	display={league.teamRegistrationOpenText}
-																	value={league.teamRegistrationOpenDate}
-																	includeTime
-																	wrapperClass="inline"
-																/>
-															</p>
-															<p class="mt-1 text-xs leading-snug text-neutral-950 font-sans">
-																<DateHoverText
-																	display={league.teamRegistrationCloseText}
-																	value={league.teamRegistrationCloseDate}
-																	includeTime
-																	wrapperClass="inline"
-																/>
-															</p>
-														</td>
-														<td class="px-2 py-1 align-top">
-															<p class="text-xs leading-snug text-neutral-950 font-sans">
-																<DateHoverText
-																	display={league.joinTeamText}
-																	value={league.joinTeamDate}
-																	includeTime
-																	wrapperClass="inline"
-																/>
-															</p>
-														</td>
-														<td class="px-2 py-1 align-top">
-															<p class="text-xs leading-snug text-neutral-950 font-sans">
-																<DateHoverText
-																	display={league.seasonRangeText}
-																	value={league.seasonStartDate}
-																	endValue={league.seasonEndDate}
-																	wrapperClass="inline"
-																/>
-															</p>
-														</td>
-													</tr>
-												{/each}
-											{/if}
-										</tbody>
-									</table>
-								</div>
+										{/each}
+									{/snippet}
+
+									{#snippet cell(league, column)}
+										{#if column.key === 'league'}
+											{@const OfferingIcon = offeringIconFor(offering.offeringName)}
+											<div class="flex items-center gap-2">
+												<div
+													class="w-9 h-9 bg-primary text-white flex items-center justify-center shrink-0 cursor-pointer transition-colors hover:bg-primary-700"
+													aria-hidden="true"
+												>
+													<OfferingIcon class="w-6 h-6" />
+												</div>
+												<div class="min-w-0">
+													{#if selectedSeason?.slug && offering.offeringSlug && league.leagueSlug}
+														<a
+															href={`/dashboard/offerings/${selectedSeason.slug}/${offering.offeringSlug}/${league.leagueSlug}`}
+															class="text-sm font-bold text-neutral-950 font-sans hover:underline"
+														>
+															{league.categoryLabel}
+														</a>
+													{:else}
+														<p class="text-sm font-bold text-neutral-950 font-sans">
+															{league.categoryLabel}
+														</p>
+													{/if}
+												</div>
+											</div>
+										{:else if column.key === 'status'}
+											<HoverTooltip
+												text={statusTooltipText(league.status, league.statusLabel)}
+												wrapperClass="inline-block"
+											>
+												<span
+													class={`${statusClass(league.status, league.statusLabel)} text-xs uppercase tracking-wide`}
+												>
+													{league.statusLabel}
+												</span>
+											</HoverTooltip>
+										{:else if column.key === 'registration'}
+											<p class="text-xs leading-snug text-neutral-950 font-sans">
+												<DateHoverText
+													display={league.teamRegistrationOpenText}
+													value={league.teamRegistrationOpenDate}
+													includeTime
+													wrapperClass="inline"
+												/>
+											</p>
+											<p class="mt-1 text-xs leading-snug text-neutral-950 font-sans">
+												<DateHoverText
+													display={league.teamRegistrationCloseText}
+													value={league.teamRegistrationCloseDate}
+													includeTime
+													wrapperClass="inline"
+												/>
+											</p>
+										{:else if column.key === 'join-team'}
+											<p class="text-xs leading-snug text-neutral-950 font-sans">
+												<DateHoverText
+													display={league.joinTeamText}
+													value={league.joinTeamDate}
+													includeTime
+													wrapperClass="inline"
+												/>
+											</p>
+										{:else if column.key === 'range'}
+											<p class="text-xs leading-snug text-neutral-950 font-sans">
+												<DateHoverText
+													display={league.seasonRangeText}
+													value={league.seasonStartDate}
+													endValue={league.seasonEndDate}
+													wrapperClass="inline"
+												/>
+											</p>
+										{/if}
+									{/snippet}
+								</OfferingsTable>
 							</article>
 						{/snippet}
 
@@ -5031,7 +5040,9 @@ interface LeagueOffering {
 										<p class="text-[10px] font-bold uppercase tracking-wide text-secondary-700">
 											Format
 										</p>
-										<p class="mt-1 text-sm font-sans text-neutral-950">Sidebar card / creative unit</p>
+										<p class="mt-1 text-sm font-sans text-neutral-950">
+											Sidebar card / creative unit
+										</p>
 									</div>
 									<div class="border border-secondary-300 bg-neutral-25 px-3 py-2">
 										<p class="text-[10px] font-bold uppercase tracking-wide text-secondary-700">
@@ -5529,7 +5540,10 @@ interface LeagueOffering {
 							<p class="text-sm font-semibold text-neutral-950">{existingCurrentSeason.name}</p>
 							<p class="text-xs text-neutral-900">
 								<DateHoverText
-									display={formatReviewRange(existingCurrentSeason.startDate, existingCurrentSeason.endDate)}
+									display={formatReviewRange(
+										existingCurrentSeason.startDate,
+										existingCurrentSeason.endDate
+									)}
 									value={existingCurrentSeason.startDate}
 									endValue={existingCurrentSeason.endDate}
 								/>
@@ -5550,7 +5564,10 @@ interface LeagueOffering {
 							</p>
 							<p class="text-xs text-neutral-900">
 								<DateHoverText
-									display={formatReviewRange(createSeasonForm.startDate, createSeasonForm.endDate || null)}
+									display={formatReviewRange(
+										createSeasonForm.startDate,
+										createSeasonForm.endDate || null
+									)}
 									value={createSeasonForm.startDate}
 									endValue={createSeasonForm.endDate || null}
 								/>
@@ -5650,7 +5667,10 @@ interface LeagueOffering {
 				<p class="text-sm leading-5 text-neutral-950">
 					<span class="font-semibold">Date Range:</span>
 					<DateHoverText
-						display={formatReviewRange(createSeasonForm.startDate, createSeasonForm.endDate || null)}
+						display={formatReviewRange(
+							createSeasonForm.startDate,
+							createSeasonForm.endDate || null
+						)}
 						value={createSeasonForm.startDate}
 						endValue={createSeasonForm.endDate || null}
 						textClass="ml-1"
@@ -5971,15 +5991,15 @@ interface LeagueOffering {
 						<label for="league-wizard-name" class="block text-sm font-sans text-neutral-950 mb-1"
 							>Name <span class="text-error-700">*</span></label
 						>
-							<input
-								id="league-wizard-name"
-								type="text"
-								class="input-secondary"
-								value={createLeagueForm.league.name}
-								placeholder={defaultLeagueNamePlaceholder(wizardEntryType() === 'tournament')}
-								oninput={(event) => {
-									const value = (event.currentTarget as HTMLInputElement).value;
-									createLeagueForm.league.name = value;
+						<input
+							id="league-wizard-name"
+							type="text"
+							class="input-secondary"
+							value={createLeagueForm.league.name}
+							placeholder={defaultLeagueNamePlaceholder(wizardEntryType() === 'tournament')}
+							oninput={(event) => {
+								const value = (event.currentTarget as HTMLInputElement).value;
+								createLeagueForm.league.name = value;
 								if (!createLeagueSlugTouched) {
 									const offeringName = selectedLeagueWizardOffering?.name ?? '';
 									createLeagueForm.league.slug = defaultLeagueSlug(value, offeringName);
@@ -6914,10 +6934,7 @@ interface LeagueOffering {
 								<p class="sm:col-span-2">
 									<span class="font-semibold">Preseason:</span>
 									<DateHoverText
-										display={formatReviewRange(
-											league.preseasonStartDate,
-											league.preseasonEndDate
-										)}
+										display={formatReviewRange(league.preseasonStartDate, league.preseasonEndDate)}
 										value={league.preseasonStartDate}
 										endValue={league.preseasonEndDate}
 										textClass="ml-1"
@@ -7114,9 +7131,7 @@ interface LeagueOffering {
 				<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
 					<div>
 						<label for="league-reg-start" class="block text-sm font-sans text-neutral-950 mb-1"
-							>{isTournamentWizard()
-								? 'Tournament Registration Opens'
-								: 'Team Registration Opens'}
+							>{isTournamentWizard() ? 'Tournament Registration Opens' : 'Team Registration Opens'}
 							<span class="text-error-700">*</span></label
 						>
 						<input

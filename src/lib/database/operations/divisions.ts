@@ -1,5 +1,5 @@
 // Division operations - Drizzle ORM
-import { inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import type { DrizzleClient } from '../drizzle.js';
 import { divisions, type Division } from '../schema/index.js';
 
@@ -10,7 +10,9 @@ export class DivisionOperations {
 
 	async getByLeagueIds(leagueIds: string[]): Promise<Division[]> {
 		const uniqueLeagueIds = Array.from(
-			new Set(leagueIds.map((leagueId) => leagueId.trim()).filter((leagueId) => leagueId.length > 0))
+			new Set(
+				leagueIds.map((leagueId) => leagueId.trim()).filter((leagueId) => leagueId.length > 0)
+			)
 		);
 		if (uniqueLeagueIds.length === 0) {
 			return [];
@@ -27,6 +29,28 @@ export class DivisionOperations {
 		}
 
 		return results.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
+	}
+
+	async getByLeagueId(leagueId: string): Promise<Division[]> {
+		const normalizedLeagueId = leagueId.trim();
+		if (!normalizedLeagueId) {
+			return [];
+		}
+
+		const result = await this.db
+			.select()
+			.from(divisions)
+			.where(eq(divisions.leagueId, normalizedLeagueId));
+		return result.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
+	}
+
+	async getById(divisionId: string): Promise<Division | null> {
+		const result = await this.db
+			.select()
+			.from(divisions)
+			.where(eq(divisions.id, divisionId))
+			.limit(1);
+		return result[0] ?? null;
 	}
 
 	async create(data: {
@@ -71,5 +95,34 @@ export class DivisionOperations {
 			.returning();
 
 		return result[0] ?? null;
+	}
+
+	async updateTeamsCount(
+		divisionId: string,
+		teamsCount: number,
+		updatedUser?: string | null
+	): Promise<Division | null> {
+		const now = new Date().toISOString();
+		const result = await this.db
+			.update(divisions)
+			.set({
+				teamsCount,
+				updatedAt: now,
+				updatedUser: updatedUser ?? null
+			})
+			.where(eq(divisions.id, divisionId))
+			.returning();
+
+		return result[0] ?? null;
+	}
+
+	async existsByLeagueIdAndSlug(leagueId: string, slug: string): Promise<boolean> {
+		const result = await this.db
+			.select({ id: divisions.id })
+			.from(divisions)
+			.where(and(eq(divisions.leagueId, leagueId), eq(divisions.slug, slug)))
+			.limit(1);
+
+		return result.length > 0;
 	}
 }
