@@ -87,6 +87,10 @@ const API_ROUTE_POLICIES: ApiRoutePolicy[] = [
 		policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES }
 	},
 	{
+		pattern: /^\/api\/intramural-sports\/leagues\/[^/]+\/[^/]+\/management$/,
+		policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES }
+	},
+	{
 		pattern: /^\/api\/intramural-sports\/seasons$/,
 		policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES }
 	},
@@ -210,6 +214,10 @@ const resolveRateLimitConfig = (pathname: string): RateLimitConfig | null => {
 		return INTRAMURAL_OFFERINGS_RATE_LIMIT;
 	}
 
+	if (/^\/api\/intramural-sports\/leagues\/[^/]+\/[^/]+\/management$/.test(pathname)) {
+		return INTRAMURAL_OFFERINGS_RATE_LIMIT;
+	}
+
 	if (pathname === '/api/intramural-sports/seasons') {
 		return INTRAMURAL_OFFERINGS_RATE_LIMIT;
 	}
@@ -261,7 +269,11 @@ const cleanupRateLimitStore = (now: number) => {
 	}
 };
 
-const consumeRateLimitInMemory = (key: string, config: RateLimitConfig, now: number): RateLimitResult => {
+const consumeRateLimitInMemory = (
+	key: string,
+	config: RateLimitConfig,
+	now: number
+): RateLimitResult => {
 	cleanupRateLimitStore(now);
 
 	const existing = rateLimitStore.get(key);
@@ -284,7 +296,10 @@ const consumeRateLimitInMemory = (key: string, config: RateLimitConfig, now: num
 	};
 };
 
-const maybeCleanupGlobalRateLimits = async (getDbOps: () => ReturnType<typeof getCentralDbOps>, now: number) => {
+const maybeCleanupGlobalRateLimits = async (
+	getDbOps: () => ReturnType<typeof getCentralDbOps>,
+	now: number
+) => {
 	if (now - lastGlobalRateLimitCleanupAt < GLOBAL_RATE_LIMIT_CLEANUP_INTERVAL_MS) {
 		return;
 	}
@@ -618,7 +633,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	let authHydrationError: Error | null = null;
 	const hasSessionCookie = Boolean(
-		event.cookies.get(AUTH_SESSION_COOKIE_NAME) ?? event.cookies.get(AUTH_SESSION_COOKIE_NAME_LEGACY)
+		event.cookies.get(AUTH_SESSION_COOKIE_NAME) ??
+		event.cookies.get(AUTH_SESSION_COOKIE_NAME_LEGACY)
 	);
 	if (hasSessionCookie) {
 		try {
@@ -781,7 +797,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		if (apiPolicy.access === 'role') {
 			const roleForPolicy = isMutatingRequest
 				? event.locals.user?.role
-				: event.locals.user?.baseRole ?? event.locals.user?.role;
+				: (event.locals.user?.baseRole ?? event.locals.user?.role);
 			if (!hasAnyRole(roleForPolicy, apiPolicy.roles)) {
 				const response = toApiErrorResponse(
 					403,
