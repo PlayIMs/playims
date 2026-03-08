@@ -32,6 +32,7 @@
 	<HoverTooltip
 		text={tooltipText}
 		wrapperClass={wrapperClass}
+		wrapperElement="span"
 		{panelClass}
 		{maxWidthClass}
 	>

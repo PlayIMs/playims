@@ -23,6 +23,7 @@
 		panelClass?: string;
 		maxWidthClass?: string;
 		wrapperClass?: string;
+		wrapperElement?: 'div' | 'span';
 		children?: Snippet;
 	}
 
@@ -35,11 +36,12 @@
 		panelClass = 'border border-secondary-300 bg-neutral px-2 py-1 text-[11px] text-neutral-950 shadow-sm',
 		maxWidthClass = 'max-w-72',
 		wrapperClass = 'relative inline-flex shrink-0',
+		wrapperElement = 'div',
 		children
 	}: Props = $props();
 
-	let root = $state<HTMLDivElement | null>(null);
-	let panel = $state<HTMLDivElement | null>(null);
+	let root = $state<HTMLElement | null>(null);
+	let panel = $state<HTMLElement | null>(null);
 	let open = $state(false);
 	let panelStyle = $state('position: fixed; left: 0px; top: 0px; visibility: hidden;');
 	let focusInside = $state(false);
@@ -169,7 +171,8 @@
 	});
 </script>
 
-<div
+<svelte:element
+	this={wrapperElement}
 	class={wrapperClass}
 	role="presentation"
 	bind:this={root}
@@ -187,7 +190,7 @@
 >
 	{@render children?.()}
 	{#if open}
-		<div
+		<span
 			id={tooltipId}
 			role="tooltip"
 			aria-live="polite"
@@ -196,6 +199,6 @@
 			bind:this={panel}
 		>
 			{normalizedText}
-		</div>
+		</span>
 	{/if}
-</div>
+</svelte:element>

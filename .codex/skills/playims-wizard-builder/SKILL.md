@@ -141,8 +141,17 @@ For single-step switchers such as `Switch View Role`, `Switch Organization`, or 
 - Keep Next disabled whenever current-step client validation fails.
 - Merge server field errors into the current-step error map so users see conflicts on the step where they entered data.
 - If validation fails on Next, keep focus in-step and do not advance step index.
+- Do not render field-level validation messages under inputs until the user attempts `Next` or `Submit` for the active step, unless the message is coming from the server.
+- After a step has been attempted, keep that step's field errors live while the user corrects them.
+- For single-step submit-only wizards, do not rely on untouched hidden validation plus a permanently disabled submit button; users must be able to attempt submit and reveal the current step errors.
 
-11. Validate.
+11. Enforce unsaved-change protection across close and browser navigation.
+
+- If the wizard has dirty state, closing the modal through its own close affordances must route through `WizardUnsavedConfirm`.
+- If the user refreshes, closes the tab/window, or triggers page/back navigation while the wizard is dirty, use the browser-native confirmation path (`beforeunload` and route/navigation interception as appropriate).
+- Keep these browser-level prompts active only while the wizard is open and actually dirty.
+
+12. Validate.
 
 - Run `pnpm check`.
 - Run `pnpm build` for larger changes.
@@ -164,6 +173,8 @@ For single-step switchers such as `Switch View Role`, `Switch Organization`, or 
 - For destructive wizard actions, do not rely on single-click confirmations; require typed confirmation when data loss scope is broad.
 - Do not allow step advancement when current-step validation fails; Next handlers must run explicit current-step validation before incrementing the step.
 - Do not ship wizards that rely on submit-only validation for required fields, duplicates, or format errors.
+- Do not show untouched step-level field errors on first render.
+- Do not skip browser-native unsaved prompts for refresh, tab close, or page/back navigation when a wizard has dirty state.
 - Keep scope to dashboard routes unless user expands scope.
 
 ## Delivery Checklist
@@ -178,3 +189,6 @@ Always report:
    - Confirmed Next blocks advancement when current step has errors.
    - Confirmed duplicate/uniqueness checks surface on the earliest relevant step.
    - Confirmed final submit validation remains as a safety net.
+6. Unsaved-state proof:
+   - Confirmed modal close uses `WizardUnsavedConfirm` when the wizard is dirty.
+   - Confirmed refresh/tab-close/native navigation prompts appear only while the wizard is dirty.
