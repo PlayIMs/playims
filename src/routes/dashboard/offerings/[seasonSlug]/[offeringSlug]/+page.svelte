@@ -468,17 +468,17 @@
 								/>
 							</div>
 							<div class="flex flex-wrap items-center gap-2 text-xs font-sans text-neutral-950">
-								<span class="border border-secondary-300 bg-white px-2 py-1">
+								<span class="border border-secondary-300 px-2 py-1">
 									{data.summary.leagueCount}
 									{entryUnitPlural()}
 								</span>
-								<span class="border border-secondary-300 bg-white px-2 py-1">
+								<span class="border border-secondary-300 px-2 py-1">
 									{data.summary.divisionCount} divisions
 								</span>
-								<span class="border border-secondary-300 bg-white px-2 py-1">
+								<span class="border border-secondary-300 px-2 py-1">
 									{data.summary.openCount} open
 								</span>
-								<span class="border border-secondary-300 bg-white px-2 py-1">
+								<span class="border border-secondary-300 px-2 py-1">
 									{data.summary.closedCount} closed
 								</span>
 								{#if canManageOffering}

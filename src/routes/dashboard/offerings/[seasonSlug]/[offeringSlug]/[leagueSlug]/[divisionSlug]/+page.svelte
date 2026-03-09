@@ -5,7 +5,7 @@
 	import DashboardSidebarPanel from '$lib/components/dashboard/DashboardSidebarPanel.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import type { OfferingsTableColumn } from '$lib/components/offerings-table.js';
-	import { IconArrowLeft, IconLock, IconLockOpen, IconUsers } from '@tabler/icons-svelte';
+	import { IconLock, IconLockOpen, IconUsers } from '@tabler/icons-svelte';
 
 	type StandingsRow = NonNullable<PageData['standings']>[number];
 	type TeamRow = NonNullable<PageData['teams']>[number];
@@ -25,13 +25,6 @@
 	function standingsDifferential(row: StandingsRow): string {
 		const value = row.pointsFor - row.pointsAgainst;
 		return value > 0 ? `+${value}` : `${value}`;
-	}
-
-	function leagueHref(): string {
-		if (!data.season?.slug || !data.offering?.slug || !data.league?.slug) {
-			return '/dashboard/offerings';
-		}
-		return `/dashboard/offerings/${data.season.slug}/${data.offering.slug}/${data.league.slug}`;
 	}
 
 	function normalizeSearchValue(value: string | null | undefined): string {
@@ -271,44 +264,21 @@
 					<div class="space-y-3 border-b border-neutral-950 bg-neutral-600/66 p-4">
 						<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
 							<div class="flex flex-wrap items-center gap-2">
-								<a
-									href={leagueHref()}
-									class="button-secondary-outlined inline-flex items-center gap-2 cursor-pointer"
-								>
-									<IconArrowLeft class="h-4 w-4" />
-									<span>Back to {data.league?.name ?? 'League'}</span>
-								</a>
-								{#if data.league}
-									<span
-										class="badge-secondary-outlined px-1.5 py-0 text-[10px] uppercase tracking-wide"
-									>
-										{data.league.name}
-									</span>
-								{/if}
-								{#if data.offering}
-									<span
-										class="badge-secondary-outlined px-1.5 py-0 text-[10px] uppercase tracking-wide"
-									>
-										{data.offering.name}
-									</span>
-								{/if}
-								<span
-									class="badge-secondary-outlined px-1.5 py-0 text-[10px] uppercase tracking-wide"
-								>
-									Division
-								</span>
+								<h2 class="text-2xl font-bold font-serif text-neutral-950">
+									{data.division.name}
+								</h2>
 							</div>
 							<div class="flex flex-wrap items-center gap-2 text-xs font-sans text-neutral-950">
-								<span class="border border-secondary-300 bg-white px-2 py-1">
+								<span class="border border-secondary-300 px-2 py-1">
 									{visibleStandings.length} standings rows
 								</span>
-								<span class="border border-secondary-300 bg-white px-2 py-1">
+								<span class="border border-secondary-300 px-2 py-1">
 									{visibleTeams.length} active teams
 								</span>
-								<span class="border border-secondary-300 bg-white px-2 py-1">
+								<span class="border border-secondary-300 px-2 py-1">
 									{visibleWaitlistTeams.length} waitlist
 								</span>
-								<span class="border border-secondary-300 bg-white px-2 py-1">
+								<span class="border border-secondary-300 px-2 py-1">
 									{data.division.maxTeams ?? data.teams.length} team capacity
 								</span>
 							</div>

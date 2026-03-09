@@ -510,6 +510,11 @@
 			value: 'create-division',
 			label: 'Add Division',
 			statusLabel: 'Create a new division'
+		},
+		{
+			value: 'create-team',
+			label: 'Add Team',
+			statusLabel: 'Create a new team'
 		}
 	]);
 
@@ -603,7 +608,12 @@
 		await goto(value);
 	}
 
-	function handleLeagueAddAction(_action: string): void {
+	function handleLeagueAddAction(action: string): void {
+		if (action === 'create-team') {
+			openCreateTeamWizard();
+			return;
+		}
+
 		openCreateDivisionWizard();
 	}
 
@@ -1219,13 +1229,13 @@
 								/>
 							</div>
 							<div class="flex flex-wrap items-center gap-2 text-xs font-sans text-neutral-950">
-								<span class="border border-secondary-300 bg-white px-2 py-1">
+								<span class="border border-secondary-300 px-2 py-1">
 									{data.summary.divisionCount} divisions
 								</span>
-								<span class="border border-secondary-300 bg-white px-2 py-1">
+								<span class="border border-secondary-300 px-2 py-1">
 									{data.summary.activeTeamCount} active teams
 								</span>
-								<span class="border border-secondary-300 bg-white px-2 py-1">
+								<span class="border border-secondary-300 px-2 py-1">
 									{data.summary.waitlistCount} waitlist
 								</span>
 								{#if data.league.isLocked}
