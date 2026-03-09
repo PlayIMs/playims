@@ -72,6 +72,7 @@ Use `SearchInput` with consistent class contract:
 - Icon: `absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-950`
 - Input: `input-secondary pl-10 pr-10 py-1 text-sm`
 - Clear button: `absolute right-2 top-1/2 -translate-y-1/2 text-neutral-950 hover:text-secondary-900 cursor-pointer`
+- For compact modal/list search, keep the same structure but reduce icon/input sizing rather than rebuilding the markup from scratch.
 
 If disabled, keep `disabled:cursor-not-allowed`.
 

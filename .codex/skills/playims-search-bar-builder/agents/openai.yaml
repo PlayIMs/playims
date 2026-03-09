@@ -1,0 +1,5 @@
+version: 1
+interface:
+  display_name: PlayIMs Search Bar Builder
+  short_description: Build consistent search bars with SearchInput
+  default_prompt: Use $playims-search-bar-builder to add or refactor a PlayIMs search bar so it matches the offerings-page pattern and shared component API.

@@ -3,6 +3,7 @@
 	import { enhance } from '$app/forms';
 	import { SvelteSet } from 'svelte/reactivity';
 	import ModalShell from '$lib/components/modals/ModalShell.svelte';
+	import SearchInput from '$lib/components/SearchInput.svelte';
 	import CreateFacilityWizard from './_wizards/CreateFacilityWizard.svelte';
 	import {
 		adjustEditingIndexOnReorder,
@@ -22,7 +23,6 @@
 		IconCheck,
 		IconTrash,
 		IconAlertCircle,
-		IconSearch,
 		IconMapPin,
 		IconSquare,
 		IconMapPinPlus,
@@ -1161,32 +1161,32 @@
 					</div>
 				</div>
 				<div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
-					<div class="relative">
-						<IconSearch class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-950" />
-						<label for="facility-search" class="sr-only">Search facilities and areas</label>
-						<input
-							id="facility-search"
-							type="text"
-							bind:value={facilitySearch}
-							placeholder="Search facilities and areas..."
-							class="w-full input-secondary pl-10"
-							autocomplete="off"
-							data-lpignore="true"
-						/>
-					</div>
-					<div class="relative">
-						<IconSearch class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-950" />
-						<label for="area-search" class="sr-only">Filter expanded area lists</label>
-						<input
-							id="area-search"
-							type="text"
-							bind:value={areaSearch}
-							placeholder="Filter areas in expanded facilities..."
-							class="w-full input-secondary pl-10"
-							autocomplete="off"
-							data-lpignore="true"
-						/>
-					</div>
+					<SearchInput
+						id="facility-search"
+						label="Search facilities and areas"
+						value={facilitySearch}
+						placeholder="Search facilities and areas..."
+						wrapperClass="relative w-full"
+						inputClass="w-full input-secondary pl-10 pr-10 py-1 text-sm"
+						autocomplete="off"
+						data-lpignore="true"
+						on:input={(event) => {
+							facilitySearch = event.detail.value;
+						}}
+					/>
+					<SearchInput
+						id="area-search"
+						label="Filter expanded area lists"
+						value={areaSearch}
+						placeholder="Filter areas in expanded facilities..."
+						wrapperClass="relative w-full"
+						inputClass="w-full input-secondary pl-10 pr-10 py-1 text-sm"
+						autocomplete="off"
+						data-lpignore="true"
+						on:input={(event) => {
+							areaSearch = event.detail.value;
+						}}
+					/>
 				</div>
 			</div>
 
@@ -2157,4 +2157,3 @@
 		{/if}
 	</ModalShell>
 {/if}
-

@@ -1,9 +1,12 @@
 <script lang="ts">
 	import { IconSearch, IconX } from '@tabler/icons-svelte';
 	import { createEventDispatcher } from 'svelte';
+	import type { Snippet } from 'svelte';
 	import type { HTMLInputAttributes } from 'svelte/elements';
 
-	interface Props {
+	type ClearButtonMode = 'icon' | 'text' | 'icon-text';
+
+	interface Props extends Omit<HTMLInputAttributes, 'value' | 'type' | 'children'> {
 		id: string;
 		label: string;
 		value?: string;
@@ -16,13 +19,22 @@
 		inputClass?: string;
 		clearButtonClass?: string;
 		clearIconClass?: string;
+		clearTextClass?: string;
 		clearAriaLabel?: string;
+		showLeadingIcon?: boolean;
+		showClearButton?: boolean;
+		clearButtonMode?: ClearButtonMode;
+		clearButtonText?: string;
+		inputElement?: HTMLInputElement | null;
+		onInputKeydown?: ((event: KeyboardEvent) => void) | null;
+		leadingVisual?: Snippet<[]>;
+		clearVisual?: Snippet<[]>;
 	}
 
 	let {
 		id,
 		label,
-		value = '',
+		value = $bindable(''),
 		placeholder = 'Search',
 		disabled = false,
 		type = 'text',
@@ -32,7 +44,17 @@
 		inputClass = 'input-secondary pl-10 pr-10 py-1 text-sm disabled:cursor-not-allowed',
 		clearButtonClass = 'absolute right-2 top-1/2 -translate-y-1/2 text-neutral-950 hover:text-secondary-900 cursor-pointer',
 		clearIconClass = 'w-4 h-4',
-		clearAriaLabel = 'Clear search'
+		clearTextClass = 'text-xs font-semibold',
+		clearAriaLabel = 'Clear search',
+		showLeadingIcon = true,
+		showClearButton = true,
+		clearButtonMode = 'icon',
+		clearButtonText = 'Clear',
+		inputElement = $bindable<HTMLInputElement | null>(null),
+		onInputKeydown = null,
+		leadingVisual,
+		clearVisual,
+		...inputProps
 	}: Props = $props();
 
 	const dispatch = createEventDispatcher<{
@@ -44,31 +66,53 @@
 		return String(value ?? '');
 	}
 
+	function hasValue(): boolean {
+		return getValueText().trim().length > 0;
+	}
+
 	function handleInput(event: Event): void {
 		const next = (event.currentTarget as HTMLInputElement).value;
+		value = next;
 		dispatch('input', { value: next });
 	}
 
+	function handleKeydown(event: KeyboardEvent): void {
+		onInputKeydown?.(event);
+	}
+
 	function clearValue(): void {
+		value = '';
 		dispatch('input', { value: '' });
 		dispatch('clear', { value: '' });
+		inputElement?.focus();
 	}
 </script>
 
 <div class={wrapperClass}>
-	<IconSearch class={iconClass} />
+	{#if showLeadingIcon}
+		{#if leadingVisual}
+			<div class={iconClass}>
+				{@render leadingVisual()}
+			</div>
+		{:else}
+			<IconSearch class={iconClass} />
+		{/if}
+	{/if}
 	<label class="sr-only" for={id}>{label}</label>
 	<input
+		{...inputProps}
 		{id}
 		{type}
 		{placeholder}
 		{autocomplete}
 		{disabled}
+		bind:this={inputElement}
 		class={`${inputClass} search-input-no-native-clear appearance-none`}
 		value={getValueText()}
 		oninput={handleInput}
+		onkeydown={handleKeydown}
 	/>
-	{#if getValueText().trim().length > 0}
+	{#if showClearButton && !disabled && hasValue()}
 		<button
 			type="button"
 			tabindex="-1"
@@ -76,7 +120,21 @@
 			aria-label={clearAriaLabel}
 			onclick={clearValue}
 		>
-			<IconX class={clearIconClass} />
+			{#if clearVisual}
+				{@render clearVisual()}
+				{#if clearButtonMode === 'icon-text'}
+					<span class="sr-only">{clearButtonText}</span>
+				{/if}
+			{:else if clearButtonMode === 'text'}
+				<span class={clearTextClass}>{clearButtonText}</span>
+			{:else if clearButtonMode === 'icon-text'}
+				<span class="inline-flex items-center gap-1">
+					<IconX class={clearIconClass} />
+					<span class={clearTextClass}>{clearButtonText}</span>
+				</span>
+			{:else}
+				<IconX class={clearIconClass} />
+			{/if}
 		</button>
 	{/if}
 </div>

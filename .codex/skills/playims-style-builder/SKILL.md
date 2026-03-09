@@ -41,6 +41,7 @@ Read these files before editing UI:
 - `src/lib/components/wizard/WizardDraftCollection.svelte`
 - `src/lib/components/wizard/WizardUnsavedConfirm.svelte`
 - `src/lib/components/ListboxDropdown.svelte`
+- `src/lib/components/SearchInput.svelte`
 - `src/lib/components/InfoPopover.svelte`
 - `src/lib/components/HoverTooltip.svelte`
 - `src/lib/components/toast/Toaster.svelte`
@@ -56,6 +57,7 @@ Read these files before editing UI:
 These are required for consistency in new dashboard UI:
 
 - `ListboxDropdown` for dropdown/select interactions.
+- `SearchInput` for page, wizard, panel, and embedded list search fields.
 - `InfoPopover` for click-persistent explanatory helper copy.
 - `HoverTooltip` for short hover/focus hints on controls.
 - Shared `toast` API for transient success/error/warning/info/loading feedback.
@@ -67,6 +69,7 @@ Ground in existing app usage before implementing:
 - `src/routes/dashboard/offerings/+page.svelte` (canonical module-page shell and heavy shared-component usage).
 - `src/routes/dashboard/members/+page.svelte` (matching clean module header with relocated page action).
 - `src/routes/dashboard/settings/+layout.svelte` (settings-area shell that inherits the same module header structure).
+- `src/routes/dashboard/facilities/+page.svelte` (parallel dashboard search rows and multi-search layouts).
 - `src/routes/dashboard/account/+page.svelte` and `src/routes/dashboard/account/_wizards/ManageOrganizationWizard.svelte`.
 - `src/routes/dashboard/offerings/_wizards/ManageSeasonWizard.svelte`.
 - `src/routes/dashboard/facilities/_wizards/CreateFacilityWizard.svelte`.
@@ -177,6 +180,7 @@ When legacy guidance and current implementation differ, prefer current implement
 ## Guardrails
 
 - Do not introduce native `<select>` for new dashboard selectors; use `ListboxDropdown`.
+- Do not hand-roll new search bars; use `SearchInput` and tune it with props/classes instead.
 - Do not ship new helper popover variants; use `InfoPopover`.
 - Do not ship new hover hints using native `title`; use `HoverTooltip`.
 - Do not use the old boxed module hero pattern when building or refactoring dashboard module pages.

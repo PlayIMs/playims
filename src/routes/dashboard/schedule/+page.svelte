@@ -9,6 +9,7 @@
 		IconLivePhoto
 	} from '@tabler/icons-svelte';
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
+	import SearchInput from '$lib/components/SearchInput.svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import { toast } from '$lib/toasts';
 
@@ -411,12 +412,15 @@
 					>
 						Search
 					</label>
-					<input
+					<SearchInput
 						id="schedule-search"
-						type="text"
-						class="input-primary"
+						label="Search schedule"
 						placeholder="Team, league, location, or note"
-						bind:value={searchQuery}
+						value={searchQuery}
+						inputClass="w-full input-secondary pl-10 pr-10 py-1 text-sm"
+						on:input={(event) => {
+							searchQuery = event.detail.value;
+						}}
 					/>
 				</div>
 				<div>
@@ -587,4 +591,3 @@
 		{/if}
 	</div>
 </div>
-

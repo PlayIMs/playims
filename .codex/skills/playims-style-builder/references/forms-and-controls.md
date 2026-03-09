@@ -42,12 +42,19 @@ Primary field classes:
 - Text/date/search inputs: `input-secondary`
 - Long-form text: `textarea-secondary min-h-28`
 
+Shared search bar rule:
+
+- Use `src/lib/components/SearchInput.svelte` for page searches, wizard list searches, filter searches, and other free-text lookup fields.
+- Keep the offerings page as the source of truth for the default visual treatment.
+- Prefer prop/class tuning on `SearchInput` over rebuilding search markup inline.
+
 Common field add-ons:
 
 - Input with inline action icon: `input-secondary pr-10`
 - Search-like field with left icon: `input-secondary pl-10`
 - Error state override: `input-secondary border-error-400 focus:border-error-600`
 - Inline icon buttons rendered inside an input wrapper must use `tabindex="-1"` when they are secondary conveniences (clear, reveal password, revert, open date picker, inline helper affordances) so the main field stays in the keyboard tab flow.
+- Default `SearchInput` clear affordance follows the same rule and appears only when a value exists.
 
 ## Date Field Pattern
 

@@ -8,8 +8,9 @@
 </script>
 
 <script lang="ts">
-	import { IconChevronDown, IconChevronUp, IconInfoCircle, IconSearch } from '@tabler/icons-svelte';
+	import { IconChevronDown, IconChevronUp, IconInfoCircle } from '@tabler/icons-svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
+	import SearchInput from '$lib/components/SearchInput.svelte';
 	import { createEventDispatcher, onDestroy, tick } from 'svelte';
 	import type { Snippet } from 'svelte';
 
@@ -809,20 +810,23 @@
 		>
 			{#if hasSearch}
 				<div class="border-b border-secondary-300 bg-neutral p-2">
-					<div class="relative">
-						<IconSearch
-							class="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary-700"
-						/>
-						<input
-							class="input-secondary min-h-10 pl-8"
-							type="text"
-							bind:value={searchQuery}
-							bind:this={searchInputElement}
-							placeholder={searchPlaceholder}
-							aria-label={searchAriaLabel}
-							onkeydown={handleSearchKeydown}
-						/>
-					</div>
+					<SearchInput
+						id={`${dropdownId}-search`}
+						label={searchAriaLabel}
+						value={searchQuery}
+						bind:inputElement={searchInputElement}
+						placeholder={searchPlaceholder}
+						wrapperClass="relative"
+						iconClass="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary-700"
+						inputClass="input-secondary min-h-10 pl-8 pr-8"
+						clearButtonClass="absolute right-2 top-1/2 -translate-y-1/2 text-secondary-700 hover:text-secondary-900 cursor-pointer"
+						clearIconClass="h-4 w-4"
+						clearAriaLabel={`Clear ${searchAriaLabel.toLowerCase()}`}
+						onInputKeydown={handleSearchKeydown}
+						on:input={(event) => {
+							searchQuery = event.detail.value;
+						}}
+					/>
 				</div>
 			{/if}
 
