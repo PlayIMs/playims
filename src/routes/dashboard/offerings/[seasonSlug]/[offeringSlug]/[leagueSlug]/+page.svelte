@@ -2,11 +2,12 @@
 	import { beforeNavigate, invalidateAll } from '$app/navigation';
 	import type { PageData } from './$types';
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
-	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
-	import InfoPopover from '$lib/components/InfoPopover.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import ModalShell from '$lib/components/modals/ModalShell.svelte';
 	import OfferingsTable from '$lib/components/OfferingsTable.svelte';
+	import DashboardSidebarPanel from '$lib/components/dashboard/DashboardSidebarPanel.svelte';
+	import SplitAddAction from '$lib/components/dashboard/SplitAddAction.svelte';
+	import SearchInput from '$lib/components/SearchInput.svelte';
 	import type { OfferingsTableColumn } from '$lib/components/offerings-table.js';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import type { ManageIntramuralLeagueResponse } from '$lib/server/intramural-offerings-validation';
@@ -23,9 +24,6 @@
 		IconBallVolleyball,
 		IconCrosshair,
 		IconDots,
-		IconLock,
-		IconLockOpen,
-		IconPlus,
 		IconShip,
 		IconTarget,
 		IconTrash
@@ -217,6 +215,49 @@
 
 	function hasRosterLimit(): boolean {
 		return typeof data.offering?.maxPlayers === 'number';
+	}
+
+	function normalizeSearchValue(value: string | null | undefined): string {
+		return value?.trim().toLowerCase() ?? '';
+	}
+
+	function matchesSearchTerm(values: Array<string | null | undefined>, query: string): boolean {
+		if (!query) return true;
+		return values.some((value) => normalizeSearchValue(value).includes(query));
+	}
+
+	function teamMatchesSearch(
+		team: Pick<ActiveTeamRow, 'name' | 'slug' | 'captainName' | 'description'>,
+		query: string,
+		divisionName?: string
+	): boolean {
+		return matchesSearchTerm(
+			[team.name, team.slug, team.captainName, team.description, divisionName],
+			query
+		);
+	}
+
+	function waitlistTeamMatchesSearch(team: WaitlistTeamRow, query: string): boolean {
+		return matchesSearchTerm(
+			[team.name, team.slug, team.captainName, team.description, team.preferredDivisionName],
+			query
+		);
+	}
+
+	function divisionMatchesSearch(division: DivisionSection, query: string): boolean {
+		return (
+			matchesSearchTerm(
+				[
+					division.name,
+					division.slug,
+					division.description,
+					division.dayOfWeek,
+					division.gameTime,
+					division.location
+				],
+				query
+			) || division.teams.some((team) => teamMatchesSearch(team, query, division.name))
+		);
 	}
 
 	function divisionTableColumnsFor(canManage: boolean): OfferingsTableColumn[] {
@@ -420,6 +461,46 @@
 		}))
 	]);
 
+	let searchQuery = $state('');
+
+	const normalizedSearchQuery = $derived.by(() => normalizeSearchValue(searchQuery));
+
+	const visibleDivisions = $derived.by<DivisionSection[]>(() => {
+		const query = normalizedSearchQuery;
+		if (!query) return data.divisions;
+		return data.divisions.filter((division: DivisionSection) =>
+			divisionMatchesSearch(division, query)
+		);
+	});
+
+	const visibleWaitlistTeams = $derived.by<WaitlistTeamRow[]>(() => {
+		const query = normalizedSearchQuery;
+		if (!query) return data.waitlistTeams;
+		return data.waitlistTeams.filter((team: WaitlistTeamRow) =>
+			waitlistTeamMatchesSearch(team, query)
+		);
+	});
+
+	const hasSearchQuery = $derived.by(() => normalizedSearchQuery.length > 0);
+
+	const leagueAddActionOptions = $derived.by<DropdownOption[]>(() => [
+		{
+			value: 'create-division',
+			label: 'Add Division',
+			statusLabel: 'Create a new division'
+		},
+		{
+			value: 'create-team',
+			label: 'Add Team',
+			statusLabel:
+				data.divisions.length > 0
+					? 'Add a team to a division or the waitlist'
+					: 'Add a division first',
+			disabled: data.divisions.length === 0,
+			disabledTooltip: 'Add a division before creating a team.'
+		}
+	]);
+
 	let createDivisionOpen = $state(false);
 	let createTeamOpen = $state(false);
 	let createDivisionUnsavedConfirmOpen = $state(false);
@@ -503,6 +584,15 @@
 	): void {
 		resetCreateTeamWizard(divisionId, placement);
 		createTeamOpen = true;
+	}
+
+	function handleLeagueAddAction(action: string): void {
+		if (action === 'create-team') {
+			openCreateTeamWizard();
+			return;
+		}
+
+		openCreateDivisionWizard();
 	}
 
 	function closeCreateDivisionWizard(): void {
@@ -1088,44 +1178,7 @@
 		</div>
 	</header>
 
-	<div class="px-4 lg:px-6 space-y-4">
-		<div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-			<div class="flex flex-wrap items-center gap-2">
-				{#if data.offering}
-					<span
-						class="border border-secondary-300 bg-white px-2 py-1 text-xs font-bold uppercase tracking-wide text-neutral-950"
-					>
-						{data.offering.name}
-					</span>
-				{/if}
-				{#if data.season}
-					<span
-						class="border border-secondary-300 bg-white px-2 py-1 text-xs font-bold uppercase tracking-wide text-neutral-950"
-					>
-						{data.season.name}
-					</span>
-				{/if}
-				{#if data.league?.isLocked}
-					<span
-						class="border border-primary-700 bg-primary text-white px-2 py-1 text-xs font-bold uppercase tracking-wide"
-					>
-						Locked league
-					</span>
-				{/if}
-			</div>
-			<div class="flex flex-wrap items-center gap-2 text-xs font-sans text-neutral-950">
-				<span class="border border-secondary-300 bg-white px-2 py-1">
-					{data.summary.divisionCount} divisions
-				</span>
-				<span class="border border-secondary-300 bg-white px-2 py-1">
-					{data.summary.activeTeamCount} active teams
-				</span>
-				<span class="border border-secondary-300 bg-white px-2 py-1">
-					{data.summary.waitlistCount} waitlist
-				</span>
-			</div>
-		</div>
-
+	<div class="space-y-4 px-4 lg:px-6">
 		{#if data.error}
 			<div class="border-2 border-warning-300 bg-warning-50 p-4 text-sm text-neutral-950">
 				{data.error}
@@ -1133,15 +1186,396 @@
 		{/if}
 
 		{#if data.league}
-			<div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
-				<aside class="order-2 space-y-4">
-					<section class="border-2 border-neutral-950 bg-white">
-						<div class="border-b border-neutral-950 px-3 py-2">
-							<h2 class="text-xl font-serif font-bold text-neutral-950">League Info</h2>
+			<div class="grid grid-cols-1 gap-6 2xl:grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)]">
+				<section class="min-w-0 border-2 border-neutral-950 bg-neutral">
+					<div class="space-y-3 border-b border-neutral-950 bg-neutral-600/66 p-4">
+						<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+							<div class="flex flex-wrap items-center gap-2">
+								<h2 class="text-2xl font-bold font-serif text-neutral-950">
+									{data.offering?.name ?? 'League'}
+								</h2>
+								<span
+									class="badge-secondary-outlined px-1.5 py-0 text-[10px] uppercase tracking-wide"
+								>
+									League
+								</span>
+								{#if data.season}
+									<span
+										class="badge-secondary-outlined px-1.5 py-0 text-[10px] uppercase tracking-wide"
+									>
+										{data.season.name}
+									</span>
+								{/if}
+								{#if data.league.isLocked}
+									<span class="badge-primary text-xs uppercase tracking-wide">Locked</span>
+								{/if}
+							</div>
+							<div class="flex flex-wrap items-center gap-2 text-xs font-sans text-neutral-950">
+								<span class="border border-secondary-300 bg-white px-2 py-1">
+									{data.summary.divisionCount} divisions
+								</span>
+								<span class="border border-secondary-300 bg-white px-2 py-1">
+									{data.summary.activeTeamCount} active teams
+								</span>
+								<span class="border border-secondary-300 bg-white px-2 py-1">
+									{data.summary.waitlistCount} waitlist
+								</span>
+								{#if canManageLeague}
+									<SplitAddAction
+										options={leagueAddActionOptions}
+										on:click={openCreateDivisionWizard}
+										on:action={(event) => {
+											handleLeagueAddAction(event.detail.value);
+										}}
+									/>
+								{/if}
+							</div>
 						</div>
-						<div class="p-3">
+						<SearchInput
+							id="league-search"
+							label="Search divisions and teams"
+							value={searchQuery}
+							placeholder="Search division, team, captain, or waitlist"
+							autocomplete="off"
+							wrapperClass="relative"
+							iconClass="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-950"
+							inputClass="input-secondary py-1 pl-10 pr-10 text-sm disabled:cursor-not-allowed"
+							clearButtonClass="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-neutral-950 hover:text-secondary-900"
+							clearIconClass="h-4 w-4"
+							clearAriaLabel="Clear league search"
+							on:input={(event) => {
+								searchQuery = event.detail.value;
+							}}
+						/>
+					</div>
+
+					<div class="min-h-[34rem]">
+						{#if visibleDivisions.length === 0 && visibleWaitlistTeams.length === 0}
+							<div class="p-4">
+								<div
+									class={`space-y-2 border p-4 ${hasSearchQuery ? 'border-warning-300 bg-warning-50' : 'border-neutral-950 bg-white'}`}
+								>
+									<h3 class="text-xl font-bold font-serif text-neutral-950">
+										{#if hasSearchQuery}
+											No matches found
+										{:else}
+											No divisions yet
+										{/if}
+									</h3>
+									<p class="text-sm font-sans text-neutral-950">
+										{#if hasSearchQuery}
+											No divisions or waitlist teams match "{searchQuery.trim()}".
+										{:else}
+											Create a division to start organizing teams for this league.
+										{/if}
+									</p>
+								</div>
+							</div>
+						{:else}
+							<div class="divide-y divide-neutral-950">
+								{#each visibleDivisions as division}
+									<section
+										id={`division-${division.slug || division.id}`}
+										class="scroll-mt-4 space-y-3 p-4"
+									>
+										<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+											<div class="min-w-0">
+												<div class="flex flex-wrap items-center gap-2">
+													<a
+														href={divisionHref(division)}
+														class="text-2xl font-bold font-serif text-neutral-950 hover:underline"
+													>
+														{division.name}
+													</a>
+													<span
+														class="badge-secondary-outlined px-1.5 py-0 text-[10px] uppercase tracking-wide"
+													>
+														Division
+													</span>
+												</div>
+												{#if divisionMetaLine(division)}
+													<p
+														class="mt-1 text-xs font-semibold uppercase tracking-wide text-neutral-800"
+													>
+														{divisionMetaLine(division)}
+													</p>
+												{/if}
+											</div>
+											<div class="flex flex-wrap items-center gap-1">
+												<span class="badge-secondary-outlined px-2 py-0.5 text-xs">
+													{divisionCapacityLabel(division)}
+												</span>
+												{#if division.waitlistCount > 0}
+													<span class="badge-primary-outlined text-xs uppercase tracking-wide">
+														{division.waitlistCount} Waitlist
+													</span>
+												{/if}
+												{#if division.isLocked}
+													<span class="badge-primary text-xs uppercase tracking-wide">Locked</span>
+												{/if}
+											</div>
+										</div>
+
+										{#if division.description}
+											<p class="text-sm leading-6 text-neutral-950">{division.description}</p>
+										{/if}
+
+										<OfferingsTable
+											columns={divisionTableColumns}
+											rows={division.teams}
+											caption={`${division.name} teams table`}
+											rowClass={() => (canManageLeague ? 'group' : '')}
+										>
+											{#snippet emptyBody()}
+												<tr class="bg-neutral-25">
+													<td
+														colspan={divisionTableColumns.length}
+														class="px-2 py-10 text-center text-sm italic text-neutral-700"
+													>
+														No teams have been placed in this division yet.
+													</td>
+												</tr>
+											{/snippet}
+
+											{#snippet cell(team, column)}
+												{@const activeTeam = team as ActiveTeamRow}
+												{#if column.key === 'team'}
+													<div class="flex items-center gap-2">
+														<div
+															class="flex h-9 w-9 shrink-0 items-center justify-center bg-primary text-white"
+															aria-hidden="true"
+														>
+															<HeaderIcon class="h-5 w-5" />
+														</div>
+														<div class="min-w-0">
+															<div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+																<p class="font-sans text-sm font-bold text-neutral-950">
+																	{activeTeam.name}
+																</p>
+																<span class="font-sans text-xs leading-snug text-neutral-700">
+																	Captain: {captainLabel(activeTeam.captainName)}
+																</span>
+															</div>
+															{#if activeTeam.description}
+																<p class="mt-1 font-sans text-xs leading-snug text-neutral-700">
+																	{activeTeam.description}
+																</p>
+															{/if}
+														</div>
+													</div>
+												{:else if column.key === 'registration'}
+													<p class="font-sans text-xs leading-snug text-neutral-950">
+														<DateHoverText
+															display={formatDateTime(activeTeam.dateRegistered)}
+															value={activeTeam.dateRegistered}
+															includeTime
+															wrapperClass="inline"
+														/>
+													</p>
+												{:else if column.key === 'roster'}
+													<p class="font-sans text-xs leading-snug text-neutral-950">
+														{activeTeam.rosterSize} /
+														{#if hasRosterLimit()}
+															{data.offering?.maxPlayers}
+														{:else}
+															<span aria-label="No max players">&infin;</span>
+														{/if}
+													</p>
+												{:else if column.key === 'status'}
+													<span
+														class={`${approvalBadgeClass(true)} text-xs uppercase tracking-wide`}
+													>
+														{approvalBadgeLabel(true)}
+													</span>
+												{:else if column.key === 'manage' && canManageLeague}
+													<div class="flex justify-end">
+														<ListboxDropdown
+															options={teamActionOptions({
+																id: activeTeam.id,
+																name: activeTeam.name,
+																currentDivisionId: division.id,
+																currentDivisionName: division.name,
+																currentPlacement: 'active'
+															})}
+															value=""
+															mode="action"
+															align="right"
+															ariaLabel={`Actions for ${activeTeam.name}`}
+															buttonClass={ACTION_DROPDOWN_BUTTON_CLASS}
+															listClass={ACTION_DROPDOWN_LIST_CLASS}
+															optionClass={ACTION_DROPDOWN_OPTION_CLASS}
+															activeOptionClass="bg-neutral-100 text-neutral-950"
+															on:action={(event) =>
+																handleTeamAction(event.detail.value as TeamActionValue, {
+																	id: activeTeam.id,
+																	name: activeTeam.name,
+																	currentDivisionId: division.id,
+																	currentDivisionName: division.name,
+																	currentPlacement: 'active'
+																})}
+														>
+															{#snippet trigger()}<IconDots class="h-4 w-4" />{/snippet}
+														</ListboxDropdown>
+													</div>
+												{/if}
+											{/snippet}
+										</OfferingsTable>
+									</section>
+								{/each}
+
+								<section class="space-y-3 p-4">
+									<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+										<div class="min-w-0">
+											<div class="flex flex-wrap items-center gap-2">
+												<h2 class="text-2xl font-bold font-serif text-neutral-950">
+													League Waitlist
+												</h2>
+												<span
+													class="badge-secondary-outlined px-1.5 py-0 text-[10px] uppercase tracking-wide"
+												>
+													Waitlist
+												</span>
+											</div>
+											<p class="mt-1 text-sm text-neutral-900">
+												{data.summary.waitlistCount} team{data.summary.waitlistCount === 1
+													? ''
+													: 's'} waiting for placement
+											</p>
+										</div>
+										<div class="flex flex-wrap items-center gap-1">
+											<span class="badge-primary-outlined text-xs uppercase tracking-wide">
+												{visibleWaitlistTeams.length} Showing
+											</span>
+										</div>
+									</div>
+									<OfferingsTable
+										columns={waitlistTableColumns}
+										rows={visibleWaitlistTeams}
+										caption="League waitlist table"
+										rowClass={() => (canManageLeague ? 'group' : '')}
+									>
+										{#snippet emptyBody()}
+											<tr class="bg-neutral-25">
+												<td
+													colspan={waitlistTableColumns.length}
+													class="px-2 py-8 text-center text-sm italic text-neutral-700"
+												>
+													{#if hasSearchQuery}
+														No waitlist teams match this search.
+													{:else}
+														No teams are on the waitlist right now.
+													{/if}
+												</td>
+											</tr>
+										{/snippet}
+
+										{#snippet cell(team, column)}
+											{@const waitlistTeam = team as WaitlistTeamRow}
+											{#if column.key === 'team'}
+												<div class="flex items-center gap-2">
+													<div
+														class="flex h-9 w-9 shrink-0 items-center justify-center bg-primary text-white"
+														aria-hidden="true"
+													>
+														<HeaderIcon class="h-5 w-5" />
+													</div>
+													<div class="min-w-0">
+														<div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+															<p class="font-sans text-sm font-bold text-neutral-950">
+																{waitlistTeam.name}
+															</p>
+															<span class="font-sans text-xs leading-snug text-neutral-700">
+																Captain: {captainLabel(waitlistTeam.captainName)}
+															</span>
+														</div>
+														{#if waitlistTeam.description}
+															<p class="mt-1 font-sans text-xs leading-snug text-neutral-700">
+																{waitlistTeam.description}
+															</p>
+														{/if}
+													</div>
+												</div>
+											{:else if column.key === 'registration'}
+												<p class="font-sans text-xs leading-snug text-neutral-950">
+													<DateHoverText
+														display={formatDateTime(waitlistTeam.dateRegistered)}
+														value={waitlistTeam.dateRegistered}
+														includeTime
+														wrapperClass="inline"
+													/>
+												</p>
+											{:else if column.key === 'preferred-division'}
+												<p class="font-sans text-xs leading-snug text-neutral-950">
+													{waitlistTeam.preferredDivisionName}
+												</p>
+											{:else if column.key === 'roster'}
+												<p class="font-sans text-xs leading-snug text-neutral-950">
+													{waitlistTeam.rosterSize} /
+													{#if hasRosterLimit()}
+														{data.offering?.maxPlayers}
+													{:else}
+														<span aria-label="No max players">&infin;</span>
+													{/if}
+												</p>
+											{:else if column.key === 'status'}
+												<span
+													class={`${approvalBadgeClass(false)} text-xs uppercase tracking-wide`}
+												>
+													{approvalBadgeLabel(false)}
+												</span>
+											{:else if column.key === 'manage' && canManageLeague}
+												<div class="flex justify-end">
+													<ListboxDropdown
+														options={teamActionOptions({
+															id: waitlistTeam.id,
+															name: waitlistTeam.name,
+															currentDivisionId: waitlistTeam.preferredDivisionId,
+															currentDivisionName: waitlistTeam.preferredDivisionName,
+															currentPlacement: 'waitlist'
+														})}
+														value=""
+														mode="action"
+														align="right"
+														ariaLabel={`Actions for ${waitlistTeam.name}`}
+														buttonClass={ACTION_DROPDOWN_BUTTON_CLASS}
+														listClass={ACTION_DROPDOWN_LIST_CLASS}
+														optionClass={ACTION_DROPDOWN_OPTION_CLASS}
+														activeOptionClass="bg-neutral-100 text-neutral-950"
+														on:action={(event) =>
+															handleTeamAction(event.detail.value as TeamActionValue, {
+																id: waitlistTeam.id,
+																name: waitlistTeam.name,
+																currentDivisionId: waitlistTeam.preferredDivisionId,
+																currentDivisionName: waitlistTeam.preferredDivisionName,
+																currentPlacement: 'waitlist'
+															})}
+													>
+														{#snippet trigger()}<IconDots class="h-4 w-4" />{/snippet}
+													</ListboxDropdown>
+												</div>
+											{/if}
+										{/snippet}
+									</OfferingsTable>
+								</section>
+							</div>
+						{/if}
+					</div>
+				</section>
+
+				<aside class="w-full min-w-0 space-y-6">
+					<DashboardSidebarPanel title="League Snapshot">
+						{#snippet content()}
 							<div class="space-y-3 text-sm text-neutral-950">
-								<div class="border-b border-secondary-200 pb-3">
+								<div class="border border-neutral-950 bg-white p-3">
+									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+										Season
+									</p>
+									<p class="mt-1 font-semibold">{data.season?.name ?? 'TBD'}</p>
+									<p class="mt-1 text-xs text-neutral-700">
+										Offering: {data.offering?.name ?? 'TBD'}
+									</p>
+								</div>
+								<div class="border border-neutral-950 bg-white p-3">
 									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
 										Regular Season
 									</p>
@@ -1149,609 +1583,95 @@
 										{formatDateRange(data.league.seasonStartDate, data.league.seasonEndDate)}
 									</p>
 								</div>
-								<div class="border-b border-secondary-200 pb-3">
+								<div class="border border-neutral-950 bg-white p-3">
 									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
 										Team Registration
 									</p>
 									<p class="mt-1">
-										Start:{' '}
+										Start:
 										<DateHoverText
 											display={formatDateTime(data.league.regStartDate)}
 											value={data.league.regStartDate}
 											includeTime
+											textClass="ml-1"
 										/>
 									</p>
 									<p>
-										End:{' '}
+										End:
 										<DateHoverText
 											display={formatDateTime(data.league.regEndDate)}
 											value={data.league.regEndDate}
 											includeTime
+											textClass="ml-1"
 										/>
 									</p>
 								</div>
-								<div class="border-b border-secondary-200 pb-3">
+								<div class="border border-neutral-950 bg-white p-3">
 									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
 										League Setup
 									</p>
 									<p class="mt-1">Gender: {toTitleCase(data.league.gender) ?? 'Open'}</p>
 									<p>Skill: {toTitleCase(data.league.skillLevel) ?? 'All Levels'}</p>
-								</div>
-								<div class="border-b border-secondary-200 pb-3">
-									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
-										Players
+									<p>
+										Roster: {data.offering?.minPlayers ?? 'TBD'} min / {data.offering?.maxPlayers ??
+											'TBD'} max
 									</p>
-									<p class="mt-1">
-										Min: {data.offering?.minPlayers ?? 'TBD'} / Max: {data.offering?.maxPlayers ??
-											'TBD'}
-									</p>
-								</div>
-								<div class="pb-1">
-									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
-										Waitlist Registration
-									</p>
-									<p class="mt-1">{data.summary.waitlistCount} teams waiting for placement</p>
 									{#if data.offering?.rulebookUrl}
 										<a
 											href={data.offering.rulebookUrl}
 											target="_blank"
 											rel="noreferrer"
-											class="mt-2 inline-flex text-sm font-semibold text-secondary-900 underline underline-offset-2"
+											class="mt-2 inline-flex font-semibold text-secondary-900 underline underline-offset-2"
 										>
 											Open rulebook
 										</a>
 									{/if}
 								</div>
 							</div>
-						</div>
-					</section>
+						{/snippet}
+					</DashboardSidebarPanel>
 
-					<section class="space-y-3">
-						{#each data.divisions as division}
-							<div class="border-2 border-neutral-950 bg-white">
-								<div class="border-b border-neutral-950 px-3 py-2">
-									<div class="flex items-center justify-between gap-2">
+					<DashboardSidebarPanel title="Division Snapshot">
+						{#snippet content()}
+							{#if data.divisions.length === 0}
+								<p class="text-sm font-sans text-neutral-950">No divisions available yet.</p>
+							{:else}
+								<div class="space-y-3">
+									{#each data.divisions as division}
 										<a
-											href={divisionHref(division)}
-											class="text-lg font-serif font-bold text-neutral-950 hover:underline"
+											href={`#division-${division.slug || division.id}`}
+											class="block border border-neutral-950 bg-white p-3 transition-colors hover:bg-neutral-25"
 										>
-											{division.name}
-										</a>
-										<HoverTooltip
-											text={division.isLocked ? 'Division is locked' : 'Division is unlocked'}
-											wrapperClass="inline-flex"
-										>
-											<span
-												class="inline-flex h-7 w-7 items-center justify-center border border-secondary-300 bg-neutral text-neutral-950"
-											>
-												{#if division.isLocked}
-													<IconLock class="h-4 w-4" />
-												{:else}
-													<IconLockOpen class="h-4 w-4" />
-												{/if}
-											</span>
-										</HoverTooltip>
-									</div>
-									<p class="mt-1 text-xs font-semibold text-neutral-950">
-										{divisionCapacityLabel(division)}
-									</p>
-								</div>
-								<div class="p-3">
-									<table class="min-w-full text-xs text-neutral-950">
-										<thead>
-											<tr class="border-b border-secondary-200">
-												<th class="px-1 py-1 text-left font-bold uppercase tracking-wide">Team</th>
-												<th class="px-1 py-1 text-right font-bold uppercase tracking-wide">W-L-T</th
-												>
-												<th class="px-1 py-1 text-right font-bold uppercase tracking-wide">Pts</th>
-											</tr>
-										</thead>
-										<tbody>
-											{#if division.standings.length > 0}
-												{#each division.standings.slice(0, 3) as row}
-													<tr class="border-b border-secondary-100 last:border-b-0">
-														<td class="px-1 py-1 font-semibold">{row.teamName}</td>
-														<td class="px-1 py-1 text-right">{row.wins}-{row.losses}-{row.ties}</td>
-														<td class="px-1 py-1 text-right">{row.points}</td>
-													</tr>
-												{/each}
-											{:else}
-												<tr>
-													<td colspan="3" class="px-1 py-3 text-center italic text-neutral-700">
-														No teams
-													</td>
-												</tr>
-											{/if}
-										</tbody>
-									</table>
-									<a
-										href={divisionHref(division)}
-										class="mt-3 inline-flex text-xs font-bold uppercase tracking-wide text-secondary-900 underline underline-offset-2"
-									>
-										Full standings
-									</a>
-								</div>
-							</div>
-						{/each}
-					</section>
-
-					<section class="border-2 border-neutral-950 bg-white">
-						<div class="border-b border-neutral-950 bg-secondary-700/65 px-3 py-2 text-white">
-							<h2 class="text-xl font-serif font-bold">League Description</h2>
-						</div>
-						<div class="p-5 text-center">
-							<p class="text-4xl font-serif font-bold text-primary-900">
-								Welcome to the {data.league.name} League!
-							</p>
-							<p class="mx-auto mt-4 max-w-4xl text-base leading-7 text-neutral-950">
-								{data.league.description ??
-									data.offering?.description ??
-									'No league description has been added yet.'}
-							</p>
-							{#if data.offering?.rulebookUrl}
-								<p class="mt-4 text-sm font-semibold text-secondary-900">
-									<a
-										href={data.offering.rulebookUrl}
-										target="_blank"
-										rel="noreferrer"
-										class="underline underline-offset-2"
-									>
-										League Rules and Handbook
-									</a>
-								</p>
-							{/if}
-						</div>
-					</section>
-
-					<section class="border-2 border-neutral-950 bg-white">
-						<div class="border-b border-neutral-950 bg-secondary-700/65 px-3 py-2 text-white">
-							<div class="flex items-center justify-between gap-3">
-								<h2 class="text-xl font-serif font-bold">Announcements</h2>
-								<span
-									class="border border-white/50 px-2 py-1 text-[11px] font-bold uppercase tracking-wide"
-								>
-									No posts
-								</span>
-							</div>
-						</div>
-						<div class="p-4 text-center italic text-neutral-700">Nothing posted yet...</div>
-					</section>
-
-					{#if canManageLeague}
-						<section class="border-2 border-neutral-950 bg-neutral">
-							<div class="border-b border-neutral-950 px-4 py-3">
-								<div class="flex flex-col gap-3">
-									<div>
-										<p class="text-[11px] font-bold uppercase tracking-[0.18em] text-neutral-950">
-											League Admin
-										</p>
-										<h2 class="mt-1 text-2xl font-serif font-bold text-neutral-950">
-											Manage Divisions and Teams
-										</h2>
-									</div>
-									<div class="flex flex-wrap gap-2">
-										<button
-											type="button"
-											class="button-secondary inline-flex items-center gap-2 cursor-pointer"
-											onclick={openCreateDivisionWizard}
-										>
-											<IconPlus class="h-4 w-4" />
-											<span>New Division</span>
-										</button>
-									</div>
-								</div>
-							</div>
-							<div class="grid gap-3 p-4">
-								<div class="border border-neutral-950 bg-white p-3">
-									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
-										Division Capacity
-									</p>
-									<p class="mt-2 text-sm leading-6 text-neutral-950">
-										Admins can add divisions, cap them, and keep new signups on the waitlist until
-										space opens.
-									</p>
-								</div>
-								<div class="border border-neutral-950 bg-white p-3">
-									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
-										Team Movement
-									</p>
-									<p class="mt-2 text-sm leading-6 text-neutral-950">
-										Use the row controls below to move teams between divisions or promote them out
-										of the waitlist.
-									</p>
-								</div>
-								<div class="border border-neutral-950 bg-white p-3">
-									<div class="mb-1 flex min-h-6 items-center gap-1.5">
-										<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
-											Admin Notes
-										</p>
-										<InfoPopover buttonVariant="label-inline" buttonAriaLabel="League admin help">
-											<div class="space-y-2">
-												<p>Locked divisions stay visible but can be kept closed to participants.</p>
-												<p>Waitlisted teams do not count toward a division's active team total.</p>
-											</div>
-										</InfoPopover>
-									</div>
-									<p class="mt-2 text-sm leading-6 text-neutral-950">
-										All new divisions and teams are created through the shared wizard flow for
-										consistent setup and validation.
-									</p>
-								</div>
-							</div>
-						</section>
-					{/if}
-				</aside>
-
-				<div class="order-1 space-y-4">
-					<section class="hidden border-2 border-neutral-950 bg-white">
-						<div class="border-b border-neutral-950 bg-secondary-700/65 px-3 py-2 text-white">
-							<h2 class="text-xl font-serif font-bold">League Description</h2>
-						</div>
-						<div class="p-5 text-center">
-							<p class="text-4xl font-serif font-bold text-primary-900">
-								Welcome to the {data.league.name} League!
-							</p>
-							<p class="mx-auto mt-4 max-w-4xl text-base leading-7 text-neutral-950">
-								{data.league.description ??
-									data.offering?.description ??
-									'No league description has been added yet.'}
-							</p>
-							{#if data.offering?.rulebookUrl}
-								<p class="mt-4 text-sm font-semibold text-secondary-900">
-									<a
-										href={data.offering.rulebookUrl}
-										target="_blank"
-										rel="noreferrer"
-										class="underline underline-offset-2"
-									>
-										League Rules and Handbook
-									</a>
-								</p>
-							{/if}
-						</div>
-					</section>
-
-					<section class="hidden border-2 border-neutral-950 bg-white">
-						<div class="border-b border-neutral-950 bg-secondary-700/65 px-3 py-2 text-white">
-							<div class="flex items-center justify-between gap-3">
-								<h2 class="text-xl font-serif font-bold">Announcements</h2>
-								<span
-									class="border border-white/50 px-2 py-1 text-[11px] font-bold uppercase tracking-wide"
-								>
-									No posts
-								</span>
-							</div>
-						</div>
-						<div class="p-4 text-center italic text-neutral-700">Nothing posted yet...</div>
-					</section>
-
-					{#if canManageLeague}
-						<section class="hidden border-2 border-neutral-950 bg-neutral">
-							<div class="border-b border-neutral-950 px-4 py-3">
-								<div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-									<div>
-										<p class="text-[11px] font-bold uppercase tracking-[0.18em] text-neutral-950">
-											League Admin
-										</p>
-										<h2 class="mt-1 text-2xl font-serif font-bold text-neutral-950">
-											Manage Divisions and Teams
-										</h2>
-									</div>
-									<div class="flex flex-wrap gap-2">
-										<button
-											type="button"
-											class="button-secondary inline-flex items-center gap-2 cursor-pointer"
-											onclick={openCreateDivisionWizard}
-										>
-											<IconPlus class="h-4 w-4" />
-											<span>New Division</span>
-										</button>
-									</div>
-								</div>
-							</div>
-							<div class="grid gap-3 p-4 md:grid-cols-3">
-								<div class="border border-neutral-950 bg-white p-3">
-									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
-										Division Capacity
-									</p>
-									<p class="mt-2 text-sm leading-6 text-neutral-950">
-										Admins can add divisions, cap them, and keep new signups on the waitlist until
-										space opens.
-									</p>
-								</div>
-								<div class="border border-neutral-950 bg-white p-3">
-									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
-										Team Movement
-									</p>
-									<p class="mt-2 text-sm leading-6 text-neutral-950">
-										Use the row controls below to move teams between divisions or promote them out
-										of the waitlist.
-									</p>
-								</div>
-								<div class="border border-neutral-950 bg-white p-3">
-									<div class="mb-1 flex min-h-6 items-center gap-1.5">
-										<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
-											Admin Notes
-										</p>
-										<InfoPopover buttonVariant="label-inline" buttonAriaLabel="League admin help">
-											<div class="space-y-2">
-												<p>Locked divisions stay visible but can be kept closed to participants.</p>
-												<p>Waitlisted teams do not count toward a division's active team total.</p>
-											</div>
-										</InfoPopover>
-									</div>
-									<p class="mt-2 text-sm leading-6 text-neutral-950">
-										All new divisions and teams are created through the shared wizard flow for
-										consistent setup and validation.
-									</p>
-								</div>
-							</div>
-						</section>
-					{/if}
-
-					{#each data.divisions as division}
-						<section
-							id={`division-${division.slug || division.id}`}
-							class="border-2 border-neutral-950 bg-white scroll-mt-4"
-						>
-							<div
-								class="border-b border-neutral-950 bg-neutral-200 px-3 py-2.5 text-neutral-950"
-							>
-								<div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-									<div class="flex items-start gap-3">
-										<span
-											class="mt-1 inline-flex h-6 w-6 shrink-0 items-center justify-center text-secondary-900"
-										>
-											{#if division.isLocked}
-												<IconLock class="h-5 w-5" />
-											{:else}
-												<IconLockOpen class="h-5 w-5" />
-											{/if}
-										</span>
-										<div>
-											<h2
-												class="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-2xl font-serif font-bold"
-											>
-												<span>{division.name}</span>
-												<span class="text-base font-sans font-semibold text-neutral-900">
-													{divisionCapacityLabel(division)}
-												</span>
-											</h2>
-											{#if divisionMetaLine(division)}
-												<p
-													class="mt-1 text-xs font-semibold uppercase tracking-wide text-neutral-800"
-												>
-													{divisionMetaLine(division)}
-												</p>
-											{/if}
-										</div>
-									</div>
-								</div>
-							</div>
-
-							<div class="space-y-4 p-4">
-								{#if division.description}
-									<p class="text-sm leading-6 text-neutral-950">{division.description}</p>
-								{/if}
-
-								<OfferingsTable
-									columns={divisionTableColumns}
-									rows={division.teams}
-									caption={`${division.name} teams table`}
-									rowClass={() => (canManageLeague ? 'group' : '')}
-								>
-									{#snippet emptyBody()}
-										<tr class="bg-neutral-25">
-											<td
-												colspan={divisionTableColumns.length}
-												class="px-2 py-10 text-center text-sm italic text-neutral-700"
-											>
-												No teams have been placed in this division yet.
-											</td>
-										</tr>
-									{/snippet}
-
-									{#snippet cell(team, column)}
-										{@const activeTeam = team as ActiveTeamRow}
-										{#if column.key === 'team'}
-											<div class="flex items-center gap-2">
-												<div
-													class="flex h-9 w-9 shrink-0 items-center justify-center bg-primary text-white"
-													aria-hidden="true"
-												>
-													<HeaderIcon class="h-5 w-5" />
-												</div>
+											<div class="flex items-start justify-between gap-3">
 												<div class="min-w-0">
-													<div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-														<p class="text-sm font-bold text-neutral-950 font-sans">
-															{activeTeam.name}
-														</p>
-														<span class="text-xs leading-snug text-neutral-700 font-sans">
-															Captain: {captainLabel(activeTeam.captainName)}
-														</span>
-													</div>
-													{#if activeTeam.description}
-														<p class="mt-1 text-xs leading-snug text-neutral-700 font-sans">
-															{activeTeam.description}
+													<p class="font-serif text-lg font-bold text-neutral-950">
+														{division.name}
+													</p>
+													{#if divisionMetaLine(division)}
+														<p
+															class="mt-1 text-xs font-semibold uppercase tracking-wide text-neutral-800"
+														>
+															{divisionMetaLine(division)}
 														</p>
 													{/if}
 												</div>
+												<div class="flex flex-col items-end gap-1">
+													<span class="badge-secondary-outlined px-2 py-0.5 text-xs">
+														{divisionCapacityLabel(division)}
+													</span>
+													{#if division.isLocked}
+														<span class="badge-primary text-xs uppercase tracking-wide">Locked</span
+														>
+													{/if}
+												</div>
 											</div>
-										{:else if column.key === 'registration'}
-											<p class="text-xs leading-snug text-neutral-950 font-sans">
-												<DateHoverText
-													display={formatDateTime(activeTeam.dateRegistered)}
-													value={activeTeam.dateRegistered}
-													includeTime
-													wrapperClass="inline"
-												/>
-											</p>
-										{:else if column.key === 'roster'}
-											<p class="text-xs leading-snug text-neutral-950 font-sans">
-												{activeTeam.rosterSize} /
-												{#if hasRosterLimit()}
-													{data.offering?.maxPlayers}
-												{:else}
-													<span aria-label="No max players">&infin;</span>
-												{/if}
-											</p>
-										{:else if column.key === 'status'}
-											<span class={`${approvalBadgeClass(true)} text-xs uppercase tracking-wide`}>
-												{approvalBadgeLabel(true)}
-											</span>
-										{:else if column.key === 'manage' && canManageLeague}
-											<div class="flex justify-end">
-												<ListboxDropdown
-													options={teamActionOptions({
-														id: activeTeam.id,
-														name: activeTeam.name,
-														currentDivisionId: division.id,
-														currentDivisionName: division.name,
-														currentPlacement: 'active'
-													})}
-													value=""
-													mode="action"
-													align="right"
-													ariaLabel={`Actions for ${activeTeam.name}`}
-													buttonClass={ACTION_DROPDOWN_BUTTON_CLASS}
-													listClass={ACTION_DROPDOWN_LIST_CLASS}
-													optionClass={ACTION_DROPDOWN_OPTION_CLASS}
-													activeOptionClass="bg-neutral-100 text-neutral-950"
-													on:action={(event) =>
-														handleTeamAction(event.detail.value as TeamActionValue, {
-															id: activeTeam.id,
-															name: activeTeam.name,
-															currentDivisionId: division.id,
-															currentDivisionName: division.name,
-															currentPlacement: 'active'
-														})}
-												>
-													{#snippet trigger()}<IconDots class="h-4 w-4" />{/snippet}
-												</ListboxDropdown>
-											</div>
-										{/if}
-									{/snippet}
-								</OfferingsTable>
-							</div>
-						</section>
-					{/each}
-
-					<section class="border-2 border-neutral-950 bg-white">
-						<div class="border-b border-neutral-950 bg-neutral-200 px-3 py-2.5 text-neutral-950">
-							<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-								<div>
-									<h2 class="text-xl font-serif font-bold">League Waitlist</h2>
-									<p class="text-sm text-neutral-900">
-										{data.summary.waitlistCount} team{data.summary.waitlistCount === 1 ? '' : 's'} waiting
-										for placement
-									</p>
+										</a>
+									{/each}
 								</div>
-							</div>
-						</div>
-						<OfferingsTable
-							columns={waitlistTableColumns}
-							rows={data.waitlistTeams}
-							caption="League waitlist table"
-							rowClass={() => (canManageLeague ? 'group' : '')}
-						>
-							{#snippet emptyBody()}
-								<tr class="bg-neutral-25">
-									<td
-										colspan={waitlistTableColumns.length}
-										class="px-2 py-8 text-center text-sm italic text-neutral-700"
-									>
-										No teams are on the waitlist right now.
-									</td>
-								</tr>
-							{/snippet}
-
-							{#snippet cell(team, column)}
-								{@const waitlistTeam = team as WaitlistTeamRow}
-								{#if column.key === 'team'}
-									<div class="flex items-center gap-2">
-										<div
-											class="flex h-9 w-9 shrink-0 items-center justify-center bg-primary text-white"
-											aria-hidden="true"
-										>
-											<HeaderIcon class="h-5 w-5" />
-										</div>
-										<div class="min-w-0">
-											<div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-												<p class="text-sm font-bold text-neutral-950 font-sans">
-													{waitlistTeam.name}
-												</p>
-												<span class="text-xs leading-snug text-neutral-700 font-sans">
-													Captain: {captainLabel(waitlistTeam.captainName)}
-												</span>
-											</div>
-											{#if waitlistTeam.description}
-												<p class="mt-1 text-xs leading-snug text-neutral-700 font-sans">
-													{waitlistTeam.description}
-												</p>
-											{/if}
-										</div>
-									</div>
-								{:else if column.key === 'registration'}
-									<p class="text-xs leading-snug text-neutral-950 font-sans">
-										<DateHoverText
-											display={formatDateTime(waitlistTeam.dateRegistered)}
-											value={waitlistTeam.dateRegistered}
-											includeTime
-											wrapperClass="inline"
-										/>
-									</p>
-								{:else if column.key === 'preferred-division'}
-									<p class="text-xs leading-snug text-neutral-950 font-sans">
-										{waitlistTeam.preferredDivisionName}
-									</p>
-								{:else if column.key === 'roster'}
-									<p class="text-xs leading-snug text-neutral-950 font-sans">
-										{waitlistTeam.rosterSize} /
-										{#if hasRosterLimit()}
-											{data.offering?.maxPlayers}
-										{:else}
-											<span aria-label="No max players">&infin;</span>
-										{/if}
-									</p>
-								{:else if column.key === 'status'}
-									<span class={`${approvalBadgeClass(false)} text-xs uppercase tracking-wide`}>
-										{approvalBadgeLabel(false)}
-									</span>
-								{:else if column.key === 'manage' && canManageLeague}
-									<div class="flex justify-end">
-										<ListboxDropdown
-											options={teamActionOptions({
-												id: waitlistTeam.id,
-												name: waitlistTeam.name,
-												currentDivisionId: waitlistTeam.preferredDivisionId,
-												currentDivisionName: waitlistTeam.preferredDivisionName,
-												currentPlacement: 'waitlist'
-											})}
-											value=""
-											mode="action"
-											align="right"
-											ariaLabel={`Actions for ${waitlistTeam.name}`}
-											buttonClass={ACTION_DROPDOWN_BUTTON_CLASS}
-											listClass={ACTION_DROPDOWN_LIST_CLASS}
-											optionClass={ACTION_DROPDOWN_OPTION_CLASS}
-											activeOptionClass="bg-neutral-100 text-neutral-950"
-											on:action={(event) =>
-												handleTeamAction(event.detail.value as TeamActionValue, {
-													id: waitlistTeam.id,
-													name: waitlistTeam.name,
-													currentDivisionId: waitlistTeam.preferredDivisionId,
-													currentDivisionName: waitlistTeam.preferredDivisionName,
-													currentPlacement: 'waitlist'
-												})}
-										>
-											{#snippet trigger()}<IconDots class="h-4 w-4" />{/snippet}
-										</ListboxDropdown>
-									</div>
-								{/if}
-							{/snippet}
-						</OfferingsTable>
-					</section>
-				</div>
+							{/if}
+						{/snippet}
+					</DashboardSidebarPanel>
+				</aside>
 			</div>
 		{:else}
 			<div class="border-2 border-neutral-950 bg-white p-6 text-sm text-neutral-950">
@@ -1760,7 +1680,6 @@
 		{/if}
 	</div>
 </div>
-
 <CreateDivisionWizard
 	open={createDivisionOpen}
 	form={createDivisionForm}

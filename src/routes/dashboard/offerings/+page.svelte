@@ -28,7 +28,6 @@
 		IconBallFootball,
 		IconBallTennis,
 		IconBallVolleyball,
-		IconChevronDown,
 		IconCalendar,
 		IconCopy,
 		IconCrosshair,
@@ -45,6 +44,7 @@
 	import InfoPopover from '$lib/components/InfoPopover.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import OfferingsTable from '$lib/components/OfferingsTable.svelte';
+	import SplitAddAction from '$lib/components/dashboard/SplitAddAction.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import type { OfferingsTableColumn } from '$lib/components/offerings-table.js';
@@ -137,6 +137,7 @@
 		seasonId: string;
 		name: string;
 		slug: string;
+		linkedOfferingId: string;
 		isActive: boolean;
 		imageUrl: string;
 		minPlayers: number;
@@ -291,6 +292,7 @@
 	let offeringView = $state<OfferingView>('all');
 	let offeringViewHydrated = $state(false);
 	let seasonSelectionHydrated = $state(false);
+	let createLeagueRequestHydrated = $state(false);
 	let highlightedLeagueRowId = $state<string | null>(null);
 	let highlightTimeout: ReturnType<typeof setTimeout> | null = null;
 	let isCreateSeasonModalOpen = $state(false);
@@ -441,7 +443,8 @@
 	}
 
 	function defaultLeagueSlug(leagueName: string, offeringName: string): string {
-		return slugifyFinal(`${leagueName} ${offeringName}`);
+		void offeringName;
+		return slugifyFinal(leagueName);
 	}
 
 	function defaultLeagueNamePlaceholder(isTournament: boolean): string {
@@ -517,6 +520,7 @@
 				seasonId: '',
 				name: '',
 				slug: '',
+				linkedOfferingId: '',
 				isActive: true,
 				imageUrl: '',
 				minPlayers: 0,
@@ -870,6 +874,33 @@
 		}
 	}
 
+	function readCreateLeagueRequestFromUrl(): { offeringId: string } | null {
+		if (typeof window === 'undefined') return null;
+		try {
+			const url = new URL(window.location.href);
+			if (url.searchParams.get('action') !== 'create-league') {
+				return null;
+			}
+			const offeringId = url.searchParams.get('offeringId')?.trim() ?? '';
+			if (!offeringId) return null;
+			return { offeringId };
+		} catch {
+			return null;
+		}
+	}
+
+	function clearCreateLeagueRequestFromUrl(): void {
+		if (typeof window === 'undefined') return;
+		try {
+			const url = new URL(window.location.href);
+			url.searchParams.delete('action');
+			url.searchParams.delete('offeringId');
+			replaceState(`${url.pathname}${url.search}${url.hash}`, {});
+		} catch {
+			// Ignore history state errors in restrictive browser modes.
+		}
+	}
+
 	function shouldHydrateSeasonFromUrlOnLoad(): boolean {
 		if (typeof window === 'undefined' || typeof performance === 'undefined') return false;
 		try {
@@ -974,6 +1005,18 @@
 			offeringView === 'tournaments' ? 'tournament' : offeringView === 'leagues' ? 'league' : 'all';
 		createLeagueForm.league.seasonId = selectedSeasonId;
 		isCreateLeagueModalOpen = true;
+	}
+
+	function openCreateLeagueWizardForOffering(offeringId: string): boolean {
+		if (!canManageOfferings) return false;
+		const selectedOffering = getLeagueOfferingById(offeringId);
+		if (!selectedOffering?.id) return false;
+		resetCreateLeagueWizard();
+		createLeagueOfferingFilter = selectedOffering.type === 'tournament' ? 'tournament' : 'league';
+		createLeagueForm.offeringId = selectedOffering.id;
+		createLeagueForm.league.seasonId = selectedOffering.seasonId || selectedSeasonId;
+		isCreateLeagueModalOpen = true;
+		return true;
 	}
 
 	function closeCreateSeasonWizard(): void {
@@ -1372,6 +1415,17 @@
 		);
 	}
 
+	function getTakenOfferingNamesForSeason(seasonId: string): Set<string> {
+		const normalizedSeasonId = seasonId.trim();
+		if (!normalizedSeasonId) return new Set<string>();
+		return new Set(
+			leagueOfferingOptions
+				.filter((offering) => offering.seasonId === normalizedSeasonId)
+				.map((offering) => offering.name.trim().toLowerCase())
+				.filter((name) => name.length > 0)
+		);
+	}
+
 	function suggestNextOfferingSlug(slug: string, seasonId: string): string | null {
 		const normalizedSlug = slugifyFinal(slug);
 		if (!normalizedSlug) return null;
@@ -1398,6 +1452,13 @@
 		if (!name) errors['offering.name'] = 'Offering name is required.';
 		if (!slug) errors['offering.slug'] = 'Offering slug is required.';
 		if (!values.type) errors['offering.type'] = 'Type is required.';
+		if (seasonId && name) {
+			const takenNames = getTakenOfferingNamesForSeason(seasonId);
+			if (takenNames.has(name.toLowerCase())) {
+				errors['offering.name'] =
+					'An offering with this name already exists for the selected season.';
+			}
+		}
 		if (seasonId && slug) {
 			const takenSlugs = getTakenOfferingSlugsForSeason(seasonId);
 			if (takenSlugs.has(slug)) {
@@ -1405,6 +1466,16 @@
 				errors['offering.slug'] = suggestedSlug
 					? `An offering with this slug already exists for the selected season. Try "${suggestedSlug}".`
 					: 'An offering with this slug already exists for the selected season.';
+			}
+		}
+		if (values.linkedOfferingId.trim()) {
+			const linkedOffering = leagueOfferingOptions.find(
+				(offering) => offering.id === values.linkedOfferingId.trim()
+			);
+			if (!linkedOffering) {
+				errors['offering.linkedOfferingId'] = 'Select a valid offering to link.';
+			} else if (linkedOffering.seasonId === seasonId) {
+				errors['offering.linkedOfferingId'] = 'Linked offering must be from a different season.';
 			}
 		}
 
@@ -1545,6 +1616,79 @@
 		return errors;
 	}
 
+	function getLeagueCollectionScopeErrors(
+		leagues: WizardLeagueInput[],
+		prefix = 'leagues'
+	): Record<string, string> {
+		const errors: Record<string, string> = {};
+		const seenNames = new Map<string, number>();
+		const seenSlugs = new Map<string, number>();
+
+		for (const [index, league] of leagues.entries()) {
+			const normalizedName = league.name.trim().toLowerCase();
+			if (normalizedName) {
+				const previousNameIndex = seenNames.get(normalizedName);
+				if (previousNameIndex !== undefined) {
+					errors[`${prefix}.${index}.name`] =
+						'League/group name must be unique within this offering.';
+				} else {
+					seenNames.set(normalizedName, index);
+				}
+			}
+
+			const normalizedSlug = slugifyFinal(league.slug);
+			if (normalizedSlug) {
+				const previousSlugIndex = seenSlugs.get(normalizedSlug);
+				if (previousSlugIndex !== undefined) {
+					errors[`${prefix}.${index}.slug`] =
+						'League/group slug must be unique within this offering.';
+				} else {
+					seenSlugs.set(normalizedSlug, index);
+				}
+			}
+		}
+
+		return errors;
+	}
+
+	function getExistingOfferingLeagueScopeErrors(
+		offeringId: string,
+		leagues: WizardLeagueInput[],
+		prefix = 'leagues'
+	): Record<string, string> {
+		const normalizedOfferingId = offeringId.trim();
+		if (!normalizedOfferingId) return {};
+
+		const existingLeagues = leagueTemplates.filter(
+			(league) => league.offeringId === normalizedOfferingId
+		);
+		const existingNames = new Set(
+			existingLeagues
+				.map((league) => league.name.trim().toLowerCase())
+				.filter((name) => name.length > 0)
+		);
+		const existingSlugs = new Set(
+			existingLeagues.map((league) => slugifyFinal(league.slug)).filter((slug) => slug.length > 0)
+		);
+
+		const errors: Record<string, string> = {};
+		for (const [index, league] of leagues.entries()) {
+			const normalizedName = league.name.trim().toLowerCase();
+			if (normalizedName && existingNames.has(normalizedName)) {
+				errors[`${prefix}.${index}.name`] =
+					'An entry with this name already exists for the selected offering.';
+			}
+
+			const normalizedSlug = slugifyFinal(league.slug);
+			if (normalizedSlug && existingSlugs.has(normalizedSlug)) {
+				errors[`${prefix}.${index}.slug`] =
+					'An entry with this slug already exists for the selected offering.';
+			}
+		}
+
+		return errors;
+	}
+
 	function getCurrentStepClientErrors(
 		values: WizardFormState,
 		step: WizardStep
@@ -1554,6 +1698,7 @@
 				'offering.seasonId',
 				'offering.name',
 				'offering.slug',
+				'offering.linkedOfferingId',
 				'offering.type',
 				'offering.description'
 			]);
@@ -1608,6 +1753,7 @@
 			values.leagues.forEach((league, index) => {
 				Object.assign(errors, getLeagueFieldErrors(league, `leagues.${index}`));
 			});
+			Object.assign(errors, getLeagueCollectionScopeErrors(values.leagues));
 		}
 
 		return errors;
@@ -1621,6 +1767,7 @@
 					'offering.seasonId',
 					'offering.name',
 					'offering.slug',
+					'offering.linkedOfferingId',
 					'offering.sport',
 					'offering.type'
 				].includes(key)
@@ -1907,6 +2054,7 @@
 				seasonId: createForm.offering.seasonId.trim(),
 				name: createForm.offering.name.trim(),
 				slug: slugifyFinal(createForm.offering.slug),
+				linkedOfferingId: createForm.offering.linkedOfferingId.trim() || null,
 				isActive: createForm.offering.isActive,
 				imageUrl: normalizeOptionalUrlForRequest(createForm.offering.imageUrl),
 				minPlayers: normalizePlayerCountForRequest(createForm.offering.minPlayers),
@@ -1960,6 +2108,11 @@
 					sport: payload.offering.sport ?? 'Unspecified sport',
 					type: payload.offering.type,
 					seasonId: payload.offering.seasonId,
+					seasonName: getSeasonLabel(payload.offering.seasonId),
+					seriesId:
+						leagueOfferingOptions.find(
+							(offeringOption) => offeringOption.id === createForm.offering.linkedOfferingId
+						)?.seriesId ?? null,
 					isActive: payload.offering.isActive
 				},
 				...leagueOfferingOptions.filter(
@@ -2473,6 +2626,11 @@
 			values.leagues.forEach((league, index) => {
 				Object.assign(errors, getLeagueFieldErrors(league, `leagues.${index}`));
 			});
+			Object.assign(errors, getLeagueCollectionScopeErrors(values.leagues));
+			Object.assign(
+				errors,
+				getExistingOfferingLeagueScopeErrors(values.offeringId, values.leagues)
+			);
 		}
 		return errors;
 	}
@@ -3654,6 +3812,38 @@
 			}
 		];
 	});
+	const offeringLinkCandidates = $derived.by<LeagueOfferingOption[]>(() => {
+		const selectedSeasonId = createForm.offering.seasonId.trim();
+		const normalizedName = createForm.offering.name.trim().toLowerCase();
+		const normalizedSlug = slugifyFinal(createForm.offering.slug);
+		if (!selectedSeasonId || (!normalizedName && !normalizedSlug)) {
+			return [];
+		}
+
+		return leagueOfferingOptions
+			.filter((offering) => {
+				if (!offering.id || offering.seasonId === selectedSeasonId) return false;
+				const nameMatches =
+					normalizedName.length > 0 && offering.name.trim().toLowerCase() === normalizedName;
+				const slugMatches =
+					normalizedSlug.length > 0 && slugifyFinal(offering.slug) === normalizedSlug;
+				return nameMatches || slugMatches;
+			})
+			.sort((a, b) => (b.seasonName ?? '').localeCompare(a.seasonName ?? ''));
+	});
+	const offeringLinkDropdownOptions = $derived.by<DropdownOption[]>(() => [
+		{ value: '', label: 'Do not link' },
+		...offeringLinkCandidates.map((offering) => ({
+			value: offering.id,
+			label: `${offering.name} (${offering.seasonName ?? 'Other season'})`
+		}))
+	]);
+	const selectedLinkedOffering = $derived.by(
+		() =>
+			leagueOfferingOptions.find(
+				(offering) => offering.id === createForm.offering.linkedOfferingId.trim()
+			) ?? null
+	);
 	const leagueGenderDropdownOptions = $derived.by<DropdownOption[]>(() => [
 		{ value: '', label: 'Select...' },
 		{ value: 'male', label: 'Male' },
@@ -3697,6 +3887,17 @@
 			(activity: Activity) => activity.isActive && activity.offeringType === 'tournament'
 		)
 	);
+
+	$effect(() => {
+		const linkedOfferingId = createForm.offering.linkedOfferingId.trim();
+		if (!linkedOfferingId) return;
+		const stillAvailable = offeringLinkCandidates.some(
+			(offering) => offering.id === linkedOfferingId
+		);
+		if (!stillAvailable) {
+			createForm.offering.linkedOfferingId = '';
+		}
+	});
 
 	function offeringOptionsForSeasonView(
 		filter: 'league' | 'tournament' | 'all'
@@ -3746,6 +3947,37 @@
 			}
 		}
 		offeringViewHydrated = true;
+	});
+
+	$effect(() => {
+		if (createLeagueRequestHydrated || typeof window === 'undefined') return;
+		if (!seasonSelectionHydrated || !offeringViewHydrated) return;
+		const request = readCreateLeagueRequestFromUrl();
+		if (!request) {
+			createLeagueRequestHydrated = true;
+			return;
+		}
+
+		const requestedOffering = getLeagueOfferingById(request.offeringId);
+		if (!requestedOffering?.id) {
+			clearCreateLeagueRequestFromUrl();
+			createLeagueRequestHydrated = true;
+			return;
+		}
+
+		if (
+			requestedOffering.seasonId &&
+			seasons.some((season) => season.id === requestedOffering.seasonId) &&
+			selectedSeasonId !== requestedOffering.seasonId
+		) {
+			selectedSeasonId = requestedOffering.seasonId;
+			return;
+		}
+
+		if (openCreateLeagueWizardForOffering(requestedOffering.id)) {
+			clearCreateLeagueRequestFromUrl();
+		}
+		createLeagueRequestHydrated = true;
 	});
 
 	$effect(() => {
@@ -4326,35 +4558,13 @@
 								</span>
 								{#if canManageOfferings}
 									{#if seasons.length > 0}
-										<div class="relative inline-flex items-stretch">
-											<button
-												type="button"
-												class="button-primary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer"
-												onclick={openCreateWizard}
-											>
-												+ ADD
-											</button>
-											<ListboxDropdown
-												options={addActionDropdownOptions}
-												value=""
-												mode="action"
-												ariaLabel="Open add menu"
-												align="right"
-												buttonClass="button-primary-outlined -ml-[2px] px-1 py-1 cursor-pointer"
-												listClass="mt-1 w-44 border-2 border-neutral-950 bg-white z-20"
-												optionClass="w-full text-left px-3 py-2 text-sm text-neutral-950 cursor-pointer"
-												activeOptionClass="bg-neutral-100 text-neutral-950"
-												on:action={(event) => {
-													handleAddActionDropdown(event.detail.value);
-												}}
-											>
-												{#snippet trigger(open)}
-													<IconChevronDown
-														class={`w-4 h-4 transition-transform duration-200 ${open ? 'rotate-180' : 'rotate-0'}`}
-													/>
-												{/snippet}
-											</ListboxDropdown>
-										</div>
+										<SplitAddAction
+											options={addActionDropdownOptions}
+											on:click={openCreateWizard}
+											on:action={(event) => {
+												handleAddActionDropdown(event.detail.value);
+											}}
+										/>
 									{:else}
 										<button
 											type="button"
@@ -4405,10 +4615,7 @@
 						</div>
 
 						{#each [0, 1] as _, skeletonOfferingIndex}
-							<article
-								class="border border-neutral-950 bg-white p-4 space-y-3"
-								aria-hidden="true"
-							>
+							<article class="border border-neutral-950 bg-white p-4 space-y-3" aria-hidden="true">
 								<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
 									<div class="space-y-2">
 										<div
@@ -4617,35 +4824,13 @@
 								</span>
 								{#if canManageOfferings}
 									{#if seasons.length > 0}
-										<div class="relative inline-flex items-stretch">
-											<button
-												type="button"
-												class="button-primary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer"
-												onclick={openCreateWizard}
-											>
-												+ ADD
-											</button>
-											<ListboxDropdown
-												options={addActionDropdownOptions}
-												value=""
-												mode="action"
-												ariaLabel="Open add menu"
-												align="right"
-												buttonClass="button-primary-outlined -ml-[2px] px-1 py-1 cursor-pointer"
-												listClass="mt-1 w-44 border-2 border-neutral-950 bg-white z-20"
-												optionClass="w-full text-left px-3 py-2 text-sm text-neutral-950 cursor-pointer"
-												activeOptionClass="bg-neutral-100 text-neutral-950"
-												on:action={(event) => {
-													handleAddActionDropdown(event.detail.value);
-												}}
-											>
-												{#snippet trigger(open)}
-													<IconChevronDown
-														class={`w-4 h-4 transition-transform duration-200 ${open ? 'rotate-180' : 'rotate-0'}`}
-													/>
-												{/snippet}
-											</ListboxDropdown>
-										</div>
+										<SplitAddAction
+											options={addActionDropdownOptions}
+											on:click={openCreateWizard}
+											on:action={(event) => {
+												handleAddActionDropdown(event.detail.value);
+											}}
+										/>
 									{:else}
 										<button
 											type="button"
@@ -6746,6 +6931,59 @@
 				</div>
 			</div>
 
+			{#if offeringLinkCandidates.length > 0 || createForm.offering.linkedOfferingId}
+				<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+					<div>
+						<p class="block text-sm font-sans text-neutral-950 mb-1">Link Across Seasons</p>
+						<ListboxDropdown
+							options={offeringLinkDropdownOptions}
+							value={createForm.offering.linkedOfferingId}
+							ariaLabel="Link offering with another season"
+							buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
+							on:change={(event) => {
+								createForm.offering.linkedOfferingId = event.detail.value;
+								clearCreateApiErrors();
+							}}
+						/>
+						<p class="mt-1 text-xs text-neutral-900">
+							Optional. Use this when the same offering exists in another season and should stay
+							connected.
+						</p>
+						{#if createFieldErrors['offering.linkedOfferingId']}
+							<p class="text-xs text-error-700 mt-1">
+								{createFieldErrors['offering.linkedOfferingId']}
+							</p>
+						{/if}
+					</div>
+
+					<div class="border border-neutral-950 bg-neutral p-3">
+						{#if selectedLinkedOffering}
+							<p class="text-sm font-semibold text-neutral-950">Selected link</p>
+							<p class="mt-1 text-sm text-neutral-950">
+								{selectedLinkedOffering.name} from {selectedLinkedOffering.seasonName ??
+									'another season'}
+							</p>
+							<p class="mt-1 text-xs text-neutral-900">
+								New URLs stay season-specific, but this keeps equivalent offerings connected behind
+								the scenes.
+							</p>
+						{:else}
+							<p class="text-sm font-semibold text-neutral-950">Matching offerings found</p>
+							<p class="mt-1 text-xs text-neutral-900">
+								Pick one if this offering should be treated as the same offering in a different
+								season.
+							</p>
+						{/if}
+					</div>
+				</div>
+			{:else if createForm.offering.seasonId.trim() && (createForm.offering.name.trim().length > 0 || slugifyFinal(createForm.offering.slug).length > 0)}
+				<div class="border border-neutral-950 bg-neutral p-3">
+					<p class="text-sm text-neutral-950">
+						No matching offering was found in other seasons yet.
+					</p>
+				</div>
+			{/if}
+
 			<div>
 				<label for="offering-description" class="block text-sm font-sans text-neutral-950 mb-1"
 					>Description</label
@@ -7394,6 +7632,12 @@
 					<span class="font-semibold">Season:</span>
 					{getSeasonLabel(createForm.offering.seasonId)}
 				</p>
+				{#if selectedLinkedOffering}
+					<p class="text-sm leading-5 text-neutral-950">
+						<span class="font-semibold">Linked Offering:</span>
+						{selectedLinkedOffering.name} ({selectedLinkedOffering.seasonName ?? 'Other season'})
+					</p>
+				{/if}
 				<p class="text-sm leading-5 text-neutral-950">
 					<span class="font-semibold">Sport:</span>
 					{createForm.offering.sport.trim() || 'Not specified'}

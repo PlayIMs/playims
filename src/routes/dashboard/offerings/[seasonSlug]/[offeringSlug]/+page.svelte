@@ -1,6 +1,12 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import type { PageData } from './$types';
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
+	import OfferingsTable from '$lib/components/OfferingsTable.svelte';
+	import DashboardSidebarPanel from '$lib/components/dashboard/DashboardSidebarPanel.svelte';
+	import SplitAddAction from '$lib/components/dashboard/SplitAddAction.svelte';
+	import SearchInput from '$lib/components/SearchInput.svelte';
+	import type { OfferingsTableColumn } from '$lib/components/offerings-table.js';
 	import {
 		IconBallAmericanFootball,
 		IconBallBaseball,
@@ -9,13 +15,42 @@
 		IconBallTennis,
 		IconBallVolleyball,
 		IconCrosshair,
-		IconLock,
-		IconLockOpen,
 		IconShip,
 		IconTarget
 	} from '@tabler/icons-svelte';
 
+	type OfferingLeagueRow = NonNullable<PageData['leagues']>[number];
+	type OfferingDivisionRow = OfferingLeagueRow['divisions'][number];
+	type OfferingType = 'league' | 'tournament';
+
+	interface DropdownOption {
+		value: string;
+		label: string;
+		statusLabel?: string;
+		separatorBefore?: boolean;
+		disabled?: boolean;
+		tooltip?: string;
+		disabledTooltip?: string;
+	}
+
 	let { data } = $props<{ data: PageData }>();
+
+	let searchQuery = $state('');
+
+	function normalizeAuthRole(
+		value: string | null | undefined
+	): 'participant' | 'manager' | 'admin' | 'dev' {
+		const normalized = value?.trim().toLowerCase();
+		if (normalized === 'manager' || normalized === 'admin' || normalized === 'dev') {
+			return normalized;
+		}
+		return 'participant';
+	}
+
+	const canManageOffering = $derived.by(() => {
+		const role = normalizeAuthRole(data?.authMode?.effectiveRole);
+		return role === 'manager' || role === 'admin' || role === 'dev';
+	});
 
 	function sportIconFor(offeringName: string, sportName: string | null | undefined) {
 		const key = `${offeringName} ${sportName ?? ''}`.trim().toLowerCase();
@@ -41,7 +76,23 @@
 			.join(' ');
 	}
 
-	function statusFor(league: NonNullable<PageData['leagues']>[number]) {
+	function offeringType(): OfferingType {
+		return data.offering?.type?.trim().toLowerCase() === 'tournament' ? 'tournament' : 'league';
+	}
+
+	function entryUnitSingular(): 'league' | 'group' {
+		return offeringType() === 'tournament' ? 'group' : 'league';
+	}
+
+	function entryUnitPlural(): 'leagues' | 'groups' {
+		return offeringType() === 'tournament' ? 'groups' : 'leagues';
+	}
+
+	function entryUnitTitleSingular(): 'League' | 'Group' {
+		return offeringType() === 'tournament' ? 'Group' : 'League';
+	}
+
+	function leagueStatusFor(league: OfferingLeagueRow) {
 		if (!league.isActive || league.isLocked) {
 			return {
 				label: 'Closed',
@@ -71,9 +122,256 @@
 		};
 	}
 
+	function divisionStatusFor(division: OfferingDivisionRow) {
+		if (division.isLocked) {
+			return {
+				label: 'Locked',
+				className: 'border border-primary-700 bg-primary text-white'
+			};
+		}
+		if (typeof division.maxTeams === 'number' && division.teamCount >= division.maxTeams) {
+			if (division.waitlistCount > 0) {
+				return {
+					label: 'Waitlist',
+					className: 'border border-primary-700 bg-white text-primary-800'
+				};
+			}
+			return {
+				label: 'Full',
+				className: 'border border-neutral-950 bg-white text-neutral-950'
+			};
+		}
+		return {
+			label: 'Open',
+			className: 'border border-secondary-500 bg-secondary text-white'
+		};
+	}
+
+	function formatDate(
+		value: string | null | undefined,
+		options?: Intl.DateTimeFormatOptions
+	): string {
+		if (!value) return 'TBD';
+		const parsed = new Date(value);
+		if (Number.isNaN(parsed.getTime())) return 'TBD';
+		return parsed.toLocaleDateString('en-US', options);
+	}
+
+	function formatDateTime(value: string | null | undefined): string {
+		if (!value) return 'TBD';
+		const parsed = new Date(value);
+		if (Number.isNaN(parsed.getTime())) return 'TBD';
+		return parsed.toLocaleString('en-US', {
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric',
+			hour: 'numeric',
+			minute: '2-digit'
+		});
+	}
+
+	function normalizeSearchValue(value: string | null | undefined): string {
+		return value?.trim().toLowerCase() ?? '';
+	}
+
+	function matchesSearchTerm(values: Array<string | null | undefined>, query: string): boolean {
+		if (!query) return true;
+		return values.some((value) => normalizeSearchValue(value).includes(query));
+	}
+
+	function leagueMetaLine(league: OfferingLeagueRow): string {
+		return `${toTitleCase(league.gender) ?? 'Open'} / ${toTitleCase(league.skillLevel) ?? 'All Levels'}`;
+	}
+
+	function divisionMetaLine(division: OfferingDivisionRow): string {
+		return [division.dayOfWeek, division.gameTime, division.location].filter(Boolean).join(' / ');
+	}
+
+	function divisionCapacityLabel(division: OfferingDivisionRow): string {
+		if (typeof division.maxTeams === 'number') {
+			return `${division.teamCount} / ${division.maxTeams} teams`;
+		}
+		return `${division.teamCount} teams`;
+	}
+
+	function leagueHref(league: OfferingLeagueRow): string {
+		const seasonSlug = data.season?.slug?.trim();
+		const offeringSlug = data.offering?.slug?.trim();
+		const leagueSlug = league.slug?.trim() || league.id;
+		if (!seasonSlug || !offeringSlug || !leagueSlug) return '/dashboard/offerings';
+		return `/dashboard/offerings/${seasonSlug}/${offeringSlug}/${leagueSlug}`;
+	}
+
+	function divisionHref(league: OfferingLeagueRow, division: OfferingDivisionRow): string {
+		const seasonSlug = data.season?.slug?.trim();
+		const offeringSlug = data.offering?.slug?.trim();
+		const leagueSlug = league.slug?.trim() || league.id;
+		const divisionSlug = division.slug?.trim() || division.id;
+		if (!seasonSlug || !offeringSlug || !leagueSlug || !divisionSlug) return leagueHref(league);
+		return `/dashboard/offerings/${seasonSlug}/${offeringSlug}/${leagueSlug}/${divisionSlug}`;
+	}
+
+	function buildOfferingsBoardHref(action?: 'create-league'): string {
+		const params = new URLSearchParams();
+		const seasonSlug = data.season?.slug?.trim();
+		const view = offeringType() === 'tournament' ? 'tournaments' : 'leagues';
+		if (seasonSlug && !data.season?.isCurrent) {
+			params.set('season', seasonSlug);
+		}
+		params.set('view', view);
+		if (action === 'create-league' && data.offering?.id) {
+			params.set('action', 'create-league');
+			params.set('offeringId', data.offering.id);
+		}
+
+		const query = params.toString();
+		return query ? `/dashboard/offerings?${query}` : '/dashboard/offerings';
+	}
+
+	async function openCreateEntryFlow(): Promise<void> {
+		await goto(buildOfferingsBoardHref('create-league'));
+	}
+
+	async function openOfferingsBoard(): Promise<void> {
+		await goto(buildOfferingsBoardHref());
+	}
+
+	async function handleAddAction(action: string): Promise<void> {
+		if (action === 'open-offerings-board') {
+			await openOfferingsBoard();
+			return;
+		}
+		await openCreateEntryFlow();
+	}
+
+	function leagueMatchesSearch(league: OfferingLeagueRow, query: string): boolean {
+		return matchesSearchTerm(
+			[
+				league.name,
+				league.slug,
+				league.description,
+				leagueMetaLine(league),
+				leagueStatusFor(league).label,
+				formatDateTime(league.regStartDate),
+				formatDateTime(league.regEndDate)
+			],
+			query
+		);
+	}
+
+	function divisionMatchesSearch(division: OfferingDivisionRow, query: string): boolean {
+		return matchesSearchTerm(
+			[
+				division.name,
+				division.slug,
+				division.description,
+				divisionMetaLine(division),
+				divisionStatusFor(division).label,
+				divisionCapacityLabel(division),
+				String(division.waitlistCount),
+				formatDate(division.startDate, {
+					month: 'short',
+					day: 'numeric',
+					year: 'numeric'
+				})
+			],
+			query
+		);
+	}
+
+	function leagueVisibleTeamCount(league: OfferingLeagueRow): number {
+		return league.divisions.reduce((sum, division) => sum + division.teamCount, 0);
+	}
+
+	function leagueVisibleWaitlistCount(league: OfferingLeagueRow): number {
+		return league.divisions.reduce((sum, division) => sum + division.waitlistCount, 0);
+	}
+
 	const HeaderIcon = $derived.by(() =>
 		sportIconFor(data.offering?.name ?? 'Offering', data.offering?.sport ?? null)
 	);
+
+	const normalizedSearchQuery = $derived.by(() => normalizeSearchValue(searchQuery));
+
+	const visibleLeagues = $derived.by<OfferingLeagueRow[]>(() => {
+		const query = normalizedSearchQuery;
+		if (!query) return data.leagues;
+
+		return data.leagues.flatMap((league: OfferingLeagueRow) => {
+			const showAllDivisions = leagueMatchesSearch(league, query);
+			const matchingDivisions = showAllDivisions
+				? league.divisions
+				: league.divisions.filter((division: OfferingDivisionRow) =>
+						divisionMatchesSearch(division, query)
+					);
+
+			if (!showAllDivisions && matchingDivisions.length === 0) {
+				return [];
+			}
+
+			return [
+				{
+					...league,
+					divisions: matchingDivisions,
+					divisionCount: matchingDivisions.length,
+					teamCount: matchingDivisions.reduce((sum, division) => sum + division.teamCount, 0),
+					waitlistCount: matchingDivisions.reduce(
+						(sum, division) => sum + division.waitlistCount,
+						0
+					)
+				}
+			];
+		});
+	});
+
+	const hasSearchQuery = $derived.by(() => normalizedSearchQuery.length > 0);
+
+	const entryAddActionOptions = $derived.by<DropdownOption[]>(() => [
+		{
+			value: 'create-entry',
+			label: `Add ${entryUnitTitleSingular()}`,
+			statusLabel: `Create a new ${entryUnitSingular()} in this offering`
+		},
+		{
+			value: 'open-offerings-board',
+			label: 'Open Offerings Board',
+			statusLabel: 'Use the full offerings dashboard',
+			separatorBefore: true
+		}
+	]);
+
+	const divisionTableColumns = $derived.by<OfferingsTableColumn[]>(() => [
+		{
+			key: 'division',
+			label: 'Division',
+			widthClass: 'w-[34%]',
+			rowHeader: true
+		},
+		{
+			key: 'status',
+			label: 'Status',
+			widthClass: 'w-[14%]',
+			cellClass: 'align-top'
+		},
+		{
+			key: 'teams',
+			label: 'Teams',
+			widthClass: 'w-[16%]',
+			cellClass: 'align-top'
+		},
+		{
+			key: 'schedule',
+			label: 'Schedule Slot',
+			widthClass: 'w-[24%]',
+			cellClass: 'align-top'
+		},
+		{
+			key: 'start-date',
+			label: 'Start Date',
+			widthClass: 'w-[12%]',
+			cellClass: 'align-top'
+		}
+	]);
 </script>
 
 <svelte:head>
@@ -89,10 +387,10 @@
 		<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
 			<div class="flex items-center gap-3 py-2 lg:py-3">
 				<div
-					class="bg-primary text-white border-2 border-primary-700 w-[2.75rem] h-[2.75rem] lg:w-[3.4rem] lg:h-[3.4rem] flex items-center justify-center"
+					class="bg-primary text-white border-2 border-primary-700 flex h-[2.75rem] w-[2.75rem] items-center justify-center lg:h-[3.4rem] lg:w-[3.4rem]"
 					aria-hidden="true"
 				>
-					<HeaderIcon class="w-7 h-7 lg:w-8 lg:h-8" />
+					<HeaderIcon class="h-7 w-7 lg:h-8 lg:w-8" />
 				</div>
 				<h1
 					class="text-5xl lg:text-6xl leading-[0.9] tracking-[0.01em] font-bold font-serif text-neutral-950"
@@ -103,37 +401,7 @@
 		</div>
 	</header>
 
-	<div class="px-4 lg:px-6 space-y-4">
-		<div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-			<div class="flex flex-wrap items-center gap-2">
-				{#if data.season}
-					<span
-						class="border border-secondary-300 bg-white px-2 py-1 text-xs font-bold uppercase tracking-wide text-neutral-950"
-					>
-						{data.season.name}
-					</span>
-				{/if}
-				{#if data.offering?.sport}
-					<span
-						class="border border-secondary-300 bg-white px-2 py-1 text-xs font-bold uppercase tracking-wide text-neutral-950"
-					>
-						{data.offering.sport}
-					</span>
-				{/if}
-			</div>
-			<div class="flex flex-wrap items-center gap-2 text-xs font-sans text-neutral-950">
-				<span class="border border-secondary-300 bg-white px-2 py-1">
-					{data.summary.leagueCount} leagues
-				</span>
-				<span class="border border-secondary-300 bg-white px-2 py-1">
-					{data.summary.divisionCount} divisions
-				</span>
-				<span class="border border-secondary-300 bg-white px-2 py-1">
-					{data.summary.openCount} open
-				</span>
-			</div>
-		</div>
-
+	<div class="space-y-4 px-4 lg:px-6">
 		{#if data.error}
 			<div class="border-2 border-warning-300 bg-warning-50 p-4 text-sm text-neutral-950">
 				{data.error}
@@ -141,146 +409,334 @@
 		{/if}
 
 		{#if data.offering}
-			<div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
-				<div class="order-1 space-y-4">
-					<section class="border-2 border-neutral-950 bg-white">
-						<div class="border-b border-neutral-950 bg-secondary-700/65 px-3 py-2 text-white">
-							<h2 class="text-xl font-serif font-bold">Leagues</h2>
-						</div>
-						<div class="overflow-x-auto">
-							<table class="min-w-full text-sm text-neutral-950">
-								<thead class="border-b border-neutral-950 bg-neutral-50">
-									<tr>
-										<th class="px-3 py-2 text-left font-bold uppercase tracking-wide">League</th>
-										<th class="px-3 py-2 text-left font-bold uppercase tracking-wide">Status</th>
-										<th class="px-3 py-2 text-left font-bold uppercase tracking-wide"
-											>Registration</th
-										>
-										<th class="px-3 py-2 text-left font-bold uppercase tracking-wide">Season</th>
-										<th class="px-3 py-2 text-left font-bold uppercase tracking-wide">Divisions</th>
-									</tr>
-								</thead>
-								<tbody>
-									{#if data.leagues.length > 0}
-										{#each data.leagues as league, index}
-											{@const status = statusFor(league)}
-											<tr class={index % 2 === 0 ? 'bg-white' : 'bg-neutral-25'}>
-												<td class="px-3 py-3 align-top">
-													<a
-														href={`/dashboard/offerings/${data.season?.slug}/${data.offering.slug}/${league.slug}`}
-														class="font-semibold text-neutral-950 hover:underline"
-													>
-														{league.name}
-													</a>
-													<p class="mt-1 text-xs text-neutral-700">
-														{toTitleCase(league.gender) ?? 'Open'} / {toTitleCase(
-															league.skillLevel
-														) ?? 'All Levels'}
-													</p>
-												</td>
-												<td class="px-3 py-3 align-top">
-													<span
-														class={`px-2 py-1 text-xs font-bold uppercase tracking-wide ${status.className}`}
-													>
-														{status.label}
-													</span>
-												</td>
-												<td class="px-3 py-3 align-top">
-													<p>
-														<DateHoverText
-															display={league.regStartDate
-																? new Date(league.regStartDate).toLocaleString()
-																: 'TBD'}
-															value={league.regStartDate}
-															includeTime
-														/>
-													</p>
-													<p class="mt-1">
-														<DateHoverText
-															display={league.regEndDate
-																? new Date(league.regEndDate).toLocaleString()
-																: 'TBD'}
-															value={league.regEndDate}
-															includeTime
-														/>
-													</p>
-												</td>
-												<td class="px-3 py-3 align-top">
-													<DateHoverText
-														display={league.seasonStartDate || league.seasonEndDate
-															? 'View season dates'
-															: 'TBD'}
-														value={league.seasonStartDate}
-														endValue={league.seasonEndDate}
-													/>
-												</td>
-												<td class="px-3 py-3 align-top">{league.divisionCount}</td>
-											</tr>
-										{/each}
-									{:else}
-										<tr>
-											<td colspan="5" class="px-3 py-10 text-center italic text-neutral-700">
-												No leagues exist for this offering yet.
-											</td>
-										</tr>
-									{/if}
-								</tbody>
-							</table>
-						</div>
-					</section>
-				</div>
-
-				<aside class="order-2 space-y-4">
-					<section class="border-2 border-neutral-950 bg-white">
-						<div class="border-b border-neutral-950 px-3 py-2">
-							<h2 class="text-xl font-serif font-bold text-neutral-950">Offering Info</h2>
-						</div>
-						<div class="space-y-3 p-3 text-sm text-neutral-950">
-							<div class="border-b border-secondary-200 pb-3">
-								<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Type</p>
-								<p class="mt-1">{toTitleCase(data.offering.type) ?? 'League'}</p>
-							</div>
-							<div class="border-b border-secondary-200 pb-3">
-								<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Roster</p>
-								<p class="mt-1">
-									Min: {data.offering.minPlayers ?? 'TBD'} / Max: {data.offering.maxPlayers ??
-										'TBD'}
-								</p>
-							</div>
-							<div class="border-b border-secondary-200 pb-3">
-								<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Season</p>
-								<p class="mt-1">{data.season?.name ?? 'Unknown season'}</p>
-							</div>
-							<div>
-								<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
-									Rulebook
-								</p>
-								{#if data.offering.rulebookUrl}
-									<a
-										href={data.offering.rulebookUrl}
-										target="_blank"
-										rel="noreferrer"
-										class="mt-1 inline-flex text-sm font-semibold text-secondary-900 underline underline-offset-2"
+			<div class="grid grid-cols-1 gap-6 2xl:grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)]">
+				<section class="min-w-0 border-2 border-neutral-950 bg-neutral">
+					<div class="space-y-3 border-b border-neutral-950 bg-neutral-600/66 p-4">
+						<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+							<div class="flex flex-wrap items-center gap-2">
+								<h2 class="text-2xl font-bold font-serif text-neutral-950">
+									{data.offering.name}
+								</h2>
+								<span
+									class="badge-secondary-outlined px-1.5 py-0 text-[10px] uppercase tracking-wide"
+								>
+									{toTitleCase(data.offering.type) ?? 'League'}
+								</span>
+								{#if data.season}
+									<span
+										class="badge-secondary-outlined px-1.5 py-0 text-[10px] uppercase tracking-wide"
 									>
-										Open rulebook
-									</a>
-								{:else}
-									<p class="mt-1">No rulebook linked yet.</p>
+										{data.season.name}
+									</span>
+								{/if}
+								{#if data.offering.sport}
+									<span
+										class="badge-secondary-outlined px-1.5 py-0 text-[10px] uppercase tracking-wide"
+									>
+										{data.offering.sport}
+									</span>
+								{/if}
+							</div>
+							<div class="flex flex-wrap items-center gap-2 text-xs font-sans text-neutral-950">
+								<span class="border border-secondary-300 bg-white px-2 py-1">
+									{data.summary.leagueCount}
+									{entryUnitPlural()}
+								</span>
+								<span class="border border-secondary-300 bg-white px-2 py-1">
+									{data.summary.divisionCount} divisions
+								</span>
+								<span class="border border-secondary-300 bg-white px-2 py-1">
+									{data.summary.openCount} open
+								</span>
+								<span class="border border-secondary-300 bg-white px-2 py-1">
+									{data.summary.closedCount} closed
+								</span>
+								{#if canManageOffering}
+									<SplitAddAction
+										options={entryAddActionOptions}
+										on:click={() => {
+											void openCreateEntryFlow();
+										}}
+										on:action={(event) => {
+											void handleAddAction(event.detail.value);
+										}}
+									/>
 								{/if}
 							</div>
 						</div>
-					</section>
-					<section class="border-2 border-neutral-950 bg-white">
-						<div class="border-b border-neutral-950 bg-secondary-700/65 px-3 py-2 text-white">
-							<h2 class="text-xl font-serif font-bold">Offering Description</h2>
-						</div>
-						<div class="p-5">
-							<p class="text-base leading-7 text-neutral-950">
-								{data.offering.description ?? 'No offering description has been added yet.'}
-							</p>
-						</div>
-					</section>
+						<SearchInput
+							id="offering-search"
+							label={`Search ${entryUnitPlural()} and divisions`}
+							value={searchQuery}
+							placeholder={`Search ${entryUnitSingular()}, division, schedule, or location`}
+							autocomplete="off"
+							wrapperClass="relative"
+							iconClass="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-neutral-950"
+							inputClass="input-secondary py-1 pl-10 pr-10 text-sm disabled:cursor-not-allowed"
+							clearButtonClass="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-neutral-950 hover:text-secondary-900"
+							clearIconClass="h-4 w-4"
+							clearAriaLabel={`Clear ${entryUnitSingular()} and division search`}
+							on:input={(event) => {
+								searchQuery = event.detail.value;
+							}}
+						/>
+					</div>
+
+					<div class="min-h-[34rem]">
+						{#if visibleLeagues.length === 0}
+							<div class="p-4">
+								<div
+									class={`space-y-2 border p-4 ${hasSearchQuery ? 'border-warning-300 bg-warning-50' : 'border-neutral-950 bg-white'}`}
+								>
+									<h3 class="text-xl font-bold font-serif text-neutral-950">
+										{#if hasSearchQuery}
+											No matches found
+										{:else}
+											No {entryUnitPlural()} yet
+										{/if}
+									</h3>
+									<p class="text-sm font-sans text-neutral-950">
+										{#if hasSearchQuery}
+											No {entryUnitPlural()} or divisions match "{searchQuery.trim()}".
+										{:else}
+											No {entryUnitPlural()} exist for this offering yet.
+										{/if}
+									</p>
+								</div>
+							</div>
+						{:else}
+							<div class="divide-y divide-neutral-950">
+								{#each visibleLeagues as league}
+									<section class="space-y-3 p-4">
+										<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+											<div class="min-w-0">
+												<div class="flex flex-wrap items-center gap-2">
+													<a
+														href={leagueHref(league)}
+														class="text-2xl font-bold font-serif text-neutral-950 hover:underline"
+													>
+														{league.name}
+													</a>
+													<span
+														class="badge-secondary-outlined px-1.5 py-0 text-[10px] uppercase tracking-wide"
+													>
+														{entryUnitTitleSingular()}
+													</span>
+												</div>
+												<p class="mt-1 text-sm text-neutral-900">{leagueMetaLine(league)}</p>
+												{#if league.description}
+													<p class="mt-1 text-sm leading-6 text-neutral-950">
+														{league.description}
+													</p>
+												{/if}
+											</div>
+											<div class="flex flex-wrap items-center gap-1">
+												<span class="badge-secondary-outlined px-2 py-0.5 text-xs">
+													{league.divisions.length} divisions
+												</span>
+												<span class="badge-secondary-outlined px-2 py-0.5 text-xs">
+													{leagueVisibleTeamCount(league)} teams
+												</span>
+												{#if leagueVisibleWaitlistCount(league) > 0}
+													<span class="badge-primary-outlined text-xs uppercase tracking-wide">
+														{leagueVisibleWaitlistCount(league)} waitlist
+													</span>
+												{/if}
+												<span
+													class={`${leagueStatusFor(league).className} px-2 py-0.5 text-xs font-bold uppercase tracking-wide`}
+												>
+													{leagueStatusFor(league).label}
+												</span>
+											</div>
+										</div>
+
+										<OfferingsTable
+											columns={divisionTableColumns}
+											rows={league.divisions}
+											caption={`${league.name} divisions table`}
+										>
+											{#snippet emptyBody()}
+												<tr class="bg-neutral-25">
+													<td
+														colspan={divisionTableColumns.length}
+														class="px-2 py-10 text-center text-sm italic text-neutral-700"
+													>
+														No divisions exist for this {entryUnitSingular()} yet.
+													</td>
+												</tr>
+											{/snippet}
+
+											{#snippet cell(division, column)}
+												{@const offeringDivision = division as OfferingDivisionRow}
+												{@const divisionStatus = divisionStatusFor(offeringDivision)}
+												{#if column.key === 'division'}
+													<div class="flex items-center gap-2">
+														<div
+															class="flex h-9 w-9 shrink-0 items-center justify-center bg-primary text-white"
+															aria-hidden="true"
+														>
+															<HeaderIcon class="h-5 w-5" />
+														</div>
+														<div class="min-w-0">
+															<a
+																href={divisionHref(league, offeringDivision)}
+																class="font-sans text-sm font-bold text-neutral-950 hover:underline"
+															>
+																{offeringDivision.name}
+															</a>
+															{#if offeringDivision.description}
+																<p class="mt-1 font-sans text-xs leading-snug text-neutral-700">
+																	{offeringDivision.description}
+																</p>
+															{/if}
+														</div>
+													</div>
+												{:else if column.key === 'status'}
+													<span
+														class={`${divisionStatus.className} px-2 py-1 text-xs font-bold uppercase tracking-wide`}
+													>
+														{divisionStatus.label}
+													</span>
+												{:else if column.key === 'teams'}
+													<div class="space-y-1 font-sans text-xs leading-snug text-neutral-950">
+														<p>{divisionCapacityLabel(offeringDivision)}</p>
+														{#if offeringDivision.waitlistCount > 0}
+															<p class="text-neutral-700">
+																{offeringDivision.waitlistCount} waitlist
+															</p>
+														{/if}
+													</div>
+												{:else if column.key === 'schedule'}
+													<p class="font-sans text-xs leading-snug text-neutral-950">
+														{divisionMetaLine(offeringDivision) || 'Not scheduled yet.'}
+													</p>
+												{:else if column.key === 'start-date'}
+													<p class="font-sans text-xs leading-snug text-neutral-950">
+														<DateHoverText
+															display={formatDate(offeringDivision.startDate, {
+																month: 'short',
+																day: 'numeric',
+																year: 'numeric'
+															})}
+															value={offeringDivision.startDate}
+														/>
+													</p>
+												{/if}
+											{/snippet}
+										</OfferingsTable>
+									</section>
+								{/each}
+							</div>
+						{/if}
+					</div>
+				</section>
+
+				<aside class="w-full min-w-0 space-y-6">
+					<DashboardSidebarPanel title="Offering Snapshot">
+						{#snippet content()}
+							<div class="space-y-3 text-sm text-neutral-950">
+								<div class="border border-neutral-950 bg-white p-3">
+									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+										Season
+									</p>
+									<p class="mt-1 font-semibold">{data.season?.name ?? 'TBD'}</p>
+									<p class="mt-1 text-xs text-neutral-700">
+										Type: {toTitleCase(data.offering.type) ?? 'League'}
+									</p>
+								</div>
+								<div class="border border-neutral-950 bg-white p-3">
+									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+										Sport
+									</p>
+									<p class="mt-1 font-semibold">{data.offering.sport ?? 'Not specified'}</p>
+									<p class="mt-1 text-xs text-neutral-700">
+										Roster: {data.offering.minPlayers ?? 'TBD'} min / {data.offering.maxPlayers ??
+											'TBD'} max
+									</p>
+								</div>
+								<div class="border border-neutral-950 bg-white p-3">
+									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+										Description
+									</p>
+									<p class="mt-1 leading-6">
+										{data.offering.description ?? 'No offering description has been added yet.'}
+									</p>
+								</div>
+								<div class="border border-neutral-950 bg-white p-3">
+									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+										Rulebook
+									</p>
+									{#if data.offering.rulebookUrl}
+										<a
+											href={data.offering.rulebookUrl}
+											target="_blank"
+											rel="noreferrer"
+											class="mt-1 inline-flex font-semibold text-secondary-900 underline underline-offset-2"
+										>
+											Open rulebook
+										</a>
+									{:else}
+										<p class="mt-1">No rulebook linked yet.</p>
+									{/if}
+								</div>
+							</div>
+						{/snippet}
+					</DashboardSidebarPanel>
+
+					<DashboardSidebarPanel title={`${entryUnitTitleSingular()} Snapshot`}>
+						{#snippet content()}
+							{#if visibleLeagues.length === 0}
+								<p class="text-sm font-sans text-neutral-950">
+									{#if hasSearchQuery}
+										No {entryUnitPlural()} match this search right now.
+									{:else}
+										No {entryUnitPlural()} are available yet.
+									{/if}
+								</p>
+							{:else}
+								<div class="space-y-3">
+									{#each visibleLeagues as league}
+										{@const leagueStatus = leagueStatusFor(league)}
+										<a
+											href={leagueHref(league)}
+											class="block border border-neutral-950 bg-white p-3 transition-colors hover:bg-neutral-25"
+										>
+											<div class="flex items-start justify-between gap-3">
+												<div class="min-w-0">
+													<p class="font-serif text-lg font-bold text-neutral-950">
+														{league.name}
+													</p>
+													<p
+														class="mt-1 text-xs font-semibold uppercase tracking-wide text-neutral-800"
+													>
+														{leagueMetaLine(league)}
+													</p>
+												</div>
+												<div class="flex flex-col items-end gap-1">
+													<span
+														class={`${leagueStatus.className} px-2 py-0.5 text-xs font-bold uppercase tracking-wide`}
+													>
+														{leagueStatus.label}
+													</span>
+													<span class="badge-secondary-outlined px-2 py-0.5 text-xs">
+														{league.divisions.length} divisions
+													</span>
+													<span class="badge-secondary-outlined px-2 py-0.5 text-xs">
+														{leagueVisibleTeamCount(league)} teams
+													</span>
+												</div>
+											</div>
+										</a>
+									{/each}
+								</div>
+							{/if}
+						{/snippet}
+					</DashboardSidebarPanel>
 				</aside>
+			</div>
+		{:else}
+			<div class="border-2 border-neutral-950 bg-white p-6 text-sm text-neutral-950">
+				Offering details are not available right now.
 			</div>
 		{/if}
 	</div>
