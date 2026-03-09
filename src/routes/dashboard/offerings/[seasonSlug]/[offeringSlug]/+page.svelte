@@ -364,16 +364,11 @@
 	const entryAddActionOptions = $derived.by<DropdownOption[]>(() => [
 		{
 			value: 'create-league',
-			label: 'Add League',
-			statusLabel: 'Create a new league in this offering'
+			label: 'Add League'
 		},
 		{
 			value: 'create-division',
 			label: 'Add Division',
-			statusLabel:
-				data.leagues.length > 0
-					? 'Open the first league shown so you can add a division there'
-					: 'Add a league before creating a division',
 			disabled: data.leagues.length === 0
 		}
 	]);

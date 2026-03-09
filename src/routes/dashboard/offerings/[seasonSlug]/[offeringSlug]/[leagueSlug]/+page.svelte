@@ -508,13 +508,11 @@
 	const leagueAddActionOptions = $derived.by<DropdownOption[]>(() => [
 		{
 			value: 'create-division',
-			label: 'Add Division',
-			statusLabel: 'Create a new division'
+			label: 'Add Division'
 		},
 		{
 			value: 'create-team',
-			label: 'Add Team',
-			statusLabel: 'Create a new team'
+			label: 'Add Team'
 		}
 	]);
 
