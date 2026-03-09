@@ -10,7 +10,8 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 			upcomingEvents: [],
 			recentActivity: [],
 			alerts: [],
-			quickStats: [],
+			currentSeason: null,
+			registrationDeadlines: [],
 			error: 'Database not configured'
 		};
 	}
@@ -25,17 +26,27 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 		const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString();
 		const weekEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7).toISOString();
 
-		const [users, allEvents, teams, leagues, offerings, facilities, announcements, rosters] =
-			await Promise.all([
-				centralDb.users.getByClientId(clientId),
-				tenantDb.events.getByClientId(clientId),
-				tenantDb.teams.getByClientId(clientId),
-				tenantDb.leagues.getByClientId(clientId),
-				tenantDb.offerings.getByClientId(clientId),
-				tenantDb.facilities.getAll(clientId),
-				tenantDb.announcements.getAll(clientId),
-				tenantDb.rosters.getByClientId(clientId)
-			]);
+		const [
+			users,
+			allEvents,
+			teams,
+			leagues,
+			offerings,
+			facilities,
+			announcements,
+			rosters,
+			currentSeason
+		] = await Promise.all([
+			centralDb.users.getByClientId(clientId),
+			tenantDb.events.getByClientId(clientId),
+			tenantDb.teams.getByClientId(clientId),
+			tenantDb.leagues.getByClientId(clientId),
+			tenantDb.offerings.getByClientId(clientId),
+			tenantDb.facilities.getAll(clientId),
+			tenantDb.announcements.getAll(clientId),
+			tenantDb.rosters.getByClientId(clientId),
+			tenantDb.seasons.getCurrentByClientId(clientId)
+		]);
 
 		const teamsById = new Map(
 			teams.filter((team) => Boolean(team.id)).map((team) => [team.id as string, team])
@@ -51,7 +62,6 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 				.map((offering) => [offering.id as string, offering])
 		);
 
-		// Filter events
 		const todaysEvents = allEvents.filter((evt) => {
 			if (!evt.scheduledStartAt) return false;
 			const evtDate = new Date(evt.scheduledStartAt);
@@ -68,9 +78,7 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 
 		const liveGames = todaysEvents.filter((evt) => evt.status === 'in_progress');
 		const completedToday = todaysEvents.filter((evt) => evt.status === 'completed');
-		const practicesToday = 0;
 
-		// Format events with details
 		const formatEvent = (evt: (typeof allEvents)[number]) => {
 			const homeTeam = evt.homeTeamId ? teamsById.get(evt.homeTeamId) : null;
 			const awayTeam = evt.awayTeamId ? teamsById.get(evt.awayTeamId) : null;
@@ -104,18 +112,17 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 		const formattedTodaysEvents = todaysEvents.map(formatEvent);
 		const formattedUpcoming = upcomingEvents.map(formatEvent);
 
-		// Calculate meaningful stats
 		const activeUsers = users.filter((u) => u.status === 'active').length;
 		const activeTeams = teams.filter((t) => t.teamStatus === 'active').length;
 		const activeLeagues = leagues.filter((l) => l.isActive === 1).length;
-
-		// Pending actions (rosters needing attention, etc)
 		const pendingRosters = rosters.filter((r) => r.rosterStatus === 'pending').length;
 
-		// Recent activity from audit logs or recent registrations
 		const recentTeams = teams
 			.filter((t) => t.dateRegistered)
-			.sort((a, b) => new Date(b.dateRegistered!).getTime() - new Date(a.dateRegistered!).getTime())
+			.sort(
+				(a, b) =>
+					new Date(b.dateRegistered!).getTime() - new Date(a.dateRegistered!).getTime()
+			)
 			.slice(0, 5);
 
 		const recentActivity = recentTeams.map((t) => ({
@@ -125,7 +132,6 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 			timeValue: t.dateRegistered ?? null
 		}));
 
-		// Priority alerts from announcements
 		const alerts = announcements
 			.filter((a) => a.isActive === 1)
 			.sort((a, b) => (b.isPinned || 0) - (a.isPinned || 0))
@@ -135,8 +141,67 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 				title: a.title,
 				message: a.body || '',
 				priority: a.isPinned ? 'high' : 'normal',
-				date: a.publishedAt ? new Date(a.publishedAt).toLocaleDateString() : 'Today'
+				date: a.publishedAt
+					? new Date(a.publishedAt).toLocaleDateString()
+					: 'Today'
 			}));
+
+		const currentSeasonId = currentSeason?.id ?? null;
+		const seasonOfferings = currentSeasonId
+			? offerings.filter((o) => o.seasonId === currentSeasonId)
+			: [];
+		const seasonLeagues = currentSeasonId
+			? leagues.filter((l) => l.seasonId === currentSeasonId)
+			: [];
+
+		const registrationDeadlines = seasonLeagues
+			.filter((l) => {
+				if (!l.regEndDate || l.isActive !== 1) return false;
+				return new Date(l.regEndDate) >= now;
+			})
+			.sort(
+				(a, b) => new Date(a.regEndDate!).getTime() - new Date(b.regEndDate!).getTime()
+			)
+			.slice(0, 5)
+			.map((l) => {
+				const offering = l.offeringId ? offeringsById.get(l.offeringId) : null;
+				return {
+					id: l.id,
+					leagueName: l.name ?? 'Unnamed League',
+					offeringName: offering?.name ?? 'Unknown',
+					regEndDate: l.regEndDate!,
+					regEndLabel: new Date(l.regEndDate!).toLocaleDateString('en-US', {
+						month: 'short',
+						day: 'numeric',
+						year: 'numeric'
+					})
+				};
+			});
+
+		const currentSeasonData = currentSeason
+			? {
+					name: currentSeason.name ?? 'Current Season',
+					slug: currentSeason.slug ?? '',
+					startDate: currentSeason.startDate ?? null,
+					endDate: currentSeason.endDate ?? null,
+					offeringCount: seasonOfferings.length,
+					leagueCount: seasonLeagues.length,
+					startLabel: currentSeason.startDate
+						? new Date(currentSeason.startDate).toLocaleDateString('en-US', {
+								month: 'short',
+								day: 'numeric',
+								year: 'numeric'
+							})
+						: null,
+					endLabel: currentSeason.endDate
+						? new Date(currentSeason.endDate).toLocaleDateString('en-US', {
+								month: 'short',
+								day: 'numeric',
+								year: 'numeric'
+							})
+						: null
+				}
+			: null;
 
 		return {
 			stats: {
@@ -148,12 +213,14 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 				liveGames: liveGames.length,
 				completedToday: completedToday.length,
 				pendingActions: pendingRosters,
-				practicesToday
+				practicesToday: 0
 			},
 			todaysEvents: formattedTodaysEvents,
 			upcomingEvents: formattedUpcoming,
 			recentActivity,
-			alerts
+			alerts,
+			currentSeason: currentSeasonData,
+			registrationDeadlines
 		};
 	} catch (error) {
 		console.error('Dashboard load error:', error);
@@ -163,6 +230,8 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 			upcomingEvents: [],
 			recentActivity: [],
 			alerts: [],
+			currentSeason: null,
+			registrationDeadlines: [],
 			error: 'Failed to load dashboard data'
 		};
 	}
