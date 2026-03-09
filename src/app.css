@@ -1189,22 +1189,22 @@
 	}
 
 	:is(button, a)[class*='button-'][class*='-outlined']:focus-visible {
-		outline-width: 2px;
-		outline-offset: -2px;
+		outline: none;
+		outline-offset: 0;
 	}
 
 	:is(button, a)[class*='button-primary-outlined']:focus-visible {
-		outline-color: var(--color-primary-500);
+		border-color: var(--color-primary-500);
 		box-shadow: 0 0 0 1px var(--color-primary-600);
 	}
 
 	:is(button, a)[class*='button-secondary-outlined']:focus-visible {
-		outline-color: var(--color-secondary-500);
+		border-color: var(--color-secondary-500);
 		box-shadow: 0 0 0 1px var(--color-secondary-600);
 	}
 
 	:is(button, a)[class*='button-error-outlined']:focus-visible {
-		outline-color: var(--color-error-700);
+		border-color: var(--color-error-700);
 		box-shadow: 0 0 0 1px var(--color-error-700);
 	}
 
@@ -1498,9 +1498,7 @@
 	/* Primary Outlined Buttons */
 	:is(button, a).button-primary-outlined {
 		background-color: transparent;
-		outline: 2px solid var(--color-primary-500);
-		outline-offset: -2px;
-		border: none;
+		border: 2px solid var(--color-primary-500);
 		color: var(--color-primary-950);
 		padding: 0.75rem 1.5rem;
 		font-weight: 700;
@@ -1528,9 +1526,7 @@
 
 	:is(button, a).button-primary-outlined-500 {
 		background-color: transparent;
-		outline: 2px solid var(--color-primary-500);
-		outline-offset: -2px;
-		border: none;
+		border: 2px solid var(--color-primary-500);
 		color: var(--color-primary-950);
 		padding: 0.75rem 1.5rem;
 		font-weight: 700;
@@ -1634,9 +1630,7 @@
 	/* Secondary Outlined Buttons */
 	:is(button, a).button-secondary-outlined {
 		background-color: transparent;
-		outline: 2px solid var(--color-secondary-500);
-		outline-offset: -2px;
-		border: none;
+		border: 2px solid var(--color-secondary-500);
 		color: var(--color-secondary-950);
 		padding: 0.75rem 1.5rem;
 		font-weight: 700;
@@ -1664,9 +1658,7 @@
 
 	:is(button, a).button-secondary-outlined-500 {
 		background-color: transparent;
-		outline: 2px solid var(--color-secondary-500);
-		outline-offset: -2px;
-		border: none;
+		border: 2px solid var(--color-secondary-500);
 		color: var(--color-secondary-950);
 		padding: 0.75rem 1.5rem;
 		font-weight: 700;
@@ -1770,9 +1762,7 @@
 	/* Secondary Outlined Buttons */
 	:is(button, a).button-secondary-outlined {
 		background-color: transparent;
-		outline: 2px solid var(--color-secondary-500);
-		outline-offset: -2px;
-		border: none;
+		border: 2px solid var(--color-secondary-500);
 		color: var(--color-secondary-950);
 		padding: 0.75rem 1.5rem;
 		font-weight: 700;
@@ -1800,9 +1790,7 @@
 
 	:is(button, a).button-secondary-outlined-500 {
 		background-color: transparent;
-		outline: 2px solid var(--color-secondary-500);
-		outline-offset: -2px;
-		border: none;
+		border: 2px solid var(--color-secondary-500);
 		color: var(--color-secondary-950);
 		padding: 0.75rem 1.5rem;
 		font-weight: 700;
@@ -1854,9 +1842,7 @@
 
 	:is(button, a).button-error-outlined {
 		background-color: transparent;
-		outline: 2px solid var(--color-error-700);
-		outline-offset: -2px;
-		border: none;
+		border: 2px solid var(--color-error-700);
 		color: var(--color-error-700);
 		padding: 0.75rem 1.5rem;
 		font-weight: 700;

@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import type { PageData } from './$types';
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
+	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import OfferingsTable from '$lib/components/OfferingsTable.svelte';
 	import DashboardSidebarPanel from '$lib/components/dashboard/DashboardSidebarPanel.svelte';
 	import SplitAddAction from '$lib/components/dashboard/SplitAddAction.svelte';
@@ -202,6 +203,18 @@
 		return `/dashboard/offerings/${seasonSlug}/${offeringSlug}/${leagueSlug}`;
 	}
 
+	function offeringSeasonHref(
+		seasonSlug: string | null | undefined,
+		offeringSlug: string | null | undefined
+	): string {
+		const normalizedSeasonSlug = seasonSlug?.trim();
+		const normalizedOfferingSlug = offeringSlug?.trim();
+		if (!normalizedSeasonSlug || !normalizedOfferingSlug) {
+			return '/dashboard/offerings';
+		}
+		return `/dashboard/offerings/${normalizedSeasonSlug}/${normalizedOfferingSlug}`;
+	}
+
 	function divisionHref(league: OfferingLeagueRow, division: OfferingDivisionRow): string {
 		const seasonSlug = data.season?.slug?.trim();
 		const offeringSlug = data.offering?.slug?.trim();
@@ -232,13 +245,12 @@
 		await goto(buildOfferingsBoardHref('create-league'));
 	}
 
-	async function openOfferingsBoard(): Promise<void> {
-		await goto(buildOfferingsBoardHref());
-	}
-
 	async function handleAddAction(action: string): Promise<void> {
-		if (action === 'open-offerings-board') {
-			await openOfferingsBoard();
+		if (action === 'create-division') {
+			const targetLeague = visibleLeagues[0] ?? data.leagues[0] ?? null;
+			if (targetLeague) {
+				await goto(leagueHref(targetLeague));
+			}
 			return;
 		}
 		await openCreateEntryFlow();
@@ -326,17 +338,43 @@
 
 	const hasSearchQuery = $derived.by(() => normalizedSearchQuery.length > 0);
 
+	function seasonHistoryStatusLabel(season: NonNullable<PageData['seasonHistory']>[number]): string {
+		if (season.isCurrent) return 'CURRENT';
+		const today = new Date().toISOString().slice(0, 10);
+		return season.startDate > today ? 'FUTURE' : 'PAST';
+	}
+
+	const seasonHistoryDropdownOptions = $derived.by<DropdownOption[]>(() =>
+		(data.seasonHistory ?? []).map((season: NonNullable<PageData['seasonHistory']>[number]) => ({
+			value: offeringSeasonHref(season.seasonSlug, season.offeringSlug),
+			label: season.seasonName,
+			statusLabel: seasonHistoryStatusLabel(season)
+		}))
+	);
+
+	const selectedSeasonHistoryValue = $derived.by(() =>
+		offeringSeasonHref(data.season?.slug, data.offering?.slug)
+	);
+
+	async function handleSeasonHistoryChange(value: string): Promise<void> {
+		if (!value || value === selectedSeasonHistoryValue) return;
+		await goto(value);
+	}
+
 	const entryAddActionOptions = $derived.by<DropdownOption[]>(() => [
 		{
-			value: 'create-entry',
-			label: `Add ${entryUnitTitleSingular()}`,
-			statusLabel: `Create a new ${entryUnitSingular()} in this offering`
+			value: 'create-league',
+			label: 'Add League',
+			statusLabel: 'Create a new league in this offering'
 		},
 		{
-			value: 'open-offerings-board',
-			label: 'Open Offerings Board',
-			statusLabel: 'Use the full offerings dashboard',
-			separatorBefore: true
+			value: 'create-division',
+			label: 'Add Division',
+			statusLabel:
+				data.leagues.length > 0
+					? 'Open the first league shown so you can add a division there'
+					: 'Add a league before creating a division',
+			disabled: data.leagues.length === 0
 		}
 	]);
 
@@ -417,25 +455,17 @@
 								<h2 class="text-2xl font-bold font-serif text-neutral-950">
 									{data.offering.name}
 								</h2>
-								<span
-									class="badge-secondary-outlined px-1.5 py-0 text-[10px] uppercase tracking-wide"
-								>
-									{toTitleCase(data.offering.type) ?? 'League'}
-								</span>
-								{#if data.season}
-									<span
-										class="badge-secondary-outlined px-1.5 py-0 text-[10px] uppercase tracking-wide"
-									>
-										{data.season.name}
-									</span>
-								{/if}
-								{#if data.offering.sport}
-									<span
-										class="badge-secondary-outlined px-1.5 py-0 text-[10px] uppercase tracking-wide"
-									>
-										{data.offering.sport}
-									</span>
-								{/if}
+								<ListboxDropdown
+									options={seasonHistoryDropdownOptions}
+									value={selectedSeasonHistoryValue}
+									ariaLabel="Offering season history"
+									buttonClass="button-secondary-outlined px-3 py-1 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-60"
+									emptyText="No other seasons available."
+									disabled={seasonHistoryDropdownOptions.length <= 1}
+									on:change={(event) => {
+										void handleSeasonHistoryChange(event.detail.value);
+									}}
+								/>
 							</div>
 							<div class="flex flex-wrap items-center gap-2 text-xs font-sans text-neutral-950">
 								<span class="border border-secondary-300 bg-white px-2 py-1">

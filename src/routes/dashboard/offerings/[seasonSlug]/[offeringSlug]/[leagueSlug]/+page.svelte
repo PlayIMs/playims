@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { beforeNavigate, invalidateAll } from '$app/navigation';
+	import { beforeNavigate, goto, invalidateAll } from '$app/navigation';
 	import type { PageData } from './$types';
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
@@ -483,21 +483,33 @@
 
 	const hasSearchQuery = $derived.by(() => normalizedSearchQuery.length > 0);
 
+	function leagueDetailHref(
+		leagueSlug: string | null | undefined,
+		leagueId?: string | null | undefined
+	): string {
+		if (!data.season?.slug || !data.offering?.slug) return offeringHref();
+		const routeLeagueSlug = leagueSlug?.trim() || leagueId?.trim();
+		if (!routeLeagueSlug) return offeringHref();
+		return `/dashboard/offerings/${data.season.slug}/${data.offering.slug}/${routeLeagueSlug}`;
+	}
+
+	const leagueDropdownOptions = $derived.by<DropdownOption[]>(() =>
+		(data.leagues ?? []).map((league: NonNullable<PageData['leagues']>[number]) => ({
+			value: leagueDetailHref(league.slug, league.id),
+			label: league.name,
+			statusLabel: league.isLocked ? 'Locked' : undefined
+		}))
+	);
+
+	const selectedLeagueValue = $derived.by(() =>
+		leagueDetailHref(data.league?.slug, data.league?.id)
+	);
+
 	const leagueAddActionOptions = $derived.by<DropdownOption[]>(() => [
 		{
 			value: 'create-division',
 			label: 'Add Division',
 			statusLabel: 'Create a new division'
-		},
-		{
-			value: 'create-team',
-			label: 'Add Team',
-			statusLabel:
-				data.divisions.length > 0
-					? 'Add a team to a division or the waitlist'
-					: 'Add a division first',
-			disabled: data.divisions.length === 0,
-			disabledTooltip: 'Add a division before creating a team.'
 		}
 	]);
 
@@ -586,12 +598,12 @@
 		createTeamOpen = true;
 	}
 
-	function handleLeagueAddAction(action: string): void {
-		if (action === 'create-team') {
-			openCreateTeamWizard();
-			return;
-		}
+	async function handleLeagueChange(value: string): Promise<void> {
+		if (!value || value === selectedLeagueValue) return;
+		await goto(value);
+	}
 
+	function handleLeagueAddAction(_action: string): void {
 		openCreateDivisionWizard();
 	}
 
@@ -1194,21 +1206,17 @@
 								<h2 class="text-2xl font-bold font-serif text-neutral-950">
 									{data.offering?.name ?? 'League'}
 								</h2>
-								<span
-									class="badge-secondary-outlined px-1.5 py-0 text-[10px] uppercase tracking-wide"
-								>
-									League
-								</span>
-								{#if data.season}
-									<span
-										class="badge-secondary-outlined px-1.5 py-0 text-[10px] uppercase tracking-wide"
-									>
-										{data.season.name}
-									</span>
-								{/if}
-								{#if data.league.isLocked}
-									<span class="badge-primary text-xs uppercase tracking-wide">Locked</span>
-								{/if}
+								<ListboxDropdown
+									options={leagueDropdownOptions}
+									value={selectedLeagueValue}
+									ariaLabel="Select league for this offering"
+									buttonClass="button-secondary-outlined min-w-[11rem] px-3 py-1 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-60"
+									emptyText="No other leagues available."
+									disabled={leagueDropdownOptions.length <= 1}
+									on:change={(event) => {
+										void handleLeagueChange(event.detail.value);
+									}}
+								/>
 							</div>
 							<div class="flex flex-wrap items-center gap-2 text-xs font-sans text-neutral-950">
 								<span class="border border-secondary-300 bg-white px-2 py-1">
@@ -1220,6 +1228,9 @@
 								<span class="border border-secondary-300 bg-white px-2 py-1">
 									{data.summary.waitlistCount} waitlist
 								</span>
+								{#if data.league.isLocked}
+									<span class="badge-primary text-xs uppercase tracking-wide">Locked</span>
+								{/if}
 								{#if canManageLeague}
 									<SplitAddAction
 										options={leagueAddActionOptions}

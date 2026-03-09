@@ -259,7 +259,7 @@
 		4: 'Review & Create'
 	};
 	const COMPACT_DROPDOWN_BUTTON_CLASS =
-		'button-secondary-outlined w-auto min-w-36 px-3 py-1 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500';
+		'button-secondary-outlined w-auto min-w-36 px-3 py-1 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2 focus-visible:ring-2 focus-visible:ring-primary-500';
 	const FORM_DROPDOWN_BUTTON_CLASS =
 		'w-full border-2 border-secondary-400 bg-white px-4 py-2 text-base leading-6 font-normal text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2 hover:bg-white focus:outline-none focus-visible:outline-none focus-visible:border-secondary-500 focus-visible:ring-0 focus-visible:shadow-[0_0_0_1px_var(--color-secondary-500)] disabled:cursor-not-allowed disabled:opacity-60';
 	let { data } = $props<{ data: PageData }>();

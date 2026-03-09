@@ -1,7 +1,9 @@
 import { error } from '@sveltejs/kit';
+import type { League } from '$lib/database';
 import { requireAuthenticatedClientId } from '$lib/server/client-context';
 import { getTenantDbOps } from '$lib/server/database/context';
 import {
+	leagueMatchesSeason,
 	resolveLeagueForOffering,
 	resolveOfferingForSeason
 } from '$lib/server/intramural-offering-scope';
@@ -64,6 +66,13 @@ interface WaitlistTeamRow {
 	description: string | null;
 }
 
+interface OfferingLeagueRow {
+	id: string;
+	name: string;
+	slug: string;
+	isLocked: boolean;
+}
+
 const isActiveTeamStatus = (value: string | null | undefined): boolean =>
 	(value?.trim().toLowerCase() ?? '') === 'active';
 
@@ -104,6 +113,7 @@ export const load: PageServerLoad = async (event) => {
 	if (!platform?.env?.DB) {
 		return {
 			league: null,
+			leagues: [] as OfferingLeagueRow[],
 			offering: null,
 			season: null,
 			divisions: [] as DivisionSection[],
@@ -143,10 +153,26 @@ export const load: PageServerLoad = async (event) => {
 			throw error(404, 'League not found.');
 		}
 
-		const [divisions, standings] = await Promise.all([
+		const [divisions, standings, allLeagues] = await Promise.all([
 			dbOps.divisions.getByLeagueId(league.id),
-			dbOps.divisionStandings.getByClientIdAndLeagueId(clientId, league.id)
+			dbOps.divisionStandings.getByClientIdAndLeagueId(clientId, league.id),
+			dbOps.leagues.getByClientId(clientId)
 		]);
+
+		const offeringLeagues = allLeagues
+			.filter(
+				(candidateLeague): candidateLeague is League & { id: string } =>
+					Boolean(candidateLeague.id) &&
+					candidateLeague.offeringId === offering.id &&
+					leagueMatchesSeason(candidateLeague, season)
+			)
+			.map<OfferingLeagueRow>((candidateLeague) => ({
+				id: candidateLeague.id,
+				name: candidateLeague.name?.trim() || 'Untitled League',
+				slug: candidateLeague.slug?.trim() || '',
+				isLocked: candidateLeague.isLocked === 1
+			}))
+			.sort((a, b) => a.name.localeCompare(b.name));
 
 		const divisionIds = divisions
 			.map((division) => division.id)
@@ -315,6 +341,7 @@ export const load: PageServerLoad = async (event) => {
 				isLocked: league.isLocked === 1,
 				imageUrl: league.imageUrl ?? null
 			},
+			leagues: offeringLeagues,
 			offering: offering
 				? {
 						id: offering.id ?? '',
@@ -355,6 +382,7 @@ export const load: PageServerLoad = async (event) => {
 		console.error('Failed to load league offerings detail page:', err);
 		return {
 			league: null,
+			leagues: [] as OfferingLeagueRow[],
 			offering: null,
 			season: null,
 			divisions: [] as DivisionSection[],

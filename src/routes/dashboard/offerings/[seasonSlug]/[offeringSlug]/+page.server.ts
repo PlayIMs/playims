@@ -1,9 +1,11 @@
 import { error } from '@sveltejs/kit';
-import type { League } from '$lib/database';
+import type { League, Offering, Season } from '$lib/database';
 import { requireAuthenticatedClientId } from '$lib/server/client-context';
 import { getTenantDbOps } from '$lib/server/database/context';
 import {
 	leagueMatchesSeason,
+	normalizeIntramuralSlug,
+	normalizeIntramuralText,
 	resolveOfferingForSeason
 } from '$lib/server/intramural-offering-scope';
 import type { PageServerLoad } from './$types';
@@ -42,6 +44,16 @@ interface DivisionRow {
 	waitlistCount: number;
 }
 
+interface SeasonHistoryRow {
+	seasonId: string;
+	seasonName: string;
+	seasonSlug: string;
+	offeringSlug: string;
+	startDate: string;
+	endDate: string | null;
+	isCurrent: boolean;
+}
+
 const isActiveTeamStatus = (value: string | null | undefined): boolean =>
 	(value?.trim().toLowerCase() ?? '') === 'active';
 
@@ -56,6 +68,7 @@ export const load: PageServerLoad = async (event) => {
 		return {
 			season: null,
 			offering: null,
+			seasonHistory: [] as SeasonHistoryRow[],
 			leagues: [] as LeagueRow[],
 			summary: {
 				leagueCount: 0,
@@ -81,7 +94,117 @@ export const load: PageServerLoad = async (event) => {
 			throw error(404, 'Offering not found.');
 		}
 
-		const leagues = (await dbOps.leagues.getByClientId(clientId)).filter(
+		const [seasonsRaw, offerings, allLeagues] = await Promise.all([
+			dbOps.seasons.getByClientId(clientId),
+			dbOps.offerings.getByClientId(clientId),
+			dbOps.leagues.getByClientId(clientId)
+		]);
+
+		const seasons = seasonsRaw.filter((candidate): candidate is Season & { id: string } =>
+			Boolean(candidate.id)
+		);
+		const seasonsById = new Map(
+			seasons.map((candidate) => [
+				candidate.id,
+				{
+					id: candidate.id,
+					name: candidate.name?.trim() || 'Season',
+					slug: candidate.slug?.trim() || '',
+					startDate: candidate.startDate ?? '',
+					endDate: candidate.endDate ?? null,
+					isCurrent: candidate.isCurrent === 1
+				}
+			])
+		);
+
+		const resolveLeagueSeasonId = (league: League): string | null =>
+			seasons.find((candidate) => leagueMatchesSeason(league, candidate))?.id ?? null;
+
+		const offeringSeasonIdsByOfferingId = new Map<string, Set<string>>();
+		for (const candidateLeague of allLeagues) {
+			const offeringId = candidateLeague.offeringId?.trim();
+			if (!offeringId) continue;
+			const seasonId = resolveLeagueSeasonId(candidateLeague);
+			if (!seasonId) continue;
+			if (!offeringSeasonIdsByOfferingId.has(offeringId)) {
+				offeringSeasonIdsByOfferingId.set(offeringId, new Set<string>());
+			}
+			offeringSeasonIdsByOfferingId.get(offeringId)?.add(seasonId);
+		}
+
+		const resolveOfferingSeasonId = (candidateOffering: Offering): string | null => {
+			const directSeasonId = candidateOffering.seasonId?.trim();
+			if (directSeasonId && seasonsById.has(directSeasonId)) {
+				return directSeasonId;
+			}
+			const inferredSeasonIds = candidateOffering.id
+				? offeringSeasonIdsByOfferingId.get(candidateOffering.id)
+				: undefined;
+			if (inferredSeasonIds?.size === 1) {
+				return Array.from(inferredSeasonIds)[0] ?? null;
+			}
+			return null;
+		};
+
+		const currentSeriesId = offering.seriesId?.trim() ?? '';
+		const currentOfferingSlug = normalizeIntramuralSlug(offering.slug);
+		const currentOfferingName = normalizeIntramuralText(offering.name);
+		const currentOfferingType = normalizeIntramuralText(offering.type);
+		const relatedOfferings = offerings.filter((candidate): candidate is Offering & { id: string } => {
+			if (!candidate.id) return false;
+			if (currentSeriesId) {
+				return (candidate.seriesId?.trim() ?? '') === currentSeriesId;
+			}
+			if (!currentOfferingSlug && !currentOfferingName) {
+				return candidate.id === offering.id;
+			}
+			return (
+				normalizeIntramuralText(candidate.type) === currentOfferingType &&
+				(
+					normalizeIntramuralSlug(candidate.slug) === currentOfferingSlug ||
+					normalizeIntramuralText(candidate.name) === currentOfferingName
+				)
+			);
+		});
+
+		const seasonHistoryBySeasonId = new Map<string, SeasonHistoryRow>();
+		for (const relatedOffering of relatedOfferings) {
+			const seasonId = resolveOfferingSeasonId(relatedOffering);
+			if (!seasonId) continue;
+			const relatedSeason = seasonsById.get(seasonId);
+			const relatedOfferingSlug = relatedOffering.slug?.trim() || '';
+			if (!relatedSeason?.slug || !relatedOfferingSlug) continue;
+			if (seasonHistoryBySeasonId.has(seasonId)) continue;
+			seasonHistoryBySeasonId.set(seasonId, {
+				seasonId,
+				seasonName: relatedSeason.name,
+				seasonSlug: relatedSeason.slug,
+				offeringSlug: relatedOfferingSlug,
+				startDate: relatedSeason.startDate,
+				endDate: relatedSeason.endDate,
+				isCurrent: relatedSeason.isCurrent
+			});
+		}
+
+		if (!seasonHistoryBySeasonId.has(season.id) && season.slug?.trim() && offering.slug?.trim()) {
+			seasonHistoryBySeasonId.set(season.id, {
+				seasonId: season.id,
+				seasonName: season.name?.trim() || 'Season',
+				seasonSlug: season.slug.trim(),
+				offeringSlug: offering.slug.trim(),
+				startDate: season.startDate ?? '',
+				endDate: season.endDate ?? null,
+				isCurrent: season.isCurrent === 1
+			});
+		}
+
+		const seasonHistory = [...seasonHistoryBySeasonId.values()].sort((a, b) => {
+			const startDateDiff = b.startDate.localeCompare(a.startDate);
+			if (startDateDiff !== 0) return startDateDiff;
+			return a.seasonName.localeCompare(b.seasonName);
+		});
+
+		const leagues = allLeagues.filter(
 			(league) => league.offeringId === offering.id && leagueMatchesSeason(league, season)
 		);
 		const leagueIds = leagues
@@ -197,6 +320,7 @@ export const load: PageServerLoad = async (event) => {
 				maxPlayers: offering.maxPlayers ?? null,
 				rulebookUrl: offering.rulebookUrl?.trim() || null
 			},
+			seasonHistory,
 			leagues: leagueRows,
 			summary: {
 				leagueCount: leagueRows.length,
@@ -214,6 +338,7 @@ export const load: PageServerLoad = async (event) => {
 		return {
 			season: null,
 			offering: null,
+			seasonHistory: [] as SeasonHistoryRow[],
 			leagues: [] as LeagueRow[],
 			summary: {
 				leagueCount: 0,
