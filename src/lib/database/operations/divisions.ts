@@ -44,6 +44,21 @@ export class DivisionOperations {
 		return result.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
 	}
 
+	async getByLeagueIdAndSlug(leagueId: string, slug: string): Promise<Division | null> {
+		const normalizedLeagueId = leagueId.trim();
+		const normalizedSlug = slug.trim();
+		if (!normalizedLeagueId || !normalizedSlug) {
+			return null;
+		}
+
+		const result = await this.db
+			.select()
+			.from(divisions)
+			.where(and(eq(divisions.leagueId, normalizedLeagueId), eq(divisions.slug, normalizedSlug)))
+			.limit(1);
+		return result[0] ?? null;
+	}
+
 	async getById(divisionId: string): Promise<Division | null> {
 		const result = await this.db
 			.select()

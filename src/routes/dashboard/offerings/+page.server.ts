@@ -52,6 +52,8 @@ interface LeagueOfferingOption {
 	sport: string;
 	type: ActivityType;
 	seasonId: string | null;
+	seasonName: string | null;
+	seriesId: string | null;
 	isActive: boolean;
 }
 
@@ -288,6 +290,20 @@ export const load: PageServerLoad = async (event) => {
 				slug: offering.slug?.trim() || '',
 				sport: offering.sport?.trim() || 'Unspecified sport',
 				type: toActivityType(offering.type),
+				seasonName: (() => {
+					const resolvedSeasonId =
+						offering.seasonId && seasonsById.has(offering.seasonId)
+							? offering.seasonId
+							: (() => {
+									const seasonIds = offeringSeasonIdsByOfferingId.get(offering.id);
+									if (seasonIds?.size === 1) {
+										return Array.from(seasonIds)[0] ?? null;
+									}
+									return null;
+								})();
+					return resolvedSeasonId ? seasonsById.get(resolvedSeasonId)?.name ?? null : null;
+				})(),
+				seriesId: offering.seriesId?.trim() || null,
 				isActive: offering.isActive !== 0
 			}))
 			.sort((a, b) => a.name.localeCompare(b.name));

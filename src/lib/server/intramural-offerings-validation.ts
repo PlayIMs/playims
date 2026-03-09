@@ -36,6 +36,16 @@ const optionalText = (label: string, max = 2000) =>
 		z.union([z.string().max(max, `${label} must be ${max} characters or fewer.`), z.null()])
 	);
 
+const optionalId = (label: string, max = 120) =>
+	z.preprocess(
+		(value) => {
+			if (typeof value !== 'string') return value;
+			const trimmed = value.trim();
+			return trimmed.length === 0 ? null : trimmed;
+		},
+		z.union([z.string().max(max, `${label} must be ${max} characters or fewer.`), z.null()])
+	);
+
 const slugField = (label: string) =>
 	z.preprocess(
 		normalizeSlug,
@@ -117,6 +127,7 @@ const offeringInputSchema = z.object({
 	seasonId: requiredText('Season', 120),
 	name: requiredText('Offering name', 140),
 	slug: slugField('Offering slug'),
+	linkedOfferingId: optionalId('Linked offering'),
 	isActive: z.boolean(),
 	imageUrl: optionalUrl('Offering image URL'),
 	minPlayers: optionalInt('Minimum roster players', 1, 100),
@@ -437,20 +448,34 @@ export const createIntramuralOfferingWithLeagueSchema = z
 			});
 		}
 
-		const seenLeagueSlugSeasonPairs = new Map<string, number>();
+		const seenLeagueNames = new Map<string, number>();
+		const seenLeagueSlugs = new Map<string, number>();
 		const seenLeagueStackOrders = new Map<number, number>();
 		payload.leagues.forEach((league, index) => {
-			const slugSeasonKey = `${league.slug}::${league.seasonId}`;
-			const previousIndex = seenLeagueSlugSeasonPairs.get(slugSeasonKey);
-			if (previousIndex !== undefined) {
+			const normalizedName = league.name.trim().toLowerCase();
+			if (normalizedName) {
+				const previousNameIndex = seenLeagueNames.get(normalizedName);
+				if (previousNameIndex !== undefined) {
+					ctx.addIssue({
+						code: z.ZodIssueCode.custom,
+						path: ['leagues', index, 'name'],
+						message: 'League/group name must be unique within this offering.'
+					});
+					return;
+				}
+				seenLeagueNames.set(normalizedName, index);
+			}
+
+			const previousSlugIndex = seenLeagueSlugs.get(league.slug);
+			if (previousSlugIndex !== undefined) {
 				ctx.addIssue({
 					code: z.ZodIssueCode.custom,
 					path: ['leagues', index, 'slug'],
-					message: 'League/group slug must be unique per season within this request.'
+					message: 'League/group slug must be unique within this offering.'
 				});
 				return;
 			}
-			seenLeagueSlugSeasonPairs.set(slugSeasonKey, index);
+			seenLeagueSlugs.set(league.slug, index);
 
 			const previousStackOrderIndex = seenLeagueStackOrders.get(league.stackOrder);
 			if (previousStackOrderIndex !== undefined) {
@@ -475,20 +500,34 @@ export const createIntramuralLeagueSchema = z
 		leagues: z.array(leagueInputSchema).min(1, 'Add at least one entry.')
 	})
 	.superRefine((payload, ctx) => {
-		const seenLeagueSlugSeasonPairs = new Map<string, number>();
+		const seenLeagueNames = new Map<string, number>();
+		const seenLeagueSlugs = new Map<string, number>();
 		const seenLeagueStackOrders = new Map<number, number>();
 		payload.leagues.forEach((league, index) => {
-			const slugSeasonKey = `${league.slug}::${league.seasonId}`;
-			const previousIndex = seenLeagueSlugSeasonPairs.get(slugSeasonKey);
-			if (previousIndex !== undefined) {
+			const normalizedName = league.name.trim().toLowerCase();
+			if (normalizedName) {
+				const previousNameIndex = seenLeagueNames.get(normalizedName);
+				if (previousNameIndex !== undefined) {
+					ctx.addIssue({
+						code: z.ZodIssueCode.custom,
+						path: ['leagues', index, 'name'],
+						message: 'League/group name must be unique within this offering.'
+					});
+					return;
+				}
+				seenLeagueNames.set(normalizedName, index);
+			}
+
+			const previousSlugIndex = seenLeagueSlugs.get(league.slug);
+			if (previousSlugIndex !== undefined) {
 				ctx.addIssue({
 					code: z.ZodIssueCode.custom,
 					path: ['leagues', index, 'slug'],
-					message: 'League/group slug must be unique per season within this request.'
+					message: 'League/group slug must be unique within this offering.'
 				});
 				return;
 			}
-			seenLeagueSlugSeasonPairs.set(slugSeasonKey, index);
+			seenLeagueSlugs.set(league.slug, index);
 
 			const previousStackOrderIndex = seenLeagueStackOrders.get(league.stackOrder);
 			if (previousStackOrderIndex !== undefined) {

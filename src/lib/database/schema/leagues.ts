@@ -1,5 +1,6 @@
 // Leagues schema
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
+import { sqliteTable, text, integer, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 export const leagues = sqliteTable('leagues', {
 	id: text().primaryKey(),
@@ -31,7 +32,13 @@ export const leagues = sqliteTable('leagues', {
 	updatedAt: text('updated_at'),
 	createdUser: text('created_user'),
 	updatedUser: text('updated_user')
-});
+},
+	(table) => ({
+		offeringSlugUnique: uniqueIndex('leagues_offering_slug_unique')
+			.on(table.offeringId, table.slug)
+			.where(sql`${table.offeringId} is not null and ${table.slug} is not null and trim(${table.slug}) <> ''`)
+	})
+);
 
 export type League = typeof leagues.$inferSelect;
 export type NewLeague = typeof leagues.$inferInsert;

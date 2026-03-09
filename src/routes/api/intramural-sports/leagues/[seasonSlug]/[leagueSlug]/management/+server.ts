@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import type { League, Season } from '$lib/database';
+import type { League } from '$lib/database';
 import {
 	requireAuthenticatedClientId,
 	requireAuthenticatedUserId
@@ -17,6 +17,7 @@ import {
 	type MoveIntramuralTeamInput,
 	type RemoveIntramuralTeamInput
 } from '$lib/server/intramural-offerings-validation';
+import { leagueMatchesSeason } from '$lib/server/intramural-offering-scope';
 import type { RequestHandler } from './$types';
 
 const ACTIVE_TEAM_STATUS = 'active';
@@ -46,26 +47,6 @@ const normalizePlacement = (value: 'active' | 'waitlist'): string =>
 
 const isActiveTeamStatus = (value: string | null | undefined): boolean =>
 	normalizeText(value) === ACTIVE_TEAM_STATUS;
-
-const normalizeSeasonName = (value: string | null | undefined): string =>
-	value?.trim().toLowerCase() ?? '';
-
-const formatLegacySeasonLabel = (league: League): string => {
-	const season = league.season?.trim() ?? '';
-	const year = league.year ?? null;
-	if (season && year) return `${season} ${year}`;
-	if (season) return season;
-	if (year) return `${year}`;
-	return '';
-};
-
-const leagueMatchesSeason = (league: League, season: Season): boolean => {
-	if (league.seasonId) {
-		return league.seasonId === season.id;
-	}
-
-	return normalizeSeasonName(formatLegacySeasonLabel(league)) === normalizeSeasonName(season.name);
-};
 
 async function syncDivisionTeamCounts(
 	dbOps: Awaited<ReturnType<typeof getTenantDbOps>>,
@@ -116,7 +97,8 @@ function assertLeagueParamMatches(
 async function resolveLeagueFromParams(
 	event: Parameters<RequestHandler>[0],
 	dbOps: Awaited<ReturnType<typeof getTenantDbOps>>,
-	clientId: string
+	clientId: string,
+	expectedLeagueId?: string
 ) {
 	const season = await dbOps.seasons.getByClientIdAndSlug(clientId, event.params.seasonSlug);
 	if (!season?.id) {
@@ -126,11 +108,21 @@ async function resolveLeagueFromParams(
 		};
 	}
 
-	let league = await dbOps.leagues.getByClientIdSeasonIdAndSlug(
-		clientId,
-		season.id,
-		event.params.leagueSlug
-	);
+	let league: League | null = null;
+	if (expectedLeagueId?.trim()) {
+		const bodyLeague = await dbOps.leagues.getByClientIdAndId(clientId, expectedLeagueId.trim());
+		if (bodyLeague?.id && leagueMatchesSeason(bodyLeague, season)) {
+			league = bodyLeague;
+		}
+	}
+
+	if (!league?.id) {
+		league = await dbOps.leagues.getByClientIdSeasonIdAndSlug(
+			clientId,
+			season.id,
+			event.params.leagueSlug
+		);
+	}
 	if (!league?.id) {
 		const leagues = await dbOps.leagues.getByClientId(clientId);
 		league =
@@ -225,7 +217,12 @@ export const POST: RequestHandler = async (event) => {
 	const dbOps = await getTenantDbOps(event, clientId);
 
 	try {
-		const { season, league } = await resolveLeagueFromParams(event, dbOps, clientId);
+		const { season, league } = await resolveLeagueFromParams(
+			event,
+			dbOps,
+			clientId,
+			input.leagueId
+		);
 		if (!season?.id) {
 			return json(
 				{
@@ -496,7 +493,12 @@ export const PATCH: RequestHandler = async (event) => {
 	const dbOps = await getTenantDbOps(event, clientId);
 
 	try {
-		const { season, league } = await resolveLeagueFromParams(event, dbOps, clientId);
+		const { season, league } = await resolveLeagueFromParams(
+			event,
+			dbOps,
+			clientId,
+			input.leagueId
+		);
 		if (!season?.id) {
 			return json(
 				{
@@ -675,7 +677,12 @@ export const DELETE: RequestHandler = async (event) => {
 	const dbOps = await getTenantDbOps(event, clientId);
 
 	try {
-		const { season, league } = await resolveLeagueFromParams(event, dbOps, clientId);
+		const { season, league } = await resolveLeagueFromParams(
+			event,
+			dbOps,
+			clientId,
+			input.leagueId
+		);
 		if (!season?.id) {
 			return json(
 				{

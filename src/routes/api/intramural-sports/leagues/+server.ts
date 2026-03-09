@@ -9,6 +9,10 @@ import {
 	type CreateIntramuralLeagueInput,
 	type CreatedIntramuralActivity
 } from '$lib/server/intramural-offerings-validation';
+import {
+	normalizeIntramuralSlug,
+	normalizeIntramuralText
+} from '$lib/server/intramural-offering-scope';
 import type { RequestHandler } from './$types';
 
 const toActivityType = (value: string | null | undefined): 'league' | 'tournament' => {
@@ -167,27 +171,37 @@ export const POST: RequestHandler = async (event) => {
 			);
 		}
 
-		const existingLeaguesBySlug = await Promise.all(
-			input.leagues.map((league, index) =>
-				dbOps.leagues
-					.getByClientIdSeasonIdAndSlug(clientId, league.seasonId, league.slug)
-					.then((existing) => ({ index, existing }))
-			)
-		);
-		const duplicateSlugIssues: Array<{ path: Array<string | number>; message: string }> = [];
-		for (const check of existingLeaguesBySlug) {
-			if (!check.existing) continue;
-			duplicateSlugIssues.push({
-				path: ['leagues', check.index, 'slug'],
-				message: `A ${unitSingular} with this slug already exists for the selected season.`
-			});
+		const existingOfferingLeagues = await dbOps.leagues.getByOfferingId(selectedOffering.id);
+		const duplicateIssues: Array<{ path: Array<string | number>; message: string }> = [];
+		for (const [index, league] of input.leagues.entries()) {
+			const duplicateSlug = existingOfferingLeagues.find(
+				(existingLeague) =>
+					normalizeIntramuralSlug(existingLeague.slug) === normalizeIntramuralSlug(league.slug)
+			);
+			if (duplicateSlug) {
+				duplicateIssues.push({
+					path: ['leagues', index, 'slug'],
+					message: `A ${unitSingular} with this slug already exists for the selected offering.`
+				});
+			}
+
+			const duplicateName = existingOfferingLeagues.find(
+				(existingLeague) =>
+					normalizeIntramuralText(existingLeague.name) === normalizeIntramuralText(league.name)
+			);
+			if (duplicateName) {
+				duplicateIssues.push({
+					path: ['leagues', index, 'name'],
+					message: `A ${unitSingular} with this name already exists for the selected offering.`
+				});
+			}
 		}
-		if (duplicateSlugIssues.length > 0) {
+		if (duplicateIssues.length > 0) {
 			return json(
 				{
 					success: false,
 					error: 'Duplicate slug detected.',
-					fieldErrors: toFieldErrorMap(duplicateSlugIssues)
+					fieldErrors: toFieldErrorMap(duplicateIssues)
 				},
 				{ status: 409 }
 			);
@@ -220,10 +234,8 @@ export const POST: RequestHandler = async (event) => {
 			);
 		}
 
-		const leagues = await dbOps.leagues.getByClientId(clientId);
 		const nextStackOrderStart =
-			leagues
-				.filter((league) => league.offeringId === selectedOffering.id)
+			existingOfferingLeagues
 				.reduce((maxOrder, league) => {
 					const stackOrder = league.stackOrder ?? 0;
 					return stackOrder > maxOrder ? stackOrder : maxOrder;

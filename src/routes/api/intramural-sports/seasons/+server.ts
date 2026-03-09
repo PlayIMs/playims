@@ -16,6 +16,10 @@ import {
 	type ManageIntramuralSeasonInput,
 	type ManageIntramuralSeasonResponse
 } from '$lib/server/intramural-offerings-validation';
+import {
+	normalizeIntramuralSlug,
+	normalizeIntramuralText
+} from '$lib/server/intramural-offering-scope';
 import type { RequestHandler } from './$types';
 
 const toFieldErrorMap = (
@@ -35,19 +39,11 @@ const toFieldErrorMap = (
 };
 
 function normalizeText(value: string | null | undefined): string {
-	return value?.trim().toLowerCase() ?? '';
+	return normalizeIntramuralText(value);
 }
 
 function normalizeSlug(value: string | null | undefined): string {
-	if (!value) return '';
-	return value
-		.toLowerCase()
-		.trim()
-		.replace(/['"]/g, '')
-		.replace(/\s+/g, '-')
-		.replace(/[^a-z0-9-]/g, '')
-		.replace(/-+/g, '-')
-		.replace(/^-|-$/g, '');
+	return normalizeIntramuralSlug(value);
 }
 
 function parseSeasonAndYear(seasonName: string): { season: string | null; year: number | null } {
@@ -458,12 +454,19 @@ export const POST: RequestHandler = async (event) => {
 			);
 			const oldToNewOfferingIds = new Map<string, string>();
 			const generatedOfferingIds = new Set<string>();
-			const usedLeagueSlugs = new Set(
-				allLeagues
-					.filter((league) => resolveLeagueSeasonId(league) === createdSeason.id)
-					.map((league) => normalizeSlug(league.slug))
-					.filter((slug): slug is string => slug.length > 0)
-			);
+			const usedLeagueSlugsByOfferingId = new Map<string, Set<string>>();
+			for (const league of allLeagues.filter(
+				(candidate) => resolveLeagueSeasonId(candidate) === createdSeason.id
+			)) {
+				const offeringId = league.offeringId?.trim();
+				if (!offeringId) continue;
+				if (!usedLeagueSlugsByOfferingId.has(offeringId)) {
+					usedLeagueSlugsByOfferingId.set(offeringId, new Set<string>());
+				}
+				const normalizedLeagueSlug = normalizeSlug(league.slug);
+				if (!normalizedLeagueSlug) continue;
+				usedLeagueSlugsByOfferingId.get(offeringId)?.add(normalizedLeagueSlug);
+			}
 			const generatedLeagueIds = new Set<string>();
 
 			for (const sourceOffering of offeringsToCopy) {
@@ -471,11 +474,21 @@ export const POST: RequestHandler = async (event) => {
 				const baseSlug =
 					normalizeSlug(sourceOffering.slug) || normalizeSlug(sourceOffering.name) || 'offering';
 				const newSlug = buildUniqueSlug(baseSlug, usedOfferingSlugs);
+				const sourceOfferingSeriesId = sourceOffering.seriesId?.trim() || crypto.randomUUID();
+				if (!sourceOffering.seriesId?.trim()) {
+					await dbOps.offerings.updateSeriesId(
+						clientId,
+						sourceOffering.id,
+						sourceOfferingSeriesId,
+						userId
+					);
+				}
 				const createdOffering = await dbOps.offerings.create({
 					clientId,
 					seasonId: createdSeason.id,
 					name: sourceOffering.name?.trim() || 'Untitled Offering',
 					slug: newSlug,
+					seriesId: sourceOfferingSeriesId,
 					isActive: sourceOffering.isActive !== 0 ? 1 : 0,
 					imageUrl: sourceOffering.imageUrl ?? null,
 					minPlayers: sourceOffering.minPlayers ?? null,
@@ -499,6 +512,7 @@ export const POST: RequestHandler = async (event) => {
 				});
 
 				oldToNewOfferingIds.set(sourceOffering.id, createdOffering.id);
+				usedLeagueSlugsByOfferingId.set(createdOffering.id, new Set<string>());
 			}
 
 			const shouldCopyLeagues = scope !== 'offerings-only';
@@ -512,6 +526,10 @@ export const POST: RequestHandler = async (event) => {
 					if (!sourceLeague.offeringId || !sourceLeague.id) continue;
 					const newOfferingId = oldToNewOfferingIds.get(sourceLeague.offeringId);
 					if (!newOfferingId) continue;
+					if (!usedLeagueSlugsByOfferingId.has(newOfferingId)) {
+						usedLeagueSlugsByOfferingId.set(newOfferingId, new Set<string>());
+					}
+					const usedLeagueSlugs = usedLeagueSlugsByOfferingId.get(newOfferingId) as Set<string>;
 					const sourceLeagueBaseSlug =
 						normalizeSlug(sourceLeague.slug) || normalizeSlug(sourceLeague.name) || 'league';
 					const newLeagueSlug = buildUniqueSlug(sourceLeagueBaseSlug, usedLeagueSlugs);
@@ -1232,8 +1250,51 @@ export const DELETE: RequestHandler = async (event) => {
 				targetSeason.id
 			),
 			d1.prepare(
-				`INSERT INTO offerings_deleted
-				 SELECT offerings.*, ?, ?, ?, ?
+				`INSERT INTO offerings_deleted (
+					id,
+					name,
+					slug,
+					is_active,
+					image_url,
+					min_players,
+					max_players,
+					rulebook_url,
+					sport,
+					type,
+					description,
+					client_id,
+					season_id,
+					created_at,
+					updated_at,
+					created_user,
+					updated_user,
+					deleted_batch_id,
+					deleted_at,
+					deleted_user,
+					delete_reason
+				)
+				 SELECT
+					offerings.id,
+					offerings.name,
+					offerings.slug,
+					offerings.is_active,
+					offerings.image_url,
+					offerings.min_players,
+					offerings.max_players,
+					offerings.rulebook_url,
+					offerings.sport,
+					offerings.type,
+					offerings.description,
+					offerings.client_id,
+					offerings.season_id,
+					offerings.created_at,
+					offerings.updated_at,
+					offerings.created_user,
+					offerings.updated_user,
+					?,
+					?,
+					?,
+					?
 				 FROM offerings
 				 WHERE client_id = ?
 					 AND id IN (${orphanOfferingIdSubquery})`

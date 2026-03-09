@@ -1,4 +1,5 @@
 // Offerings schema
+import { sql } from 'drizzle-orm';
 import { sqliteTable, text, integer, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 export const offerings = sqliteTable(
@@ -17,6 +18,7 @@ export const offerings = sqliteTable(
 		description: text(),
 		clientId: text('client_id'),
 		seasonId: text('season_id'),
+		seriesId: text('series_id'),
 		createdAt: text('created_at'),
 		updatedAt: text('updated_at'),
 		createdUser: text('created_user'),
@@ -27,7 +29,10 @@ export const offerings = sqliteTable(
 			table.clientId,
 			table.seasonId,
 			table.slug
-		)
+		),
+		clientSeasonSeriesUnique: uniqueIndex('offerings_client_season_series_unique')
+			.on(table.clientId, table.seasonId, table.seriesId)
+			.where(sql`${table.seriesId} is not null and trim(${table.seriesId}) <> ''`)
 	})
 );
 

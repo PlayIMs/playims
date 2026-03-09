@@ -1,7 +1,10 @@
 import { error } from '@sveltejs/kit';
-import type { League, Offering, Season } from '$lib/database';
 import { requireAuthenticatedClientId } from '$lib/server/client-context';
 import { getTenantDbOps } from '$lib/server/database/context';
+import {
+	resolveLeagueForOffering,
+	resolveOfferingForSeason
+} from '$lib/server/intramural-offering-scope';
 import type { PageServerLoad } from './$types';
 
 type TeamPlacement = 'active' | 'waitlist';
@@ -61,14 +64,11 @@ interface WaitlistTeamRow {
 	description: string | null;
 }
 
-const normalizeText = (value: string | null | undefined): string =>
-	value?.trim().toLowerCase() ?? '';
-
 const isActiveTeamStatus = (value: string | null | undefined): boolean =>
-	normalizeText(value) === 'active';
+	(value?.trim().toLowerCase() ?? '') === 'active';
 
 const isWaitlistTeamStatus = (value: string | null | undefined): boolean => {
-	const normalized = normalizeText(value);
+	const normalized = value?.trim().toLowerCase() ?? '';
 	return normalized === 'waitlist' || normalized === 'waitlisted';
 };
 
@@ -98,80 +98,6 @@ const formatUserDisplayName = (user: {
 	if (email) return email;
 	return 'Unknown Captain';
 };
-
-const normalizeSeasonName = (value: string | null | undefined): string =>
-	value?.trim().toLowerCase() ?? '';
-
-const formatLegacySeasonLabel = (league: League): string => {
-	const season = league.season?.trim() ?? '';
-	const year = league.year ?? null;
-	if (season && year) return `${season} ${year}`;
-	if (season) return season;
-	if (year) return `${year}`;
-	return '';
-};
-
-const leagueMatchesSeason = (league: League, season: Season): boolean => {
-	if (league.seasonId) {
-		return league.seasonId === season.id;
-	}
-
-	return normalizeSeasonName(formatLegacySeasonLabel(league)) === normalizeSeasonName(season.name);
-};
-
-async function resolveOfferingForSeason(
-	dbOps: Awaited<ReturnType<typeof getTenantDbOps>>,
-	clientId: string,
-	season: Season,
-	offeringSlug: string
-): Promise<Offering | null> {
-	const directMatch = await dbOps.offerings.getByClientIdSeasonIdAndSlug(
-		clientId,
-		season.id,
-		offeringSlug
-	);
-	if (directMatch?.id) return directMatch;
-
-	const [offerings, leagues] = await Promise.all([
-		dbOps.offerings.getByClientId(clientId),
-		dbOps.leagues.getByClientId(clientId)
-	]);
-
-	const slugMatches = offerings.filter((offering) => offering.slug?.trim() === offeringSlug);
-	if (slugMatches.length === 0) return null;
-
-	return (
-		slugMatches.find((offering) => offering.seasonId === season.id) ??
-		slugMatches.find((offering) =>
-			leagues.some(
-				(league) => league.offeringId === offering.id && leagueMatchesSeason(league, season)
-			)
-		) ??
-		slugMatches[0] ??
-		null
-	);
-}
-
-async function resolveLeagueForSeason(
-	dbOps: Awaited<ReturnType<typeof getTenantDbOps>>,
-	clientId: string,
-	season: Season,
-	leagueSlug: string
-): Promise<League | null> {
-	const directMatch = await dbOps.leagues.getByClientIdSeasonIdAndSlug(
-		clientId,
-		season.id,
-		leagueSlug
-	);
-	if (directMatch?.id) return directMatch;
-
-	const leagues = await dbOps.leagues.getByClientId(clientId);
-	return (
-		leagues.find(
-			(league) => league.slug?.trim() === leagueSlug && leagueMatchesSeason(league, season)
-		) ?? null
-	);
-}
 
 export const load: PageServerLoad = async (event) => {
 	const { platform, locals, params } = event;
@@ -206,12 +132,15 @@ export const load: PageServerLoad = async (event) => {
 			throw error(404, 'Offering not found.');
 		}
 
-		const league = await resolveLeagueForSeason(dbOps, clientId, season, params.leagueSlug);
+		const league = await resolveLeagueForOffering(
+			dbOps,
+			clientId,
+			season,
+			offering,
+			params.leagueSlug
+		);
 		if (!league?.id) {
 			throw error(404, 'League not found.');
-		}
-		if (league.offeringId !== offering.id) {
-			throw error(404, 'League not found for this offering.');
 		}
 
 		const [divisions, standings] = await Promise.all([

@@ -36,6 +36,15 @@ export class OfferingOperations {
 		return result[0] ?? null;
 	}
 
+	async getByClientIdAndId(clientId: string, offeringId: string): Promise<Offering | null> {
+		const result = await this.db
+			.select()
+			.from(offerings)
+			.where(and(eq(offerings.clientId, clientId), eq(offerings.id, offeringId)))
+			.limit(1);
+		return result[0] ?? null;
+	}
+
 	async getByClientIdSeasonIdAndSlug(
 		clientId: string,
 		seasonId: string,
@@ -60,6 +69,7 @@ export class OfferingOperations {
 		seasonId: string;
 		name: string;
 		slug: string;
+		seriesId?: string | null;
 		isActive: number;
 		imageUrl: string | null;
 		minPlayers: number | null;
@@ -81,6 +91,7 @@ export class OfferingOperations {
 				seasonId: data.seasonId,
 				name: data.name,
 				slug: data.slug,
+				seriesId: data.seriesId ?? null,
 				isActive: data.isActive,
 				imageUrl: data.imageUrl,
 				minPlayers: data.minPlayers,
@@ -94,6 +105,26 @@ export class OfferingOperations {
 				createdUser: data.createdUser ?? null,
 				updatedUser: data.updatedUser ?? data.createdUser ?? null
 			})
+			.returning();
+
+		return result[0] ?? null;
+	}
+
+	async updateSeriesId(
+		clientId: string,
+		offeringId: string,
+		seriesId: string,
+		updatedUser?: string | null
+	): Promise<Offering | null> {
+		const now = new Date().toISOString();
+		const result = await this.db
+			.update(offerings)
+			.set({
+				seriesId,
+				updatedAt: now,
+				updatedUser: updatedUser ?? null
+			})
+			.where(and(eq(offerings.clientId, clientId), eq(offerings.id, offeringId)))
 			.returning();
 
 		return result[0] ?? null;

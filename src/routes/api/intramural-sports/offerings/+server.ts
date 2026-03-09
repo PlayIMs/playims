@@ -9,6 +9,10 @@ import {
 	type CreateIntramuralOfferingWithLeagueInput,
 	type CreatedIntramuralActivity
 } from '$lib/server/intramural-offerings-validation';
+import {
+	normalizeIntramuralSlug,
+	normalizeIntramuralText
+} from '$lib/server/intramural-offering-scope';
 import type { RequestHandler } from './$types';
 
 const toActivityType = (value: string | null | undefined): 'league' | 'tournament' => {
@@ -89,10 +93,8 @@ const toFieldErrorMap = (
 	return fieldErrors;
 };
 
-const normalizeSlug = (value: string | null | undefined): string => value?.trim().toLowerCase() ?? '';
-
 const suggestNextSlug = (inputSlug: string, existingSlugs: Set<string>): string | null => {
-	const baseSlug = normalizeSlug(inputSlug);
+	const baseSlug = normalizeIntramuralSlug(inputSlug);
 	if (!baseSlug) return null;
 	if (!existingSlugs.has(baseSlug)) return baseSlug;
 
@@ -152,6 +154,7 @@ export const POST: RequestHandler = async (event) => {
 	try {
 		const issues: Array<{ path: Array<string | number>; message: string }> = [];
 		const seasons = await dbOps.seasons.getByClientId(clientId);
+		const existingOfferings = await dbOps.offerings.getByClientId(clientId);
 		const seasonById = new Map(seasons.map((season) => [season.id, season]));
 		const offeringSeason = seasonById.get(input.offering.seasonId);
 		if (!offeringSeason) {
@@ -161,17 +164,16 @@ export const POST: RequestHandler = async (event) => {
 			});
 		}
 
-		const existingOfferingSlug = await dbOps.offerings.getByClientIdAndSlug(
-			clientId,
-			input.offering.slug,
-			input.offering.seasonId
+		const seasonOfferings = existingOfferings.filter(
+			(offering) => offering.seasonId === input.offering.seasonId
+		);
+		const existingOfferingSlug = seasonOfferings.find(
+			(offering) => normalizeIntramuralSlug(offering.slug) === normalizeIntramuralSlug(input.offering.slug)
 		);
 		if (existingOfferingSlug) {
-			const seasonOfferings = await dbOps.offerings.getByClientId(clientId);
 			const seasonOfferingSlugs = new Set(
 				seasonOfferings
-					.filter((offering) => offering.seasonId === input.offering.seasonId)
-					.map((offering) => normalizeSlug(offering.slug))
+					.map((offering) => normalizeIntramuralSlug(offering.slug))
 					.filter((slug) => slug.length > 0)
 			);
 			const suggestedSlug = suggestNextSlug(input.offering.slug, seasonOfferingSlugs);
@@ -184,38 +186,72 @@ export const POST: RequestHandler = async (event) => {
 			});
 		}
 
-		if (input.leagues.length > 0) {
-			const existingLeaguesBySlug = await Promise.all(
-				input.leagues.map((league, index) =>
-					dbOps.leagues
-						.getByClientIdSeasonIdAndSlug(clientId, league.seasonId, league.slug)
-						.then((existing) => ({ index, existing }))
-				)
-			);
+		const existingOfferingName = seasonOfferings.find(
+			(offering) => normalizeIntramuralText(offering.name) === normalizeIntramuralText(input.offering.name)
+		);
+		if (existingOfferingName) {
+			issues.push({
+				path: ['offering', 'name'],
+				message:
+					existingOfferingName.isActive === 0
+						? 'An archived offering with this name already exists for the selected season.'
+						: 'An offering with this name already exists for the selected season.'
+			});
+		}
 
-			for (const check of existingLeaguesBySlug) {
-				if (!check.existing) continue;
+		const linkedOfferingId = input.offering.linkedOfferingId?.trim() ?? '';
+		const linkedOffering =
+			linkedOfferingId.length > 0
+				? existingOfferings.find((offering) => offering.id === linkedOfferingId) ?? null
+				: null;
+		if (linkedOfferingId && !linkedOffering?.id) {
+			issues.push({
+				path: ['offering', 'linkedOfferingId'],
+				message: 'Select a valid offering to link.'
+			});
+		} else if (linkedOffering?.id) {
+			if (linkedOffering.seasonId === input.offering.seasonId) {
 				issues.push({
-					path: ['leagues', check.index, 'slug'],
-					message: 'A league/group with this slug already exists for the selected season.'
+					path: ['offering', 'linkedOfferingId'],
+					message: 'Linked offering must be from a different season.'
 				});
 			}
+			const namesMatch =
+				normalizeIntramuralText(linkedOffering.name) === normalizeIntramuralText(input.offering.name);
+			const slugsMatch =
+				normalizeIntramuralSlug(linkedOffering.slug) === normalizeIntramuralSlug(input.offering.slug);
+			if (!namesMatch && !slugsMatch) {
+				issues.push({
+					path: ['offering', 'linkedOfferingId'],
+					message: 'Linked offering must match the same offering name or slug.'
+				});
+			}
+			const linkedSeriesId = linkedOffering.seriesId?.trim() ?? '';
+			if (
+				linkedSeriesId &&
+				seasonOfferings.some((offering) => offering.seriesId?.trim() === linkedSeriesId)
+			) {
+				issues.push({
+					path: ['offering', 'linkedOfferingId'],
+					message: 'This season already has an offering linked to that cross-season series.'
+				});
+			}
+		}
 
-			for (const [index, league] of input.leagues.entries()) {
-				const season = seasonById.get(league.seasonId);
-				if (!season) {
-					issues.push({
-						path: ['leagues', index, 'seasonId'],
-						message: 'Select a valid season.'
-					});
-					continue;
-				}
-				if (league.seasonId !== input.offering.seasonId) {
-					issues.push({
-						path: ['leagues', index, 'seasonId'],
-						message: 'League/group season must match the selected offering season.'
-					});
-				}
+		for (const [index, league] of input.leagues.entries()) {
+			const season = seasonById.get(league.seasonId);
+			if (!season) {
+				issues.push({
+					path: ['leagues', index, 'seasonId'],
+					message: 'Select a valid season.'
+				});
+				continue;
+			}
+			if (league.seasonId !== input.offering.seasonId) {
+				issues.push({
+					path: ['leagues', index, 'seasonId'],
+					message: 'League/group season must match the selected offering season.'
+				});
 			}
 		}
 
@@ -230,11 +266,20 @@ export const POST: RequestHandler = async (event) => {
 			);
 		}
 
+		let offeringSeriesId: string | null = null;
+		if (linkedOffering?.id) {
+			offeringSeriesId = linkedOffering.seriesId?.trim() || crypto.randomUUID();
+			if (!linkedOffering.seriesId?.trim()) {
+				await dbOps.offerings.updateSeriesId(clientId, linkedOffering.id, offeringSeriesId, userId);
+			}
+		}
+
 		const createdOffering = await dbOps.offerings.create({
 			clientId,
 			seasonId: input.offering.seasonId,
 			name: input.offering.name,
 			slug: input.offering.slug,
+			seriesId: offeringSeriesId,
 			isActive: input.offering.isActive ? 1 : 0,
 			imageUrl: input.offering.imageUrl,
 			minPlayers: input.offering.minPlayers,

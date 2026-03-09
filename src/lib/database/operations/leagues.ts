@@ -24,6 +24,24 @@ export class LeagueOperations {
 		return result[0] ?? null;
 	}
 
+	async getByOfferingId(offeringId: string): Promise<League[]> {
+		return await this.db
+			.select()
+			.from(leagues)
+			.where(eq(leagues.offeringId, offeringId))
+			.orderBy(asc(leagues.stackOrder), asc(leagues.name));
+	}
+
+	async getByOfferingIdAndSlug(offeringId: string, slug: string): Promise<League | null> {
+		const result = await this.db
+			.select()
+			.from(leagues)
+			.where(and(eq(leagues.offeringId, offeringId), eq(leagues.slug, slug)))
+			.limit(1);
+
+		return result[0] ?? null;
+	}
+
 	async getByClientIdAndId(clientId: string, leagueId: string): Promise<League | null> {
 		const result = await this.db
 			.select()
