@@ -17,6 +17,9 @@
 	interface ListboxDropdownOption {
 		value: string;
 		label: string;
+		labelIcon?: any;
+		labelIconClass?: string;
+		labelIconAriaLabel?: string;
 		leadingVisualClass?: string;
 		leadingVisualAriaLabel?: string;
 		description?: string;
@@ -878,6 +881,16 @@
 												></span>
 											{/if}
 											<span class="truncate">{option.label}</span>
+											{#if option.labelIcon}
+												{@const LabelIcon = option.labelIcon}
+												<LabelIcon
+													class={`h-4 w-4 shrink-0 text-secondary-900 ${option.labelIconClass ?? ''}`}
+													stroke={1.8}
+												/>
+												{#if option.labelIconAriaLabel}
+													<span class="sr-only">{option.labelIconAriaLabel}</span>
+												{/if}
+											{/if}
 											{#if option.statusLabel}
 												<span
 													class="text-[10px] uppercase tracking-wide shrink-0 text-neutral-600/45"
@@ -951,6 +964,16 @@
 												></span>
 											{/if}
 											<span class="truncate">{option.label}</span>
+											{#if option.labelIcon}
+												{@const LabelIcon = option.labelIcon}
+												<LabelIcon
+													class={`h-4 w-4 shrink-0 ${isSelectedOption ? 'text-white' : 'text-secondary-900'} ${option.labelIconClass ?? ''}`}
+													stroke={1.8}
+												/>
+												{#if option.labelIconAriaLabel}
+													<span class="sr-only">{option.labelIconAriaLabel}</span>
+												{/if}
+											{/if}
 											{#if option.statusLabel}
 												<span
 													class={`text-[10px] uppercase tracking-wide shrink-0 ${isSelectedOption ? 'text-white/80' : 'text-secondary-700/70'}`}

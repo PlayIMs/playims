@@ -24,7 +24,7 @@ Read these files before editing:
 Treat this API as the baseline:
 
 - Required props: `options`, `value`, `ariaLabel`
-- Option shape: `{ value: string; label: string; statusLabel?: string; disabled?: boolean; separatorBefore?: boolean }`
+- Option shape: `{ value: string; label: string; labelIcon?, labelIconAriaLabel?, statusLabel?: string; disabled?: boolean; separatorBefore?: boolean }`
 - Emits: `change` event with `event.detail.value: string`
 - Optional action event: `action` with `event.detail.value: string` (when `mode="action"`)
 - Optional mode: `mode?: 'select' | 'action'` (`select` by default; use `action` for non-persistent button dropdowns)
