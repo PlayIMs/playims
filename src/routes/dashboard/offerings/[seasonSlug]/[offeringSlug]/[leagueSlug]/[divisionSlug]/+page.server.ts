@@ -26,6 +26,9 @@ interface TeamRow {
 	slug: string;
 	status: 'active' | 'waitlist';
 	rosterSize: number;
+	captainName: string | null;
+	dateCreated: string | null;
+	dateJoined: string | null;
 	dateRegistered: string | null;
 	description: string | null;
 }
@@ -40,6 +43,18 @@ const isWaitlistTeamStatus = (value: string | null | undefined): boolean => {
 
 const safeNumber = (value: number | null | undefined): number =>
 	typeof value === 'number' ? value : 0;
+
+const formatUserDisplayName = (user: {
+	firstName?: string | null;
+	lastName?: string | null;
+	email?: string | null;
+}): string => {
+	const fullName = [user.firstName?.trim(), user.lastName?.trim()].filter(Boolean).join(' ').trim();
+	if (fullName.length > 0) return fullName;
+	const email = user.email?.trim();
+	if (email) return email;
+	return 'Unknown Captain';
+};
 
 export const load: PageServerLoad = async (event) => {
 	const { platform, locals, params } = event;
@@ -65,12 +80,7 @@ export const load: PageServerLoad = async (event) => {
 			throw error(404, 'Season not found.');
 		}
 
-		const offering = await resolveOfferingForSeason(
-			dbOps,
-			clientId,
-			season,
-			params.offeringSlug
-		);
+		const offering = await resolveOfferingForSeason(dbOps, clientId, season, params.offeringSlug);
 		if (!offering?.id) {
 			throw error(404, 'Offering not found.');
 		}
@@ -99,6 +109,7 @@ export const load: PageServerLoad = async (event) => {
 			clientId,
 			teams.map((team) => team.id)
 		);
+		const clientUsers = await dbOps.users.getByClientId(clientId);
 		const standingsRaw = await dbOps.divisionStandings.getByClientIdAndLeagueId(
 			clientId,
 			league.id
@@ -110,6 +121,38 @@ export const load: PageServerLoad = async (event) => {
 			activeRosterCountByTeamId.set(
 				roster.teamId,
 				(activeRosterCountByTeamId.get(roster.teamId) ?? 0) + 1
+			);
+		}
+
+		const usersById = new Map(
+			clientUsers
+				.filter(
+					(
+						user
+					): user is {
+						id: string;
+						firstName?: string | null;
+						lastName?: string | null;
+						email?: string | null;
+					} => Boolean(user?.id)
+				)
+				.map((user) => [user.id, user])
+		);
+		const captainNameByTeamId = new Map<string, string>();
+		for (const roster of rosters) {
+			if (
+				!roster.teamId ||
+				roster.dateLeft ||
+				roster.isCaptain !== 1 ||
+				captainNameByTeamId.has(roster.teamId)
+			) {
+				continue;
+			}
+
+			const captain = usersById.get(roster.userId);
+			captainNameByTeamId.set(
+				roster.teamId,
+				captain ? formatUserDisplayName(captain) : 'Unknown Captain'
 			);
 		}
 
@@ -137,6 +180,9 @@ export const load: PageServerLoad = async (event) => {
 				slug: team.slug?.trim() || '',
 				status: 'active',
 				rosterSize: activeRosterCountByTeamId.get(team.id) ?? team.currentRosterSize ?? 0,
+				captainName: captainNameByTeamId.get(team.id) ?? null,
+				dateCreated: team.createdAt ?? team.dateRegistered ?? null,
+				dateJoined: team.updatedAt ?? team.createdAt ?? team.dateRegistered ?? null,
 				dateRegistered: team.dateRegistered ?? null,
 				description: team.description?.trim() || null
 			}))
@@ -150,6 +196,9 @@ export const load: PageServerLoad = async (event) => {
 				slug: team.slug?.trim() || '',
 				status: 'waitlist',
 				rosterSize: activeRosterCountByTeamId.get(team.id) ?? team.currentRosterSize ?? 0,
+				captainName: captainNameByTeamId.get(team.id) ?? null,
+				dateCreated: team.createdAt ?? team.dateRegistered ?? null,
+				dateJoined: team.updatedAt ?? team.createdAt ?? team.dateRegistered ?? null,
 				dateRegistered: team.dateRegistered ?? null,
 				description: team.description?.trim() || null
 			}))
@@ -167,7 +216,8 @@ export const load: PageServerLoad = async (event) => {
 				slug: offering.slug?.trim() || '',
 				sport: offering.sport?.trim() || null,
 				description: offering.description?.trim() || null,
-				rulebookUrl: offering.rulebookUrl?.trim() || null
+				rulebookUrl: offering.rulebookUrl?.trim() || null,
+				maxPlayers: offering.maxPlayers ?? null
 			},
 			league: {
 				id: league.id,

@@ -5,27 +5,40 @@
 	import DashboardSidebarPanel from '$lib/components/dashboard/DashboardSidebarPanel.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import type { OfferingsTableColumn } from '$lib/components/offerings-table.js';
-	import { IconLock, IconLockOpen, IconUsers } from '@tabler/icons-svelte';
+	import {
+		IconBallAmericanFootball,
+		IconBallBaseball,
+		IconBallBasketball,
+		IconBallFootball,
+		IconBallTennis,
+		IconBallVolleyball,
+		IconCrosshair,
+		IconShip,
+		IconTarget,
+		IconUsers
+	} from '@tabler/icons-svelte';
 
 	type StandingsRow = NonNullable<PageData['standings']>[number];
 	type TeamRow = NonNullable<PageData['teams']>[number];
 	type WaitlistTeamRow = NonNullable<PageData['waitlistTeams']>[number];
+	type StandingsDisplayRow = {
+		teamId: string;
+		teamName: string;
+		wins: number | null;
+		losses: number | null;
+		ties: number | null;
+		points: number | null;
+		winPct: string | null;
+		streak: string | null;
+		sportsmanshipRating: string | null;
+		forfeits: number | null;
+		forgoes: number | null;
+		hasPostedStandings: boolean;
+	};
 
 	let { data } = $props<{ data: PageData }>();
 
 	let searchQuery = $state('');
-
-	function divisionMetaLine(): string {
-		if (!data.division) return '';
-		return [data.division.dayOfWeek, data.division.gameTime, data.division.location]
-			.filter(Boolean)
-			.join(' / ');
-	}
-
-	function standingsDifferential(row: StandingsRow): string {
-		const value = row.pointsFor - row.pointsAgainst;
-		return value > 0 ? `+${value}` : `${value}`;
-	}
 
 	function normalizeSearchValue(value: string | null | undefined): string {
 		return value?.trim().toLowerCase() ?? '';
@@ -36,14 +49,34 @@
 		return values.some((value) => normalizeSearchValue(value).includes(query));
 	}
 
-	function formatDate(
-		value: string | null | undefined,
-		options?: Intl.DateTimeFormatOptions
-	): string {
-		if (!value) return 'TBD';
-		const parsed = new Date(value);
-		if (Number.isNaN(parsed.getTime())) return 'TBD';
-		return parsed.toLocaleDateString('en-US', options);
+	function approvalBadgeLabel(isApproved: boolean): string {
+		return isApproved ? 'Approved' : 'Unapproved';
+	}
+
+	function approvalBadgeClass(isApproved: boolean): string {
+		return isApproved ? 'badge-secondary-outlined' : 'badge-primary-outlined';
+	}
+
+	function sportIconFor(offeringName: string, sportName: string | null | undefined) {
+		const key = `${offeringName} ${sportName ?? ''}`.trim().toLowerCase();
+		if (key.includes('flag football')) return IconBallAmericanFootball;
+		if (key.includes('basketball')) return IconBallBasketball;
+		if (key.includes('soccer')) return IconBallFootball;
+		if (key.includes('volleyball')) return IconBallVolleyball;
+		if (key.includes('spikeball')) return IconCrosshair;
+		if (key.includes('pickleball')) return IconBallTennis;
+		if (key.includes('cornhole')) return IconTarget;
+		if (key.includes('battleship')) return IconShip;
+		if (key.includes('softball') || key.includes('baseball')) return IconBallBaseball;
+		return IconBallFootball;
+	}
+
+	function captainLabel(captainName: string | null | undefined): string {
+		return captainName?.trim() || 'No Captain';
+	}
+
+	function hasRosterLimit(): boolean {
+		return typeof data.offering?.maxPlayers === 'number';
 	}
 
 	function formatDateTime(value: string | null | undefined): string {
@@ -59,23 +92,127 @@
 		});
 	}
 
+	function parseWinPctValue(value: string | null | undefined): number {
+		if (!value) return Number.NEGATIVE_INFINITY;
+		const parsed = Number(value);
+		return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY;
+	}
+
+	function formatStandingCell(value: number | string | null | undefined): string {
+		if (value === null || value === undefined) return '-';
+		if (typeof value === 'string' && value.trim().length === 0) return '-';
+		return String(value);
+	}
+
+	function formatStreak(value: string | null | undefined): string {
+		if (!value) return '-';
+		const trimmed = value.trim().toUpperCase();
+		if (!trimmed || trimmed === '--') return '-';
+		const prefixMatch = /^([WLT])\s*(\d+)$/.exec(trimmed);
+		if (prefixMatch) {
+			return `${prefixMatch[2]}${prefixMatch[1]}`;
+		}
+		const suffixMatch = /^(\d+)\s*([WLT])$/.exec(trimmed);
+		if (suffixMatch) {
+			return `${suffixMatch[1]}${suffixMatch[2]}`;
+		}
+		return trimmed;
+	}
+
+	function formatForfeitSummary(
+		forfeits: number | null | undefined,
+		forgoes: number | null | undefined
+	): string {
+		if (forfeits === null && forgoes === null) return '- / -';
+		return `${formatStandingCell(forfeits)} / ${formatStandingCell(forgoes)}`;
+	}
+
+	function formatRecord(
+		wins: number | null | undefined,
+		losses: number | null | undefined,
+		ties: number | null | undefined
+	): string {
+		if (wins === null && losses === null && ties === null) return '-----';
+		return `${formatStandingCell(wins)}-${formatStandingCell(losses)}-${formatStandingCell(ties)}`;
+	}
+
 	const normalizedSearchQuery = $derived.by(() => normalizeSearchValue(searchQuery));
 
-	const visibleStandings = $derived.by<StandingsRow[]>(() => {
+	const HeaderIcon = $derived.by(() =>
+		sportIconFor(data.offering?.name ?? data.league?.name ?? 'League', data.offering?.sport ?? null)
+	);
+
+	const standingsRows = $derived.by<StandingsDisplayRow[]>(() => {
+		const standingsByTeamId = new Map<string, StandingsRow>(
+			data.standings.map((row: StandingsRow) => [row.teamId, row])
+		);
+		const rows: StandingsDisplayRow[] = data.teams.map((team: TeamRow) => {
+			const standing = standingsByTeamId.get(team.id);
+			return {
+				teamId: team.id,
+				teamName: team.name,
+				wins: standing?.wins ?? null,
+				losses: standing?.losses ?? null,
+				ties: standing?.ties ?? null,
+				points: standing?.points ?? null,
+				winPct: standing?.winPct ?? null,
+				streak: standing?.streak ?? null,
+				sportsmanshipRating: null,
+				forfeits: null,
+				forgoes: null,
+				hasPostedStandings: Boolean(standing)
+			};
+		});
+
+		for (const standing of data.standings) {
+			if (rows.some((row) => row.teamId === standing.teamId)) continue;
+			rows.push({
+				teamId: standing.teamId,
+				teamName: standing.teamName,
+				wins: standing.wins,
+				losses: standing.losses,
+				ties: standing.ties,
+				points: standing.points,
+				winPct: standing.winPct,
+				streak: standing.streak,
+				sportsmanshipRating: null,
+				forfeits: null,
+				forgoes: null,
+				hasPostedStandings: true
+			});
+		}
+
+		return rows.sort((a, b) => {
+			if (a.hasPostedStandings !== b.hasPostedStandings) {
+				return a.hasPostedStandings ? -1 : 1;
+			}
+			if ((b.points ?? Number.NEGATIVE_INFINITY) !== (a.points ?? Number.NEGATIVE_INFINITY)) {
+				return (b.points ?? Number.NEGATIVE_INFINITY) - (a.points ?? Number.NEGATIVE_INFINITY);
+			}
+			const winPctDiff = parseWinPctValue(b.winPct) - parseWinPctValue(a.winPct);
+			if (winPctDiff !== 0) return winPctDiff;
+			if ((b.wins ?? Number.NEGATIVE_INFINITY) !== (a.wins ?? Number.NEGATIVE_INFINITY)) {
+				return (b.wins ?? Number.NEGATIVE_INFINITY) - (a.wins ?? Number.NEGATIVE_INFINITY);
+			}
+			return a.teamName.localeCompare(b.teamName);
+		});
+	});
+
+	const visibleStandings = $derived.by<StandingsDisplayRow[]>(() => {
 		const query = normalizedSearchQuery;
-		if (!query) return data.standings;
-		return data.standings.filter((row: StandingsRow) =>
+		if (!query) return standingsRows;
+		return standingsRows.filter((row: StandingsDisplayRow) =>
 			matchesSearchTerm(
 				[
 					row.teamName,
-					String(row.wins),
-					String(row.losses),
-					String(row.ties),
-					String(row.points),
-					String(row.pointsFor),
-					String(row.pointsAgainst),
+					formatStandingCell(row.wins),
+					formatStandingCell(row.losses),
+					formatStandingCell(row.ties),
+					formatStandingCell(row.points),
 					row.winPct,
-					row.streak
+					formatStreak(row.streak),
+					row.sportsmanshipRating,
+					formatForfeitSummary(row.forfeits, row.forgoes)
 				],
 				query
 			)
@@ -90,7 +227,10 @@
 				[
 					team.name,
 					team.slug,
+					team.captainName,
 					team.description,
+					formatDateTime(team.dateCreated),
+					formatDateTime(team.dateJoined),
 					formatDateTime(team.dateRegistered),
 					String(team.rosterSize)
 				],
@@ -122,50 +262,50 @@
 		{
 			key: 'team',
 			label: 'Team',
-			widthClass: 'w-[28%]',
+			widthClass: 'w-[34%]',
 			rowHeader: true
 		},
 		{
 			key: 'record',
 			label: 'W-L-T',
-			widthClass: 'w-[12%]',
-			cellClass: 'align-top'
-		},
-		{
-			key: 'for',
-			label: 'PF',
-			widthClass: 'w-[10%]',
-			cellClass: 'align-top'
-		},
-		{
-			key: 'against',
-			label: 'PA',
-			widthClass: 'w-[10%]',
-			cellClass: 'align-top'
-		},
-		{
-			key: 'diff',
-			label: 'Diff',
-			widthClass: 'w-[10%]',
-			cellClass: 'align-top'
+			widthClass: 'w-[16%]',
+			headerClass: 'px-0 text-center tracking-wide',
+			cellClass: 'px-0 align-top text-center tabular-nums'
 		},
 		{
 			key: 'points',
-			label: 'Pts',
-			widthClass: 'w-[10%]',
-			cellClass: 'align-top'
+			label: 'PTS',
+			widthClass: 'w-[9%]',
+			headerClass: 'px-0 text-center',
+			cellClass: 'px-0 align-top text-center tabular-nums'
 		},
 		{
 			key: 'pct',
-			label: 'Pct',
+			label: 'PTS%',
 			widthClass: 'w-[10%]',
-			cellClass: 'align-top'
+			headerClass: 'px-0 text-center',
+			cellClass: 'px-0 align-top text-center tabular-nums'
 		},
 		{
 			key: 'streak',
-			label: 'Streak',
+			label: 'STRK',
 			widthClass: 'w-[10%]',
-			cellClass: 'align-top'
+			headerClass: 'px-0 text-center',
+			cellClass: 'px-0 align-top text-center tabular-nums'
+		},
+		{
+			key: 'sportsmanship',
+			label: 'SR',
+			widthClass: 'w-[8%]',
+			headerClass: 'px-0 text-center',
+			cellClass: 'px-0 align-top text-center tabular-nums'
+		},
+		{
+			key: 'forfeits',
+			label: 'FFs',
+			widthClass: 'w-[13%]',
+			headerClass: 'px-0 text-center normal-case tracking-wide',
+			cellClass: 'px-0 align-top text-center tabular-nums'
 		}
 	]);
 
@@ -173,25 +313,31 @@
 		{
 			key: 'team',
 			label: 'Team',
-			widthClass: 'w-[42%]',
+			widthClass: 'w-[32%]',
 			rowHeader: true
 		},
 		{
-			key: 'status',
-			label: 'Status',
-			widthClass: 'w-[16%]',
+			key: 'date-created',
+			label: 'Date Created',
+			widthClass: 'w-[22%]',
+			cellClass: 'align-top'
+		},
+		{
+			key: 'date-joined',
+			label: 'Date Joined',
+			widthClass: 'w-[22%]',
 			cellClass: 'align-top'
 		},
 		{
 			key: 'roster',
 			label: 'Roster',
-			widthClass: 'w-[14%]',
+			widthClass: 'w-[12%]',
 			cellClass: 'align-top'
 		},
 		{
-			key: 'registration',
-			label: 'Team Registration',
-			widthClass: 'w-[28%]',
+			key: 'status',
+			label: 'Status',
+			widthClass: 'w-[12%]',
 			cellClass: 'align-top'
 		}
 	]);
@@ -329,95 +475,8 @@
 									<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
 										<div class="min-w-0">
 											<div class="flex flex-wrap items-center gap-2">
-												<h2 class="text-2xl font-bold font-serif text-neutral-950">Standings</h2>
-												<span
-													class="badge-secondary-outlined px-1.5 py-0 text-[10px] uppercase tracking-wide"
-												>
-													Rankings
-												</span>
-											</div>
-											<p class="mt-1 text-sm text-neutral-900">
-												{visibleStandings.length} of {data.standings.length} teams in the table
-											</p>
-										</div>
-									</div>
-
-									<OfferingsTable
-										columns={standingsColumns}
-										rows={visibleStandings}
-										caption="Division standings table"
-									>
-										{#snippet emptyBody()}
-											<tr class="bg-neutral-25">
-												<td
-													colspan={standingsColumns.length}
-													class="px-2 py-10 text-center text-sm italic text-neutral-700"
-												>
-													{#if hasSearchQuery}
-														No standings rows match this search.
-													{:else}
-														No standings posted yet.
-													{/if}
-												</td>
-											</tr>
-										{/snippet}
-
-										{#snippet cell(row, column)}
-											{@const standingsRow = row as StandingsRow}
-											{#if column.key === 'team'}
-												<div class="min-w-0">
-													<p class="font-sans text-sm font-bold text-neutral-950">
-														{standingsRow.teamName}
-													</p>
-												</div>
-											{:else if column.key === 'record'}
-												<p class="text-right font-sans text-xs leading-snug text-neutral-950">
-													{standingsRow.wins}-{standingsRow.losses}-{standingsRow.ties}
-												</p>
-											{:else if column.key === 'for'}
-												<p class="text-right font-sans text-xs leading-snug text-neutral-950">
-													{standingsRow.pointsFor}
-												</p>
-											{:else if column.key === 'against'}
-												<p class="text-right font-sans text-xs leading-snug text-neutral-950">
-													{standingsRow.pointsAgainst}
-												</p>
-											{:else if column.key === 'diff'}
-												<p class="text-right font-sans text-xs leading-snug text-neutral-950">
-													{standingsDifferential(standingsRow)}
-												</p>
-											{:else if column.key === 'points'}
-												<p class="text-right font-sans text-xs leading-snug text-neutral-950">
-													{standingsRow.points}
-												</p>
-											{:else if column.key === 'pct'}
-												<p class="text-right font-sans text-xs leading-snug text-neutral-950">
-													{standingsRow.winPct}
-												</p>
-											{:else if column.key === 'streak'}
-												<p class="text-right font-sans text-xs leading-snug text-neutral-950">
-													{standingsRow.streak}
-												</p>
-											{/if}
-										{/snippet}
-									</OfferingsTable>
-								</section>
-
-								<section class="space-y-3 p-4">
-									<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-										<div class="min-w-0">
-											<div class="flex flex-wrap items-center gap-2">
 												<h2 class="text-2xl font-bold font-serif text-neutral-950">Teams</h2>
-												<span
-													class="badge-secondary-outlined px-1.5 py-0 text-[10px] uppercase tracking-wide"
-												>
-													Active
-												</span>
 											</div>
-											<p class="mt-1 text-sm text-neutral-900">
-												{visibleTeams.length} active team{visibleTeams.length === 1 ? '' : 's'}
-												showing
-											</p>
 										</div>
 										<div class="flex flex-wrap items-center gap-1">
 											<span class="badge-secondary-outlined px-2 py-0.5 text-xs">
@@ -449,33 +508,66 @@
 										{#snippet cell(team, column)}
 											{@const activeTeam = team as TeamRow}
 											{#if column.key === 'team'}
-												<div class="min-w-0">
-													<p class="font-sans text-sm font-bold text-neutral-950">
-														{activeTeam.name}
-													</p>
-													{#if activeTeam.description}
-														<p class="mt-1 font-sans text-xs leading-snug text-neutral-700">
-															{activeTeam.description}
+												<div class="flex items-center gap-2">
+													<div
+														class="flex h-9 w-9 shrink-0 items-center justify-center bg-primary text-white"
+														aria-hidden="true"
+													>
+														<HeaderIcon class="h-5 w-5" />
+													</div>
+													<div class="min-w-0">
+														<p class="font-sans text-sm font-bold text-neutral-950">
+															{activeTeam.name}
 														</p>
-													{/if}
+														<p class="mt-0 font-sans text-[11px] leading-tight text-neutral-700">
+															{captainLabel(activeTeam.captainName)}
+														</p>
+														{#if activeTeam.description}
+															<div class="mt-1 max-w-full overflow-x-auto pb-1 scrollbar-thin">
+																<p
+																	class="min-w-max font-sans text-xs leading-snug whitespace-nowrap text-neutral-700"
+																>
+																	{activeTeam.description}
+																</p>
+															</div>
+														{/if}
+													</div>
 												</div>
-											{:else if column.key === 'status'}
-												<span class="badge-secondary-outlined text-xs uppercase tracking-wide">
-													Division
-												</span>
-											{:else if column.key === 'roster'}
-												<p class="font-sans text-xs leading-snug text-neutral-950">
-													{activeTeam.rosterSize}
-												</p>
-											{:else if column.key === 'registration'}
+											{:else if column.key === 'date-created'}
 												<p class="font-sans text-xs leading-snug text-neutral-950">
 													<DateHoverText
-														display={formatDateTime(activeTeam.dateRegistered)}
-														value={activeTeam.dateRegistered}
+														display={formatDateTime(activeTeam.dateCreated)}
+														value={activeTeam.dateCreated}
 														includeTime
 														wrapperClass="inline"
 													/>
 												</p>
+											{:else if column.key === 'date-joined'}
+												<p class="font-sans text-xs leading-snug text-neutral-950">
+													<DateHoverText
+														display={formatDateTime(activeTeam.dateJoined)}
+														value={activeTeam.dateJoined}
+														includeTime
+														wrapperClass="inline"
+													/>
+												</p>
+											{:else if column.key === 'roster'}
+												<p class="font-sans text-xs leading-snug text-neutral-950">
+													{activeTeam.rosterSize} /
+													{#if hasRosterLimit()}
+														{data.offering?.maxPlayers}
+													{:else}
+														<span class="text-sm leading-none" aria-label="No max players">
+															&infin;
+														</span>
+													{/if}
+												</p>
+											{:else if column.key === 'status'}
+												<span
+													class={`${approvalBadgeClass(activeTeam.status === 'active')} text-xs uppercase tracking-wide`}
+												>
+													{approvalBadgeLabel(activeTeam.status === 'active')}
+												</span>
 											{/if}
 										{/snippet}
 									</OfferingsTable>
@@ -485,14 +577,7 @@
 									<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
 										<div class="min-w-0">
 											<div class="flex flex-wrap items-center gap-2">
-												<h2 class="text-2xl font-bold font-serif text-neutral-950">
-													Division Waitlist
-												</h2>
-												<span
-													class="badge-secondary-outlined px-1.5 py-0 text-[10px] uppercase tracking-wide"
-												>
-													Waitlist
-												</span>
+												<h2 class="text-2xl font-bold font-serif text-neutral-950">Waitlist</h2>
 											</div>
 											<p class="mt-1 text-sm text-neutral-900">
 												{visibleWaitlistTeams.length} waitlist team{visibleWaitlistTeams.length ===
@@ -563,57 +648,90 @@
 				</section>
 
 				<aside class="w-full min-w-0 space-y-6">
-					<DashboardSidebarPanel title="Division Snapshot">
+					<DashboardSidebarPanel title="Standings" contentClass="space-y-3 p-4">
 						{#snippet content()}
-							<div class="space-y-3 text-sm text-neutral-950">
-								<div class="border border-neutral-950 bg-white p-3">
-									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
-										League
-									</p>
-									<p class="mt-1 font-semibold">{data.league?.name ?? 'Unknown league'}</p>
-									<p class="mt-1 text-xs text-neutral-700">
-										Offering: {data.offering?.name ?? 'Unknown offering'}
-									</p>
-								</div>
-								<div class="border border-neutral-950 bg-white p-3">
-									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
-										Schedule Slot
-									</p>
-									<p class="mt-1 font-semibold">{divisionMetaLine() || 'Not scheduled yet.'}</p>
-								</div>
-								<div class="border border-neutral-950 bg-white p-3">
-									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
-										Start Date
-									</p>
-									<p class="mt-1">
-										<DateHoverText
-											display={formatDate(data.division.startDate, {
-												month: 'short',
-												day: 'numeric',
-												year: 'numeric'
-											})}
-											value={data.division.startDate}
-										/>
-									</p>
-								</div>
-								<div class="border border-neutral-950 bg-white p-3">
-									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
-										Status
-									</p>
-									<p class="mt-1 inline-flex items-center gap-2">
-										{#if data.division.isLocked}
-											<IconLock class="h-4 w-4" />
-											<span>Locked</span>
-										{:else}
-											<IconLockOpen class="h-4 w-4" />
-											<span>Unlocked</span>
-										{/if}
-									</p>
-									<p class="mt-1 text-xs text-neutral-700">
-										Capacity: {data.division.maxTeams ?? data.teams.length} teams
-									</p>
-								</div>
-							</div>
+							<OfferingsTable
+								columns={standingsColumns}
+								rows={visibleStandings}
+								caption="Division standings table"
+								tableClass="w-full table-fixed border-collapse"
+							>
+								{#snippet emptyBody()}
+									<tr class="bg-neutral-25">
+										<td
+											colspan={standingsColumns.length}
+											class="px-2 py-8 text-center text-sm italic text-neutral-700"
+										>
+											{#if hasSearchQuery}
+												No standings rows match this search.
+											{:else}
+												No standings posted yet.
+											{/if}
+										</td>
+									</tr>
+								{/snippet}
+
+								{#snippet cell(row, column)}
+									{@const standingsRow = row as StandingsDisplayRow}
+									{#if column.key === 'team'}
+										<div class="flex items-center gap-2 min-w-0">
+											<div
+												class="flex h-6 w-6 shrink-0 items-center justify-center bg-primary text-white"
+												aria-hidden="true"
+											>
+												<HeaderIcon class="h-3.5 w-3.5" />
+											</div>
+											<div class="min-w-0">
+												<p
+													class="truncate font-sans text-sm font-bold leading-tight text-neutral-950"
+												>
+													{standingsRow.teamName}
+												</p>
+											</div>
+										</div>
+									{:else if column.key === 'record'}
+										<div class="flex w-full justify-center">
+											<p
+												class="inline-block w-[5ch] text-center font-sans text-xs leading-none whitespace-nowrap text-neutral-950"
+											>
+												{formatRecord(standingsRow.wins, standingsRow.losses, standingsRow.ties)}
+											</p>
+										</div>
+									{:else if column.key === 'points'}
+										<div class="flex w-full justify-center">
+											<p class="font-sans text-xs leading-snug text-neutral-950 tabular-nums">
+												{formatStandingCell(standingsRow.points)}
+											</p>
+										</div>
+									{:else if column.key === 'pct'}
+										<div class="flex w-full justify-center">
+											<p class="font-sans text-xs leading-snug text-neutral-950 tabular-nums">
+												{formatStandingCell(standingsRow.winPct)}
+											</p>
+										</div>
+									{:else if column.key === 'streak'}
+										<div class="flex w-full justify-center">
+											<p class="font-sans text-xs leading-snug text-neutral-950 tabular-nums">
+												{formatStreak(standingsRow.streak)}
+											</p>
+										</div>
+									{:else if column.key === 'sportsmanship'}
+										<div class="flex w-full justify-center">
+											<p class="font-sans text-xs leading-snug text-neutral-950 tabular-nums">
+												{formatStandingCell(standingsRow.sportsmanshipRating)}
+											</p>
+										</div>
+									{:else if column.key === 'forfeits'}
+										<div class="flex w-full justify-center">
+											<p
+												class="inline-block w-[5ch] text-center font-sans text-xs leading-none whitespace-nowrap text-neutral-950"
+											>
+												{formatForfeitSummary(standingsRow.forfeits, standingsRow.forgoes)}
+											</p>
+										</div>
+									{/if}
+								{/snippet}
+							</OfferingsTable>
 						{/snippet}
 					</DashboardSidebarPanel>
 
