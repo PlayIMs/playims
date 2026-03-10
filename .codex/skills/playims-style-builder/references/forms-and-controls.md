@@ -82,6 +82,10 @@ Use this exact pattern for slug fields in wizards:
 
 - Toggles use `toggle-secondary`.
 - Radios use `radio-secondary`.
+- Use `src/lib/components/ToggleField.svelte` for bordered toggle rows where the switch sits inside the same field shell as its label content.
+- `ToggleField` is the default pattern for wizard/admin controls such as `Start this division locked` or `Add this team to the waitlist`.
+- Default posture: make the bordered toggle shell visually match `input-secondary` sizing and border treatment.
+- `ToggleField` supports label placement on either side of the toggle; prefer label text on the right unless the layout has a clear reason to invert it.
 - Selection cards should remain squared (`border`, `bg-white`/`bg-secondary-50`), while radio circles stay circular per `app.css`.
 
 Common selection-card recipe:
@@ -107,6 +111,9 @@ Common selection-card recipe:
 
 - Use `InfoPopover` for click-persistent helper content (paragraphs, explanatory notes).
 - Use `HoverTooltip` for short action hints (edit/duplicate/remove/revert icons).
+- Do not repeat the same supplemental guidance both inline and inside an `InfoPopover`.
+- Do not add helper banners or extra visible helper paragraphs when a nearby `InfoPopover` can hold that non-critical explanation.
+- Keep visible helper copy only when it is dynamic, state-specific, validation-related, or otherwise necessary for the user to act immediately.
 - Do not use native `title` attributes for new hints.
 - If a tooltip-wrapped icon button lives inside an input field or as an inline field affordance, keep it out of the tab order with `tabindex="-1"`. Do not apply this to primary page actions, menu items, or standalone buttons that need normal keyboard focus.
 - Ground popover/tooltip behavior against current hotspots:

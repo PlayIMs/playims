@@ -12,6 +12,7 @@ Use shared wizard primitives for consistent modal behavior, step framing, and dr
 - `WizardUnsavedConfirm`: custom unsaved changes confirm modal.
 - `WizardDraftCollection`: shared list UI for draft entities.
 - `InfoPopover`: reusable info/help popover trigger for paragraph-heavy helper text.
+- `ToggleField`: reusable bordered toggle row for wizard checkbox/switch fields with label content.
 
 ## Default Modal Behavior
 
@@ -51,6 +52,9 @@ Use shared wizard primitives for consistent modal behavior, step framing, and dr
 - Use short section labels such as `Action Required`, `Optional`, `Current`, `Outcome`, or `Preview`.
 - Prefer selectable cards/rows for major choices instead of plain stacked radio text.
 - Keep helper copy concise; move detailed explanations to an `(i)` info affordance (`details/summary` or tooltip/popover).
+- Do not duplicate supplemental helper copy inline when the same guidance already lives in an `InfoPopover`.
+- Do not add helper banners or extra explanatory paragraphs by default when a label-level `InfoPopover` can carry that non-critical guidance.
+- Keep inline helper text only when it is state-specific, blocking, or otherwise action-critical in the current step.
 - Summarize context with compact stat/summary blocks when possible (counts, status, source, result).
 - Keep each step focused on one job; if users must make multiple major decisions, split into more steps.
 - Preserve clear affordances for what happens next (e.g., `Next`, `Review`, `Create`) and what each choice changes.

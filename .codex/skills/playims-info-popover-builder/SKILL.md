@@ -51,6 +51,8 @@ Behavioral guarantees from current implementation:
 ## Required Integration Pattern
 1. Keep helper text short and supplemental.
 - Keep decision-critical instructions visible in the main step/body, not only in the popover.
+- Do not repeat the same supplemental explanation inline next to the control when the popover already covers it.
+- Do not introduce helper banners or extra visible filler copy when the content can live cleanly inside the popover.
 2. Add a specific `buttonAriaLabel` for the exact context.
 - Good: `Copy content help`, `Why this step is required`.
 - Avoid generic labels like `Info`.
