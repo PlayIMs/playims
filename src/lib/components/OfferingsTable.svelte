@@ -1,5 +1,6 @@
 <script lang="ts" generics="TRow">
 	import type { Snippet } from 'svelte';
+	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import type { OfferingsTableColumn } from '$lib/components/offerings-table.js';
 
 	interface Props {
@@ -56,7 +57,17 @@
 						scope="col"
 						class={`px-2 py-1 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 ${column.headerClass ?? ''}`}
 					>
-						{column.label}
+						{#if column.headerTooltipText}
+							<HoverTooltip
+								text={column.headerTooltipText}
+								wrapperClass="inline-flex"
+								maxWidthClass="max-w-72"
+							>
+								<span>{column.label}</span>
+							</HoverTooltip>
+						{:else}
+							{column.label}
+						{/if}
 					</th>
 				{/each}
 			</tr>

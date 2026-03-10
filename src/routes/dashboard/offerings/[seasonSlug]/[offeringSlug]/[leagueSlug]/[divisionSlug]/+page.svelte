@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
+	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import OfferingsTable from '$lib/components/OfferingsTable.svelte';
 	import DashboardSidebarPanel from '$lib/components/dashboard/DashboardSidebarPanel.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
@@ -22,6 +23,7 @@
 	type TeamRow = NonNullable<PageData['teams']>[number];
 	type WaitlistTeamRow = NonNullable<PageData['waitlistTeams']>[number];
 	type StandingsDisplayRow = {
+		rank: number;
 		teamId: string;
 		teamName: string;
 		wins: number | null;
@@ -149,6 +151,7 @@
 		const rows: StandingsDisplayRow[] = data.teams.map((team: TeamRow) => {
 			const standing = standingsByTeamId.get(team.id);
 			return {
+				rank: 0,
 				teamId: team.id,
 				teamName: team.name,
 				wins: standing?.wins ?? null,
@@ -167,6 +170,7 @@
 		for (const standing of data.standings) {
 			if (rows.some((row) => row.teamId === standing.teamId)) continue;
 			rows.push({
+				rank: 0,
 				teamId: standing.teamId,
 				teamName: standing.teamName,
 				wins: standing.wins,
@@ -182,20 +186,25 @@
 			});
 		}
 
-		return rows.sort((a, b) => {
-			if (a.hasPostedStandings !== b.hasPostedStandings) {
-				return a.hasPostedStandings ? -1 : 1;
-			}
-			if ((b.points ?? Number.NEGATIVE_INFINITY) !== (a.points ?? Number.NEGATIVE_INFINITY)) {
-				return (b.points ?? Number.NEGATIVE_INFINITY) - (a.points ?? Number.NEGATIVE_INFINITY);
-			}
-			const winPctDiff = parseWinPctValue(b.winPct) - parseWinPctValue(a.winPct);
-			if (winPctDiff !== 0) return winPctDiff;
-			if ((b.wins ?? Number.NEGATIVE_INFINITY) !== (a.wins ?? Number.NEGATIVE_INFINITY)) {
-				return (b.wins ?? Number.NEGATIVE_INFINITY) - (a.wins ?? Number.NEGATIVE_INFINITY);
-			}
-			return a.teamName.localeCompare(b.teamName);
-		});
+		return rows
+			.sort((a, b) => {
+				if (a.hasPostedStandings !== b.hasPostedStandings) {
+					return a.hasPostedStandings ? -1 : 1;
+				}
+				if ((b.points ?? Number.NEGATIVE_INFINITY) !== (a.points ?? Number.NEGATIVE_INFINITY)) {
+					return (b.points ?? Number.NEGATIVE_INFINITY) - (a.points ?? Number.NEGATIVE_INFINITY);
+				}
+				const winPctDiff = parseWinPctValue(b.winPct) - parseWinPctValue(a.winPct);
+				if (winPctDiff !== 0) return winPctDiff;
+				if ((b.wins ?? Number.NEGATIVE_INFINITY) !== (a.wins ?? Number.NEGATIVE_INFINITY)) {
+					return (b.wins ?? Number.NEGATIVE_INFINITY) - (a.wins ?? Number.NEGATIVE_INFINITY);
+				}
+				return a.teamName.localeCompare(b.teamName);
+			})
+			.map((row, index) => ({
+				...row,
+				rank: index + 1
+			}));
 	});
 
 	const visibleStandings = $derived.by<StandingsDisplayRow[]>(() => {
@@ -204,6 +213,7 @@
 		return standingsRows.filter((row: StandingsDisplayRow) =>
 			matchesSearchTerm(
 				[
+					String(row.rank),
 					row.teamName,
 					formatStandingCell(row.wins),
 					formatStandingCell(row.losses),
@@ -260,52 +270,67 @@
 
 	const standingsColumns = $derived.by<OfferingsTableColumn[]>(() => [
 		{
+			key: 'rank',
+			label: 'RNK',
+			headerTooltipText: 'Rank',
+			widthClass: 'w-[8%]',
+			headerClass: 'px-0 text-center tracking-wide',
+			cellClass: 'px-0 align-middle text-center tabular-nums'
+		},
+		{
 			key: 'team',
 			label: 'Team',
-			widthClass: 'w-[34%]',
+			headerTooltipText: 'Team',
+			widthClass: 'w-[30%]',
 			rowHeader: true
 		},
 		{
 			key: 'record',
 			label: 'W-L-T',
-			widthClass: 'w-[16%]',
+			headerTooltipText: 'Wins-Losses-Ties',
+			widthClass: 'w-[12%]',
 			headerClass: 'px-0 text-center tracking-wide',
-			cellClass: 'px-0 align-top text-center tabular-nums'
+			cellClass: 'px-0 align-middle text-center tabular-nums'
 		},
 		{
 			key: 'points',
 			label: 'PTS',
-			widthClass: 'w-[9%]',
+			headerTooltipText: 'Points',
+			widthClass: 'w-[10%]',
 			headerClass: 'px-0 text-center',
-			cellClass: 'px-0 align-top text-center tabular-nums'
+			cellClass: 'px-0 align-middle text-center tabular-nums'
 		},
 		{
 			key: 'pct',
 			label: 'PTS%',
+			headerTooltipText: 'Points Percentage',
 			widthClass: 'w-[10%]',
 			headerClass: 'px-0 text-center',
-			cellClass: 'px-0 align-top text-center tabular-nums'
+			cellClass: 'px-0 align-middle text-center tabular-nums'
 		},
 		{
 			key: 'streak',
 			label: 'STRK',
+			headerTooltipText: 'Win-Loss-Tie Streak',
 			widthClass: 'w-[10%]',
 			headerClass: 'px-0 text-center',
-			cellClass: 'px-0 align-top text-center tabular-nums'
+			cellClass: 'px-0 align-middle text-center tabular-nums'
 		},
 		{
 			key: 'sportsmanship',
 			label: 'SR',
-			widthClass: 'w-[8%]',
+			headerTooltipText: 'Sportsmanship Rating',
+			widthClass: 'w-[10%]',
 			headerClass: 'px-0 text-center',
-			cellClass: 'px-0 align-top text-center tabular-nums'
+			cellClass: 'px-0 align-middle text-center tabular-nums'
 		},
 		{
 			key: 'forfeits',
 			label: 'FFs',
-			widthClass: 'w-[13%]',
+			headerTooltipText: 'Forfeits / Forgoes',
+			widthClass: 'w-[12%]',
 			headerClass: 'px-0 text-center normal-case tracking-wide',
-			cellClass: 'px-0 align-top text-center tabular-nums'
+			cellClass: 'px-0 align-middle text-center tabular-nums'
 		}
 	]);
 
@@ -519,7 +544,9 @@
 														<p class="font-sans text-sm font-bold text-neutral-950">
 															{activeTeam.name}
 														</p>
-														<p class="mt-0 font-sans text-[11px] leading-tight text-neutral-700">
+														<p
+															class="mt-0 font-sans text-[11px] font-normal leading-tight text-neutral-700"
+														>
 															{captainLabel(activeTeam.captainName)}
 														</p>
 														{#if activeTeam.description}
@@ -673,7 +700,13 @@
 
 								{#snippet cell(row, column)}
 									{@const standingsRow = row as StandingsDisplayRow}
-									{#if column.key === 'team'}
+									{#if column.key === 'rank'}
+										<div class="flex w-full justify-center">
+											<p class="font-sans text-xs leading-snug text-neutral-950">
+												{standingsRow.rank}
+											</p>
+										</div>
+									{:else if column.key === 'team'}
 										<div class="flex items-center gap-2 min-w-0">
 											<div
 												class="flex h-6 w-6 shrink-0 items-center justify-center bg-primary text-white"
@@ -682,11 +715,17 @@
 												<HeaderIcon class="h-3.5 w-3.5" />
 											</div>
 											<div class="min-w-0">
-												<p
-													class="truncate font-sans text-sm font-bold leading-tight text-neutral-950"
+												<HoverTooltip
+													text={standingsRow.teamName}
+													maxWidthClass="max-w-72"
+													wrapperClass="block min-w-0"
 												>
-													{standingsRow.teamName}
-												</p>
+													<p
+														class="truncate font-sans text-sm font-bold leading-tight text-neutral-950"
+													>
+														{standingsRow.teamName}
+													</p>
+												</HoverTooltip>
 											</div>
 										</div>
 									{:else if column.key === 'record'}
