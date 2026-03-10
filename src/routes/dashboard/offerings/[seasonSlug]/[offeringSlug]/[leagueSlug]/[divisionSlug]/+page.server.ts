@@ -1,4 +1,4 @@
-import { error } from '@sveltejs/kit';
+import { error, redirect } from '@sveltejs/kit';
 import { requireAuthenticatedClientId } from '$lib/server/client-context';
 import { getTenantDbOps } from '$lib/server/database/context';
 import {
@@ -243,7 +243,7 @@ export const load: PageServerLoad = async (event) => {
 		};
 	} catch (err) {
 		if ((err as { status?: number })?.status === 404) {
-			throw err;
+			throw redirect(302, '/dashboard/offerings');
 		}
 
 		console.error('Failed to load division detail page:', err);

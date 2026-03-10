@@ -1,4 +1,4 @@
-import { error } from '@sveltejs/kit';
+import { error, redirect } from '@sveltejs/kit';
 import type { League, Offering, Season } from '$lib/database';
 import { requireAuthenticatedClientId } from '$lib/server/client-context';
 import { getTenantDbOps } from '$lib/server/database/context';
@@ -332,7 +332,7 @@ export const load: PageServerLoad = async (event) => {
 		};
 	} catch (err) {
 		if ((err as { status?: number })?.status === 404) {
-			throw err;
+			throw redirect(302, '/dashboard/offerings');
 		}
 
 		console.error('Failed to load offering detail page:', err);
