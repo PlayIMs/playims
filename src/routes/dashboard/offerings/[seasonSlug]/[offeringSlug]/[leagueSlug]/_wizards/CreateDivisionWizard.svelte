@@ -39,6 +39,11 @@
 		onInput: () => void;
 		onUnsavedConfirm: () => void;
 		onUnsavedCancel: () => void;
+		title?: string;
+		closeAriaLabel?: string;
+		submitLabel?: string;
+		submittingLabel?: string;
+		errorToastTitle?: string;
 	}
 
 	let {
@@ -55,7 +60,12 @@
 		onSubmit,
 		onInput,
 		onUnsavedConfirm,
-		onUnsavedCancel
+		onUnsavedCancel,
+		title = 'New Division',
+		closeAriaLabel = 'Close create division wizard',
+		submitLabel = 'Create Division',
+		submittingLabel = 'Creating...',
+		errorToastTitle = 'Create division'
 	}: Props = $props();
 
 	let lastToastSignature = $state('');
@@ -72,19 +82,19 @@
 		lastToastSignature = signature;
 		toast.error(message, {
 			id: 'create-division-wizard-error',
-			title: 'Create division'
+			title: errorToastTitle
 		});
 	});
 </script>
 
 <WizardModal
 	{open}
-	title="New Division"
+	{title}
 	step={1}
 	stepCount={1}
 	stepTitle="Division Details"
 	progressPercent={100}
-	closeAriaLabel="Close create division wizard"
+	{closeAriaLabel}
 	maxWidthClass="max-w-3xl"
 	on:requestClose={onRequestClose}
 	on:submit={onSubmit}
@@ -271,8 +281,8 @@
 			canGoNext={false}
 			{canSubmit}
 			nextLabel="Next"
-			submitLabel="Create Division"
-			submittingLabel="Creating..."
+			{submitLabel}
+			{submittingLabel}
 			isSubmitting={submitting}
 		/>
 	{/snippet}

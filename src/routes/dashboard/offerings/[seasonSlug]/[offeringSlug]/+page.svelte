@@ -1734,7 +1734,9 @@
 																	wrapperClass="inline-flex shrink-0"
 																>
 																	<span class="inline-flex text-neutral-950" aria-hidden="true">
-																		<divisionStatus.icon class="h-4 w-4" />
+																		<divisionStatus.icon
+																			class={`h-4 w-4 ${divisionStatus.label === 'Unlocked' ? 'opacity-50' : ''}`}
+																		/>
 																	</span>
 																</HoverTooltip>
 																<span class="sr-only">{divisionStatus.label}</span>

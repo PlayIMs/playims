@@ -54,6 +54,9 @@
 	interface DropdownOption {
 		value: string;
 		label: string;
+		labelIcon?: typeof IconLock;
+		labelIconClass?: string;
+		labelIconAriaLabel?: string;
 		description?: string;
 		statusLabel?: string;
 		disabled?: boolean;
@@ -63,6 +66,7 @@
 	}
 
 	type TeamActionValue = 'move-team' | 'invite-members' | 'team-settings' | 'delete-team';
+	type DivisionActionValue = 'modify-division' | 'delete-division' | 'archive-division';
 
 	interface DivisionWizardForm {
 		name: string;
@@ -102,6 +106,11 @@
 		currentDivisionId: string;
 		currentDivisionName: string;
 		currentPlacement: PlacementValue;
+	}
+
+	interface DivisionActionContext {
+		id: string;
+		name: string;
 	}
 
 	interface CreateTeamDivisionStatus {
@@ -144,6 +153,8 @@
 		'w-full min-w-[10rem] border border-secondary-300 bg-white px-3 py-1.5 text-xs leading-5 font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2 hover:bg-neutral-50 focus:outline-none focus-visible:outline-none focus-visible:border-secondary-500 focus-visible:ring-0';
 	const ACTION_DROPDOWN_BUTTON_CLASS =
 		'inline-flex h-9 w-9 items-center justify-center border-0 bg-transparent p-0 text-secondary-700 cursor-pointer opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 hover:bg-neutral-100 hover:text-secondary-900 focus:outline-none focus-visible:bg-neutral-100 focus-visible:text-secondary-900';
+	const SECTION_ACTION_DROPDOWN_BUTTON_CLASS =
+		'inline-flex h-9 w-9 items-center justify-center rounded-full border border-neutral-950 bg-white p-0 text-neutral-950 cursor-pointer hover:bg-neutral-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500';
 	const ACTION_DROPDOWN_LIST_CLASS = 'mt-1 w-52 border-2 border-neutral-950 bg-white z-20';
 	const ACTION_DROPDOWN_OPTION_CLASS =
 		'w-full px-3 py-2 text-left text-sm text-neutral-950 cursor-pointer';
@@ -263,8 +274,8 @@
 
 	function formatSeasonPhaseDate(value: string | null | undefined): string {
 		if (!value) return 'TBD';
-		const parsed = new Date(value);
-		if (Number.isNaN(parsed.getTime())) return 'TBD';
+		const parsed = parseDateTooltipValue(value);
+		if (!parsed || Number.isNaN(parsed.getTime())) return 'TBD';
 		const isCurrentYear = parsed.getFullYear() === new Date().getFullYear();
 		return parsed.toLocaleDateString('en-US', {
 			weekday: 'short',
@@ -369,10 +380,6 @@
 
 	function divisionLockTooltip(division: DivisionSection): string {
 		return division.isLocked ? 'This division cannot be joined' : 'This division can be joined';
-	}
-
-	function leagueLockTooltip(): string {
-		return data.league?.isLocked ? 'This league is locked' : 'This league is unlocked';
 	}
 
 	function joinTeamDeadline(): string | null {
@@ -547,48 +554,38 @@
 		);
 	}
 
-	function divisionTableColumnsFor(canManage: boolean): OfferingsTableColumn[] {
+	function divisionTableColumnsFor(): OfferingsTableColumn[] {
 		return [
 			{
 				key: 'team',
 				label: 'Team',
-				widthClass: canManage ? 'w-[24%]' : 'w-[30%]',
+				widthClass: 'w-[32%]',
 				rowHeader: true
 			},
 			{
 				key: 'date-created',
 				label: 'Date Created',
-				widthClass: canManage ? 'w-[18%]' : 'w-[22%]',
+				widthClass: 'w-[22%]',
 				cellClass: 'align-top'
 			},
 			{
 				key: 'date-joined',
 				label: 'Date Joined',
-				widthClass: canManage ? 'w-[18%]' : 'w-[22%]',
+				widthClass: 'w-[22%]',
 				cellClass: 'align-top'
 			},
 			{
 				key: 'roster',
 				label: 'Roster',
-				widthClass: canManage ? 'w-[12%]' : 'w-[12%]',
+				widthClass: 'w-[12%]',
 				cellClass: 'align-top'
 			},
 			{
 				key: 'status',
 				label: 'Status',
-				widthClass: canManage ? 'w-[14%]' : 'w-[14%]',
+				widthClass: 'w-[12%]',
 				cellClass: 'align-top'
-			},
-			...(canManage
-				? [
-						{
-							key: 'manage',
-							label: '',
-							widthClass: 'w-[14%]',
-							cellClass: 'align-top'
-						}
-					]
-				: [])
+			}
 		];
 	}
 
@@ -697,6 +694,23 @@
 		};
 	}
 
+	function divisionFormFromDivision(division: DivisionSection): DivisionWizardForm {
+		return {
+			name: division.name ?? '',
+			slug: division.slug ?? '',
+			maxTeams:
+				typeof division.maxTeams === 'number' && Number.isFinite(division.maxTeams)
+					? String(division.maxTeams)
+					: '',
+			description: division.description ?? '',
+			dayOfWeek: division.dayOfWeek ?? '',
+			gameTime: division.gameTime ?? '',
+			location: division.location ?? '',
+			startDate: division.startDate ?? '',
+			isLocked: Boolean(division.isLocked)
+		};
+	}
+
 	function defaultTeamForm(divisionId = data.divisions[0]?.id ?? ''): TeamWizardForm {
 		return {
 			name: '',
@@ -730,7 +744,10 @@
 		data.divisions.map((division: DivisionSection) => ({
 			value: division.id,
 			label: division.name,
-			statusLabel: `${divisionCapacityLabel(division)}${division.isLocked ? ' / Locked' : ''}`
+			labelIcon: division.isLocked ? IconLock : IconLockOpen,
+			labelIconClass: division.isLocked ? undefined : 'opacity-50',
+			labelIconAriaLabel: division.isLocked ? 'Locked division' : 'Unlocked division',
+			statusLabel: divisionCapacityLabel(division)
 		}))
 	);
 
@@ -739,9 +756,7 @@
 		{ value: 'waitlist', label: 'Waitlist', statusLabel: 'Saved for later placement' }
 	] satisfies DropdownOption[];
 
-	const divisionTableColumns = $derived.by<OfferingsTableColumn[]>(() =>
-		divisionTableColumnsFor(canManageLeague)
-	);
+	const divisionTableColumns = $derived.by<OfferingsTableColumn[]>(() => divisionTableColumnsFor());
 
 	const standingsColumns = $derived.by<OfferingsTableColumn[]>(() => [
 		{
@@ -854,7 +869,6 @@
 	});
 
 	const hasSearchQuery = $derived.by(() => normalizedSearchQuery.length > 0);
-	const leagueStatus = $derived.by(() => lockStatus(Boolean(data.league?.isLocked)));
 
 	function leagueDetailHref(
 		leagueSlug: string | null | undefined,
@@ -891,22 +905,32 @@
 
 	let createDivisionOpen = $state(false);
 	let createTeamOpen = $state(false);
+	let editDivisionOpen = $state(false);
 	let createDivisionUnsavedConfirmOpen = $state(false);
 	let createTeamUnsavedConfirmOpen = $state(false);
+	let editDivisionUnsavedConfirmOpen = $state(false);
 	let createDivisionSubmitting = $state(false);
 	let createTeamSubmitting = $state(false);
+	let editDivisionSubmitting = $state(false);
 	let createDivisionValidationVisible = $state(false);
 	let createTeamValidationVisible = $state(false);
+	let editDivisionValidationVisible = $state(false);
 	let createDivisionSlugTouched = $state(false);
 	let createTeamSlugTouched = $state(false);
+	let editDivisionSlugTouched = $state(false);
 	let createDivisionFormError = $state('');
 	let createTeamFormError = $state('');
+	let editDivisionFormError = $state('');
 	let createDivisionServerFieldErrors = $state<Record<string, string>>({});
 	let createTeamServerFieldErrors = $state<Record<string, string>>({});
+	let editDivisionServerFieldErrors = $state<Record<string, string>>({});
 	let createDivisionForm = $state<DivisionWizardForm>(defaultDivisionForm());
 	let createTeamForm = $state<TeamWizardForm>(defaultTeamForm());
+	let editDivisionForm = $state<DivisionWizardForm>(defaultDivisionForm());
 	let createDivisionInitialForm = $state<DivisionWizardForm>(defaultDivisionForm());
 	let createTeamInitialForm = $state<TeamWizardForm>(defaultTeamForm());
+	let editDivisionInitialForm = $state<DivisionWizardForm>(defaultDivisionForm());
+	let editDivisionContext = $state<DivisionActionContext | null>(null);
 	let activeMoveTeamId = $state<string | null>(null);
 	let moveTeamContext = $state<TeamActionContext | null>(null);
 	let moveTeamForm = $state<MoveTeamWizardForm>({
@@ -930,6 +954,13 @@
 		}
 	}
 
+	function clearEditDivisionApiErrors(): void {
+		editDivisionFormError = '';
+		if (Object.keys(editDivisionServerFieldErrors).length > 0) {
+			editDivisionServerFieldErrors = {};
+		}
+	}
+
 	function clearCreateTeamApiErrors(): void {
 		createTeamFormError = '';
 		if (Object.keys(createTeamServerFieldErrors).length > 0) {
@@ -945,6 +976,16 @@
 		createDivisionServerFieldErrors = {};
 		createDivisionFormError = '';
 		createDivisionUnsavedConfirmOpen = false;
+	}
+
+	function resetEditDivisionWizard(division: DivisionSection | null = null): void {
+		editDivisionInitialForm = division ? divisionFormFromDivision(division) : defaultDivisionForm();
+		editDivisionForm = { ...editDivisionInitialForm };
+		editDivisionValidationVisible = false;
+		editDivisionSlugTouched = false;
+		editDivisionServerFieldErrors = {};
+		editDivisionFormError = '';
+		editDivisionUnsavedConfirmOpen = false;
 	}
 
 	function resetCreateTeamWizard(
@@ -966,6 +1007,15 @@
 	function openCreateDivisionWizard(): void {
 		resetCreateDivisionWizard();
 		createDivisionOpen = true;
+	}
+
+	function openEditDivisionWizard(division: DivisionSection): void {
+		editDivisionContext = {
+			id: division.id,
+			name: division.name
+		};
+		resetEditDivisionWizard(division);
+		editDivisionOpen = true;
 	}
 
 	function openCreateTeamWizard(
@@ -993,6 +1043,12 @@
 	function closeCreateDivisionWizard(): void {
 		createDivisionOpen = false;
 		resetCreateDivisionWizard();
+	}
+
+	function closeEditDivisionWizard(): void {
+		editDivisionOpen = false;
+		editDivisionContext = null;
+		resetEditDivisionWizard();
 	}
 
 	function closeCreateTeamWizard(): void {
@@ -1031,6 +1087,10 @@
 		return JSON.stringify(createDivisionForm) !== JSON.stringify(createDivisionInitialForm);
 	}
 
+	function hasUnsavedEditDivisionChanges(): boolean {
+		return JSON.stringify(editDivisionForm) !== JSON.stringify(editDivisionInitialForm);
+	}
+
 	function hasUnsavedCreateTeamChanges(): boolean {
 		return JSON.stringify(createTeamForm) !== JSON.stringify(createTeamInitialForm);
 	}
@@ -1042,6 +1102,7 @@
 	function hasUnsavedLeagueWizardChanges(): boolean {
 		return (
 			(createDivisionOpen && hasUnsavedCreateDivisionChanges()) ||
+			(editDivisionOpen && hasUnsavedEditDivisionChanges()) ||
 			(createTeamOpen && hasUnsavedCreateTeamChanges()) ||
 			Boolean(moveTeamContext && hasUnsavedMoveTeamChanges())
 		);
@@ -1054,6 +1115,15 @@
 			return;
 		}
 		createDivisionUnsavedConfirmOpen = true;
+	}
+
+	function requestCloseEditDivisionWizard(): void {
+		if (!editDivisionOpen || editDivisionSubmitting) return;
+		if (!hasUnsavedEditDivisionChanges()) {
+			closeEditDivisionWizard();
+			return;
+		}
+		editDivisionUnsavedConfirmOpen = true;
 	}
 
 	function requestCloseCreateTeamWizard(): void {
@@ -1074,13 +1144,17 @@
 		moveTeamUnsavedConfirmOpen = true;
 	}
 
-	function getCreateDivisionFieldErrors(values: DivisionWizardForm): Record<string, string> {
+	function getDivisionFieldErrors(
+		values: DivisionWizardForm,
+		options?: { excludeDivisionId?: string | null }
+	): Record<string, string> {
 		const errors: Record<string, string> = {};
 		const name = values.name.trim();
 		const slug = values.slug.trim();
 		const normalizedName = name.toLowerCase();
 		const normalizedSlug = slug.toLowerCase();
 		const maxTeams = Number(values.maxTeams);
+		const excludeDivisionId = options?.excludeDivisionId ?? null;
 
 		if (!name) errors['name'] = 'Division name is required.';
 		if (!slug) errors['slug'] = 'Division slug is required.';
@@ -1096,7 +1170,8 @@
 		if (
 			name &&
 			data.divisions.some(
-				(division: DivisionSection) => division.name.trim().toLowerCase() === normalizedName
+				(division: DivisionSection) =>
+					division.id !== excludeDivisionId && division.name.trim().toLowerCase() === normalizedName
 			)
 		) {
 			errors['name'] = 'A division with this name already exists for this league.';
@@ -1105,7 +1180,8 @@
 		if (
 			slug &&
 			data.divisions.some(
-				(division: DivisionSection) => division.slug.trim().toLowerCase() === normalizedSlug
+				(division: DivisionSection) =>
+					division.id !== excludeDivisionId && division.slug.trim().toLowerCase() === normalizedSlug
 			)
 		) {
 			errors['slug'] = 'A division with this slug already exists for this league.';
@@ -1191,8 +1267,17 @@
 	}
 
 	const createDivisionFieldErrors = $derived.by(() => ({
-		...(createDivisionValidationVisible ? getCreateDivisionFieldErrors(createDivisionForm) : {}),
+		...(createDivisionValidationVisible ? getDivisionFieldErrors(createDivisionForm) : {}),
 		...createDivisionServerFieldErrors
+	}));
+
+	const editDivisionFieldErrors = $derived.by(() => ({
+		...(editDivisionValidationVisible
+			? getDivisionFieldErrors(editDivisionForm, {
+					excludeDivisionId: editDivisionContext?.id ?? null
+				})
+			: {}),
+		...editDivisionServerFieldErrors
 	}));
 
 	const createTeamFieldErrors = $derived.by(() => ({
@@ -1218,6 +1303,9 @@
 	const moveTeamFieldErrors = $derived.by(() => getMoveTeamFieldErrors(moveTeamForm));
 
 	const canSubmitCreateDivision = $derived.by(() => !createDivisionSubmitting);
+	const canSubmitEditDivision = $derived.by(
+		() => Boolean(editDivisionContext) && !editDivisionSubmitting && hasUnsavedEditDivisionChanges()
+	);
 
 	const canSubmitCreateTeam = $derived.by(() => !createTeamSubmitting);
 
@@ -1231,7 +1319,7 @@
 
 	async function createDivision(): Promise<void> {
 		createDivisionValidationVisible = true;
-		const clientErrors = getCreateDivisionFieldErrors(createDivisionForm);
+		const clientErrors = getDivisionFieldErrors(createDivisionForm);
 		if (Object.keys(clientErrors).length > 0 || !data.league?.id) {
 			return;
 		}
@@ -1287,6 +1375,70 @@
 			createDivisionFormError = 'Unable to create division right now.';
 		} finally {
 			createDivisionSubmitting = false;
+		}
+	}
+
+	async function editDivision(): Promise<void> {
+		editDivisionValidationVisible = true;
+		const clientErrors = getDivisionFieldErrors(editDivisionForm, {
+			excludeDivisionId: editDivisionContext?.id ?? null
+		});
+		if (Object.keys(clientErrors).length > 0 || !data.league?.id || !editDivisionContext?.id) {
+			return;
+		}
+
+		const apiPath = managementApiPath();
+		if (!apiPath) {
+			toast.error('League route is missing season or league slug.', {
+				title: data.league?.name ?? pageLabel
+			});
+			return;
+		}
+
+		editDivisionSubmitting = true;
+		editDivisionFormError = '';
+		editDivisionServerFieldErrors = {};
+
+		try {
+			const response = await fetch(apiPath, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					action: 'update-division',
+					leagueId: data.league.id,
+					divisionId: editDivisionContext.id,
+					division: {
+						name: editDivisionForm.name.trim(),
+						slug: editDivisionForm.slug.trim(),
+						description: editDivisionForm.description.trim() || null,
+						dayOfWeek: editDivisionForm.dayOfWeek.trim() || null,
+						gameTime: editDivisionForm.gameTime.trim() || null,
+						maxTeams: Number(editDivisionForm.maxTeams),
+						location: editDivisionForm.location.trim() || null,
+						isLocked: editDivisionForm.isLocked,
+						startDate: editDivisionForm.startDate || null
+					}
+				})
+			});
+			const payload = await readResponse(response);
+			if (!response.ok || !payload.success) {
+				editDivisionServerFieldErrors = readScopedFieldErrors(payload.fieldErrors, 'division');
+				editDivisionFormError =
+					payload.error ??
+					firstFieldError(payload.fieldErrors) ??
+					'Unable to update division right now.';
+				return;
+			}
+
+			closeEditDivisionWizard();
+			await invalidateAll();
+			toast.success('Division updated.', {
+				title: data.league.name
+			});
+		} catch {
+			editDivisionFormError = 'Unable to update division right now.';
+		} finally {
+			editDivisionSubmitting = false;
 		}
 	}
 
@@ -1477,6 +1629,30 @@
 		closeMoveTeamWizard();
 	}
 
+	function divisionActionOptions(division: DivisionSection): DropdownOption[] {
+		return [
+			{
+				value: 'modify-division',
+				label: 'Modify',
+				description: `Edit ${division.name}`
+			},
+			{
+				value: 'delete-division',
+				label: 'Delete',
+				description: 'Coming soon',
+				disabled: true,
+				disabledTooltip: 'Delete division is not available yet.'
+			},
+			{
+				value: 'archive-division',
+				label: 'Archive',
+				description: 'Coming soon',
+				disabled: true,
+				disabledTooltip: 'Archive division is not available yet.'
+			}
+		];
+	}
+
 	function handleTeamAction(action: TeamActionValue, team: TeamActionContext): void {
 		if (action === 'move-team') {
 			openMoveTeamWizard(team);
@@ -1485,6 +1661,12 @@
 
 		if (action === 'delete-team') {
 			openRemoveTeam(team);
+		}
+	}
+
+	function handleDivisionAction(action: DivisionActionValue, division: DivisionSection): void {
+		if (action === 'modify-division') {
+			openEditDivisionWizard(division);
 		}
 	}
 
@@ -1602,12 +1784,6 @@
 					>
 						{data.league?.name ?? 'League'}
 					</h1>
-					<HoverTooltip text={leagueLockTooltip()} wrapperClass="inline-flex shrink-0">
-						<span class="inline-flex text-neutral-950" aria-hidden="true">
-							<leagueStatus.icon class="h-5 w-5 lg:h-6 lg:w-6" />
-						</span>
-					</HoverTooltip>
-					<span class="sr-only">{leagueStatus.label}</span>
 				</div>
 			</div>
 		</div>
@@ -1726,11 +1902,14 @@
 															{#if division.isLocked}
 																<IconLock class="h-4 w-4" />
 															{:else}
-																<IconLockOpen class="h-4 w-4" />
+																<IconLockOpen class="h-4 w-4 opacity-50" />
 															{/if}
 														</span>
 													</HoverTooltip>
 													<span class="sr-only">{division.isLocked ? 'Locked' : 'Unlocked'}</span>
+													<span class="text-sm font-sans font-semibold text-neutral-950">
+														{divisionCapacityLabel(division)}
+													</span>
 												</div>
 												{#if divisionMetaLine(division)}
 													<p
@@ -1740,14 +1919,33 @@
 													</p>
 												{/if}
 											</div>
-											<div class="flex flex-wrap items-center gap-1">
-												<span class="badge-secondary-outlined px-2 py-0.5 text-xs">
-													{divisionCapacityLabel(division)}
-												</span>
+											<div class="flex flex-wrap items-center gap-2">
 												{#if division.waitlistCount > 0}
 													<span class="badge-primary-outlined text-xs uppercase tracking-wide">
 														{division.waitlistCount} Waitlist
 													</span>
+												{/if}
+												{#if canManageLeague}
+													<div class="flex items-center">
+														<ListboxDropdown
+															options={divisionActionOptions(division)}
+															value=""
+															mode="action"
+															align="right"
+															ariaLabel={`Actions for ${division.name}`}
+															buttonClass={SECTION_ACTION_DROPDOWN_BUTTON_CLASS}
+															listClass={ACTION_DROPDOWN_LIST_CLASS}
+															optionClass={ACTION_DROPDOWN_OPTION_CLASS}
+															activeOptionClass="bg-neutral-100 text-neutral-950"
+															on:action={(event) =>
+																handleDivisionAction(
+																	event.detail.value as DivisionActionValue,
+																	division
+																)}
+														>
+															{#snippet trigger()}<IconDots class="h-4 w-4" />{/snippet}
+														</ListboxDropdown>
+													</div>
 												{/if}
 											</div>
 										</div>
@@ -1760,7 +1958,6 @@
 											columns={divisionTableColumns}
 											rows={division.teams}
 											caption={`${division.name} teams table`}
-											rowClass={() => (canManageLeague ? 'group' : '')}
 										>
 											{#snippet emptyBody()}
 												<tr class="bg-neutral-25">
@@ -1784,18 +1981,14 @@
 															<HeaderIcon class="h-5 w-5" />
 														</div>
 														<div class="min-w-0">
-															<div class="space-y-px">
-																<p
-																	class="font-sans text-sm leading-tight font-bold text-neutral-950"
-																>
-																	{activeTeam.name}
-																</p>
-																<p
-																	class="font-sans text-[11px] leading-none font-normal text-neutral-700"
-																>
-																	{captainLabel(activeTeam.captainName)}
-																</p>
-															</div>
+															<p class="font-sans text-sm font-bold text-neutral-950">
+																{activeTeam.name}
+															</p>
+															<p
+																class="mt-0 font-sans text-[11px] font-normal leading-tight text-neutral-700"
+															>
+																{captainLabel(activeTeam.captainName)}
+															</p>
 															{#if activeTeam.description}
 																<div class="mt-1 max-w-full overflow-x-auto pb-1 scrollbar-thin">
 																	<p
@@ -1842,36 +2035,6 @@
 													>
 														{approvalBadgeLabel(true)}
 													</span>
-												{:else if column.key === 'manage' && canManageLeague}
-													<div class="flex justify-end">
-														<ListboxDropdown
-															options={teamActionOptions({
-																id: activeTeam.id,
-																name: activeTeam.name,
-																currentDivisionId: division.id,
-																currentDivisionName: division.name,
-																currentPlacement: 'active'
-															})}
-															value=""
-															mode="action"
-															align="right"
-															ariaLabel={`Actions for ${activeTeam.name}`}
-															buttonClass={ACTION_DROPDOWN_BUTTON_CLASS}
-															listClass={ACTION_DROPDOWN_LIST_CLASS}
-															optionClass={ACTION_DROPDOWN_OPTION_CLASS}
-															activeOptionClass="bg-neutral-100 text-neutral-950"
-															on:action={(event) =>
-																handleTeamAction(event.detail.value as TeamActionValue, {
-																	id: activeTeam.id,
-																	name: activeTeam.name,
-																	currentDivisionId: division.id,
-																	currentDivisionName: division.name,
-																	currentPlacement: 'active'
-																})}
-														>
-															{#snippet trigger()}<IconDots class="h-4 w-4" />{/snippet}
-														</ListboxDropdown>
-													</div>
 												{/if}
 											{/snippet}
 										</OfferingsTable>
@@ -1886,7 +2049,7 @@
 												<HoverTooltip text={waitlistTooltip()} wrapperClass="inline-flex shrink-0">
 													<span class="inline-flex text-neutral-950" aria-hidden="true">
 														{#if waitlistIsOpen()}
-															<IconLockOpen class="h-4 w-4" />
+															<IconLockOpen class="h-4 w-4 opacity-50" />
 														{:else}
 															<IconLock class="h-4 w-4" />
 														{/if}
@@ -2043,10 +2206,15 @@
 												Regular Season
 											</p>
 											<p class="mt-0.5 leading-tight">
-												{formatSeasonPhaseRange(
-													data.league.seasonStartDate,
-													data.league.seasonEndDate
-												)}
+												<DateHoverText
+													display={formatSeasonPhaseRange(
+														data.league.seasonStartDate,
+														data.league.seasonEndDate
+													)}
+													value={data.league.seasonStartDate}
+													endValue={data.league.seasonEndDate}
+													wrapperClass="inline"
+												/>
 											</p>
 										</div>
 										<div
@@ -2056,12 +2224,19 @@
 												Preseason
 											</p>
 											<p class="mt-0.5 leading-tight">
-												{data.league.hasPreseason
-													? formatSeasonPhaseRange(
+												{#if data.league.hasPreseason}
+													<DateHoverText
+														display={formatSeasonPhaseRange(
 															data.league.preseasonStartDate,
 															data.league.preseasonEndDate
-														)
-													: 'No preseason'}
+														)}
+														value={data.league.preseasonStartDate}
+														endValue={data.league.preseasonEndDate}
+														wrapperClass="inline"
+													/>
+												{:else}
+													No preseason
+												{/if}
 											</p>
 										</div>
 										<div
@@ -2071,12 +2246,19 @@
 												Postseason
 											</p>
 											<p class="mt-0.5 leading-tight">
-												{data.league.hasPostseason
-													? formatSeasonPhaseRange(
+												{#if data.league.hasPostseason}
+													<DateHoverText
+														display={formatSeasonPhaseRange(
 															data.league.postseasonStartDate,
 															data.league.postseasonEndDate
-														)
-													: 'No postseason'}
+														)}
+														value={data.league.postseasonStartDate}
+														endValue={data.league.postseasonEndDate}
+														wrapperClass="inline"
+													/>
+												{:else}
+													No postseason
+												{/if}
 											</p>
 										</div>
 									</div>
@@ -2157,7 +2339,7 @@
 																{#if division.isLocked}
 																	<IconLock class="h-4 w-4" />
 																{:else}
-																	<IconLockOpen class="h-4 w-4" />
+																	<IconLockOpen class="h-4 w-4 opacity-50" />
 																{/if}
 															</span>
 														</HoverTooltip>
@@ -2292,6 +2474,32 @@
 	onUnsavedConfirm={closeCreateDivisionWizard}
 	onUnsavedCancel={() => {
 		createDivisionUnsavedConfirmOpen = false;
+	}}
+/>
+
+<CreateDivisionWizard
+	open={editDivisionOpen}
+	form={editDivisionForm}
+	fieldErrors={editDivisionFieldErrors}
+	formError={editDivisionFormError}
+	submitting={editDivisionSubmitting}
+	canSubmit={canSubmitEditDivision}
+	slugTouched={editDivisionSlugTouched}
+	unsavedConfirmOpen={editDivisionUnsavedConfirmOpen}
+	title="Edit Division"
+	closeAriaLabel="Close edit division wizard"
+	submitLabel="Save Changes"
+	submittingLabel="Saving..."
+	errorToastTitle="Edit division"
+	onSlugTouchedChange={(value) => {
+		editDivisionSlugTouched = value;
+	}}
+	onRequestClose={requestCloseEditDivisionWizard}
+	onSubmit={editDivision}
+	onInput={clearEditDivisionApiErrors}
+	onUnsavedConfirm={closeEditDivisionWizard}
+	onUnsavedCancel={() => {
+		editDivisionUnsavedConfirmOpen = false;
 	}}
 />
 

@@ -212,6 +212,13 @@ export const createIntramuralDivisionSchema = z.object({
 	division: intramuralDivisionInputSchema
 });
 
+export const updateIntramuralDivisionSchema = z.object({
+	action: z.literal('update-division'),
+	leagueId: requiredText('League', 120),
+	divisionId: requiredText('Division', 120),
+	division: intramuralDivisionInputSchema
+});
+
 export const createIntramuralTeamSchema = z.object({
 	action: z.literal('create-team'),
 	leagueId: requiredText('League', 120),
@@ -611,6 +618,7 @@ export type CreateIntramuralSeasonInput = z.infer<typeof createIntramuralSeasonS
 export type ManageIntramuralSeasonInput = z.infer<typeof manageIntramuralSeasonSchema>;
 export type DeleteIntramuralSeasonInput = z.infer<typeof deleteIntramuralSeasonSchema>;
 export type CreateIntramuralDivisionInput = z.infer<typeof createIntramuralDivisionSchema>;
+export type UpdateIntramuralDivisionInput = z.infer<typeof updateIntramuralDivisionSchema>;
 export type CreateIntramuralTeamInput = z.infer<typeof createIntramuralTeamSchema>;
 export type MoveIntramuralTeamInput = z.infer<typeof moveIntramuralTeamSchema>;
 export type RemoveIntramuralTeamInput = z.infer<typeof removeIntramuralTeamSchema>;

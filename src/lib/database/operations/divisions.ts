@@ -131,6 +131,43 @@ export class DivisionOperations {
 		return result[0] ?? null;
 	}
 
+	async update(
+		divisionId: string,
+		data: {
+			name: string;
+			slug: string;
+			description: string | null;
+			dayOfWeek: string | null;
+			gameTime: string | null;
+			maxTeams: number | null;
+			location: string | null;
+			isLocked: number;
+			startDate: string | null;
+			updatedUser?: string | null;
+		}
+	): Promise<Division | null> {
+		const now = new Date().toISOString();
+		const result = await this.db
+			.update(divisions)
+			.set({
+				name: data.name,
+				slug: data.slug,
+				description: data.description,
+				dayOfWeek: data.dayOfWeek,
+				gameTime: data.gameTime,
+				maxTeams: data.maxTeams,
+				location: data.location,
+				isLocked: data.isLocked,
+				startDate: data.startDate,
+				updatedAt: now,
+				updatedUser: data.updatedUser ?? null
+			})
+			.where(eq(divisions.id, divisionId))
+			.returning();
+
+		return result[0] ?? null;
+	}
+
 	async existsByLeagueIdAndSlug(leagueId: string, slug: string): Promise<boolean> {
 		const result = await this.db
 			.select({ id: divisions.id })

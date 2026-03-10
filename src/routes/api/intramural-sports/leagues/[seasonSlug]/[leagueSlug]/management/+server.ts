@@ -15,7 +15,9 @@ import {
 	type CreateIntramuralTeamInput,
 	type ManageIntramuralLeagueResponse,
 	type MoveIntramuralTeamInput,
-	type RemoveIntramuralTeamInput
+	type RemoveIntramuralTeamInput,
+	type UpdateIntramuralDivisionInput,
+	updateIntramuralDivisionSchema
 } from '$lib/server/intramural-offerings-validation';
 import { leagueMatchesSeason } from '$lib/server/intramural-offering-scope';
 import type { RequestHandler } from './$types';
@@ -185,7 +187,7 @@ export const POST: RequestHandler = async (event) => {
 
 	const action =
 		typeof body === 'object' && body !== null ? (body as { action?: string }).action : undefined;
-	if (action !== 'create-division' && action !== 'create-team') {
+	if (action !== 'create-division' && action !== 'create-team' && action !== 'update-division') {
 		return json(
 			{
 				success: false,
@@ -198,7 +200,9 @@ export const POST: RequestHandler = async (event) => {
 	const parsed =
 		action === 'create-division'
 			? createIntramuralDivisionSchema.safeParse(body)
-			: createIntramuralTeamSchema.safeParse(body);
+			: action === 'update-division'
+				? updateIntramuralDivisionSchema.safeParse(body)
+				: createIntramuralTeamSchema.safeParse(body);
 	if (!parsed.success) {
 		return json(
 			{
@@ -210,7 +214,10 @@ export const POST: RequestHandler = async (event) => {
 		);
 	}
 
-	const input = parsed.data as CreateIntramuralDivisionInput | CreateIntramuralTeamInput;
+	const input = parsed.data as
+		| CreateIntramuralDivisionInput
+		| UpdateIntramuralDivisionInput
+		| CreateIntramuralTeamInput;
 
 	const clientId = requireAuthenticatedClientId(event.locals);
 	const userId = requireAuthenticatedUserId(event.locals);
@@ -256,11 +263,13 @@ export const POST: RequestHandler = async (event) => {
 		}
 
 		const divisions = await dbOps.divisions.getByLeagueId(league.id);
-		if (input.action === 'create-division') {
+		if (input.action === 'create-division' || input.action === 'update-division') {
 			const duplicateIssues: Array<{ path: Array<string>; message: string }> = [];
 			const normalizedName = normalizeText(input.division.name);
 			const duplicateName = divisions.some(
-				(division) => normalizeText(division.name) === normalizedName
+				(division) =>
+					division.id !== (input.action === 'update-division' ? input.divisionId : null) &&
+					normalizeText(division.name) === normalizedName
 			);
 			if (duplicateName) {
 				duplicateIssues.push({
@@ -270,7 +279,9 @@ export const POST: RequestHandler = async (event) => {
 			}
 
 			const duplicateSlug = divisions.some(
-				(division) => normalizeText(division.slug) === normalizeText(input.division.slug)
+				(division) =>
+					division.id !== (input.action === 'update-division' ? input.divisionId : null) &&
+					normalizeText(division.slug) === normalizeText(input.division.slug)
 			);
 			if (duplicateSlug) {
 				duplicateIssues.push({
@@ -288,6 +299,54 @@ export const POST: RequestHandler = async (event) => {
 					} satisfies ManageIntramuralLeagueResponse,
 					{ status: 409 }
 				);
+			}
+
+			if (input.action === 'update-division') {
+				const targetDivision =
+					divisions.find((division) => division.id === input.divisionId) ?? null;
+				if (!targetDivision?.id) {
+					return json(
+						{
+							success: false,
+							error: 'Division not found.',
+							fieldErrors: {
+								divisionId: ['Select a valid division for this league.']
+							}
+						} satisfies ManageIntramuralLeagueResponse,
+						{ status: 404 }
+					);
+				}
+
+				const updatedDivision = await dbOps.divisions.update(input.divisionId, {
+					name: input.division.name,
+					slug: input.division.slug,
+					description: input.division.description,
+					dayOfWeek: input.division.dayOfWeek,
+					gameTime: input.division.gameTime,
+					maxTeams: input.division.maxTeams,
+					location: input.division.location,
+					isLocked: input.division.isLocked ? 1 : 0,
+					startDate: input.division.startDate,
+					updatedUser: userId
+				});
+
+				if (!updatedDivision?.id) {
+					return json(
+						{
+							success: false,
+							error: 'Unable to update division right now.'
+						} satisfies ManageIntramuralLeagueResponse,
+						{ status: 500 }
+					);
+				}
+
+				return json({
+					success: true,
+					data: {
+						leagueId: league.id,
+						divisionId: updatedDivision.id
+					}
+				} satisfies ManageIntramuralLeagueResponse);
 			}
 
 			const createdDivision = await dbOps.divisions.create({
@@ -364,10 +423,7 @@ export const POST: RequestHandler = async (event) => {
 				.map((division) => division.id)
 				.filter((divisionId): divisionId is string => Boolean(divisionId))
 		);
-		if (
-			input.team.placement === 'active' &&
-			targetDivision.isLocked
-		) {
+		if (input.team.placement === 'active' && targetDivision.isLocked) {
 			return json(
 				{
 					success: false,
