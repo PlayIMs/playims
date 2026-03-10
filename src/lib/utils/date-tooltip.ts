@@ -3,7 +3,7 @@ export type DateTooltipValue = string | number | Date | null | undefined;
 const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/;
 
-function parseDateTooltipValue(value: DateTooltipValue): Date | null {
+export function parseDateTooltipValue(value: DateTooltipValue): Date | null {
 	if (value instanceof Date) {
 		if (Number.isNaN(value.getTime())) return null;
 		return value;
@@ -91,10 +91,11 @@ export function buildDateTooltipText(input: {
 	const endDate = parseDateTooltipValue(input.endValue);
 	if (!startDate && !endDate) return '';
 
-	const resolvedIncludeTime =
-		input.includeTime ??
-		(valueIncludesTime(input.value) ||
-			(input.endValue !== undefined && valueIncludesTime(input.endValue)));
+	const hasTimeValue =
+		valueIncludesTime(input.value) ||
+		(input.endValue !== undefined && valueIncludesTime(input.endValue));
+
+	const resolvedIncludeTime = (input.includeTime ?? hasTimeValue) && hasTimeValue;
 
 	if (startDate && endDate) {
 		return `${formatTooltipDate(startDate, resolvedIncludeTime)} - ${formatTooltipDate(endDate, resolvedIncludeTime)}`;

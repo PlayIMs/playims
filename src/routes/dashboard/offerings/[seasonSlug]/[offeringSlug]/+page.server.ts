@@ -315,6 +315,7 @@ export const load: PageServerLoad = async (event) => {
 				slug: offering.slug?.trim() || '',
 				sport: offering.sport?.trim() || null,
 				type: offering.type?.trim() || 'league',
+				isActive: offering.isActive !== 0,
 				description: offering.description?.trim() || null,
 				minPlayers: offering.minPlayers ?? null,
 				maxPlayers: offering.maxPlayers ?? null,

@@ -2,6 +2,7 @@
 	import { beforeNavigate, goto, invalidateAll } from '$app/navigation';
 	import type { PageData } from './$types';
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
+	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import ModalShell from '$lib/components/modals/ModalShell.svelte';
 	import OfferingsTable from '$lib/components/OfferingsTable.svelte';
@@ -12,6 +13,7 @@
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import type { ManageIntramuralLeagueResponse } from '$lib/server/intramural-offerings-validation';
 	import { toast } from '$lib/toasts';
+	import { parseDateTooltipValue } from '$lib/utils/date-tooltip.js';
 	import CreateDivisionWizard from './_wizards/CreateDivisionWizard.svelte';
 	import MoveTeamWizard from './_wizards/MoveTeamWizard.svelte';
 	import CreateTeamWizard from './_wizards/CreateTeamWizard.svelte';
@@ -24,13 +26,30 @@
 		IconBallVolleyball,
 		IconCrosshair,
 		IconDots,
+		IconLock,
+		IconLockOpen,
 		IconShip,
 		IconTarget,
 		IconTrash
 	} from '@tabler/icons-svelte';
 
 	type DivisionSection = NonNullable<PageData['divisions']>[number];
+	type DivisionStandingsRow = DivisionSection['standings'][number];
 	type PlacementValue = 'active' | 'waitlist';
+	type StandingsDisplayRow = {
+		teamId: string;
+		teamName: string;
+		wins: number | null;
+		losses: number | null;
+		ties: number | null;
+		points: number | null;
+		winPct: string | null;
+		streak: string | null;
+		sportsmanshipRating: string | null;
+		forfeits: number | null;
+		forgoes: number | null;
+		hasPostedStandings: boolean;
+	};
 
 	interface DropdownOption {
 		value: string;
@@ -73,7 +92,7 @@
 		divisionId: string;
 		placement: PlacementValue;
 		rosterSize: number;
-		dateRegistered: string | null;
+		dateCreated: string | null;
 		description: string | null;
 	}
 
@@ -85,6 +104,13 @@
 		currentPlacement: PlacementValue;
 	}
 
+	interface CreateTeamDivisionStatus {
+		name: string;
+		isLocked: boolean;
+		isFull: boolean;
+		defaultsToWaitlist: boolean;
+	}
+
 	interface MoveTeamWizardForm {
 		divisionId: string;
 		placement: PlacementValue;
@@ -92,6 +118,27 @@
 
 	type ActiveTeamRow = DivisionSection['teams'][number];
 	type WaitlistTeamRow = NonNullable<PageData['waitlistTeams']>[number];
+
+	const DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/;
+	const DAY_OF_WEEK_ORDER = new Map<string, number>([
+		['sunday', 0],
+		['sun', 0],
+		['monday', 1],
+		['mon', 1],
+		['tuesday', 2],
+		['tue', 2],
+		['tues', 2],
+		['wednesday', 3],
+		['wed', 3],
+		['thursday', 4],
+		['thu', 4],
+		['thur', 4],
+		['thurs', 4],
+		['friday', 5],
+		['fri', 5],
+		['saturday', 6],
+		['sat', 6]
+	]);
 
 	const ROW_DROPDOWN_BUTTON_CLASS =
 		'w-full min-w-[10rem] border border-secondary-300 bg-white px-3 py-1.5 text-xs leading-5 font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2 hover:bg-neutral-50 focus:outline-none focus-visible:outline-none focus-visible:border-secondary-500 focus-visible:ring-0';
@@ -139,30 +186,27 @@
 		return IconBallFootball;
 	}
 
-	function toTitleCase(value: string | null | undefined): string | null {
-		const normalized = value?.trim();
-		if (!normalized) return null;
-		return normalized
-			.split(/[\s_-]+/)
-			.filter(Boolean)
-			.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-			.join(' ');
-	}
-
 	function formatDate(
 		value: string | null | undefined,
 		options?: Intl.DateTimeFormatOptions
 	): string {
 		if (!value) return 'TBD';
-		const parsed = new Date(value);
-		if (Number.isNaN(parsed.getTime())) return 'TBD';
+		const parsed = parseDateTooltipValue(value);
+		if (!parsed || Number.isNaN(parsed.getTime())) return 'TBD';
 		return parsed.toLocaleDateString('en-US', options);
 	}
 
 	function formatDateTime(value: string | null | undefined): string {
 		if (!value) return 'TBD';
-		const parsed = new Date(value);
-		if (Number.isNaN(parsed.getTime())) return 'TBD';
+		const parsed = parseDateTooltipValue(value);
+		if (!parsed || Number.isNaN(parsed.getTime())) return 'TBD';
+		if (!valueHasExplicitTime(value)) {
+			return parsed.toLocaleDateString('en-US', {
+				month: 'short',
+				day: 'numeric',
+				year: 'numeric'
+			});
+		}
 		return parsed.toLocaleString('en-US', {
 			month: 'short',
 			day: 'numeric',
@@ -170,6 +214,10 @@
 			hour: 'numeric',
 			minute: '2-digit'
 		});
+	}
+
+	function valueHasExplicitTime(value: string | null | undefined): boolean {
+		return typeof value === 'string' && DATE_TIME_PATTERN.test(value.trim());
 	}
 
 	function formatDateRange(
@@ -188,6 +236,54 @@
 			day: 'numeric',
 			year: 'numeric'
 		});
+	}
+
+	function formatFullDateRange(
+		start: string | null | undefined,
+		end: string | null | undefined
+	): string {
+		if (!start && !end) return 'TBD';
+		if (start && end) {
+			return `${formatDate(start, {
+				month: 'long',
+				day: 'numeric',
+				year: 'numeric'
+			})} - ${formatDate(end, {
+				month: 'long',
+				day: 'numeric',
+				year: 'numeric'
+			})}`;
+		}
+		return formatDate(start ?? end, {
+			month: 'long',
+			day: 'numeric',
+			year: 'numeric'
+		});
+	}
+
+	function formatSeasonPhaseDate(value: string | null | undefined): string {
+		if (!value) return 'TBD';
+		const parsed = new Date(value);
+		if (Number.isNaN(parsed.getTime())) return 'TBD';
+		const isCurrentYear = parsed.getFullYear() === new Date().getFullYear();
+		return parsed.toLocaleDateString('en-US', {
+			weekday: 'short',
+			month: 'short',
+			day: 'numeric',
+			...(isCurrentYear ? {} : { year: 'numeric' })
+		});
+	}
+
+	function formatSeasonPhaseRange(
+		start: string | null | undefined,
+		end: string | null | undefined,
+		emptyLabel = 'TBD'
+	): string {
+		if (!start && !end) return emptyLabel;
+		if (start && end) {
+			return `${formatSeasonPhaseDate(start)} - ${formatSeasonPhaseDate(end)}`;
+		}
+		return formatSeasonPhaseDate(start ?? end);
 	}
 
 	function divisionCapacityLabel(division: DivisionSection): string {
@@ -219,6 +315,124 @@
 
 	function normalizeSearchValue(value: string | null | undefined): string {
 		return value?.trim().toLowerCase() ?? '';
+	}
+
+	function parseWinPctValue(value: string | null | undefined): number {
+		if (!value) return Number.NEGATIVE_INFINITY;
+		const parsed = Number(value);
+		return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY;
+	}
+
+	function formatStandingCell(value: number | string | null | undefined): string {
+		if (value === null || value === undefined) return '-';
+		if (typeof value === 'string' && value.trim().length === 0) return '-';
+		return String(value);
+	}
+
+	function formatStreak(value: string | null | undefined): string {
+		if (!value) return '-';
+		const trimmed = value.trim().toUpperCase();
+		if (!trimmed || trimmed === '--') return '-';
+		const prefixMatch = /^([WLT])\s*(\d+)$/.exec(trimmed);
+		if (prefixMatch) {
+			return `${prefixMatch[2]}${prefixMatch[1]}`;
+		}
+		const suffixMatch = /^(\d+)\s*([WLT])$/.exec(trimmed);
+		if (suffixMatch) {
+			return `${suffixMatch[1]}${suffixMatch[2]}`;
+		}
+		return trimmed;
+	}
+
+	function formatForfeitSummary(
+		forfeits: number | null | undefined,
+		forgoes: number | null | undefined
+	): string {
+		return `${formatStandingCell(forfeits)} / ${formatStandingCell(forgoes)}`;
+	}
+
+	function lockStatus(isLocked: boolean): {
+		label: 'Locked' | 'Unlocked';
+		icon: typeof IconLock;
+	} {
+		if (isLocked) {
+			return {
+				label: 'Locked',
+				icon: IconLock
+			};
+		}
+		return {
+			label: 'Unlocked',
+			icon: IconLockOpen
+		};
+	}
+
+	function divisionLockTooltip(division: DivisionSection): string {
+		return division.isLocked ? 'This division cannot be joined' : 'This division can be joined';
+	}
+
+	function leagueLockTooltip(): string {
+		return data.league?.isLocked ? 'This league is locked' : 'This league is unlocked';
+	}
+
+	function joinTeamDeadline(): string | null {
+		return data.league?.seasonStartDate ?? data.league?.regEndDate ?? null;
+	}
+
+	function waitlistIsOpen(): boolean {
+		const deadline = joinTeamDeadline();
+		if (!deadline) return true;
+		const parsed = parseDateTooltipValue(deadline);
+		if (!parsed) return true;
+		const cutoff = new Date(parsed);
+		if (!valueHasExplicitTime(deadline)) {
+			cutoff.setHours(23, 59, 59, 999);
+		}
+		return cutoff.getTime() >= Date.now();
+	}
+
+	function waitlistTooltip(): string {
+		return waitlistIsOpen() ? 'This waitlist can be joined' : 'This waitlist cannot be joined';
+	}
+
+	function dayOfWeekSortValue(value: string | null | undefined): number {
+		const normalized = value?.trim().toLowerCase();
+		if (!normalized) return Number.MAX_SAFE_INTEGER;
+		return DAY_OF_WEEK_ORDER.get(normalized) ?? Number.MAX_SAFE_INTEGER;
+	}
+
+	function timeSortValue(value: string | null | undefined): number {
+		const normalized = value?.trim().toLowerCase();
+		if (!normalized) return Number.MAX_SAFE_INTEGER;
+
+		const meridiemMatch = normalized.match(/^(\d{1,2}):(\d{2})\s*([ap])m$/i);
+		if (meridiemMatch) {
+			let hour = Number(meridiemMatch[1]) % 12;
+			const minute = Number(meridiemMatch[2]);
+			if (meridiemMatch[3].toLowerCase() === 'p') hour += 12;
+			return hour * 60 + minute;
+		}
+
+		const twentyFourHourMatch = normalized.match(/^(\d{1,2}):(\d{2})$/);
+		if (twentyFourHourMatch) {
+			const hour = Number(twentyFourHourMatch[1]);
+			const minute = Number(twentyFourHourMatch[2]);
+			if (hour >= 0 && hour < 24 && minute >= 0 && minute < 60) {
+				return hour * 60 + minute;
+			}
+		}
+
+		return Number.MAX_SAFE_INTEGER;
+	}
+
+	function compareDivisionsBySchedule(a: DivisionSection, b: DivisionSection): number {
+		const dayDiff = dayOfWeekSortValue(a.dayOfWeek) - dayOfWeekSortValue(b.dayOfWeek);
+		if (dayDiff !== 0) return dayDiff;
+
+		const timeDiff = timeSortValue(a.gameTime) - timeSortValue(b.gameTime);
+		if (timeDiff !== 0) return timeDiff;
+
+		return a.name.localeCompare(b.name);
 	}
 
 	function matchesSearchTerm(values: Array<string | null | undefined>, query: string): boolean {
@@ -260,30 +474,109 @@
 		);
 	}
 
+	function buildStandingsRows(division: DivisionSection): StandingsDisplayRow[] {
+		const standingsByTeamId = new Map<string, DivisionStandingsRow>(
+			division.standings.map((row: DivisionStandingsRow) => [row.teamId, row])
+		);
+		const rows: StandingsDisplayRow[] = division.teams.map((team: ActiveTeamRow) => {
+			const standing = standingsByTeamId.get(team.id);
+			return {
+				teamId: team.id,
+				teamName: team.name,
+				wins: standing?.wins ?? null,
+				losses: standing?.losses ?? null,
+				ties: standing?.ties ?? null,
+				points: standing?.points ?? null,
+				winPct: standing?.winPct ?? null,
+				streak: standing?.streak ?? null,
+				sportsmanshipRating: null,
+				forfeits: null,
+				forgoes: null,
+				hasPostedStandings: Boolean(standing)
+			};
+		});
+
+		for (const standing of division.standings) {
+			if (rows.some((row) => row.teamId === standing.teamId)) continue;
+			rows.push({
+				teamId: standing.teamId,
+				teamName: standing.teamName,
+				wins: standing.wins,
+				losses: standing.losses,
+				ties: standing.ties,
+				points: standing.points,
+				winPct: standing.winPct,
+				streak: standing.streak,
+				sportsmanshipRating: null,
+				forfeits: null,
+				forgoes: null,
+				hasPostedStandings: true
+			});
+		}
+
+		return rows.sort((a, b) => {
+			if (a.hasPostedStandings !== b.hasPostedStandings) {
+				return a.hasPostedStandings ? -1 : 1;
+			}
+			if ((b.points ?? Number.NEGATIVE_INFINITY) !== (a.points ?? Number.NEGATIVE_INFINITY)) {
+				return (b.points ?? Number.NEGATIVE_INFINITY) - (a.points ?? Number.NEGATIVE_INFINITY);
+			}
+			const winPctDiff = parseWinPctValue(b.winPct) - parseWinPctValue(a.winPct);
+			if (winPctDiff !== 0) return winPctDiff;
+			if ((b.wins ?? Number.NEGATIVE_INFINITY) !== (a.wins ?? Number.NEGATIVE_INFINITY)) {
+				return (b.wins ?? Number.NEGATIVE_INFINITY) - (a.wins ?? Number.NEGATIVE_INFINITY);
+			}
+			return a.teamName.localeCompare(b.teamName);
+		});
+	}
+
+	function standingsMatchSearch(row: StandingsDisplayRow, query: string): boolean {
+		return matchesSearchTerm(
+			[
+				row.teamName,
+				formatStandingCell(row.wins),
+				formatStandingCell(row.losses),
+				formatStandingCell(row.ties),
+				formatStandingCell(row.points),
+				row.winPct,
+				formatStreak(row.streak),
+				row.sportsmanshipRating,
+				formatForfeitSummary(row.forfeits, row.forgoes)
+			],
+			query
+		);
+	}
+
 	function divisionTableColumnsFor(canManage: boolean): OfferingsTableColumn[] {
 		return [
 			{
 				key: 'team',
 				label: 'Team',
-				widthClass: canManage ? 'w-[32%]' : 'w-[36%]',
+				widthClass: canManage ? 'w-[24%]' : 'w-[30%]',
 				rowHeader: true
 			},
 			{
-				key: 'registration',
-				label: 'Team Registration',
-				widthClass: canManage ? 'w-[22%]' : 'w-[24%]',
+				key: 'date-created',
+				label: 'Date Created',
+				widthClass: canManage ? 'w-[18%]' : 'w-[22%]',
+				cellClass: 'align-top'
+			},
+			{
+				key: 'date-joined',
+				label: 'Date Joined',
+				widthClass: canManage ? 'w-[18%]' : 'w-[22%]',
 				cellClass: 'align-top'
 			},
 			{
 				key: 'roster',
 				label: 'Roster',
-				widthClass: canManage ? 'w-[14%]' : 'w-[16%]',
+				widthClass: canManage ? 'w-[12%]' : 'w-[12%]',
 				cellClass: 'align-top'
 			},
 			{
 				key: 'status',
 				label: 'Status',
-				widthClass: canManage ? 'w-[16%]' : 'w-[24%]',
+				widthClass: canManage ? 'w-[14%]' : 'w-[14%]',
 				cellClass: 'align-top'
 			},
 			...(canManage
@@ -291,7 +584,7 @@
 						{
 							key: 'manage',
 							label: '',
-							widthClass: 'w-[16%]',
+							widthClass: 'w-[14%]',
 							cellClass: 'align-top'
 						}
 					]
@@ -304,12 +597,12 @@
 			{
 				key: 'team',
 				label: 'Team',
-				widthClass: canManage ? 'w-[24%]' : 'w-[28%]',
+				widthClass: canManage ? 'w-[26%]' : 'w-[34%]',
 				rowHeader: true
 			},
 			{
-				key: 'registration',
-				label: 'Team Registration',
+				key: 'date-created',
+				label: 'Date Created',
 				widthClass: canManage ? 'w-[18%]' : 'w-[20%]',
 				cellClass: 'align-top'
 			},
@@ -328,7 +621,7 @@
 			{
 				key: 'status',
 				label: 'Status',
-				widthClass: canManage ? 'w-[16%]' : 'w-[20%]',
+				widthClass: canManage ? 'w-[14%]' : 'w-[14%]',
 				cellClass: 'align-top'
 			},
 			...(canManage
@@ -415,6 +708,24 @@
 		};
 	}
 
+	function findDivisionById(divisionId: string): DivisionSection | undefined {
+		return data.divisions.find((division: DivisionSection) => division.id === divisionId);
+	}
+
+	function shouldDefaultTeamToWaitlist(divisionId: string): boolean {
+		const division = findDivisionById(divisionId);
+		if (!division) return false;
+		return Boolean(division.isLocked) || isDivisionFull(divisionId);
+	}
+
+	function defaultCreateTeamPlacement(
+		divisionId: string,
+		requestedPlacement: PlacementValue = 'active'
+	): PlacementValue {
+		if (requestedPlacement === 'waitlist') return 'waitlist';
+		return shouldDefaultTeamToWaitlist(divisionId) ? 'waitlist' : 'active';
+	}
+
 	const divisionOptions = $derived.by<DropdownOption[]>(() =>
 		data.divisions.map((division: DivisionSection) => ({
 			value: division.id,
@@ -432,6 +743,57 @@
 		divisionTableColumnsFor(canManageLeague)
 	);
 
+	const standingsColumns = $derived.by<OfferingsTableColumn[]>(() => [
+		{
+			key: 'team',
+			label: 'Team',
+			widthClass: 'w-[32%]',
+			rowHeader: true
+		},
+		{
+			key: 'record',
+			label: 'W-L-T',
+			widthClass: 'w-[14%]',
+			headerClass: 'text-center',
+			cellClass: 'align-top text-center tabular-nums'
+		},
+		{
+			key: 'points',
+			label: 'PTS',
+			widthClass: 'w-[8%]',
+			headerClass: 'text-center',
+			cellClass: 'align-top text-center tabular-nums'
+		},
+		{
+			key: 'pct',
+			label: 'PTS%',
+			widthClass: 'w-[10%]',
+			headerClass: 'text-center',
+			cellClass: 'align-top text-center tabular-nums'
+		},
+		{
+			key: 'streak',
+			label: 'STRK',
+			widthClass: 'w-[10%]',
+			headerClass: 'text-center',
+			cellClass: 'align-top text-center tabular-nums'
+		},
+		{
+			key: 'sportsmanship',
+			label: 'SR',
+			widthClass: 'w-[8%]',
+			headerClass: 'text-center',
+			cellClass: 'align-top text-center tabular-nums'
+		},
+		{
+			key: 'forfeits',
+			label: 'FFs',
+			widthClass: 'w-[18%]',
+			headerClass: 'text-center',
+			cellClass: 'align-top text-center tabular-nums'
+		}
+	]);
+
 	const waitlistTableColumns = $derived.by<OfferingsTableColumn[]>(() =>
 		waitlistTableColumnsFor(canManageLeague)
 	);
@@ -445,7 +807,7 @@
 				divisionId: division.id,
 				placement: 'active' as const,
 				rosterSize: team.rosterSize,
-				dateRegistered: team.dateRegistered,
+				dateCreated: team.dateCreated,
 				description: team.description
 			}))
 		),
@@ -456,7 +818,7 @@
 			divisionId: team.preferredDivisionId,
 			placement: 'waitlist' as const,
 			rosterSize: team.rosterSize,
-			dateRegistered: team.dateRegistered,
+			dateCreated: team.dateCreated,
 			description: team.description
 		}))
 	]);
@@ -467,10 +829,10 @@
 
 	const visibleDivisions = $derived.by<DivisionSection[]>(() => {
 		const query = normalizedSearchQuery;
-		if (!query) return data.divisions;
-		return data.divisions.filter((division: DivisionSection) =>
-			divisionMatchesSearch(division, query)
-		);
+		const divisions = query
+			? data.divisions.filter((division: DivisionSection) => divisionMatchesSearch(division, query))
+			: data.divisions;
+		return [...divisions].sort(compareDivisionsBySchedule);
 	});
 
 	const visibleWaitlistTeams = $derived.by<WaitlistTeamRow[]>(() => {
@@ -481,7 +843,18 @@
 		);
 	});
 
+	const visibleDivisionStandings = $derived.by<Map<string, StandingsDisplayRow[]>>(() => {
+		const query = normalizedSearchQuery;
+		return new Map(
+			visibleDivisions.map((division: DivisionSection) => {
+				const rows = buildStandingsRows(division);
+				return [division.id, query ? rows.filter((row) => standingsMatchSearch(row, query)) : rows];
+			})
+		);
+	});
+
 	const hasSearchQuery = $derived.by(() => normalizedSearchQuery.length > 0);
+	const leagueStatus = $derived.by(() => lockStatus(Boolean(data.league?.isLocked)));
 
 	function leagueDetailHref(
 		leagueSlug: string | null | undefined,
@@ -523,6 +896,7 @@
 	let createDivisionSubmitting = $state(false);
 	let createTeamSubmitting = $state(false);
 	let createDivisionValidationVisible = $state(false);
+	let createTeamValidationVisible = $state(false);
 	let createDivisionSlugTouched = $state(false);
 	let createTeamSlugTouched = $state(false);
 	let createDivisionFormError = $state('');
@@ -579,9 +953,10 @@
 	): void {
 		createTeamInitialForm = {
 			...defaultTeamForm(divisionId),
-			placement
+			placement: defaultCreateTeamPlacement(divisionId, placement)
 		};
 		createTeamForm = { ...createTeamInitialForm };
+		createTeamValidationVisible = false;
 		createTeamSlugTouched = false;
 		createTeamServerFieldErrors = {};
 		createTeamFormError = '';
@@ -758,6 +1133,7 @@
 		const name = values.name.trim();
 		const slug = values.slug.trim();
 		const normalizedSlug = slug.toLowerCase();
+		const targetDivision = findDivisionById(values.divisionId);
 
 		if (!name) errors['name'] = 'Team name is required.';
 		if (!slug) errors['slug'] = 'Team slug is required.';
@@ -768,10 +1144,7 @@
 			errors['divisionId'] = 'Select a division for this team.';
 		}
 
-		if (
-			values.divisionId &&
-			!data.divisions.some((division: DivisionSection) => division.id === values.divisionId)
-		) {
+		if (values.divisionId && !targetDivision) {
 			errors['divisionId'] = 'Select a valid division for this league.';
 		}
 
@@ -779,7 +1152,13 @@
 			errors['slug'] = 'A team with this slug already exists in this league.';
 		}
 
-		if (values.placement === 'active' && values.divisionId && isDivisionFull(values.divisionId)) {
+		if (values.placement === 'active' && targetDivision?.isLocked) {
+			errors['divisionId'] = 'This division is locked. Add the team to the waitlist instead.';
+		} else if (
+			values.placement === 'active' &&
+			values.divisionId &&
+			isDivisionFull(values.divisionId)
+		) {
 			errors['divisionId'] =
 				'This division is already at capacity. Add the team to the waitlist instead.';
 		}
@@ -817,18 +1196,30 @@
 	}));
 
 	const createTeamFieldErrors = $derived.by(() => ({
-		...getCreateTeamFieldErrors(createTeamForm),
+		...(createTeamValidationVisible ? getCreateTeamFieldErrors(createTeamForm) : {}),
 		...createTeamServerFieldErrors
 	}));
+
+	const createTeamSelectedDivisionStatus = $derived.by<CreateTeamDivisionStatus | null>(() => {
+		const division = findDivisionById(createTeamForm.divisionId);
+		if (!division) return null;
+
+		const isLocked = Boolean(division.isLocked);
+		const isFull = isDivisionFull(division.id);
+
+		return {
+			name: division.name,
+			isLocked,
+			isFull,
+			defaultsToWaitlist: isLocked || isFull
+		};
+	});
 
 	const moveTeamFieldErrors = $derived.by(() => getMoveTeamFieldErrors(moveTeamForm));
 
 	const canSubmitCreateDivision = $derived.by(() => !createDivisionSubmitting);
 
-	const canSubmitCreateTeam = $derived.by(
-		() =>
-			Object.keys(getCreateTeamFieldErrors(createTeamForm)).length === 0 && !createTeamSubmitting
-	);
+	const canSubmitCreateTeam = $derived.by(() => !createTeamSubmitting);
 
 	const canSubmitMoveTeam = $derived.by(
 		() =>
@@ -900,6 +1291,7 @@
 	}
 
 	async function createTeam(): Promise<void> {
+		createTeamValidationVisible = true;
 		const clientErrors = getCreateTeamFieldErrors(createTeamForm);
 		if (Object.keys(clientErrors).length > 0 || !data.league?.id) {
 			return;
@@ -956,6 +1348,21 @@
 		} finally {
 			createTeamSubmitting = false;
 		}
+	}
+
+	function handleCreateTeamDivisionChange(divisionId: string): void {
+		const followedPreviousDefault =
+			createTeamForm.placement === defaultCreateTeamPlacement(createTeamForm.divisionId);
+		createTeamForm.divisionId = divisionId;
+		if (followedPreviousDefault) {
+			createTeamForm.placement = defaultCreateTeamPlacement(divisionId);
+		}
+		clearCreateTeamApiErrors();
+	}
+
+	function handleCreateTeamWaitlistChange(checked: boolean): void {
+		createTeamForm.placement = checked ? 'waitlist' : 'active';
+		clearCreateTeamApiErrors();
 	}
 
 	function teamActionOptions(team: TeamActionContext): DropdownOption[] {
@@ -1189,11 +1596,19 @@
 				>
 					<HeaderIcon class="w-7 h-7 lg:w-8 lg:h-8" />
 				</div>
-				<h1
-					class="text-5xl lg:text-6xl leading-[0.9] tracking-[0.01em] font-bold font-serif text-neutral-950"
-				>
-					{data.league?.name ?? 'League'}
-				</h1>
+				<div class="flex items-center gap-2">
+					<h1
+						class="text-5xl lg:text-6xl leading-[0.9] tracking-[0.01em] font-bold font-serif text-neutral-950"
+					>
+						{data.league?.name ?? 'League'}
+					</h1>
+					<HoverTooltip text={leagueLockTooltip()} wrapperClass="inline-flex shrink-0">
+						<span class="inline-flex text-neutral-950" aria-hidden="true">
+							<leagueStatus.icon class="h-5 w-5 lg:h-6 lg:w-6" />
+						</span>
+					</HoverTooltip>
+					<span class="sr-only">{leagueStatus.label}</span>
+				</div>
 			</div>
 		</div>
 	</header>
@@ -1236,9 +1651,6 @@
 								<span class="border border-secondary-300 px-2 py-1">
 									{data.summary.waitlistCount} waitlist
 								</span>
-								{#if data.league.isLocked}
-									<span class="badge-primary text-xs uppercase tracking-wide">Locked</span>
-								{/if}
 								{#if canManageLeague}
 									<SplitAddAction
 										options={leagueAddActionOptions}
@@ -1306,11 +1718,19 @@
 													>
 														{division.name}
 													</a>
-													<span
-														class="badge-secondary-outlined px-1.5 py-0 text-[10px] uppercase tracking-wide"
+													<HoverTooltip
+														text={divisionLockTooltip(division)}
+														wrapperClass="inline-flex shrink-0"
 													>
-														Division
-													</span>
+														<span class="inline-flex text-neutral-950" aria-hidden="true">
+															{#if division.isLocked}
+																<IconLock class="h-4 w-4" />
+															{:else}
+																<IconLockOpen class="h-4 w-4" />
+															{/if}
+														</span>
+													</HoverTooltip>
+													<span class="sr-only">{division.isLocked ? 'Locked' : 'Unlocked'}</span>
 												</div>
 												{#if divisionMetaLine(division)}
 													<p
@@ -1328,9 +1748,6 @@
 													<span class="badge-primary-outlined text-xs uppercase tracking-wide">
 														{division.waitlistCount} Waitlist
 													</span>
-												{/if}
-												{#if division.isLocked}
-													<span class="badge-primary text-xs uppercase tracking-wide">Locked</span>
 												{/if}
 											</div>
 										</div>
@@ -1367,26 +1784,43 @@
 															<HeaderIcon class="h-5 w-5" />
 														</div>
 														<div class="min-w-0">
-															<div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-																<p class="font-sans text-sm font-bold text-neutral-950">
+															<div class="space-y-px">
+																<p
+																	class="font-sans text-sm leading-tight font-bold text-neutral-950"
+																>
 																	{activeTeam.name}
 																</p>
-																<span class="font-sans text-xs leading-snug text-neutral-700">
-																	Captain: {captainLabel(activeTeam.captainName)}
-																</span>
+																<p
+																	class="font-sans text-[11px] leading-none font-normal text-neutral-700"
+																>
+																	{captainLabel(activeTeam.captainName)}
+																</p>
 															</div>
 															{#if activeTeam.description}
-																<p class="mt-1 font-sans text-xs leading-snug text-neutral-700">
-																	{activeTeam.description}
-																</p>
+																<div class="mt-1 max-w-full overflow-x-auto pb-1 scrollbar-thin">
+																	<p
+																		class="min-w-max font-sans text-xs leading-snug whitespace-nowrap text-neutral-700"
+																	>
+																		{activeTeam.description}
+																	</p>
+																</div>
 															{/if}
 														</div>
 													</div>
-												{:else if column.key === 'registration'}
+												{:else if column.key === 'date-created'}
 													<p class="font-sans text-xs leading-snug text-neutral-950">
 														<DateHoverText
-															display={formatDateTime(activeTeam.dateRegistered)}
-															value={activeTeam.dateRegistered}
+															display={formatDateTime(activeTeam.dateCreated)}
+															value={activeTeam.dateCreated}
+															includeTime
+															wrapperClass="inline"
+														/>
+													</p>
+												{:else if column.key === 'date-joined'}
+													<p class="font-sans text-xs leading-snug text-neutral-950">
+														<DateHoverText
+															display={formatDateTime(activeTeam.dateJoined)}
+															value={activeTeam.dateJoined}
 															includeTime
 															wrapperClass="inline"
 														/>
@@ -1397,7 +1831,9 @@
 														{#if hasRosterLimit()}
 															{data.offering?.maxPlayers}
 														{:else}
-															<span aria-label="No max players">&infin;</span>
+															<span class="text-sm leading-none" aria-label="No max players">
+																&infin;
+															</span>
 														{/if}
 													</p>
 												{:else if column.key === 'status'}
@@ -1446,19 +1882,26 @@
 									<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
 										<div class="min-w-0">
 											<div class="flex flex-wrap items-center gap-2">
-												<h2 class="text-2xl font-bold font-serif text-neutral-950">
-													League Waitlist
-												</h2>
-												<span
-													class="badge-secondary-outlined px-1.5 py-0 text-[10px] uppercase tracking-wide"
-												>
-													Waitlist
-												</span>
+												<h2 class="text-2xl font-bold font-serif text-neutral-950">Waitlist</h2>
+												<HoverTooltip text={waitlistTooltip()} wrapperClass="inline-flex shrink-0">
+													<span class="inline-flex text-neutral-950" aria-hidden="true">
+														{#if waitlistIsOpen()}
+															<IconLockOpen class="h-4 w-4" />
+														{:else}
+															<IconLock class="h-4 w-4" />
+														{/if}
+													</span>
+												</HoverTooltip>
+												<span class="sr-only">{waitlistIsOpen() ? 'Unlocked' : 'Locked'}</span>
 											</div>
-											<p class="mt-1 text-sm text-neutral-900">
-												{data.summary.waitlistCount} team{data.summary.waitlistCount === 1
-													? ''
-													: 's'} waiting for placement
+											<p class="mt-1 text-xs leading-tight text-neutral-700">
+												Join deadline:
+												<DateHoverText
+													display={formatDateTime(joinTeamDeadline())}
+													value={joinTeamDeadline()}
+													includeTime
+													textClass="ml-1"
+												/>
 											</p>
 										</div>
 										<div class="flex flex-wrap items-center gap-1">
@@ -1499,26 +1942,32 @@
 														<HeaderIcon class="h-5 w-5" />
 													</div>
 													<div class="min-w-0">
-														<div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-															<p class="font-sans text-sm font-bold text-neutral-950">
+														<div class="space-y-px">
+															<p class="font-sans text-sm leading-tight font-bold text-neutral-950">
 																{waitlistTeam.name}
 															</p>
-															<span class="font-sans text-xs leading-snug text-neutral-700">
-																Captain: {captainLabel(waitlistTeam.captainName)}
-															</span>
+															<p
+																class="font-sans text-[11px] leading-none font-normal text-neutral-700"
+															>
+																{captainLabel(waitlistTeam.captainName)}
+															</p>
 														</div>
 														{#if waitlistTeam.description}
-															<p class="mt-1 font-sans text-xs leading-snug text-neutral-700">
-																{waitlistTeam.description}
-															</p>
+															<div class="mt-1 max-w-full overflow-x-auto pb-1 scrollbar-thin">
+																<p
+																	class="min-w-max font-sans text-xs leading-snug whitespace-nowrap text-neutral-700"
+																>
+																	{waitlistTeam.description}
+																</p>
+															</div>
 														{/if}
 													</div>
 												</div>
-											{:else if column.key === 'registration'}
+											{:else if column.key === 'date-created'}
 												<p class="font-sans text-xs leading-snug text-neutral-950">
 													<DateHoverText
-														display={formatDateTime(waitlistTeam.dateRegistered)}
-														value={waitlistTeam.dateRegistered}
+														display={formatDateTime(waitlistTeam.dateCreated)}
+														value={waitlistTeam.dateCreated}
 														includeTime
 														wrapperClass="inline"
 													/>
@@ -1533,7 +1982,9 @@
 													{#if hasRosterLimit()}
 														{data.offering?.maxPlayers}
 													{:else}
-														<span aria-label="No max players">&infin;</span>
+														<span class="text-sm leading-none" aria-label="No max players">
+															&infin;
+														</span>
 													{/if}
 												</p>
 											{:else if column.key === 'status'}
@@ -1581,110 +2032,234 @@
 					</div>
 				</section>
 
-				<aside class="w-full min-w-0 space-y-6">
-					<DashboardSidebarPanel title="League Snapshot">
+				<aside class="w-full min-w-0 space-y-4">
+					<DashboardSidebarPanel title="League Information" contentClass="space-y-2.5 p-3">
 						{#snippet content()}
-							<div class="space-y-3 text-sm text-neutral-950">
-								<div class="border border-neutral-950 bg-white p-3">
-									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
-										Season
-									</p>
-									<p class="mt-1 font-semibold">{data.season?.name ?? 'TBD'}</p>
-									<p class="mt-1 text-xs text-neutral-700">
-										Offering: {data.offering?.name ?? 'TBD'}
-									</p>
-								</div>
-								<div class="border border-neutral-950 bg-white p-3">
-									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
-										Regular Season
-									</p>
-									<p class="mt-1 font-semibold">
-										{formatDateRange(data.league.seasonStartDate, data.league.seasonEndDate)}
-									</p>
-								</div>
-								<div class="border border-neutral-950 bg-white p-3">
-									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
-										Team Registration
-									</p>
-									<p class="mt-1">
-										Start:
-										<DateHoverText
-											display={formatDateTime(data.league.regStartDate)}
-											value={data.league.regStartDate}
-											includeTime
-											textClass="ml-1"
-										/>
-									</p>
-									<p>
-										End:
-										<DateHoverText
-											display={formatDateTime(data.league.regEndDate)}
-											value={data.league.regEndDate}
-											includeTime
-											textClass="ml-1"
-										/>
-									</p>
-								</div>
-								<div class="border border-neutral-950 bg-white p-3">
-									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
-										League Setup
-									</p>
-									<p class="mt-1">Gender: {toTitleCase(data.league.gender) ?? 'Open'}</p>
-									<p>Skill: {toTitleCase(data.league.skillLevel) ?? 'All Levels'}</p>
-									<p>
-										Roster: {data.offering?.minPlayers ?? 'TBD'} min / {data.offering?.maxPlayers ??
-											'TBD'} max
-									</p>
-									{#if data.offering?.rulebookUrl}
-										<a
-											href={data.offering.rulebookUrl}
-											target="_blank"
-											rel="noreferrer"
-											class="mt-2 inline-flex font-semibold text-secondary-900 underline underline-offset-2"
+							<div class="space-y-2.5 text-[13px] text-neutral-950">
+								<div class="border border-neutral-950 bg-white p-2.5">
+									<div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+										<div class="min-w-0">
+											<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+												Regular Season
+											</p>
+											<p class="mt-0.5 leading-tight">
+												{formatSeasonPhaseRange(
+													data.league.seasonStartDate,
+													data.league.seasonEndDate
+												)}
+											</p>
+										</div>
+										<div
+											class="min-w-0 border-t border-secondary-200 pt-2 sm:border-t-0 sm:border-l sm:pl-2 sm:pt-0"
 										>
-											Open rulebook
-										</a>
-									{/if}
+											<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+												Preseason
+											</p>
+											<p class="mt-0.5 leading-tight">
+												{data.league.hasPreseason
+													? formatSeasonPhaseRange(
+															data.league.preseasonStartDate,
+															data.league.preseasonEndDate
+														)
+													: 'No preseason'}
+											</p>
+										</div>
+										<div
+											class="min-w-0 border-t border-secondary-200 pt-2 sm:border-t-0 sm:border-l sm:pl-2 sm:pt-0"
+										>
+											<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+												Postseason
+											</p>
+											<p class="mt-0.5 leading-tight">
+												{data.league.hasPostseason
+													? formatSeasonPhaseRange(
+															data.league.postseasonStartDate,
+															data.league.postseasonEndDate
+														)
+													: 'No postseason'}
+											</p>
+										</div>
+									</div>
+								</div>
+								<div class="border border-neutral-950 bg-white p-2.5">
+									<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+										<div class="min-w-0">
+											<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+												Team Registration
+											</p>
+											<p class="mt-0.5 leading-tight">
+												<span class="font-semibold">Start:</span>
+												<DateHoverText
+													display={formatDateTime(data.league.regStartDate)}
+													value={data.league.regStartDate}
+													includeTime
+													textClass="ml-1"
+												/>
+											</p>
+											<p class="leading-tight">
+												<span class="font-semibold">End:</span>
+												<DateHoverText
+													display={formatDateTime(data.league.regEndDate)}
+													value={data.league.regEndDate}
+													includeTime
+													textClass="ml-1"
+												/>
+											</p>
+										</div>
+										<div
+											class="min-w-0 border-t border-secondary-200 pt-2 sm:border-t-0 sm:border-l sm:pl-2 sm:pt-0"
+										>
+											<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+												Join Team Deadline
+											</p>
+											<p class="mt-0.5 leading-tight">
+												<DateHoverText
+													display={formatDateTime(joinTeamDeadline())}
+													value={joinTeamDeadline()}
+													includeTime
+												/>
+											</p>
+										</div>
+									</div>
 								</div>
 							</div>
 						{/snippet}
 					</DashboardSidebarPanel>
 
-					<DashboardSidebarPanel title="Division Snapshot">
+					<DashboardSidebarPanel title="League Standings" contentClass="space-y-3 p-3">
 						{#snippet content()}
-							{#if data.divisions.length === 0}
-								<p class="text-sm font-sans text-neutral-950">No divisions available yet.</p>
+							{#if visibleDivisions.length === 0}
+								<p class="text-sm font-sans text-neutral-950">
+									{#if hasSearchQuery}
+										No divisions match this search.
+									{:else}
+										No divisions available yet.
+									{/if}
+								</p>
 							{:else}
 								<div class="space-y-3">
-									{#each data.divisions as division}
-										<a
-											href={`#division-${division.slug || division.id}`}
-											class="block border border-neutral-950 bg-white p-3 transition-colors hover:bg-neutral-25"
-										>
+									{#each visibleDivisions as division}
+										<section class="space-y-2 border border-neutral-950 bg-white p-2.5">
 											<div class="flex items-start justify-between gap-3">
 												<div class="min-w-0">
-													<p class="font-serif text-lg font-bold text-neutral-950">
-														{division.name}
-													</p>
+													<div class="flex flex-wrap items-center gap-1.5">
+														<a
+															href={`#division-${division.slug || division.id}`}
+															class="font-serif text-lg font-bold text-neutral-950 underline-offset-2 hover:underline"
+														>
+															{division.name}
+														</a>
+														<HoverTooltip
+															text={divisionLockTooltip(division)}
+															wrapperClass="inline-flex shrink-0"
+														>
+															<span class="inline-flex text-neutral-950" aria-hidden="true">
+																{#if division.isLocked}
+																	<IconLock class="h-4 w-4" />
+																{:else}
+																	<IconLockOpen class="h-4 w-4" />
+																{/if}
+															</span>
+														</HoverTooltip>
+														<span class="sr-only">{division.isLocked ? 'Locked' : 'Unlocked'}</span>
+													</div>
 													{#if divisionMetaLine(division)}
 														<p
-															class="mt-1 text-xs font-semibold uppercase tracking-wide text-neutral-800"
+															class="mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-800"
 														>
 															{divisionMetaLine(division)}
 														</p>
 													{/if}
+													<p class="mt-1 text-[11px] leading-tight text-neutral-700">
+														{visibleDivisionStandings.get(division.id)?.length ?? 0} standings rows /
+														{division.teamCount} teams
+													</p>
 												</div>
 												<div class="flex flex-col items-end gap-1">
 													<span class="badge-secondary-outlined px-2 py-0.5 text-xs">
 														{divisionCapacityLabel(division)}
 													</span>
-													{#if division.isLocked}
-														<span class="badge-primary text-xs uppercase tracking-wide">Locked</span
-														>
-													{/if}
 												</div>
 											</div>
-										</a>
+											<OfferingsTable
+												columns={standingsColumns}
+												rows={visibleDivisionStandings.get(division.id) ?? []}
+												caption={`${division.name} standings table`}
+												tableClass="w-full table-fixed border-collapse"
+											>
+												{#snippet emptyBody()}
+													<tr class="bg-neutral-25">
+														<td
+															colspan={standingsColumns.length}
+															class="px-2 py-6 text-center text-sm italic text-neutral-700"
+														>
+															{#if hasSearchQuery}
+																No standings rows match this search.
+															{:else if division.teamCount === 0}
+																0 standings rows / 0 teams.
+															{:else}
+																No standings posted yet.
+															{/if}
+														</td>
+													</tr>
+												{/snippet}
+
+												{#snippet cell(row, column)}
+													{@const standingsRow = row as StandingsDisplayRow}
+													{#if column.key === 'team'}
+														<div class="flex min-w-0 items-center gap-1.5">
+															<div
+																class="flex h-5 w-5 shrink-0 items-center justify-center bg-primary text-white"
+																aria-hidden="true"
+															>
+																<HeaderIcon class="h-3 w-3" />
+															</div>
+															<p class="truncate font-sans text-xs font-bold text-neutral-950">
+																{standingsRow.teamName}
+															</p>
+														</div>
+													{:else if column.key === 'record'}
+														<p
+															class="w-full text-center font-sans text-xs leading-snug text-neutral-950 tabular-nums"
+														>
+															{formatStandingCell(standingsRow.wins)}-{formatStandingCell(
+																standingsRow.losses
+															)}-{formatStandingCell(standingsRow.ties)}
+														</p>
+													{:else if column.key === 'points'}
+														<p
+															class="w-full text-center font-sans text-xs leading-snug text-neutral-950 tabular-nums"
+														>
+															{formatStandingCell(standingsRow.points)}
+														</p>
+													{:else if column.key === 'pct'}
+														<p
+															class="w-full text-center font-sans text-xs leading-snug text-neutral-950 tabular-nums"
+														>
+															{formatStandingCell(standingsRow.winPct)}
+														</p>
+													{:else if column.key === 'streak'}
+														<p
+															class="w-full text-center font-sans text-xs leading-snug text-neutral-950 tabular-nums"
+														>
+															{formatStreak(standingsRow.streak)}
+														</p>
+													{:else if column.key === 'sportsmanship'}
+														<p
+															class="w-full text-center font-sans text-xs leading-snug text-neutral-950 tabular-nums"
+														>
+															{formatStandingCell(standingsRow.sportsmanshipRating)}
+														</p>
+													{:else if column.key === 'forfeits'}
+														<p
+															class="w-full text-center font-sans text-xs leading-snug text-neutral-950 tabular-nums"
+														>
+															{formatForfeitSummary(standingsRow.forfeits, standingsRow.forgoes)}
+														</p>
+													{/if}
+												{/snippet}
+											</OfferingsTable>
+										</section>
 									{/each}
 								</div>
 							{/if}
@@ -1729,11 +2304,13 @@
 	canSubmit={canSubmitCreateTeam}
 	slugTouched={createTeamSlugTouched}
 	{divisionOptions}
-	{placementOptions}
+	selectedDivisionStatus={createTeamSelectedDivisionStatus}
 	unsavedConfirmOpen={createTeamUnsavedConfirmOpen}
 	onSlugTouchedChange={(value) => {
 		createTeamSlugTouched = value;
 	}}
+	onDivisionChange={handleCreateTeamDivisionChange}
+	onWaitlistChange={handleCreateTeamWaitlistChange}
 	onRequestClose={requestCloseCreateTeamWizard}
 	onSubmit={createTeam}
 	onInput={clearCreateTeamApiErrors}

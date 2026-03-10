@@ -66,6 +66,8 @@ This skill defines the styling standards, CSS framework usage, and design princi
 - Icons should be appropriately sized (typically `w-5 h-5` or `w-4 h-4` for navigation, `w-6 h-6` for larger contexts)
 - Match icon style to the context (e.g., navigation icons, action icons, status indicators)
 - Ensure icons have proper spacing from adjacent text (use `gap-2` or `gap-3` in flex containers)
+- Default to unboxed icons. Do not add borders, icon chips, or boxed icon treatments unless the user explicitly asks for them or the icon is part of an existing shared control that already defines its own button styling.
+- If an icon needs a clickable target, treat the border/background as button styling for the control, not as the default appearance of the icon itself.
 - For row-level item actions, default to icon-only controls with tooltips:
   - Edit: pencil icon (`IconPencil`) in neutral/dark tone
   - Delete: trash icon (`IconTrash`) in red (`text-error-700`)

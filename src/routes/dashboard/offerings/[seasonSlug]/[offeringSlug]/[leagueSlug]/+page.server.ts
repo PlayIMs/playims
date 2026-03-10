@@ -32,7 +32,8 @@ interface DivisionTeamRow {
 	status: TeamPlacement;
 	rosterSize: number;
 	captainName: string | null;
-	dateRegistered: string | null;
+	dateCreated: string | null;
+	dateJoined: string | null;
 	description: string | null;
 	teamColor: string | null;
 }
@@ -62,7 +63,7 @@ interface WaitlistTeamRow {
 	preferredDivisionName: string;
 	rosterSize: number;
 	captainName: string | null;
-	dateRegistered: string | null;
+	dateCreated: string | null;
 	description: string | null;
 }
 
@@ -272,7 +273,8 @@ export const load: PageServerLoad = async (event) => {
 						status: 'active',
 						rosterSize: rosterCountByTeamId.get(team.id) ?? team.currentRosterSize ?? 0,
 						captainName: captainNameByTeamId.get(team.id) ?? null,
-						dateRegistered: team.dateRegistered ?? null,
+						dateCreated: team.createdAt ?? team.dateRegistered ?? null,
+						dateJoined: team.updatedAt ?? team.createdAt ?? team.dateRegistered ?? null,
 						description: team.description?.trim() || null,
 						teamColor: team.teamColor?.trim() || null
 					}));
@@ -311,11 +313,11 @@ export const load: PageServerLoad = async (event) => {
 				preferredDivisionName: divisionNameById.get(team.divisionId) ?? 'Unassigned Division',
 				rosterSize: rosterCountByTeamId.get(team.id) ?? team.currentRosterSize ?? 0,
 				captainName: captainNameByTeamId.get(team.id) ?? null,
-				dateRegistered: team.dateRegistered ?? null,
+				dateCreated: team.createdAt ?? team.dateRegistered ?? null,
 				description: team.description?.trim() || null
 			}))
 			.sort((a, b) => {
-				const dateDiff = parseTimestamp(a.dateRegistered) - parseTimestamp(b.dateRegistered);
+				const dateDiff = parseTimestamp(a.dateCreated) - parseTimestamp(b.dateCreated);
 				if (dateDiff !== 0) return dateDiff;
 				return a.name.localeCompare(b.name);
 			});

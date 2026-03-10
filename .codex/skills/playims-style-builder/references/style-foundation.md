@@ -99,7 +99,9 @@ Hybrid exceptions (explicitly allowed):
 ## Icon Standards
 
 - Use Tabler icons (`@tabler/icons-svelte`) consistently.
-- Keep icon-only action buttons compact and bordered for dashboard consistency.
+- Default to unboxed icons.
+- Do not add borders, icon chips, or button chrome around icons unless the user explicitly asks for it or the icon is inside an established shared control that already owns its button styling.
+- If an icon needs a clickable hit area, treat the border/background as button styling, not as an icon default.
 - Common action semantics:
   - Edit: pencil icon in secondary/neutral tone.
   - Delete/destructive: trash/logout icon with error tone.

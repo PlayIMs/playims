@@ -366,6 +366,22 @@ export const POST: RequestHandler = async (event) => {
 		);
 		if (
 			input.team.placement === 'active' &&
+			targetDivision.isLocked
+		) {
+			return json(
+				{
+					success: false,
+					error: 'Selected division is locked.',
+					fieldErrors: {
+						'team.divisionId': ['This division is locked. Add the team to the waitlist instead.']
+					}
+				} satisfies ManageIntramuralLeagueResponse,
+				{ status: 409 }
+			);
+		}
+
+		if (
+			input.team.placement === 'active' &&
 			typeof targetDivision.maxTeams === 'number' &&
 			activeTeamsInDivision(
 				targetDivision.id,

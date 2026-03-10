@@ -2,6 +2,7 @@
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import InfoPopover from '$lib/components/InfoPopover.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
+	import ToggleField from '$lib/components/ToggleField.svelte';
 	import {
 		WizardModal,
 		WizardStepFooter,
@@ -28,6 +29,13 @@
 		disabled?: boolean;
 	}
 
+	interface SelectedDivisionStatus {
+		name: string;
+		isLocked: boolean;
+		isFull: boolean;
+		defaultsToWaitlist: boolean;
+	}
+
 	interface Props {
 		open: boolean;
 		form: TeamWizardForm;
@@ -37,9 +45,11 @@
 		canSubmit: boolean;
 		slugTouched: boolean;
 		divisionOptions: DropdownOption[];
-		placementOptions: DropdownOption[];
+		selectedDivisionStatus: SelectedDivisionStatus | null;
 		unsavedConfirmOpen: boolean;
 		onSlugTouchedChange: (value: boolean) => void;
+		onDivisionChange: (value: string) => void;
+		onWaitlistChange: (value: boolean) => void;
 		onRequestClose: () => void;
 		onSubmit: () => void;
 		onInput: () => void;
@@ -56,9 +66,11 @@
 		canSubmit,
 		slugTouched,
 		divisionOptions,
-		placementOptions,
+		selectedDivisionStatus,
 		unsavedConfirmOpen,
 		onSlugTouchedChange,
+		onDivisionChange,
+		onWaitlistChange,
 		onRequestClose,
 		onSubmit,
 		onInput,
@@ -102,11 +114,6 @@
 	on:input={onInput}
 >
 	<div class="space-y-4">
-		<div class="border border-neutral-950 bg-white p-3 text-sm leading-6 text-neutral-950">
-			Create the team, choose where it starts, and decide whether it should enter the league
-			directly or wait for an open spot.
-		</div>
-
 		<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
 			<div>
 				<div class="mb-1 flex min-h-6 items-center gap-1.5">
@@ -204,7 +211,7 @@
 					ariaLabel="Select team division"
 					buttonClass={dropdownButtonClass}
 					on:change={(event) => {
-						form.divisionId = event.detail.value;
+						onDivisionChange(event.detail.value);
 					}}
 				/>
 				{#if fieldErrors['divisionId']}
@@ -215,27 +222,39 @@
 			<div>
 				<div class="mb-1 flex min-h-6 items-center gap-1.5">
 					<p class="text-sm leading-6 text-neutral-950">
-						Placement <span class="text-error-700">*</span>
+						Waitlist
 					</p>
-					<InfoPopover buttonVariant="label-inline" buttonAriaLabel="Placement help">
+					<InfoPopover buttonVariant="label-inline" buttonAriaLabel="Waitlist help">
 						<div class="space-y-2">
-							<p>Division means the team counts against division capacity immediately.</p>
-							<p>Waitlist keeps the team attached to the division but out of the active count.</p>
+							<p>Turn this on to keep the team tied to the division without using an active slot.</p>
+							<p>Full or locked divisions default new teams to the waitlist.</p>
 						</div>
 					</InfoPopover>
 				</div>
-				<ListboxDropdown
-					options={placementOptions}
-					value={form.placement}
-					ariaLabel="Select team placement"
-					buttonClass={dropdownButtonClass}
+				<ToggleField
+					id="create-team-waitlist"
+					label="Add this team to the waitlist"
+					checked={form.placement === 'waitlist'}
+					labelClass="text-base leading-6 font-normal text-neutral-950"
 					on:change={(event) => {
-						form.placement = event.detail.value as 'active' | 'waitlist';
+						onWaitlistChange(event.detail.checked);
 					}}
-				/>
-				{#if fieldErrors['placement']}
-					<p class="mt-1 text-xs text-error-700">{fieldErrors['placement']}</p>
-				{/if}
+				>
+					{#if selectedDivisionStatus?.defaultsToWaitlist}
+						{#snippet description()}
+							{#if selectedDivisionStatus.isLocked && selectedDivisionStatus.isFull}
+								{selectedDivisionStatus.name} is locked and already full, so new teams should
+								start on the waitlist.
+							{:else if selectedDivisionStatus.isLocked}
+								{selectedDivisionStatus.name} is locked, so new teams should start on the
+								waitlist.
+							{:else}
+								{selectedDivisionStatus.name} is already full, so new teams should start on
+								the waitlist.
+							{/if}
+						{/snippet}
+					{/if}
+				</ToggleField>
 			</div>
 		</div>
 

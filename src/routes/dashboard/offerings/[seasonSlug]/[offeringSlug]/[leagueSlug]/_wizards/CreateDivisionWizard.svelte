@@ -1,6 +1,7 @@
 <script lang="ts">
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import InfoPopover from '$lib/components/InfoPopover.svelte';
+	import ToggleField from '$lib/components/ToggleField.svelte';
 	import {
 		WizardModal,
 		WizardStepFooter,
@@ -90,11 +91,6 @@
 	on:input={onInput}
 >
 	<div class="space-y-4">
-		<div class="border border-neutral-950 bg-white p-3 text-sm leading-6 text-neutral-950">
-			Create a division with its own team capacity, schedule slot, and lock state. Teams can be
-			added later through the team wizard.
-		</div>
-
 		<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
 			<div>
 				<div class="mb-1 flex min-h-6 items-center gap-1.5">
@@ -256,12 +252,15 @@
 			></textarea>
 		</div>
 
-		<div class="border border-neutral-950 bg-white p-3">
-			<label class="inline-flex items-center gap-2 text-sm text-neutral-950">
-				<input type="checkbox" class="toggle-secondary" bind:checked={form.isLocked} />
-				Start this division locked
-			</label>
-		</div>
+		<ToggleField
+			id="create-division-locked"
+			label="Start this division locked"
+			checked={form.isLocked}
+			labelClass="text-base leading-6 font-normal text-neutral-950"
+			on:change={(event) => {
+				form.isLocked = event.detail.checked;
+			}}
+		/>
 	</div>
 
 	{#snippet footer()}
