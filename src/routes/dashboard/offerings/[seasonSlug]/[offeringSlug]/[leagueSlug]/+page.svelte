@@ -730,6 +730,7 @@
 		{
 			key: 'record',
 			label: 'W-L-T',
+			headerHoverTooltipText: 'Wins-Losses-Ties',
 			width: '14%',
 			headerTextAlignment: 'center',
 			cellTextAlignment: 'center',
@@ -739,6 +740,7 @@
 		{
 			key: 'points',
 			label: 'PTS',
+			headerHoverTooltipText: 'Points',
 			width: '10%',
 			headerTextAlignment: 'center',
 			cellTextAlignment: 'center',
@@ -748,6 +750,7 @@
 		{
 			key: 'pct',
 			label: 'PTS%',
+			headerHoverTooltipText: 'Points Percentage',
 			width: '10%',
 			headerTextAlignment: 'center',
 			cellTextAlignment: 'center',
@@ -757,6 +760,7 @@
 		{
 			key: 'streak',
 			label: 'STRK',
+			headerHoverTooltipText: 'Win/Loss/Tie Streak',
 			width: '10%',
 			headerTextAlignment: 'center',
 			cellTextAlignment: 'center',
@@ -765,7 +769,8 @@
 		},
 		{
 			key: 'sportsmanship',
-			label: 'SR',
+			label: 'SBR',
+			headerHoverTooltipText: 'Sporting Behavior Rating',
 			width: '10%',
 			headerTextAlignment: 'center',
 			cellTextAlignment: 'center',
@@ -774,7 +779,8 @@
 		},
 		{
 			key: 'forfeits',
-			label: 'FFs',
+			label: 'FFS',
+			headerHoverTooltipText: 'Forfeits / Forgoes',
 			width: '12%',
 			headerTextAlignment: 'center',
 			cellTextAlignment: 'center',

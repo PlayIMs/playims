@@ -83,6 +83,10 @@
 		return classes.filter(Boolean).join(' ');
 	}
 
+	function headerHoverTooltipText(column: OfferingsTableColumn): string | undefined {
+		return column.headerHoverTooltipText ?? column.headerTooltipText;
+	}
+
 	function resolveBodyCellClass(column: OfferingsTableColumn): string {
 		const classes = [
 			resolvePaddingXClass(column.cellPaddingX),
@@ -121,9 +125,9 @@
 			<tr class="border-b border-neutral-950 bg-neutral">
 				{#each columns as column}
 					<th scope="col" class={resolveHeaderCellClass(column)}>
-						{#if column.headerTooltipText}
+						{#if headerHoverTooltipText(column)}
 							<HoverTooltip
-								text={column.headerTooltipText}
+								text={headerHoverTooltipText(column) ?? ''}
 								wrapperClass="inline-flex"
 								maxWidthClass="max-w-72"
 							>
