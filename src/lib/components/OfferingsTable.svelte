@@ -1,7 +1,13 @@
 <script lang="ts" generics="TRow">
 	import type { Snippet } from 'svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
-	import type { OfferingsTableColumn } from '$lib/components/offerings-table.js';
+	import type {
+		OfferingsTableColumn,
+		OfferingsTableHeaderTextTransform,
+		OfferingsTableHorizontalPadding,
+		OfferingsTableTextAlignment,
+		OfferingsTableVerticalAlignment
+	} from '$lib/components/offerings-table.js';
 
 	interface Props {
 		columns: OfferingsTableColumn[];
@@ -27,6 +33,67 @@
 		cell
 	}: Props = $props();
 
+	function resolveTextAlignmentClass(
+		alignment: OfferingsTableTextAlignment | undefined,
+		fallback: OfferingsTableTextAlignment
+	): string {
+		switch (alignment ?? fallback) {
+			case 'center':
+				return 'text-center';
+			case 'right':
+				return 'text-right';
+			default:
+				return 'text-left';
+		}
+	}
+
+	function resolveVerticalAlignmentClass(
+		alignment: OfferingsTableVerticalAlignment | undefined
+	): string {
+		switch (alignment) {
+			case 'top':
+				return 'align-top';
+			case 'bottom':
+				return 'align-bottom';
+			case 'middle':
+				return 'align-middle';
+			default:
+				return '';
+		}
+	}
+
+	function resolvePaddingXClass(padding: OfferingsTableHorizontalPadding | undefined): string {
+		return padding === 'none' ? '' : 'px-2';
+	}
+
+	function resolveHeaderTextTransformClass(
+		textTransform: OfferingsTableHeaderTextTransform | undefined
+	): string {
+		return textTransform === 'normal' ? 'normal-case' : 'uppercase';
+	}
+
+	function resolveHeaderCellClass(column: OfferingsTableColumn): string {
+		const classes = [
+			resolvePaddingXClass(column.headerPaddingX),
+			'py-1',
+			resolveTextAlignmentClass(column.headerTextAlignment, 'left'),
+			resolveHeaderTextTransformClass(column.headerTextTransform),
+			'text-[11px] font-bold tracking-wide text-neutral-950'
+		];
+		return classes.filter(Boolean).join(' ');
+	}
+
+	function resolveBodyCellClass(column: OfferingsTableColumn): string {
+		const classes = [
+			resolvePaddingXClass(column.cellPaddingX),
+			'py-1',
+			resolveTextAlignmentClass(column.cellTextAlignment, 'left'),
+			resolveVerticalAlignmentClass(column.cellVerticalAlignment),
+			column.tabularNumbers ? 'tabular-nums' : ''
+		];
+		return classes.filter(Boolean).join(' ');
+	}
+
 	function defaultRowClass(rowIndex: number, rowCount: number): string {
 		const borderClass = rowIndex < rowCount - 1 ? 'border-b border-secondary-200' : '';
 		const stripeClass = rowIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05';
@@ -47,16 +114,13 @@
 		{/if}
 		<colgroup>
 			{#each columns as column}
-				<col class={column.widthClass} />
+				<col style:width={column.width} />
 			{/each}
 		</colgroup>
 		<thead>
 			<tr class="border-b border-neutral-950 bg-neutral">
 				{#each columns as column}
-					<th
-						scope="col"
-						class={`px-2 py-1 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950 ${column.headerClass ?? ''}`}
-					>
+					<th scope="col" class={resolveHeaderCellClass(column)}>
 						{#if column.headerTooltipText}
 							<HoverTooltip
 								text={column.headerTooltipText}
@@ -91,11 +155,11 @@
 					<tr id={rowId?.(row, rowIndex)} class={resolvedRowClass(row, rowIndex)}>
 						{#each columns as column}
 							{#if column.rowHeader}
-								<th scope="row" class={`px-2 py-1 text-left ${column.cellClass ?? ''}`}>
+								<th scope="row" class={resolveBodyCellClass(column)}>
 									{@render cell(row, column)}
 								</th>
 							{:else}
-								<td class={`px-2 py-1 text-left ${column.cellClass ?? ''}`}>
+								<td class={resolveBodyCellClass(column)}>
 									{@render cell(row, column)}
 								</td>
 							{/if}

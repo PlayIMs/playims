@@ -508,78 +508,91 @@
 			{
 				key: 'team',
 				label: 'Team',
-				widthClass: 'w-[32%]',
-				rowHeader: true
+				width: '32%',
+				rowHeader: true,
+				headerTextAlignment: 'left',
+				cellTextAlignment: 'left',
+				cellVerticalAlignment: 'middle'
 			},
 			{
 				key: 'date-created',
 				label: 'Date Created',
-				widthClass: 'w-[22%]',
-				cellClass: 'align-top'
+				width: '22%',
+				headerTextAlignment: 'left',
+				cellTextAlignment: 'left',
+				cellVerticalAlignment: 'middle'
 			},
 			{
 				key: 'date-joined',
 				label: 'Date Joined',
-				widthClass: 'w-[22%]',
-				cellClass: 'align-top'
+				width: '22%',
+				headerTextAlignment: 'left',
+				cellTextAlignment: 'left',
+				cellVerticalAlignment: 'middle'
 			},
 			{
 				key: 'roster',
 				label: 'Roster',
-				widthClass: 'w-[12%]',
-				cellClass: 'align-top'
+				width: '12%',
+				headerTextAlignment: 'center',
+				cellTextAlignment: 'center',
+				cellVerticalAlignment: 'middle'
 			},
 			{
 				key: 'status',
 				label: 'Status',
-				widthClass: 'w-[12%]',
-				cellClass: 'align-top'
+				width: '12%',
+				headerTextAlignment: 'center',
+				cellTextAlignment: 'center',
+				cellVerticalAlignment: 'middle'
 			}
 		];
 	}
 
 	function waitlistTableColumnsFor(canManage: boolean): OfferingsTableColumn[] {
+		const manageColumns: OfferingsTableColumn[] = canManage
+			? [
+					{
+						key: 'manage',
+						label: '',
+						width: '12%',
+						cellVerticalAlignment: 'top'
+					}
+				]
+			: [];
+
 		return [
 			{
 				key: 'team',
 				label: 'Team',
-				widthClass: canManage ? 'w-[26%]' : 'w-[34%]',
+				width: canManage ? '26%' : '34%',
 				rowHeader: true
 			},
 			{
 				key: 'date-created',
 				label: 'Date Created',
-				widthClass: canManage ? 'w-[18%]' : 'w-[20%]',
-				cellClass: 'align-top'
+				width: canManage ? '18%' : '20%',
+				cellVerticalAlignment: 'top'
 			},
 			{
 				key: 'preferred-division',
 				label: 'Preferred Division',
-				widthClass: canManage ? 'w-[18%]' : 'w-[20%]',
-				cellClass: 'align-top'
+				width: canManage ? '18%' : '20%',
+				cellVerticalAlignment: 'top'
 			},
 			{
 				key: 'roster',
 				label: 'Roster',
-				widthClass: canManage ? 'w-[12%]' : 'w-[12%]',
-				cellClass: 'align-top'
+				width: '12%',
+				cellVerticalAlignment: 'top'
 			},
 			{
 				key: 'status',
 				label: 'Status',
-				widthClass: canManage ? 'w-[14%]' : 'w-[14%]',
-				cellClass: 'align-top'
+				width: '14%',
+				cellVerticalAlignment: 'top'
 			},
-			...(canManage
-				? [
-						{
-							key: 'manage',
-							label: '',
-							widthClass: 'w-[12%]',
-							cellClass: 'align-top'
-						}
-					]
-				: [])
+			...manageColumns
 		];
 	}
 
@@ -711,50 +724,62 @@
 		{
 			key: 'team',
 			label: 'Team',
-			widthClass: 'w-[32%]',
+			width: '32%',
 			rowHeader: true
 		},
 		{
 			key: 'record',
 			label: 'W-L-T',
-			widthClass: 'w-[14%]',
-			headerClass: 'text-center',
-			cellClass: 'align-top text-center tabular-nums'
+			width: '14%',
+			headerTextAlignment: 'center',
+			cellTextAlignment: 'center',
+			cellVerticalAlignment: 'top',
+			tabularNumbers: true
 		},
 		{
 			key: 'points',
 			label: 'PTS',
-			widthClass: 'w-[8%]',
-			headerClass: 'text-center',
-			cellClass: 'align-top text-center tabular-nums'
+			width: '10%',
+			headerTextAlignment: 'center',
+			cellTextAlignment: 'center',
+			cellVerticalAlignment: 'top',
+			tabularNumbers: true
 		},
 		{
 			key: 'pct',
 			label: 'PTS%',
-			widthClass: 'w-[10%]',
-			headerClass: 'text-center',
-			cellClass: 'align-top text-center tabular-nums'
+			width: '10%',
+			headerTextAlignment: 'center',
+			cellTextAlignment: 'center',
+			cellVerticalAlignment: 'top',
+			tabularNumbers: true
 		},
 		{
 			key: 'streak',
 			label: 'STRK',
-			widthClass: 'w-[10%]',
-			headerClass: 'text-center',
-			cellClass: 'align-top text-center tabular-nums'
+			width: '10%',
+			headerTextAlignment: 'center',
+			cellTextAlignment: 'center',
+			cellVerticalAlignment: 'top',
+			tabularNumbers: true
 		},
 		{
 			key: 'sportsmanship',
 			label: 'SR',
-			widthClass: 'w-[8%]',
-			headerClass: 'text-center',
-			cellClass: 'align-top text-center tabular-nums'
+			width: '10%',
+			headerTextAlignment: 'center',
+			cellTextAlignment: 'center',
+			cellVerticalAlignment: 'top',
+			tabularNumbers: true
 		},
 		{
 			key: 'forfeits',
 			label: 'FFs',
-			widthClass: 'w-[18%]',
-			headerClass: 'text-center',
-			cellClass: 'align-top text-center tabular-nums'
+			width: '12%',
+			headerTextAlignment: 'center',
+			cellTextAlignment: 'center',
+			cellVerticalAlignment: 'top',
+			tabularNumbers: true
 		}
 	]);
 
@@ -1775,7 +1800,10 @@
 					</h1>
 					{#if hierarchySegments.length > 0}
 						<div class="absolute left-0 top-[calc(100%+0.2rem)] z-10">
-							<HeaderHierarchyTabs segments={hierarchySegments} class="max-w-[min(100vw-7rem,100%)]" />
+							<HeaderHierarchyTabs
+								segments={hierarchySegments}
+								class="max-w-[min(100vw-7rem,100%)]"
+							/>
 						</div>
 					{/if}
 				</div>
@@ -1901,7 +1929,7 @@
 														</span>
 													</HoverTooltip>
 													<span class="sr-only">{division.isLocked ? 'Locked' : 'Unlocked'}</span>
-													<span class="text-sm font-sans font-semibold text-neutral-950">
+													<span class="text-sm font-sans font-normal text-neutral-950">
 														{divisionCapacityLabel(division)}
 													</span>
 												</div>
@@ -2013,22 +2041,26 @@
 														/>
 													</p>
 												{:else if column.key === 'roster'}
-													<p class="font-sans text-xs leading-snug text-neutral-950">
-														{activeTeam.rosterSize} /
-														{#if hasRosterLimit()}
-															{data.offering?.maxPlayers}
-														{:else}
-															<span class="text-sm leading-none" aria-label="No max players">
-																&infin;
-															</span>
-														{/if}
-													</p>
+													<div class="flex w-full justify-center">
+														<p class="font-sans text-xs leading-snug text-neutral-950">
+															{activeTeam.rosterSize} /
+															{#if hasRosterLimit()}
+																{data.offering?.maxPlayers}
+															{:else}
+																<span class="text-sm leading-none" aria-label="No max players">
+																	&infin;
+																</span>
+															{/if}
+														</p>
+													</div>
 												{:else if column.key === 'status'}
-													<span
-														class={`${approvalBadgeClass(true)} text-xs uppercase tracking-wide`}
-													>
-														{approvalBadgeLabel(true)}
-													</span>
+													<div class="flex w-full justify-center">
+														<span
+															class={`inline-flex ${approvalBadgeClass(true)} text-xs uppercase tracking-wide`}
+														>
+															{approvalBadgeLabel(true)}
+														</span>
+													</div>
 												{/if}
 											{/snippet}
 										</OfferingsTable>
@@ -2338,23 +2370,12 @@
 															</span>
 														</HoverTooltip>
 														<span class="sr-only">{division.isLocked ? 'Locked' : 'Unlocked'}</span>
-													</div>
-													{#if divisionMetaLine(division)}
-														<p
-															class="mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-800"
+														<span
+															class="text-[11px] font-sans font-normal leading-tight text-neutral-950"
 														>
-															{divisionMetaLine(division)}
-														</p>
-													{/if}
-													<p class="mt-1 text-[11px] leading-tight text-neutral-700">
-														{visibleDivisionStandings.get(division.id)?.length ?? 0} standings rows /
-														{division.teamCount} teams
-													</p>
-												</div>
-												<div class="flex flex-col items-end gap-1">
-													<span class="badge-secondary-outlined px-2 py-0.5 text-xs">
-														{divisionCapacityLabel(division)}
-													</span>
+															{divisionCapacityLabel(division)}
+														</span>
+													</div>
 												</div>
 											</div>
 											<OfferingsTable

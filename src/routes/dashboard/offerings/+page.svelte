@@ -3457,31 +3457,31 @@
 			{
 				key: 'league',
 				label: columnHeaderFor(group, 'league'),
-				widthClass: 'w-[24%]',
+				width: '24%',
 				rowHeader: true
 			},
 			{
 				key: 'status',
 				label: 'Status',
-				widthClass: 'w-[12%]'
+				width: '12%'
 			},
 			{
 				key: 'registration',
 				label: columnHeaderFor(group, 'registration'),
-				widthClass: 'w-[22%]',
-				cellClass: 'align-top'
+				width: '22%',
+				cellVerticalAlignment: 'top'
 			},
 			{
 				key: 'join-team',
 				label: 'Join Team Deadline',
-				widthClass: 'w-[20%]',
-				cellClass: 'align-top'
+				width: '20%',
+				cellVerticalAlignment: 'top'
 			},
 			{
 				key: 'range',
 				label: columnHeaderFor(group, 'range'),
-				widthClass: 'w-[22%]',
-				cellClass: 'align-top'
+				width: '22%',
+				cellVerticalAlignment: 'top'
 			}
 		];
 	}
@@ -5028,10 +5028,10 @@
 												class="px-4 py-10 text-center text-sm italic text-neutral-700"
 											>
 												{#if canManageOfferings}
-													No {entryLabelFor(offering) === 'group' ? 'groups' : 'leagues'} exist for
-													this offering yet. You need to add
-													{entryLabelFor(offering) === 'group' ? 'groups' : 'leagues'} before people
-													can join them.
+													No {entryLabelFor(offering) === 'group' ? 'groups' : 'leagues'} exist for this
+													offering yet. You need to add
+													{entryLabelFor(offering) === 'group' ? 'groups' : 'leagues'} before people can
+													join them.
 													{#if offering.offeringId}
 														<button
 															type="button"

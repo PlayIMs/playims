@@ -358,64 +358,93 @@
 			key: 'rank',
 			label: 'RNK',
 			headerTooltipText: 'Rank',
-			widthClass: 'w-[8%]',
-			headerClass: 'px-0 text-center tracking-wide',
-			cellClass: 'px-0 align-middle text-center tabular-nums'
+			width: '8%',
+			headerTextAlignment: 'center',
+			cellTextAlignment: 'center',
+			cellVerticalAlignment: 'middle',
+			headerPaddingX: 'none',
+			cellPaddingX: 'none',
+			tabularNumbers: true
 		},
 		{
 			key: 'team',
 			label: 'Team',
 			headerTooltipText: 'Team',
-			widthClass: 'w-[30%]',
+			width: '30%',
 			rowHeader: true
 		},
 		{
 			key: 'record',
 			label: 'W-L-T',
 			headerTooltipText: 'Wins-Losses-Ties',
-			widthClass: 'w-[12%]',
-			headerClass: 'px-0 text-center tracking-wide',
-			cellClass: 'px-0 align-middle text-center tabular-nums'
+			width: '12%',
+			headerTextAlignment: 'center',
+			cellTextAlignment: 'center',
+			cellVerticalAlignment: 'middle',
+			headerPaddingX: 'none',
+			cellPaddingX: 'none',
+			tabularNumbers: true
 		},
 		{
 			key: 'points',
 			label: 'PTS',
 			headerTooltipText: 'Points',
-			widthClass: 'w-[10%]',
-			headerClass: 'px-0 text-center',
-			cellClass: 'px-0 align-middle text-center tabular-nums'
+			width: '10%',
+			headerTextAlignment: 'center',
+			cellTextAlignment: 'center',
+			cellVerticalAlignment: 'middle',
+			headerPaddingX: 'none',
+			cellPaddingX: 'none',
+			tabularNumbers: true
 		},
 		{
 			key: 'pct',
 			label: 'PTS%',
 			headerTooltipText: 'Points Percentage',
-			widthClass: 'w-[10%]',
-			headerClass: 'px-0 text-center',
-			cellClass: 'px-0 align-middle text-center tabular-nums'
+			width: '10%',
+			headerTextAlignment: 'center',
+			cellTextAlignment: 'center',
+			cellVerticalAlignment: 'middle',
+			headerPaddingX: 'none',
+			cellPaddingX: 'none',
+			tabularNumbers: true
 		},
 		{
 			key: 'streak',
 			label: 'STRK',
 			headerTooltipText: 'Win-Loss-Tie Streak',
-			widthClass: 'w-[10%]',
-			headerClass: 'px-0 text-center',
-			cellClass: 'px-0 align-middle text-center tabular-nums'
+			width: '10%',
+			headerTextAlignment: 'center',
+			cellTextAlignment: 'center',
+			cellVerticalAlignment: 'middle',
+			headerPaddingX: 'none',
+			cellPaddingX: 'none',
+			tabularNumbers: true
 		},
 		{
 			key: 'sportsmanship',
 			label: 'SR',
 			headerTooltipText: 'Sportsmanship Rating',
-			widthClass: 'w-[10%]',
-			headerClass: 'px-0 text-center',
-			cellClass: 'px-0 align-middle text-center tabular-nums'
+			width: '10%',
+			headerTextAlignment: 'center',
+			cellTextAlignment: 'center',
+			cellVerticalAlignment: 'middle',
+			headerPaddingX: 'none',
+			cellPaddingX: 'none',
+			tabularNumbers: true
 		},
 		{
 			key: 'forfeits',
 			label: 'FFs',
 			headerTooltipText: 'Forfeits / Forgoes',
-			widthClass: 'w-[12%]',
-			headerClass: 'px-0 text-center normal-case tracking-wide',
-			cellClass: 'px-0 align-middle text-center tabular-nums'
+			width: '12%',
+			headerTextAlignment: 'center',
+			cellTextAlignment: 'center',
+			cellVerticalAlignment: 'middle',
+			headerPaddingX: 'none',
+			cellPaddingX: 'none',
+			headerTextTransform: 'normal',
+			tabularNumbers: true
 		}
 	]);
 
@@ -423,32 +452,32 @@
 		{
 			key: 'team',
 			label: 'Team',
-			widthClass: 'w-[32%]',
+			width: '32%',
 			rowHeader: true
 		},
 		{
 			key: 'date-created',
 			label: 'Date Created',
-			widthClass: 'w-[22%]',
-			cellClass: 'align-top'
+			width: '22%',
+			cellVerticalAlignment: 'top'
 		},
 		{
 			key: 'date-joined',
 			label: 'Date Joined',
-			widthClass: 'w-[22%]',
-			cellClass: 'align-top'
+			width: '22%',
+			cellVerticalAlignment: 'top'
 		},
 		{
 			key: 'roster',
 			label: 'Roster',
-			widthClass: 'w-[12%]',
-			cellClass: 'align-top'
+			width: '12%',
+			cellVerticalAlignment: 'top'
 		},
 		{
 			key: 'status',
 			label: 'Status',
-			widthClass: 'w-[12%]',
-			cellClass: 'align-top'
+			width: '12%',
+			cellVerticalAlignment: 'top'
 		}
 	]);
 
@@ -456,26 +485,26 @@
 		{
 			key: 'team',
 			label: 'Team',
-			widthClass: 'w-[48%]',
+			width: '48%',
 			rowHeader: true
 		},
 		{
 			key: 'status',
 			label: 'Status',
-			widthClass: 'w-[16%]',
-			cellClass: 'align-top'
+			width: '16%',
+			cellVerticalAlignment: 'top'
 		},
 		{
 			key: 'roster',
 			label: 'Roster',
-			widthClass: 'w-[14%]',
-			cellClass: 'align-top'
+			width: '14%',
+			cellVerticalAlignment: 'top'
 		},
 		{
 			key: 'registration',
 			label: 'Team Registration',
-			widthClass: 'w-[22%]',
-			cellClass: 'align-top'
+			width: '22%',
+			cellVerticalAlignment: 'top'
 		}
 	]);
 </script>
@@ -506,7 +535,10 @@
 					</h1>
 					{#if hierarchySegments.length > 0}
 						<div class="absolute left-0 top-[calc(100%+0.2rem)] z-10">
-							<HeaderHierarchyTabs segments={hierarchySegments} class="max-w-[min(100vw-7rem,100%)]" />
+							<HeaderHierarchyTabs
+								segments={hierarchySegments}
+								class="max-w-[min(100vw-7rem,100%)]"
+							/>
 						</div>
 					{/if}
 				</div>

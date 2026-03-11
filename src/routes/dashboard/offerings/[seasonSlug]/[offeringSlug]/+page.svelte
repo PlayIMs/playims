@@ -443,8 +443,7 @@
 
 	$effect(() => {
 		if (typeof window === 'undefined') return;
-		const hasUnsavedChanges =
-			isCreateLeagueModalOpen && hasUnsavedCreateLeagueWizardChanges();
+		const hasUnsavedChanges = isCreateLeagueModalOpen && hasUnsavedCreateLeagueWizardChanges();
 		if (!hasUnsavedChanges) return;
 
 		const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -1158,7 +1157,10 @@
 				Object.assign(errors, getLeagueFieldErrors(league, `leagues.${index}`));
 			});
 			Object.assign(errors, getLeagueCollectionScopeErrors(values.leagues));
-			Object.assign(errors, getExistingOfferingLeagueScopeErrors(values.offeringId, values.leagues));
+			Object.assign(
+				errors,
+				getExistingOfferingLeagueScopeErrors(values.offeringId, values.leagues)
+			);
 		}
 		return errors;
 	}
@@ -1412,7 +1414,9 @@
 
 	const hasSearchQuery = $derived.by(() => normalizedSearchQuery.length > 0);
 
-	function seasonHistoryStatusLabel(season: NonNullable<PageData['seasonHistory']>[number]): string {
+	function seasonHistoryStatusLabel(
+		season: NonNullable<PageData['seasonHistory']>[number]
+	): string {
 		if (season.isCurrent) return 'CURRENT';
 		const today = new Date().toISOString().slice(0, 10);
 		return season.startDate > today ? 'FUTURE' : 'PAST';
@@ -1451,57 +1455,60 @@
 		{
 			key: 'division',
 			label: 'Division',
-			widthClass: 'w-[58%]',
+			width: '58%',
 			rowHeader: true
 		},
 		{
 			key: 'max-teams',
 			label: 'Max Teams',
-			widthClass: 'w-[14%]',
-			headerClass: 'text-center',
-			cellClass: 'align-top text-center'
+			width: '14%',
+			headerTextAlignment: 'center',
+			cellTextAlignment: 'center',
+			cellVerticalAlignment: 'top'
 		},
 		{
 			key: 'confirmed',
 			label: 'Confirmed',
-			widthClass: 'w-[14%]',
-			headerClass: 'text-center',
-			cellClass: 'align-top text-center'
+			width: '14%',
+			headerTextAlignment: 'center',
+			cellTextAlignment: 'center',
+			cellVerticalAlignment: 'top'
 		},
 		{
 			key: 'pending',
 			label: 'Pending',
-			widthClass: 'w-[14%]',
-			headerClass: 'text-center',
-			cellClass: 'align-top text-center'
+			width: '14%',
+			headerTextAlignment: 'center',
+			cellTextAlignment: 'center',
+			cellVerticalAlignment: 'top'
 		}
 	]);
 	const emptyOfferingTableColumns = $derived.by<OfferingsTableColumn[]>(() => [
 		{
 			key: 'entry',
 			label: entryUnitTitleSingular(),
-			widthClass: 'w-[24%]',
+			width: '24%',
 			rowHeader: true
 		},
 		{
 			key: 'status',
 			label: 'Status',
-			widthClass: 'w-[14%]'
+			width: '14%'
 		},
 		{
 			key: 'registration',
 			label: offeringType() === 'tournament' ? 'Tournament Registration' : 'Team Registration',
-			widthClass: 'w-[22%]'
+			width: '22%'
 		},
 		{
 			key: 'join-deadline',
 			label: offeringType() === 'tournament' ? 'Join Deadline' : 'Join Team Deadline',
-			widthClass: 'w-[18%]'
+			width: '18%'
 		},
 		{
 			key: 'season-range',
 			label: 'Season Date Range',
-			widthClass: 'w-[22%]'
+			width: '22%'
 		}
 	]);
 	const leagueGenderDropdownOptions = $derived.by<DropdownOption[]>(() => [
@@ -1618,7 +1625,10 @@
 					</h1>
 					{#if hierarchySegments.length > 0}
 						<div class="absolute left-0 top-[calc(100%+0.2rem)] z-10">
-							<HeaderHierarchyTabs segments={hierarchySegments} class="max-w-[min(100vw-7rem,100%)]" />
+							<HeaderHierarchyTabs
+								segments={hierarchySegments}
+								class="max-w-[min(100vw-7rem,100%)]"
+							/>
 						</div>
 					{/if}
 				</div>
@@ -1742,9 +1752,9 @@
 								{#each visibleLeagues as league}
 									<section class="space-y-3 p-4">
 										<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-								<div class="min-w-0">
-									<div class="flex flex-wrap items-center gap-2">
-										<a
+											<div class="min-w-0">
+												<div class="flex flex-wrap items-center gap-2">
+													<a
 														href={leagueHref(league)}
 														class="text-2xl font-bold font-serif text-neutral-950 hover:underline"
 													>
@@ -1754,11 +1764,11 @@
 														class="badge-secondary-outlined px-1.5 py-0 text-[10px] uppercase tracking-wide"
 													>
 														{entryUnitTitleSingular()}
-										</span>
-									</div>
-									{#if league.description}
-										<p class="mt-1 text-sm leading-6 text-neutral-950">
-											{league.description}
+													</span>
+												</div>
+												{#if league.description}
+													<p class="mt-1 text-sm leading-6 text-neutral-950">
+														{league.description}
 													</p>
 												{/if}
 											</div>
@@ -2219,7 +2229,9 @@
 						<p class="mb-1 block text-sm font-sans text-neutral-950">
 							Season <span class="text-error-700">*</span>
 						</p>
-						<div class="border-2 border-secondary-400 bg-white px-4 py-2 text-base text-neutral-950">
+						<div
+							class="border-2 border-secondary-400 bg-white px-4 py-2 text-base text-neutral-950"
+						>
 							{getSeasonLabel()}
 						</div>
 					</div>
@@ -2274,8 +2286,8 @@
 			{#if !createLeagueDraftActive}
 				<div class="border border-neutral-950 bg-white p-4">
 					<p class="text-sm leading-5 font-sans text-neutral-950">
-						No {entryUnitSingular()} draft is open. Go back to {wizardEntryStepTitle(2)} and
-						click the plus button to add one.
+						No {entryUnitSingular()} draft is open. Go back to {wizardEntryStepTitle(2)} and click the
+						plus button to add one.
 					</p>
 				</div>
 			{:else}
@@ -2582,7 +2594,9 @@
 						No {entryUnitPlural()} will be created.
 					</p>
 				{:else}
-					<div class="max-h-[45vh] space-y-3 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 scrollbar-track-secondary-400">
+					<div
+						class="max-h-[45vh] space-y-3 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-secondary-700 scrollbar-track-secondary-400"
+					>
 						{#each createLeagueForm.leagues as league}
 							<div class="space-y-2 border border-neutral-950 bg-neutral p-3">
 								<div>
@@ -2591,7 +2605,9 @@
 									</p>
 									<p class="text-xs text-neutral-900">Slug: {league.slug || 'TBD'}</p>
 								</div>
-								<div class="grid grid-cols-1 gap-x-3 gap-y-1 text-xs text-neutral-950 sm:grid-cols-2">
+								<div
+									class="grid grid-cols-1 gap-x-3 gap-y-1 text-xs text-neutral-950 sm:grid-cols-2"
+								>
 									<p>
 										<span class="font-semibold">Season:</span>
 										{getSeasonLabel()}
