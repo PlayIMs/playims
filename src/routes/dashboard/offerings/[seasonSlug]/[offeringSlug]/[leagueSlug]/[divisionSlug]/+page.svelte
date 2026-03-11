@@ -1,9 +1,9 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
-	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import HeaderHierarchyTabs from '$lib/components/navigation/HeaderHierarchyTabs.svelte';
 	import OfferingsTable from '$lib/components/OfferingsTable.svelte';
+	import SmallStandingsTable from '$lib/components/SmallStandingsTable.svelte';
 	import DashboardSidebarPanel from '$lib/components/dashboard/DashboardSidebarPanel.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
@@ -139,15 +139,6 @@
 	): string {
 		if (forfeits === null && forgoes === null) return '- / -';
 		return `${formatStandingCell(forfeits)} / ${formatStandingCell(forgoes)}`;
-	}
-
-	function formatRecord(
-		wins: number | null | undefined,
-		losses: number | null | undefined,
-		ties: number | null | undefined
-	): string {
-		if (wins === null && losses === null && ties === null) return '-----';
-		return `${formatStandingCell(wins)}-${formatStandingCell(losses)}-${formatStandingCell(ties)}`;
 	}
 
 	const normalizedSearchQuery = $derived.by(() => normalizeSearchValue(searchQuery));
@@ -352,101 +343,6 @@
 	});
 
 	const hasSearchQuery = $derived.by(() => normalizedSearchQuery.length > 0);
-
-	const standingsColumns = $derived.by<OfferingsTableColumn[]>(() => [
-		{
-			key: 'rank',
-			label: 'RNK',
-			headerTooltipText: 'Rank',
-			width: '8%',
-			headerTextAlignment: 'center',
-			cellTextAlignment: 'center',
-			cellVerticalAlignment: 'middle',
-			headerPaddingX: 'none',
-			cellPaddingX: 'none',
-			tabularNumbers: true
-		},
-		{
-			key: 'team',
-			label: 'Team',
-			headerTooltipText: 'Team',
-			width: '30%',
-			rowHeader: true
-		},
-		{
-			key: 'record',
-			label: 'W-L-T',
-			headerTooltipText: 'Wins-Losses-Ties',
-			width: '12%',
-			headerTextAlignment: 'center',
-			cellTextAlignment: 'center',
-			cellVerticalAlignment: 'middle',
-			headerPaddingX: 'none',
-			cellPaddingX: 'none',
-			tabularNumbers: true
-		},
-		{
-			key: 'points',
-			label: 'PTS',
-			headerTooltipText: 'Points',
-			width: '10%',
-			headerTextAlignment: 'center',
-			cellTextAlignment: 'center',
-			cellVerticalAlignment: 'middle',
-			headerPaddingX: 'none',
-			cellPaddingX: 'none',
-			tabularNumbers: true
-		},
-		{
-			key: 'pct',
-			label: 'PTS%',
-			headerTooltipText: 'Points Percentage',
-			width: '10%',
-			headerTextAlignment: 'center',
-			cellTextAlignment: 'center',
-			cellVerticalAlignment: 'middle',
-			headerPaddingX: 'none',
-			cellPaddingX: 'none',
-			tabularNumbers: true
-		},
-		{
-			key: 'streak',
-			label: 'STRK',
-			headerTooltipText: 'Win-Loss-Tie Streak',
-			width: '10%',
-			headerTextAlignment: 'center',
-			cellTextAlignment: 'center',
-			cellVerticalAlignment: 'middle',
-			headerPaddingX: 'none',
-			cellPaddingX: 'none',
-			tabularNumbers: true
-		},
-		{
-			key: 'sportsmanship',
-			label: 'SR',
-			headerTooltipText: 'Sportsmanship Rating',
-			width: '10%',
-			headerTextAlignment: 'center',
-			cellTextAlignment: 'center',
-			cellVerticalAlignment: 'middle',
-			headerPaddingX: 'none',
-			cellPaddingX: 'none',
-			tabularNumbers: true
-		},
-		{
-			key: 'forfeits',
-			label: 'FFs',
-			headerTooltipText: 'Forfeits / Forgoes',
-			width: '12%',
-			headerTextAlignment: 'center',
-			cellTextAlignment: 'center',
-			cellVerticalAlignment: 'middle',
-			headerPaddingX: 'none',
-			cellPaddingX: 'none',
-			headerTextTransform: 'normal',
-			tabularNumbers: true
-		}
-	]);
 
 	const teamsColumns = $derived.by<OfferingsTableColumn[]>(() => [
 		{
@@ -801,100 +697,14 @@
 				<aside class="w-full min-w-0 space-y-6">
 					<DashboardSidebarPanel title="Standings" contentClass="space-y-3 p-4">
 						{#snippet content()}
-							<OfferingsTable
-								columns={standingsColumns}
+							<SmallStandingsTable
 								rows={visibleStandings}
+								icon={HeaderIcon}
 								caption="Division standings table"
-								tableClass="w-full table-fixed border-collapse"
-							>
-								{#snippet emptyBody()}
-									<tr class="bg-neutral-25">
-										<td
-											colspan={standingsColumns.length}
-											class="px-2 py-8 text-center text-sm italic text-neutral-700"
-										>
-											{#if hasSearchQuery}
-												No standings rows match this search.
-											{:else}
-												No standings posted yet.
-											{/if}
-										</td>
-									</tr>
-								{/snippet}
-
-								{#snippet cell(row, column)}
-									{@const standingsRow = row as StandingsDisplayRow}
-									{#if column.key === 'rank'}
-										<div class="flex w-full justify-center">
-											<p class="font-sans text-xs leading-snug text-neutral-950">
-												{standingsRow.rank}
-											</p>
-										</div>
-									{:else if column.key === 'team'}
-										<div class="flex items-center gap-2 min-w-0">
-											<div
-												class="flex h-6 w-6 shrink-0 items-center justify-center bg-primary text-white"
-												aria-hidden="true"
-											>
-												<HeaderIcon class="h-3.5 w-3.5" />
-											</div>
-											<div class="min-w-0">
-												<HoverTooltip
-													text={standingsRow.teamName}
-													maxWidthClass="max-w-72"
-													wrapperClass="block min-w-0"
-												>
-													<p
-														class="truncate font-sans text-sm font-bold leading-tight text-neutral-950"
-													>
-														{standingsRow.teamName}
-													</p>
-												</HoverTooltip>
-											</div>
-										</div>
-									{:else if column.key === 'record'}
-										<div class="flex w-full justify-center">
-											<p
-												class="inline-block w-[5ch] text-center font-sans text-xs leading-none whitespace-nowrap text-neutral-950"
-											>
-												{formatRecord(standingsRow.wins, standingsRow.losses, standingsRow.ties)}
-											</p>
-										</div>
-									{:else if column.key === 'points'}
-										<div class="flex w-full justify-center">
-											<p class="font-sans text-xs leading-snug text-neutral-950 tabular-nums">
-												{formatStandingCell(standingsRow.points)}
-											</p>
-										</div>
-									{:else if column.key === 'pct'}
-										<div class="flex w-full justify-center">
-											<p class="font-sans text-xs leading-snug text-neutral-950 tabular-nums">
-												{formatStandingCell(standingsRow.winPct)}
-											</p>
-										</div>
-									{:else if column.key === 'streak'}
-										<div class="flex w-full justify-center">
-											<p class="font-sans text-xs leading-snug text-neutral-950 tabular-nums">
-												{formatStreak(standingsRow.streak)}
-											</p>
-										</div>
-									{:else if column.key === 'sportsmanship'}
-										<div class="flex w-full justify-center">
-											<p class="font-sans text-xs leading-snug text-neutral-950 tabular-nums">
-												{formatStandingCell(standingsRow.sportsmanshipRating)}
-											</p>
-										</div>
-									{:else if column.key === 'forfeits'}
-										<div class="flex w-full justify-center">
-											<p
-												class="inline-block w-[5ch] text-center font-sans text-xs leading-none whitespace-nowrap text-neutral-950"
-											>
-												{formatForfeitSummary(standingsRow.forfeits, standingsRow.forgoes)}
-											</p>
-										</div>
-									{/if}
-								{/snippet}
-							</OfferingsTable>
+								{hasSearchQuery}
+								emptySearchMessage="No standings rows match this search."
+								emptyMessage="No standings posted yet."
+							/>
 						{/snippet}
 					</DashboardSidebarPanel>
 
