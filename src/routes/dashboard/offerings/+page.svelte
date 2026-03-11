@@ -3206,6 +3206,17 @@
 		return 'Season dates TBD';
 	}
 
+	function formatSeasonBoundaryText(
+		value: string | null,
+		futureLabel: string,
+		pastLabel: string
+	): string {
+		const parsed = parseDate(value);
+		if (!parsed) return `${futureLabel} TBD`;
+		const label = parsed.getTime() <= Date.now() ? pastLabel : futureLabel;
+		return `${label} ${formatDate(value)}`;
+	}
+
 	function formatReviewDate(value: string | null, withTime = false): string {
 		const parsed = parseDate(value);
 		if (!parsed) return 'TBD';
@@ -5116,9 +5127,19 @@
 										{:else if column.key === 'range'}
 											<p class="text-xs leading-snug text-neutral-950 font-sans">
 												<DateHoverText
-													display={league.seasonRangeText}
+													display={formatSeasonBoundaryText(
+														league.seasonStartDate,
+														'Starts',
+														'Started'
+													)}
 													value={league.seasonStartDate}
-													endValue={league.seasonEndDate}
+													wrapperClass="inline"
+												/>
+											</p>
+											<p class="mt-1 text-xs leading-snug text-neutral-950 font-sans">
+												<DateHoverText
+													display={formatSeasonBoundaryText(league.seasonEndDate, 'Ends', 'Ended')}
+													value={league.seasonEndDate}
 													wrapperClass="inline"
 												/>
 											</p>
