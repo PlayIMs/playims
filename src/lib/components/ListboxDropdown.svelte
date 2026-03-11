@@ -50,6 +50,8 @@
 		selectedOptionClass?: string;
 		activeOptionClass?: string;
 		disabledOptionClass?: string;
+		separatorClass?: string;
+		preserveDisabledSeparatorOpacity?: boolean;
 		footerActionLabel?: string;
 		footerActionAriaLabel?: string;
 		footerActionClass?: string;
@@ -63,6 +65,7 @@
 		autoFocus?: boolean;
 		align?: 'left' | 'right';
 		disabled?: boolean;
+		positionAnchorMode?: 'button' | 'parent';
 		panelWidthMode?: 'auto' | 'trigger' | 'parent';
 		maxPanelHeight?: number | null;
 		searchEnabled?: boolean;
@@ -87,6 +90,8 @@
 		selectedOptionClass = 'bg-primary text-white font-semibold',
 		activeOptionClass = 'bg-neutral-300 text-neutral-950',
 		disabledOptionClass = 'opacity-50 cursor-not-allowed bg-white text-neutral-700',
+		separatorClass = 'border-secondary-200',
+		preserveDisabledSeparatorOpacity = false,
 		footerActionLabel,
 		footerActionAriaLabel,
 		footerActionClass = 'w-full button-primary-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer justify-center',
@@ -100,6 +105,7 @@
 		autoFocus = false,
 		align = 'left',
 		disabled = false,
+		positionAnchorMode = 'button',
 		panelWidthMode = 'auto',
 		maxPanelHeight = null,
 		searchEnabled = false,
@@ -123,7 +129,9 @@
 	let listElement = $state<HTMLDivElement | null>(null);
 	let open = $state(false);
 	let activeIndex = $state(-1);
-	let listInlineStyle = $state('');
+	let listInlineStyle = $state(
+		'position: fixed; left: -9999px; top: -9999px; visibility: hidden; pointer-events: none;'
+	);
 	let searchQuery = $state('');
 	let typeaheadBuffer = '';
 	let typeaheadResetTimer: ReturnType<typeof setTimeout> | null = null;
@@ -292,6 +300,8 @@
 				: panelWidthMode === 'trigger'
 					? buttonRect
 					: null;
+		const positionAnchorRect =
+			positionAnchorMode === 'parent' && parentRect ? parentRect : buttonRect;
 		const measuredRect = panelElement.getBoundingClientRect();
 		const maxWidth = Math.max(0, viewportWidth - viewportPadding * 2);
 		const anchoredWidth =
@@ -299,8 +309,8 @@
 		const listWidth = Math.max(1, anchoredWidth ?? measuredRect.width);
 		const listHeight = Math.max(1, measuredRect.height);
 
-		const anchorLeft = widthAnchorRect?.left ?? buttonRect.left;
-		const anchorRight = widthAnchorRect?.right ?? buttonRect.right;
+		const anchorLeft = positionAnchorRect.left;
+		const anchorRight = positionAnchorRect.right;
 		const preferredLeft = align === 'right' ? anchorRight - listWidth : anchorLeft;
 		const maxLeft = viewportWidth - listWidth - viewportPadding;
 		const clampedLeft = clamp(preferredLeft, viewportPadding, maxLeft);
@@ -321,7 +331,7 @@
 			: belowTop;
 
 		const widthStyle = anchoredWidth !== null ? `width: ${anchoredWidth}px;` : '';
-		listInlineStyle = `position: fixed; top: ${listTop}px; left: ${clampedLeft}px; min-width: ${minWidth}px; ${widthStyle} max-width: ${maxWidth}px; max-height: ${panelMaxHeight}px;`;
+		listInlineStyle = `position: fixed; top: ${listTop}px; left: ${clampedLeft}px; min-width: ${minWidth}px; ${widthStyle} max-width: ${maxWidth}px; max-height: ${panelMaxHeight}px; visibility: visible; pointer-events: auto;`;
 	}
 
 	function handlePanelFocusout(event: FocusEvent): void {
@@ -358,6 +368,8 @@
 		open = false;
 		activeIndex = -1;
 		searchQuery = '';
+		listInlineStyle =
+			'position: fixed; left: -9999px; top: -9999px; visibility: hidden; pointer-events: none;';
 		clearTypeaheadBuffer();
 		if (focusTrigger) buttonElement?.focus();
 	}
@@ -656,15 +668,21 @@
 		skipBottomDivider: boolean
 	): string {
 		const hasBottomDivider = !isLastVisibleOption && !skipBottomDivider;
-		const optionBorderClass = `${hasBottomDivider ? 'border-b border-secondary-200' : 'border-b-0'} ${
-			option.separatorBefore ? 'border-t border-secondary-200' : ''
+		const optionBorderClass = `${hasBottomDivider ? `border-b ${separatorClass}` : 'border-b-0'} ${
+			option.separatorBefore ? `border-t ${separatorClass}` : ''
 		}`;
 		const optionBaseClass = `${optionClass} ${optionBorderClass}`;
 		const isSelected = mode === 'action' ? false : option.value === value;
 		const isActive = index === activeIndex;
 
 		if (option.disabled) {
-			return `${optionBaseClass} ${disabledOptionClass}`;
+			if (!preserveDisabledSeparatorOpacity) {
+				return `${optionBaseClass} ${disabledOptionClass}`;
+			}
+
+			const disabledNoOpacity = disabledOptionClass.replace(/\bopacity-\d+\b/g, '').trim();
+			const normalizedDisabledClass = disabledNoOpacity.replace(/\s+/g, ' ').trim();
+			return `${optionBaseClass} ${normalizedDisabledClass || 'cursor-not-allowed bg-white text-neutral-700'}`;
 		}
 
 		if (isSelected && isActive) {
@@ -688,8 +706,8 @@
 		skipBottomDivider: boolean
 	): string {
 		const hasBottomDivider = !isLastVisibleOption && !skipBottomDivider;
-		const optionBorderClass = `${hasBottomDivider ? 'border-b border-secondary-200' : 'border-b-0'} ${
-			option.separatorBefore ? 'border-t border-secondary-200' : ''
+		const optionBorderClass = `${hasBottomDivider ? `border-b ${separatorClass}` : 'border-b-0'} ${
+			option.separatorBefore ? `border-t ${separatorClass}` : ''
 		}`;
 		const optionBaseClass = `${optionClass} ${optionBorderClass}`;
 		const disabledNoOpacity = disabledOptionClass.replace(/\bopacity-\d+\b/g, '').trim();

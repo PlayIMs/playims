@@ -19,10 +19,13 @@
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import InfoPopover from '$lib/components/InfoPopover.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
+	import HeaderHierarchyTabs from '$lib/components/navigation/HeaderHierarchyTabs.svelte';
 	import OfferingsTable from '$lib/components/OfferingsTable.svelte';
 	import DashboardSidebarPanel from '$lib/components/dashboard/DashboardSidebarPanel.svelte';
 	import SplitAddAction from '$lib/components/dashboard/SplitAddAction.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
+	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
+	import type { HeaderHierarchySegment } from '$lib/components/navigation/header-hierarchy.js';
 	import type { OfferingsTableColumn } from '$lib/components/offerings-table.js';
 	import { toast } from '$lib/toasts';
 	import { generateUuidV4 } from '$lib/utils/uuid.js';
@@ -45,6 +48,7 @@
 
 	type OfferingLeagueRow = NonNullable<PageData['leagues']>[number];
 	type OfferingDivisionRow = OfferingLeagueRow['divisions'][number];
+	type HierarchyOption = NonNullable<PageData['offeringOptions']>[number];
 	type OfferingType = 'league' | 'tournament';
 	type LeagueWizardStep = 1 | 2 | 3 | 4;
 	type LeagueGender = '' | 'male' | 'female' | 'mixed';
@@ -139,6 +143,12 @@
 		'w-full border-2 border-secondary-400 bg-white px-4 py-2 text-base leading-6 font-normal text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2 hover:bg-white focus:outline-none focus-visible:outline-none focus-visible:border-secondary-500 focus-visible:ring-0 focus-visible:shadow-[0_0_0_1px_var(--color-secondary-500)] disabled:cursor-not-allowed disabled:opacity-60';
 
 	let { data } = $props<{ data: PageData }>();
+	const pageLabel = $derived.by(
+		() =>
+			mergeDashboardNavigationLabels(
+				(data?.navigationLabels ?? {}) as Partial<Record<DashboardNavKey, string>>
+			).offerings
+	);
 
 	let searchQuery = $state('');
 	let isCreateLeagueModalOpen = $state(false);
@@ -1339,6 +1349,33 @@
 	const HeaderIcon = $derived.by(() =>
 		sportIconFor(data.offering?.name ?? 'Offering', data.offering?.sport ?? null)
 	);
+	const hierarchySegments = $derived.by<HeaderHierarchySegment[]>(() => {
+		const currentHref = offeringSeasonHref(data.season?.slug, data.offering?.slug);
+		if (!data.offering) return [];
+
+		return [
+			{
+				key: 'offerings',
+				label: pageLabel,
+				href: '/dashboard/offerings',
+				currentValue: currentHref,
+				menuAriaLabel: 'Offerings list',
+				options: [],
+				showMenu: false
+			},
+			{
+				key: 'offering',
+				label: data.offering.name,
+				href: currentHref,
+				currentValue: currentHref,
+				menuAriaLabel: 'Switch offering',
+				options: (data.offeringOptions ?? []).map((option: HierarchyOption) => ({
+					value: option.href,
+					label: option.label
+				}))
+			}
+		];
+	});
 
 	const normalizedSearchQuery = $derived.by(() => normalizeSearchValue(searchQuery));
 
@@ -1437,6 +1474,34 @@
 			widthClass: 'w-[14%]',
 			headerClass: 'text-center',
 			cellClass: 'align-top text-center'
+		}
+	]);
+	const emptyOfferingTableColumns = $derived.by<OfferingsTableColumn[]>(() => [
+		{
+			key: 'entry',
+			label: entryUnitTitleSingular(),
+			widthClass: 'w-[24%]',
+			rowHeader: true
+		},
+		{
+			key: 'status',
+			label: 'Status',
+			widthClass: 'w-[14%]'
+		},
+		{
+			key: 'registration',
+			label: offeringType() === 'tournament' ? 'Tournament Registration' : 'Team Registration',
+			widthClass: 'w-[22%]'
+		},
+		{
+			key: 'join-deadline',
+			label: offeringType() === 'tournament' ? 'Join Deadline' : 'Join Team Deadline',
+			widthClass: 'w-[18%]'
+		},
+		{
+			key: 'season-range',
+			label: 'Season Date Range',
+			widthClass: 'w-[22%]'
 		}
 	]);
 	const leagueGenderDropdownOptions = $derived.by<DropdownOption[]>(() => [
@@ -1545,11 +1610,18 @@
 				>
 					<HeaderIcon class="h-7 w-7 lg:h-8 lg:w-8" />
 				</div>
-				<h1
-					class="text-5xl lg:text-6xl leading-[0.9] tracking-[0.01em] font-bold font-serif text-neutral-950"
-				>
-					{data.offering?.name ?? 'Offering'}
-				</h1>
+				<div class="relative min-w-0">
+					<h1
+						class="text-5xl lg:text-6xl leading-[0.9] tracking-[0.01em] font-bold font-serif text-neutral-950"
+					>
+						{data.offering?.name ?? 'Offering'}
+					</h1>
+					{#if hierarchySegments.length > 0}
+						<div class="absolute left-0 top-[calc(100%+0.2rem)] z-10">
+							<HeaderHierarchyTabs segments={hierarchySegments} class="max-w-[min(100vw-7rem,100%)]" />
+						</div>
+					{/if}
+				</div>
 			</div>
 		</div>
 	</header>
@@ -1630,24 +1702,40 @@
 					<div class="min-h-[34rem]">
 						{#if visibleLeagues.length === 0}
 							<div class="p-4">
-								<div
-									class={`space-y-2 border p-4 ${hasSearchQuery ? 'border-warning-300 bg-warning-50' : 'border-neutral-950 bg-white'}`}
+								<OfferingsTable
+									columns={emptyOfferingTableColumns}
+									rows={[]}
+									caption={`${data.offering.name} ${entryUnitPlural()} table`}
 								>
-									<h3 class="text-xl font-bold font-serif text-neutral-950">
-										{#if hasSearchQuery}
-											No matches found
-										{:else}
-											No {entryUnitPlural()} yet
-										{/if}
-									</h3>
-									<p class="text-sm font-sans text-neutral-950">
-										{#if hasSearchQuery}
-											No {entryUnitPlural()} or divisions match "{searchQuery.trim()}".
-										{:else}
-											No {entryUnitPlural()} exist for this offering yet.
-										{/if}
-									</p>
-								</div>
+									{#snippet emptyBody()}
+										<tr class="bg-neutral-25">
+											<td
+												colspan={emptyOfferingTableColumns.length}
+												class={`px-4 py-10 text-center text-sm italic ${hasSearchQuery ? 'text-warning-800' : 'text-neutral-700'}`}
+											>
+												{#if hasSearchQuery}
+													No {entryUnitPlural()} or divisions match "{searchQuery.trim()}".
+												{:else if canManageOffering}
+													No {entryUnitPlural()} exist for this offering yet. You need to add
+													{entryUnitPlural()} before participants can browse them.
+													<button
+														type="button"
+														class="ml-1 inline font-semibold not-italic text-secondary-900 underline underline-offset-2 cursor-pointer"
+														onclick={openCreateLeagueWizard}
+													>
+														Add {entryUnitPlural()}
+													</button>
+												{:else}
+													{entryUnitTitleSingular()}{entryUnitPlural() === 'leagues'
+														? 's are'
+														: 's are'} coming soon for this offering.
+												{/if}
+											</td>
+										</tr>
+									{/snippet}
+
+									{#snippet cell(_row, _column)}{/snippet}
+								</OfferingsTable>
 							</div>
 						{:else}
 							<div class="divide-y divide-neutral-950">

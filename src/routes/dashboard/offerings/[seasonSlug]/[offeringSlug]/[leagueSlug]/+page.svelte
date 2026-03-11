@@ -4,16 +4,19 @@
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
+	import HeaderHierarchyTabs from '$lib/components/navigation/HeaderHierarchyTabs.svelte';
 	import ModalShell from '$lib/components/modals/ModalShell.svelte';
 	import OfferingsTable from '$lib/components/OfferingsTable.svelte';
 	import DashboardSidebarPanel from '$lib/components/dashboard/DashboardSidebarPanel.svelte';
 	import SplitAddAction from '$lib/components/dashboard/SplitAddAction.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
+	import type { HeaderHierarchySegment } from '$lib/components/navigation/header-hierarchy.js';
 	import type { OfferingsTableColumn } from '$lib/components/offerings-table.js';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import type { ManageIntramuralLeagueResponse } from '$lib/server/intramural-offerings-validation';
 	import { toast } from '$lib/toasts';
 	import { parseDateTooltipValue } from '$lib/utils/date-tooltip.js';
+	import { compareByDayOfWeekAndTime } from '$lib/utils/schedule-sort.js';
 	import CreateDivisionWizard from './_wizards/CreateDivisionWizard.svelte';
 	import MoveTeamWizard from './_wizards/MoveTeamWizard.svelte';
 	import CreateTeamWizard from './_wizards/CreateTeamWizard.svelte';
@@ -35,6 +38,7 @@
 
 	type DivisionSection = NonNullable<PageData['divisions']>[number];
 	type DivisionStandingsRow = DivisionSection['standings'][number];
+	type HierarchyOption = NonNullable<PageData['offeringOptions']>[number];
 	type PlacementValue = 'active' | 'waitlist';
 	type StandingsDisplayRow = {
 		teamId: string;
@@ -129,25 +133,6 @@
 	type WaitlistTeamRow = NonNullable<PageData['waitlistTeams']>[number];
 
 	const DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/;
-	const DAY_OF_WEEK_ORDER = new Map<string, number>([
-		['sunday', 0],
-		['sun', 0],
-		['monday', 1],
-		['mon', 1],
-		['tuesday', 2],
-		['tue', 2],
-		['tues', 2],
-		['wednesday', 3],
-		['wed', 3],
-		['thursday', 4],
-		['thu', 4],
-		['thur', 4],
-		['thurs', 4],
-		['friday', 5],
-		['fri', 5],
-		['saturday', 6],
-		['sat', 6]
-	]);
 
 	const ROW_DROPDOWN_BUTTON_CLASS =
 		'w-full min-w-[10rem] border border-secondary-300 bg-white px-3 py-1.5 text-xs leading-5 font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2 hover:bg-neutral-50 focus:outline-none focus-visible:outline-none focus-visible:border-secondary-500 focus-visible:ring-0';
@@ -402,44 +387,8 @@
 		return waitlistIsOpen() ? 'This waitlist can be joined' : 'This waitlist cannot be joined';
 	}
 
-	function dayOfWeekSortValue(value: string | null | undefined): number {
-		const normalized = value?.trim().toLowerCase();
-		if (!normalized) return Number.MAX_SAFE_INTEGER;
-		return DAY_OF_WEEK_ORDER.get(normalized) ?? Number.MAX_SAFE_INTEGER;
-	}
-
-	function timeSortValue(value: string | null | undefined): number {
-		const normalized = value?.trim().toLowerCase();
-		if (!normalized) return Number.MAX_SAFE_INTEGER;
-
-		const meridiemMatch = normalized.match(/^(\d{1,2}):(\d{2})\s*([ap])m$/i);
-		if (meridiemMatch) {
-			let hour = Number(meridiemMatch[1]) % 12;
-			const minute = Number(meridiemMatch[2]);
-			if (meridiemMatch[3].toLowerCase() === 'p') hour += 12;
-			return hour * 60 + minute;
-		}
-
-		const twentyFourHourMatch = normalized.match(/^(\d{1,2}):(\d{2})$/);
-		if (twentyFourHourMatch) {
-			const hour = Number(twentyFourHourMatch[1]);
-			const minute = Number(twentyFourHourMatch[2]);
-			if (hour >= 0 && hour < 24 && minute >= 0 && minute < 60) {
-				return hour * 60 + minute;
-			}
-		}
-
-		return Number.MAX_SAFE_INTEGER;
-	}
-
 	function compareDivisionsBySchedule(a: DivisionSection, b: DivisionSection): number {
-		const dayDiff = dayOfWeekSortValue(a.dayOfWeek) - dayOfWeekSortValue(b.dayOfWeek);
-		if (dayDiff !== 0) return dayDiff;
-
-		const timeDiff = timeSortValue(a.gameTime) - timeSortValue(b.gameTime);
-		if (timeDiff !== 0) return timeDiff;
-
-		return a.name.localeCompare(b.name);
+		return compareByDayOfWeekAndTime(a, b);
 	}
 
 	function matchesSearchTerm(values: Array<string | null | undefined>, query: string): boolean {
@@ -891,6 +840,46 @@
 	const selectedLeagueValue = $derived.by(() =>
 		leagueDetailHref(data.league?.slug, data.league?.id)
 	);
+	const hierarchySegments = $derived.by<HeaderHierarchySegment[]>(() => {
+		if (!data.offering || !data.league) return [];
+
+		const currentOfferingHref = offeringHref();
+		const currentLeagueHref = leagueDetailHref(data.league.slug, data.league.id);
+
+		return [
+			{
+				key: 'offerings',
+				label: pageLabel,
+				href: '/dashboard/offerings',
+				currentValue: currentLeagueHref,
+				menuAriaLabel: 'Offerings list',
+				options: [],
+				showMenu: false
+			},
+			{
+				key: 'offering',
+				label: data.offering.name,
+				href: currentOfferingHref,
+				currentValue: currentOfferingHref,
+				menuAriaLabel: 'Switch offering',
+				options: (data.offeringOptions ?? []).map((option: HierarchyOption) => ({
+					value: option.href,
+					label: option.label
+				}))
+			},
+			{
+				key: 'league',
+				label: data.league.name,
+				href: currentLeagueHref,
+				currentValue: currentLeagueHref,
+				menuAriaLabel: 'Switch league',
+				options: (data.leagues ?? []).map((league: NonNullable<PageData['leagues']>[number]) => ({
+					value: leagueDetailHref(league.slug, league.id),
+					label: league.name
+				}))
+			}
+		];
+	});
 
 	const leagueAddActionOptions = $derived.by<DropdownOption[]>(() => [
 		{
@@ -1778,12 +1767,17 @@
 				>
 					<HeaderIcon class="w-7 h-7 lg:w-8 lg:h-8" />
 				</div>
-				<div class="flex items-center gap-2">
+				<div class="relative min-w-0">
 					<h1
 						class="text-5xl lg:text-6xl leading-[0.9] tracking-[0.01em] font-bold font-serif text-neutral-950"
 					>
 						{data.league?.name ?? 'League'}
 					</h1>
+					{#if hierarchySegments.length > 0}
+						<div class="absolute left-0 top-[calc(100%+0.2rem)] z-10">
+							<HeaderHierarchyTabs segments={hierarchySegments} class="max-w-[min(100vw-7rem,100%)]" />
+						</div>
+					{/if}
 				</div>
 			</div>
 		</div>

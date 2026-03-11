@@ -1,10 +1,12 @@
 import { error, redirect } from '@sveltejs/kit';
+import type { League, Offering } from '$lib/database';
 import { requireAuthenticatedClientId } from '$lib/server/client-context';
 import { getTenantDbOps } from '$lib/server/database/context';
 import {
 	resolveLeagueForOffering,
 	resolveOfferingForSeason
 } from '$lib/server/intramural-offering-scope';
+import { compareByDayOfWeekAndTime } from '$lib/utils/schedule-sort.js';
 import type { PageServerLoad } from './$types';
 
 interface StandingsRow {
@@ -31,6 +33,11 @@ interface TeamRow {
 	dateJoined: string | null;
 	dateRegistered: string | null;
 	description: string | null;
+}
+
+interface NavigationOption {
+	label: string;
+	href: string;
 }
 
 const isActiveTeamStatus = (value: string | null | undefined): boolean =>
@@ -64,6 +71,9 @@ export const load: PageServerLoad = async (event) => {
 			offering: null,
 			league: null,
 			division: null,
+			offeringOptions: [] as NavigationOption[],
+			leagueOptions: [] as NavigationOption[],
+			divisionOptions: [] as NavigationOption[],
 			teams: [] as TeamRow[],
 			waitlistTeams: [] as TeamRow[],
 			standings: [] as StandingsRow[],
@@ -96,7 +106,16 @@ export const load: PageServerLoad = async (event) => {
 			throw error(404, 'League not found.');
 		}
 
-		const division = await dbOps.divisions.getByLeagueIdAndSlug(league.id, params.divisionSlug);
+		const [allOfferings, allLeagues, divisions] = await Promise.all([
+			dbOps.offerings.getByClientId(clientId),
+			dbOps.leagues.getByClientId(clientId),
+			dbOps.divisions.getByLeagueId(league.id)
+		]);
+		const division =
+			divisions.find(
+				(candidate) =>
+					(candidate.slug?.trim() || candidate.id?.trim() || '') === params.divisionSlug
+			) ?? null;
 		if (!division?.id) {
 			throw error(404, 'Division not found.');
 		}
@@ -203,6 +222,58 @@ export const load: PageServerLoad = async (event) => {
 				description: team.description?.trim() || null
 			}))
 			.sort((a, b) => a.name.localeCompare(b.name));
+		const resolveOfferingInSeason = (candidate: Offering): boolean => {
+			const directSeasonId = candidate.seasonId?.trim();
+			if (directSeasonId === season.id) return true;
+			if (!candidate.id) return false;
+			return allLeagues.some(
+				(candidateLeague) =>
+					candidateLeague.offeringId === candidate.id &&
+					(candidateLeague.seasonId?.trim() === season.id || candidateLeague.season?.trim() === season.name?.trim())
+			);
+		};
+		const offeringOptions = allOfferings
+			.filter((candidate): candidate is Offering & { id: string } => Boolean(candidate.id))
+			.filter(resolveOfferingInSeason)
+			.map<NavigationOption>((candidate) => ({
+				label: candidate.name?.trim() || 'Offering',
+				href: `/dashboard/offerings/${season.slug?.trim() || params.seasonSlug}/${candidate.slug?.trim() || candidate.id}`
+			}))
+			.sort((a, b) => a.label.localeCompare(b.label));
+		const leagueOptions = allLeagues
+			.filter(
+				(candidate): candidate is League & { id: string } =>
+					Boolean(candidate.id) && candidate.offeringId === offering.id
+			)
+			.filter(
+				(candidate) =>
+					candidate.seasonId?.trim() === season.id || candidate.season?.trim() === season.name?.trim()
+			)
+			.map<NavigationOption>((candidate) => ({
+				label: candidate.name?.trim() || 'League',
+				href: `/dashboard/offerings/${season.slug?.trim() || params.seasonSlug}/${offering.slug?.trim() || params.offeringSlug}/${candidate.slug?.trim() || candidate.id}`
+			}))
+			.sort((a, b) => a.label.localeCompare(b.label));
+		const divisionOptions = divisions
+			.filter((candidate): candidate is (typeof divisions)[number] & { id: string } => Boolean(candidate.id))
+			.sort((a, b) =>
+				compareByDayOfWeekAndTime(
+					{
+						dayOfWeek: a.dayOfWeek,
+						gameTime: a.gameTime,
+						name: a.name
+					},
+					{
+						dayOfWeek: b.dayOfWeek,
+						gameTime: b.gameTime,
+						name: b.name
+					}
+				)
+			)
+			.map<NavigationOption>((candidate) => ({
+				label: candidate.name?.trim() || 'Division',
+				href: `/dashboard/offerings/${season.slug?.trim() || params.seasonSlug}/${offering.slug?.trim() || params.offeringSlug}/${league.slug?.trim() || params.leagueSlug}/${candidate.slug?.trim() || candidate.id}`
+			}));
 
 		return {
 			season: {
@@ -237,6 +308,9 @@ export const load: PageServerLoad = async (event) => {
 				maxTeams: division.maxTeams ?? null,
 				isLocked: division.isLocked === 1
 			},
+			offeringOptions,
+			leagueOptions,
+			divisionOptions,
 			teams: teamRows,
 			waitlistTeams,
 			standings
@@ -252,6 +326,9 @@ export const load: PageServerLoad = async (event) => {
 			offering: null,
 			league: null,
 			division: null,
+			offeringOptions: [] as NavigationOption[],
+			leagueOptions: [] as NavigationOption[],
+			divisionOptions: [] as NavigationOption[],
 			teams: [] as TeamRow[],
 			waitlistTeams: [] as TeamRow[],
 			standings: [] as StandingsRow[],

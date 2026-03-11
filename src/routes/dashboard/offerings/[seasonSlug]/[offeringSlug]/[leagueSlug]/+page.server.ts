@@ -1,5 +1,5 @@
 import { error, redirect } from '@sveltejs/kit';
-import type { League } from '$lib/database';
+import type { League, Offering } from '$lib/database';
 import { requireAuthenticatedClientId } from '$lib/server/client-context';
 import { getTenantDbOps } from '$lib/server/database/context';
 import {
@@ -74,6 +74,11 @@ interface OfferingLeagueRow {
 	isLocked: boolean;
 }
 
+interface NavigationOption {
+	label: string;
+	href: string;
+}
+
 const isActiveTeamStatus = (value: string | null | undefined): boolean =>
 	(value?.trim().toLowerCase() ?? '') === 'active';
 
@@ -115,6 +120,7 @@ export const load: PageServerLoad = async (event) => {
 		return {
 			league: null,
 			leagues: [] as OfferingLeagueRow[],
+			offeringOptions: [] as NavigationOption[],
 			offering: null,
 			season: null,
 			divisions: [] as DivisionSection[],
@@ -154,11 +160,21 @@ export const load: PageServerLoad = async (event) => {
 			throw error(404, 'League not found.');
 		}
 
-		const [divisions, standings, allLeagues] = await Promise.all([
+		const [divisions, standings, allLeagues, offerings] = await Promise.all([
 			dbOps.divisions.getByLeagueId(league.id),
 			dbOps.divisionStandings.getByClientIdAndLeagueId(clientId, league.id),
-			dbOps.leagues.getByClientId(clientId)
+			dbOps.leagues.getByClientId(clientId),
+			dbOps.offerings.getByClientId(clientId)
 		]);
+		const resolveOfferingInSeason = (candidate: Offering): boolean => {
+			const directSeasonId = candidate.seasonId?.trim();
+			if (directSeasonId === season.id) return true;
+			if (!candidate.id) return false;
+			return allLeagues.some(
+				(candidateLeague) =>
+					candidateLeague.offeringId === candidate.id && leagueMatchesSeason(candidateLeague, season)
+			);
+		};
 
 		const offeringLeagues = allLeagues
 			.filter(
@@ -174,6 +190,14 @@ export const load: PageServerLoad = async (event) => {
 				isLocked: candidateLeague.isLocked === 1
 			}))
 			.sort((a, b) => a.name.localeCompare(b.name));
+		const offeringOptions = offerings
+			.filter((candidate): candidate is Offering & { id: string } => Boolean(candidate.id))
+			.filter(resolveOfferingInSeason)
+			.map<NavigationOption>((candidate) => ({
+				label: candidate.name?.trim() || 'Offering',
+				href: `/dashboard/offerings/${season.slug?.trim() || params.seasonSlug}/${candidate.slug?.trim() || candidate.id}`
+			}))
+			.sort((a, b) => a.label.localeCompare(b.label));
 
 		const divisionIds = divisions
 			.map((division) => division.id)
@@ -344,6 +368,7 @@ export const load: PageServerLoad = async (event) => {
 				imageUrl: league.imageUrl ?? null
 			},
 			leagues: offeringLeagues,
+			offeringOptions,
 			offering: offering
 				? {
 						id: offering.id ?? '',
@@ -385,6 +410,7 @@ export const load: PageServerLoad = async (event) => {
 		return {
 			league: null,
 			leagues: [] as OfferingLeagueRow[],
+			offeringOptions: [] as NavigationOption[],
 			offering: null,
 			season: null,
 			divisions: [] as DivisionSection[],

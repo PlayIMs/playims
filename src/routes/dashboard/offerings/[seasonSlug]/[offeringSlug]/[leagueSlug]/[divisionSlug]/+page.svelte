@@ -2,9 +2,12 @@
 	import type { PageData } from './$types';
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
+	import HeaderHierarchyTabs from '$lib/components/navigation/HeaderHierarchyTabs.svelte';
 	import OfferingsTable from '$lib/components/OfferingsTable.svelte';
 	import DashboardSidebarPanel from '$lib/components/dashboard/DashboardSidebarPanel.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
+	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
+	import type { HeaderHierarchySegment } from '$lib/components/navigation/header-hierarchy.js';
 	import type { OfferingsTableColumn } from '$lib/components/offerings-table.js';
 	import {
 		IconBallAmericanFootball,
@@ -22,6 +25,9 @@
 	type StandingsRow = NonNullable<PageData['standings']>[number];
 	type TeamRow = NonNullable<PageData['teams']>[number];
 	type WaitlistTeamRow = NonNullable<PageData['waitlistTeams']>[number];
+	type OfferingHierarchyOption = NonNullable<PageData['offeringOptions']>[number];
+	type LeagueHierarchyOption = NonNullable<PageData['leagueOptions']>[number];
+	type DivisionHierarchyOption = NonNullable<PageData['divisionOptions']>[number];
 	type StandingsDisplayRow = {
 		rank: number;
 		teamId: string;
@@ -39,6 +45,12 @@
 	};
 
 	let { data } = $props<{ data: PageData }>();
+	const pageLabel = $derived.by(
+		() =>
+			mergeDashboardNavigationLabels(
+				(data?.navigationLabels ?? {}) as Partial<Record<DashboardNavKey, string>>
+			).offerings
+	);
 
 	let searchQuery = $state('');
 
@@ -143,6 +155,79 @@
 	const HeaderIcon = $derived.by(() =>
 		sportIconFor(data.offering?.name ?? data.league?.name ?? 'League', data.offering?.sport ?? null)
 	);
+	function offeringHref(): string {
+		const seasonSlug = data.season?.slug?.trim();
+		const offeringSlug = data.offering?.slug?.trim();
+		if (!seasonSlug || !offeringSlug) return '/dashboard/offerings';
+		return `/dashboard/offerings/${seasonSlug}/${offeringSlug}`;
+	}
+
+	function leagueHref(): string {
+		const baseOfferingHref = offeringHref();
+		const leagueSlug = data.league?.slug?.trim() || data.league?.id?.trim();
+		if (!leagueSlug || baseOfferingHref === '/dashboard/offerings') return baseOfferingHref;
+		return `${baseOfferingHref}/${leagueSlug}`;
+	}
+
+	function divisionHref(): string {
+		const baseLeagueHref = leagueHref();
+		const divisionSlug = data.division?.slug?.trim() || data.division?.id?.trim();
+		if (!divisionSlug || baseLeagueHref === '/dashboard/offerings') return baseLeagueHref;
+		return `${baseLeagueHref}/${divisionSlug}`;
+	}
+
+	const hierarchySegments = $derived.by<HeaderHierarchySegment[]>(() => {
+		if (!data.offering || !data.league || !data.division) return [];
+
+		const currentOfferingHref = offeringHref();
+		const currentLeagueHref = leagueHref();
+		const currentDivisionHref = divisionHref();
+
+		return [
+			{
+				key: 'offerings',
+				label: pageLabel,
+				href: '/dashboard/offerings',
+				currentValue: currentDivisionHref,
+				menuAriaLabel: 'Offerings list',
+				options: [],
+				showMenu: false
+			},
+			{
+				key: 'offering',
+				label: data.offering.name,
+				href: currentOfferingHref,
+				currentValue: currentOfferingHref,
+				menuAriaLabel: 'Switch offering',
+				options: (data.offeringOptions ?? []).map((option: OfferingHierarchyOption) => ({
+					value: option.href,
+					label: option.label
+				}))
+			},
+			{
+				key: 'league',
+				label: data.league.name,
+				href: currentLeagueHref,
+				currentValue: currentLeagueHref,
+				menuAriaLabel: 'Switch league',
+				options: (data.leagueOptions ?? []).map((option: LeagueHierarchyOption) => ({
+					value: option.href,
+					label: option.label
+				}))
+			},
+			{
+				key: 'division',
+				label: data.division.name,
+				href: currentDivisionHref,
+				currentValue: currentDivisionHref,
+				menuAriaLabel: 'Switch division',
+				options: (data.divisionOptions ?? []).map((option: DivisionHierarchyOption) => ({
+					value: option.href,
+					label: option.label
+				}))
+			}
+		];
+	});
 
 	const standingsRows = $derived.by<StandingsDisplayRow[]>(() => {
 		const standingsByTeamId = new Map<string, StandingsRow>(
@@ -413,11 +498,18 @@
 				>
 					<IconUsers class="h-7 w-7 lg:h-8 lg:w-8" />
 				</div>
-				<h1
-					class="text-5xl lg:text-6xl leading-[0.9] tracking-[0.01em] font-bold font-serif text-neutral-950"
-				>
-					{data.division?.name ?? 'Division'}
-				</h1>
+				<div class="relative min-w-0">
+					<h1
+						class="text-5xl lg:text-6xl leading-[0.9] tracking-[0.01em] font-bold font-serif text-neutral-950"
+					>
+						{data.division?.name ?? 'Division'}
+					</h1>
+					{#if hierarchySegments.length > 0}
+						<div class="absolute left-0 top-[calc(100%+0.2rem)] z-10">
+							<HeaderHierarchyTabs segments={hierarchySegments} class="max-w-[min(100vw-7rem,100%)]" />
+						</div>
+					{/if}
+				</div>
 			</div>
 		</div>
 	</header>

@@ -54,6 +54,11 @@ interface SeasonHistoryRow {
 	isCurrent: boolean;
 }
 
+interface NavigationOption {
+	label: string;
+	href: string;
+}
+
 const isActiveTeamStatus = (value: string | null | undefined): boolean =>
 	(value?.trim().toLowerCase() ?? '') === 'active';
 
@@ -69,6 +74,7 @@ export const load: PageServerLoad = async (event) => {
 			season: null,
 			offering: null,
 			seasonHistory: [] as SeasonHistoryRow[],
+			offeringOptions: [] as NavigationOption[],
 			leagues: [] as LeagueRow[],
 			summary: {
 				leagueCount: 0,
@@ -203,6 +209,14 @@ export const load: PageServerLoad = async (event) => {
 			if (startDateDiff !== 0) return startDateDiff;
 			return a.seasonName.localeCompare(b.seasonName);
 		});
+		const offeringOptions = offerings
+			.filter((candidate): candidate is Offering & { id: string } => Boolean(candidate.id))
+			.filter((candidate) => resolveOfferingSeasonId(candidate) === season.id)
+			.map<NavigationOption>((candidate) => ({
+				label: candidate.name?.trim() || 'Offering',
+				href: `/dashboard/offerings/${season.slug?.trim() || params.seasonSlug}/${candidate.slug?.trim() || candidate.id}`
+			}))
+			.sort((a, b) => a.label.localeCompare(b.label));
 
 		const leagues = allLeagues.filter(
 			(league) => league.offeringId === offering.id && leagueMatchesSeason(league, season)
@@ -322,6 +336,7 @@ export const load: PageServerLoad = async (event) => {
 				rulebookUrl: offering.rulebookUrl?.trim() || null
 			},
 			seasonHistory,
+			offeringOptions,
 			leagues: leagueRows,
 			summary: {
 				leagueCount: leagueRows.length,
@@ -340,6 +355,7 @@ export const load: PageServerLoad = async (event) => {
 			season: null,
 			offering: null,
 			seasonHistory: [] as SeasonHistoryRow[],
+			offeringOptions: [] as NavigationOption[],
 			leagues: [] as LeagueRow[],
 			summary: {
 				leagueCount: 0,
