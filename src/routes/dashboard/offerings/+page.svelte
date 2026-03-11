@@ -79,6 +79,7 @@
 	}
 
 	interface OfferingGroup {
+		offeringId: string | null;
 		offeringName: string;
 		offeringSlug: string;
 		offeringType: 'league' | 'tournament';
@@ -3398,11 +3399,13 @@
 	}
 
 	function createEmptyOfferingGroup(input: {
+		offeringId?: string | null;
 		offeringName: string;
 		offeringType: 'league' | 'tournament';
 		offeringSlugHint?: string;
 	}): OfferingGroup {
 		return {
+			offeringId: input.offeringId ?? null,
 			offeringName: input.offeringName,
 			offeringSlug: offeringCardSlug(input.offeringName, input.offeringSlugHint ?? ''),
 			offeringType: input.offeringType,
@@ -3533,6 +3536,7 @@
 				bucket.offerings.set(
 					offeringKey,
 					createEmptyOfferingGroup({
+						offeringId: offeringSeed.id,
 						offeringName,
 						offeringType: offeringSeed.type,
 						offeringSlugHint: offeringSeed.slug
@@ -3564,6 +3568,7 @@
 				bucket.offerings.set(
 					offeringKey,
 					createEmptyOfferingGroup({
+						offeringId: activity.offeringId ?? null,
 						offeringName,
 						offeringType: activity.offeringType,
 						offeringSlugHint: activity.offeringSlug ?? ''
@@ -3573,6 +3578,9 @@
 
 			const offeringGroup = bucket.offerings.get(offeringKey);
 			if (!offeringGroup) continue;
+			if (!offeringGroup.offeringId && activity.offeringId) {
+				offeringGroup.offeringId = activity.offeringId;
+			}
 
 			const registrationWindow = getRegistrationWindowInfo(activity, now);
 			const status = getOfferingStatus(activity, registrationWindow.windowState);
@@ -5014,38 +5022,33 @@
 									rowClass={(league) => leagueRowHighlightClass(offering.offeringSlug, league.id)}
 								>
 									{#snippet emptyBody()}
-										{#each [0, 1, 2] as placeholderIndex}
-											<tr
-												class={`align-middle ${placeholderIndex < 2 ? 'border-b border-secondary-200' : ''} ${placeholderIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}
-												aria-hidden="true"
+										<tr class="bg-neutral-25">
+											<td
+												colspan={offeringTableColumnsFor(offering).length}
+												class="px-4 py-10 text-center text-sm italic text-neutral-700"
 											>
-												<th scope="row" class="px-2 py-1 text-left">
-													<div class="flex items-center gap-2">
-														<div
-															class="w-9 h-9 border border-neutral-950 bg-neutral-100 flex items-center justify-center shrink-0"
+												{#if canManageOfferings}
+													No {entryLabelFor(offering) === 'group' ? 'groups' : 'leagues'} exist for
+													this offering yet. You need to add
+													{entryLabelFor(offering) === 'group' ? 'groups' : 'leagues'} before people
+													can join them.
+													{#if offering.offeringId}
+														<button
+															type="button"
+															class="ml-1 inline font-semibold not-italic text-secondary-900 underline underline-offset-2 cursor-pointer"
+															onclick={() => {
+																void openCreateLeagueWizardForOffering(offering.offeringId ?? '');
+															}}
 														>
-															<div class="w-4 h-4 bg-neutral-300"></div>
-														</div>
-														<div class="h-4 w-32 bg-neutral-100"></div>
-													</div>
-												</th>
-												<td class="px-2 py-1">
-													<div class="h-5 w-16 bg-neutral-100"></div>
-												</td>
-												<td class="px-2 py-1">
-													<div class="space-y-1">
-														<div class="h-3 w-28 bg-neutral-100"></div>
-														<div class="h-3 w-24 bg-neutral-100"></div>
-													</div>
-												</td>
-												<td class="px-2 py-1">
-													<div class="h-3 w-24 bg-neutral-100"></div>
-												</td>
-												<td class="px-2 py-1">
-													<div class="h-3 w-32 bg-neutral-100"></div>
-												</td>
-											</tr>
-										{/each}
+															Add {entryLabelFor(offering) === 'group' ? 'groups' : 'leagues'}
+														</button>
+													{/if}
+												{:else}
+													{entryLabelFor(offering) === 'group' ? 'Groups are' : 'Leagues are'} coming
+													soon for this offering.
+												{/if}
+											</td>
+										</tr>
 									{/snippet}
 
 									{#snippet cell(league, column)}
