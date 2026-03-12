@@ -7,7 +7,9 @@ import { getTenantDbOps } from '$lib/server/database/context';
 import {
 	createIntramuralLeagueSchema,
 	type CreateIntramuralLeagueInput,
-	type CreatedIntramuralActivity
+	type CreatedIntramuralActivity,
+	type UpdateIntramuralLeagueInput,
+	updateIntramuralLeagueSchema
 } from '$lib/server/intramural-offerings-validation';
 import {
 	normalizeIntramuralSlug,
@@ -325,6 +327,218 @@ export const POST: RequestHandler = async (event) => {
 		);
 	} catch (error) {
 		console.error('Failed to create intramural league:', error);
+		return json(
+			{
+				success: false,
+				error: 'Unable to save entries right now.'
+			},
+			{ status: 500 }
+		);
+	}
+};
+
+export const PATCH: RequestHandler = async (event) => {
+	if (!event.platform?.env?.DB) {
+		return json(
+			{
+				success: false,
+				error: 'Unable to save entries right now.'
+			},
+			{ status: 500 }
+		);
+	}
+
+	let body: unknown;
+	try {
+		body = (await event.request.json()) as unknown;
+	} catch {
+		return json(
+			{
+				success: false,
+				error: 'Invalid request payload.'
+			},
+			{ status: 400 }
+		);
+	}
+
+	const parsed = updateIntramuralLeagueSchema.safeParse(body);
+	if (!parsed.success) {
+		return json(
+			{
+				success: false,
+				error: 'Invalid request payload.',
+				fieldErrors: toFieldErrorMap(parsed.error.issues)
+			},
+			{ status: 400 }
+		);
+	}
+
+	const input: UpdateIntramuralLeagueInput = parsed.data;
+	const clientId = requireAuthenticatedClientId(event.locals);
+	const dbOps = await getTenantDbOps(event, clientId);
+	const userId = requireAuthenticatedUserId(event.locals);
+
+	try {
+		const offerings = await dbOps.offerings.getByClientId(clientId);
+		const seasons = await dbOps.seasons.getByClientId(clientId);
+		const seasonById = new Map(seasons.map((season) => [season.id, season]));
+		const selectedOffering =
+			offerings.find((offering) => offering.id === input.offeringId && Boolean(offering.id)) ?? null;
+
+		if (!selectedOffering?.id) {
+			return json(
+				{
+					success: false,
+					error: 'Select a valid offering before saving this entry.',
+					fieldErrors: {
+						offeringId: ['Offering is required.']
+					}
+				},
+				{ status: 400 }
+			);
+		}
+
+		const existingLeague = await dbOps.leagues.getByClientIdAndId(clientId, input.leagueId);
+		if (!existingLeague?.id) {
+			return json(
+				{
+					success: false,
+					error: 'This league could not be found.'
+				},
+				{ status: 404 }
+			);
+		}
+
+		const entryType = toActivityType(selectedOffering.type);
+		const unitSingular = entryType === 'tournament' ? 'group' : 'league';
+		const selectedOfferingSeasonId = selectedOffering.seasonId?.trim() ?? '';
+		if (!selectedOfferingSeasonId) {
+			return json(
+				{
+					success: false,
+					error: 'Selected offering is missing a season assignment.',
+					fieldErrors: {
+						offeringId: ['Offering must be linked to a season before updating entries.']
+					}
+				},
+				{ status: 400 }
+			);
+		}
+
+		const existingOfferingLeagues = await dbOps.leagues.getByOfferingId(selectedOffering.id);
+		const duplicateIssues: Array<{ path: Array<string | number>; message: string }> = [];
+		const duplicateSlug = existingOfferingLeagues.find(
+			(league) =>
+				league.id !== existingLeague.id &&
+				normalizeIntramuralSlug(league.slug) === normalizeIntramuralSlug(input.league.slug)
+		);
+		if (duplicateSlug) {
+			duplicateIssues.push({
+				path: ['league', 'slug'],
+				message: `A ${unitSingular} with this slug already exists for the selected offering.`
+			});
+		}
+
+		const duplicateName = existingOfferingLeagues.find(
+			(league) =>
+				league.id !== existingLeague.id &&
+				normalizeIntramuralText(league.name) === normalizeIntramuralText(input.league.name)
+		);
+		if (duplicateName) {
+			duplicateIssues.push({
+				path: ['league', 'name'],
+				message: `A ${unitSingular} with this name already exists for the selected offering.`
+			});
+		}
+
+		if (duplicateIssues.length > 0) {
+			return json(
+				{
+					success: false,
+					error: 'Duplicate name or slug detected.',
+					fieldErrors: toFieldErrorMap(duplicateIssues)
+				},
+				{ status: 409 }
+			);
+		}
+
+		const selectedSeason = seasonById.get(input.league.seasonId);
+		if (!selectedSeason) {
+			return json(
+				{
+					success: false,
+					error: 'Invalid season selected.',
+					fieldErrors: {
+						'league.seasonId': ['Select a valid season.']
+					}
+				},
+				{ status: 400 }
+			);
+		}
+
+		if (input.league.seasonId !== selectedOfferingSeasonId) {
+			return json(
+				{
+					success: false,
+					error: 'Invalid season selected.',
+					fieldErrors: {
+						'league.seasonId': ['League/group season must match the selected offering season.']
+					}
+				},
+				{ status: 400 }
+			);
+		}
+
+		const seasonLabel = selectedSeason.name?.trim() || 'Unscheduled';
+		const parsedSeason = parseSeasonAndYear(seasonLabel);
+		const updatedLeague = await dbOps.leagues.updateByClientIdAndId(clientId, existingLeague.id, {
+			offeringId: selectedOffering.id,
+			seasonId: selectedSeason.id,
+			name: input.league.name,
+			slug: input.league.slug,
+			stackOrder: input.league.stackOrder,
+			description: input.league.description,
+			year: parsedSeason.year,
+			season: parsedSeason.season,
+			gender: input.league.gender,
+			skillLevel: input.league.skillLevel,
+			regStartDate: input.league.regStartDate,
+			regEndDate: input.league.regEndDate,
+			seasonStartDate: input.league.seasonStartDate,
+			seasonEndDate: input.league.seasonEndDate,
+			hasPostseason: input.league.hasPostseason ? 1 : 0,
+			postseasonStartDate: input.league.hasPostseason ? input.league.postseasonStartDate : null,
+			postseasonEndDate: input.league.hasPostseason ? input.league.postseasonEndDate : null,
+			hasPreseason: input.league.hasPreseason ? 1 : 0,
+			preseasonStartDate: input.league.hasPreseason ? input.league.preseasonStartDate : null,
+			preseasonEndDate: input.league.hasPreseason ? input.league.preseasonEndDate : null,
+			isActive: input.league.isActive ? 1 : 0,
+			isLocked: input.league.isLocked ? 1 : 0,
+			imageUrl: input.league.imageUrl,
+			updatedUser: userId
+		});
+
+		if (!updatedLeague?.id) {
+			return json(
+				{
+					success: false,
+					error: `Unable to update ${unitSingular} right now.`
+				},
+				{ status: 500 }
+			);
+		}
+
+		return json(
+			{
+				success: true,
+				data: {
+					leagueId: updatedLeague.id
+				}
+			},
+			{ status: 200 }
+		);
+	} catch (error) {
+		console.error('Failed to update intramural league:', error);
 		return json(
 			{
 				success: false,

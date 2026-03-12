@@ -136,6 +136,73 @@ export class LeagueOperations {
 		return result[0] ?? null;
 	}
 
+	async updateByClientIdAndId(
+		clientId: string,
+		leagueId: string,
+		data: {
+			offeringId: string;
+			seasonId: string;
+			name: string;
+			slug: string;
+			stackOrder: number;
+			description: string | null;
+			year?: number | null;
+			season?: string | null;
+			gender: 'male' | 'female' | 'mixed' | null;
+			skillLevel: 'competitive' | 'intermediate' | 'recreational' | 'all' | null;
+			regStartDate: string;
+			regEndDate: string;
+			seasonStartDate: string;
+			seasonEndDate: string;
+			hasPostseason: number;
+			postseasonStartDate: string | null;
+			postseasonEndDate: string | null;
+			hasPreseason: number;
+			preseasonStartDate: string | null;
+			preseasonEndDate: string | null;
+			isActive: number;
+			isLocked: number;
+			imageUrl: string | null;
+			updatedUser?: string | null;
+		}
+	): Promise<League | null> {
+		const now = new Date().toISOString();
+
+		const result = await this.db
+			.update(leagues)
+			.set({
+				offeringId: data.offeringId,
+				seasonId: data.seasonId,
+				name: data.name,
+				slug: data.slug,
+				stackOrder: data.stackOrder,
+				description: data.description,
+				year: data.year ?? null,
+				season: data.season ?? null,
+				gender: data.gender,
+				skillLevel: data.skillLevel,
+				regStartDate: data.regStartDate,
+				regEndDate: data.regEndDate,
+				seasonStartDate: data.seasonStartDate,
+				seasonEndDate: data.seasonEndDate,
+				hasPostseason: data.hasPostseason,
+				postseasonStartDate: data.postseasonStartDate,
+				postseasonEndDate: data.postseasonEndDate,
+				hasPreseason: data.hasPreseason,
+				preseasonStartDate: data.preseasonStartDate,
+				preseasonEndDate: data.preseasonEndDate,
+				isActive: data.isActive,
+				isLocked: data.isLocked,
+				imageUrl: data.imageUrl,
+				updatedAt: now,
+				updatedUser: data.updatedUser ?? null
+			})
+			.where(and(eq(leagues.clientId, clientId), eq(leagues.id, leagueId)))
+			.returning();
+
+		return result[0] ?? null;
+	}
+
 	async deleteByOfferingId(offeringId: string): Promise<number> {
 		const result = await this.db
 			.delete(leagues)

@@ -553,6 +553,16 @@ export const createIntramuralLeagueSchema = z
 		});
 	});
 
+export const updateIntramuralLeagueSchema = z
+	.object({
+		leagueId: requiredText('League', 120),
+		offeringId: requiredText('Offering', 120),
+		league: leagueInputSchema
+	})
+	.superRefine((payload, ctx) => {
+		addLeagueDateValidationIssues(payload.league, ['league'], ctx);
+	});
+
 export const createIntramuralSeasonSchema = z
 	.object({
 		season: seasonInputSchema,
@@ -613,6 +623,7 @@ export type CreateIntramuralOfferingWithLeagueInput = z.infer<
 >;
 
 export type CreateIntramuralLeagueInput = z.infer<typeof createIntramuralLeagueSchema>;
+export type UpdateIntramuralLeagueInput = z.infer<typeof updateIntramuralLeagueSchema>;
 
 export type CreateIntramuralSeasonInput = z.infer<typeof createIntramuralSeasonSchema>;
 export type ManageIntramuralSeasonInput = z.infer<typeof manageIntramuralSeasonSchema>;

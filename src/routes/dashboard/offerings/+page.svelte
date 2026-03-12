@@ -31,6 +31,7 @@
 		IconCalendar,
 		IconCopy,
 		IconCrosshair,
+		IconGripHorizontal,
 		IconHistory,
 		IconPencil,
 		IconPlus,
@@ -120,6 +121,7 @@
 	type LeagueWizardStep = 1 | 2 | 3 | 4;
 	type SeasonWizardStep = 1 | 2 | 3 | 4;
 	type AuthRole = 'participant' | 'manager' | 'admin' | 'dev';
+	type LeagueWizardMode = 'create' | 'edit';
 	type SeasonCopyScope = 'offerings-only' | 'offerings-leagues' | 'offerings-all';
 	type LeagueChoice = 'yes' | 'no';
 	type LeagueGender = '' | 'male' | 'female' | 'mixed';
@@ -243,6 +245,15 @@
 		fieldErrors?: Record<string, string[] | undefined>;
 	}
 
+	interface UpdateLeagueApiResponse {
+		success: boolean;
+		data?: {
+			leagueId: string;
+		};
+		error?: string;
+		fieldErrors?: Record<string, string[] | undefined>;
+	}
+
 	const OFFERING_VIEW_STORAGE_KEY = 'intramural-offerings-view-mode';
 	const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 	const DATE_TIME_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
@@ -282,6 +293,10 @@
 	const canManageOfferings = $derived.by(() => {
 		const role = normalizeAuthRole(data?.authMode?.effectiveRole);
 		return role === 'manager' || role === 'admin' || role === 'dev';
+	});
+	const canEditLeagueRows = $derived.by(() => {
+		const role = normalizeAuthRole(data?.authMode?.effectiveRole);
+		return role === 'admin' || role === 'dev';
 	});
 
 	let activities = $state<Activity[]>([]);
@@ -335,10 +350,13 @@
 	let isCreateLeagueModalOpen = $state(false);
 	let createLeagueWizardUnsavedConfirmOpen = $state(false);
 	let createLeagueStep = $state<LeagueWizardStep>(1);
+	let createLeagueMode = $state<LeagueWizardMode>('create');
 	let createLeagueSubmitting = $state(false);
 	let createLeagueFormError = $state('');
 	let createLeagueOfferingFilter = $state<'league' | 'tournament' | 'all'>('all');
 	let createLeagueEditingIndex = $state<number | null>(null);
+	let editingLeagueId = $state<string | null>(null);
+	let editingLeagueOfferingSlug = $state<string | null>(null);
 	let createLeagueDraftActive = $state(false);
 	let createLeagueSlugTouched = $state(false);
 	let createLeagueCopiedFromExisting = $state(false);
@@ -695,7 +713,7 @@
 		if (step === 1) return 'Choose Offering';
 		if (step === 2) return `${wizardEntryUnitTitleSingular()} Basics`;
 		if (step === 3) return `${wizardEntryUnitTitleSingular()} Schedule`;
-		return 'Review & Create';
+		return createLeagueMode === 'edit' ? 'Review & Update' : 'Review & Create';
 	}
 
 	function getSeasonById(seasonId: string | null | undefined) {
@@ -950,11 +968,14 @@
 	}
 
 	function resetCreateLeagueWizard(): void {
+		createLeagueMode = 'create';
 		createLeagueStep = 1;
 		createLeagueSubmitting = false;
 		createLeagueFormError = '';
 		createLeagueWizardUnsavedConfirmOpen = false;
 		createLeagueEditingIndex = null;
+		editingLeagueId = null;
+		editingLeagueOfferingSlug = null;
 		createLeagueDraftActive = false;
 		createLeagueSlugTouched = false;
 		createLeagueCopiedFromExisting = false;
@@ -1002,6 +1023,7 @@
 	function openCreateLeagueWizard(): void {
 		if (!canManageOfferings) return;
 		resetCreateLeagueWizard();
+		createLeagueMode = 'create';
 		createLeagueOfferingFilter =
 			offeringView === 'tournaments' ? 'tournament' : offeringView === 'leagues' ? 'league' : 'all';
 		createLeagueForm.league.seasonId = selectedSeasonId;
@@ -1013,11 +1035,69 @@
 		const selectedOffering = getLeagueOfferingById(offeringId);
 		if (!selectedOffering?.id) return false;
 		resetCreateLeagueWizard();
+		createLeagueMode = 'create';
 		createLeagueOfferingFilter = selectedOffering.type === 'tournament' ? 'tournament' : 'league';
 		createLeagueForm.offeringId = selectedOffering.id;
 		createLeagueForm.league.seasonId = selectedOffering.seasonId || selectedSeasonId;
 		isCreateLeagueModalOpen = true;
 		return true;
+	}
+
+	function buildEditableLeagueDraft(template: LeagueTemplate): WizardLeagueInput {
+		return {
+			draftId: template.id,
+			name: template.name.trim(),
+			slug: slugifyFinal(template.slug || template.name || ''),
+			stackOrder: template.stackOrder ?? 1,
+			isSlugManual: true,
+			description: template.description ?? '',
+			seasonId: template.seasonId ?? selectedSeasonId,
+			gender: normalizeLeagueGender(template.gender),
+			skillLevel: normalizeLeagueSkillLevel(template.skillLevel),
+			regStartDate: template.regStartDate ?? defaultDateTimeValue('start'),
+			regEndDate: template.regEndDate ?? defaultDateTimeValue('end'),
+			seasonStartDate: template.seasonStartDate ?? '',
+			seasonEndDate: template.seasonEndDate ?? '',
+			hasPostseason: template.hasPostseason,
+			postseasonStartDate: template.postseasonStartDate ?? '',
+			postseasonEndDate: template.postseasonEndDate ?? '',
+			hasPreseason: template.hasPreseason,
+			preseasonStartDate: template.preseasonStartDate ?? '',
+			preseasonEndDate: template.preseasonEndDate ?? '',
+			isActive: template.isActive,
+			isLocked: template.isLocked,
+			imageUrl: template.imageUrl ?? ''
+		};
+	}
+
+	function openEditLeagueWizard(offering: OfferingGroup, league: LeagueOffering): void {
+		if (!canEditLeagueRows || !offering.offeringId) return;
+
+		const template = leagueTemplates.find(
+			(existingLeague) =>
+				existingLeague.id === league.id && existingLeague.offeringId === offering.offeringId
+		);
+		if (!template) {
+			toast.error('Unable to load this league right now.', {
+				title: pageLabel
+			});
+			return;
+		}
+
+		const editableLeague = buildEditableLeagueDraft(template);
+		resetCreateLeagueWizard();
+		createLeagueMode = 'edit';
+		createLeagueOfferingFilter = offering.offeringType === 'tournament' ? 'tournament' : 'league';
+		createLeagueForm.offeringId = offering.offeringId;
+		createLeagueForm.leagues = [editableLeague];
+		createLeagueForm.league = { ...editableLeague };
+		createLeagueEditingIndex = 0;
+		createLeagueDraftActive = true;
+		createLeagueSlugTouched = true;
+		editingLeagueId = template.id;
+		editingLeagueOfferingSlug = offering.offeringSlug;
+		createLeagueStep = 2;
+		isCreateLeagueModalOpen = true;
 	}
 
 	function closeCreateSeasonWizard(): void {
@@ -1655,13 +1735,16 @@
 	function getExistingOfferingLeagueScopeErrors(
 		offeringId: string,
 		leagues: WizardLeagueInput[],
-		prefix = 'leagues'
+		prefix = 'leagues',
+		excludeLeagueId: string | null = null
 	): Record<string, string> {
 		const normalizedOfferingId = offeringId.trim();
 		if (!normalizedOfferingId) return {};
 
 		const existingLeagues = leagueTemplates.filter(
-			(league) => league.offeringId === normalizedOfferingId
+			(league) =>
+				league.offeringId === normalizedOfferingId &&
+				(!excludeLeagueId || league.id !== excludeLeagueId)
 		);
 		const existingNames = new Set(
 			existingLeagues
@@ -2630,7 +2713,12 @@
 			Object.assign(errors, getLeagueCollectionScopeErrors(values.leagues));
 			Object.assign(
 				errors,
-				getExistingOfferingLeagueScopeErrors(values.offeringId, values.leagues)
+				getExistingOfferingLeagueScopeErrors(
+					values.offeringId,
+					values.leagues,
+					'leagues',
+					createLeagueMode === 'edit' ? editingLeagueId : null
+				)
 			);
 		}
 		return errors;
@@ -2734,6 +2822,56 @@
 		};
 
 		try {
+			if (createLeagueMode === 'edit') {
+				const leagueId = editingLeagueId?.trim() ?? '';
+				const submittedLeague = submittedLeagues[0];
+				if (!leagueId || !submittedLeague) {
+					createLeagueFormError = `Unable to update ${wizardEntryUnitSingular()} right now.`;
+					return;
+				}
+
+				const response = await fetch('/api/intramural-sports/leagues', {
+					method: 'PATCH',
+					headers: {
+						'content-type': 'application/json'
+					},
+					body: JSON.stringify({
+						leagueId,
+						offeringId: submittedOfferingId,
+						league: mapLeagueForRequest(submittedLeague)
+					})
+				});
+
+				let body: UpdateLeagueApiResponse | null = null;
+				try {
+					body = (await response.json()) as UpdateLeagueApiResponse;
+				} catch {
+					body = null;
+				}
+
+				if (!response.ok || !body?.success || !body?.data?.leagueId) {
+					createLeagueServerFieldErrors = toServerFieldErrorMap(body?.fieldErrors);
+					const combinedErrors = {
+						...getCreateLeagueSubmitErrors(createLeagueForm),
+						...createLeagueServerFieldErrors
+					};
+					createLeagueStep = firstInvalidCreateLeagueStep(combinedErrors);
+					createLeagueFormError = body?.error || `Unable to update ${wizardEntryUnitSingular()} right now.`;
+					return;
+				}
+
+				searchQuery = '';
+				createSuccessMessage = `${wizardEntryUnitTitleSingular()} updated successfully.`;
+				await invalidateAll();
+				const rowOfferingSlug = editingLeagueOfferingSlug;
+				closeCreateLeagueWizard();
+				if (rowOfferingSlug) {
+					await tick();
+					await scrollToLeagueRow(rowOfferingSlug, body.data.leagueId);
+				}
+				return;
+			}
+
 			const response = await fetch('/api/intramural-sports/leagues', {
 				method: 'POST',
 				headers: {
@@ -3453,11 +3591,11 @@
 	}
 
 	function offeringTableColumnsFor(group: OfferingGroup): OfferingsTableColumn[] {
-		return [
+		const columns: OfferingsTableColumn[] = [
 			{
 				key: 'league',
 				label: columnHeaderFor(group, 'league'),
-				width: '24%',
+				width: canEditLeagueRows ? '23%' : '24%',
 				rowHeader: true
 			},
 			{
@@ -3474,16 +3612,32 @@
 			{
 				key: 'join-team',
 				label: 'Join Team Deadline',
-				width: '20%',
+				width: canEditLeagueRows ? '19%' : '20%',
 				cellVerticalAlignment: 'top'
 			},
 			{
 				key: 'range',
 				label: columnHeaderFor(group, 'range'),
-				width: '22%',
+				width: canEditLeagueRows ? '20%' : '22%',
 				cellVerticalAlignment: 'top'
 			}
 		];
+
+		if (canEditLeagueRows) {
+			columns.push({
+				key: 'settings',
+				label: '',
+				width: '4%',
+				headerPaddingX: 'none',
+				cellPaddingX: 'none',
+				cellPaddingLeft: '0.25rem',
+				cellPaddingRight: '0.5rem',
+				cellTextAlignment: 'right',
+				cellVerticalAlignment: 'middle'
+			});
+		}
+
+		return columns;
 	}
 
 	function leagueRowHighlightClass(offeringSlug: string, leagueId: string): string {
@@ -5019,7 +5173,13 @@
 									rows={offering.leagues}
 									caption={`${offering.offeringName} ${entryLabelFor(offering)} table`}
 									rowId={(league) => getLeagueRowId(offering.offeringSlug, league.id)}
-									rowClass={(league) => leagueRowHighlightClass(offering.offeringSlug, league.id)}
+									rowClass={(league) =>
+										[
+											leagueRowHighlightClass(offering.offeringSlug, league.id),
+											canEditLeagueRows ? 'group' : ''
+										]
+											.filter(Boolean)
+											.join(' ')}
 								>
 									{#snippet emptyBody()}
 										<tr class="bg-neutral-25">
@@ -5122,6 +5282,26 @@
 													wrapperClass="inline"
 												/>
 											</p>
+										{:else if column.key === 'settings'}
+											{#if canEditLeagueRows}
+												<div class="flex justify-end">
+													<HoverTooltip
+														text={`Edit ${entryLabelFor(offering)}`}
+														wrapperClass="inline-flex"
+													>
+														<button
+															type="button"
+															class="inline-flex h-7 w-7 items-center justify-center border-0 bg-transparent text-secondary-800 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 hover:text-secondary-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 cursor-pointer"
+															aria-label={`Edit ${league.categoryLabel}`}
+															onclick={() => {
+																openEditLeagueWizard(offering, league);
+															}}
+														>
+															<IconGripHorizontal class="h-4 w-4" />
+														</button>
+													</HoverTooltip>
+												</div>
+											{/if}
 										{/if}
 									{/snippet}
 								</OfferingsTable>
@@ -5962,7 +6142,7 @@
 	stepTitle={createLeagueStepTitle(createLeagueStep)}
 	stepProgress={createLeagueStepProgress}
 	formError={createLeagueFormError}
-	title={`New ${wizardEntryUnitTitleSingular()}`}
+	title={`${createLeagueMode === 'edit' ? 'Edit' : 'New'} ${wizardEntryUnitTitleSingular()}`}
 	unsavedConfirmOpen={createLeagueWizardUnsavedConfirmOpen}
 	formClass={`p-4 space-y-5 flex-1 min-h-0 ${
 		createLeagueStep === 2 && !createLeagueDraftActive ? 'overflow-hidden' : 'overflow-y-auto'
@@ -6748,7 +6928,7 @@
 		<WizardStepFooter
 			step={createLeagueStep}
 			lastStep={4}
-			showBack={createLeagueStep > 1}
+			showBack={createLeagueStep > 1 && !(createLeagueMode === 'edit' && createLeagueStep === 2)}
 			canGoNext={canGoNextCreateLeagueStep}
 			canSubmit={canSubmitCreateLeague}
 			nextLabel={createLeagueStep === 2 && !createLeagueDraftActive
@@ -6760,8 +6940,8 @@
 						? `Add ${wizardEntryUnitTitleSingular()}`
 						: `Update ${wizardEntryUnitTitleSingular()}`
 					: 'Next'}
-			submitLabel="Create"
-			submittingLabel="Creating..."
+			submitLabel={createLeagueMode === 'edit' ? 'Save Changes' : 'Create'}
+			submittingLabel={createLeagueMode === 'edit' ? 'Saving...' : 'Creating...'}
 			isSubmitting={createLeagueSubmitting}
 			on:back={handleCreateLeagueBackAction}
 			on:next={nextCreateLeagueStep}
