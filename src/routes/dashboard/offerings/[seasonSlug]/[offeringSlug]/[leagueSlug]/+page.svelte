@@ -288,6 +288,63 @@
 		return formatSeasonPhaseDate(start ?? end);
 	}
 
+	function formatSeasonPhaseBoundaryText(
+		value: string | null | undefined,
+		futureLabel: string,
+		pastLabel: string
+	): string {
+		if (!value) return `${futureLabel} TBD`;
+		const parsed = parseDateTooltipValue(value);
+		if (!parsed || Number.isNaN(parsed.getTime())) return `${futureLabel} TBD`;
+		const label = parsed.getTime() <= Date.now() ? pastLabel : futureLabel;
+		return `${label} ${formatSeasonPhaseDate(value)}`;
+	}
+
+	function formatLeagueDeadlineDate(value: string | null | undefined): string {
+		if (!value) return 'TBD';
+		const parsed = parseDateTooltipValue(value);
+		if (!parsed || Number.isNaN(parsed.getTime())) return 'TBD';
+		const currentYear = new Date().getFullYear();
+		const includeYear = parsed.getFullYear() !== currentYear;
+		return parsed.toLocaleString('en-US', {
+			month: 'short',
+			day: 'numeric',
+			...(includeYear ? { year: 'numeric' } : {}),
+			hour: 'numeric',
+			minute: '2-digit',
+			hour12: true
+		});
+	}
+
+	function leagueRegistrationWindowInfo(): { openText: string; closeText: string } {
+		const nowMs = Date.now();
+		const regStartValue = data.league?.regStartDate ?? null;
+		const regEndValue = data.league?.regEndDate ?? null;
+		const regStart = parseDateTooltipValue(regStartValue);
+		const regEnd = parseDateTooltipValue(regEndValue);
+		const hasStarted = regStart ? regStart.getTime() <= nowMs : false;
+		const hasClosed = regEnd ? regEnd.getTime() < nowMs : false;
+
+		return {
+			openText: regStartValue
+				? hasStarted
+					? `Opened ${formatLeagueDeadlineDate(regStartValue)}`
+					: `Opens ${formatLeagueDeadlineDate(regStartValue)}`
+				: 'Opens TBD',
+			closeText: regEndValue
+				? hasClosed
+					? `Closed ${formatLeagueDeadlineDate(regEndValue)}`
+					: `Closes ${formatLeagueDeadlineDate(regEndValue)}`
+				: 'Closes TBD'
+		};
+	}
+
+	function leagueJoinTeamDeadlineText(): string {
+		const deadline = joinTeamDeadline();
+		if (!deadline) return 'Join by TBD';
+		return `Join by ${formatLeagueDeadlineDate(deadline)}`;
+	}
+
 	function divisionCapacityLabel(division: DivisionSection): string {
 		if (typeof division.maxTeams === 'number') {
 			return `${division.teamCount} / ${division.maxTeams} teams`;
@@ -895,6 +952,8 @@
 	});
 
 	const hasSearchQuery = $derived.by(() => normalizedSearchQuery.length > 0);
+	const registrationWindowDetails = $derived.by(() => leagueRegistrationWindowInfo());
+	const joinTeamDeadlineDisplayText = $derived.by(() => leagueJoinTeamDeadlineText());
 
 	function leagueDetailHref(
 		leagueSlug: string | null | undefined,
@@ -2320,12 +2379,23 @@
 											</p>
 											<p class="mt-0.5 leading-tight">
 												<DateHoverText
-													display={formatSeasonPhaseRange(
+													display={formatSeasonPhaseBoundaryText(
 														data.league.seasonStartDate,
-														data.league.seasonEndDate
+														'Starts',
+														'Started'
 													)}
 													value={data.league.seasonStartDate}
-													endValue={data.league.seasonEndDate}
+													wrapperClass="inline"
+												/>
+											</p>
+											<p class="leading-tight">
+												<DateHoverText
+													display={formatSeasonPhaseBoundaryText(
+														data.league.seasonEndDate,
+														'Ends',
+														'Ended'
+													)}
+													value={data.league.seasonEndDate}
 													wrapperClass="inline"
 												/>
 											</p>
@@ -2339,18 +2409,31 @@
 											<p class="mt-0.5 leading-tight">
 												{#if data.league.hasPreseason}
 													<DateHoverText
-														display={formatSeasonPhaseRange(
+														display={formatSeasonPhaseBoundaryText(
 															data.league.preseasonStartDate,
-															data.league.preseasonEndDate
+															'Starts',
+															'Started'
 														)}
 														value={data.league.preseasonStartDate}
-														endValue={data.league.preseasonEndDate}
 														wrapperClass="inline"
 													/>
 												{:else}
 													No preseason
 												{/if}
 											</p>
+											{#if data.league.hasPreseason}
+												<p class="leading-tight">
+													<DateHoverText
+														display={formatSeasonPhaseBoundaryText(
+															data.league.preseasonEndDate,
+															'Ends',
+															'Ended'
+														)}
+														value={data.league.preseasonEndDate}
+														wrapperClass="inline"
+													/>
+												</p>
+											{/if}
 										</div>
 										<div
 											class="min-w-0 border-t border-secondary-200 pt-2 sm:border-t-0 sm:border-l sm:pl-2 sm:pt-0"
@@ -2361,18 +2444,31 @@
 											<p class="mt-0.5 leading-tight">
 												{#if data.league.hasPostseason}
 													<DateHoverText
-														display={formatSeasonPhaseRange(
+														display={formatSeasonPhaseBoundaryText(
 															data.league.postseasonStartDate,
-															data.league.postseasonEndDate
+															'Starts',
+															'Started'
 														)}
 														value={data.league.postseasonStartDate}
-														endValue={data.league.postseasonEndDate}
 														wrapperClass="inline"
 													/>
 												{:else}
 													No postseason
 												{/if}
 											</p>
+											{#if data.league.hasPostseason}
+												<p class="leading-tight">
+													<DateHoverText
+														display={formatSeasonPhaseBoundaryText(
+															data.league.postseasonEndDate,
+															'Ends',
+															'Ended'
+														)}
+														value={data.league.postseasonEndDate}
+														wrapperClass="inline"
+													/>
+												</p>
+											{/if}
 										</div>
 									</div>
 								</div>
@@ -2383,21 +2479,19 @@
 												Team Registration
 											</p>
 											<p class="mt-0.5 leading-tight">
-												<span class="font-semibold">Start:</span>
 												<DateHoverText
-													display={formatDateTime(data.league.regStartDate)}
+													display={registrationWindowDetails.openText}
 													value={data.league.regStartDate}
 													includeTime
-													textClass="ml-1"
+													wrapperClass="inline"
 												/>
 											</p>
 											<p class="leading-tight">
-												<span class="font-semibold">End:</span>
 												<DateHoverText
-													display={formatDateTime(data.league.regEndDate)}
+													display={registrationWindowDetails.closeText}
 													value={data.league.regEndDate}
 													includeTime
-													textClass="ml-1"
+													wrapperClass="inline"
 												/>
 											</p>
 										</div>
@@ -2409,9 +2503,10 @@
 											</p>
 											<p class="mt-0.5 leading-tight">
 												<DateHoverText
-													display={formatDateTime(joinTeamDeadline())}
+													display={joinTeamDeadlineDisplayText}
 													value={joinTeamDeadline()}
 													includeTime
+													wrapperClass="inline"
 												/>
 											</p>
 										</div>
