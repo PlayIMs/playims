@@ -34,6 +34,9 @@
 		slugTouched: boolean;
 		unsavedConfirmOpen: boolean;
 		onSlugTouchedChange: (value: boolean) => void;
+		onNameInput?: (value: string) => void;
+		onDayOfWeekInput?: (value: string) => void;
+		onGameTimeInput?: (value: string) => void;
 		onRequestClose: () => void;
 		onSubmit: () => void;
 		onInput: () => void;
@@ -56,6 +59,9 @@
 		slugTouched,
 		unsavedConfirmOpen,
 		onSlugTouchedChange,
+		onNameInput,
+		onDayOfWeekInput,
+		onGameTimeInput,
 		onRequestClose,
 		onSubmit,
 		onInput,
@@ -122,6 +128,11 @@
 					data-wizard-autofocus
 					oninput={(event) => {
 						const value = (event.currentTarget as HTMLInputElement).value;
+						if (onNameInput) {
+							onNameInput(value);
+							return;
+						}
+
 						form.name = value;
 						if (!slugTouched) {
 							form.slug = slugifyFinal(value);
@@ -221,7 +232,16 @@
 					id="create-division-day"
 					type="text"
 					class="input-secondary"
-					bind:value={form.dayOfWeek}
+					value={form.dayOfWeek}
+					oninput={(event) => {
+						const value = (event.currentTarget as HTMLInputElement).value;
+						if (onDayOfWeekInput) {
+							onDayOfWeekInput(value);
+							return;
+						}
+
+						form.dayOfWeek = value;
+					}}
 					autocomplete="off"
 				/>
 			</div>
@@ -233,7 +253,16 @@
 					id="create-division-time"
 					type="text"
 					class="input-secondary"
-					bind:value={form.gameTime}
+					value={form.gameTime}
+					oninput={(event) => {
+						const value = (event.currentTarget as HTMLInputElement).value;
+						if (onGameTimeInput) {
+							onGameTimeInput(value);
+							return;
+						}
+
+						form.gameTime = value;
+					}}
 					autocomplete="off"
 				/>
 			</div>
