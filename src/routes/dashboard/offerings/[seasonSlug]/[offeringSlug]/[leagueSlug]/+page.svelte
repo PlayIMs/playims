@@ -2567,6 +2567,7 @@
 	canSubmit={canSubmitCreateDivision}
 	slugTouched={createDivisionSlugTouched}
 	unsavedConfirmOpen={createDivisionUnsavedConfirmOpen}
+	showLocation={false}
 	onSlugTouchedChange={(value) => {
 		createDivisionSlugTouched = value;
 	}}

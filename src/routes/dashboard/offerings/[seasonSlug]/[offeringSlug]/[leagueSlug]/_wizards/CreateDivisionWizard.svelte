@@ -1,4 +1,5 @@
 <script lang="ts">
+	import DayOfWeekButtonGroup from '$lib/components/DayOfWeekButtonGroup.svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import InfoPopover from '$lib/components/InfoPopover.svelte';
 	import ToggleField from '$lib/components/ToggleField.svelte';
@@ -33,6 +34,7 @@
 		canSubmit: boolean;
 		slugTouched: boolean;
 		unsavedConfirmOpen: boolean;
+		showLocation?: boolean;
 		onSlugTouchedChange: (value: boolean) => void;
 		onNameInput?: (value: string) => void;
 		onDayOfWeekInput?: (value: string) => void;
@@ -58,6 +60,7 @@
 		canSubmit,
 		slugTouched,
 		unsavedConfirmOpen,
+		showLocation = true,
 		onSlugTouchedChange,
 		onNameInput,
 		onDayOfWeekInput,
@@ -223,18 +226,20 @@
 			</div>
 		</div>
 
-		<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-			<div>
-				<label for="create-division-day" class="mb-1 block text-sm text-neutral-950"
-					>Day of Week</label
-				>
-				<input
-					id="create-division-day"
-					type="text"
-					class="input-secondary"
+		<div class="grid grid-cols-1 gap-4 lg:grid-cols-4">
+			<div class={showLocation ? 'lg:col-span-2' : 'lg:col-span-3'}>
+				<div class="mb-1 flex min-h-6 items-center gap-1.5">
+					<p class="text-sm leading-6 text-neutral-950">Day of Week</p>
+					<InfoPopover buttonVariant="label-inline" buttonAriaLabel="Day of week help">
+						<div class="space-y-2">
+							<p>Select a day or let the division name auto-fill it when possible.</p>
+						</div>
+					</InfoPopover>
+				</div>
+				<DayOfWeekButtonGroup
 					value={form.dayOfWeek}
-					oninput={(event) => {
-						const value = (event.currentTarget as HTMLInputElement).value;
+					on:change={(event) => {
+						const value = event.detail.value;
 						if (onDayOfWeekInput) {
 							onDayOfWeekInput(value);
 							return;
@@ -242,13 +247,12 @@
 
 						form.dayOfWeek = value;
 					}}
-					autocomplete="off"
 				/>
 			</div>
 			<div>
-				<label for="create-division-time" class="mb-1 block text-sm text-neutral-950"
-					>Game Time</label
-				>
+				<label for="create-division-time" class="mb-1 block text-sm text-neutral-950">
+					Game Time
+				</label>
 				<input
 					id="create-division-time"
 					type="text"
@@ -266,18 +270,20 @@
 					autocomplete="off"
 				/>
 			</div>
-			<div>
-				<label for="create-division-location" class="mb-1 block text-sm text-neutral-950"
-					>Location</label
-				>
-				<input
-					id="create-division-location"
-					type="text"
-					class="input-secondary"
-					bind:value={form.location}
-					autocomplete="off"
-				/>
-			</div>
+			{#if showLocation}
+				<div>
+					<label for="create-division-location" class="mb-1 block text-sm text-neutral-950">
+						Location
+					</label>
+					<input
+						id="create-division-location"
+						type="text"
+						class="input-secondary"
+						bind:value={form.location}
+						autocomplete="off"
+					/>
+				</div>
+			{/if}
 		</div>
 
 		<div>

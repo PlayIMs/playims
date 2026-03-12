@@ -83,10 +83,12 @@ Use this exact pattern for slug fields in wizards:
 - Toggles use `toggle-secondary`.
 - Radios use `radio-secondary`.
 - Use `src/lib/components/ToggleField.svelte` for bordered toggle rows where the switch sits inside the same field shell as its label content.
+- Use `src/lib/components/DayOfWeekButtonGroup.svelte` for single-choice weekday selection when a day field is optional but should feel faster than a plain text input.
 - `ToggleField` is the default pattern for wizard/admin controls such as `Start this division locked` or `Add this team to the waitlist`.
 - Default posture: make the bordered toggle shell visually match `input-secondary` sizing and border treatment.
 - `ToggleField` supports label placement on either side of the toggle; prefer label text on the right unless the layout has a clear reason to invert it.
 - Selection cards should remain squared (`border`, `bg-white`/`bg-secondary-50`), while radio circles stay circular per `app.css`.
+- Button-based weekday selectors should keep a bordered field shell, use a 7-option single-select grid, and allow clearing back to no selection when the field is not required.
 
 Common selection-card recipe:
 
