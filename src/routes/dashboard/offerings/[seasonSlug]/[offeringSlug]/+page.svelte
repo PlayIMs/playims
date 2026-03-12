@@ -16,6 +16,7 @@
 		WizardStepFooter
 	} from '$lib/components/wizard';
 	import CreateLeagueWizard from '../../_wizards/CreateLeagueWizard.svelte';
+	import CreateDivisionWizard from './[leagueSlug]/_wizards/CreateDivisionWizard.svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import InfoPopover from '$lib/components/InfoPopover.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
@@ -27,6 +28,7 @@
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import type { HeaderHierarchySegment } from '$lib/components/navigation/header-hierarchy.js';
 	import type { OfferingsTableColumn } from '$lib/components/offerings-table.js';
+	import type { ManageIntramuralLeagueResponse } from '$lib/server/intramural-offerings-validation';
 	import { toast } from '$lib/toasts';
 	import { generateUuidV4 } from '$lib/utils/uuid.js';
 	import {
@@ -38,6 +40,7 @@
 		IconBallVolleyball,
 		IconCopy,
 		IconCrosshair,
+		IconHistory,
 		IconLock,
 		IconLockOpen,
 		IconPencil,
@@ -53,6 +56,22 @@
 	type LeagueWizardStep = 1 | 2 | 3 | 4;
 	type LeagueGender = '' | 'male' | 'female' | 'mixed';
 	type LeagueSkillLevel = '' | 'competitive' | 'intermediate' | 'recreational' | 'all';
+	type DivisionNameInference = {
+		dayOfWeek: string;
+		gameTime: string;
+	};
+
+	interface DivisionWizardForm {
+		name: string;
+		slug: string;
+		maxTeams: string;
+		description: string;
+		dayOfWeek: string;
+		gameTime: string;
+		location: string;
+		startDate: string;
+		isLocked: boolean;
+	}
 
 	interface DropdownOption {
 		value: string;
@@ -156,10 +175,42 @@
 	let createLeagueStep = $state<LeagueWizardStep>(1);
 	let createLeagueSubmitting = $state(false);
 	let createLeagueFormError = $state('');
+	let createDivisionOpen = $state(false);
+	let createDivisionSubmitting = $state(false);
+	let createDivisionValidationVisible = $state(false);
+	let createDivisionSlugTouched = $state(false);
+	let createDivisionDayOfWeekManual = $state(false);
+	let createDivisionGameTimeManual = $state(false);
+	let createDivisionUnsavedConfirmOpen = $state(false);
+	let createDivisionFormError = $state('');
+	let createDivisionServerFieldErrors = $state<Record<string, string>>({});
+	let createDivisionLeague = $state<OfferingLeagueRow | null>(null);
 	let createLeagueEditingIndex = $state<number | null>(null);
 	let createLeagueDraftActive = $state(false);
 	let createLeagueSlugTouched = $state(false);
 	let createLeagueServerFieldErrors = $state<Record<string, string>>({});
+	let createDivisionForm = $state<DivisionWizardForm>({
+		name: '',
+		slug: '',
+		maxTeams: '8',
+		description: '',
+		dayOfWeek: '',
+		gameTime: '',
+		location: '',
+		startDate: '',
+		isLocked: false
+	});
+	let createDivisionInitialForm = $state<DivisionWizardForm>({
+		name: '',
+		slug: '',
+		maxTeams: '8',
+		description: '',
+		dayOfWeek: '',
+		gameTime: '',
+		location: '',
+		startDate: '',
+		isLocked: false
+	});
 	let createLeagueForm = $state<LeagueWizardFormState>({
 		offeringId: '',
 		league: {
@@ -357,6 +408,20 @@
 		};
 	}
 
+	function createEmptyDivision(): DivisionWizardForm {
+		return {
+			name: '',
+			slug: '',
+			maxTeams: '8',
+			description: '',
+			dayOfWeek: '',
+			gameTime: '',
+			location: '',
+			startDate: '',
+			isLocked: false
+		};
+	}
+
 	function resetCreateLeagueWizard(): void {
 		createLeagueStep = 1;
 		createLeagueSubmitting = false;
@@ -367,6 +432,44 @@
 		createLeagueSlugTouched = false;
 		createLeagueServerFieldErrors = {};
 		createLeagueForm = createEmptyCreateLeagueForm();
+	}
+
+	function resetCreateDivisionWizard(): void {
+		createDivisionInitialForm = createEmptyDivision();
+		createDivisionForm = { ...createDivisionInitialForm };
+		createDivisionValidationVisible = false;
+		createDivisionSlugTouched = false;
+		createDivisionDayOfWeekManual = false;
+		createDivisionGameTimeManual = false;
+		createDivisionServerFieldErrors = {};
+		createDivisionFormError = '';
+		createDivisionUnsavedConfirmOpen = false;
+	}
+
+	function hasUnsavedCreateDivisionChanges(): boolean {
+		return JSON.stringify(createDivisionForm) !== JSON.stringify(createDivisionInitialForm);
+	}
+
+	function openCreateDivisionWizard(targetLeague: OfferingLeagueRow | null): void {
+		if (!canManageOffering || !targetLeague) return;
+		resetCreateDivisionWizard();
+		createDivisionLeague = targetLeague;
+		createDivisionOpen = true;
+	}
+
+	function closeCreateDivisionWizard(): void {
+		createDivisionOpen = false;
+		createDivisionLeague = null;
+		resetCreateDivisionWizard();
+	}
+
+	function requestCloseCreateDivisionWizard(): void {
+		if (!createDivisionOpen || createDivisionSubmitting) return;
+		if (!hasUnsavedCreateDivisionChanges()) {
+			closeCreateDivisionWizard();
+			return;
+		}
+		createDivisionUnsavedConfirmOpen = true;
 	}
 
 	function hasLeagueDraftData(values: WizardLeagueInput): boolean {
@@ -441,9 +544,20 @@
 		}
 	}
 
+	function clearCreateDivisionApiErrors(): void {
+		if (Object.keys(createDivisionServerFieldErrors).length > 0) {
+			createDivisionServerFieldErrors = {};
+		}
+		if (createDivisionFormError) {
+			createDivisionFormError = '';
+		}
+	}
+
 	$effect(() => {
 		if (typeof window === 'undefined') return;
-		const hasUnsavedChanges = isCreateLeagueModalOpen && hasUnsavedCreateLeagueWizardChanges();
+		const hasUnsavedChanges =
+			(isCreateLeagueModalOpen && hasUnsavedCreateLeagueWizardChanges()) ||
+			(createDivisionOpen && hasUnsavedCreateDivisionChanges());
 		if (!hasUnsavedChanges) return;
 
 		const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -505,6 +619,46 @@
 
 	function divisionJoinTooltip(division: OfferingDivisionRow): string {
 		return division.isLocked ? 'This division cannot be joined' : 'This division can be joined';
+	}
+
+	function inferDayOfWeekFromDivisionName(name: string): string {
+		const dayMatchers = [
+			{ pattern: /\bmonday\b|\bmon\b/i, value: 'Monday' },
+			{ pattern: /\btuesday\b|\btue(?:s)?\b/i, value: 'Tuesday' },
+			{ pattern: /\bwednesday\b|\bwed\b/i, value: 'Wednesday' },
+			{ pattern: /\bthursday\b|\bthu(?:r|rs)?\b/i, value: 'Thursday' },
+			{ pattern: /\bfriday\b|\bfri\b/i, value: 'Friday' },
+			{ pattern: /\bsaturday\b|\bsat\b/i, value: 'Saturday' },
+			{ pattern: /\bsunday\b|\bsun\b/i, value: 'Sunday' }
+		];
+
+		let earliestMatch: { index: number; value: string } | null = null;
+		for (const matcher of dayMatchers) {
+			const match = matcher.pattern.exec(name);
+			if (match?.index === undefined) continue;
+			if (!earliestMatch || match.index < earliestMatch.index) {
+				earliestMatch = { index: match.index, value: matcher.value };
+			}
+		}
+
+		return earliestMatch?.value ?? '';
+	}
+
+	function inferGameTimeFromDivisionName(name: string): string {
+		const timeMatch = /\b(1[0-2]|0?[1-9])(?::([0-5]\d))?\s*([AaPp])\.?\s*[Mm]\.?\b/.exec(name);
+		if (!timeMatch) return '';
+
+		const hour = String(Number(timeMatch[1] ?? ''));
+		const minutes = timeMatch[2] ?? '00';
+		const meridiem = `${timeMatch[3]?.toUpperCase() ?? 'A'}M`;
+		return `${hour}:${minutes} ${meridiem}`;
+	}
+
+	function inferDivisionNameDetails(name: string): DivisionNameInference {
+		return {
+			dayOfWeek: inferDayOfWeekFromDivisionName(name),
+			gameTime: inferGameTimeFromDivisionName(name)
+		};
 	}
 
 	function formatDate(
@@ -691,6 +845,51 @@
 		const divisionSlug = division.slug?.trim() || division.id;
 		if (!seasonSlug || !offeringSlug || !leagueSlug || !divisionSlug) return leagueHref(league);
 		return `/dashboard/offerings/${seasonSlug}/${offeringSlug}/${leagueSlug}/${divisionSlug}`;
+	}
+
+	function createDivisionManagementApiPath(league: OfferingLeagueRow | null): string | null {
+		const seasonSlug = data.season?.slug?.trim();
+		const leagueSlug = league?.slug?.trim();
+		if (!seasonSlug || !leagueSlug) return null;
+		return `/api/intramural-sports/leagues/${seasonSlug}/${leagueSlug}/management`;
+	}
+
+	function firstFieldError(
+		fieldErrors: Record<string, string[] | undefined> | undefined
+	): string | null {
+		if (!fieldErrors) return null;
+		for (const value of Object.values(fieldErrors)) {
+			if (Array.isArray(value) && value[0]) return value[0];
+		}
+		return null;
+	}
+
+	function readScopedFieldErrors(
+		fieldErrors: Record<string, string[] | undefined> | undefined,
+		scope: string
+	): Record<string, string> {
+		const scopedErrors: Record<string, string> = {};
+		if (!fieldErrors) return scopedErrors;
+
+		for (const [key, value] of Object.entries(fieldErrors)) {
+			if (!key.startsWith(`${scope}.`) || !Array.isArray(value) || !value[0]) continue;
+			scopedErrors[key.slice(scope.length + 1)] = value[0];
+		}
+
+		return scopedErrors;
+	}
+
+	async function readManageLeagueResponse(
+		response: Response
+	): Promise<ManageIntramuralLeagueResponse> {
+		try {
+			return (await response.json()) as ManageIntramuralLeagueResponse;
+		} catch {
+			return {
+				success: false,
+				error: 'Unexpected server response.'
+			};
+		}
 	}
 
 	function buildDraftFromTemplate(template: LeagueTemplate): WizardLeagueInput {
@@ -907,6 +1106,136 @@
 		createLeagueStep = 2;
 	}
 
+	function handleCreateDivisionNameInput(value: string): void {
+		createDivisionForm.name = value;
+		if (!createDivisionSlugTouched) {
+			createDivisionForm.slug = slugifyFinal(value);
+		}
+
+		const inferred = inferDivisionNameDetails(value);
+		if (!createDivisionDayOfWeekManual) {
+			createDivisionForm.dayOfWeek = inferred.dayOfWeek;
+		}
+		if (!createDivisionGameTimeManual) {
+			createDivisionForm.gameTime = inferred.gameTime;
+		}
+	}
+
+	function handleCreateDivisionDayOfWeekInput(value: string): void {
+		createDivisionDayOfWeekManual = value.trim().length > 0;
+		createDivisionForm.dayOfWeek = value;
+		if (!createDivisionDayOfWeekManual) {
+			createDivisionForm.dayOfWeek = inferDivisionNameDetails(createDivisionForm.name).dayOfWeek;
+		}
+	}
+
+	function handleCreateDivisionGameTimeInput(value: string): void {
+		createDivisionGameTimeManual = value.trim().length > 0;
+		createDivisionForm.gameTime = value;
+		if (!createDivisionGameTimeManual) {
+			createDivisionForm.gameTime = inferDivisionNameDetails(createDivisionForm.name).gameTime;
+		}
+	}
+
+	function getDivisionFieldErrors(values: DivisionWizardForm): Record<string, string> {
+		const errors: Record<string, string> = {};
+		const name = values.name.trim();
+		const slug = values.slug.trim();
+		const normalizedName = name.toLowerCase();
+		const normalizedSlug = slug.toLowerCase();
+		const maxTeams = Number(values.maxTeams);
+		const targetLeagueDivisions = createDivisionLeague?.divisions ?? [];
+
+		if (!name) errors['name'] = 'Division name is required.';
+		if (!slug) errors['slug'] = 'Division slug is required.';
+		if (slug && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+			errors['slug'] = 'Division slug must use lowercase letters, numbers, and dashes only.';
+		}
+		if (!Number.isInteger(maxTeams) || maxTeams < 1) {
+			errors['maxTeams'] = 'Division team limit must be at least 1.';
+		} else if (maxTeams > 128) {
+			errors['maxTeams'] = 'Division team limit must be 128 or less.';
+		}
+
+		if (
+			name &&
+			targetLeagueDivisions.some((division) => division.name.trim().toLowerCase() === normalizedName)
+		) {
+			errors['name'] = 'A division with this name already exists for this league.';
+		}
+
+		if (
+			slug &&
+			targetLeagueDivisions.some((division) => division.slug.trim().toLowerCase() === normalizedSlug)
+		) {
+			errors['slug'] = 'A division with this slug already exists for this league.';
+		}
+
+		return errors;
+	}
+
+	async function createDivision(): Promise<void> {
+		createDivisionValidationVisible = true;
+		const clientErrors = getDivisionFieldErrors(createDivisionForm);
+		if (Object.keys(clientErrors).length > 0 || !createDivisionLeague?.id) {
+			return;
+		}
+
+		const apiPath = createDivisionManagementApiPath(createDivisionLeague);
+		if (!apiPath) {
+			toast.error('League route is missing season or league slug.', {
+				title: createDivisionLeague.name ?? pageLabel
+			});
+			return;
+		}
+
+		createDivisionSubmitting = true;
+		createDivisionFormError = '';
+		createDivisionServerFieldErrors = {};
+
+		try {
+			const response = await fetch(apiPath, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					action: 'create-division',
+					leagueId: createDivisionLeague.id,
+					division: {
+						name: createDivisionForm.name.trim(),
+						slug: createDivisionForm.slug.trim(),
+						description: normalizeOptionalTextForRequest(createDivisionForm.description),
+						dayOfWeek: normalizeOptionalTextForRequest(createDivisionForm.dayOfWeek),
+						gameTime: normalizeOptionalTextForRequest(createDivisionForm.gameTime),
+						maxTeams: Number(createDivisionForm.maxTeams),
+						location: normalizeOptionalTextForRequest(createDivisionForm.location),
+						isLocked: createDivisionForm.isLocked,
+						startDate: createDivisionForm.startDate.trim() || null
+					}
+				})
+			});
+			const payload = await readManageLeagueResponse(response);
+			if (!response.ok || !payload.success) {
+				createDivisionServerFieldErrors = readScopedFieldErrors(payload.fieldErrors, 'division');
+				createDivisionFormError =
+					payload.error ??
+					firstFieldError(payload.fieldErrors) ??
+					'Unable to create division right now.';
+				return;
+			}
+
+			const createdLeagueName = createDivisionLeague.name;
+			closeCreateDivisionWizard();
+			await invalidateAll();
+			toast.success('Division added.', {
+				title: createdLeagueName
+			});
+		} catch {
+			createDivisionFormError = 'Unable to create division right now.';
+		} finally {
+			createDivisionSubmitting = false;
+		}
+	}
+
 	function openCreateEntryFlow(): void {
 		openCreateLeagueWizard();
 	}
@@ -914,9 +1243,7 @@
 	async function handleAddAction(action: string): Promise<void> {
 		if (action === 'create-division') {
 			const targetLeague = visibleLeagues[0] ?? data.leagues[0] ?? null;
-			if (targetLeague) {
-				await goto(leagueHref(targetLeague));
-			}
+			openCreateDivisionWizard(targetLeague);
 			return;
 		}
 		openCreateEntryFlow();
@@ -1413,6 +1740,11 @@
 	});
 
 	const hasSearchQuery = $derived.by(() => normalizedSearchQuery.length > 0);
+	const createDivisionFieldErrors = $derived.by(() => ({
+		...(createDivisionValidationVisible ? getDivisionFieldErrors(createDivisionForm) : {}),
+		...createDivisionServerFieldErrors
+	}));
+	const canSubmitCreateDivision = $derived.by(() => !createDivisionSubmitting);
 
 	function seasonHistoryStatusLabel(
 		season: NonNullable<PageData['seasonHistory']>[number]
@@ -1656,13 +1988,19 @@
 									options={seasonHistoryDropdownOptions}
 									value={selectedSeasonHistoryValue}
 									ariaLabel="Offering season history"
-									buttonClass="button-secondary-outlined px-3 py-1 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-60"
+									buttonClass="button-secondary-outlined p-1.5 cursor-pointer"
 									emptyText="No other seasons available."
 									disabled={seasonHistoryDropdownOptions.length <= 1}
 									on:change={(event) => {
 										void handleSeasonHistoryChange(event.detail.value);
 									}}
-								/>
+								>
+									{#snippet trigger(_, selectedOption)}
+										<IconHistory
+											class={`h-4 w-4 ${selectedOption ? 'text-secondary-900' : 'text-neutral-700'}`}
+										/>
+									{/snippet}
+								</ListboxDropdown>
 							</div>
 							<div class="flex flex-wrap items-center gap-2 text-xs font-sans text-neutral-950">
 								<span class="border border-secondary-300 px-2 py-1">
@@ -1760,22 +2098,12 @@
 													>
 														{league.name}
 													</a>
-													<span
-														class="badge-secondary-outlined px-1.5 py-0 text-[10px] uppercase tracking-wide"
-													>
-														{entryUnitTitleSingular()}
+													<span class="text-sm font-sans font-normal text-neutral-950">
+														{league.divisions.length} divisions
 													</span>
 												</div>
-												{#if league.description}
-													<p class="mt-1 text-sm leading-6 text-neutral-950">
-														{league.description}
-													</p>
-												{/if}
 											</div>
 											<div class="flex flex-wrap items-center gap-1">
-												<span class="badge-secondary-outlined px-2 py-0.5 text-xs">
-													{league.divisions.length} divisions
-												</span>
 												<span class="badge-secondary-outlined px-2 py-0.5 text-xs">
 													{leagueVisibleTeamCount(league)} teams
 												</span>
@@ -2683,3 +3011,33 @@
 		/>
 	{/snippet}
 </CreateLeagueWizard>
+
+<CreateDivisionWizard
+	open={createDivisionOpen}
+	form={createDivisionForm}
+	fieldErrors={createDivisionFieldErrors}
+	formError={createDivisionFormError}
+	submitting={createDivisionSubmitting}
+	canSubmit={canSubmitCreateDivision}
+	slugTouched={createDivisionSlugTouched}
+	unsavedConfirmOpen={createDivisionUnsavedConfirmOpen}
+	showLocation={false}
+	title={createDivisionLeague ? `New Division for ${createDivisionLeague.name}` : 'New Division'}
+	closeAriaLabel="Close create division wizard"
+	submitLabel="Create Division"
+	submittingLabel="Creating..."
+	errorToastTitle={createDivisionLeague ? `Create division for ${createDivisionLeague.name}` : 'Create division'}
+	onSlugTouchedChange={(value) => {
+		createDivisionSlugTouched = value;
+	}}
+	onNameInput={handleCreateDivisionNameInput}
+	onDayOfWeekInput={handleCreateDivisionDayOfWeekInput}
+	onGameTimeInput={handleCreateDivisionGameTimeInput}
+	onRequestClose={requestCloseCreateDivisionWizard}
+	onSubmit={createDivision}
+	onInput={clearCreateDivisionApiErrors}
+	onUnsavedConfirm={closeCreateDivisionWizard}
+	onUnsavedCancel={() => {
+		createDivisionUnsavedConfirmOpen = false;
+	}}
+/>
