@@ -10,7 +10,9 @@ coverage on the important decisions.
 
 Summary of tests:
 1. It verifies that invalid or expired invite tokens return a not-found response.
-2. It verifies that a valid invite creates login state and starts a session.
+2. It verifies that existing-account invites require the invited user to be signed in first.
+3. It verifies that a signed-in invited user can accept an existing-account invite without resetting a password.
+4. It verifies that a valid new-account invite creates login state and starts a session.
 */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -20,6 +22,7 @@ const mocks = vi.hoisted(() => {
 	return {
 		dbOps: {
 			members: {
+				getInvitePreviewByTokenHash: vi.fn(),
 				acceptInvite: vi.fn()
 			},
 			users: {
@@ -65,9 +68,10 @@ const buildEvent = (body: Record<string, unknown>) =>
 		platform: {
 			env: {
 				DB: {},
-				AUTH_PASSWORD_ITERATIONS: '210000'
+				AUTH_PASSWORD_PBKDF2_ITERATIONS: '210000'
 			}
 		},
+		locals: {},
 		request: new Request('https://playims.test/api/member-invites/accept', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
@@ -85,7 +89,8 @@ describe('member invite acceptance endpoint', () => {
 		);
 		mocks.requireSessionSecret.mockReturnValue('session-secret');
 		mocks.resolvePasswordPepper.mockReturnValue('pepper-secret');
-		mocks.dbOps.members.acceptInvite.mockResolvedValue(null);
+		mocks.dbOps.members.getInvitePreviewByTokenHash.mockResolvedValue(null);
+		mocks.dbOps.members.acceptInvite.mockResolvedValue({ status: 'invalid-invite' });
 		mocks.dbOps.users.markLoginSuccess.mockResolvedValue(null);
 	});
 
@@ -104,12 +109,162 @@ describe('member invite acceptance endpoint', () => {
 
 		expect(response.status).toBe(404);
 		expect(payload.error).toBe('Invite is expired, revoked, or invalid.');
+		expect(mocks.hashPassword).not.toHaveBeenCalled();
 		expect(mocks.createSessionForUser).not.toHaveBeenCalled();
 	});
 
-	it('creates a session after accepting a valid invite', async () => {
-		// this fixture mirrors the route's returned user data closely so the session handoff stays realistic.
+	it('requires sign-in before accepting an invite for an existing account', async () => {
+		// the route should block password creation here because the invited email already owns an account.
+		mocks.dbOps.members.getInvitePreviewByTokenHash.mockResolvedValue({
+			clientName: 'PlayIMs',
+			clientSlug: 'playims',
+			email: 'existing@playims.test',
+			firstName: 'Existing',
+			lastName: 'Member',
+			studentId: null,
+			sex: null,
+			role: 'participant',
+			mode: 'invite',
+			expiresAt: '2030-01-01T00:00:00.000Z',
+			accountMode: 'existing-account'
+		});
 		mocks.dbOps.members.acceptInvite.mockResolvedValue({
+			status: 'authentication-required',
+			email: 'existing@playims.test'
+		});
+
+		const response = await POST(
+			buildEvent({
+				token: 'existing-token',
+				firstName: 'Evil',
+				lastName: 'Overwrite',
+				password: 'StrongPass123',
+				confirmPassword: 'StrongPass123'
+			})
+		);
+		const payload = await response.json();
+
+		expect(response.status).toBe(409);
+		expect(payload.error).toBe(
+			'This invite is for an email that already has a PlayIMs account. Sign in with that account to accept the invite.'
+		);
+		expect(mocks.hashPassword).not.toHaveBeenCalled();
+		expect(mocks.dbOps.members.acceptInvite).toHaveBeenCalledWith(
+			expect.objectContaining({
+				tokenHash: expect.any(String),
+				actorUserId: null
+			})
+		);
+		expect(mocks.createSessionForUser).not.toHaveBeenCalled();
+	});
+
+	it('accepts an existing-account invite for the matching signed-in user without hashing a password', async () => {
+		// the invite should activate membership only and leave the signed-in account credentials alone.
+		mocks.dbOps.members.getInvitePreviewByTokenHash.mockResolvedValue({
+			clientName: 'PlayIMs',
+			clientSlug: 'playims',
+			email: 'existing@playims.test',
+			firstName: 'Existing',
+			lastName: 'Member',
+			studentId: null,
+			sex: null,
+			role: 'participant',
+			mode: 'invite',
+			expiresAt: '2030-01-01T00:00:00.000Z',
+			accountMode: 'existing-account'
+		});
+		mocks.dbOps.members.acceptInvite.mockResolvedValue({
+			status: 'accepted',
+			user: {
+				id: 'user-1',
+				email: 'existing@playims.test',
+				firstName: 'Existing',
+				lastName: 'Member',
+				passwordHash: 'unchanged-hash',
+				status: 'active',
+				cellPhone: null,
+				createdAt: '2029-12-20T00:00:00.000Z',
+				updatedAt: '2029-12-20T00:00:00.000Z',
+				createdUser: null,
+				updatedUser: null,
+				emailVerifiedAt: null,
+				ssoUserId: null,
+				avatarUrl: null,
+				firstLoginAt: null,
+				lastLoginAt: null,
+				timezone: null,
+				lastActiveAt: null,
+				sessionCount: 1,
+				preferences: null,
+				notes: null
+			},
+			clientId: 'client-1',
+			role: 'participant',
+			createdUser: false,
+			reactivatedMembership: true
+		});
+		const event = buildEvent({
+			token: 'existing-token'
+		});
+		event.locals = {
+			user: {
+				id: 'user-1',
+				email: 'existing@playims.test',
+				clientId: 'client-9',
+				role: 'participant',
+				baseRole: 'participant',
+				canViewAsRole: false,
+				isViewingAsRole: false,
+				viewAsRole: null
+			},
+			session: {
+				id: 'session-1',
+				userId: 'user-1',
+				clientId: 'client-9',
+				activeClientId: 'client-9',
+				role: 'participant',
+				baseRole: 'participant',
+				canViewAsRole: false,
+				isViewingAsRole: false,
+				viewAsRole: null,
+				authProvider: 'password',
+				expiresAt: '2030-01-01T00:00:00.000Z'
+			}
+		};
+
+		const response = await POST(event);
+		const payload = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(payload.success).toBe(true);
+		expect(mocks.dbOps.members.acceptInvite).toHaveBeenCalledWith(
+			expect.objectContaining({
+				tokenHash: expect.any(String),
+				actorUserId: 'user-1'
+			})
+		);
+		expect(mocks.hashPassword).not.toHaveBeenCalled();
+		expect(mocks.dbOps.users.markLoginSuccess).not.toHaveBeenCalled();
+		expect(mocks.createSessionForUser).not.toHaveBeenCalled();
+	});
+
+	it('creates a session after accepting a valid new-account invite', async () => {
+		// this fixture mirrors the route's returned user data closely so the session handoff stays realistic.
+		mocks.dbOps.members.getInvitePreviewByTokenHash.mockResolvedValue({
+			clientName: 'PlayIMs',
+			clientSlug: 'playims',
+			email: 'new@playims.test',
+			firstName: 'Jamie',
+			lastName: 'Member',
+			studentId: null,
+			sex: null,
+			role: 'participant',
+			mode: 'invite',
+			expiresAt: '2030-01-01T00:00:00.000Z',
+			accountMode: 'new-account'
+		});
+		mocks.dbOps.members.acceptInvite.mockResolvedValue({
+			status: 'accepted',
 			user: {
 				id: 'user-1',
 				email: 'new@playims.test',

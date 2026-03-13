@@ -22,16 +22,22 @@
 		submitting = true;
 		error = '';
 		try {
+			const body =
+				data.invite?.accountMode === 'existing-account'
+					? {
+							token: data.token
+						}
+					: {
+							token: data.token,
+							password,
+							confirmPassword,
+							firstName: firstName || null,
+							lastName: lastName || null
+						};
 			const response = await fetch('/api/member-invites/accept', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({
-					token: data.token,
-					password,
-					confirmPassword,
-					firstName: firstName || null,
-					lastName: lastName || null
-				})
+				body: JSON.stringify(body)
 			});
 			const payload = (await response.json()) as { success: boolean; error?: string };
 			if (!response.ok || !payload.success) {
@@ -41,6 +47,25 @@
 			await goto('/dashboard');
 		} catch {
 			error = 'Unable to accept invite.';
+		} finally {
+			submitting = false;
+		}
+	}
+
+	async function signOutAndContinue(): Promise<void> {
+		submitting = true;
+		error = '';
+		try {
+			const response = await fetch('/api/auth/logout', {
+				method: 'POST'
+			});
+			if (!response.ok) {
+				error = 'Unable to sign out of the current account.';
+				return;
+			}
+			await goto(data.signInPath);
+		} catch {
+			error = 'Unable to sign out of the current account.';
 		} finally {
 			submitting = false;
 		}
@@ -89,35 +114,85 @@
 				</div>
 			</div>
 
-			<form
-				class="space-y-4"
-				onsubmit={(event) => {
-					event.preventDefault();
-					void acceptInvite();
-				}}
-			>
-				<div class="grid gap-4 lg:grid-cols-2">
-					<div class="space-y-1">
-						<label class="block text-sm font-semibold text-neutral-950" for="invite-first-name">First Name</label>
-						<input id="invite-first-name" class="input-secondary" type="text" bind:value={firstName} />
-					</div>
-					<div class="space-y-1">
-						<label class="block text-sm font-semibold text-neutral-950" for="invite-last-name">Last Name</label>
-						<input id="invite-last-name" class="input-secondary" type="text" bind:value={lastName} />
-					</div>
-					<div class="space-y-1">
-						<label class="block text-sm font-semibold text-neutral-950" for="invite-password">Password</label>
-						<input id="invite-password" class="input-secondary" type="password" bind:value={password} />
-					</div>
-					<div class="space-y-1">
-						<label class="block text-sm font-semibold text-neutral-950" for="invite-confirm-password">Confirm Password</label>
-						<input id="invite-confirm-password" class="input-secondary" type="password" bind:value={confirmPassword} />
-					</div>
+			{#if data.invite.accountMode === 'existing-account'}
+				<div class="space-y-4 border-2 border-secondary-300 bg-white p-4">
+					<p class="text-sm text-neutral-950">
+						This invite is tied to an email address that already has a PlayIMs account. For security,
+						only that signed-in account can accept this organization membership.
+					</p>
+
+					{#if data.viewerMatchesInvite}
+						<p class="text-sm text-neutral-800">
+							You are signed in as the invited account. Accepting this invite will add this organization
+							to your existing PlayIMs profile without changing your password.
+						</p>
+						<form
+							class="space-y-4"
+							onsubmit={(event) => {
+								event.preventDefault();
+								void acceptInvite();
+							}}
+						>
+							<button type="submit" class="button-secondary cursor-pointer" disabled={submitting}>
+								{submitting ? 'Joining Organization...' : 'Accept Invite'}
+							</button>
+						</form>
+					{:else if data.viewerSignedIn}
+						<p class="text-sm text-neutral-800">
+							You are currently signed in with a different account. Sign out first, then sign in with
+							{data.invite.email} to accept this invite safely.
+						</p>
+						<div class="flex flex-wrap gap-3">
+							<button
+								type="button"
+								class="button-secondary cursor-pointer"
+								disabled={submitting}
+								onclick={() => void signOutAndContinue()}
+							>
+								{submitting ? 'Signing Out...' : 'Sign Out And Continue'}
+							</button>
+						</div>
+					{:else}
+						<p class="text-sm text-neutral-800">
+							Sign in with {data.invite.email} to accept this invite. That proves you already control the
+							account tied to this email.
+						</p>
+						<a class="button-secondary inline-flex cursor-pointer" href={data.signInPath}>
+							Sign In To Continue
+						</a>
+					{/if}
 				</div>
-				<button type="submit" class="button-secondary cursor-pointer" disabled={submitting}>
-					{submitting ? 'Finishing Setup...' : 'Accept Invite'}
-				</button>
-			</form>
+			{:else}
+				<form
+					class="space-y-4"
+					onsubmit={(event) => {
+						event.preventDefault();
+						void acceptInvite();
+					}}
+				>
+					<div class="grid gap-4 lg:grid-cols-2">
+						<div class="space-y-1">
+							<label class="block text-sm font-semibold text-neutral-950" for="invite-first-name">First Name</label>
+							<input id="invite-first-name" class="input-secondary" type="text" bind:value={firstName} />
+						</div>
+						<div class="space-y-1">
+							<label class="block text-sm font-semibold text-neutral-950" for="invite-last-name">Last Name</label>
+							<input id="invite-last-name" class="input-secondary" type="text" bind:value={lastName} />
+						</div>
+						<div class="space-y-1">
+							<label class="block text-sm font-semibold text-neutral-950" for="invite-password">Password</label>
+							<input id="invite-password" class="input-secondary" type="password" bind:value={password} />
+						</div>
+						<div class="space-y-1">
+							<label class="block text-sm font-semibold text-neutral-950" for="invite-confirm-password">Confirm Password</label>
+							<input id="invite-confirm-password" class="input-secondary" type="password" bind:value={confirmPassword} />
+						</div>
+					</div>
+					<button type="submit" class="button-secondary cursor-pointer" disabled={submitting}>
+						{submitting ? 'Finishing Setup...' : 'Accept Invite'}
+					</button>
+				</form>
+			{/if}
 		{/if}
 	</div>
 </div>

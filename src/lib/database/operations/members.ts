@@ -83,6 +83,34 @@ type PendingInviteSelection = {
 	createdAt: string;
 };
 
+type AcceptInviteUser = typeof users.$inferSelect;
+
+type InviteAcceptanceContext = {
+	invite: AcceptMemberInvitePreview;
+	existingUserId: string | null;
+};
+
+type AcceptInviteResult =
+	| {
+			status: 'invalid-invite';
+	  }
+	| {
+			status: 'authentication-required';
+			email: string;
+	  }
+	| {
+			status: 'wrong-user';
+			email: string;
+	  }
+	| {
+			status: 'accepted';
+			user: AcceptInviteUser;
+			clientId: string;
+			role: MemberRole;
+			createdUser: boolean;
+			reactivatedMembership: boolean;
+	  };
+
 const toMemberSex = (value: string | null | undefined): MemberSex | null => {
 	return value === 'M' || value === 'F' ? value : null;
 };
@@ -842,7 +870,9 @@ export class MemberOperations {
 		return updated[0] ? mapPendingInvite(updated[0]) : null;
 	}
 
-	async getInvitePreviewByTokenHash(tokenHash: string): Promise<AcceptMemberInvitePreview | null> {
+	async getInviteAcceptanceContextByTokenHash(
+		tokenHash: string
+	): Promise<InviteAcceptanceContext | null> {
 		const now = new Date().toISOString();
 		const result = await this.db
 			.select({
@@ -873,55 +903,47 @@ export class MemberOperations {
 			return null;
 		}
 
+		const normalizedEmail = normalizeEmail(row.email);
+		const existingUserResult = await this.db
+			.select({
+				id: users.id
+			})
+			.from(users)
+			.where(sql`lower(trim(${users.email})) = ${normalizedEmail}`)
+			.limit(1);
+		const existingUserId = existingUserResult[0]?.id ?? null;
+
 		return {
-			clientName: normalizeText(row.clientName) ?? 'Organization',
-			clientSlug: normalizeText(row.clientSlug),
-			email: row.email,
-			firstName: normalizeText(row.firstName),
-			lastName: normalizeText(row.lastName),
-			studentId: normalizeText(row.studentId),
-			sex: toMemberSex(row.sex),
-			role: toAssignableRole(row.role),
-			mode: toInviteMode(row.mode),
-			expiresAt: row.expiresAt
+			invite: {
+				clientName: normalizeText(row.clientName) ?? 'Organization',
+				clientSlug: normalizeText(row.clientSlug),
+				email: row.email,
+				firstName: normalizeText(row.firstName),
+				lastName: normalizeText(row.lastName),
+				studentId: normalizeText(row.studentId),
+				sex: toMemberSex(row.sex),
+				role: toAssignableRole(row.role),
+				mode: toInviteMode(row.mode),
+				expiresAt: row.expiresAt,
+				accountMode: existingUserId ? 'existing-account' : 'new-account'
+			},
+			existingUserId
 		};
+	}
+
+	async getInvitePreviewByTokenHash(tokenHash: string): Promise<AcceptMemberInvitePreview | null> {
+		const context = await this.getInviteAcceptanceContextByTokenHash(tokenHash);
+		return context?.invite ?? null;
 	}
 
 	async acceptInvite(input: {
 		tokenHash: string;
-		passwordHash: string;
+		passwordHash?: string | null;
 		firstName?: string | null;
 		lastName?: string | null;
+		actorUserId?: string | null;
 		createdUser?: string | null;
-	}): Promise<{
-		user: {
-			id: string;
-			email: string | null;
-			firstName: string | null;
-			lastName: string | null;
-			passwordHash: string | null;
-			status: string | null;
-			cellPhone: string | null;
-			createdAt: string | null;
-			updatedAt: string | null;
-			createdUser: string | null;
-			updatedUser: string | null;
-			emailVerifiedAt: string | null;
-			ssoUserId: string | null;
-			avatarUrl: string | null;
-			firstLoginAt: string | null;
-			lastLoginAt: string | null;
-			timezone: string | null;
-			lastActiveAt: string | null;
-			sessionCount: number | null;
-			preferences: string | null;
-			notes: string | null;
-		};
-		clientId: string;
-		role: MemberRole;
-		createdUser: boolean;
-		reactivatedMembership: boolean;
-	} | null> {
+	}): Promise<AcceptInviteResult> {
 		const now = new Date().toISOString();
 		const inviteResult = await this.db
 			.select()
@@ -937,7 +959,7 @@ export class MemberOperations {
 
 		const invite = inviteResult[0];
 		if (!invite) {
-			return null;
+			return { status: 'invalid-invite' };
 		}
 
 		const normalizedEmail = normalizeEmail(invite.email);
@@ -950,6 +972,10 @@ export class MemberOperations {
 		let user = existingUserResult[0] ?? null;
 		let createdUser = false;
 		if (!user) {
+			if (!input.passwordHash) {
+				throw new Error('MEMBER_INVITE_ACCEPT_PASSWORD_REQUIRED');
+			}
+
 			const created = await this.db
 				.insert(users)
 				.values({
@@ -979,24 +1005,26 @@ export class MemberOperations {
 			user = created[0] ?? null;
 			createdUser = Boolean(user);
 		} else {
-			await this.db
-				.update(users)
-				.set({
-					passwordHash: input.passwordHash,
-					firstName: normalizeText(input.firstName ?? invite.firstName) ?? user.firstName,
-					lastName: normalizeText(input.lastName ?? invite.lastName) ?? user.lastName,
-					updatedAt: now,
-					updatedUser: input.createdUser ?? null
-				})
-				.where(eq(users.id, user.id));
+			if (!input.actorUserId) {
+				return {
+					status: 'authentication-required',
+					email: normalizedEmail
+				};
+			}
 
-			const refreshed = await this.db.select().from(users).where(eq(users.id, user.id)).limit(1);
-			user = refreshed[0] ?? user;
+			if (input.actorUserId !== user.id) {
+				return {
+					status: 'wrong-user',
+					email: normalizedEmail
+				};
+			}
 		}
 
 		if (!user) {
 			throw new Error('MEMBER_INVITE_ACCEPT_CREATE_USER_FAILED');
 		}
+
+		const auditUserId = input.actorUserId ?? user.id ?? input.createdUser ?? null;
 
 		const existingMembership = await this.db
 			.select()
@@ -1015,7 +1043,7 @@ export class MemberOperations {
 					studentId: normalizeText(invite.studentId),
 					sex: toMemberSex(invite.sex),
 					updatedAt: now,
-					updatedUser: input.createdUser ?? null
+					updatedUser: auditUserId
 				})
 				.where(eq(userClients.id, existingMembership[0].id));
 		} else {
@@ -1030,8 +1058,8 @@ export class MemberOperations {
 				isDefault: 0,
 				createdAt: now,
 				updatedAt: now,
-				createdUser: input.createdUser ?? null,
-				updatedUser: input.createdUser ?? null
+				createdUser: auditUserId,
+				updatedUser: auditUserId
 			});
 		}
 
@@ -1042,11 +1070,12 @@ export class MemberOperations {
 				acceptedAt: now,
 				acceptedUserId: user.id,
 				updatedAt: now,
-				updatedUser: input.createdUser ?? user.id
+				updatedUser: auditUserId
 			})
 			.where(eq(memberInvites.id, invite.id));
 
 		return {
+			status: 'accepted',
 			user,
 			clientId: invite.clientId,
 			role: toMemberRole(invite.role),

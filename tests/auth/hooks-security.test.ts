@@ -12,15 +12,16 @@ Summary of tests:
 1. It verifies that repeated login posts are rate limited.
 2. It verifies that repeated registration posts are rate limited.
 3. It verifies that protected SSR responses receive no-store cache headers.
-4. It verifies that nonce-based CSP responses add the nonce to inline SSR script tags.
-5. It verifies that participant users are blocked from protected dashboard SSR routes.
-6. It verifies that developer users can still reach protected dashboard SSR routes.
-7. It verifies that read-only API access can use the base role during participant view mode.
-8. It verifies that mutating API access is blocked by the effective participant role during view mode.
-9. It verifies that the join-client API route requires authentication.
+4. It verifies that SSR request logging redacts invite tokens from both paths and query values.
+5. It verifies that nonce-based CSP responses add the nonce to inline SSR script tags.
+6. It verifies that participant users are blocked from protected dashboard SSR routes.
+7. It verifies that developer users can still reach protected dashboard SSR routes.
+8. It verifies that read-only API access can use the base role during participant view mode.
+9. It verifies that mutating API access is blocked by the effective participant role during view mode.
+10. It verifies that the join-client API route requires authentication.
 */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { handle } from '../../src/hooks.server';
 
 const createCookies = () => {
@@ -149,6 +150,30 @@ describe('hooks security behavior', () => {
 		expect(response.status).toBe(200);
 		expect(response.headers.get('cache-control')).toBe('no-store');
 		expect(response.headers.get('content-security-policy')).toContain("frame-ancestors 'none'");
+	});
+
+	it('redacts invite tokens from SSR request logs', async () => {
+		// both the tokenized path and any nested redirect back to that path should be scrubbed in logs.
+		const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+		try {
+			const event = createEvent({
+				pathname:
+					'/accept-member-invite/super-secret-token?next=%2Faccept-member-invite%2Fsuper-secret-token&token=another-secret',
+				ip: '198.51.100.78'
+			});
+
+			const response = await handle({ event, resolve: resolveOk });
+			expect(response.status).toBe(200);
+
+			const logOutput = infoSpy.mock.calls.flat().join(' ');
+			expect(logOutput).toContain('/accept-member-invite/[redacted]');
+			expect(logOutput).toContain('next=%2Faccept-member-invite%2F%5Bredacted%5D');
+			expect(logOutput).toContain('token=%5Bredacted%5D');
+			expect(logOutput).not.toContain('super-secret-token');
+			expect(logOutput).not.toContain('another-secret');
+		} finally {
+			infoSpy.mockRestore();
+		}
 	});
 
 	it('adds the csp nonce to inline SSR script tags when the response already includes nonce-based csp', async () => {

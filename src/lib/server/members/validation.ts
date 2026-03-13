@@ -140,7 +140,15 @@ export const inviteActionSchema = z.discriminatedUnion('action', [
 	z.object({ action: z.literal('regenerate') })
 ]);
 
-export const acceptMemberInviteSchema = z
+export const acceptMemberInviteSchema = z.object({
+	token: z.string().trim().min(1).max(512),
+	password: z.string().min(8).max(128).optional(),
+	confirmPassword: z.string().min(1).max(128).optional(),
+	firstName: nameSchema,
+	lastName: nameSchema
+});
+
+export const acceptMemberInviteNewAccountSchema = z
 	.object({
 		token: z.string().trim().min(1).max(512),
 		password: z.string().min(8).max(128),
@@ -157,3 +165,4 @@ export type MemberListQueryInput = z.infer<typeof memberListQuerySchema>;
 export type CreateMemberInput = z.infer<typeof createMemberSchema>;
 export type UpdateMemberInput = z.infer<typeof updateMemberSchema>;
 export type AcceptMemberInviteInput = z.infer<typeof acceptMemberInviteSchema>;
+export type AcceptMemberInviteNewAccountInput = z.infer<typeof acceptMemberInviteNewAccountSchema>;

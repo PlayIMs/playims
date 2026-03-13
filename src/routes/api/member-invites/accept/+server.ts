@@ -1,13 +1,17 @@
 import { json } from '@sveltejs/kit';
 import { getCentralDbOps } from '$lib/server/database/context';
-import { acceptMemberInviteSchema } from '$lib/server/members/validation';
+import {
+	acceptMemberInviteNewAccountSchema,
+	acceptMemberInviteSchema
+} from '$lib/server/members/validation';
 import { hashMemberInviteToken } from '$lib/server/members/invites';
+import { AUTH_ENV_KEYS } from '$lib/server/auth/constants';
 import { createSessionForUser } from '$lib/server/auth/session';
 import { hashPassword, normalizeIterations } from '$lib/server/auth/password';
 import { requireSessionSecret, resolvePasswordPepper } from '$lib/server/auth/service';
 import type { RequestHandler } from './$types';
 
-const AUTH_PASSWORD_ITERATIONS_KEY = 'AUTH_PASSWORD_ITERATIONS';
+const AUTH_PASSWORD_ITERATIONS_KEY = AUTH_ENV_KEYS.passwordIterations;
 
 const readIterations = (event: Parameters<typeof resolvePasswordPepper>[0]): number => {
 	const platformValue = (event.platform?.env as Record<string, unknown> | undefined)?.[
@@ -63,22 +67,111 @@ export const POST: RequestHandler = async (event) => {
 	}
 
 	const dbOps = getCentralDbOps(event);
+	const tokenHash = await hashMemberInviteToken(parsed.data.token);
+	const invite = await dbOps.members.getInvitePreviewByTokenHash(tokenHash);
+	if (!invite) {
+		return json(
+			{ success: false, error: 'Invite is expired, revoked, or invalid.' },
+			{ status: 404 }
+		);
+	}
+
+	const signedInUserId = event.locals.user && event.locals.session ? event.locals.user.id : null;
+	if (invite.accountMode === 'existing-account') {
+		const accepted = await dbOps.members.acceptInvite({
+			tokenHash,
+			actorUserId: signedInUserId,
+			createdUser: null
+		});
+
+		if (accepted.status === 'authentication-required') {
+			return json(
+				{
+					success: false,
+					error: 'This invite is for an email that already has a PlayIMs account. Sign in with that account to accept the invite.'
+				},
+				{ status: 409 }
+			);
+		}
+
+		if (accepted.status === 'wrong-user') {
+			return json(
+				{
+					success: false,
+					error: `This invite must be accepted by the PlayIMs account for ${accepted.email}. Sign out and sign in with that email to continue.`
+				},
+				{ status: 403 }
+			);
+		}
+
+		if (accepted.status === 'invalid-invite') {
+			return json(
+				{ success: false, error: 'Invite is expired, revoked, or invalid.' },
+				{ status: 404 }
+			);
+		}
+
+		return json({
+			success: true,
+			data: {
+				session: event.locals.session ?? null,
+				user: event.locals.user ?? null,
+				createdUser: accepted.createdUser,
+				reactivatedMembership: accepted.reactivatedMembership,
+				reusedExistingSession: true
+			}
+		});
+	}
+
+	const newAccountParsed = acceptMemberInviteNewAccountSchema.safeParse(body);
+	if (!newAccountParsed.success) {
+		return json(
+			{
+				success: false,
+				error: 'Invalid request payload.',
+				fieldErrors: toFieldErrorMap(newAccountParsed.error.issues)
+			},
+			{ status: 400 }
+		);
+	}
+
 	const passwordHash = await hashPassword({
-		password: parsed.data.password,
+		password: newAccountParsed.data.password,
 		pepper: resolvePasswordPepper(event),
 		iterations: readIterations(event)
 	});
 	const accepted = await dbOps.members.acceptInvite({
-		tokenHash: await hashMemberInviteToken(parsed.data.token),
+		tokenHash,
 		passwordHash,
-		firstName: parsed.data.firstName,
-		lastName: parsed.data.lastName,
+		firstName: newAccountParsed.data.firstName,
+		lastName: newAccountParsed.data.lastName,
+		actorUserId: signedInUserId,
 		createdUser: null
 	});
-	if (!accepted) {
+	if (accepted.status === 'invalid-invite') {
 		return json(
 			{ success: false, error: 'Invite is expired, revoked, or invalid.' },
 			{ status: 404 }
+		);
+	}
+
+	if (accepted.status === 'authentication-required') {
+		return json(
+			{
+				success: false,
+				error: 'This invite is for an email that already has a PlayIMs account. Sign in with that account to accept the invite.'
+			},
+			{ status: 409 }
+		);
+	}
+
+	if (accepted.status === 'wrong-user') {
+		return json(
+			{
+				success: false,
+				error: `This invite must be accepted by the PlayIMs account for ${accepted.email}. Sign out and sign in with that email to continue.`
+			},
+			{ status: 403 }
 		);
 	}
 

@@ -61,6 +61,8 @@ const formatDuration = (durationMs: number) => `${durationMs.toFixed(durationMs 
 
 const formatMethod = (method: string) => method.toUpperCase().padEnd(6, ' ');
 
+const SENSITIVE_QUERY_KEYS = new Set(['code', 'invite']);
+
 const formatTimestamp = (date: Date) => {
 	const parts = friendlyTimestampFormatter.formatToParts(date);
 	const get = (type: Intl.DateTimeFormatPartTypes) =>
@@ -91,6 +93,39 @@ const methodColor = (method: string) => {
 			return ANSI.brightRed;
 		default:
 			return ANSI.brightWhite;
+	}
+};
+
+const redactSensitivePathSegments = (value: string) =>
+	value.replace(/(\/accept-member-invite\/)[^/?#&]+/gi, '$1[redacted]');
+
+const isSensitiveQueryKey = (key: string) => {
+	const normalized = key.trim().toLowerCase();
+	return normalized.length > 0 && (normalized.includes('token') || SENSITIVE_QUERY_KEYS.has(normalized));
+};
+
+const sanitizeLoggedEndpoint = (endpoint: string) => {
+	const cleaned = cleanForSingleLine(endpoint);
+	const [pathname, search = ''] = cleaned.split('?', 2);
+	const redactedPathname = redactSensitivePathSegments(pathname);
+	if (!search) {
+		return redactedPathname;
+	}
+
+	try {
+		const params = new URLSearchParams(search);
+		for (const [key, value] of params.entries()) {
+			if (isSensitiveQueryKey(key)) {
+				params.set(key, '[redacted]');
+				continue;
+			}
+
+			params.set(key, redactSensitivePathSegments(value));
+		}
+		const redactedSearch = params.toString();
+		return redactedSearch.length > 0 ? `${redactedPathname}?${redactedSearch}` : redactedPathname;
+	} catch {
+		return redactedPathname;
 	}
 };
 
@@ -181,7 +216,7 @@ export const logRequestSummary = ({
 }: RequestSummaryLog) => {
 	const outcome = isSuccessStatus(status) ? 'OK ' : 'ERR';
 	const rows = recordCount === null ? 'n/a' : String(recordCount);
-	const route = endpoint ? cleanForSingleLine(endpoint) : 'n/a';
+	const route = endpoint ? sanitizeLoggedEndpoint(endpoint) : 'n/a';
 	const now = new Date();
 	const methodLabel = formatMethod(method);
 	const cleanedError = error ? cleanForSingleLine(error) : null;

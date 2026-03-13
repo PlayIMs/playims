@@ -8,6 +8,7 @@ export type MemberSortKey = 'studentId' | 'firstName' | 'lastName' | 'email' | '
 export type SortDirection = 'asc' | 'desc';
 export type MemberInviteMode = 'invite' | 'preprovision';
 export type MemberInviteStatus = 'pending' | 'accepted' | 'revoked' | 'expired';
+export type AcceptMemberInviteAccountMode = 'new-account' | 'existing-account';
 
 export interface MemberListRow {
 	membershipId: string;
@@ -130,8 +131,8 @@ export interface UpdateMemberResponse {
 
 export interface AcceptMemberInviteRequest {
 	token: string;
-	password: string;
-	confirmPassword: string;
+	password?: string;
+	confirmPassword?: string;
 	firstName?: string | null;
 	lastName?: string | null;
 }
@@ -147,4 +148,5 @@ export interface AcceptMemberInvitePreview {
 	role: MemberAssignableRole;
 	mode: MemberInviteMode;
 	expiresAt: string;
+	accountMode: AcceptMemberInviteAccountMode;
 }
