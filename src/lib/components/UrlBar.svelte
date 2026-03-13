@@ -5,9 +5,10 @@
 	import {
 		IconChevronLeft,
 		IconChevronRight,
-		IconHome,
+		IconLayoutDashboard,
 		IconRefresh
 	} from '@tabler/icons-svelte';
+	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import {
 		buildPwaAddressValue,
 		resolvePwaAddressNavigationTarget,
@@ -35,9 +36,6 @@
 	let navigationInFlight = $state(false);
 
 	const displayUrl = $derived.by(() => buildPwaAddressValue($page.url));
-	const canSubmitAddress = $derived.by(
-		() => resolvePwaAddressNavigationTarget(inputValue, $page.url)?.route !== null
-	);
 
 	const buildCurrentRoute = () =>
 		`${window.location.pathname}${window.location.search}${window.location.hash}`;
@@ -55,19 +53,15 @@
 		inputValue = displayUrl;
 	});
 
-	const beginAddressEditing = (event: FocusEvent) => {
+	const beginAddressEditing = () => {
 		isEditing = true;
-		const target = event.currentTarget;
-		if (target instanceof HTMLInputElement) {
-			target.select();
-		}
 	};
 
 	const finishAddressEditing = () => {
 		isEditing = false;
 	};
 
-	const navigateToInputValue = async (source: 'enter' | 'button') => {
+	const navigateToInputValue = async () => {
 		if (!browser) {
 			return;
 		}
@@ -84,7 +78,6 @@
 
 		if (!navigationTarget.route) {
 			console.warn('PWA URL bar blocked external navigation', {
-				source,
 				rawValue,
 				href: navigationTarget.href
 			});
@@ -109,7 +102,6 @@
 			// some installed PWA shells appear to swallow goto without error; fall back to a same-origin navigation.
 			if (buildCurrentRoute() !== navigationTarget.route) {
 				console.warn('PWA URL bar falling back to document navigation', {
-					source,
 					rawValue,
 					route: navigationTarget.route,
 					href: navigationTarget.href
@@ -122,7 +114,6 @@
 		} catch (error) {
 			navigationInFlight = false;
 			console.error('PWA URL bar navigation failed', {
-				source,
 				rawValue,
 				navigationTarget,
 				error
@@ -139,7 +130,7 @@
 		event.preventDefault();
 		event.stopPropagation();
 		inputValue = event.currentTarget.value;
-		void navigateToInputValue('enter');
+		void navigateToInputValue();
 	};
 
 	afterNavigate(() => {
@@ -153,65 +144,77 @@
 	style="padding-top: env(safe-area-inset-top, 0px); padding-right: env(titlebar-area-width, 0px); -webkit-app-region: drag;"
 >
 	<div class="flex h-11 items-center gap-1 px-2" style="-webkit-app-region: no-drag;">
-		<button
-			type="button"
-			class="flex h-8 w-8 cursor-pointer items-center justify-center text-primary-25 transition-colors duration-150 hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-45"
-			aria-label="Go back"
-			disabled={!canGoBack}
-			onclick={onBack}
-		>
-			<IconChevronLeft class="h-5 w-5" />
-		</button>
-		<button
-			type="button"
-			class="flex h-8 w-8 cursor-pointer items-center justify-center text-primary-25 transition-colors duration-150 hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-45"
-			aria-label="Go forward"
-			disabled={!canGoForward}
-			onclick={onForward}
-		>
-			<IconChevronRight class="h-5 w-5" />
-		</button>
-		<button
-			type="button"
-			class="flex h-8 w-8 cursor-pointer items-center justify-center text-primary-25 transition-colors duration-150 hover:bg-primary-600"
-			aria-label="Reload page"
-			onclick={onReload}
-		>
-			<IconRefresh class="h-4.5 w-4.5" />
-		</button>
-		<button
-			type="button"
-			class="flex h-8 w-8 cursor-pointer items-center justify-center text-primary-25 transition-colors duration-150 hover:bg-primary-600"
-			aria-label="Go home"
-			onclick={() => void onHome()}
-		>
-			<IconHome class="h-4.5 w-4.5" />
-		</button>
-		<div class="min-w-0 flex-1 bg-primary-600/80 px-3">
+		<HoverTooltip text="Go back">
+			<button
+				type="button"
+				class="flex h-8 w-8 cursor-pointer items-center justify-center text-primary-25 transition-colors duration-150 hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-45"
+				aria-label="Go back"
+				disabled={!canGoBack}
+				onclick={onBack}
+			>
+				<IconChevronLeft class="h-5 w-5" />
+			</button>
+		</HoverTooltip>
+		<HoverTooltip text="Go forward">
+			<button
+				type="button"
+				class="flex h-8 w-8 cursor-pointer items-center justify-center text-primary-25 transition-colors duration-150 hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-45"
+				aria-label="Go forward"
+				disabled={!canGoForward}
+				onclick={onForward}
+			>
+				<IconChevronRight class="h-5 w-5" />
+			</button>
+		</HoverTooltip>
+		<HoverTooltip text="Reload page">
+			<button
+				type="button"
+				class="flex h-8 w-8 cursor-pointer items-center justify-center text-primary-25 transition-colors duration-150 hover:bg-primary-600"
+				aria-label="Reload page"
+				onclick={onReload}
+			>
+				<IconRefresh class="h-4.5 w-4.5" />
+			</button>
+		</HoverTooltip>
+		<HoverTooltip text="Open dashboard">
+			<button
+				type="button"
+				class="flex h-8 w-8 cursor-pointer items-center justify-center text-primary-25 transition-colors duration-150 hover:bg-primary-600"
+				aria-label="Open dashboard"
+				onclick={() => void onHome()}
+			>
+				<IconLayoutDashboard class="h-4.5 w-4.5" />
+			</button>
+		</HoverTooltip>
+		<div class="flex min-w-0 flex-1 bg-primary-600/80 focus-within:bg-primary-600">
 			<input
 				bind:this={inputElement}
 				type="text"
 				bind:value={inputValue}
-				class="h-8 w-full border-0 bg-transparent p-0 text-sm text-primary-25 placeholder:text-primary-100 focus:outline-none focus:ring-0"
+				class="url-bar-input px-3 h-8 flex-1 appearance-none border-0 bg-transparent p-0 text-sm text-primary-25 focus:text-primary-05 placeholder:text-primary-100 focus:outline-none focus:ring-0"
 				aria-label="Page address"
 				autocapitalize="none"
 				autocomplete="off"
 				autocorrect="off"
 				spellcheck="false"
 				placeholder="Enter an internal path"
-				enterkeyhint="go"
+				enterkeyhint="search"
 				onfocus={beginAddressEditing}
 				onblur={finishAddressEditing}
 				onkeydown={handleAddressKeydown}
 			/>
 		</div>
-		<button
-			type="button"
-			class="flex h-8 cursor-pointer items-center bg-primary-600 px-3 text-xs font-bold uppercase tracking-[0.12em] text-primary-25 transition-colors duration-150 hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-45"
-			disabled={!canSubmitAddress}
-			onclick={() => void navigateToInputValue('button')}
-		>
-			Go
-		</button>
 	</div>
 </div>
+
+<style>
+	.url-bar-input::selection {
+		background: var(--color-secondary-500);
+		color: var(--color-secondary-05);
+	}
+
+	.url-bar-input::-moz-selection {
+		background: var(--color-secondary-500);
+		color: var(--color-secondary-05);
+	}
+</style>
