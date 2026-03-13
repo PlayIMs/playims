@@ -66,6 +66,14 @@
 		return padding === 'none' ? '' : 'px-2';
 	}
 
+	function resolveBodyPaddingClass(column: OfferingsTableColumn): string {
+		if (column.cellPaddingX === 'none') return '';
+		const classes: string[] = [];
+		if (!column.cellPaddingLeft) classes.push('pl-2');
+		if (!column.cellPaddingRight) classes.push('pr-2');
+		return classes.join(' ');
+	}
+
 	function resolveHeaderTextTransformClass(
 		textTransform: OfferingsTableHeaderTextTransform | undefined
 	): string {
@@ -89,7 +97,7 @@
 
 	function resolveBodyCellClass(column: OfferingsTableColumn): string {
 		const classes = [
-			resolvePaddingXClass(column.cellPaddingX),
+			resolveBodyPaddingClass(column),
 			'py-1',
 			resolveTextAlignmentClass(column.cellTextAlignment, 'left'),
 			resolveVerticalAlignmentClass(column.cellVerticalAlignment),
@@ -159,11 +167,20 @@
 					<tr id={rowId?.(row, rowIndex)} class={resolvedRowClass(row, rowIndex)}>
 						{#each columns as column}
 							{#if column.rowHeader}
-								<th scope="row" class={resolveBodyCellClass(column)}>
+								<th
+									scope="row"
+									class={resolveBodyCellClass(column)}
+									style:padding-left={column.cellPaddingLeft}
+									style:padding-right={column.cellPaddingRight}
+								>
 									{@render cell(row, column)}
 								</th>
 							{:else}
-								<td class={resolveBodyCellClass(column)}>
+								<td
+									class={resolveBodyCellClass(column)}
+									style:padding-left={column.cellPaddingLeft}
+									style:padding-right={column.cellPaddingRight}
+								>
 									{@render cell(row, column)}
 								</td>
 							{/if}

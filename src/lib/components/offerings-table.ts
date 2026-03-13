@@ -20,6 +20,8 @@ export interface OfferingsTableColumn {
 	cellVerticalAlignment?: OfferingsTableVerticalAlignment;
 	headerPaddingX?: OfferingsTableHorizontalPadding;
 	cellPaddingX?: OfferingsTableHorizontalPadding;
+	cellPaddingLeft?: string;
+	cellPaddingRight?: string;
 	headerTextTransform?: OfferingsTableHeaderTextTransform;
 	tabularNumbers?: boolean;
 	rowHeader?: boolean;
