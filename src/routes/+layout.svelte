@@ -369,6 +369,23 @@
 		})();
 	});
 
+	$effect(() => {
+		if (!browser || !isStandalonePwa) {
+			return;
+		}
+
+		const preventStandaloneContextMenu = (event: MouseEvent) => {
+			event.preventDefault();
+		};
+
+		// installed app windows should not expose the browser's native right-click menu.
+		window.addEventListener('contextmenu', preventStandaloneContextMenu);
+
+		return () => {
+			window.removeEventListener('contextmenu', preventStandaloneContextMenu);
+		};
+	});
+
 	afterNavigate((navigation) => {
 		syncStandalonePwaState();
 		syncPwaHistoryState((navigation.type as NavigationKind) ?? null);
