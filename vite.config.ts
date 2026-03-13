@@ -19,6 +19,7 @@ export default defineConfig({
 				short_name: 'PlayIMs',
 				description:
 					'Modern intramural sports league management platform with intuitive team management, automated scheduling, and real-time standings.',
+				id: '/',
 				theme_color: '#CE1126',
 				background_color: '#EEDBCE',
 				display: 'standalone',
