@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
+	import { replaceState } from '$app/navigation';
 	import { page } from '$app/stores';
 	import {
 		IconAlertTriangle,
@@ -126,11 +127,7 @@
 			currentUrl.searchParams.delete('status');
 		}
 
-		window.history.replaceState(
-			{},
-			'',
-			`${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`
-		);
+		replaceState(`${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`, $page.state);
 	});
 
 	function parseDate(value: string | null): Date | null {
