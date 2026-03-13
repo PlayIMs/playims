@@ -2375,66 +2375,66 @@
 	}
 
 	/* Global Form Element Styles - Default to primary */
-	input[type='text']:not(.checkbox-primary):not(.checkbox-secondary):not(
-			.radio-primary
-		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-secondary
-		):not(.input-primary):not(.input-secondary),
-	input[type='email']:not(.checkbox-primary):not(.checkbox-secondary):not(
-			.radio-primary
-		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-secondary
-		):not(.input-primary):not(.input-secondary),
-	input[type='url']:not(.checkbox-primary):not(.checkbox-secondary):not(
-			.radio-primary
-		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-secondary
-		):not(.input-primary):not(.input-secondary),
+	input[type='text']:not(.checkbox-primary):not(.checkbox-secondary):not(.radio-primary):not(
+			.radio-secondary
+		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-secondary):not(.input-primary):not(
+			.input-secondary
+		),
+	input[type='email']:not(.checkbox-primary):not(.checkbox-secondary):not(.radio-primary):not(
+			.radio-secondary
+		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-secondary):not(.input-primary):not(
+			.input-secondary
+		),
+	input[type='url']:not(.checkbox-primary):not(.checkbox-secondary):not(.radio-primary):not(
+			.radio-secondary
+		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-secondary):not(.input-primary):not(
+			.input-secondary
+		),
 	input[type='password']:not(.checkbox-primary):not(.checkbox-secondary):not(
 			.checkbox-secondary
-		):not(.radio-primary):not(.radio-secondary):not(.toggle-primary):not(
-			.toggle-secondary
-		):not(.toggle-secondary):not(.input-primary):not(.input-secondary),
-	input[type='number']:not(.checkbox-primary):not(.checkbox-secondary):not(
-			.radio-primary
-		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+		):not(.radio-primary):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
 			.toggle-secondary
 		):not(.input-primary):not(.input-secondary),
-	input[type='tel']:not(.checkbox-primary):not(.checkbox-secondary):not(
-			.radio-primary
-		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-secondary
-		):not(.input-primary):not(.input-secondary),
-	input[type='search']:not(.checkbox-primary):not(.checkbox-secondary):not(
-			.radio-primary
-		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-secondary
-		):not(.input-primary):not(.input-secondary),
-	input[type='date']:not(.checkbox-primary):not(.checkbox-secondary):not(
-			.radio-primary
-		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-secondary
-		):not(.input-primary):not(.input-secondary),
+	input[type='number']:not(.checkbox-primary):not(.checkbox-secondary):not(.radio-primary):not(
+			.radio-secondary
+		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-secondary):not(.input-primary):not(
+			.input-secondary
+		),
+	input[type='tel']:not(.checkbox-primary):not(.checkbox-secondary):not(.radio-primary):not(
+			.radio-secondary
+		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-secondary):not(.input-primary):not(
+			.input-secondary
+		),
+	input[type='search']:not(.checkbox-primary):not(.checkbox-secondary):not(.radio-primary):not(
+			.radio-secondary
+		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-secondary):not(.input-primary):not(
+			.input-secondary
+		),
+	input[type='date']:not(.checkbox-primary):not(.checkbox-secondary):not(.radio-primary):not(
+			.radio-secondary
+		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-secondary):not(.input-primary):not(
+			.input-secondary
+		),
 	input[type='datetime-local']:not(.checkbox-primary):not(.checkbox-secondary):not(
 			.checkbox-secondary
-		):not(.radio-primary):not(.radio-secondary):not(.toggle-primary):not(
-			.toggle-secondary
-		):not(.toggle-secondary):not(.input-primary):not(.input-secondary),
-	input[type='month']:not(.checkbox-primary):not(.checkbox-secondary):not(
-			.radio-primary
-		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+		):not(.radio-primary):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
 			.toggle-secondary
 		):not(.input-primary):not(.input-secondary),
-	input[type='week']:not(.checkbox-primary):not(.checkbox-secondary):not(
-			.radio-primary
-		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-secondary
-		):not(.input-primary):not(.input-secondary),
-	input[type='time']:not(.checkbox-primary):not(.checkbox-secondary):not(
-			.radio-primary
-		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-secondary
-		):not(.input-primary):not(.input-secondary),
+	input[type='month']:not(.checkbox-primary):not(.checkbox-secondary):not(.radio-primary):not(
+			.radio-secondary
+		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-secondary):not(.input-primary):not(
+			.input-secondary
+		),
+	input[type='week']:not(.checkbox-primary):not(.checkbox-secondary):not(.radio-primary):not(
+			.radio-secondary
+		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-secondary):not(.input-primary):not(
+			.input-secondary
+		),
+	input[type='time']:not(.checkbox-primary):not(.checkbox-secondary):not(.radio-primary):not(
+			.radio-secondary
+		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-secondary):not(.input-primary):not(
+			.input-secondary
+		),
 	textarea:not(.textarea-primary):not(.textarea-secondary) {
 		border: 2px solid var(--color-primary-300);
 		padding: 0.5rem 1rem;
@@ -2443,66 +2443,66 @@
 		width: 100%;
 	}
 
-	input[type='text']:not(.checkbox-primary):not(.checkbox-secondary):not(
-			.radio-primary
-		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-secondary
-		):not(.input-primary):not(.input-secondary):focus,
-	input[type='email']:not(.checkbox-primary):not(.checkbox-secondary):not(
-			.radio-primary
-		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-secondary
-		):not(.input-primary):not(.input-secondary):focus,
-	input[type='url']:not(.checkbox-primary):not(.checkbox-secondary):not(
-			.radio-primary
-		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-secondary
-		):not(.input-primary):not(.input-secondary):focus,
+	input[type='text']:not(.checkbox-primary):not(.checkbox-secondary):not(.radio-primary):not(
+			.radio-secondary
+		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-secondary):not(.input-primary):not(
+			.input-secondary
+		):focus,
+	input[type='email']:not(.checkbox-primary):not(.checkbox-secondary):not(.radio-primary):not(
+			.radio-secondary
+		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-secondary):not(.input-primary):not(
+			.input-secondary
+		):focus,
+	input[type='url']:not(.checkbox-primary):not(.checkbox-secondary):not(.radio-primary):not(
+			.radio-secondary
+		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-secondary):not(.input-primary):not(
+			.input-secondary
+		):focus,
 	input[type='password']:not(.checkbox-primary):not(.checkbox-secondary):not(
 			.checkbox-secondary
-		):not(.radio-primary):not(.radio-secondary):not(.toggle-primary):not(
-			.toggle-secondary
-		):not(.toggle-secondary):not(.input-primary):not(.input-secondary):focus,
-	input[type='number']:not(.checkbox-primary):not(.checkbox-secondary):not(
-			.radio-primary
-		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+		):not(.radio-primary):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
 			.toggle-secondary
 		):not(.input-primary):not(.input-secondary):focus,
-	input[type='tel']:not(.checkbox-primary):not(.checkbox-secondary):not(
-			.radio-primary
-		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-secondary
-		):not(.input-primary):not(.input-secondary):focus,
-	input[type='search']:not(.checkbox-primary):not(.checkbox-secondary):not(
-			.radio-primary
-		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-secondary
-		):not(.input-primary):not(.input-secondary):focus,
-	input[type='date']:not(.checkbox-primary):not(.checkbox-secondary):not(
-			.radio-primary
-		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-secondary
-		):not(.input-primary):not(.input-secondary):focus,
+	input[type='number']:not(.checkbox-primary):not(.checkbox-secondary):not(.radio-primary):not(
+			.radio-secondary
+		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-secondary):not(.input-primary):not(
+			.input-secondary
+		):focus,
+	input[type='tel']:not(.checkbox-primary):not(.checkbox-secondary):not(.radio-primary):not(
+			.radio-secondary
+		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-secondary):not(.input-primary):not(
+			.input-secondary
+		):focus,
+	input[type='search']:not(.checkbox-primary):not(.checkbox-secondary):not(.radio-primary):not(
+			.radio-secondary
+		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-secondary):not(.input-primary):not(
+			.input-secondary
+		):focus,
+	input[type='date']:not(.checkbox-primary):not(.checkbox-secondary):not(.radio-primary):not(
+			.radio-secondary
+		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-secondary):not(.input-primary):not(
+			.input-secondary
+		):focus,
 	input[type='datetime-local']:not(.checkbox-primary):not(.checkbox-secondary):not(
 			.checkbox-secondary
-		):not(.radio-primary):not(.radio-secondary):not(.toggle-primary):not(
-			.toggle-secondary
-		):not(.toggle-secondary):not(.input-primary):not(.input-secondary):focus,
-	input[type='month']:not(.checkbox-primary):not(.checkbox-secondary):not(
-			.radio-primary
-		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+		):not(.radio-primary):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
 			.toggle-secondary
 		):not(.input-primary):not(.input-secondary):focus,
-	input[type='week']:not(.checkbox-primary):not(.checkbox-secondary):not(
-			.radio-primary
-		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-secondary
-		):not(.input-primary):not(.input-secondary):focus,
-	input[type='time']:not(.checkbox-primary):not(.checkbox-secondary):not(
-			.radio-primary
-		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-secondary
-		):not(.input-primary):not(.input-secondary):focus,
+	input[type='month']:not(.checkbox-primary):not(.checkbox-secondary):not(.radio-primary):not(
+			.radio-secondary
+		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-secondary):not(.input-primary):not(
+			.input-secondary
+		):focus,
+	input[type='week']:not(.checkbox-primary):not(.checkbox-secondary):not(.radio-primary):not(
+			.radio-secondary
+		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-secondary):not(.input-primary):not(
+			.input-secondary
+		):focus,
+	input[type='time']:not(.checkbox-primary):not(.checkbox-secondary):not(.radio-primary):not(
+			.radio-secondary
+		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-secondary):not(.input-primary):not(
+			.input-secondary
+		):focus,
 	textarea:not(.textarea-primary):not(.textarea-secondary):focus {
 		outline: none;
 		border-color: var(--color-primary-500);
@@ -2528,13 +2528,13 @@
 /* Override default focus styles for all form inputs */
 @layer base {
 	/* Remove blue from all form elements - exclude themed form elements */
-	*:focus:not(.checkbox-primary):not(.checkbox-secondary):not(
-			.radio-primary
-		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
-			.toggle-secondary
-		):not(.input-primary):not(.input-secondary):not(.textarea-primary):not(
-			.textarea-secondary
-		):not(.textarea-secondary):not(.select-primary):not(.select-secondary) {
+	*:focus:not(.checkbox-primary):not(.checkbox-secondary):not(.radio-primary):not(
+			.radio-secondary
+		):not(.toggle-primary):not(.toggle-secondary):not(.toggle-secondary):not(.input-primary):not(
+			.input-secondary
+		):not(.textarea-primary):not(.textarea-secondary):not(.textarea-secondary):not(
+			.select-primary
+		):not(.select-secondary) {
 		--tw-ring-color: var(--color-primary-500) !important;
 	}
 
@@ -2554,55 +2554,41 @@
 	}
 
 	/* Focus styles for all form inputs - exclude themed classes */
-	input[type='text']:not(.input-primary):not(.input-secondary):not(
-			.checkbox-primary
-		):not(.checkbox-secondary):not(.radio-primary):not(
-			.radio-secondary
-		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+	input[type='text']:not(.input-primary):not(.input-secondary):not(.checkbox-primary):not(
+			.checkbox-secondary
+		):not(.radio-primary):not(.radio-secondary):not(.radio-secondary):not(.toggle-primary):not(
 			.toggle-secondary
-		):focus,
-	input[type='email']:not(.input-primary):not(.input-secondary):not(
-			.checkbox-primary
-		):not(.checkbox-secondary):not(.radio-primary):not(
-			.radio-secondary
-		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+		):not(.toggle-secondary):focus,
+	input[type='email']:not(.input-primary):not(.input-secondary):not(.checkbox-primary):not(
+			.checkbox-secondary
+		):not(.radio-primary):not(.radio-secondary):not(.radio-secondary):not(.toggle-primary):not(
 			.toggle-secondary
-		):focus,
-	input[type='password']:not(.input-primary):not(.input-secondary):not(
-			.checkbox-primary
-		):not(.checkbox-secondary):not(.radio-primary):not(
-			.radio-secondary
-		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+		):not(.toggle-secondary):focus,
+	input[type='password']:not(.input-primary):not(.input-secondary):not(.checkbox-primary):not(
+			.checkbox-secondary
+		):not(.radio-primary):not(.radio-secondary):not(.radio-secondary):not(.toggle-primary):not(
 			.toggle-secondary
-		):focus,
-	input[type='number']:not(.input-primary):not(.input-secondary):not(
-			.checkbox-primary
-		):not(.checkbox-secondary):not(.radio-primary):not(
-			.radio-secondary
-		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+		):not(.toggle-secondary):focus,
+	input[type='number']:not(.input-primary):not(.input-secondary):not(.checkbox-primary):not(
+			.checkbox-secondary
+		):not(.radio-primary):not(.radio-secondary):not(.radio-secondary):not(.toggle-primary):not(
 			.toggle-secondary
-		):focus,
-	input[type='tel']:not(.input-primary):not(.input-secondary):not(
-			.checkbox-primary
-		):not(.checkbox-secondary):not(.radio-primary):not(
-			.radio-secondary
-		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+		):not(.toggle-secondary):focus,
+	input[type='tel']:not(.input-primary):not(.input-secondary):not(.checkbox-primary):not(
+			.checkbox-secondary
+		):not(.radio-primary):not(.radio-secondary):not(.radio-secondary):not(.toggle-primary):not(
 			.toggle-secondary
-		):focus,
-	input[type='url']:not(.input-primary):not(.input-secondary):not(
-			.checkbox-primary
-		):not(.checkbox-secondary):not(.radio-primary):not(
-			.radio-secondary
-		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+		):not(.toggle-secondary):focus,
+	input[type='url']:not(.input-primary):not(.input-secondary):not(.checkbox-primary):not(
+			.checkbox-secondary
+		):not(.radio-primary):not(.radio-secondary):not(.radio-secondary):not(.toggle-primary):not(
 			.toggle-secondary
-		):focus,
-	input[type='search']:not(.input-primary):not(.input-secondary):not(
-			.checkbox-primary
-		):not(.checkbox-secondary):not(.radio-primary):not(
-			.radio-secondary
-		):not(.radio-secondary):not(.toggle-primary):not(.toggle-secondary):not(
+		):not(.toggle-secondary):focus,
+	input[type='search']:not(.input-primary):not(.input-secondary):not(.checkbox-primary):not(
+			.checkbox-secondary
+		):not(.radio-primary):not(.radio-secondary):not(.radio-secondary):not(.toggle-primary):not(
 			.toggle-secondary
-		):focus,
+		):not(.toggle-secondary):focus,
 	textarea:not(.textarea-primary):not(.textarea-secondary):focus,
 	select:not(.select-primary):not(.select-secondary):focus {
 		outline: 1px solid var(--color-primary-500) !important;
@@ -2723,8 +2709,7 @@
 	}
 
 	/* Firefox specific */
-	select:not(.select-primary):not(.select-secondary)
-		option:checked:not(:disabled) {
+	select:not(.select-primary):not(.select-secondary) option:checked:not(:disabled) {
 		background-color: var(--color-primary-500) !important;
 		background: var(--color-primary-500) !important;
 		color: white !important;

@@ -633,7 +633,9 @@
 			</HoverTooltip>
 		</div>
 	{/if}
-	<div class="fixed overflow-auto bg-neutral-500 transition-[inset] duration-220 {shellInsetClass}">
+	<div
+		class="fixed overflow-auto bg-neutral-500 transition-[inset] duration-220 scrollbar scrollbar-w-0 scrollbar-thumb-secondary-500 scrollbar-track-secondary-300 scrollbar-corner-secondary-300 hover:scrollbar-thumb-secondary-500 active:scrollbar-thumb-secondary-500 scrollbar-hover:scrollbar-thumb-secondary-400 scrollbar-active:scrollbar-thumb-secondary-600 {shellInsetClass}"
+	>
 		<div class="flex min-h-full items-start">
 			<!-- Sidebar Navigation -->
 			<aside
