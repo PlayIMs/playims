@@ -1,6 +1,14 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
-	import { invalidateAll } from '$app/navigation';
+	import { afterNavigate, goto, invalidateAll } from '$app/navigation';
+	import { page } from '$app/stores';
+	import {
+		IconChevronLeft,
+		IconChevronRight,
+		IconHome,
+		IconRefresh
+	} from '@tabler/icons-svelte';
 	import 'virtual:pwa-assets/head';
 	// import { injectSpeedInsights } from '@vercel/speed-insights/sveltekit';
 
@@ -8,6 +16,13 @@
 	import Toaster from '$lib/components/toast/Toaster.svelte';
 	import * as theme from '$lib/theme';
 	import { forceRadioTabStop, selectArrow, skipDatePickerTabStop } from '$lib/actions';
+	import {
+		buildPwaAddressValue,
+		readSvelteKitHistoryIndex,
+		resolvePwaAddressInput,
+		STANDALONE_DISPLAY_MODE_QUERY,
+		isStandaloneDisplayMode
+	} from '$lib/utils/pwa-navigation';
 
 	let { children, data } = $props();
 	// injectSpeedInsights();
@@ -24,6 +39,12 @@
 	// serialize theme payloads for a blocking script in svelte:head
 	let initialThemeJson = $derived(JSON.stringify(initialTheme ?? theme.DEFAULT_THEME));
 	let zincPaletteJson = $derived(JSON.stringify(theme.ZINC_PALETTE));
+	let isStandalonePwa = $state(false);
+	let pwaHistorySessionStart = $state<number | null>(null);
+	let pwaHistoryCurrentIndex = $state<number | null>(null);
+	let pwaHistoryMaxIndex = $state<number | null>(null);
+	let isAddressEditing = $state(false);
+	let addressInputValue = $state('');
 	// render css vars on the server so first paint already uses the active theme
 	const buildThemeVarsCss = (colors: theme.ThemeColors) => {
 		const primary = theme.generatePalette(colors.primary);
@@ -83,6 +104,180 @@
 		});
 	};
 
+	type NavigatorWithStandalone = Navigator & {
+		standalone?: boolean;
+	};
+	type NavigationKind = 'enter' | 'form' | 'goto' | 'leave' | 'link' | 'popstate' | null;
+	const PWA_HISTORY_SESSION_START_KEY = 'playims:pwa-history-session-start';
+	const PWA_HISTORY_MAX_KEY = 'playims:pwa-history-max';
+	const currentAddressValue = $derived.by(() => buildPwaAddressValue($page.url));
+	const pwaTopBarOffset = $derived.by(() =>
+		isStandalonePwa ? 'calc(env(safe-area-inset-top, 0px) + 2.75rem)' : '0px'
+	);
+	const canGoBack = $derived.by(() => {
+		return (
+			isStandalonePwa &&
+			pwaHistorySessionStart !== null &&
+			pwaHistoryCurrentIndex !== null &&
+			pwaHistoryCurrentIndex > pwaHistorySessionStart
+		);
+	});
+	const canGoForward = $derived.by(() => {
+		return (
+			isStandalonePwa &&
+			pwaHistoryMaxIndex !== null &&
+			pwaHistoryCurrentIndex !== null &&
+			pwaHistoryCurrentIndex < pwaHistoryMaxIndex
+		);
+	});
+
+	const parseStoredHistoryIndex = (value: string | null): number | null => {
+		if (!value) {
+			return null;
+		}
+
+		const parsed = Number(value);
+		return Number.isFinite(parsed) ? parsed : null;
+	};
+
+	const syncPwaHistoryState = (navigationType: NavigationKind = null) => {
+		if (!browser) {
+			pwaHistorySessionStart = null;
+			pwaHistoryCurrentIndex = null;
+			pwaHistoryMaxIndex = null;
+			return;
+		}
+
+		const currentHistoryIndex = readSvelteKitHistoryIndex(window.history.state);
+		if (currentHistoryIndex === null) {
+			pwaHistorySessionStart = null;
+			pwaHistoryCurrentIndex = null;
+			pwaHistoryMaxIndex = null;
+			return;
+		}
+
+		let sessionStart = parseStoredHistoryIndex(
+			window.sessionStorage.getItem(PWA_HISTORY_SESSION_START_KEY)
+		);
+		let maxHistoryIndex = parseStoredHistoryIndex(window.sessionStorage.getItem(PWA_HISTORY_MAX_KEY));
+
+		if (sessionStart === null) {
+			sessionStart = currentHistoryIndex;
+		}
+
+		if (maxHistoryIndex === null) {
+			maxHistoryIndex = currentHistoryIndex;
+		}
+
+		if (navigationType && navigationType !== 'popstate') {
+			maxHistoryIndex = currentHistoryIndex;
+		} else if (currentHistoryIndex > maxHistoryIndex) {
+			maxHistoryIndex = currentHistoryIndex;
+		}
+
+		pwaHistorySessionStart = sessionStart;
+		pwaHistoryCurrentIndex = currentHistoryIndex;
+		pwaHistoryMaxIndex = maxHistoryIndex;
+
+		try {
+			window.sessionStorage.setItem(PWA_HISTORY_SESSION_START_KEY, String(sessionStart));
+			window.sessionStorage.setItem(PWA_HISTORY_MAX_KEY, String(maxHistoryIndex));
+		} catch {
+			// Ignore storage failures; local state still powers the bar in the current session.
+		}
+	};
+
+	const syncStandalonePwaState = () => {
+		if (!browser) {
+			isStandalonePwa = false;
+			return;
+		}
+
+		const navigatorStandalone =
+			typeof navigator !== 'undefined' && 'standalone' in navigator
+				? Boolean((navigator as NavigatorWithStandalone).standalone)
+				: false;
+
+		isStandalonePwa = isStandaloneDisplayMode({
+			matchMedia: (query) => window.matchMedia(query),
+			navigatorStandalone
+		});
+	};
+
+	const navigateBack = () => {
+		if (!browser || !canGoBack) {
+			return;
+		}
+
+		window.history.back();
+	};
+
+	const navigateForward = () => {
+		if (!browser || !canGoForward) {
+			return;
+		}
+
+		window.history.forward();
+	};
+
+	const reloadCurrentPage = () => {
+		if (!browser) {
+			return;
+		}
+
+		window.location.reload();
+	};
+
+	const navigateHome = async () => {
+		if (!browser) {
+			return;
+		}
+
+		await goto('/');
+	};
+
+	const beginAddressEditing = (event: FocusEvent) => {
+		isAddressEditing = true;
+		const target = event.currentTarget;
+		if (target instanceof HTMLInputElement) {
+			target.select();
+		}
+	};
+
+	const finishAddressEditing = () => {
+		isAddressEditing = false;
+		addressInputValue = currentAddressValue;
+	};
+
+	const handleAddressSubmit = async (event: SubmitEvent) => {
+		event.preventDefault();
+		if (!browser) {
+			return;
+		}
+
+		const targetUrl = resolvePwaAddressInput(addressInputValue, $page.url);
+		if (!targetUrl) {
+			finishAddressEditing();
+			return;
+		}
+
+		isAddressEditing = false;
+
+		if (targetUrl.origin === window.location.origin) {
+			const nextHref = `${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`;
+			const currentHref = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+			addressInputValue = buildPwaAddressValue(targetUrl);
+			if (nextHref === currentHref) {
+				return;
+			}
+
+			await goto(nextHref);
+			return;
+		}
+
+		window.location.assign(targetUrl.href);
+	};
+
 	/** runs client-only setup after the component mounts. */
 	const handleMount = () => {
 		// critical: reveal is handled inside theme.init/markThemeReady only
@@ -106,8 +301,32 @@
 			subtree: true
 		});
 
+		syncStandalonePwaState();
+		syncPwaHistoryState();
+		const standaloneMediaQuery = window.matchMedia(STANDALONE_DISPLAY_MODE_QUERY);
+		const legacyStandaloneMediaQuery = standaloneMediaQuery as MediaQueryList & {
+			addListener?: (listener: (event: MediaQueryListEvent) => void) => void;
+			removeListener?: (listener: (event: MediaQueryListEvent) => void) => void;
+		};
+		const handleStandaloneModeChange = () => {
+			syncStandalonePwaState();
+			syncPwaHistoryState();
+		};
+		if ('addEventListener' in standaloneMediaQuery) {
+			standaloneMediaQuery.addEventListener('change', handleStandaloneModeChange);
+		} else if (legacyStandaloneMediaQuery.addListener) {
+			legacyStandaloneMediaQuery.addListener(handleStandaloneModeChange);
+		}
+		window.addEventListener('pageshow', handleStandaloneModeChange);
+
 		return () => {
 			observer.disconnect();
+			if ('removeEventListener' in standaloneMediaQuery) {
+				standaloneMediaQuery.removeEventListener('change', handleStandaloneModeChange);
+			} else if (legacyStandaloneMediaQuery.removeListener) {
+				legacyStandaloneMediaQuery.removeListener(handleStandaloneModeChange);
+			}
+			window.removeEventListener('pageshow', handleStandaloneModeChange);
 		};
 	};
 
@@ -142,6 +361,19 @@
 				clientSwitchRefreshInFlight = false;
 			}
 		})();
+	});
+
+	$effect(() => {
+		if (isAddressEditing) {
+			return;
+		}
+
+		addressInputValue = currentAddressValue;
+	});
+
+	afterNavigate((navigation) => {
+		syncStandalonePwaState();
+		syncPwaHistoryState((navigation.type as NavigationKind) ?? null);
 	});
 </script>
 
@@ -326,8 +558,66 @@
 	<meta name="theme-etag" content={themeEtag} />
 </svelte:head>
 
-<div class="app">
-	<main>
+<div class="app" style={`--pwa-top-bar-offset:${pwaTopBarOffset};`}>
+	{#if isStandalonePwa}
+		<div
+			class="fixed inset-x-0 top-0 z-[70] bg-primary text-primary-25 shadow-[0_1px_0_rgba(255,255,255,0.18)]"
+			style="padding-top: env(safe-area-inset-top, 0px);"
+		>
+			<form class="flex h-11 items-center gap-1 px-2" onsubmit={handleAddressSubmit}>
+				<button
+					type="button"
+					class="flex h-8 w-8 cursor-pointer items-center justify-center text-primary-25 transition-colors duration-150 hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-45"
+					aria-label="Go back"
+					disabled={!canGoBack}
+					onclick={navigateBack}
+				>
+					<IconChevronLeft class="h-5 w-5" />
+				</button>
+				<button
+					type="button"
+					class="flex h-8 w-8 cursor-pointer items-center justify-center text-primary-25 transition-colors duration-150 hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-45"
+					aria-label="Go forward"
+					disabled={!canGoForward}
+					onclick={navigateForward}
+				>
+					<IconChevronRight class="h-5 w-5" />
+				</button>
+				<button
+					type="button"
+					class="flex h-8 w-8 cursor-pointer items-center justify-center text-primary-25 transition-colors duration-150 hover:bg-primary-600"
+					aria-label="Reload page"
+					onclick={reloadCurrentPage}
+				>
+					<IconRefresh class="h-4.5 w-4.5" />
+				</button>
+				<button
+					type="button"
+					class="flex h-8 w-8 cursor-pointer items-center justify-center text-primary-25 transition-colors duration-150 hover:bg-primary-600"
+					aria-label="Go home"
+					onclick={() => void navigateHome()}
+				>
+					<IconHome class="h-4.5 w-4.5" />
+				</button>
+				<div class="min-w-0 flex-1 bg-primary-600/80 px-3">
+					<input
+						type="text"
+						bind:value={addressInputValue}
+						class="h-8 w-full border-0 bg-transparent p-0 text-sm text-primary-25 placeholder:text-primary-100 focus:outline-none focus:ring-0"
+						aria-label="Page address"
+						autocapitalize="none"
+						autocomplete="off"
+						autocorrect="off"
+						spellcheck="false"
+						placeholder="Enter a URL"
+						onfocus={beginAddressEditing}
+						onblur={finishAddressEditing}
+					/>
+				</div>
+			</form>
+		</div>
+	{/if}
+	<main style="padding-top: var(--pwa-top-bar-offset, 0px);">
 		{@render children()}
 	</main>
 	<Toaster />

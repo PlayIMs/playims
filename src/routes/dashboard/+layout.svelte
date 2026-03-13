@@ -174,9 +174,16 @@
 	const canViewAsRole = $derived.by(() => data?.authMode?.canViewAsRole === true);
 	const isViewingAsRole = $derived.by(() => data?.authMode?.isViewingAsRole === true);
 	const availableViewTargets = $derived.by(() => resolveViewTargets(baseRole));
-	const shellInsetClass = $derived.by(() => (isViewingAsRole ? 'inset-4' : 'inset-0'));
-	const sidebarHeightClass = $derived.by(() =>
-		isViewingAsRole ? 'h-[calc(100dvh-2rem)]' : 'h-dvh'
+	const shellTopInset = $derived.by(() =>
+		isViewingAsRole
+			? 'calc(var(--pwa-top-bar-offset, 0px) + 1rem)'
+			: 'var(--pwa-top-bar-offset, 0px)'
+	);
+	const shellHorizontalInset = $derived.by(() => (isViewingAsRole ? '1rem' : '0px'));
+	const sidebarHeightStyle = $derived.by(() =>
+		isViewingAsRole
+			? 'calc(100dvh - var(--pwa-top-bar-offset, 0px) - 2rem)'
+			: 'calc(100dvh - var(--pwa-top-bar-offset, 0px))'
 	);
 	const shellBorderOpacityClass = $derived.by(() =>
 		isViewingAsRole ? 'opacity-100' : 'opacity-0'
@@ -607,11 +614,15 @@
 
 <div class="h-screen box-border">
 	<div
-		class="pointer-events-none fixed inset-0 z-50 shadow-[inset_0_0_0_1rem_var(--color-secondary-500)] transition-opacity duration-220 {shellBorderOpacityClass}"
+		class="pointer-events-none fixed z-50 shadow-[inset_0_0_0_1rem_var(--color-secondary-500)] transition-opacity duration-220 {shellBorderOpacityClass}"
+		style={`top:${shellTopInset}; right:${shellHorizontalInset}; bottom:${shellHorizontalInset}; left:${shellHorizontalInset};`}
 		aria-hidden="true"
 	></div>
 	{#if isViewingAsRole}
-		<div class="fixed right-4 top-4 z-60 inline-flex h-7 items-stretch bg-secondary-300 text-white">
+		<div
+			class="fixed right-4 z-60 inline-flex h-7 items-stretch bg-secondary-300 text-white"
+			style={`top: calc(var(--pwa-top-bar-offset, 0px) + 1rem);`}
+		>
 			<span
 				class="inline-flex items-center px-2 text-[0.6rem] font-bold leading-none tracking-[0.08em] cursor-default"
 			>
@@ -634,12 +645,14 @@
 		</div>
 	{/if}
 	<div
-		class="fixed overflow-auto bg-neutral-500 transition-[inset] duration-220 scrollbar scrollbar-w-0 scrollbar-thumb-secondary-500 scrollbar-track-secondary-300 scrollbar-corner-secondary-300 hover:scrollbar-thumb-secondary-500 active:scrollbar-thumb-secondary-500 scrollbar-hover:scrollbar-thumb-secondary-400 scrollbar-active:scrollbar-thumb-secondary-600 {shellInsetClass}"
+		class="fixed overflow-auto bg-neutral-500 transition-[inset] duration-220 scrollbar scrollbar-w-0 scrollbar-thumb-secondary-500 scrollbar-track-secondary-300 scrollbar-corner-secondary-300 hover:scrollbar-thumb-secondary-500 active:scrollbar-thumb-secondary-500 scrollbar-hover:scrollbar-thumb-secondary-400 scrollbar-active:scrollbar-thumb-secondary-600"
+		style={`top:${shellTopInset}; right:${shellHorizontalInset}; bottom:${shellHorizontalInset}; left:${shellHorizontalInset};`}
 	>
 		<div class="flex min-h-full items-start">
 			<!-- Sidebar Navigation -->
 			<aside
-				class="bg-primary text-white relative sticky top-0 self-start flex flex-col transition-[width] duration-220 {menuWidth} {sidebarHeightClass}"
+				class="bg-primary text-white relative sticky top-0 self-start flex flex-col transition-[width] duration-220 {menuWidth}"
+				style={`height:${sidebarHeightStyle};`}
 			>
 				<!-- Logo Area -->
 				<div
