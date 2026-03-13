@@ -247,7 +247,9 @@
 		}
 		return 'View as role';
 	});
-	const viewRoleShortcutKeys = $derived.by(() => (viewRoleTooltipText === 'View as role' ? ['Ctrl', 'Shift', 'R'] : []));
+	const viewRoleShortcutKeys = $derived.by(() =>
+		viewRoleTooltipText === 'View as role' ? ['Ctrl', 'Shift', 'R'] : []
+	);
 	const organizationTooltipText = $derived.by(() => {
 		if (organizationSwitching) {
 			return 'Switching organizations';
@@ -399,17 +401,15 @@
 				body: JSON.stringify({ targetRole })
 			});
 
-			let payload:
-				| {
-						error?: string;
-						data?: {
-							session?: {
-								role?: string | null;
-								isViewingAsRole?: boolean;
-							};
-						};
-				  }
-				| null = null;
+			let payload: {
+				error?: string;
+				data?: {
+					session?: {
+						role?: string | null;
+						isViewingAsRole?: boolean;
+					};
+				};
+			} | null = null;
 			try {
 				payload = (await response.json()) as {
 					error?: string;
@@ -457,17 +457,15 @@
 				body: JSON.stringify({ targetRole: null })
 			});
 
-			let payload:
-				| {
-						error?: string;
-						data?: {
-							session?: {
-								role?: string | null;
-								isViewingAsRole?: boolean;
-							};
-						};
-				  }
-				| null = null;
+			let payload: {
+				error?: string;
+				data?: {
+					session?: {
+						role?: string | null;
+						isViewingAsRole?: boolean;
+					};
+				};
+			} | null = null;
 			try {
 				payload = (await response.json()) as {
 					error?: string;
@@ -669,7 +667,6 @@
 			} else if (legacyStandaloneMediaQuery.removeListener) {
 				legacyStandaloneMediaQuery.removeListener(handleStandaloneModeChange);
 			}
-
 			window.removeEventListener('pageshow', handleStandaloneModeChange);
 		};
 	});
@@ -819,7 +816,7 @@
 	{#if showStandaloneTopUtilities}
 		<div
 			bind:this={standaloneToolbarElement}
-			class="fixed right-2 z-[71] flex h-11 items-center gap-1 bg-primary px-2 text-primary-25"
+			class="pwa-window-no-drag fixed right-2 z-[72] flex h-11 items-center gap-1 bg-primary px-2 text-primary-25"
 			style="top: env(safe-area-inset-top, 0px);"
 		>
 			<HoverTooltip text="Help">
@@ -891,7 +888,7 @@
 			<HoverTooltip text="My account" wrapperClass="block min-w-0">
 				<a
 					href={accountHref}
-					class="flex h-8 min-w-0 max-w-52 items-center gap-2 px-2 text-primary-25 transition-colors duration-150 cursor-pointer {isAccountRoute
+					class="flex h-8 min-w-0 max-w-52 items-center gap-2 px-2 text-primary-25 select-none transition-colors duration-150 cursor-pointer {isAccountRoute
 						? 'bg-primary-600 text-white'
 						: 'hover:bg-primary-600 hover:text-white'}"
 					aria-current={isAccountRoute ? 'page' : undefined}
@@ -976,9 +973,95 @@
 					<div
 						class="absolute bottom-0 left-0 right-0 border-t border-primary-600 bg-primary-500 p-2"
 					>
-					{#if isSidebarOpen}
-						<div class="space-y-2">
-							<div class="flex w-full items-center justify-around gap-2">
+						{#if isSidebarOpen}
+							<div class="space-y-2">
+								<div class="flex w-full items-center justify-around gap-2">
+									<HoverTooltip text="Help">
+										<button
+											type="button"
+											class="{utilityButtonClass} {utilityButtonDisabledClass}"
+											aria-label="Help"
+											disabled
+										>
+											<IconHelpCircle class="w-5 h-5" />
+										</button>
+									</HoverTooltip>
+									<HoverTooltip text="Tech support">
+										<button
+											type="button"
+											class="{utilityButtonClass} {utilityButtonDisabledClass}"
+											aria-label="Tech support"
+											disabled
+										>
+											<IconHeadset class="w-5 h-5" />
+										</button>
+									</HoverTooltip>
+									<HoverTooltip text="Notifications">
+										<a
+											href={notificationsHref}
+											class="{utilityButtonClass} relative cursor-pointer {isNotificationsRoute
+												? 'bg-primary-600 text-white'
+												: 'hover:bg-primary-600 hover:text-white'}"
+											aria-current={isNotificationsRoute ? 'page' : undefined}
+										>
+											<IconBell class="w-5 h-5" />
+											{#if notificationCount > 0}
+												<span
+													class="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center bg-secondary-500 px-1 text-[9px] font-bold leading-none text-white"
+												>
+													{notificationCount}
+												</span>
+											{/if}
+										</a>
+									</HoverTooltip>
+									{#if showViewRoleButton}
+										<HoverTooltip text={viewRoleTooltipText} shortcutKeys={viewRoleShortcutKeys}>
+											<button
+												type="button"
+												class="{utilityButtonClass} {isViewRoleButtonDisabled
+													? utilityButtonDisabledClass
+													: 'cursor-pointer hover:bg-primary-600 hover:text-white'}"
+												aria-label="View as role"
+												disabled={isViewRoleButtonDisabled}
+												onclick={openRoleWizard}
+											>
+												<IconEye class="w-5 h-5" />
+											</button>
+										</HoverTooltip>
+									{/if}
+									<HoverTooltip
+										text={organizationTooltipText}
+										shortcutKeys={organizationShortcutKeys}
+									>
+										<button
+											type="button"
+											class="{utilityButtonClass} {isOrganizationButtonDisabled
+												? utilityButtonDisabledClass
+												: 'cursor-pointer hover:bg-primary-600 hover:text-white'}"
+											aria-label="Switch organization"
+											disabled={isOrganizationButtonDisabled}
+											onclick={openOrganizationWizard}
+										>
+											<IconBuildingCommunity class="w-5 h-5" />
+										</button>
+									</HoverTooltip>
+								</div>
+								<a
+									href={accountHref}
+									class="w-full min-w-0 px-3 py-3 flex items-center gap-3 border-l-4 transition-colors duration-150 cursor-pointer {isAccountRoute
+										? 'bg-primary-600 border-neutral-500 text-white'
+										: 'border-transparent text-primary-100 hover:bg-primary-600 hover:text-white'}"
+									aria-current={isAccountRoute ? 'page' : undefined}
+								>
+									<IconUser class="w-5 h-5 shrink-0" />
+									<div class="min-w-0">
+										<p class="text-sm font-semibold truncate">{viewerName}</p>
+										<p class="text-[11px] text-primary-100 truncate">{viewerEmail}</p>
+									</div>
+								</a>
+							</div>
+						{:else}
+							<div class="flex flex-col items-center gap-2">
 								<HoverTooltip text="Help">
 									<button
 										type="button"
@@ -1017,102 +1100,19 @@
 										{/if}
 									</a>
 								</HoverTooltip>
-								{#if showViewRoleButton}
-									<HoverTooltip text={viewRoleTooltipText} shortcutKeys={viewRoleShortcutKeys}>
-										<button
-											type="button"
-											class="{utilityButtonClass} {isViewRoleButtonDisabled
-												? utilityButtonDisabledClass
-												: 'cursor-pointer hover:bg-primary-600 hover:text-white'}"
-											aria-label="View as role"
-											disabled={isViewRoleButtonDisabled}
-											onclick={openRoleWizard}
-										>
-											<IconEye class="w-5 h-5" />
-										</button>
-									</HoverTooltip>
-								{/if}
-								<HoverTooltip text={organizationTooltipText} shortcutKeys={organizationShortcutKeys}>
-									<button
-										type="button"
-										class="{utilityButtonClass} {isOrganizationButtonDisabled
-											? utilityButtonDisabledClass
-											: 'cursor-pointer hover:bg-primary-600 hover:text-white'}"
-										aria-label="Switch organization"
-										disabled={isOrganizationButtonDisabled}
-										onclick={openOrganizationWizard}
+								<HoverTooltip text={viewerName}>
+									<a
+										href={accountHref}
+										class="flex h-10 w-10 items-center justify-center border transition-colors duration-150 cursor-pointer {isAccountRoute
+											? 'border-primary-100 bg-primary-600 text-white'
+											: 'border-primary-300 text-primary-50 hover:bg-primary-600 hover:text-white'}"
+										aria-current={isAccountRoute ? 'page' : undefined}
 									>
-										<IconBuildingCommunity class="w-5 h-5" />
-									</button>
+										<IconUser class="w-5 h-5" />
+									</a>
 								</HoverTooltip>
 							</div>
-							<a
-								href={accountHref}
-								class="w-full min-w-0 px-3 py-3 flex items-center gap-3 border-l-4 transition-colors duration-150 cursor-pointer {isAccountRoute
-									? 'bg-primary-600 border-neutral-500 text-white'
-									: 'border-transparent text-primary-100 hover:bg-primary-600 hover:text-white'}"
-								aria-current={isAccountRoute ? 'page' : undefined}
-							>
-								<IconUser class="w-5 h-5 shrink-0" />
-								<div class="min-w-0">
-									<p class="text-sm font-semibold truncate">{viewerName}</p>
-									<p class="text-[11px] text-primary-100 truncate">{viewerEmail}</p>
-								</div>
-							</a>
-						</div>
-					{:else}
-						<div class="flex flex-col items-center gap-2">
-							<HoverTooltip text="Help">
-								<button
-									type="button"
-									class="{utilityButtonClass} {utilityButtonDisabledClass}"
-									aria-label="Help"
-									disabled
-								>
-									<IconHelpCircle class="w-5 h-5" />
-								</button>
-							</HoverTooltip>
-							<HoverTooltip text="Tech support">
-								<button
-									type="button"
-									class="{utilityButtonClass} {utilityButtonDisabledClass}"
-									aria-label="Tech support"
-									disabled
-								>
-									<IconHeadset class="w-5 h-5" />
-								</button>
-							</HoverTooltip>
-							<HoverTooltip text="Notifications">
-								<a
-									href={notificationsHref}
-									class="{utilityButtonClass} relative cursor-pointer {isNotificationsRoute
-										? 'bg-primary-600 text-white'
-										: 'hover:bg-primary-600 hover:text-white'}"
-									aria-current={isNotificationsRoute ? 'page' : undefined}
-								>
-									<IconBell class="w-5 h-5" />
-									{#if notificationCount > 0}
-										<span
-											class="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center bg-secondary-500 px-1 text-[9px] font-bold leading-none text-white"
-										>
-											{notificationCount}
-										</span>
-									{/if}
-								</a>
-							</HoverTooltip>
-							<HoverTooltip text={viewerName}>
-								<a
-									href={accountHref}
-									class="flex h-10 w-10 items-center justify-center border transition-colors duration-150 cursor-pointer {isAccountRoute
-										? 'border-primary-100 bg-primary-600 text-white'
-										: 'border-primary-300 text-primary-50 hover:bg-primary-600 hover:text-white'}"
-									aria-current={isAccountRoute ? 'page' : undefined}
-								>
-									<IconUser class="w-5 h-5" />
-								</a>
-							</HoverTooltip>
-						</div>
-					{/if}
+						{/if}
 					</div>
 				{/if}
 			</aside>

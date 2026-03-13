@@ -311,7 +311,7 @@
 		<button
 			id={buttonId}
 			type="button"
-			class="flex h-8 w-8 cursor-pointer items-center justify-center text-primary-25 transition-colors duration-150 hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-45"
+			class="pwa-window-no-drag flex h-8 w-8 cursor-pointer items-center justify-center text-primary-25 transition-colors duration-150 hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-45"
 			aria-label={ariaLabel}
 			aria-haspopup={canOpenMenu ? 'menu' : undefined}
 			aria-expanded={canOpenMenu ? open : undefined}
@@ -334,7 +334,7 @@
 			role="menu"
 			tabindex="-1"
 			aria-label={`${ariaLabel} history`}
-			class="fixed border-2 border-secondary-300 bg-white shadow-[0_8px_24px_rgba(0,0,0,0.16)]"
+			class="pwa-window-no-drag fixed border-2 border-secondary-300 bg-white shadow-[0_8px_24px_rgba(0,0,0,0.16)]"
 			style={panelStyle}
 			bind:this={panelElement}
 			onkeydown={handlePanelKeydown}

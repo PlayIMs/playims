@@ -155,12 +155,12 @@
 </script>
 
 <div
-	class="fixed inset-x-0 top-0 z-[70] bg-primary text-primary-25 shadow-[0_1px_0_rgba(255,255,255,0.18)]"
-	style="padding-top: env(safe-area-inset-top, 0px); padding-right: env(titlebar-area-width, 0px); -webkit-app-region: drag;"
+	class="fixed inset-x-0 top-0 z-[70] bg-primary text-primary-25 shadow-[0_1px_0_rgba(255,255,255,0.18)] pwa-window-drag-region"
+	style="padding-top: env(safe-area-inset-top, 0px); padding-right: env(titlebar-area-width, 0px);"
 >
 	<div
-		class="flex h-11 items-center gap-1 px-2"
-		style="-webkit-app-region: no-drag; padding-right: var(--dashboard-pwa-toolbar-width, 0px);"
+		class="relative z-[72] flex h-11 items-center gap-1 px-2"
+		style="padding-right: var(--dashboard-pwa-toolbar-width, 0px);"
 	>
 		<HistoryNavigationButton
 			ariaLabel="Go back"
@@ -185,7 +185,7 @@
 		<HoverTooltip text="Reload page">
 			<button
 				type="button"
-				class="flex h-8 w-8 cursor-pointer items-center justify-center text-primary-25 transition-colors duration-150 hover:bg-primary-600"
+				class="pwa-window-no-drag flex h-8 w-8 cursor-pointer items-center justify-center text-primary-25 transition-colors duration-150 hover:bg-primary-600"
 				aria-label="Reload page"
 				onclick={onReload}
 			>
@@ -195,19 +195,19 @@
 		<HoverTooltip text="Open dashboard">
 			<button
 				type="button"
-				class="flex h-8 w-8 cursor-pointer items-center justify-center text-primary-25 transition-colors duration-150 hover:bg-primary-600"
+				class="pwa-window-no-drag flex h-8 w-8 cursor-pointer items-center justify-center text-primary-25 transition-colors duration-150 hover:bg-primary-600"
 				aria-label="Open dashboard"
 				onclick={() => void onHome()}
 			>
 				<IconLayoutDashboard class="h-4.5 w-4.5" />
 			</button>
 		</HoverTooltip>
-		<div class="flex min-w-0 flex-1 bg-primary-600/80 focus-within:bg-primary-600">
+		<div class="pwa-window-no-drag flex min-w-0 flex-1 bg-primary-600/80 focus-within:bg-primary-600">
 			<input
 				bind:this={inputElement}
 				type="text"
 				bind:value={inputValue}
-				class="url-bar-input px-3 h-8 flex-1 appearance-none border-0 bg-transparent p-0 text-sm text-primary-25 focus:text-primary-05 placeholder:text-primary-100 focus:outline-none focus:ring-0"
+				class="url-bar-input pwa-window-no-drag px-3 h-8 flex-1 appearance-none border-0 bg-transparent p-0 text-sm text-primary-25 focus:text-primary-05 placeholder:text-primary-100 focus:outline-none focus:ring-0"
 				aria-label="Page address"
 				autocapitalize="none"
 				autocomplete="off"

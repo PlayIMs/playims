@@ -2755,6 +2755,20 @@
 	}
 }
 
+@layer utilities {
+	.pwa-window-drag-region {
+		app-region: drag;
+		-webkit-app-region: drag;
+		user-select: none;
+		-webkit-user-select: none;
+	}
+
+	.pwa-window-no-drag {
+		app-region: no-drag;
+		-webkit-app-region: no-drag;
+	}
+}
+
 /* Shared focus system */
 @layer base {
 	:root {
