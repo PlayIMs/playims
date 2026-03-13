@@ -11,6 +11,36 @@
 		IconDatabase,
 		IconRocket
 	} from '@tabler/icons-svelte';
+	import OrganizationAdminPanel from './_components/OrganizationAdminPanel.svelte';
+
+	type OrganizationMembership = {
+		clientId: string;
+		clientName: string;
+		clientSlug: string | null;
+		role: string;
+		isDefault: boolean;
+		isCurrent: boolean;
+		selfJoinEnabled: boolean;
+		metadata: string | null;
+		status: string;
+	};
+
+	type FormState = {
+		action?: string;
+		error?: string;
+		success?: string;
+		fieldErrors?: Record<string, string>;
+	};
+
+	let {
+		data,
+		form
+	}: {
+		data: {
+			organizations?: OrganizationMembership[];
+		};
+		form?: FormState;
+	} = $props();
 
 	type ToolCard = {
 		title: string;
@@ -57,6 +87,8 @@
 </script>
 
 <div class="space-y-6 p-4">
+	<OrganizationAdminPanel organizations={data.organizations ?? []} {form} />
+
 	<section class="border-2 border-neutral-950 bg-neutral">
 		<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
 			<div class="flex items-start gap-3">
