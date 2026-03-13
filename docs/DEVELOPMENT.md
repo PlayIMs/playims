@@ -4,7 +4,7 @@
 
 Before you begin, ensure you have the following installed:
 
-- **Node.js**: v24.x.x (recommended) or v20+ (minimum). You can check your version with `node --version`.
+- **Node.js**: v24.x.x (recommended), or at least `20.19.0` / `22.12.0` to satisfy Vite 8. You can check your version with `node --version`.
   - If you need to install or switch versions, consider using [nvm](https://github.com/nvm-sh/nvm) (Mac/Linux) or [nvm-windows](https://github.com/coreybutler/nvm-windows) (Windows).
 - **pnpm**: Package manager (v10.2.1 or compatible). Install it globally:
   ```bash

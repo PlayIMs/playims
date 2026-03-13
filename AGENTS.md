@@ -283,7 +283,7 @@ Default Client ID: `6eb657af-4ab8-4a13-980a-add993f78d65`
 ## Environment & Deployment
 
 ### Local Development Requirements
-- Node.js v24+ (or v20+ minimum)
+- Node.js v24+ (or at least Node.js 20.19.0 / 22.12.0 for Vite 8)
 - pnpm 10.x
 - Wrangler CLI (authenticated with Cloudflare)
 
