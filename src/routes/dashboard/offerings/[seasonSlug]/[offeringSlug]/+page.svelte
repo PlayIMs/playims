@@ -2979,6 +2979,7 @@
 	slugTouched={createDivisionSlugTouched}
 	unsavedConfirmOpen={createDivisionUnsavedConfirmOpen}
 	showLocation={false}
+	showStartDate={false}
 	title={createDivisionLeague ? `New Division for ${createDivisionLeague.name}` : 'New Division'}
 	closeAriaLabel="Close create division wizard"
 	submitLabel="Create Division"

@@ -39,6 +39,7 @@
 		slugTouched: boolean;
 		unsavedConfirmOpen: boolean;
 		showLocation?: boolean;
+		showStartDate?: boolean;
 		onSlugTouchedChange: (value: boolean) => void;
 		onNameInput?: (value: string) => void;
 		onDayOfWeekInput?: (value: string) => void;
@@ -65,6 +66,7 @@
 		slugTouched,
 		unsavedConfirmOpen,
 		showLocation = true,
+		showStartDate = true,
 		onSlugTouchedChange,
 		onNameInput,
 		onDayOfWeekInput,
@@ -170,7 +172,7 @@
 						id="create-division-slug"
 						type="text"
 						class="input-secondary pr-10"
-						placeholder="monday-6-00-pm"
+						placeholder="monday-600-pm"
 						value={form.slug}
 						oninput={(event) => {
 							onSlugTouchedChange(true);
@@ -220,55 +222,14 @@
 				{/if}
 			</div>
 			<div>
-				<label for="create-division-start-date" class="mb-1 block text-sm text-neutral-950">
-					Start Date
-				</label>
-				<input
-					id="create-division-start-date"
-					type="date"
-					class="input-secondary"
-					bind:value={form.startDate}
-				/>
-			</div>
-		</div>
-
-		<div class="grid grid-cols-1 gap-4 lg:grid-cols-4">
-			<div class={showLocation ? 'lg:col-span-2' : 'lg:col-span-3'}>
-				<div class="mb-1 flex min-h-6 items-center gap-1.5">
-					<p class="text-sm leading-6 text-neutral-950">Days</p>
-					<InfoPopover buttonVariant="label-inline" buttonAriaLabel="Division days help">
-						<div class="space-y-2">
-							<p>Select one or more days, or let the division name auto-fill them when possible.</p>
-						</div>
-					</InfoPopover>
-				</div>
-				{#key form.dayOfWeek}
-					<DayOfWeekButtonGroup
-						selectedValues={resolvedSelectedDayValues}
-						on:change={(event) => {
-							const value = event.detail.value;
-							if (onDayOfWeekInput) {
-								onDayOfWeekInput(value);
-								return;
-							}
-
-							form.dayOfWeek = value;
-						}}
-					/>
-				{/key}
-				<p class="mt-2 text-xs font-semibold uppercase tracking-[0.08em] text-neutral-700" aria-live="polite">
-					{selectedDaysSummary || 'No days selected yet'}
-				</p>
-			</div>
-			<div>
 				<label for="create-division-time" class="mb-1 block text-sm text-neutral-950">
-					Game Time
+					Game Time(s)
 				</label>
 				<input
 					id="create-division-time"
 					type="text"
 					class="input-secondary"
-					placeholder="7:00 PM or 5:30 PM / 6:15 PM"
+					placeholder="6:00 PM"
 					value={form.gameTime}
 					oninput={(event) => {
 						const value = (event.currentTarget as HTMLInputElement).value;
@@ -282,21 +243,67 @@
 					autocomplete="off"
 				/>
 			</div>
-			{#if showLocation}
-				<div>
-					<label for="create-division-location" class="mb-1 block text-sm text-neutral-950">
-						Location
-					</label>
-					<input
-						id="create-division-location"
-						type="text"
-						class="input-secondary"
-						bind:value={form.location}
-						autocomplete="off"
-					/>
-				</div>
-			{/if}
 		</div>
+
+		<div>
+			<div class="mb-1 flex min-h-6 items-center gap-1.5">
+				<p class="text-sm leading-6 text-neutral-950">Day(s)</p>
+				<InfoPopover buttonVariant="label-inline" buttonAriaLabel="Division days help">
+					<div class="space-y-2">
+						<p>Select one or more days, or let the division name auto-fill them when possible.</p>
+					</div>
+				</InfoPopover>
+			</div>
+			{#key form.dayOfWeek}
+				<DayOfWeekButtonGroup
+					selectedValues={resolvedSelectedDayValues}
+					on:change={(event) => {
+						const value = event.detail.value;
+						if (onDayOfWeekInput) {
+							onDayOfWeekInput(value);
+							return;
+						}
+
+						form.dayOfWeek = value;
+					}}
+				/>
+			{/key}
+			<p class="mt-2 text-xs font-semibold uppercase tracking-[0.08em] text-neutral-700" aria-live="polite">
+				{selectedDaysSummary || 'No days selected yet'}
+			</p>
+		</div>
+
+		{#if showLocation || showStartDate}
+			<div class={`grid grid-cols-1 gap-4 ${showLocation && showStartDate ? 'lg:grid-cols-2' : ''}`}>
+				{#if showStartDate}
+					<div>
+						<label for="create-division-start-date" class="mb-1 block text-sm text-neutral-950">
+							Start Date
+						</label>
+						<input
+							id="create-division-start-date"
+							type="date"
+							class="input-secondary"
+							bind:value={form.startDate}
+						/>
+					</div>
+				{/if}
+				{#if showLocation}
+					<div>
+						<label for="create-division-location" class="mb-1 block text-sm text-neutral-950">
+							Location
+						</label>
+						<input
+							id="create-division-location"
+							type="text"
+							class="input-secondary"
+							bind:value={form.location}
+							autocomplete="off"
+						/>
+					</div>
+				{/if}
+			</div>
+		{/if}
 
 		<div>
 			<label for="create-division-description" class="mb-1 block text-sm text-neutral-950">

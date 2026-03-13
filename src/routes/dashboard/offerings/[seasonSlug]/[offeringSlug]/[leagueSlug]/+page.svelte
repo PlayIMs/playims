@@ -2621,6 +2621,7 @@
 	slugTouched={createDivisionSlugTouched}
 	unsavedConfirmOpen={createDivisionUnsavedConfirmOpen}
 	showLocation={false}
+	showStartDate={false}
 	onSlugTouchedChange={(value) => {
 		createDivisionSlugTouched = value;
 	}}
