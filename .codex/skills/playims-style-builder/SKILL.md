@@ -183,6 +183,7 @@ When legacy guidance and current implementation differ, prefer current implement
 - Do not hand-roll new search bars; use `SearchInput` and tune it with props/classes instead.
 - Do not ship new helper popover variants; use `InfoPopover`.
 - Do not ship new hover hints using native `title`; use `HoverTooltip`.
+- Do not introduce obsolete theme color classes; prefer neutral, primary, or secondary treatments instead.
 - Do not use the old boxed module hero pattern when building or refactoring dashboard module pages.
 - Do not place default module actions, subtitles, timestamps, or helper copy inside the module header strip.
 - Do not remove body gutters after moving to the full-width header pattern; preserve body spacing with `px-4 lg:px-6` or a route-specific equivalent derived from the offerings page.

@@ -60,7 +60,7 @@ Read these files before editing toast behavior:
 - Keep the icon chip treatment already established in `ToastItem.svelte`; do not redesign the icon style unless the user asks.
 - Use a bottom progress bar inside the toast shell when `showProgress` is enabled; it should read as a related shade of the same toast color.
 - Keep a visible drop shadow so the toast feels lifted off the page instead of glued to the layout.
-- Info toasts should use the neutral theme family throughout, with a very dark neutral border and dark neutral title/body text rather than a primary or secondary accent treatment.
+- Info toasts should use the neutral theme family throughout, with a very dark neutral border and dark neutral title/body text rather than a primary or secondary emphasis treatment.
 - Default unspecified desktop placement to `bottom-right`; mobile should support only centered `top`, `middle`, or `bottom` placement.
 - If mobile placement is omitted, derive it from the desktop placement row so top/middle/bottom intent carries across sensibly.
 - Bottom-anchored stacks should place new toasts at the bottom of the visible list so existing toasts shift upward naturally.

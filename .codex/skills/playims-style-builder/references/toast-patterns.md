@@ -34,7 +34,7 @@ Default files:
 - Success: use `toast.success(..., { title: 'Page or workflow name' })`
 - Error: use `toast.error(..., { title: 'Page or workflow name' })`
 - Warning: use `toast.warning` for non-destructive caution that should still disappear
-- Info: keep the toast in the same visual family as the other variants, but use the neutral theme family instead of a primary/secondary accent blend
+- Info: keep the toast in the same visual family as the other variants, but use the neutral theme family instead of a mixed primary/secondary emphasis treatment
 - Persistent page failure: set `duration: null` and `showProgress: false`
 
 Project defaults:

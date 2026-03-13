@@ -63,7 +63,7 @@ Use `WizardStepFooter` pattern:
 
 - Container: `pt-2 border-t border-neutral-950 flex justify-end`
 - Secondary/back: `button-secondary-outlined cursor-pointer`
-- Next/submit: `button-accent cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`
+- Next/submit: `button-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`
 
 Rules:
 

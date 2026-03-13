@@ -30,18 +30,17 @@
 
 - Use project semantic tokens and classes, not hardcoded one-off colors.
 - Prefer component classes from `app.css`:
-  - Inputs: `input-primary|secondary|accent`
-  - Textareas: `textarea-primary|secondary|accent`
-  - Selects: `select-primary|secondary|accent`
-  - Toggles: `toggle-primary|secondary|accent`
-  - Radios: `radio-primary|secondary|accent`
-  - Buttons: `button-primary|secondary|accent|error` and outlined variants
+  - Inputs: `input-primary|secondary`
+  - Textareas: `textarea-primary|secondary`
+  - Selects: `select-primary|secondary`
+  - Toggles: `toggle-primary|secondary`
+  - Radios: `radio-primary|secondary`
+  - Buttons: `button-primary|secondary|error` and outlined variants
   - Status: `badge-*`, `card-*`
 - Use color roles as intent:
-  - `primary`: brand/high-priority status.
+  - `primary`: brand/high-priority status and forward-moving CTAs.
   - `secondary`: structural control/surface system.
-  - `neutral`: base page and content surfaces.
-  - `accent`: highlighted actions and emphasis.
+  - `neutral`: base page/content surfaces and low-emphasis utility actions.
   - `error|warning`: destructive or caution messaging.
 
 ## Typography Rules

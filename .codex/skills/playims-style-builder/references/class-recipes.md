@@ -37,7 +37,7 @@ Use this as a quick copy/paste matrix. Prefer these recipes before inventing new
 | Compact icon button        | `button-secondary-outlined p-1.5 cursor-pointer`                                                             |
 | Compact square icon button | `button-secondary-outlined w-9 h-9 p-0 cursor-pointer inline-flex items-center justify-center`               |
 | Wizard back button         | `button-secondary-outlined cursor-pointer`                                                                   |
-| Wizard next/submit         | `button-accent cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`                               |
+| Wizard next/submit         | `button-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`                              |
 | Destructive action         | `button-error cursor-pointer inline-flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-60` |
 | Danger secondary confirm   | `button-secondary-outlined border-error-700 text-error-700 hover:bg-error-50 cursor-pointer`                 |
 

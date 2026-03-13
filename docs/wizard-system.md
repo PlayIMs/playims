@@ -13,7 +13,7 @@ Use shared wizard primitives for consistent modal behavior, step framing, and dr
 - `WizardDraftCollection`: shared list UI for draft entities.
 - `InfoPopover`: reusable info/help popover trigger for paragraph-heavy helper text.
 - `ToggleField`: reusable bordered toggle row for wizard checkbox/switch fields with label content.
-- `DayOfWeekButtonGroup`: reusable bordered weekday selector for single-choice day scheduling fields.
+- `DayOfWeekButtonGroup`: reusable bordered weekday selector for one-or-more day scheduling fields.
 
 ## Default Modal Behavior
 
