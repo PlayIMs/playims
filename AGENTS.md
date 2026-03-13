@@ -325,6 +325,14 @@ Current suite scope:
 - Auth and member flows already covered
 - Server-first backfill in progress for themes, facilities, and intramural APIs
 
+## UI Debugging Discipline
+
+When a UI bug reproduces but parser or unit tests pass:
+
+1. Confirm the exact active route and entry point from the screenshot, modal title, or surrounding page context before changing code.
+2. Search sibling routes for duplicated wizard or inference logic before assuming a shared utility is the live source of truth.
+3. Add or use one integration-path check that proves the rendered UI is wired to the same logic the tests cover.
+
 ## Agentic TDD Workflow
 
 This repo is the source of truth for when Codex must use TDD and when it should stay fast.
