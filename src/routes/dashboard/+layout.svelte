@@ -196,6 +196,8 @@
 			: 'var(--pwa-top-bar-offset, 0px)'
 	);
 	const shellHorizontalInset = $derived.by(() => (isViewingAsRole ? '1rem' : '0px'));
+	// Keep the role-view frame on the viewport edge while the dashboard shell sits inside it.
+	const shellBorderTopInset = $derived.by(() => 'var(--pwa-top-bar-offset, 0px)');
 	const sidebarHeightStyle = $derived.by(() =>
 		isViewingAsRole
 			? 'calc(100dvh - var(--pwa-top-bar-offset, 0px) - 2rem)'
@@ -721,7 +723,7 @@
 <div class="h-screen box-border">
 	<div
 		class="pointer-events-none fixed z-50 shadow-[inset_0_0_0_1rem_var(--color-secondary-500)] transition-opacity duration-220 {shellBorderOpacityClass}"
-		style={`top:${shellTopInset}; right:${shellHorizontalInset}; bottom:${shellHorizontalInset}; left:${shellHorizontalInset};`}
+		style={`top:${shellBorderTopInset}; right:0px; bottom:0px; left:0px;`}
 		aria-hidden="true"
 	></div>
 	{#if isViewingAsRole}
