@@ -30,7 +30,9 @@
 	import { flip } from 'svelte/animate';
 	import { cubicInOut } from 'svelte/easing';
 	import {
+		canAccessDashboardRouteForAuthMode,
 		DASHBOARD_NAV_KEY_SET,
+		filterDashboardNavigationItemsForAuthMode,
 		mergeDashboardNavigationConfig,
 		mergeDashboardNavigationLabels,
 		mergeDashboardNavigationOrder,
@@ -88,7 +90,11 @@
 	let navigationLabels = $state<DashboardNavigationLabels>(mergeDashboardNavigationLabels());
 	let navigationOrder = $state<DashboardNavigationOrder>(mergeDashboardNavigationOrder());
 	const menuItems = $derived.by(() =>
-		orderDashboardNavigationItems(navigationOrder).map((item) => ({
+		filterDashboardNavigationItemsForAuthMode({
+			items: orderDashboardNavigationItems(navigationOrder),
+			effectiveRole,
+			isViewingAsRole
+		}).map((item) => ({
 			...item,
 			label: navigationLabels[item.key],
 			icon: menuItemIcons[item.key]
@@ -359,6 +365,24 @@
 		organizationWizardOpen = false;
 	};
 
+	const refreshAfterRoleChange = async (
+		nextEffectiveRole: AuthRole,
+		nextIsViewingAsRole: boolean
+	) => {
+		if (
+			!canAccessDashboardRouteForAuthMode({
+				pathname: activePath,
+				effectiveRole: nextEffectiveRole,
+				isViewingAsRole: nextIsViewingAsRole
+			})
+		) {
+			await goto('/dashboard', { invalidateAll: true });
+			return;
+		}
+
+		await invalidateAll();
+	};
+
 	const applyViewRole = async (targetRole: AuthRole | null) => {
 		if (!browser || !canViewAsRole || roleWizardSubmitting || organizationSwitching) {
 			return;
@@ -375,9 +399,27 @@
 				body: JSON.stringify({ targetRole })
 			});
 
-			let payload: { error?: string } | null = null;
+			let payload:
+				| {
+						error?: string;
+						data?: {
+							session?: {
+								role?: string | null;
+								isViewingAsRole?: boolean;
+							};
+						};
+				  }
+				| null = null;
 			try {
-				payload = (await response.json()) as { error?: string };
+				payload = (await response.json()) as {
+					error?: string;
+					data?: {
+						session?: {
+							role?: string | null;
+							isViewingAsRole?: boolean;
+						};
+					};
+				};
 			} catch {
 				payload = null;
 			}
@@ -389,7 +431,9 @@
 			}
 
 			roleWizardOpen = false;
-			await invalidateAll();
+			const nextEffectiveRole = normalizeRole(payload?.data?.session?.role);
+			const nextIsViewingAsRole = payload?.data?.session?.isViewingAsRole === true;
+			await refreshAfterRoleChange(nextEffectiveRole, nextIsViewingAsRole);
 		} catch {
 			viewModeBadgeError = 'Unable to update role view.';
 		} finally {
@@ -413,9 +457,27 @@
 				body: JSON.stringify({ targetRole: null })
 			});
 
-			let payload: { error?: string } | null = null;
+			let payload:
+				| {
+						error?: string;
+						data?: {
+							session?: {
+								role?: string | null;
+								isViewingAsRole?: boolean;
+							};
+						};
+				  }
+				| null = null;
 			try {
-				payload = (await response.json()) as { error?: string };
+				payload = (await response.json()) as {
+					error?: string;
+					data?: {
+						session?: {
+							role?: string | null;
+							isViewingAsRole?: boolean;
+						};
+					};
+				};
 			} catch {
 				payload = null;
 			}
@@ -426,7 +488,9 @@
 				return;
 			}
 
-			await invalidateAll();
+			const nextEffectiveRole = normalizeRole(payload?.data?.session?.role);
+			const nextIsViewingAsRole = payload?.data?.session?.isViewingAsRole === true;
+			await refreshAfterRoleChange(nextEffectiveRole, nextIsViewingAsRole);
 		} catch {
 			viewModeBadgeError = 'Unable to restore role view.';
 		} finally {

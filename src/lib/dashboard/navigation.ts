@@ -29,6 +29,25 @@ export type DashboardNavigationConfig = {
 	labels: DashboardNavigationLabels;
 	order: DashboardNavigationOrder;
 };
+export type DashboardAuthRole = 'participant' | 'manager' | 'admin' | 'dev';
+
+const PARTICIPANT_VIEW_HIDDEN_NAV_KEYS = new Set<DashboardNavKey>([
+	'memberManagement',
+	'facilities',
+	'payments',
+	'forms',
+	'reports',
+	'settings'
+]);
+const PARTICIPANT_VIEW_HIDDEN_ROUTE_PREFIXES = [
+	'/dashboard/members',
+	'/dashboard/facilities',
+	'/dashboard/payments',
+	'/dashboard/forms',
+	'/dashboard/reports',
+	'/dashboard/settings'
+] as const;
+const DEV_ONLY_ROUTE_PREFIX = '/dashboard/dev';
 
 const collapseWhitespace = (value: string): string => value.trim().replace(/\s+/g, ' ');
 
@@ -132,6 +151,52 @@ export const orderDashboardNavigationItems = (
 	return mergeDashboardNavigationOrder(order)
 		.map((key) => itemsByKey.get(key))
 		.filter((item): item is DashboardNavItem => Boolean(item));
+};
+
+export const filterDashboardNavigationItemsForAuthMode = ({
+	items,
+	effectiveRole,
+	isViewingAsRole
+}: {
+	items: readonly DashboardNavItem[];
+	effectiveRole: DashboardAuthRole;
+	isViewingAsRole: boolean;
+}): DashboardNavItem[] => {
+	if (!isViewingAsRole || effectiveRole !== 'participant') {
+		return [...items];
+	}
+
+	return items.filter((item) => !PARTICIPANT_VIEW_HIDDEN_NAV_KEYS.has(item.key));
+};
+
+export const canAccessDashboardRouteForAuthMode = ({
+	pathname,
+	effectiveRole,
+	isViewingAsRole
+}: {
+	pathname: string;
+	effectiveRole: DashboardAuthRole;
+	isViewingAsRole: boolean;
+}): boolean => {
+	const normalizedPath = pathname.trim();
+	if (normalizedPath.length === 0) {
+		return true;
+	}
+
+	if (
+		normalizedPath === DEV_ONLY_ROUTE_PREFIX ||
+		normalizedPath.startsWith(`${DEV_ONLY_ROUTE_PREFIX}/`)
+	) {
+		return effectiveRole === 'dev';
+	}
+
+	if (!isViewingAsRole || effectiveRole !== 'participant') {
+		return true;
+	}
+
+	return !PARTICIPANT_VIEW_HIDDEN_ROUTE_PREFIXES.some(
+		(prefix) => normalizedPath === prefix || normalizedPath.startsWith(`${prefix}/`)
+	);
 };
 
 export const toDashboardNavigationOverrides = (
