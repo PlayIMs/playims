@@ -29,11 +29,7 @@ describe('hover tooltip dismissal helpers', () => {
 
 	it('keeps the tooltip open when the pointer moves to another in-window target', () => {
 		// moving within the app should not dismiss the tooltip before the trigger's normal leave logic runs.
-		expect(
-			shouldHideHoverTooltipOnWindowMouseOut({
-				nodeName: 'BUTTON'
-			})
-		).toBe(false);
+		expect(shouldHideHoverTooltipOnWindowMouseOut({} as EventTarget)).toBe(false);
 	});
 
 	it('hides the tooltip when the document becomes hidden', () => {
