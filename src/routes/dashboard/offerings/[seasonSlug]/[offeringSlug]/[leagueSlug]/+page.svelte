@@ -7,6 +7,7 @@
 	import HeaderHierarchyTabs from '$lib/components/navigation/HeaderHierarchyTabs.svelte';
 	import ModalShell from '$lib/components/modals/ModalShell.svelte';
 	import OfferingsTable from '$lib/components/OfferingsTable.svelte';
+	import SmallStandingsTable from '$lib/components/SmallStandingsTable.svelte';
 	import DashboardSidebarPanel from '$lib/components/dashboard/DashboardSidebarPanel.svelte';
 	import SplitAddAction from '$lib/components/dashboard/SplitAddAction.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
@@ -45,6 +46,7 @@
 	type HierarchyOption = NonNullable<PageData['offeringOptions']>[number];
 	type PlacementValue = 'active' | 'waitlist';
 	type StandingsDisplayRow = {
+		rank: number;
 		teamId: string;
 		teamName: string;
 		wins: number | null;
@@ -498,6 +500,7 @@
 		const rows: StandingsDisplayRow[] = division.teams.map((team: ActiveTeamRow) => {
 			const standing = standingsByTeamId.get(team.id);
 			return {
+				rank: 0,
 				teamId: team.id,
 				teamName: team.name,
 				wins: standing?.wins ?? null,
@@ -516,6 +519,7 @@
 		for (const standing of division.standings) {
 			if (rows.some((row) => row.teamId === standing.teamId)) continue;
 			rows.push({
+				rank: 0,
 				teamId: standing.teamId,
 				teamName: standing.teamName,
 				wins: standing.wins,
@@ -531,25 +535,31 @@
 			});
 		}
 
-		return rows.sort((a, b) => {
-			if (a.hasPostedStandings !== b.hasPostedStandings) {
-				return a.hasPostedStandings ? -1 : 1;
-			}
-			if ((b.points ?? Number.NEGATIVE_INFINITY) !== (a.points ?? Number.NEGATIVE_INFINITY)) {
-				return (b.points ?? Number.NEGATIVE_INFINITY) - (a.points ?? Number.NEGATIVE_INFINITY);
-			}
-			const winPctDiff = parseWinPctValue(b.winPct) - parseWinPctValue(a.winPct);
-			if (winPctDiff !== 0) return winPctDiff;
-			if ((b.wins ?? Number.NEGATIVE_INFINITY) !== (a.wins ?? Number.NEGATIVE_INFINITY)) {
-				return (b.wins ?? Number.NEGATIVE_INFINITY) - (a.wins ?? Number.NEGATIVE_INFINITY);
-			}
-			return a.teamName.localeCompare(b.teamName);
-		});
+		return rows
+			.sort((a, b) => {
+				if (a.hasPostedStandings !== b.hasPostedStandings) {
+					return a.hasPostedStandings ? -1 : 1;
+				}
+				if ((b.points ?? Number.NEGATIVE_INFINITY) !== (a.points ?? Number.NEGATIVE_INFINITY)) {
+					return (b.points ?? Number.NEGATIVE_INFINITY) - (a.points ?? Number.NEGATIVE_INFINITY);
+				}
+				const winPctDiff = parseWinPctValue(b.winPct) - parseWinPctValue(a.winPct);
+				if (winPctDiff !== 0) return winPctDiff;
+				if ((b.wins ?? Number.NEGATIVE_INFINITY) !== (a.wins ?? Number.NEGATIVE_INFINITY)) {
+					return (b.wins ?? Number.NEGATIVE_INFINITY) - (a.wins ?? Number.NEGATIVE_INFINITY);
+				}
+				return a.teamName.localeCompare(b.teamName);
+			})
+			.map((row, index) => ({
+				...row,
+				rank: index + 1
+			}));
 	}
 
 	function standingsMatchSearch(row: StandingsDisplayRow, query: string): boolean {
 		return matchesSearchTerm(
 			[
+				String(row.rank),
 				row.teamName,
 				formatStandingCell(row.wins),
 				formatStandingCell(row.losses),
@@ -780,75 +790,6 @@
 	] satisfies DropdownOption[];
 
 	const divisionTableColumns = $derived.by<OfferingsTableColumn[]>(() => divisionTableColumnsFor());
-
-	const standingsColumns = $derived.by<OfferingsTableColumn[]>(() => [
-		{
-			key: 'team',
-			label: 'Team',
-			width: '32%',
-			rowHeader: true
-		},
-		{
-			key: 'record',
-			label: 'W-L-T',
-			headerHoverTooltipText: 'Wins-Losses-Ties',
-			width: '14%',
-			headerTextAlignment: 'center',
-			cellTextAlignment: 'center',
-			cellVerticalAlignment: 'top',
-			tabularNumbers: true
-		},
-		{
-			key: 'points',
-			label: 'PTS',
-			headerHoverTooltipText: 'Points',
-			width: '10%',
-			headerTextAlignment: 'center',
-			cellTextAlignment: 'center',
-			cellVerticalAlignment: 'top',
-			tabularNumbers: true
-		},
-		{
-			key: 'pct',
-			label: 'PTS%',
-			headerHoverTooltipText: 'Points Percentage',
-			width: '10%',
-			headerTextAlignment: 'center',
-			cellTextAlignment: 'center',
-			cellVerticalAlignment: 'top',
-			tabularNumbers: true
-		},
-		{
-			key: 'streak',
-			label: 'STRK',
-			headerHoverTooltipText: 'Win/Loss/Tie Streak',
-			width: '10%',
-			headerTextAlignment: 'center',
-			cellTextAlignment: 'center',
-			cellVerticalAlignment: 'top',
-			tabularNumbers: true
-		},
-		{
-			key: 'sportsmanship',
-			label: 'SBR',
-			headerHoverTooltipText: 'Sporting Behavior Rating',
-			width: '10%',
-			headerTextAlignment: 'center',
-			cellTextAlignment: 'center',
-			cellVerticalAlignment: 'top',
-			tabularNumbers: true
-		},
-		{
-			key: 'forfeits',
-			label: 'FFS',
-			headerHoverTooltipText: 'Forfeits / Forgoes',
-			width: '12%',
-			headerTextAlignment: 'center',
-			cellTextAlignment: 'center',
-			cellVerticalAlignment: 'top',
-			tabularNumbers: true
-		}
-	]);
 
 	const waitlistTableColumns = $derived.by<OfferingsTableColumn[]>(() =>
 		waitlistTableColumnsFor(canManageLeague)
@@ -1388,7 +1329,6 @@
 		...(createDivisionValidationVisible ? getDivisionFieldErrors(createDivisionForm) : {}),
 		...createDivisionServerFieldErrors
 	}));
-
 	const editDivisionFieldErrors = $derived.by(() => ({
 		...(editDivisionValidationVisible
 			? getDivisionFieldErrors(editDivisionForm, {
@@ -2517,85 +2457,23 @@
 														</span>
 													</div>
 												</div>
+												<button
+													type="button"
+													class="mt-[0.35rem] shrink-0 text-[11px] font-sans font-semibold text-neutral-700 underline underline-offset-2 hover:text-neutral-950"
+												>
+													View Full Standings
+												</button>
 											</div>
-											<OfferingsTable
-												columns={standingsColumns}
+											<SmallStandingsTable
 												rows={visibleDivisionStandings.get(division.id) ?? []}
+												icon={HeaderIcon}
 												caption={`${division.name} standings table`}
-												tableClass="w-full table-fixed border-collapse"
-											>
-												{#snippet emptyBody()}
-													<tr class="bg-neutral-25">
-														<td
-															colspan={standingsColumns.length}
-															class="px-2 py-6 text-center text-sm italic text-neutral-700"
-														>
-															{#if hasSearchQuery}
-																No standings rows match this search.
-															{:else if division.teamCount === 0}
-																0 standings rows / 0 teams.
-															{:else}
-																No standings posted yet.
-															{/if}
-														</td>
-													</tr>
-												{/snippet}
-
-												{#snippet cell(row, column)}
-													{@const standingsRow = row as StandingsDisplayRow}
-													{#if column.key === 'team'}
-														<div class="flex min-w-0 items-center gap-1.5">
-															<div
-																class="flex h-5 w-5 shrink-0 items-center justify-center bg-primary text-white"
-																aria-hidden="true"
-															>
-																<HeaderIcon class="h-3 w-3" />
-															</div>
-															<p class="truncate font-sans text-xs font-bold text-neutral-950">
-																{standingsRow.teamName}
-															</p>
-														</div>
-													{:else if column.key === 'record'}
-														<p
-															class="w-full text-center font-sans text-xs leading-snug text-neutral-950 tabular-nums"
-														>
-															{formatStandingCell(standingsRow.wins)}-{formatStandingCell(
-																standingsRow.losses
-															)}-{formatStandingCell(standingsRow.ties)}
-														</p>
-													{:else if column.key === 'points'}
-														<p
-															class="w-full text-center font-sans text-xs leading-snug text-neutral-950 tabular-nums"
-														>
-															{formatStandingCell(standingsRow.points)}
-														</p>
-													{:else if column.key === 'pct'}
-														<p
-															class="w-full text-center font-sans text-xs leading-snug text-neutral-950 tabular-nums"
-														>
-															{formatStandingCell(standingsRow.winPct)}
-														</p>
-													{:else if column.key === 'streak'}
-														<p
-															class="w-full text-center font-sans text-xs leading-snug text-neutral-950 tabular-nums"
-														>
-															{formatStreak(standingsRow.streak)}
-														</p>
-													{:else if column.key === 'sportsmanship'}
-														<p
-															class="w-full text-center font-sans text-xs leading-snug text-neutral-950 tabular-nums"
-														>
-															{formatStandingCell(standingsRow.sportsmanshipRating)}
-														</p>
-													{:else if column.key === 'forfeits'}
-														<p
-															class="w-full text-center font-sans text-xs leading-snug text-neutral-950 tabular-nums"
-														>
-															{formatForfeitSummary(standingsRow.forfeits, standingsRow.forgoes)}
-														</p>
-													{/if}
-												{/snippet}
-											</OfferingsTable>
+												{hasSearchQuery}
+												emptySearchMessage="No standings rows match this search"
+												emptyMessage={division.teamCount === 0
+													? 'No teams in this division yet'
+													: 'No standings posted yet'}
+											/>
 										</section>
 									{/each}
 								</div>
