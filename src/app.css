@@ -2754,3 +2754,106 @@
 		border-color: var(--color-primary-500) !important;
 	}
 }
+
+/* Shared focus system */
+@layer base {
+	:root {
+		--playims-focus-color: var(--color-secondary-500);
+	}
+
+	:is(
+			.bg-primary,
+			.bg-primary-05,
+			.bg-primary-25,
+			.bg-primary-50,
+			.bg-primary-100,
+			.bg-primary-200,
+			.bg-primary-300,
+			.bg-primary-400,
+			.bg-primary-500,
+			.bg-primary-600,
+			.bg-primary-700,
+			.bg-primary-800,
+			.bg-primary-900,
+			.bg-primary-950,
+			.bg-secondary,
+			.bg-secondary-05,
+			.bg-secondary-25,
+			.bg-secondary-50,
+			.bg-secondary-100,
+			.bg-secondary-200,
+			.bg-secondary-300,
+			.bg-secondary-400,
+			.bg-secondary-500,
+			.bg-secondary-600,
+			.bg-secondary-700,
+			.bg-secondary-800,
+			.bg-secondary-900,
+			.bg-secondary-950,
+			.button-primary,
+			.button-secondary,
+			.button-error,
+			.toast-primary,
+			.toast-primary-500,
+			.toast-secondary,
+			.toast-secondary-500,
+			.alert-primary,
+			.alert-primary-500,
+			.alert-secondary,
+			.alert-secondary-500
+		) {
+		--playims-focus-color: var(--color-neutral-05);
+	}
+
+	:where(
+			button,
+			a[href],
+			summary,
+			[role='button'],
+			[tabindex]:not([tabindex='-1'])
+		):focus-visible {
+		outline: 1px solid var(--playims-focus-color) !important;
+		outline-offset: 1px !important;
+		box-shadow: none !important;
+		border-color: var(--playims-focus-color) !important;
+		--tw-ring-color: transparent !important;
+		--tw-ring-shadow: 0 0 #0000 !important;
+	}
+
+	:where(
+			input:not([type='hidden']):not([type='checkbox']):not([type='radio']),
+			select,
+			textarea
+		):focus,
+	:where(
+			input:not([type='hidden']):not([type='checkbox']):not([type='radio']),
+			select,
+			textarea
+		):focus-visible {
+		outline: 1px solid var(--playims-focus-color) !important;
+		outline-offset: 1px !important;
+		box-shadow: none !important;
+		border-color: var(--playims-focus-color) !important;
+		--tw-ring-color: transparent !important;
+		--tw-ring-shadow: 0 0 #0000 !important;
+	}
+
+	:where(input[type='checkbox'], input[type='radio']):focus,
+	:where(input[type='checkbox'], input[type='radio']):focus-visible {
+		outline: 1px solid var(--playims-focus-color) !important;
+		outline-offset: 1px !important;
+		box-shadow: none !important;
+		border-color: var(--playims-focus-color) !important;
+		--tw-ring-color: transparent !important;
+		--tw-ring-shadow: 0 0 #0000 !important;
+	}
+
+	.phone-input-group:focus-within {
+		box-shadow: 0 0 0 1px var(--playims-focus-color) !important;
+	}
+
+	.phone-input-group:focus-within .phone-country-trigger,
+	.phone-input-group:focus-within .phone-number-field {
+		border-color: var(--playims-focus-color) !important;
+	}
+}

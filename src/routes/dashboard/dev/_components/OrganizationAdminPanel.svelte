@@ -9,6 +9,7 @@
 		IconRestore
 	} from '@tabler/icons-svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
+	import InfoPopover from '$lib/components/InfoPopover.svelte';
 	import {
 		WizardStepFooter,
 		applyLiveSlugInput,
@@ -409,9 +410,14 @@
 			</div>
 			<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
 				<div>
-					<label for="organization-wizard-name" class="mb-1 block text-sm text-neutral-950">
-						Organization Name <span class="text-error-700">*</span>
-					</label>
+					<div class="mb-1 flex min-h-6 items-center gap-1.5">
+						<label
+							for="organization-wizard-name"
+							class="text-sm leading-6 font-sans text-neutral-950"
+						>
+							Organization Name <span class="text-error-700">*</span>
+						</label>
+					</div>
 					<input
 						id="organization-wizard-name"
 						type="text"
@@ -435,9 +441,25 @@
 					{/if}
 				</div>
 				<div>
-					<label for="organization-wizard-slug" class="mb-1 block text-sm text-neutral-950">
-						Organization Slug <span class="text-error-700">*</span>
-					</label>
+					<div class="mb-1 flex min-h-6 items-center gap-1.5">
+						<label
+							for="organization-wizard-slug"
+							class="text-sm leading-6 font-sans text-neutral-950"
+						>
+							Organization Slug <span class="text-error-700">*</span>
+						</label>
+						<InfoPopover
+							buttonAriaLabel="Organization slug help"
+							buttonVariant="label-inline"
+							align="left"
+							panelWidthClass="w-80"
+						>
+							<div class="space-y-2">
+								<p>A slug is the URL-friendly identifier used in links and join flows.</p>
+								<p>Used for the join page URL, such as `/your-slug`.</p>
+							</div>
+						</InfoPopover>
+					</div>
 					<div class="relative">
 						<input
 							id="organization-wizard-slug"
@@ -473,7 +495,6 @@
 							</button>
 						</HoverTooltip>
 					</div>
-					<p class="mt-1 text-xs text-neutral-950">Used for the join page URL: `/your-slug`</p>
 					{#if createOrganizationFieldErrors['organizationSlug']}
 						<p class="mt-1 text-xs text-error-700">
 							{createOrganizationFieldErrors['organizationSlug']}
