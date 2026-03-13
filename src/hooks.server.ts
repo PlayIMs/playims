@@ -1,7 +1,8 @@
 import { dev } from '$app/environment';
+import { canAccessDashboardRouteForAuthMode } from '$lib/dashboard/navigation';
 import { clearSessionCookie, resolveSessionFromRequest } from '$lib/server/auth/session';
 import type { AuthRole } from '$lib/server/auth/rbac';
-import { DASHBOARD_ALLOWED_ROLES, hasAnyRole } from '$lib/server/auth/rbac';
+import { DASHBOARD_ALLOWED_ROLES, hasAnyRole, normalizeRole } from '$lib/server/auth/rbac';
 import { AuthServiceError, requireSessionSecret } from '$lib/server/auth/service';
 import {
 	AUTH_SESSION_COOKIE_NAME,
@@ -953,8 +954,15 @@ export const handle: Handle = async ({ event, resolve }) => {
 				});
 			}
 
-			const roleForDashboard = event.locals.user.baseRole ?? event.locals.user.role;
-			if (!hasAnyRole(roleForDashboard, DASHBOARD_ALLOWED_ROLES)) {
+			const effectiveRole = normalizeRole(event.locals.user.role ?? event.locals.user.baseRole);
+			const isViewingAsRole = event.locals.user.isViewingAsRole === true;
+			if (
+				!canAccessDashboardRouteForAuthMode({
+					pathname,
+					effectiveRole,
+					isViewingAsRole
+				})
+			) {
 				const response = toPageErrorResponse(403, 'Forbidden');
 				logRequestSummary({
 					scope: 'SSR',

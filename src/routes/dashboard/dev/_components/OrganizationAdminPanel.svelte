@@ -43,7 +43,7 @@
 		organizationName: string;
 		organizationSlug: string;
 		selfJoinEnabled: boolean;
-		membershipRole: 'admin' | 'manager';
+		membershipRole: 'participant' | 'admin' | 'manager';
 		switchToOrganization: boolean;
 		setDefaultOrganization: boolean;
 		metadata: string;
@@ -494,7 +494,17 @@
 			</div>
 			<div class="space-y-3">
 				<p class="text-sm font-semibold text-neutral-950">Your role in this organization</p>
-				<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+				<div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+					<button
+						type="button"
+						class={`border p-3 text-left cursor-pointer ${createOrganizationForm.membershipRole === 'participant' ? 'border-primary-500 bg-primary-100 text-primary-900' : 'border-secondary-300 bg-white text-neutral-950 hover:bg-secondary-50'}`}
+						onclick={() => {
+							createOrganizationForm.membershipRole = 'participant';
+						}}
+					>
+						<p class="font-semibold">Participant</p>
+						<p class="mt-1 text-xs">Basic member access for low-privilege testing.</p>
+					</button>
 					<button
 						type="button"
 						class={`border p-3 text-left cursor-pointer ${createOrganizationForm.membershipRole === 'manager' ? 'border-primary-500 bg-primary-100 text-primary-900' : 'border-secondary-300 bg-white text-neutral-950 hover:bg-secondary-50'}`}

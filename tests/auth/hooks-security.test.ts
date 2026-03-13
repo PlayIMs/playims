@@ -14,11 +14,12 @@ Summary of tests:
 3. It verifies that protected SSR responses receive no-store cache headers.
 4. It verifies that SSR request logging redacts invite tokens from both paths and query values.
 5. It verifies that nonce-based CSP responses add the nonce to inline SSR script tags.
-6. It verifies that participant users are blocked from protected dashboard SSR routes.
-7. It verifies that developer users can still reach protected dashboard SSR routes.
-8. It verifies that read-only API access can use the base role during participant view mode.
-9. It verifies that mutating API access is blocked by the effective participant role during view mode.
-10. It verifies that the join-client API route requires authentication.
+6. It verifies that participant users can still reach participant-safe dashboard SSR routes.
+7. It verifies that participant users are blocked from restricted dashboard SSR routes.
+8. It verifies that developer users can still reach protected dashboard SSR routes.
+9. It verifies that read-only API access can use the base role during participant view mode.
+10. It verifies that mutating API access is blocked by the effective participant role during view mode.
+11. It verifies that the join-client API route requires authentication.
 */
 
 import { describe, expect, it, vi } from 'vitest';
@@ -216,11 +217,40 @@ describe('hooks security behavior', () => {
 		expect(html).toContain('<script nonce="already-there">window.keepNonce=true;</script>');
 	});
 
-	it('enforces role checks for dashboard SSR', async () => {
-		// the participant role should be denied before the downstream route can render protected content.
+	it('allows participant users on participant-safe dashboard SSR routes', async () => {
+		// the root dashboard is the safe landing page for a real participant membership.
 		const event = createEvent({
 			pathname: '/dashboard',
 			ip: '198.51.100.71',
+			locals: {
+				user: {
+					id: 'u2',
+					clientId: '22222222-2222-2222-2222-222222222222',
+					role: 'participant',
+					baseRole: 'participant'
+				},
+				session: {
+					id: 's2',
+					userId: 'u2',
+					clientId: '22222222-2222-2222-2222-222222222222',
+					activeClientId: '22222222-2222-2222-2222-222222222222',
+					role: 'participant',
+					baseRole: 'participant',
+					authProvider: 'password',
+					expiresAt: new Date(Date.now() + 60_000).toISOString()
+				}
+			}
+		});
+
+		const response = await handle({ event, resolve: resolveOk });
+		expect(response.status).toBe(200);
+	});
+
+	it('blocks participant users from restricted dashboard SSR routes', async () => {
+		// participant memberships should still be denied from management pages like settings.
+		const event = createEvent({
+			pathname: '/dashboard/settings',
+			ip: '198.51.100.72',
 			locals: {
 				user: {
 					id: 'u2',

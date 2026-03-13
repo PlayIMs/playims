@@ -214,7 +214,7 @@ export const accountCreateOrganizationSchema = z.object({
 		.enum(['0', '1'])
 		.optional()
 		.transform((value) => value === '1'),
-	membershipRole: z.enum(['admin', 'manager']).default('manager'),
+	membershipRole: z.enum(['participant', 'manager', 'admin']).default('manager'),
 	switchToOrganization: z
 		.enum(['0', '1'])
 		.optional()

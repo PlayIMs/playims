@@ -10,6 +10,7 @@ to a real action instead of silently losing its backend behavior.
 
 Summary of tests:
 1. It verifies that the developer page create-organization action creates the org, membership, and active session context.
+2. It verifies that the action accepts participant membership when creating a test organization.
 */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -136,5 +137,73 @@ describe('developer page create-organization action', () => {
 		);
 		expect(event.locals.session.activeClientId).toBe(CREATED_CLIENT_ID);
 		expect(event.locals.user.clientId).toBe(CREATED_CLIENT_ID);
+	});
+
+	it('accepts participant membership for a newly created organization', async () => {
+		// this keeps the testing flow available when someone needs a low-privilege org membership on purpose.
+		mocks.dbOps.userClients.ensureMembership.mockResolvedValue({
+			userId: 'user-1',
+			clientId: CREATED_CLIENT_ID,
+			role: 'participant'
+		});
+
+		const formData = new FormData();
+		formData.set('organizationName', 'Participant Sandbox');
+		formData.set('organizationSlug', 'participant-sandbox');
+		formData.set('selfJoinEnabled', '0');
+		formData.set('membershipRole', 'participant');
+		formData.set('switchToOrganization', '1');
+		formData.set('setDefaultOrganization', '0');
+
+		const event = {
+			platform: { env: { DB: {} } },
+			locals: {
+				user: {
+					id: 'user-1',
+					clientId: 'client-1',
+					role: 'admin',
+					baseRole: 'admin',
+					canViewAsRole: true,
+					isViewingAsRole: false,
+					viewAsRole: null
+				},
+				session: {
+					id: 'session-1',
+					userId: 'user-1',
+					clientId: 'client-1',
+					activeClientId: 'client-1',
+					role: 'admin',
+					baseRole: 'admin',
+					canViewAsRole: true,
+					isViewingAsRole: false,
+					viewAsRole: null
+				}
+			},
+			request: new Request('https://playims.test/dashboard/dev?/createOrganization', {
+				method: 'POST',
+				body: formData
+			})
+		} as any;
+
+		const result = await actions.createOrganization(event);
+
+		expect(result).toEqual({
+			action: 'createOrganization',
+			success: 'Organization "Developer Org" created and activated.'
+		});
+		expect(mocks.dbOps.userClients.ensureMembership).toHaveBeenCalledWith(
+			expect.objectContaining({
+				userId: 'user-1',
+				clientId: CREATED_CLIENT_ID,
+				role: 'participant',
+				isDefault: false
+			})
+		);
+		expect(event.locals.session.role).toBe('participant');
+		expect(event.locals.session.baseRole).toBe('participant');
+		expect(event.locals.session.canViewAsRole).toBe(false);
+		expect(event.locals.user.role).toBe('participant');
+		expect(event.locals.user.baseRole).toBe('participant');
+		expect(event.locals.user.canViewAsRole).toBe(false);
 	});
 });

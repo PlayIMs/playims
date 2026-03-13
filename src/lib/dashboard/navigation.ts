@@ -162,7 +162,7 @@ export const filterDashboardNavigationItemsForAuthMode = ({
 	effectiveRole: DashboardAuthRole;
 	isViewingAsRole: boolean;
 }): DashboardNavItem[] => {
-	if (!isViewingAsRole || effectiveRole !== 'participant') {
+	if (effectiveRole !== 'participant') {
 		return [...items];
 	}
 
@@ -190,7 +190,7 @@ export const canAccessDashboardRouteForAuthMode = ({
 		return effectiveRole === 'dev';
 	}
 
-	if (!isViewingAsRole || effectiveRole !== 'participant') {
+	if (effectiveRole !== 'participant') {
 		return true;
 	}
 
