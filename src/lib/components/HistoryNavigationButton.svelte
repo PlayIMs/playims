@@ -348,7 +348,7 @@
 					<button
 						type="button"
 						role="menuitem"
-						class={`w-full border-b border-secondary-200 px-2.5 py-1.5 text-left text-xs text-neutral-950 transition-colors duration-100 ${
+						class={`w-full cursor-pointer border-b border-secondary-200 px-2.5 py-1.5 text-left text-xs text-neutral-950 transition-colors duration-100 ${
 							index === activeIndex
 								? 'bg-neutral-300 text-neutral-950'
 								: 'bg-white hover:bg-neutral-100'

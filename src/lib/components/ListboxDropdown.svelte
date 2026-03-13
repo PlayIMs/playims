@@ -686,18 +686,18 @@
 		}
 
 		if (isSelected && isActive) {
-			return `${optionBaseClass} bg-primary-600 text-white font-semibold`;
+			return `${optionBaseClass} cursor-pointer bg-primary-600 text-white font-semibold`;
 		}
 
 		if (isSelected) {
-			return `${optionBaseClass} ${selectedOptionClass}`;
+			return `${optionBaseClass} cursor-pointer ${selectedOptionClass}`;
 		}
 
 		if (isActive) {
-			return `${optionBaseClass} ${activeOptionClass}`;
+			return `${optionBaseClass} cursor-pointer ${activeOptionClass}`;
 		}
 
-		return `${optionBaseClass} hover:bg-neutral-300 active:bg-neutral-300`;
+		return `${optionBaseClass} cursor-pointer hover:bg-neutral-300 active:bg-neutral-300`;
 	}
 
 	function optionDisabledInfoClassFor(

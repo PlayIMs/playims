@@ -13,6 +13,10 @@
 		resolveCursorFloatingPosition,
 		toFixedStyle
 	} from '$lib/components/floating-position.js';
+	import {
+		shouldHideHoverTooltipOnVisibilityChange,
+		shouldHideHoverTooltipOnWindowMouseOut
+	} from '$lib/components/hover-tooltip.js';
 
 	interface Props {
 		text: string;
@@ -140,6 +144,12 @@
 		clearScheduledFrame();
 	}
 
+	function dismissForWindowExit(): void {
+		pointerX = null;
+		pointerY = null;
+		hide();
+	}
+
 	function setPointerFromEvent(event: MouseEvent | PointerEvent): void {
 		pointerX = event.clientX;
 		pointerY = event.clientY;
@@ -180,11 +190,31 @@
 	$effect(() => {
 		if (!open || typeof window === 'undefined') return;
 		void tick().then(updatePosition);
+		const handleWindowMouseOut = (event: MouseEvent) => {
+			if (shouldHideHoverTooltipOnWindowMouseOut(event.relatedTarget)) {
+				dismissForWindowExit();
+			}
+		};
+		const handleWindowBlur = () => {
+			dismissForWindowExit();
+		};
+		const handleVisibilityChange = () => {
+			if (shouldHideHoverTooltipOnVisibilityChange(document.visibilityState)) {
+				dismissForWindowExit();
+			}
+		};
+
 		window.addEventListener('resize', schedulePositionUpdate);
 		window.addEventListener('scroll', schedulePositionUpdate, true);
+		window.addEventListener('mouseout', handleWindowMouseOut);
+		window.addEventListener('blur', handleWindowBlur);
+		document.addEventListener('visibilitychange', handleVisibilityChange);
 		return () => {
 			window.removeEventListener('resize', schedulePositionUpdate);
 			window.removeEventListener('scroll', schedulePositionUpdate, true);
+			window.removeEventListener('mouseout', handleWindowMouseOut);
+			window.removeEventListener('blur', handleWindowBlur);
+			document.removeEventListener('visibilitychange', handleVisibilityChange);
 			clearScheduledFrame();
 		};
 	});
