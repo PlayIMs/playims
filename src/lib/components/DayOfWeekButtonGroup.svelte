@@ -1,14 +1,9 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
-
-	interface DayOption {
-		shortLabel: string;
-		value: string;
-		aliases: string[];
-	}
+	import { DIVISION_DAY_OPTIONS, formatDivisionDays } from '$lib/utils/division-schedule-inference.js';
 
 	interface Props {
-		value: string;
+		selectedValues: string[];
 		disabled?: boolean;
 		allowClear?: boolean;
 		fieldClass?: string;
@@ -18,18 +13,8 @@
 		unselectedButtonClass?: string;
 	}
 
-	const DAY_OPTIONS: DayOption[] = [
-		{ shortLabel: 'Mon', value: 'Monday', aliases: ['mon', 'monday'] },
-		{ shortLabel: 'Tue', value: 'Tuesday', aliases: ['tue', 'tues', 'tuesday'] },
-		{ shortLabel: 'Wed', value: 'Wednesday', aliases: ['wed', 'wednesday'] },
-		{ shortLabel: 'Thu', value: 'Thursday', aliases: ['thu', 'thur', 'thurs', 'thursday'] },
-		{ shortLabel: 'Fri', value: 'Friday', aliases: ['fri', 'friday'] },
-		{ shortLabel: 'Sat', value: 'Saturday', aliases: ['sat', 'saturday'] },
-		{ shortLabel: 'Sun', value: 'Sunday', aliases: ['sun', 'sunday'] }
-	];
-
 	let {
-		value,
+		selectedValues,
 		disabled = false,
 		allowClear = true,
 		fieldClass = 'border-2 border-secondary-400 bg-white p-2 text-neutral-950 focus-within:border-secondary-500 focus-within:shadow-[0_0_0_1px_var(--color-secondary-500)]',
@@ -43,38 +28,32 @@
 		change: { value: string };
 	}>();
 
-	function normalizedValue(source: string): string {
-		const candidate = source.trim().toLowerCase();
-		if (!candidate) return '';
-
-		const matchedDay = DAY_OPTIONS.find((option) => option.aliases.includes(candidate));
-		return matchedDay?.value ?? source.trim();
-	}
-
-	const resolvedValue = $derived.by(() => normalizedValue(value));
-
-	function handleSelect(nextValue: string): void {
+	function handleToggle(nextValue: string): void {
 		if (disabled) return;
 
-		const currentValue = normalizedValue(value);
+		const currentValues = selectedValues;
+		const hasValue = currentValues.includes(nextValue);
+		const nextValues = hasValue
+			? currentValues.filter((value) => value !== nextValue)
+			: [...currentValues, nextValue];
 		dispatch('change', {
-			value: allowClear && currentValue === nextValue ? '' : nextValue
+			value: allowClear || nextValues.length > 0 ? formatDivisionDays(nextValues) : ''
 		});
 	}
 </script>
 
-<div class={fieldClass} role="group" aria-label="Day of week selector">
+<div class={fieldClass} role="group" aria-label="Division days selector">
 	<div class={gridClass}>
-		{#each DAY_OPTIONS as option}
-			{@const selected = resolvedValue === option.value}
+		{#each DIVISION_DAY_OPTIONS as option}
+			{@const selected = selectedValues.includes(option.value)}
 			<button
 				type="button"
 				class={`${buttonClass} ${selected ? selectedButtonClass : unselectedButtonClass}`}
 				aria-pressed={selected}
-				aria-label={`${option.value}${allowClear ? ', click again to clear' : ''}`}
+				aria-label={`${selected ? 'Selected ' : ''}${option.value}${allowClear ? ', click to toggle' : ''}`}
 				{disabled}
 				onclick={() => {
-					handleSelect(option.value);
+					handleToggle(option.value);
 				}}
 			>
 				<span aria-hidden="true">{option.shortLabel}</span>

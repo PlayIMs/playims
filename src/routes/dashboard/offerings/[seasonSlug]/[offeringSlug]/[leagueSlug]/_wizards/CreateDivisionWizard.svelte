@@ -4,6 +4,10 @@
 	import InfoPopover from '$lib/components/InfoPopover.svelte';
 	import ToggleField from '$lib/components/ToggleField.svelte';
 	import {
+		formatDivisionDays,
+		parseDivisionDays
+	} from '$lib/utils/division-schedule-inference.js';
+	import {
 		WizardModal,
 		WizardStepFooter,
 		WizardUnsavedConfirm,
@@ -78,6 +82,8 @@
 	}: Props = $props();
 
 	let lastToastSignature = $state('');
+	const resolvedSelectedDayValues = $derived.by(() => parseDivisionDays(form.dayOfWeek));
+	const selectedDaysSummary = $derived.by(() => formatDivisionDays(resolvedSelectedDayValues));
 
 	$effect(() => {
 		const message = formError.trim();
@@ -229,25 +235,30 @@
 		<div class="grid grid-cols-1 gap-4 lg:grid-cols-4">
 			<div class={showLocation ? 'lg:col-span-2' : 'lg:col-span-3'}>
 				<div class="mb-1 flex min-h-6 items-center gap-1.5">
-					<p class="text-sm leading-6 text-neutral-950">Day of Week</p>
-					<InfoPopover buttonVariant="label-inline" buttonAriaLabel="Day of week help">
+					<p class="text-sm leading-6 text-neutral-950">Days</p>
+					<InfoPopover buttonVariant="label-inline" buttonAriaLabel="Division days help">
 						<div class="space-y-2">
-							<p>Select a day or let the division name auto-fill it when possible.</p>
+							<p>Select one or more days, or let the division name auto-fill them when possible.</p>
 						</div>
 					</InfoPopover>
 				</div>
-				<DayOfWeekButtonGroup
-					value={form.dayOfWeek}
-					on:change={(event) => {
-						const value = event.detail.value;
-						if (onDayOfWeekInput) {
-							onDayOfWeekInput(value);
-							return;
-						}
+				{#key form.dayOfWeek}
+					<DayOfWeekButtonGroup
+						selectedValues={resolvedSelectedDayValues}
+						on:change={(event) => {
+							const value = event.detail.value;
+							if (onDayOfWeekInput) {
+								onDayOfWeekInput(value);
+								return;
+							}
 
-						form.dayOfWeek = value;
-					}}
-				/>
+							form.dayOfWeek = value;
+						}}
+					/>
+				{/key}
+				<p class="mt-2 text-xs font-semibold uppercase tracking-[0.08em] text-neutral-700" aria-live="polite">
+					{selectedDaysSummary || 'No days selected yet'}
+				</p>
 			</div>
 			<div>
 				<label for="create-division-time" class="mb-1 block text-sm text-neutral-950">
@@ -257,6 +268,7 @@
 					id="create-division-time"
 					type="text"
 					class="input-secondary"
+					placeholder="7:00 PM or 5:30 PM / 6:15 PM"
 					value={form.gameTime}
 					oninput={(event) => {
 						const value = (event.currentTarget as HTMLInputElement).value;

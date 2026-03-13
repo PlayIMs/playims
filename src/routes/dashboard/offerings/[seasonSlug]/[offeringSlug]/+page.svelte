@@ -30,6 +30,7 @@
 	import type { OfferingsTableColumn } from '$lib/components/offerings-table.js';
 	import type { ManageIntramuralLeagueResponse } from '$lib/server/intramural-offerings-validation';
 	import { toast } from '$lib/toasts';
+	import { inferDivisionNameDetails } from '$lib/utils/division-schedule-inference.js';
 	import { generateUuidV4 } from '$lib/utils/uuid.js';
 	import {
 		IconBallAmericanFootball,
@@ -56,10 +57,6 @@
 	type LeagueWizardStep = 1 | 2 | 3 | 4;
 	type LeagueGender = '' | 'male' | 'female' | 'mixed';
 	type LeagueSkillLevel = '' | 'competitive' | 'intermediate' | 'recreational' | 'all';
-	type DivisionNameInference = {
-		dayOfWeek: string;
-		gameTime: string;
-	};
 
 	interface DivisionWizardForm {
 		name: string;
@@ -619,46 +616,6 @@
 
 	function divisionJoinTooltip(division: OfferingDivisionRow): string {
 		return division.isLocked ? 'This division cannot be joined' : 'This division can be joined';
-	}
-
-	function inferDayOfWeekFromDivisionName(name: string): string {
-		const dayMatchers = [
-			{ pattern: /\bmonday\b|\bmon\b/i, value: 'Monday' },
-			{ pattern: /\btuesday\b|\btue(?:s)?\b/i, value: 'Tuesday' },
-			{ pattern: /\bwednesday\b|\bwed\b/i, value: 'Wednesday' },
-			{ pattern: /\bthursday\b|\bthu(?:r|rs)?\b/i, value: 'Thursday' },
-			{ pattern: /\bfriday\b|\bfri\b/i, value: 'Friday' },
-			{ pattern: /\bsaturday\b|\bsat\b/i, value: 'Saturday' },
-			{ pattern: /\bsunday\b|\bsun\b/i, value: 'Sunday' }
-		];
-
-		let earliestMatch: { index: number; value: string } | null = null;
-		for (const matcher of dayMatchers) {
-			const match = matcher.pattern.exec(name);
-			if (match?.index === undefined) continue;
-			if (!earliestMatch || match.index < earliestMatch.index) {
-				earliestMatch = { index: match.index, value: matcher.value };
-			}
-		}
-
-		return earliestMatch?.value ?? '';
-	}
-
-	function inferGameTimeFromDivisionName(name: string): string {
-		const timeMatch = /\b(1[0-2]|0?[1-9])(?::([0-5]\d))?\s*([AaPp])\.?\s*[Mm]\.?\b/.exec(name);
-		if (!timeMatch) return '';
-
-		const hour = String(Number(timeMatch[1] ?? ''));
-		const minutes = timeMatch[2] ?? '00';
-		const meridiem = `${timeMatch[3]?.toUpperCase() ?? 'A'}M`;
-		return `${hour}:${minutes} ${meridiem}`;
-	}
-
-	function inferDivisionNameDetails(name: string): DivisionNameInference {
-		return {
-			dayOfWeek: inferDayOfWeekFromDivisionName(name),
-			gameTime: inferGameTimeFromDivisionName(name)
-		};
 	}
 
 	function formatDate(
