@@ -90,6 +90,34 @@ pnpm dev
 
 to start developing. The local database will persist between sessions, so you only need to run `pnpm db:migrate:local` again when new migrations are added to the project.
 
+## Testing And Verification
+
+PlayIMs uses a pragmatic, server-first TDD workflow.
+
+Core commands:
+
+```bash
+# Run the full Vitest suite
+pnpm test
+
+# Stay in a local red -> green loop
+pnpm test:watch
+
+# Run type-checking
+pnpm check
+
+# Final local gate before wrapping up a task
+pnpm verify
+```
+
+How to use them:
+
+- Use **full TDD** for API routes, server helpers, database operations, validation, permissions, and other behavior-heavy changes.
+- Use the **relaxed path** for trivial UI changes such as spacing, color, copy, icon swaps, and markup-only cleanup.
+- If you touch older server code with no tests yet, add characterization tests first so current behavior is locked before you change it.
+
+See [TESTING.md](./TESTING.md) for the full repo workflow and Codex-specific guidance.
+
 ## Commit Message Standard
 
 Use commit prefixes like `feat:`, `fix:`, and `docs:` followed by a brief, specific description.

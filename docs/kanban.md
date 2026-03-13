@@ -51,7 +51,7 @@
 | # | Task | Description | Est. Effort | Priority |
 |---|------|-------------|-------------|----------|
 | 19 | **Offline Page** | Show cached content when offline, graceful degradation. | Small | High |
-| 20 | **Unit Tests** | Jest/Vitest setup, test critical operations. | Medium | Medium |
+| 20 | **Server Regression Coverage** | Expand the existing Vitest suite across themes, facilities, and intramural APIs. | Medium | Medium |
 | 21 | **E2E Tests** | Playwright tests for critical user flows. | Medium | Medium |
 | 22 | **Error Monitoring** | Sentry integration for production error tracking. | Small | Low |
 | 23 | **API Documentation** | OpenAPI/Swagger docs for all API endpoints. | Medium | Low |

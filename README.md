@@ -121,5 +121,6 @@ Oklahoma State University.
 ## Technical Docs
 
 - [Development Guide](docs/DEVELOPMENT.md)
+- [Testing Guide](docs/TESTING.md)
 - [Database Guide](docs/DATABASE.md)
 - [Commit Message Guide](docs/COMMIT_GUIDE.md)

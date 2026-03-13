@@ -19,6 +19,9 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"check": "svelte-check",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"verify": "pnpm test && pnpm check",
 		"test:auth": "vitest run tests/auth",
 		"test:members": "vitest run tests/members"
 	},
