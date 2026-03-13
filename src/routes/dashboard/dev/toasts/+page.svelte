@@ -16,6 +16,8 @@
 	} from '@tabler/icons-svelte';
 	import ToastItem from '$lib/components/toast/ToastItem.svelte';
 	import {
+		DEFAULT_TOAST_DESKTOP_PLACEMENT,
+		DEFAULT_TOAST_MOBILE_PLACEMENT,
 		TOAST_DESKTOP_PLACEMENTS,
 		TOAST_MOBILE_PLACEMENTS,
 		TOAST_MOBILE_STACK_LIMIT,
@@ -231,8 +233,8 @@
 	}
 
 	let variant = $state<ToastVariant>('success');
-	let placement = $state<ToastDesktopPlacement>('bottom-right');
-	let mobilePlacement = $state<ToastMobilePlacement>('top');
+	let placement = $state<ToastDesktopPlacement>(DEFAULT_TOAST_DESKTOP_PLACEMENT);
+	let mobilePlacement = $state<ToastMobilePlacement>(DEFAULT_TOAST_MOBILE_PLACEMENT);
 	let title = $state('Offering saved');
 	let description = $state('Your new offering is live and ready for schedule setup.');
 	let previewViewport = $state<PreviewViewport>('desktop');

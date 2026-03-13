@@ -30,6 +30,8 @@ export const TOAST_PLACEMENTS = TOAST_DESKTOP_PLACEMENTS;
 export const TOAST_MOBILE_PLACEMENTS: ToastMobilePlacement[] = ['top', 'middle', 'bottom'];
 export const TOAST_STACK_LIMIT = 6;
 export const TOAST_MOBILE_STACK_LIMIT = 3;
+export const DEFAULT_TOAST_DESKTOP_PLACEMENT: ToastDesktopPlacement = 'top-right';
+export const DEFAULT_TOAST_MOBILE_PLACEMENT: ToastMobilePlacement = 'top';
 
 export interface ToastAction {
 	id?: string;
@@ -112,12 +114,12 @@ const createDuplicateSignature = (
 
 const normalizeToast = (input: ToastInput): ToastRecord => {
 	const variant = input.variant ?? 'info';
-	const placement = input.placement ?? 'bottom-right';
+	const placement = input.placement ?? DEFAULT_TOAST_DESKTOP_PLACEMENT;
 	return {
 		id: input.id ?? createToastId(),
 		variant,
 		placement,
-		mobilePlacement: input.mobilePlacement ?? 'top',
+		mobilePlacement: input.mobilePlacement ?? deriveMobilePlacement(placement),
 		title: input.title?.trim() ?? '',
 		description: input.description.trim(),
 		duration:
