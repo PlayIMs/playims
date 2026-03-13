@@ -54,6 +54,15 @@ static/                   # Static assets, PWA icons
 # Development server (with HMR)
 pnpm dev
 
+# Full server-side Vitest suite
+pnpm test
+
+# Watch mode for local TDD loops
+pnpm test:watch
+
+# Full verification gate
+pnpm verify
+
 # Production build
 pnpm build
 
@@ -300,11 +309,79 @@ Production:
 
 ## Testing Strategy
 
-Currently, the project does not have a dedicated test suite. Testing is primarily done through:
+PlayIMs uses a server-first test workflow built around Vitest plus `svelte-check`.
 
-1. **Type checking**: `svelte-check` (TypeScript strict mode enabled)
-2. **Linting**: ESLint with TypeScript and Svelte rules
-3. **Manual testing**: Local development with `pnpm dev`
+Primary commands:
+
+1. **Focused TDD loop**: `pnpm test -- <path-or-pattern>` or targeted scripts such as `pnpm test:auth`
+2. **Full regression suite**: `pnpm test`
+3. **Type checking**: `pnpm check`
+4. **Final local gate**: `pnpm verify`
+5. **Manual UI verification**: `pnpm dev`
+
+Current suite scope:
+
+- Route and server regression tests under `tests/**/*.test.ts`
+- Auth and member flows already covered
+- Server-first backfill in progress for themes, facilities, and intramural APIs
+
+## Agentic TDD Workflow
+
+This repo is the source of truth for when Codex must use TDD and when it should stay fast.
+
+### Step 1: Pick A Testing Tier First
+
+Every task must start by choosing one of these tiers before editing code:
+
+1. **Full TDD**
+   Use this for:
+   - `src/routes/api/**`
+   - `src/hooks.server.ts`
+   - `src/lib/server/**`
+   - `src/lib/database/operations/**`
+   - auth, validation, permissions, business rules, mutations, and bug fixes with behavior changes
+2. **Relaxed**
+   Use this for:
+   - pure styling, spacing, typography, icons, copy edits
+   - static markup reshaping
+   - trivial prop plumbing with no new logic
+3. **Escalate To Full TDD**
+   Any UI task that adds conditions, state transitions, validation, filtering, permissions, or non-trivial data shaping must move back to **Full TDD**.
+
+### Full TDD Loop (mandatory)
+
+1. Check whether relevant tests already exist.
+2. If touching older untested logic, write characterization tests first to lock current behavior.
+3. Write the new failing test before implementation.
+4. Run the narrowest relevant test command first.
+5. Implement the minimum code needed to go green.
+6. Re-run the targeted tests until green.
+7. Finish with `pnpm test` and `pnpm check` or `pnpm verify` when the task is complete.
+
+### Relaxed Loop (for trivial work only)
+
+1. Implement directly.
+2. Manually verify the changed page, component, or flow.
+3. Add 0-2 regression tests only if the change could plausibly break later.
+4. Run the lightest sensible validation command before finishing.
+
+### Guardrails
+
+- Do not default to snapshot-heavy or DOM-heavy tests for trivial UI work.
+- Prefer route tests, validation tests, and helper tests over brittle implementation-detail assertions.
+- For legacy areas without tests, protect current behavior before changing it.
+- `pnpm verify` is the repo-level local gate until CI is added.
+- treat the test comment standard as a mandatory completion step whenever creating or updating a test file.
+- every new or updated test file must include instructional comments for learning-focused developers.
+- each test file must start with one top-of-file block comment that uses this exact structure:
+  - `Brief description:`
+  - `Deeper explanation:`
+  - `Summary of tests:`
+- the full header block must use proper grammar and sentence case.
+- all non-header code comments in tests must stay lowercase only.
+- helper functions, setup blocks, and non-obvious assertions in tests must explain the "why", not just the "what".
+- if a test changes later, its explanatory comments must be updated so they stay accurate.
+- a test file is not complete until its header block and lowercase teaching comments are in place and accurate.
 
 ## Common Issues
 

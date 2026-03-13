@@ -1,5 +1,22 @@
+/*
+Brief description:
+This file verifies the authorization and safety checks on member mutation routes.
+
+Deeper explanation:
+Changing roles or removing memberships can affect organization ownership and a user's ability to stay
+logged into a client. These tests focus on the guardrails that prevent managers from escalating access,
+prevent the last administrator from being removed, and prevent a user from deleting their only active
+membership.
+
+Summary of tests:
+1. It verifies that managers cannot change member roles.
+2. It verifies that the last administrator-like member cannot be deleted.
+3. It verifies that a user cannot remove their only active organization membership.
+*/
+
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+// these hoisted mocks ensure the route imports a fake central database layer.
 const mocks = vi.hoisted(() => {
 	return {
 		dbOps: {
@@ -21,6 +38,7 @@ const mocks = vi.hoisted(() => {
 	};
 });
 
+// the route remains real while every database lookup and mutation is controlled by the test.
 vi.mock('$lib/server/database/context', () => {
 	mocks.getCentralDbOps.mockImplementation(() => mocks.dbOps);
 	return {
@@ -30,6 +48,7 @@ vi.mock('$lib/server/database/context', () => {
 
 import { DELETE, PATCH } from '../../src/routes/api/members/[membershipId]/+server';
 
+// this helper centralizes the shared auth/session envelope for member mutation requests.
 const buildEvent = (role: string, userId: string, request: Request) =>
 	({
 		platform: { env: { DB: {} } },
@@ -53,6 +72,7 @@ const buildEvent = (role: string, userId: string, request: Request) =>
 
 describe('member mutation endpoints', () => {
 	beforeEach(() => {
+		// these defaults represent a safe baseline that each test can override for one specific rule.
 		vi.clearAllMocks();
 		mocks.dbOps.members.getMembershipRecord.mockResolvedValue({
 			membershipId: 'membership-1',
@@ -67,6 +87,7 @@ describe('member mutation endpoints', () => {
 	});
 
 	it('blocks managers from changing member roles', async () => {
+		// role changes are reserved for stronger roles, so the route should deny this before any write.
 		const response = await PATCH(
 			buildEvent(
 				'manager',
@@ -91,6 +112,7 @@ describe('member mutation endpoints', () => {
 	});
 
 	it('prevents deleting the last admin-like member', async () => {
+		// count admin-like members returning zero means this membership is the last elevated safety net.
 		mocks.dbOps.members.getMembershipRecord.mockResolvedValue({
 			membershipId: 'membership-1',
 			clientId: 'client-1',
@@ -118,6 +140,7 @@ describe('member mutation endpoints', () => {
 	});
 
 	it('prevents a user from removing their only active organization membership', async () => {
+		// deleting the final active membership would strand the user outside any organization context.
 		mocks.dbOps.members.getMembershipRecord.mockResolvedValue({
 			membershipId: 'membership-1',
 			clientId: 'client-1',

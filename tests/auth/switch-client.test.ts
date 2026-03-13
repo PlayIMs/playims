@@ -1,5 +1,20 @@
+/*
+Brief description:
+This file verifies the API route that switches a user into a different active client.
+
+Deeper explanation:
+Switching organizations updates both persistent session state and the in-memory locals returned to
+the client. If either side drifts, the user can land in a broken mixed-client state. These tests mock
+the central database layer so the route's authorization and synchronization rules stay explicit.
+
+Summary of tests:
+1. It verifies that switching to an unauthorized client is rejected.
+2. It verifies that an authorized switch updates both the response payload and the session context.
+*/
+
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+// these hoisted mocks keep the route module connected to fake central-db helpers during import.
 const mocks = vi.hoisted(() => {
 	return {
 		dbOps: {
@@ -15,6 +30,7 @@ const mocks = vi.hoisted(() => {
 	};
 });
 
+// the route still executes its real logic, but all database reads and writes are test-controlled.
 vi.mock('$lib/server/database/context', () => {
 	mocks.getCentralDbOps.mockImplementation(() => mocks.dbOps);
 	return {
@@ -26,10 +42,12 @@ import { POST } from '../../src/routes/api/auth/switch-client/+server';
 
 describe('switch-client endpoint', () => {
 	beforeEach(() => {
+		// clearing calls between tests prevents the authorization and success paths from overlapping.
 		vi.clearAllMocks();
 	});
 
 	it('rejects switching to an unauthorized client', async () => {
+		// a missing active membership should stop the route before any session update is attempted.
 		mocks.dbOps.userClients.getActiveMembership.mockResolvedValue(null);
 
 		const event = {
@@ -63,6 +81,7 @@ describe('switch-client endpoint', () => {
 	});
 
 	it('updates current session + locals when switching to an authorized client', async () => {
+		// this happy path proves the route coordinates membership, session, and response state together.
 		mocks.dbOps.userClients.getActiveMembership.mockResolvedValue({
 			userId: 'user-1',
 			clientId: '33333333-3333-4333-8333-333333333333',
@@ -112,6 +131,7 @@ describe('switch-client endpoint', () => {
 			};
 		};
 
+		// these assertions make sure the returned payload and the persisted session both point at the new client.
 		expect(response.status).toBe(200);
 		expect(payload.success).toBe(true);
 		expect(payload.data.session.activeClientId).toBe('33333333-3333-4333-8333-333333333333');

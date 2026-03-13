@@ -1,7 +1,29 @@
+/*
+Brief description:
+This file verifies the security decisions made by the main server hook.
+
+Deeper explanation:
+The server hook is a central policy layer for rate limiting, cache headers, authentication, and
+role enforcement. A regression there can affect many routes at once, so these tests focus on the
+high-risk branches that decide who can reach protected pages and APIs. The small event helpers keep
+the tests readable while still exercising the real hook implementation.
+
+Summary of tests:
+1. It verifies that repeated login posts are rate limited.
+2. It verifies that repeated registration posts are rate limited.
+3. It verifies that protected SSR responses receive no-store cache headers.
+4. It verifies that participant users are blocked from protected dashboard SSR routes.
+5. It verifies that developer users can still reach protected dashboard SSR routes.
+6. It verifies that read-only API access can use the base role during participant view mode.
+7. It verifies that mutating API access is blocked by the effective participant role during view mode.
+8. It verifies that the join-client API route requires authentication.
+*/
+
 import { describe, expect, it } from 'vitest';
 import { handle } from '../../src/hooks.server';
 
 const createCookies = () => {
+	// this in-memory cookie jar is enough for hook tests because they only need get/set/delete behavior.
 	const jar = new Map<string, string>();
 	return {
 		get: (name: string) => jar.get(name),
@@ -21,6 +43,7 @@ const createEvent = (input: {
 	ip: string;
 	locals?: Record<string, unknown>;
 }) => {
+	// centralizing event creation keeps each test focused on the policy branch it is proving.
 	const method = input.method ?? 'GET';
 	const url = new URL(`https://playims.test${input.pathname}`);
 	const headers = new Headers();
@@ -38,6 +61,7 @@ const createEvent = (input: {
 	} as any;
 };
 
+// this acts like a successful downstream response so the hook behavior itself stays under test.
 const resolveOk = async () =>
 	new Response('<html>ok</html>', {
 		status: 200,
@@ -46,6 +70,7 @@ const resolveOk = async () =>
 
 describe('hooks security behavior', () => {
 	it('rate limits form login POSTs', async () => {
+		// the loop burns through the allowed request budget so the final request proves the limiter trips.
 		const ip = '198.51.100.61';
 		for (let i = 0; i < 12; i += 1) {
 			const event = createEvent({
@@ -70,6 +95,7 @@ describe('hooks security behavior', () => {
 	});
 
 	it('rate limits form register POSTs', async () => {
+		// registration uses a different threshold, so it needs its own dedicated regression check.
 		const ip = '198.51.100.62';
 		for (let i = 0; i < 6; i += 1) {
 			const event = createEvent({
@@ -94,6 +120,7 @@ describe('hooks security behavior', () => {
 	});
 
 	it('adds no-store for protected SSR responses', async () => {
+		// this authenticated dashboard request proves the hook adds security headers even on success.
 		const event = createEvent({
 			pathname: '/dashboard',
 			ip: '198.51.100.70',
@@ -124,6 +151,7 @@ describe('hooks security behavior', () => {
 	});
 
 	it('enforces role checks for dashboard SSR', async () => {
+		// the participant role should be denied before the downstream route can render protected content.
 		const event = createEvent({
 			pathname: '/dashboard',
 			ip: '198.51.100.71',
@@ -152,6 +180,7 @@ describe('hooks security behavior', () => {
 	});
 
 	it('allows dashboard SSR for dev role', async () => {
+		// this guards the elevated-role allowlist so future auth changes do not lock out developers.
 		const event = createEvent({
 			pathname: '/dashboard',
 			ip: '198.51.100.80',
@@ -180,6 +209,7 @@ describe('hooks security behavior', () => {
 	});
 
 	it('allows role-protected API reads using base role during participant view mode', async () => {
+		// read access should follow the stronger base role so safe data fetches still work in view-as mode.
 		const event = createEvent({
 			pathname: '/api/themes',
 			method: 'GET',
@@ -209,6 +239,8 @@ describe('hooks security behavior', () => {
 	});
 
 	it('blocks mutating role-protected API calls using effective participant role during participant view mode', async () => {
+		// writes should follow the effective role instead, which prevents view-as mode from bypassing
+		// mutating route protections.
 		const event = createEvent({
 			pathname: '/api/themes',
 			method: 'POST',
@@ -239,6 +271,7 @@ describe('hooks security behavior', () => {
 	});
 
 	it('requires authentication for join-client API route', async () => {
+		// this covers a protected auth route directly to prove the hook rejects anonymous callers early.
 		const event = createEvent({
 			pathname: '/api/auth/join-client',
 			method: 'POST',

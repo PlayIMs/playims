@@ -1,23 +1,25 @@
-// brief header:
-// These tests cover the main server-side decisions in the theme api routes.
-//
-// deeper explanation:
-// This file does not hit a real database. Instead, it mocks the database layer so each test can
-// focus on one route decision at a time. That is useful because route handlers often mix together
-// auth context, payload parsing, duplicate checks, cache headers, and write operations. When we
-// isolate the route logic like this, we can prove the api contract without needing full database
-// setup. The comments below explain why each helper exists and what behavior each test is guarding.
-//
-// summary of the tests below:
-// 1. Loads saved themes for the active client.
-// 2. Enforces the maximum saved-theme limit.
-// 3. Protects the reserved current-theme slug and handles collisions.
-// 4. Returns 304 when the current-theme etag matches.
-// 5. Rejects malformed current-theme payloads before writes.
-// 6. Returns a fresh etag after updating the current theme.
-// 7. Rejects invalid theme ids.
-// 8. Prevents saved-theme routes from editing the reserved current theme.
-// 9. Returns 404 when deleting a missing theme.
+/*
+Brief description:
+This file verifies the main server-side decisions in the theme API routes.
+
+Deeper explanation:
+These tests do not hit a real database. Instead, they mock the database layer so each case can focus
+on one route decision at a time. That keeps the suite fast while still protecting the important API
+contract around payload parsing, slug generation, duplicate handling, cache headers, and reserved
+theme behavior.
+
+Summary of tests:
+1. It verifies that saved themes load for the authenticated client.
+2. It verifies that the saved-theme cap blocks extra theme creation.
+3. It verifies that reserved and colliding slugs resolve to a safe fallback.
+4. It verifies that configured separator characters normalize into hyphenated saved-theme slugs.
+5. It verifies that current-theme fetches return 304 when the ETag matches.
+6. It verifies that malformed current-theme payloads fail before any database write.
+7. It verifies that current-theme updates return a fresh ETag.
+8. It verifies that invalid theme ids are rejected early.
+9. It verifies that the saved-theme route cannot update the reserved current theme.
+10. It verifies that deleting a missing theme returns 404.
+*/
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -116,7 +118,7 @@ const createEvent = (input?: {
 
 describe('theme routes', () => {
 	beforeEach(() => {
-		// clearAllMocks removes call history so one test cannot accidentally "pass" because of work
+		// clear all mocks removes call history so one test cannot accidentally "pass" because of work
 		// done by a previous test. this keeps each test independent.
 		vi.clearAllMocks();
 
@@ -192,7 +194,7 @@ describe('theme routes', () => {
 	});
 
 	it('reserves the current slug and increments collisions when saving themes', async () => {
-		// mockResolvedValueOnce lets us simulate the route's slug lookup loop:
+		// mock resolved value once lets us simulate the route's slug lookup loop:
 		// first lookup finds a conflict, second lookup finds a free slug.
 		// this proves the route protects the reserved current name and still finds a unique fallback.
 		mocks.dbOps.themes.getBySlug
@@ -215,7 +217,7 @@ describe('theme routes', () => {
 
 		expect(response.status).toBe(200);
 		expect(payload.success).toBe(true);
-		// objectContaining keeps the assertion focused on the important write contract instead of
+		// object containing keeps the assertion focused on the important write contract instead of
 		// forcing the test to know every field returned by the route implementation.
 		expect(mocks.dbOps.themes.create).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -232,6 +234,8 @@ describe('theme routes', () => {
 	});
 
 	it('normalizes configured separator characters into hyphenated saved-theme slugs', async () => {
+		// this route-level case proves the api honors the same separator contract as the shared
+		// slug helper instead of accidentally drifting to a different normalization rule.
 		const response = await createTheme(
 			createEvent({
 				method: 'POST',

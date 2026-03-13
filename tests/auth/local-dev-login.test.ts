@@ -1,3 +1,20 @@
+/*
+Brief description:
+This file verifies the localhost-only development login flow.
+
+Deeper explanation:
+Local development login is intentionally a narrow escape hatch, not a production auth path. These
+tests protect the hostname gate, the default-client session behavior, and the helpful failure mode
+for outdated local databases. That keeps the dev shortcut convenient without letting it become a
+security or maintenance blind spot.
+
+Summary of tests:
+1. It verifies that only localhost-style hostnames are treated as local development hosts.
+2. It verifies that local development login is rejected outside localhost.
+3. It verifies that localhost login creates a session using the default client context.
+4. It verifies that an outdated local database produces an actionable error code.
+*/
+
 import { describe, expect, it, vi } from 'vitest';
 import * as sessionModule from '../../src/lib/server/auth/session';
 import { DEFAULT_CLIENT } from '../../src/lib/server/client-context';
@@ -6,12 +23,14 @@ import { isLocalhostHostname } from '../../src/lib/server/auth/local-dev';
 
 describe('localhost dev login', () => {
 	it('matches localhost hostnames only', () => {
+		// this keeps the feature scoped to real local hosts instead of any arbitrary domain.
 		expect(isLocalhostHostname('localhost')).toBe(true);
 		expect(isLocalhostHostname('127.0.0.1')).toBe(true);
 		expect(isLocalhostHostname('playims.com')).toBe(false);
 	});
 
 	it('blocks local dev login outside localhost', async () => {
+		// production-like hosts must fail before any fallback developer login logic runs.
 		const event = {
 			url: new URL('https://playims.com/log-in'),
 			platform: {
@@ -31,6 +50,8 @@ describe('localhost dev login', () => {
 	});
 
 	it('creates a session on localhost with default-client context', async () => {
+		// spying on session creation lets the test prove which client context is used without creating
+		// a real session record.
 		const createSessionSpy = vi.spyOn(sessionModule, 'createSessionForUser').mockResolvedValue({
 			session: {
 				id: 'session-1',
@@ -48,6 +69,7 @@ describe('localhost dev login', () => {
 			}
 		} as any);
 
+		// this fake db shape mirrors the minimum successful developer-login path.
 		const dbOps = {
 			clients: {
 				getById: vi.fn().mockResolvedValue({ id: DEFAULT_CLIENT.id })
@@ -90,6 +112,7 @@ describe('localhost dev login', () => {
 
 		await loginWithLocalDevCredentials(event, dbOps);
 
+		// the default client is the important contract here because the dev path bootstraps from it.
 		expect(dbOps.users.getByClientId).toHaveBeenCalledWith(DEFAULT_CLIENT.id);
 		expect(createSessionSpy).toHaveBeenCalledWith(
 			event,
@@ -104,6 +127,7 @@ describe('localhost dev login', () => {
 	});
 
 	it('returns actionable error when local DB is missing user_clients table', async () => {
+		// this specific low-level error should be translated into a higher-level maintenance message.
 		const event = {
 			url: new URL('http://localhost:5173/log-in'),
 			platform: {

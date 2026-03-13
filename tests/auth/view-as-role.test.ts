@@ -1,5 +1,23 @@
+/*
+Brief description:
+This file verifies the role view override API used for view-as mode.
+
+Deeper explanation:
+View-as mode lets privileged users temporarily see the app through a lower role without permanently
+changing their real permissions. That means the route must validate who can switch, which target roles
+are allowed, and how to clear the override cleanly. These tests keep those rules explicit.
+
+Summary of tests:
+1. It verifies that unauthenticated requests return 401.
+2. It verifies that managers can switch into participant view mode.
+3. It verifies that participant base roles cannot enable view-as mode.
+4. It verifies that admins cannot switch into developer view mode.
+5. It verifies that an existing view-as override can be cleared.
+*/
+
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+// these hoisted mocks ensure the route captures the fake session helper instead of the real one.
 const mocks = vi.hoisted(() => {
 	return {
 		dbOps: {
@@ -11,6 +29,7 @@ const mocks = vi.hoisted(() => {
 	};
 });
 
+// the real route logic stays intact while the database session update is controlled by the test.
 vi.mock('$lib/server/database/context', () => {
 	mocks.getCentralDbOps.mockImplementation(() => mocks.dbOps);
 	return {
@@ -22,10 +41,12 @@ import { POST } from '../../src/routes/api/auth/view-as-role/+server';
 
 describe('view-as-role endpoint', () => {
 	beforeEach(() => {
+		// clear call history so each authorization branch proves its own behavior.
 		vi.clearAllMocks();
 	});
 
 	it('returns 401 when unauthenticated', async () => {
+		// this makes sure anonymous callers cannot probe or alter session role state.
 		const response = await POST({
 			platform: { env: { DB: {} } },
 			locals: {},
@@ -40,6 +61,7 @@ describe('view-as-role endpoint', () => {
 	});
 
 	it('allows manager to switch to participant view', async () => {
+		// a manager moving down to participant is the core supported use case for view-as mode.
 		mocks.dbOps.sessions.setViewAsRole.mockResolvedValue({ id: 'session-1' });
 		const event = {
 			platform: { env: { DB: {} } },
@@ -88,6 +110,7 @@ describe('view-as-role endpoint', () => {
 			};
 		};
 
+		// both the user and session payloads need to reflect the override so the ui stays consistent.
 		expect(response.status).toBe(200);
 		expect(payload.success).toBe(true);
 		expect(payload.data.user.role).toBe('participant');
@@ -106,6 +129,7 @@ describe('view-as-role endpoint', () => {
 	});
 
 	it('rejects participant base role from switching', async () => {
+		// the base role matters here because participant users should never gain a fake higher-privilege toggle.
 		const response = await POST({
 			platform: { env: { DB: {} } },
 			locals: {
@@ -144,6 +168,7 @@ describe('view-as-role endpoint', () => {
 	});
 
 	it('rejects admin trying to switch to dev view', async () => {
+		// developer view remains reserved even for admins, so this denial path needs a dedicated guard.
 		const response = await POST({
 			platform: { env: { DB: {} } },
 			locals: {
@@ -182,6 +207,7 @@ describe('view-as-role endpoint', () => {
 	});
 
 	it('allows clearing role view override', async () => {
+		// clearing the override should restore the base role instead of leaving stale participant state behind.
 		mocks.dbOps.sessions.setViewAsRole.mockResolvedValue({ id: 'session-4' });
 		const event = {
 			platform: { env: { DB: {} } },

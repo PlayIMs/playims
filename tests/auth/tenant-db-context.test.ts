@@ -1,3 +1,22 @@
+/*
+Brief description:
+This file verifies how tenant database routes are resolved for client-specific data access.
+
+Deeper explanation:
+PlayIMs can route a client to the shared central database or to a dedicated D1 binding. The helper
+has to interpret route records, detect inactive or missing bindings, and recover safely when the
+routing table does not exist yet. These tests protect that decision tree directly because many server
+operations depend on it.
+
+Summary of tests:
+1. It verifies that missing route records default to the central shared database.
+2. It verifies that explicit central shared routes resolve successfully.
+3. It verifies that active D1 binding routes return the configured tenant binding.
+4. It verifies that missing D1 bindings raise the expected resolution error.
+5. It verifies that inactive routes are rejected.
+6. It verifies that missing routing tables fall back to the central shared database even through nested causes.
+*/
+
 import { describe, expect, it, vi } from 'vitest';
 import {
 	DatabaseRouteResolutionError,
@@ -10,6 +29,7 @@ const createFakeD1 = () =>
 		prepare: vi.fn()
 	}) as any;
 
+// this helper builds the cached event shape expected by the tenant-routing helpers.
 const createEvent = (route: {
 	routeMode: string;
 	bindingName?: string | null;
@@ -41,6 +61,7 @@ const createEvent = (route: {
 	} as any;
 };
 
+// the real d1 and drizzle error chain is nested, so this helper mirrors that shape closely.
 const createWrappedMissingTableError = () => {
 	const sqliteError = new Error('no such table: client_database_routes: SQLITE_ERROR');
 	const d1Error = new Error('D1_ERROR: no such table: client_database_routes: SQLITE_ERROR');
@@ -55,6 +76,7 @@ const createWrappedMissingTableError = () => {
 
 describe('tenant database context', () => {
 	it('defaults to central_shared route when no route record exists', async () => {
+		// null here means the client has not been assigned a route yet, so the helper should self-heal.
 		const event = createEvent(null);
 
 		const resolved = await resolveTenantDatabaseRoute(
@@ -67,6 +89,7 @@ describe('tenant database context', () => {
 	});
 
 	it('resolves explicit central_shared route', async () => {
+		// this confirms an explicit central route behaves the same as the default fallback.
 		const event = createEvent({
 			routeMode: 'central_shared',
 			status: 'active',
@@ -82,6 +105,7 @@ describe('tenant database context', () => {
 	});
 
 	it('resolves d1_binding route when binding exists', async () => {
+		// this is the tenant-isolated happy path where the configured binding should be returned directly.
 		const event = createEvent({
 			routeMode: 'd1_binding',
 			status: 'active',
@@ -93,6 +117,7 @@ describe('tenant database context', () => {
 	});
 
 	it('fails when d1_binding is configured but binding is missing', async () => {
+		// a configured-but-missing binding is dangerous because it would silently misroute tenant data.
 		const event = createEvent({
 			routeMode: 'd1_binding',
 			status: 'active',
@@ -107,6 +132,7 @@ describe('tenant database context', () => {
 	});
 
 	it('fails when route exists but is not active', async () => {
+		// inactive routes should not be used even if the route row itself exists.
 		const event = createEvent({
 			routeMode: 'central_shared',
 			status: 'inactive'
@@ -120,6 +146,7 @@ describe('tenant database context', () => {
 	});
 
 	it('falls back to central_shared when missing routes table is wrapped in nested causes', async () => {
+		// this protects first-run and partially migrated environments where the routing table may not exist yet.
 		const event = createEvent(null);
 		event.locals.__dbCache.centralOps.clientDatabaseRoutes.getByClientId = vi
 			.fn()

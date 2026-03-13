@@ -1,5 +1,21 @@
+/*
+Brief description:
+This file verifies the API route that accepts member invitation tokens.
+
+Deeper explanation:
+Accepting an invite coordinates password hashing, membership activation, login bookkeeping, and session
+creation. That flow touches several auth helpers, so these tests replace those helpers with mocks and
+focus on the route contract itself. This keeps the success and failure paths readable without losing
+coverage on the important decisions.
+
+Summary of tests:
+1. It verifies that invalid or expired invite tokens return a not-found response.
+2. It verifies that a valid invite creates login state and starts a session.
+*/
+
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+// these hoisted mocks let the route import fake auth and database helpers from the start.
 const mocks = vi.hoisted(() => {
 	return {
 		dbOps: {
@@ -19,6 +35,7 @@ const mocks = vi.hoisted(() => {
 	};
 });
 
+// the route keeps its real request parsing and branching, but all side effects are test-controlled.
 vi.mock('$lib/server/database/context', () => {
 	mocks.getCentralDbOps.mockImplementation(() => mocks.dbOps);
 	return {
@@ -42,6 +59,7 @@ vi.mock('$lib/server/auth/service', () => ({
 
 import { POST } from '../../src/routes/api/member-invites/accept/+server';
 
+// this helper builds a realistic route event so each test only changes the posted invite payload.
 const buildEvent = (body: Record<string, unknown>) =>
 	({
 		platform: {
@@ -59,6 +77,7 @@ const buildEvent = (body: Record<string, unknown>) =>
 
 describe('member invite acceptance endpoint', () => {
 	beforeEach(() => {
+		// these defaults represent the simplest successful invite-acceptance flow.
 		vi.clearAllMocks();
 		mocks.hashPassword.mockResolvedValue('password-hash');
 		mocks.normalizeIterations.mockImplementation((value: string | number | undefined) =>
@@ -71,6 +90,7 @@ describe('member invite acceptance endpoint', () => {
 	});
 
 	it('returns not found for invalid or expired invite tokens', async () => {
+		// a null accept invite result is the route's signal that the token cannot be used.
 		const response = await POST(
 			buildEvent({
 				token: 'bad-token',
@@ -88,6 +108,7 @@ describe('member invite acceptance endpoint', () => {
 	});
 
 	it('creates a session after accepting a valid invite', async () => {
+		// this fixture mirrors the route's returned user data closely so the session handoff stays realistic.
 		mocks.dbOps.members.acceptInvite.mockResolvedValue({
 			user: {
 				id: 'user-1',
@@ -137,6 +158,7 @@ describe('member invite acceptance endpoint', () => {
 		);
 		const payload = await response.json();
 
+		// these assertions prove the route wires password hashing, membership acceptance, and session creation together.
 		expect(response.status).toBe(200);
 		expect(payload.success).toBe(true);
 		expect(mocks.dbOps.members.acceptInvite).toHaveBeenCalledWith(

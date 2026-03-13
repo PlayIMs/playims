@@ -1,5 +1,20 @@
+/*
+Brief description:
+This file verifies the authenticated session summary endpoint.
+
+Deeper explanation:
+The session endpoint is the bridge between auth state and the dashboard's organization switcher. It
+must reject anonymous requests and return membership details in a stable shape for authenticated users.
+These tests mock the central database helper so the route contract stays easy to read.
+
+Summary of tests:
+1. It verifies that unauthenticated requests return 401.
+2. It verifies that authenticated requests include active memberships with client metadata.
+*/
+
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+// these hoisted mocks make sure the route module binds to fake database helpers during import.
 const mocks = vi.hoisted(() => {
 	return {
 		dbOps: {
@@ -11,6 +26,7 @@ const mocks = vi.hoisted(() => {
 	};
 });
 
+// the route stays real, but all membership data now comes from the controlled fake layer.
 vi.mock('$lib/server/database/context', () => {
 	mocks.getCentralDbOps.mockImplementation(() => mocks.dbOps);
 	return {
@@ -22,10 +38,12 @@ import { GET } from '../../src/routes/api/auth/session/+server';
 
 describe('auth session endpoint', () => {
 	beforeEach(() => {
+		// each test starts with clean call history so response assertions stay trustworthy.
 		vi.clearAllMocks();
 	});
 
 	it('returns 401 when unauthenticated', async () => {
+		// this proves the route does not leak membership metadata without an authenticated session.
 		const response = await GET({
 			locals: {},
 			platform: { env: { DB: {} } }
@@ -35,6 +53,7 @@ describe('auth session endpoint', () => {
 	});
 
 	it('returns active memberships with client metadata', async () => {
+		// this fixture mirrors the shape the route has to flatten into the api response contract.
 		mocks.dbOps.userClients.listActiveForUserWithClientDetails.mockResolvedValue([
 			{
 				membership: {
@@ -85,6 +104,7 @@ describe('auth session endpoint', () => {
 			};
 		};
 
+		// the flattened membership shape is what downstream dashboard code depends on.
 		expect(payload.success).toBe(true);
 		expect(payload.data.memberships[0]).toEqual({
 			clientId: '11111111-1111-4111-8111-111111111111',

@@ -1,3 +1,17 @@
+/*
+Brief description:
+This file verifies the default role assigned during invite-based password registration.
+
+Deeper explanation:
+Self-service registration should not let invite-based users create themselves with elevated access.
+This test focuses on the registration service path that consumes an invite and creates membership
+state. It protects the rule that participant access is the default outcome unless a separate admin
+flow assigns something stronger.
+
+Summary of tests:
+1. It verifies that invite-based self-service registration creates participant membership without writing a direct role on the user payload.
+*/
+
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_CLIENT } from '../../src/lib/server/client-context';
 import * as sessionModule from '../../src/lib/server/auth/session';
@@ -5,10 +19,12 @@ import { registerWithPassword } from '../../src/lib/server/auth/service';
 
 describe('register defaults', () => {
 	beforeEach(() => {
+		// restoring spies keeps the registration flow isolated from other auth tests.
 		vi.restoreAllMocks();
 	});
 
 	it('assigns participant role for invite-based self-service registration', async () => {
+		// spying on session creation lets this test focus on the role and membership contract.
 		const createSessionSpy = vi.spyOn(sessionModule, 'createSessionForUser').mockResolvedValue({
 			session: {
 				id: 'session-1',
@@ -26,6 +42,7 @@ describe('register defaults', () => {
 			}
 		} as any);
 
+		// this fake database shape covers the minimal successful invite-registration path.
 		const dbOps = {
 			clients: {
 				getById: vi.fn().mockResolvedValue({ id: DEFAULT_CLIENT.id })
@@ -76,6 +93,7 @@ describe('register defaults', () => {
 		});
 
 		const createUserInput = dbOps.users.createAuthUser.mock.calls[0]?.[0] as Record<string, unknown>;
+		// the user payload should not carry an elevated role directly because membership creation owns that decision.
 		expect(createUserInput).toBeTruthy();
 		expect('role' in createUserInput).toBe(false);
 		expect(dbOps.userClients.ensureMembership).toHaveBeenCalledWith(

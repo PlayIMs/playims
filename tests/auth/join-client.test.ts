@@ -1,5 +1,22 @@
+/*
+Brief description:
+This file verifies the main self-join decisions in the join-client API route.
+
+Deeper explanation:
+Joining an organization changes membership records, default membership state, and the current session
+context. Those steps must stay aligned or the user can end up partially joined or switched into the
+wrong organization. These tests mock the central database layer so the route logic can be exercised
+one policy branch at a time.
+
+Summary of tests:
+1. It verifies that self-join is blocked when the organization disables it.
+2. It verifies that an allowed self-join creates membership state and switches the active client.
+3. It verifies that archived memberships cannot self-join back through the open join route.
+*/
+
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+// these hoisted mocks ensure the route imports our fake central database layer instead of the real one.
 const mocks = vi.hoisted(() => {
 	return {
 		dbOps: {
@@ -20,6 +37,7 @@ const mocks = vi.hoisted(() => {
 	};
 });
 
+// the route still runs normally, but every database branch is now controlled by the test.
 vi.mock('$lib/server/database/context', () => {
 	mocks.getCentralDbOps.mockImplementation(() => mocks.dbOps);
 	return {
@@ -29,6 +47,7 @@ vi.mock('$lib/server/database/context', () => {
 
 import { POST } from '../../src/routes/api/auth/join-client/+server';
 
+// this helper builds a realistic authenticated request so each test only changes the join payload.
 const createEvent = (body: Record<string, unknown>) =>
 	({
 		platform: { env: { DB: {} } },
@@ -57,10 +76,12 @@ const createEvent = (body: Record<string, unknown>) =>
 
 describe('join-client endpoint', () => {
 	beforeEach(() => {
+		// clearing calls between tests prevents one scenario from leaking into another.
 		vi.clearAllMocks();
 	});
 
 	it('blocks open self-join when organization setting is disabled', async () => {
+		// self join enabled is the route's main policy flag, so this test proves the deny path short-circuits.
 		mocks.dbOps.clients.getByNormalizedSlug.mockResolvedValue({
 			id: '22222222-2222-4222-8222-222222222222',
 			slug: 'org-a',
@@ -76,6 +97,7 @@ describe('join-client endpoint', () => {
 	});
 
 	it('joins allowed org, sets default membership, and switches active client context', async () => {
+		// this is the happy path where the route needs to coordinate membership creation and session updates.
 		mocks.dbOps.clients.getByNormalizedSlug.mockResolvedValue({
 			id: '33333333-3333-4333-8333-333333333333',
 			slug: 'org-b',
@@ -105,6 +127,7 @@ describe('join-client endpoint', () => {
 			data: { clientId: string; joinedNow: boolean; role: string };
 		};
 
+		// these assertions prove both the api response and the in-memory locals were switched together.
 		expect(response.status).toBe(200);
 		expect(payload.success).toBe(true);
 		expect(payload.data.joinedNow).toBe(true);
@@ -127,6 +150,7 @@ describe('join-client endpoint', () => {
 	});
 
 	it('rejects self-join when existing membership is inactive', async () => {
+		// archived memberships should not be silently reactivated through the public self-join flow.
 		mocks.dbOps.clients.getByNormalizedSlug.mockResolvedValue({
 			id: '44444444-4444-4444-8444-444444444444',
 			slug: 'org-c',
