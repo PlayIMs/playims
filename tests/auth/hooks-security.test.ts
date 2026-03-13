@@ -12,11 +12,12 @@ Summary of tests:
 1. It verifies that repeated login posts are rate limited.
 2. It verifies that repeated registration posts are rate limited.
 3. It verifies that protected SSR responses receive no-store cache headers.
-4. It verifies that participant users are blocked from protected dashboard SSR routes.
-5. It verifies that developer users can still reach protected dashboard SSR routes.
-6. It verifies that read-only API access can use the base role during participant view mode.
-7. It verifies that mutating API access is blocked by the effective participant role during view mode.
-8. It verifies that the join-client API route requires authentication.
+4. It verifies that nonce-based CSP responses add the nonce to inline SSR script tags.
+5. It verifies that participant users are blocked from protected dashboard SSR routes.
+6. It verifies that developer users can still reach protected dashboard SSR routes.
+7. It verifies that read-only API access can use the base role during participant view mode.
+8. It verifies that mutating API access is blocked by the effective participant role during view mode.
+9. It verifies that the join-client API route requires authentication.
 */
 
 import { describe, expect, it } from 'vitest';
@@ -148,6 +149,46 @@ describe('hooks security behavior', () => {
 		expect(response.status).toBe(200);
 		expect(response.headers.get('cache-control')).toBe('no-store');
 		expect(response.headers.get('content-security-policy')).toContain("frame-ancestors 'none'");
+	});
+
+	it('adds the csp nonce to inline SSR script tags when the response already includes nonce-based csp', async () => {
+		// sveltekit can emit a nonce-based csp header, but manual inline scripts in route head content do not
+		// automatically receive that nonce. this regression test locks in the server-side html rewrite.
+		const event = createEvent({
+			pathname: '/',
+			ip: '198.51.100.79'
+		});
+
+		const response = await handle({
+			event,
+			resolve: async () =>
+				new Response(
+					[
+						'<html><head>',
+						'<script>window.inlineTheme=true;</script>',
+						'<script type="application/ld+json">{"@context":"https://schema.org"}</script>',
+						'<script src="/app.js"></script>',
+						'<script nonce="already-there">window.keepNonce=true;</script>',
+						'</head><body>ok</body></html>'
+					].join(''),
+					{
+						status: 200,
+						headers: {
+							'content-type': 'text/html; charset=utf-8',
+							'content-security-policy':
+								"default-src 'self'; script-src 'self' 'nonce-test-nonce'; style-src 'self' 'unsafe-inline'"
+						}
+					}
+				)
+		});
+
+		const html = await response.text();
+		expect(html).toContain('<script nonce="test-nonce">window.inlineTheme=true;</script>');
+		expect(html).toContain(
+			'<script nonce="test-nonce" type="application/ld+json">{"@context":"https://schema.org"}</script>'
+		);
+		expect(html).toContain('<script src="/app.js"></script>');
+		expect(html).toContain('<script nonce="already-there">window.keepNonce=true;</script>');
 	});
 
 	it('enforces role checks for dashboard SSR', async () => {

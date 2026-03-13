@@ -539,6 +539,54 @@ const toPageErrorResponse = (
 		}
 	});
 
+const extractCspNonce = (cspHeader: string | null): string | null => {
+	if (!cspHeader) {
+		return null;
+	}
+
+	const match = cspHeader.match(/'nonce-([^']+)'/);
+	return match?.[1] ?? null;
+};
+
+const addNonceToInlineScripts = (html: string, nonce: string): string =>
+	html.replace(/<script(?![^>]*\bsrc=)(?![^>]*\bnonce=)([^>]*)>/gi, (_match, attributes: string) => {
+		const trimmedAttributes = attributes.trim();
+		return trimmedAttributes.length > 0
+			? `<script nonce="${nonce}" ${trimmedAttributes}>`
+			: `<script nonce="${nonce}">`;
+	});
+
+const withHtmlInlineScriptNonces = async (response: Response): Promise<Response> => {
+	const headers = new Headers(response.headers);
+	const contentType = headers.get('content-type') ?? '';
+	const isHtmlResponse = contentType.toLowerCase().includes('text/html');
+	if (!isHtmlResponse) {
+		return response;
+	}
+
+	const nonce = extractCspNonce(headers.get('content-security-policy'));
+	if (!nonce) {
+		return response;
+	}
+
+	const html = await response.text();
+	const updatedHtml = addNonceToInlineScripts(html, nonce);
+	if (updatedHtml === html) {
+		return new Response(html, {
+			status: response.status,
+			statusText: response.statusText,
+			headers
+		});
+	}
+
+	headers.delete('content-length');
+	return new Response(updatedHtml, {
+		status: response.status,
+		statusText: response.statusText,
+		headers
+	});
+};
+
 const withSecurityHeaders = (
 	response: Response,
 	{
@@ -952,6 +1000,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	try {
 		let response = await resolve(event);
+		response = await withHtmlInlineScriptNonces(response);
 		const initialContentType = response.headers.get('content-type') ?? '';
 
 		if (isApiRequest && response.status >= 400 && initialContentType.includes('application/json')) {
