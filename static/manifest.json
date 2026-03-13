@@ -4,6 +4,7 @@
 	"description": "Modern intramural sports league management platform with intuitive team management, automated scheduling, and real-time standings.",
 	"start_url": "/",
 	"display": "standalone",
+	"display_override": ["window-controls-overlay"],
 	"background_color": "#EEDBCE",
 	"theme_color": "#CE1126",
 	"orientation": "portrait-primary",

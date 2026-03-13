@@ -127,6 +127,10 @@ describe('pwa navigation helper', () => {
 		expect(resolvePwaAddressInput('members', currentUrl)?.href).toBe(
 			'https://playims.com/members'
 		);
+		expect(
+			resolvePwaAddressInput('localhost:5180/dashboard/offerings', new URL('http://localhost:5180/dashboard'))
+				?.href
+		).toBe('http://localhost:5180/dashboard/offerings');
 		expect(resolvePwaAddressInput('   ', currentUrl)).toBeNull();
 	});
 
@@ -141,6 +145,15 @@ describe('pwa navigation helper', () => {
 		expect(resolvePwaAddressNavigationTarget('playims.com/members#captains', currentUrl)).toEqual({
 			href: 'https://playims.com/members#captains',
 			route: '/members#captains'
+		});
+		expect(
+			resolvePwaAddressNavigationTarget(
+				'localhost:5180/dashboard/offerings',
+				new URL('http://localhost:5180/dashboard')
+			)
+		).toEqual({
+			href: 'http://localhost:5180/dashboard/offerings',
+			route: '/dashboard/offerings'
 		});
 		expect(resolvePwaAddressNavigationTarget('https://example.com/docs', currentUrl)).toEqual({
 			href: 'https://example.com/docs',

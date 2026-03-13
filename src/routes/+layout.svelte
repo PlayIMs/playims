@@ -2,24 +2,16 @@
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
 	import { afterNavigate, goto, invalidateAll } from '$app/navigation';
-	import { page } from '$app/stores';
-	import {
-		IconChevronLeft,
-		IconChevronRight,
-		IconHome,
-		IconRefresh
-	} from '@tabler/icons-svelte';
 	import 'virtual:pwa-assets/head';
 	// import { injectSpeedInsights } from '@vercel/speed-insights/sveltekit';
 
 	import '../app.css';
 	import Toaster from '$lib/components/toast/Toaster.svelte';
+	import UrlBar from '$lib/components/UrlBar.svelte';
 	import * as theme from '$lib/theme';
 	import { forceRadioTabStop, selectArrow, skipDatePickerTabStop } from '$lib/actions';
 	import {
-		buildPwaAddressValue,
 		readSvelteKitHistoryIndex,
-		resolvePwaAddressNavigationTarget,
 		STANDALONE_DISPLAY_MODE_QUERY,
 		isStandaloneDisplayMode
 	} from '$lib/utils/pwa-navigation';
@@ -43,8 +35,6 @@
 	let pwaHistorySessionStart = $state<number | null>(null);
 	let pwaHistoryCurrentIndex = $state<number | null>(null);
 	let pwaHistoryMaxIndex = $state<number | null>(null);
-	let isAddressEditing = $state(false);
-	let addressInputValue = $state('');
 	// render css vars on the server so first paint already uses the active theme
 	const buildThemeVarsCss = (colors: theme.ThemeColors) => {
 		const primary = theme.generatePalette(colors.primary);
@@ -108,16 +98,8 @@
 		standalone?: boolean;
 	};
 	type NavigationKind = 'enter' | 'form' | 'goto' | 'leave' | 'link' | 'popstate' | null;
-	type PwaAddressKeydownEvent = KeyboardEvent & {
-		currentTarget: EventTarget & HTMLInputElement;
-	};
 	const PWA_HISTORY_SESSION_START_KEY = 'playims:pwa-history-session-start';
 	const PWA_HISTORY_MAX_KEY = 'playims:pwa-history-max';
-	const currentAddressValue = $derived.by(() => buildPwaAddressValue($page.url));
-	const typedAddressTarget = $derived.by(() =>
-		resolvePwaAddressNavigationTarget(addressInputValue, $page.url)
-	);
-	const canSubmitTypedAddress = $derived.by(() => typedAddressTarget !== null);
 	const pwaTopBarOffset = $derived.by(() =>
 		isStandalonePwa ? 'calc(env(safe-area-inset-top, 0px) + 2.75rem)' : '0px'
 	);
@@ -243,50 +225,6 @@
 		await goto('/');
 	};
 
-	const beginAddressEditing = (event: FocusEvent) => {
-		isAddressEditing = true;
-		const target = event.currentTarget;
-		if (target instanceof HTMLInputElement) {
-			target.select();
-		}
-	};
-
-	const finishAddressEditing = () => {
-		isAddressEditing = false;
-	};
-
-	const navigateToTypedAddress = async () => {
-		if (!browser) {
-			return;
-		}
-
-		const navigationTarget = resolvePwaAddressNavigationTarget(addressInputValue, $page.url);
-		if (!navigationTarget) {
-			addressInputValue = currentAddressValue;
-			finishAddressEditing();
-			return;
-		}
-
-		finishAddressEditing();
-
-		if (navigationTarget.route) {
-			await goto(navigationTarget.route);
-			return;
-		}
-
-		window.location.assign(navigationTarget.href);
-	};
-
-	const handleAddressKeydown = (event: PwaAddressKeydownEvent) => {
-		if (event.key !== 'Enter') {
-			return;
-		}
-
-		event.preventDefault();
-		addressInputValue = event.currentTarget.value;
-		void navigateToTypedAddress();
-	};
-
 	/** runs client-only setup after the component mounts. */
 	const handleMount = () => {
 		// critical: reveal is handled inside theme.init/markThemeReady only
@@ -375,7 +313,6 @@
 	afterNavigate((navigation) => {
 		syncStandalonePwaState();
 		syncPwaHistoryState((navigation.type as NavigationKind) ?? null);
-		addressInputValue = currentAddressValue;
 	});
 </script>
 
@@ -562,72 +499,14 @@
 
 <div class="app" style={`--pwa-top-bar-offset:${pwaTopBarOffset};`}>
 	{#if isStandalonePwa}
-		<div
-			class="fixed inset-x-0 top-0 z-[70] bg-primary text-primary-25 shadow-[0_1px_0_rgba(255,255,255,0.18)]"
-			style="padding-top: env(safe-area-inset-top, 0px);"
-		>
-			<div class="flex h-11 items-center gap-1 px-2">
-				<button
-					type="button"
-					class="flex h-8 w-8 cursor-pointer items-center justify-center text-primary-25 transition-colors duration-150 hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-45"
-					aria-label="Go back"
-					disabled={!canGoBack}
-					onclick={navigateBack}
-				>
-					<IconChevronLeft class="h-5 w-5" />
-				</button>
-				<button
-					type="button"
-					class="flex h-8 w-8 cursor-pointer items-center justify-center text-primary-25 transition-colors duration-150 hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-45"
-					aria-label="Go forward"
-					disabled={!canGoForward}
-					onclick={navigateForward}
-				>
-					<IconChevronRight class="h-5 w-5" />
-				</button>
-				<button
-					type="button"
-					class="flex h-8 w-8 cursor-pointer items-center justify-center text-primary-25 transition-colors duration-150 hover:bg-primary-600"
-					aria-label="Reload page"
-					onclick={reloadCurrentPage}
-				>
-					<IconRefresh class="h-4.5 w-4.5" />
-				</button>
-				<button
-					type="button"
-					class="flex h-8 w-8 cursor-pointer items-center justify-center text-primary-25 transition-colors duration-150 hover:bg-primary-600"
-					aria-label="Go home"
-					onclick={() => void navigateHome()}
-				>
-					<IconHome class="h-4.5 w-4.5" />
-				</button>
-				<div class="min-w-0 flex-1 bg-primary-600/80 px-3">
-					<input
-						type="search"
-						bind:value={addressInputValue}
-						class="h-8 w-full border-0 bg-transparent p-0 text-sm text-primary-25 placeholder:text-primary-100 focus:outline-none focus:ring-0"
-						aria-label="Page address"
-						autocapitalize="none"
-						autocomplete="off"
-						autocorrect="off"
-						spellcheck="false"
-						placeholder="Enter a URL"
-						enterkeyhint="go"
-						onfocus={beginAddressEditing}
-						onblur={finishAddressEditing}
-						onkeydown={handleAddressKeydown}
-					/>
-				</div>
-				<button
-					type="button"
-					class="flex h-8 cursor-pointer items-center bg-primary-600 px-3 text-xs font-bold uppercase tracking-[0.12em] text-primary-25 transition-colors duration-150 hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-45"
-					disabled={!canSubmitTypedAddress}
-					onclick={() => void navigateToTypedAddress()}
-				>
-					Go
-				</button>
-			</div>
-		</div>
+		<UrlBar
+			{canGoBack}
+			{canGoForward}
+			onBack={navigateBack}
+			onForward={navigateForward}
+			onReload={reloadCurrentPage}
+			onHome={navigateHome}
+		/>
 	{/if}
 	<main style="padding-top: var(--pwa-top-bar-offset, 0px);">
 		{@render children()}

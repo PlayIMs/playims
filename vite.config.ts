@@ -17,11 +17,15 @@ export default defineConfig({
 			manifest: {
 				name: 'PlayIMs - Intramural Sports League Manager',
 				short_name: 'PlayIMs',
-				theme_color: '#7c3aed',
-				background_color: '#ffffff',
+				description:
+					'Modern intramural sports league management platform with intuitive team management, automated scheduling, and real-time standings.',
+				theme_color: '#CE1126',
+				background_color: '#EEDBCE',
 				display: 'standalone',
+				display_override: ['window-controls-overlay'],
 				scope: '/',
-				start_url: '/'
+				start_url: '/',
+				lang: 'en-US'
 			},
 			pwaAssets: {
 				// we will configure the PWA asset generation next

@@ -48,6 +48,10 @@ export function resolvePwaAddressInput(input: string, currentUrl: URL): URL | nu
 		return null;
 	}
 
+	if (trimmed === currentUrl.host || trimmed.startsWith(`${currentUrl.host}/`)) {
+		return new URL(`${currentUrl.protocol}//${trimmed}`);
+	}
+
 	if (
 		trimmed.startsWith('/') ||
 		trimmed.startsWith('?') ||
