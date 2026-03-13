@@ -8,8 +8,10 @@
 		IconLayoutDashboard,
 		IconRefresh
 	} from '@tabler/icons-svelte';
+	import HistoryNavigationButton from '$lib/components/HistoryNavigationButton.svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import {
+		type PwaHistoryEntry,
 		buildPwaAddressValue,
 		resolvePwaAddressNavigationTarget,
 		shouldSyncPwaAddressValue
@@ -18,8 +20,11 @@
 	type UrlBarProps = {
 		canGoBack: boolean;
 		canGoForward: boolean;
+		backHistoryEntries: PwaHistoryEntry[];
+		forwardHistoryEntries: PwaHistoryEntry[];
 		onBack: () => void;
 		onForward: () => void;
+		onJumpToHistory: (targetIndex: number) => void;
 		onReload: () => void;
 		onHome: () => void | Promise<void>;
 	};
@@ -28,7 +33,17 @@
 		currentTarget: EventTarget & HTMLInputElement;
 	};
 
-	let { canGoBack, canGoForward, onBack, onForward, onReload, onHome }: UrlBarProps = $props();
+	let {
+		canGoBack,
+		canGoForward,
+		backHistoryEntries,
+		forwardHistoryEntries,
+		onBack,
+		onForward,
+		onJumpToHistory,
+		onReload,
+		onHome
+	}: UrlBarProps = $props();
 
 	let inputElement = $state<HTMLInputElement | null>(null);
 	let inputValue = $state('');
@@ -143,29 +158,30 @@
 	class="fixed inset-x-0 top-0 z-[70] bg-primary text-primary-25 shadow-[0_1px_0_rgba(255,255,255,0.18)]"
 	style="padding-top: env(safe-area-inset-top, 0px); padding-right: env(titlebar-area-width, 0px); -webkit-app-region: drag;"
 >
-	<div class="flex h-11 items-center gap-1 px-2" style="-webkit-app-region: no-drag;">
-		<HoverTooltip text="Go back">
-			<button
-				type="button"
-				class="flex h-8 w-8 cursor-pointer items-center justify-center text-primary-25 transition-colors duration-150 hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-45"
-				aria-label="Go back"
-				disabled={!canGoBack}
-				onclick={onBack}
-			>
-				<IconChevronLeft class="h-5 w-5" />
-			</button>
-		</HoverTooltip>
-		<HoverTooltip text="Go forward">
-			<button
-				type="button"
-				class="flex h-8 w-8 cursor-pointer items-center justify-center text-primary-25 transition-colors duration-150 hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-45"
-				aria-label="Go forward"
-				disabled={!canGoForward}
-				onclick={onForward}
-			>
-				<IconChevronRight class="h-5 w-5" />
-			</button>
-		</HoverTooltip>
+	<div
+		class="flex h-11 items-center gap-1 px-2"
+		style="-webkit-app-region: no-drag; padding-right: var(--dashboard-pwa-toolbar-width, 0px);"
+	>
+		<HistoryNavigationButton
+			ariaLabel="Go back"
+			tooltip="Go back"
+			disabled={!canGoBack}
+			entries={backHistoryEntries}
+			align="left"
+			icon={IconChevronLeft}
+			onNavigate={onBack}
+			{onJumpToHistory}
+		/>
+		<HistoryNavigationButton
+			ariaLabel="Go forward"
+			tooltip="Go forward"
+			disabled={!canGoForward}
+			entries={forwardHistoryEntries}
+			align="left"
+			icon={IconChevronRight}
+			onNavigate={onForward}
+			{onJumpToHistory}
+		/>
 		<HoverTooltip text="Reload page">
 			<button
 				type="button"

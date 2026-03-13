@@ -25,6 +25,7 @@ Treat this API as the baseline:
 
 - Required prop: `text: string`
 - Optional props:
+- `shortcutKeys?: string[]` for keyboard hints rendered as shared keycaps after the tooltip title
 - `cursorOffsetXPx?: number` (default: `14`)
 - `cursorOffsetYPx?: number` (default: `18`)
 - `paddingPx?: number` (default: `8`)
@@ -54,6 +55,8 @@ Behavioral guarantees from current implementation:
 1. Replace native HTML `title` hover hints with `HoverTooltip` for consistent behavior.
 2. Keep tooltip copy concise and action-specific.
 - Good: `Edit facility`, `Sign out this session`, `Duplicate league settings`.
+2.5. When a button has a documented keyboard shortcut, pass it through `shortcutKeys` so the tooltip shows the shared keycap hint after the title.
+- Example: `shortcutKeys={['Ctrl', 'Shift', 'R']}`
 3. Wrap the actionable element directly.
 - Keep current button/link classes, aria labels, and handlers.
 4. Use `wrapperClass` when layout requires block/fill behavior.

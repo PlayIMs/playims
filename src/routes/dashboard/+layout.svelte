@@ -23,6 +23,7 @@
 		IconArrowBackUp,
 		IconCode
 	} from '@tabler/icons-svelte';
+	import { onMount } from 'svelte';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
@@ -39,6 +40,10 @@
 		type DashboardNavigationLabels
 	} from '$lib/dashboard/navigation';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
+	import {
+		STANDALONE_DISPLAY_MODE_QUERY,
+		isStandaloneDisplayMode
+	} from '$lib/utils/pwa-navigation';
 	import SwitchOrganizationWizard from './_wizards/SwitchOrganizationWizard.svelte';
 	import ViewRoleWizard from './_wizards/ViewRoleWizard.svelte';
 
@@ -51,10 +56,15 @@
 		isCurrent: boolean;
 		isDefault: boolean;
 	};
+	type NavigatorWithStandalone = Navigator & {
+		standalone?: boolean;
+	};
 
 	let { children, data } = $props();
 
 	let isSidebarOpen = $state(true);
+	let isStandalonePwa = $state(false);
+	let standaloneToolbarElement = $state<HTMLDivElement | null>(null);
 
 	const isDashboardNavKey = (value: string): value is DashboardNavKey =>
 		DASHBOARD_NAV_KEY_SET.has(value as DashboardNavKey);
@@ -108,8 +118,14 @@
 	});
 
 	const menuWidth = $derived.by(() => (isSidebarOpen ? 'w-64 xl:w-66' : 'w-14 xl:w-16'));
-	const navBottomPadding = $derived.by(() => (isSidebarOpen ? 'pb-52' : 'pb-72'));
-
+	const showStandaloneTopUtilities = $derived.by(() => isStandalonePwa);
+	const showSidebarFooter = $derived.by(() => !showStandaloneTopUtilities);
+	const navBottomPadding = $derived.by(() => {
+		if (!showSidebarFooter) {
+			return 'pb-4';
+		}
+		return isSidebarOpen ? 'pb-52' : 'pb-72';
+	});
 	function toggleSidebar() {
 		isSidebarOpen = !isSidebarOpen;
 	}
@@ -201,6 +217,8 @@
 	const utilityButtonClass =
 		'flex h-10 w-10 items-center justify-center border border-primary-300 text-primary-50 transition-colors duration-150';
 	const utilityButtonDisabledClass = 'cursor-not-allowed opacity-70';
+	const topBarUtilityButtonClass =
+		'flex h-8 w-8 items-center justify-center text-primary-25 transition-colors duration-150';
 	const isViewRoleButtonDisabled = $derived.by(
 		() => !canViewAsRole || isViewingAsRole || roleWizardSubmitting || organizationSwitching
 	);
@@ -221,6 +239,7 @@
 		}
 		return 'View as role';
 	});
+	const viewRoleShortcutKeys = $derived.by(() => (viewRoleTooltipText === 'View as role' ? ['Ctrl', 'Shift', 'R'] : []));
 	const organizationTooltipText = $derived.by(() => {
 		if (organizationSwitching) {
 			return 'Switching organizations';
@@ -230,6 +249,9 @@
 		}
 		return 'Switch organization';
 	});
+	const organizationShortcutKeys = $derived.by(() =>
+		organizationTooltipText === 'Switch organization' ? ['Ctrl', 'Shift', 'O'] : []
+	);
 	const ORGANIZATION_SWITCHING_SESSION_KEY = 'playims:organization-switching';
 	let roleWizardOpen = $state(false);
 	let roleWizardSubmitting = $state(false);
@@ -261,6 +283,23 @@
 		} catch {
 			organizationSwitching = false;
 		}
+	};
+
+	const syncStandalonePwaState = () => {
+		if (!browser) {
+			isStandalonePwa = false;
+			return;
+		}
+
+		const navigatorStandalone =
+			typeof navigator !== 'undefined' && 'standalone' in navigator
+				? Boolean((navigator as NavigatorWithStandalone).standalone)
+				: false;
+
+		isStandalonePwa = isStandaloneDisplayMode({
+			matchMedia: (query) => window.matchMedia(query),
+			navigatorStandalone
+		});
 	};
 
 	function setOrganizationSwitchingState(isSwitching: boolean): void {
@@ -535,6 +574,40 @@
 		};
 	});
 
+	onMount(() => {
+		if (!browser) {
+			return;
+		}
+
+		syncStandalonePwaState();
+		const standaloneMediaQuery = window.matchMedia(STANDALONE_DISPLAY_MODE_QUERY);
+		const legacyStandaloneMediaQuery = standaloneMediaQuery as MediaQueryList & {
+			addListener?: (listener: (event: MediaQueryListEvent) => void) => void;
+			removeListener?: (listener: (event: MediaQueryListEvent) => void) => void;
+		};
+		const handleStandaloneModeChange = () => {
+			syncStandalonePwaState();
+		};
+
+		if ('addEventListener' in standaloneMediaQuery) {
+			standaloneMediaQuery.addEventListener('change', handleStandaloneModeChange);
+		} else if (legacyStandaloneMediaQuery.addListener) {
+			legacyStandaloneMediaQuery.addListener(handleStandaloneModeChange);
+		}
+
+		window.addEventListener('pageshow', handleStandaloneModeChange);
+
+		return () => {
+			if ('removeEventListener' in standaloneMediaQuery) {
+				standaloneMediaQuery.removeEventListener('change', handleStandaloneModeChange);
+			} else if (legacyStandaloneMediaQuery.removeListener) {
+				legacyStandaloneMediaQuery.removeListener(handleStandaloneModeChange);
+			}
+
+			window.removeEventListener('pageshow', handleStandaloneModeChange);
+		};
+	});
+
 	$effect(() => {
 		if (!organizationSwitching) {
 			return;
@@ -610,6 +683,39 @@
 			body.style.scrollbarGutter = previousBodyScrollbarGutter;
 		};
 	});
+
+	$effect(() => {
+		if (!browser) {
+			return;
+		}
+
+		const root = document.documentElement;
+		if (!showStandaloneTopUtilities || !standaloneToolbarElement) {
+			root.style.removeProperty('--dashboard-pwa-toolbar-width');
+			return;
+		}
+
+		const updateToolbarWidth = () => {
+			root.style.setProperty(
+				'--dashboard-pwa-toolbar-width',
+				`${standaloneToolbarElement?.offsetWidth ?? 0}px`
+			);
+		};
+
+		updateToolbarWidth();
+
+		const resizeObserver = new ResizeObserver(() => {
+			updateToolbarWidth();
+		});
+		resizeObserver.observe(standaloneToolbarElement);
+		window.addEventListener('resize', updateToolbarWidth);
+
+		return () => {
+			resizeObserver.disconnect();
+			window.removeEventListener('resize', updateToolbarWidth);
+			root.style.removeProperty('--dashboard-pwa-toolbar-width');
+		};
+	});
 </script>
 
 <div class="h-screen box-border">
@@ -641,6 +747,95 @@
 				>
 					<IconArrowBackUp class="w-4 h-4" />
 				</button>
+			</HoverTooltip>
+		</div>
+	{/if}
+	{#if showStandaloneTopUtilities}
+		<div
+			bind:this={standaloneToolbarElement}
+			class="fixed right-2 z-[71] flex h-11 items-center gap-1 bg-primary px-2 text-primary-25"
+			style="top: env(safe-area-inset-top, 0px);"
+		>
+			<HoverTooltip text="Help">
+				<button
+					type="button"
+					class="{topBarUtilityButtonClass} {utilityButtonDisabledClass}"
+					aria-label="Help"
+					disabled
+				>
+					<IconHelpCircle class="h-4.5 w-4.5" />
+				</button>
+			</HoverTooltip>
+			<HoverTooltip text="Tech support">
+				<button
+					type="button"
+					class="{topBarUtilityButtonClass} {utilityButtonDisabledClass}"
+					aria-label="Tech support"
+					disabled
+				>
+					<IconHeadset class="h-4.5 w-4.5" />
+				</button>
+			</HoverTooltip>
+			<HoverTooltip text="Notifications">
+				<a
+					href={notificationsHref}
+					class="{topBarUtilityButtonClass} relative cursor-pointer {isNotificationsRoute
+						? 'bg-primary-600 text-white'
+						: 'hover:bg-primary-600 hover:text-white'}"
+					aria-current={isNotificationsRoute ? 'page' : undefined}
+				>
+					<IconBell class="h-4.5 w-4.5" />
+					{#if notificationCount > 0}
+						<span
+							class="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center bg-secondary-500 px-1 text-[9px] font-bold leading-none text-white"
+						>
+							{notificationCount}
+						</span>
+					{/if}
+				</a>
+			</HoverTooltip>
+			{#if showViewRoleButton}
+				<HoverTooltip text={viewRoleTooltipText} shortcutKeys={viewRoleShortcutKeys}>
+					<button
+						type="button"
+						class="{topBarUtilityButtonClass} {isViewRoleButtonDisabled
+							? utilityButtonDisabledClass
+							: 'cursor-pointer hover:bg-primary-600 hover:text-white'}"
+						aria-label="View as role"
+						disabled={isViewRoleButtonDisabled}
+						onclick={openRoleWizard}
+					>
+						<IconEye class="h-4.5 w-4.5" />
+					</button>
+				</HoverTooltip>
+			{/if}
+			<HoverTooltip text={organizationTooltipText} shortcutKeys={organizationShortcutKeys}>
+				<button
+					type="button"
+					class="{topBarUtilityButtonClass} {isOrganizationButtonDisabled
+						? utilityButtonDisabledClass
+						: 'cursor-pointer hover:bg-primary-600 hover:text-white'}"
+					aria-label="Switch organization"
+					disabled={isOrganizationButtonDisabled}
+					onclick={openOrganizationWizard}
+				>
+					<IconBuildingCommunity class="h-4.5 w-4.5" />
+				</button>
+			</HoverTooltip>
+			<HoverTooltip text="My account" wrapperClass="block min-w-0">
+				<a
+					href={accountHref}
+					class="flex h-8 min-w-0 max-w-52 items-center gap-2 px-2 text-primary-25 transition-colors duration-150 cursor-pointer {isAccountRoute
+						? 'bg-primary-600 text-white'
+						: 'hover:bg-primary-600 hover:text-white'}"
+					aria-current={isAccountRoute ? 'page' : undefined}
+				>
+					<IconUser class="h-4.5 w-4.5 shrink-0" />
+					<div class="min-w-0 leading-tight">
+						<p class="truncate text-[11px] font-semibold leading-[1.05rem]">{viewerName}</p>
+						<p class="truncate text-[10px] leading-[0.8rem] text-primary-100">{viewerEmail}</p>
+					</div>
+				</a>
 			</HoverTooltip>
 		</div>
 	{/if}
@@ -711,9 +906,10 @@
 					</ul>
 				</nav>
 
-				<div
-					class="absolute bottom-0 left-0 right-0 border-t border-primary-600 bg-primary-500 p-2"
-				>
+				{#if showSidebarFooter}
+					<div
+						class="absolute bottom-0 left-0 right-0 border-t border-primary-600 bg-primary-500 p-2"
+					>
 					{#if isSidebarOpen}
 						<div class="space-y-2">
 							<div class="flex w-full items-center justify-around gap-2">
@@ -756,7 +952,7 @@
 									</a>
 								</HoverTooltip>
 								{#if showViewRoleButton}
-									<HoverTooltip text={viewRoleTooltipText}>
+									<HoverTooltip text={viewRoleTooltipText} shortcutKeys={viewRoleShortcutKeys}>
 										<button
 											type="button"
 											class="{utilityButtonClass} {isViewRoleButtonDisabled
@@ -770,7 +966,7 @@
 										</button>
 									</HoverTooltip>
 								{/if}
-								<HoverTooltip text={organizationTooltipText}>
+								<HoverTooltip text={organizationTooltipText} shortcutKeys={organizationShortcutKeys}>
 									<button
 										type="button"
 										class="{utilityButtonClass} {isOrganizationButtonDisabled
@@ -851,7 +1047,8 @@
 							</HoverTooltip>
 						</div>
 					{/if}
-				</div>
+					</div>
+				{/if}
 			</aside>
 
 			<!-- Main Content Area -->

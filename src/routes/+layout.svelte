@@ -11,8 +11,13 @@
 	import * as theme from '$lib/theme';
 	import { forceRadioTabStop, selectArrow, skipDatePickerTabStop } from '$lib/actions';
 	import {
+		type PwaHistoryEntry,
+		parseStoredPwaHistoryEntries,
 		readSvelteKitHistoryIndex,
+		selectPwaHistoryMenuEntries,
+		serializePwaHistoryEntries,
 		STANDALONE_DISPLAY_MODE_QUERY,
+		syncPwaHistoryEntries,
 		isStandaloneDisplayMode
 	} from '$lib/utils/pwa-navigation';
 
@@ -35,6 +40,7 @@
 	let pwaHistorySessionStart = $state<number | null>(null);
 	let pwaHistoryCurrentIndex = $state<number | null>(null);
 	let pwaHistoryMaxIndex = $state<number | null>(null);
+	let pwaHistoryEntries = $state<PwaHistoryEntry[]>([]);
 	// render css vars on the server so first paint already uses the active theme
 	const buildThemeVarsCss = (colors: theme.ThemeColors) => {
 		const primary = theme.generatePalette(colors.primary);
@@ -100,6 +106,7 @@
 	type NavigationKind = 'enter' | 'form' | 'goto' | 'leave' | 'link' | 'popstate' | null;
 	const PWA_HISTORY_SESSION_START_KEY = 'playims:pwa-history-session-start';
 	const PWA_HISTORY_MAX_KEY = 'playims:pwa-history-max';
+	const PWA_HISTORY_ENTRIES_KEY = 'playims:pwa-history-entries';
 	const pwaTopBarOffset = $derived.by(() =>
 		isStandalonePwa ? 'calc(env(safe-area-inset-top, 0px) + 2.75rem)' : '0px'
 	);
@@ -119,6 +126,28 @@
 			pwaHistoryCurrentIndex < pwaHistoryMaxIndex
 		);
 	});
+	const backHistoryEntries = $derived.by(() => {
+		if (pwaHistoryCurrentIndex === null) {
+			return [];
+		}
+
+		return selectPwaHistoryMenuEntries({
+			entries: pwaHistoryEntries,
+			currentIndex: pwaHistoryCurrentIndex,
+			direction: 'back'
+		});
+	});
+	const forwardHistoryEntries = $derived.by(() => {
+		if (pwaHistoryCurrentIndex === null) {
+			return [];
+		}
+
+		return selectPwaHistoryMenuEntries({
+			entries: pwaHistoryEntries,
+			currentIndex: pwaHistoryCurrentIndex,
+			direction: 'forward'
+		});
+	});
 
 	const parseStoredHistoryIndex = (value: string | null): number | null => {
 		if (!value) {
@@ -134,6 +163,7 @@
 			pwaHistorySessionStart = null;
 			pwaHistoryCurrentIndex = null;
 			pwaHistoryMaxIndex = null;
+			pwaHistoryEntries = [];
 			return;
 		}
 
@@ -142,6 +172,7 @@
 			pwaHistorySessionStart = null;
 			pwaHistoryCurrentIndex = null;
 			pwaHistoryMaxIndex = null;
+			pwaHistoryEntries = [];
 			return;
 		}
 
@@ -149,6 +180,9 @@
 			window.sessionStorage.getItem(PWA_HISTORY_SESSION_START_KEY)
 		);
 		let maxHistoryIndex = parseStoredHistoryIndex(window.sessionStorage.getItem(PWA_HISTORY_MAX_KEY));
+		let historyEntries = parseStoredPwaHistoryEntries(
+			window.sessionStorage.getItem(PWA_HISTORY_ENTRIES_KEY)
+		);
 
 		if (sessionStart === null) {
 			sessionStart = currentHistoryIndex;
@@ -167,10 +201,22 @@
 		pwaHistorySessionStart = sessionStart;
 		pwaHistoryCurrentIndex = currentHistoryIndex;
 		pwaHistoryMaxIndex = maxHistoryIndex;
+		historyEntries = syncPwaHistoryEntries({
+			entries: historyEntries,
+			currentIndex: currentHistoryIndex,
+			url: new URL(window.location.href),
+			title: document.title,
+			navigationType
+		});
+		pwaHistoryEntries = historyEntries;
 
 		try {
 			window.sessionStorage.setItem(PWA_HISTORY_SESSION_START_KEY, String(sessionStart));
 			window.sessionStorage.setItem(PWA_HISTORY_MAX_KEY, String(maxHistoryIndex));
+			window.sessionStorage.setItem(
+				PWA_HISTORY_ENTRIES_KEY,
+				serializePwaHistoryEntries(historyEntries)
+			);
 		} catch {
 			// Ignore storage failures; local state still powers the bar in the current session.
 		}
@@ -207,6 +253,19 @@
 		}
 
 		window.history.forward();
+	};
+
+	const jumpToHistoryIndex = (targetIndex: number) => {
+		if (!browser || pwaHistoryCurrentIndex === null) {
+			return;
+		}
+
+		const delta = targetIndex - pwaHistoryCurrentIndex;
+		if (delta === 0) {
+			return;
+		}
+
+		window.history.go(delta);
 	};
 
 	const reloadCurrentPage = () => {
@@ -502,8 +561,11 @@
 		<UrlBar
 			{canGoBack}
 			{canGoForward}
+			backHistoryEntries={backHistoryEntries}
+			forwardHistoryEntries={forwardHistoryEntries}
 			onBack={navigateBack}
 			onForward={navigateForward}
+			onJumpToHistory={jumpToHistoryIndex}
 			onReload={reloadCurrentPage}
 			onHome={navigateHome}
 		/>

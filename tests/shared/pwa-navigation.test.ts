@@ -14,17 +14,22 @@ Summary of tests:
 3. It verifies that the iOS navigator.standalone flag also enables standalone mode.
 4. It verifies that matchMedia failures do not crash detection and instead fall back safely.
 5. It verifies that SvelteKit history state can be read safely for back and forward controls.
-6. It verifies that the URL bar displays a browser-like host and path string.
-7. It verifies that URL bar submissions resolve full URLs, app paths, and simple hostnames.
-8. It verifies that same-origin addresses produce SvelteKit goto targets while external ones stay full URLs.
+6. It verifies that session history entries stay ordered and trim abandoned forward entries.
+7. It verifies that back and forward history menus show the nearest routes first and cap at ten items.
+8. It verifies that the URL bar displays a browser-like host and path string.
+9. It verifies that URL bar submissions resolve full URLs, app paths, and simple hostnames.
+10. It verifies that same-origin addresses produce SvelteKit goto targets while external ones stay full URLs.
 */
 
 import { describe, expect, it } from 'vitest';
 import {
 	buildPwaAddressValue,
+	selectPwaHistoryMenuEntries,
 	readSvelteKitHistoryIndex,
 	resolvePwaAddressNavigationTarget,
 	resolvePwaAddressInput,
+	syncPwaHistoryEntries,
+	truncatePwaHistoryRoute,
 	shouldSyncPwaAddressValue,
 	STANDALONE_DISPLAY_MODE_QUERY,
 	SVELTEKIT_HISTORY_INDEX_KEY,
@@ -82,6 +87,116 @@ describe('pwa navigation helper', () => {
 		expect(readSvelteKitHistoryIndex({ [SVELTEKIT_HISTORY_INDEX_KEY]: 42 })).toBe(42);
 		expect(readSvelteKitHistoryIndex({ [SVELTEKIT_HISTORY_INDEX_KEY]: '42' })).toBeNull();
 		expect(readSvelteKitHistoryIndex(null)).toBeNull();
+	});
+
+	it('stores ordered session history entries and drops abandoned forward routes after new navigation', () => {
+		// this keeps the right-click history menu aligned with how browser history works after branching.
+		const initialEntries = [
+			{ index: 4, route: '/dashboard', label: '/dashboard', title: 'Dashboard' },
+			{
+				index: 5,
+				route: '/dashboard/offerings',
+				label: '/dashboard/offerings',
+				title: 'Offerings'
+			},
+			{ index: 6, route: '/dashboard/teams', label: '/dashboard/teams', title: 'Teams' }
+		];
+
+		expect(
+			syncPwaHistoryEntries({
+				entries: initialEntries,
+				currentIndex: 5,
+				url: new URL('https://playims.com/dashboard/schedule'),
+				title: 'Schedule',
+				navigationType: 'goto'
+			})
+		).toEqual([
+			{ index: 4, route: '/dashboard', label: '/dashboard', title: 'Dashboard' },
+			{ index: 5, route: '/dashboard/schedule', label: '/dashboard/schedule', title: 'Schedule' }
+		]);
+
+		// popstate should keep future entries available because the user may still jump forward again.
+		expect(
+			syncPwaHistoryEntries({
+				entries: initialEntries,
+				currentIndex: 5,
+				url: new URL('https://playims.com/dashboard/offerings?view=calendar'),
+				title: 'Offerings Calendar',
+				navigationType: 'popstate'
+			})
+		).toEqual([
+			{ index: 4, route: '/dashboard', label: '/dashboard', title: 'Dashboard' },
+			{
+				index: 5,
+				route: '/dashboard/offerings?view=calendar',
+				label: '/dashboard/offerings?view=calendar',
+				title: 'Offerings Calendar'
+			},
+			{ index: 6, route: '/dashboard/teams', label: '/dashboard/teams', title: 'Teams' }
+		]);
+	});
+
+	it('returns the nearest ten routes for back and forward history menus', () => {
+		// the menu should prioritize the next jump candidates instead of the oldest routes in the session.
+		const entries = Array.from({ length: 14 }, (_, offset) => {
+			const index = offset + 1;
+			return {
+				index,
+				route: `/page-${index}`,
+				label: `/page-${index}`,
+				title: `Page ${index}`
+			};
+		});
+
+		expect(
+			selectPwaHistoryMenuEntries({
+				entries,
+				currentIndex: 11,
+				direction: 'back'
+			})
+		).toEqual([
+			{ index: 10, route: '/page-10', label: '/page-10', title: 'Page 10' },
+			{ index: 9, route: '/page-9', label: '/page-9', title: 'Page 9' },
+			{ index: 8, route: '/page-8', label: '/page-8', title: 'Page 8' },
+			{ index: 7, route: '/page-7', label: '/page-7', title: 'Page 7' },
+			{ index: 6, route: '/page-6', label: '/page-6', title: 'Page 6' },
+			{ index: 5, route: '/page-5', label: '/page-5', title: 'Page 5' },
+			{ index: 4, route: '/page-4', label: '/page-4', title: 'Page 4' },
+			{ index: 3, route: '/page-3', label: '/page-3', title: 'Page 3' },
+			{ index: 2, route: '/page-2', label: '/page-2', title: 'Page 2' },
+			{ index: 1, route: '/page-1', label: '/page-1', title: 'Page 1' }
+		]);
+
+		expect(
+			selectPwaHistoryMenuEntries({
+				entries,
+				currentIndex: 3,
+				direction: 'forward'
+			})
+		).toEqual([
+			{ index: 4, route: '/page-4', label: '/page-4', title: 'Page 4' },
+			{ index: 5, route: '/page-5', label: '/page-5', title: 'Page 5' },
+			{ index: 6, route: '/page-6', label: '/page-6', title: 'Page 6' },
+			{ index: 7, route: '/page-7', label: '/page-7', title: 'Page 7' },
+			{ index: 8, route: '/page-8', label: '/page-8', title: 'Page 8' },
+			{ index: 9, route: '/page-9', label: '/page-9', title: 'Page 9' },
+			{ index: 10, route: '/page-10', label: '/page-10', title: 'Page 10' },
+			{ index: 11, route: '/page-11', label: '/page-11', title: 'Page 11' },
+			{ index: 12, route: '/page-12', label: '/page-12', title: 'Page 12' },
+			{ index: 13, route: '/page-13', label: '/page-13', title: 'Page 13' }
+		]);
+	});
+
+	it('truncates long route paths to the first two and last two segments', () => {
+		// this keeps the history menu compact while still showing enough of the route to recognize it.
+		expect(truncatePwaHistoryRoute('/dashboard/dev')).toBe('/dashboard/dev');
+		expect(truncatePwaHistoryRoute('/dashboard/offerings/fall-2026/leagues/open-rec/division-a')).toBe(
+			'/dashboard/offerings/.../open-rec/division-a'
+		);
+		expect(
+			truncatePwaHistoryRoute('/dashboard/offerings/fall-2026/leagues/open-rec/division-a?tab=schedule')
+		).toBe('/dashboard/offerings/.../open-rec/division-a?tab=schedule');
+		expect(truncatePwaHistoryRoute('/')).toBe('/');
 	});
 
 	it('builds a browser-like address value from the current page url', () => {
