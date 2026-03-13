@@ -15,22 +15,23 @@
 	} from '$lib/toasts';
 
 	const desktopViewportClassByPlacement: Record<ToastDesktopPlacement, string> = {
-		'top-left': 'top-4 justify-start',
-		'top-center': 'top-4 justify-center',
-		'top-right': 'top-4 justify-end',
+		'top-left': 'justify-start',
+		'top-center': 'justify-center',
+		'top-right': 'justify-end',
 		'middle-left': 'top-1/2 -translate-y-1/2 justify-start',
 		'middle-center': 'top-1/2 -translate-y-1/2 justify-center',
 		'middle-right': 'top-1/2 -translate-y-1/2 justify-end',
-		'bottom-left': 'bottom-4 justify-start',
-		'bottom-center': 'bottom-4 justify-center',
-		'bottom-right': 'bottom-4 justify-end'
+		'bottom-left': 'justify-start',
+		'bottom-center': 'justify-center',
+		'bottom-right': 'justify-end'
 	};
 	const mobileViewportClassByPlacement: Record<ToastMobilePlacement, string> = {
-		top: 'top-3 justify-center',
+		top: 'justify-center',
 		middle: 'top-1/2 -translate-y-1/2 justify-center',
-		bottom: 'bottom-3 justify-center'
+		bottom: 'justify-center'
 	};
 	const VIEWPORT_EDGE_GAP_PX = 16;
+	const MOBILE_VIEWPORT_EDGE_GAP_PX = 12;
 	const RIGHT_STACK_EXTRA_GAP_PX = 18;
 
 	let scrollbarWidth = $state(0);
@@ -57,11 +58,24 @@
 
 	function getViewportStyle(placement: ToastDesktopPlacement): string {
 		const extraRightGap = placement.endsWith('-right') ? RIGHT_STACK_EXTRA_GAP_PX : 0;
-		return `left:${VIEWPORT_EDGE_GAP_PX}px;right:${VIEWPORT_EDGE_GAP_PX + scrollbarWidth + extraRightGap}px;`;
+		const verticalOffset = placement.startsWith('top-')
+			? `top:calc(var(--pwa-top-bar-offset, 0px) + ${VIEWPORT_EDGE_GAP_PX}px);`
+			: placement.startsWith('bottom-')
+				? `bottom:${VIEWPORT_EDGE_GAP_PX}px;`
+				: '';
+
+		return `left:${VIEWPORT_EDGE_GAP_PX}px;right:${VIEWPORT_EDGE_GAP_PX + scrollbarWidth + extraRightGap}px;${verticalOffset}`;
 	}
 
-	function getMobileViewportStyle(): string {
-		return `left:${VIEWPORT_EDGE_GAP_PX}px;right:${VIEWPORT_EDGE_GAP_PX}px;`;
+	function getMobileViewportStyle(placement: ToastMobilePlacement): string {
+		const verticalOffset =
+			placement === 'top'
+				? `top:calc(var(--pwa-top-bar-offset, 0px) + ${MOBILE_VIEWPORT_EDGE_GAP_PX}px);`
+				: placement === 'bottom'
+					? `bottom:${MOBILE_VIEWPORT_EDGE_GAP_PX}px;`
+					: '';
+
+		return `left:${VIEWPORT_EDGE_GAP_PX}px;right:${VIEWPORT_EDGE_GAP_PX}px;${verticalOffset}`;
 	}
 
 	function getVisibleToasts<T extends ToastDesktopPlacement | ToastMobilePlacement>(
@@ -232,7 +246,7 @@
 		{@const visibleIds = group.visible.map((item) => item.id)}
 		<div
 			class={`pointer-events-none fixed z-[100] flex sm:hidden ${mobileViewportClassByPlacement[group.placement]}`}
-			style={getMobileViewportStyle()}
+			style={getMobileViewportStyle(group.placement)}
 			aria-live="polite"
 			aria-atomic="true"
 		>
