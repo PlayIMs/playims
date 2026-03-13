@@ -32,7 +32,7 @@
 		IconCalendar,
 		IconCopy,
 		IconCrosshair,
-		IconGripHorizontal,
+		IconDotsVertical,
 		IconHistory,
 		IconPencil,
 		IconPlus,
@@ -5286,7 +5286,7 @@
 																openEditLeagueWizard(offering, league);
 															}}
 														>
-															<IconGripHorizontal class="h-4 w-4" />
+															<IconDotsVertical class="h-4 w-4" />
 														</button>
 													</HoverTooltip>
 												</div>
