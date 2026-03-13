@@ -19,7 +19,7 @@
 	import {
 		buildPwaAddressValue,
 		readSvelteKitHistoryIndex,
-		resolvePwaAddressInput,
+		resolvePwaAddressNavigationTarget,
 		STANDALONE_DISPLAY_MODE_QUERY,
 		isStandaloneDisplayMode
 	} from '$lib/utils/pwa-navigation';
@@ -108,9 +108,16 @@
 		standalone?: boolean;
 	};
 	type NavigationKind = 'enter' | 'form' | 'goto' | 'leave' | 'link' | 'popstate' | null;
+	type PwaAddressKeydownEvent = KeyboardEvent & {
+		currentTarget: EventTarget & HTMLInputElement;
+	};
 	const PWA_HISTORY_SESSION_START_KEY = 'playims:pwa-history-session-start';
 	const PWA_HISTORY_MAX_KEY = 'playims:pwa-history-max';
 	const currentAddressValue = $derived.by(() => buildPwaAddressValue($page.url));
+	const typedAddressTarget = $derived.by(() =>
+		resolvePwaAddressNavigationTarget(addressInputValue, $page.url)
+	);
+	const canSubmitTypedAddress = $derived.by(() => typedAddressTarget !== null);
 	const pwaTopBarOffset = $derived.by(() =>
 		isStandalonePwa ? 'calc(env(safe-area-inset-top, 0px) + 2.75rem)' : '0px'
 	);
@@ -246,36 +253,38 @@
 
 	const finishAddressEditing = () => {
 		isAddressEditing = false;
-		addressInputValue = currentAddressValue;
 	};
 
-	const handleAddressSubmit = async (event: SubmitEvent) => {
-		event.preventDefault();
+	const navigateToTypedAddress = async () => {
 		if (!browser) {
 			return;
 		}
 
-		const targetUrl = resolvePwaAddressInput(addressInputValue, $page.url);
-		if (!targetUrl) {
+		const navigationTarget = resolvePwaAddressNavigationTarget(addressInputValue, $page.url);
+		if (!navigationTarget) {
+			addressInputValue = currentAddressValue;
 			finishAddressEditing();
 			return;
 		}
 
-		isAddressEditing = false;
+		finishAddressEditing();
 
-		if (targetUrl.origin === window.location.origin) {
-			const nextHref = `${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`;
-			const currentHref = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-			addressInputValue = buildPwaAddressValue(targetUrl);
-			if (nextHref === currentHref) {
-				return;
-			}
-
-			await goto(nextHref);
+		if (navigationTarget.route) {
+			await goto(navigationTarget.route);
 			return;
 		}
 
-		window.location.assign(targetUrl.href);
+		window.location.assign(navigationTarget.href);
+	};
+
+	const handleAddressKeydown = (event: PwaAddressKeydownEvent) => {
+		if (event.key !== 'Enter') {
+			return;
+		}
+
+		event.preventDefault();
+		addressInputValue = event.currentTarget.value;
+		void navigateToTypedAddress();
 	};
 
 	/** runs client-only setup after the component mounts. */
@@ -363,17 +372,10 @@
 		})();
 	});
 
-	$effect(() => {
-		if (isAddressEditing) {
-			return;
-		}
-
-		addressInputValue = currentAddressValue;
-	});
-
 	afterNavigate((navigation) => {
 		syncStandalonePwaState();
 		syncPwaHistoryState((navigation.type as NavigationKind) ?? null);
+		addressInputValue = currentAddressValue;
 	});
 </script>
 
@@ -564,7 +566,7 @@
 			class="fixed inset-x-0 top-0 z-[70] bg-primary text-primary-25 shadow-[0_1px_0_rgba(255,255,255,0.18)]"
 			style="padding-top: env(safe-area-inset-top, 0px);"
 		>
-			<form class="flex h-11 items-center gap-1 px-2" onsubmit={handleAddressSubmit}>
+			<div class="flex h-11 items-center gap-1 px-2">
 				<button
 					type="button"
 					class="flex h-8 w-8 cursor-pointer items-center justify-center text-primary-25 transition-colors duration-150 hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-45"
@@ -601,7 +603,7 @@
 				</button>
 				<div class="min-w-0 flex-1 bg-primary-600/80 px-3">
 					<input
-						type="text"
+						type="search"
 						bind:value={addressInputValue}
 						class="h-8 w-full border-0 bg-transparent p-0 text-sm text-primary-25 placeholder:text-primary-100 focus:outline-none focus:ring-0"
 						aria-label="Page address"
@@ -610,11 +612,21 @@
 						autocorrect="off"
 						spellcheck="false"
 						placeholder="Enter a URL"
+						enterkeyhint="go"
 						onfocus={beginAddressEditing}
 						onblur={finishAddressEditing}
+						onkeydown={handleAddressKeydown}
 					/>
 				</div>
-			</form>
+				<button
+					type="button"
+					class="flex h-8 cursor-pointer items-center bg-primary-600 px-3 text-xs font-bold uppercase tracking-[0.12em] text-primary-25 transition-colors duration-150 hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-45"
+					disabled={!canSubmitTypedAddress}
+					onclick={() => void navigateToTypedAddress()}
+				>
+					Go
+				</button>
+			</div>
 		</div>
 	{/if}
 	<main style="padding-top: var(--pwa-top-bar-offset, 0px);">

@@ -35,6 +35,13 @@ export function buildPwaAddressValue(url: URL): string {
 	return `${url.host}${url.pathname}${url.search}${url.hash}`;
 }
 
+export function shouldSyncPwaAddressValue(options: {
+	isEditing: boolean;
+	navigationInFlight: boolean;
+}): boolean {
+	return !options.isEditing && !options.navigationInFlight;
+}
+
 export function resolvePwaAddressInput(input: string, currentUrl: URL): URL | null {
 	const trimmed = input.trim();
 	if (!trimmed) {
@@ -73,4 +80,27 @@ export function resolvePwaAddressInput(input: string, currentUrl: URL): URL | nu
 	} catch {
 		return null;
 	}
+}
+
+export type PwaAddressNavigationTarget = {
+	href: string;
+	route: string | null;
+};
+
+export function resolvePwaAddressNavigationTarget(
+	input: string,
+	currentUrl: URL
+): PwaAddressNavigationTarget | null {
+	const targetUrl = resolvePwaAddressInput(input, currentUrl);
+	if (!targetUrl) {
+		return null;
+	}
+
+	return {
+		href: targetUrl.href,
+		route:
+			targetUrl.origin === currentUrl.origin
+				? `${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`
+				: null
+	};
 }

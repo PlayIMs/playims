@@ -16,13 +16,16 @@ Summary of tests:
 5. It verifies that SvelteKit history state can be read safely for back and forward controls.
 6. It verifies that the URL bar displays a browser-like host and path string.
 7. It verifies that URL bar submissions resolve full URLs, app paths, and simple hostnames.
+8. It verifies that same-origin addresses produce SvelteKit goto targets while external ones stay full URLs.
 */
 
 import { describe, expect, it } from 'vitest';
 import {
 	buildPwaAddressValue,
 	readSvelteKitHistoryIndex,
+	resolvePwaAddressNavigationTarget,
 	resolvePwaAddressInput,
+	shouldSyncPwaAddressValue,
 	STANDALONE_DISPLAY_MODE_QUERY,
 	SVELTEKIT_HISTORY_INDEX_KEY,
 	isStandaloneDisplayMode
@@ -90,6 +93,24 @@ describe('pwa navigation helper', () => {
 		).toBe('playims.com/dashboard/offerings?sport=flag-football#current');
 	});
 
+	it('preserves a typed address while navigation is still in flight', () => {
+		// this protects against resetting the field back to the old route before goto finishes.
+		expect(
+			shouldSyncPwaAddressValue({
+				isEditing: false,
+				navigationInFlight: true
+			})
+		).toBe(false);
+
+		// once editing has ended and navigation is done, the field should mirror the live route again.
+		expect(
+			shouldSyncPwaAddressValue({
+				isEditing: false,
+				navigationInFlight: false
+			})
+		).toBe(true);
+	});
+
 	it('resolves url bar submissions into the expected targets', () => {
 		// these cases cover same-origin routes, pasted full urls, and bare hostnames.
 		const currentUrl = new URL('https://playims.com/dashboard');
@@ -107,5 +128,23 @@ describe('pwa navigation helper', () => {
 			'https://playims.com/members'
 		);
 		expect(resolvePwaAddressInput('   ', currentUrl)).toBeNull();
+	});
+
+	it('builds goto-friendly targets for in-app addresses and full hrefs for external ones', () => {
+		// the address bar should hand internal routes to SvelteKit and leave external urls to the browser.
+		const currentUrl = new URL('https://playims.com/dashboard');
+
+		expect(resolvePwaAddressNavigationTarget('/dashboard/settings?tab=teams', currentUrl)).toEqual({
+			href: 'https://playims.com/dashboard/settings?tab=teams',
+			route: '/dashboard/settings?tab=teams'
+		});
+		expect(resolvePwaAddressNavigationTarget('playims.com/members#captains', currentUrl)).toEqual({
+			href: 'https://playims.com/members#captains',
+			route: '/members#captains'
+		});
+		expect(resolvePwaAddressNavigationTarget('https://example.com/docs', currentUrl)).toEqual({
+			href: 'https://example.com/docs',
+			route: null
+		});
 	});
 });
