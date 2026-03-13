@@ -36,6 +36,7 @@
 	// serialize theme payloads for a blocking script in svelte:head
 	let initialThemeJson = $derived(JSON.stringify(initialTheme ?? theme.DEFAULT_THEME));
 	let zincPaletteJson = $derived(JSON.stringify(theme.ZINC_PALETTE));
+	let themeStorageKeyJson = $derived(JSON.stringify(theme.CURRENT_THEME_STORAGE_KEY));
 	let isStandalonePwa = $state(false);
 	let pwaHistorySessionStart = $state<number | null>(null);
 	let pwaHistoryCurrentIndex = $state<number | null>(null);
@@ -61,6 +62,7 @@
 		return `:root{${toCssVars('primary', primary)}${toCssVars('secondary', secondary)}${toCssVars('neutral', neutral)}}`;
 	};
 	let initialThemeVarsCss = $derived(buildThemeVarsCss(initialTheme));
+	let initialThemeColor = $derived(theme.buildThemeColorHex(initialTheme));
 
 	/** applies the select arrow action to themed select elements. */
 	const applySelectArrowToAll = () => {
@@ -323,16 +325,17 @@
 		} else if (legacyStandaloneMediaQuery.addListener) {
 			legacyStandaloneMediaQuery.addListener(handleStandaloneModeChange);
 		}
+
 		window.addEventListener('pageshow', handleStandaloneModeChange);
 
 		return () => {
-			observer.disconnect();
 			if ('removeEventListener' in standaloneMediaQuery) {
 				standaloneMediaQuery.removeEventListener('change', handleStandaloneModeChange);
 			} else if (legacyStandaloneMediaQuery.removeListener) {
 				legacyStandaloneMediaQuery.removeListener(handleStandaloneModeChange);
 			}
 			window.removeEventListener('pageshow', handleStandaloneModeChange);
+			observer.disconnect();
 		};
 	};
 
@@ -393,6 +396,7 @@
 </script>
 
 <svelte:head>
+	<meta name="theme-color" content={initialThemeColor} />
 	<!-- critical: keep server-side theme vars in head so first visible frame is themed -->
 	<style id="initial-theme-vars">
 {initialThemeVarsCss}
@@ -551,9 +555,40 @@
 
 			let safeTheme = defaultTheme;
 			let safeZinc = defaultZinc;
+			const themeStorageKey = {themeStorageKeyJson};
 
 			const themeElement = document.getElementById('initial-theme-data');
 			const zincElement = document.getElementById('zinc-palette-data');
+			const themeEtagMeta = document.querySelector('meta[name="theme-etag"]');
+
+			const readStoredTheme = () => {
+				try {
+					const stored = window.sessionStorage.getItem(themeStorageKey);
+					if (!stored) {
+						return null;
+					}
+
+					const parsed = JSON.parse(stored);
+					const normalizeHex = (value) =>
+						typeof value === 'string' ? value.replace('#', '').toUpperCase() : '';
+					const hexPattern = /^[0-9A-F]{6}$/;
+					const primary = normalizeHex(parsed?.primary);
+					const secondary = normalizeHex(parsed?.secondary);
+					const neutral = normalizeHex(parsed?.neutral);
+
+					if (!hexPattern.test(primary) || !hexPattern.test(secondary)) {
+						return null;
+					}
+
+					if (neutral !== '' && !hexPattern.test(neutral)) {
+						return null;
+					}
+
+					return { primary, secondary, neutral };
+				} catch {
+					return null;
+				}
+			};
 
 			try {
 				if (themeElement?.textContent) {
@@ -566,6 +601,11 @@
 					safeZinc = JSON.parse(zincElement.textContent);
 				}
 			} catch {}
+
+			const storedTheme = readStoredTheme();
+			if (themeEtagMeta?.getAttribute('content') === 'W/"theme-empty"' && storedTheme) {
+				safeTheme = storedTheme;
+			}
 
 			buildInlineThemeScript(safeTheme, safeZinc);
 		})();

@@ -70,6 +70,8 @@ type Rgb = {
 
 const MAX_SAVED_THEMES = 15;
 const API_BASE = '/api/themes';
+export const CURRENT_THEME_STORAGE_KEY = 'playims:current-theme';
+const HEX_COLOR_PATTERN = /^[0-9A-F]{6}$/;
 let currentThemeETag: string | null = null;
 const THEME_API_PROTECTED_PREFIXES = ['/dashboard', '/schedule', '/colors'];
 let themeStoreSubscriptionInitialized = false;
@@ -86,6 +88,57 @@ const normalizeHex = (hex: string) => hex.replace('#', '').toUpperCase();
 export function formatHex(hex: string): string {
 	const cleanHex = normalizeHex(hex);
 	return `#${cleanHex}`;
+}
+
+/** returns the browser chrome color that should match the active primary theme color. */
+export function buildThemeColorHex(colors: Pick<ThemeColors, 'primary'> | null | undefined): string {
+	return formatHex(colors?.primary || DEFAULT_THEME.primary);
+}
+
+/** serializes theme colors so the active theme can survive a same-window refresh. */
+export function serializeThemeColors(colors: ThemeColors): string {
+	return JSON.stringify({
+		primary: normalizeHex(colors.primary),
+		secondary: normalizeHex(colors.secondary),
+		neutral: colors.neutral ? normalizeHex(colors.neutral) : ''
+	});
+}
+
+/** parses a stored theme payload and ignores malformed values instead of throwing. */
+export function parseStoredThemeColors(value: string | null | undefined): ThemeColors | null {
+	if (!value) {
+		return null;
+	}
+
+	try {
+		const parsed = JSON.parse(value) as {
+			primary?: unknown;
+			secondary?: unknown;
+			neutral?: unknown;
+		};
+		const primary =
+			typeof parsed.primary === 'string' ? normalizeHex(parsed.primary) : '';
+		const secondary =
+			typeof parsed.secondary === 'string' ? normalizeHex(parsed.secondary) : '';
+		const neutral =
+			typeof parsed.neutral === 'string' ? normalizeHex(parsed.neutral) : '';
+
+		if (!HEX_COLOR_PATTERN.test(primary) || !HEX_COLOR_PATTERN.test(secondary)) {
+			return null;
+		}
+
+		if (neutral !== '' && !HEX_COLOR_PATTERN.test(neutral)) {
+			return null;
+		}
+
+		return {
+			primary,
+			secondary,
+			neutral
+		};
+	} catch {
+		return null;
+	}
 }
 
 /** converts hex to rgb. */
@@ -297,8 +350,20 @@ export function validateNeutral(neutralHex: string): { isValid: boolean; warning
 	};
 }
 
+function persistThemeColorsToSession(colors: ThemeColors) {
+	if (typeof window === 'undefined') {
+		return;
+	}
+
+	try {
+		window.sessionStorage.setItem(CURRENT_THEME_STORAGE_KEY, serializeThemeColors(colors));
+	} catch {
+		// ignore storage failures; the theme can still apply for the current document
+	}
+}
+
 /** applies the theme to css variables on the document root. */
-function applyThemeToDOM(colors: ThemeColors) {
+function applyThemeToDOM(colors: ThemeColors, options?: { persist?: boolean }) {
 	const root = document.documentElement;
 
 	// generate and apply palettes for primary and secondary
@@ -330,9 +395,7 @@ function applyThemeToDOM(colors: ThemeColors) {
 	}
 
 	// sync theme-color meta tag with primary-500
-	const primaryPalette = generatePalette(colors.primary);
-	const primary500Hex = primaryPalette['500'];
-	const primary500WithHash = primary500Hex.startsWith('#') ? primary500Hex : `#${primary500Hex}`;
+	const primary500WithHash = buildThemeColorHex(colors);
 	let themeColorMeta = document.querySelector('meta[name="theme-color"]');
 	if (!themeColorMeta) {
 		themeColorMeta = document.createElement('meta');
@@ -340,6 +403,10 @@ function applyThemeToDOM(colors: ThemeColors) {
 		document.head.appendChild(themeColorMeta);
 	}
 	themeColorMeta.setAttribute('content', primary500WithHash);
+
+	if (options?.persist !== false) {
+		persistThemeColorsToSession(colors);
+	}
 }
 
 /** marks the ui as safe to show after theme variables are applied. */
@@ -667,15 +734,17 @@ export async function init(
 	}
 
 	const fallbackTheme = initialTheme ?? DEFAULT_THEME;
+	const canUseThemeApi = canUseThemeApiFromCurrentPath();
+	const shouldFetchCurrent = options?.fetchCurrent ?? !initialTheme;
 	// keep the store in sync with the first paint
 	themeColors.set(fallbackTheme);
-	applyThemeToDOM(fallbackTheme);
+	applyThemeToDOM(fallbackTheme, {
+		persist: !canUseThemeApi || !shouldFetchCurrent
+	});
 	// clear saved themes immediately so stale org data is not shown during a client switch
 	savedThemes.set([]);
 
 	try {
-		const canUseThemeApi = canUseThemeApiFromCurrentPath();
-
 		if (canUseThemeApi) {
 			// load saved themes without blocking initial paint
 			void loadSavedThemesFromDatabase()
@@ -689,7 +758,6 @@ export async function init(
 			savedThemes.set([]);
 		}
 
-		const shouldFetchCurrent = options?.fetchCurrent ?? !initialTheme;
 		if (canUseThemeApi && shouldFetchCurrent) {
 			const currentResult = await loadCurrentThemeFromDatabase();
 			const currentTheme = currentResult.notModified ? null : currentResult.theme;
@@ -700,14 +768,14 @@ export async function init(
 	} catch (error) {
 		console.warn('Failed to initialize themes from database:', error);
 		themeColors.set(fallbackTheme);
-		applyThemeToDOM(fallbackTheme);
+		applyThemeToDOM(fallbackTheme, { persist: false });
 	}
 
 	// keep css variables in sync with store changes
 	if (!themeStoreSubscriptionInitialized) {
 		themeStoreSubscriptionInitialized = true;
 		themeColors.subscribe((colors) => {
-			applyThemeToDOM(colors);
+			applyThemeToDOM(colors, { persist: false });
 		});
 	}
 
