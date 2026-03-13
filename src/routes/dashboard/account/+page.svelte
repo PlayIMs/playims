@@ -38,7 +38,12 @@
 	import { onDestroy, onMount, tick } from 'svelte';
 	import CreateOrganizationWizard from './_wizards/CreateOrganizationWizard.svelte';
 	import ManageOrganizationWizard from './_wizards/ManageOrganizationWizard.svelte';
-	import { WizardStepFooter, applyLiveSlugInput, slugifyFinal } from '$lib/components/wizard';
+	import {
+		WizardStepFooter,
+		applyLiveSlugInput,
+		createWizardDirtyState,
+		slugifyFinal
+	} from '$lib/components/wizard';
 	import { toast } from '$lib/toasts';
 
 	type ActiveSessionData = {
@@ -502,10 +507,11 @@
 		return [...sortedCurrent, ...sortedNonCurrent];
 	});
 
+	const createOrganizationDirtyState = createWizardDirtyState<CreateOrganizationForm>({
+		snapshot: normalizeOrganizationForm
+	});
 	let createOrganizationDirty = $derived.by(
-		() =>
-			JSON.stringify(normalizeOrganizationForm(createOrganizationForm)) !==
-			JSON.stringify(normalizeOrganizationForm(createOrganizationInitialForm))
+		() => createOrganizationDirtyState.isDirty(createOrganizationForm)
 	);
 	let createOrganizationStepTitle = $derived(
 		CREATE_ORGANIZATION_STEP_TITLES[createOrganizationStep]
@@ -548,7 +554,6 @@
 			};
 		})
 	);
-
 	function setOrganizationSwitchingState(isSwitching: boolean): void {
 		organizationSwitchSubmitting = isSwitching;
 		if (typeof window === 'undefined') {
@@ -777,10 +782,12 @@
 		createOrganizationFieldErrors = {};
 		createOrganizationForm = createEmptyOrganizationForm();
 		createOrganizationInitialForm = cloneOrganizationForm(createOrganizationForm);
+		createOrganizationDirtyState.clearBaseline();
 	}
 
 	function openCreateOrganizationWizard() {
 		resetCreateOrganizationWizard();
+		createOrganizationDirtyState.captureBaseline(createOrganizationForm);
 		createOrganizationOpen = true;
 	}
 

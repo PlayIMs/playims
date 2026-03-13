@@ -18,7 +18,7 @@
 	import { toast } from '$lib/toasts';
 	import { parseDateTooltipValue } from '$lib/utils/date-tooltip.js';
 	import { compareByDayOfWeekAndTime } from '$lib/utils/schedule-sort.js';
-	import { slugifyFinal } from '$lib/components/wizard';
+	import { createWizardDirtyState, slugifyFinal } from '$lib/components/wizard';
 	import {
 		inferDivisionNameDetails
 	} from '$lib/utils/division-schedule-inference.js';
@@ -972,6 +972,10 @@
 	let moveTeamFormError = $state('');
 	let removeModalTeam = $state<{ id: string; name: string } | null>(null);
 	let removingTeamId = $state<string | null>(null);
+	const createDivisionDirtyState = createWizardDirtyState<DivisionWizardForm>();
+	const editDivisionDirtyState = createWizardDirtyState<DivisionWizardForm>();
+	const createTeamDirtyState = createWizardDirtyState<TeamWizardForm>();
+	const moveTeamDirtyState = createWizardDirtyState<MoveTeamWizardForm>();
 
 	function clearCreateDivisionApiErrors(): void {
 		createDivisionFormError = '';
@@ -1004,6 +1008,7 @@
 		createDivisionServerFieldErrors = {};
 		createDivisionFormError = '';
 		createDivisionUnsavedConfirmOpen = false;
+		createDivisionDirtyState.clearBaseline();
 	}
 
 	function handleCreateDivisionNameInput(value: string): void {
@@ -1045,6 +1050,7 @@
 		editDivisionServerFieldErrors = {};
 		editDivisionFormError = '';
 		editDivisionUnsavedConfirmOpen = false;
+		editDivisionDirtyState.clearBaseline();
 	}
 
 	function resetCreateTeamWizard(
@@ -1061,10 +1067,12 @@
 		createTeamServerFieldErrors = {};
 		createTeamFormError = '';
 		createTeamUnsavedConfirmOpen = false;
+		createTeamDirtyState.clearBaseline();
 	}
 
 	function openCreateDivisionWizard(): void {
 		resetCreateDivisionWizard();
+		createDivisionDirtyState.captureBaseline(createDivisionForm);
 		createDivisionOpen = true;
 	}
 
@@ -1074,6 +1082,7 @@
 			name: division.name
 		};
 		resetEditDivisionWizard(division);
+		editDivisionDirtyState.captureBaseline(editDivisionForm);
 		editDivisionOpen = true;
 	}
 
@@ -1082,6 +1091,7 @@
 		placement: PlacementValue = 'active'
 	): void {
 		resetCreateTeamWizard(divisionId, placement);
+		createTeamDirtyState.captureBaseline(createTeamForm);
 		createTeamOpen = true;
 	}
 
@@ -1130,11 +1140,13 @@
 		moveTeamForm = { ...moveTeamInitialForm };
 		moveTeamFormError = '';
 		moveTeamUnsavedConfirmOpen = false;
+		moveTeamDirtyState.clearBaseline();
 	}
 
 	function openMoveTeamWizard(team: TeamActionContext): void {
 		moveTeamContext = team;
 		resetMoveTeamWizard(team);
+		moveTeamDirtyState.captureBaseline(moveTeamForm);
 	}
 
 	function closeMoveTeamWizard(): void {
@@ -1143,19 +1155,19 @@
 	}
 
 	function hasUnsavedCreateDivisionChanges(): boolean {
-		return JSON.stringify(createDivisionForm) !== JSON.stringify(createDivisionInitialForm);
+		return createDivisionDirtyState.isDirty(createDivisionForm);
 	}
 
 	function hasUnsavedEditDivisionChanges(): boolean {
-		return JSON.stringify(editDivisionForm) !== JSON.stringify(editDivisionInitialForm);
+		return editDivisionDirtyState.isDirty(editDivisionForm);
 	}
 
 	function hasUnsavedCreateTeamChanges(): boolean {
-		return JSON.stringify(createTeamForm) !== JSON.stringify(createTeamInitialForm);
+		return createTeamDirtyState.isDirty(createTeamForm);
 	}
 
 	function hasUnsavedMoveTeamChanges(): boolean {
-		return JSON.stringify(moveTeamForm) !== JSON.stringify(moveTeamInitialForm);
+		return moveTeamDirtyState.isDirty(moveTeamForm);
 	}
 
 	function hasUnsavedLeagueWizardChanges(): boolean {

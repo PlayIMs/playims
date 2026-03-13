@@ -8,6 +8,7 @@
 		moveCollectionItemByOffset,
 		removeCollectionItem,
 		applyLiveSlugInput,
+		createWizardDirtyState,
 		isRequiredFieldMessage,
 		pickFieldErrors,
 		slugifyFinal,
@@ -366,6 +367,14 @@
 	let createSeasonEndDateInput = $state<HTMLInputElement | null>(null);
 	let lastPageErrorToast = $state('');
 	let lastSuccessToast = $state('');
+	const createOfferingWizardDirtyState = createWizardDirtyState<WizardFormState>();
+	const createLeagueWizardDirtyState = createWizardDirtyState<LeagueWizardFormState>();
+	const createSeasonWizardDirtyState = createWizardDirtyState<{
+		form: WizardSeasonInput;
+		copy: WizardSeasonCopyInput;
+		replaceExistingCurrent: boolean;
+		deactivateExistingCurrent: boolean;
+	}>();
 
 	function padTwo(value: number): string {
 		return String(value).padStart(2, '0');
@@ -943,6 +952,7 @@
 		leagueDraftActive = false;
 		serverFieldErrors = {};
 		createForm = createEmptyCreateForm();
+		createOfferingWizardDirtyState.clearBaseline();
 	}
 
 	function resetCreateSeasonWizard(): void {
@@ -965,6 +975,7 @@
 		createSeasonDeactivateExistingCurrent = false;
 		createSeasonForm = { ...baseForm };
 		createSeasonInitialForm = { ...baseForm };
+		createSeasonWizardDirtyState.clearBaseline();
 	}
 
 	function resetCreateLeagueWizard(): void {
@@ -981,6 +992,7 @@
 		createLeagueCopiedFromExisting = false;
 		createLeagueServerFieldErrors = {};
 		createLeagueForm = createEmptyCreateLeagueForm();
+		createLeagueWizardDirtyState.clearBaseline();
 	}
 
 	function openCreateSeasonWizardWithCopy(copyFromSeasonId?: string): void {
@@ -999,6 +1011,12 @@
 			createSeasonCopy = { ...duplicateCopyDefaults };
 			createSeasonInitialCopy = { ...duplicateCopyDefaults };
 		}
+		createSeasonWizardDirtyState.captureBaseline({
+			form: createSeasonForm,
+			copy: createSeasonCopy,
+			replaceExistingCurrent: createSeasonReplaceExistingCurrent,
+			deactivateExistingCurrent: createSeasonDeactivateExistingCurrent
+		});
 		isCreateSeasonModalOpen = true;
 	}
 
@@ -1017,6 +1035,7 @@
 		createForm.offering.type = createWizardDefaultOfferingType();
 		createForm.offering.seasonId = selectedSeasonId;
 		createForm.league.seasonId = selectedSeasonId;
+		createOfferingWizardDirtyState.captureBaseline(createForm);
 		isCreateModalOpen = true;
 	}
 
@@ -1027,6 +1046,7 @@
 		createLeagueOfferingFilter =
 			offeringView === 'tournaments' ? 'tournament' : offeringView === 'leagues' ? 'league' : 'all';
 		createLeagueForm.league.seasonId = selectedSeasonId;
+		createLeagueWizardDirtyState.captureBaseline(createLeagueForm);
 		isCreateLeagueModalOpen = true;
 	}
 
@@ -1039,6 +1059,7 @@
 		createLeagueOfferingFilter = selectedOffering.type === 'tournament' ? 'tournament' : 'league';
 		createLeagueForm.offeringId = selectedOffering.id;
 		createLeagueForm.league.seasonId = selectedOffering.seasonId || selectedSeasonId;
+		createLeagueWizardDirtyState.captureBaseline(createLeagueForm);
 		isCreateLeagueModalOpen = true;
 		return true;
 	}
@@ -1097,6 +1118,7 @@
 		editingLeagueId = template.id;
 		editingLeagueOfferingSlug = offering.offeringSlug;
 		createLeagueStep = 2;
+		createLeagueWizardDirtyState.captureBaseline(createLeagueForm);
 		isCreateLeagueModalOpen = true;
 	}
 
@@ -1142,79 +1164,21 @@
 		return offeringView === 'tournaments' ? 'tournament' : 'league';
 	}
 
-	function hasOfferingDraftData(values: WizardOfferingInput): boolean {
-		return (
-			(values.seasonId.trim().length > 0 && values.seasonId !== selectedSeasonId) ||
-			values.name.trim().length > 0 ||
-			values.slug.trim().length > 0 ||
-			values.imageUrl.trim().length > 0 ||
-			values.minPlayers > 0 ||
-			values.maxPlayers > 0 ||
-			values.rulebookUrl.trim().length > 0 ||
-			values.sport.trim().length > 0 ||
-			values.type !== createWizardDefaultOfferingType() ||
-			values.description.trim().length > 0 ||
-			!values.isActive
-		);
-	}
-
-	function hasLeagueDraftData(values: WizardLeagueInput): boolean {
-		return (
-			values.name.trim().length > 0 ||
-			values.slug.trim().length > 0 ||
-			values.description.trim().length > 0 ||
-			values.seasonId.trim().length > 0 ||
-			values.gender.length > 0 ||
-			values.skillLevel.length > 0 ||
-			values.regStartDate.trim().length > 0 ||
-			values.regEndDate.trim().length > 0 ||
-			values.seasonStartDate.trim().length > 0 ||
-			values.seasonEndDate.trim().length > 0 ||
-			values.hasPreseason ||
-			values.preseasonStartDate.trim().length > 0 ||
-			values.preseasonEndDate.trim().length > 0 ||
-			values.hasPostseason ||
-			values.postseasonStartDate.trim().length > 0 ||
-			values.postseasonEndDate.trim().length > 0 ||
-			!values.isActive ||
-			values.isLocked ||
-			values.imageUrl.trim().length > 0
-		);
-	}
-
 	function hasUnsavedCreateWizardChanges(): boolean {
-		return (
-			hasOfferingDraftData(createForm.offering) ||
-			leagueDraftActive ||
-			(leagueDraftActive && hasLeagueDraftData(createForm.league)) ||
-			createForm.leagues.length > 0
-		);
+		return createOfferingWizardDirtyState.isDirty(createForm);
 	}
 
 	function hasUnsavedCreateLeagueWizardChanges(): boolean {
-		return (
-			createLeagueForm.offeringId.trim().length > 0 ||
-			createLeagueDraftActive ||
-			(createLeagueDraftActive && hasLeagueDraftData(createLeagueForm.league)) ||
-			createLeagueForm.leagues.length > 0
-		);
+		return createLeagueWizardDirtyState.isDirty(createLeagueForm);
 	}
 
 	function hasUnsavedCreateSeasonWizardChanges(): boolean {
-		return (
-			createSeasonForm.name.trim() !== createSeasonInitialForm.name.trim() ||
-			slugifyFinal(createSeasonForm.slug) !== slugifyFinal(createSeasonInitialForm.slug) ||
-			createSeasonForm.startDate.trim() !== createSeasonInitialForm.startDate.trim() ||
-			createSeasonForm.endDate.trim() !== createSeasonInitialForm.endDate.trim() ||
-			createSeasonForm.isCurrent !== createSeasonInitialForm.isCurrent ||
-			createSeasonForm.isActive !== createSeasonInitialForm.isActive ||
-			createSeasonCopy.enabled !== createSeasonInitialCopy.enabled ||
-			createSeasonCopy.sourceSeasonId !== createSeasonInitialCopy.sourceSeasonId ||
-			createSeasonCopy.scope !== createSeasonInitialCopy.scope ||
-			createSeasonCopy.includeDivisions !== createSeasonInitialCopy.includeDivisions ||
-			(createSeasonForm.isCurrent &&
-				(createSeasonReplaceExistingCurrent !== true || createSeasonDeactivateExistingCurrent))
-		);
+		return createSeasonWizardDirtyState.isDirty({
+			form: createSeasonForm,
+			copy: createSeasonCopy,
+			replaceExistingCurrent: createSeasonReplaceExistingCurrent,
+			deactivateExistingCurrent: createSeasonDeactivateExistingCurrent
+		});
 	}
 
 	function requestCloseCreateWizard(): void {

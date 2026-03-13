@@ -8,6 +8,7 @@
 	import {
 		adjustEditingIndexOnReorder,
 		applyLiveSlugInput,
+		createWizardDirtyState,
 		isRequiredFieldMessage,
 		moveCollectionItemByOffset,
 		pickFieldErrors,
@@ -220,6 +221,7 @@
 	let archiveFacilityForm = $state<HTMLFormElement | null>(null);
 	let deleteFacilityForm = $state<HTMLFormElement | null>(null);
 	let archiveAreaFormId = $state<string | null>(null);
+	const createFacilityDirtyState = createWizardDirtyState<FacilityWizardForm>();
 
 	function autofocus(node: HTMLElement) {
 		if (node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement) node.focus();
@@ -261,10 +263,12 @@
 		areaDraftActive = false;
 		areaEditingIndex = null;
 		createFacilityForm = createEmptyFacilityWizardForm();
+		createFacilityDirtyState.clearBaseline();
 	}
 
 	function openCreateFacility() {
 		resetCreateFacilityWizard();
+		createFacilityDirtyState.captureBaseline(createFacilityForm);
 		isCreateFacilityOpen = true;
 	}
 
@@ -274,42 +278,8 @@
 		resetCreateFacilityWizard();
 	}
 
-	function hasFacilityDraftData(): boolean {
-		const values = createFacilityForm.facility;
-		return (
-			values.name.trim().length > 0 ||
-			values.slug.trim().length > 0 ||
-			values.description.trim().length > 0 ||
-			values.addressLine1.trim().length > 0 ||
-			values.addressLine2.trim().length > 0 ||
-			values.city.trim().length > 0 ||
-			values.state.trim().length > 0 ||
-			values.postalCode.trim().length > 0 ||
-			values.country.trim().length > 0 ||
-			values.timezone.trim().length > 0 ||
-			!values.isActive ||
-			values.capacity > 0
-		);
-	}
-
-	function hasAreaDraftData(): boolean {
-		const values = createFacilityForm.areaDraft;
-		return (
-			values.name.trim().length > 0 ||
-			values.slug.trim().length > 0 ||
-			values.description.trim().length > 0 ||
-			!values.isActive ||
-			values.capacity > 0
-		);
-	}
-
 	function hasUnsavedCreateFacilityChanges(): boolean {
-		return (
-			hasFacilityDraftData() ||
-			createFacilityForm.areas.length > 0 ||
-			areaDraftActive ||
-			(areaDraftActive && hasAreaDraftData())
-		);
+		return createFacilityDirtyState.isDirty(createFacilityForm);
 	}
 
 	function requestCloseCreateFacilityWizard(): void {

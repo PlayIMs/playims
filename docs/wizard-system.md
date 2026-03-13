@@ -29,6 +29,7 @@ Use shared wizard primitives for consistent modal behavior, step framing, and dr
 ## Shared Utilities
 
 - `slug-utils.ts`: `slugifyFinal`, `slugifyLiveWithCursor`, `applyLiveSlugInput`.
+- `wizard-dirty-state.ts`: capture an open-time baseline and compare against real data changes for unsaved-close prompts.
 - `wizard-field-errors.ts`: `pickFieldErrors`, `toServerFieldErrorMap`, `isRequiredFieldMessage`.
 - `create-draft-collection-controller.ts`: reusable draft list operations.
 
@@ -39,6 +40,7 @@ Use shared wizard primitives for consistent modal behavior, step framing, and dr
 3. Use `WizardModal` + `WizardStepFooter` for shell consistency.
 4. Use `WizardDraftCollection` for add/edit/copy/reorder/remove list steps.
 5. Use `WizardUnsavedConfirm` for unsaved-close behavior.
+6. Capture wizard dirty baselines after any open-time prefill/defaulting so unchanged seeded data does not trigger an unsaved confirmation.
 
 ## Step Layout Rule
 

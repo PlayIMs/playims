@@ -6,4 +6,5 @@ export { default as WizardDraftCollection } from './WizardDraftCollection.svelte
 export * from './create-draft-collection-controller.js';
 export * from './slug-utils.js';
 export * from './types.js';
+export * from './wizard-dirty-state.js';
 export * from './wizard-field-errors.js';

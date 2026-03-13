@@ -6,6 +6,7 @@
 		adjustEditingIndexOnReorder,
 		applyLiveSlugInput,
 		duplicateCollectionItem,
+		createWizardDirtyState,
 		isRequiredFieldMessage,
 		moveCollectionItemByOffset,
 		pickFieldErrors,
@@ -236,6 +237,8 @@
 		},
 		leagues: []
 	});
+	const createDivisionDirtyState = createWizardDirtyState<DivisionWizardForm>();
+	const createLeagueDirtyState = createWizardDirtyState<LeagueWizardFormState>();
 
 	function normalizeAuthRole(
 		value: string | null | undefined
@@ -429,6 +432,7 @@
 		createLeagueSlugTouched = false;
 		createLeagueServerFieldErrors = {};
 		createLeagueForm = createEmptyCreateLeagueForm();
+		createLeagueDirtyState.clearBaseline();
 	}
 
 	function resetCreateDivisionWizard(): void {
@@ -441,16 +445,18 @@
 		createDivisionServerFieldErrors = {};
 		createDivisionFormError = '';
 		createDivisionUnsavedConfirmOpen = false;
+		createDivisionDirtyState.clearBaseline();
 	}
 
 	function hasUnsavedCreateDivisionChanges(): boolean {
-		return JSON.stringify(createDivisionForm) !== JSON.stringify(createDivisionInitialForm);
+		return createDivisionDirtyState.isDirty(createDivisionForm);
 	}
 
 	function openCreateDivisionWizard(targetLeague: OfferingLeagueRow | null): void {
 		if (!canManageOffering || !targetLeague) return;
 		resetCreateDivisionWizard();
 		createDivisionLeague = targetLeague;
+		createDivisionDirtyState.captureBaseline(createDivisionForm);
 		createDivisionOpen = true;
 	}
 
@@ -469,35 +475,8 @@
 		createDivisionUnsavedConfirmOpen = true;
 	}
 
-	function hasLeagueDraftData(values: WizardLeagueInput): boolean {
-		return (
-			values.name.trim().length > 0 ||
-			values.slug.trim().length > 0 ||
-			values.description.trim().length > 0 ||
-			values.gender.length > 0 ||
-			values.skillLevel.length > 0 ||
-			values.regStartDate.trim().length > 0 ||
-			values.regEndDate.trim().length > 0 ||
-			values.seasonStartDate.trim().length > 0 ||
-			values.seasonEndDate.trim().length > 0 ||
-			values.hasPreseason ||
-			values.preseasonStartDate.trim().length > 0 ||
-			values.preseasonEndDate.trim().length > 0 ||
-			values.hasPostseason ||
-			values.postseasonStartDate.trim().length > 0 ||
-			values.postseasonEndDate.trim().length > 0 ||
-			!values.isActive ||
-			values.isLocked ||
-			values.imageUrl.trim().length > 0
-		);
-	}
-
 	function hasUnsavedCreateLeagueWizardChanges(): boolean {
-		return (
-			createLeagueDraftActive ||
-			(createLeagueDraftActive && hasLeagueDraftData(createLeagueForm.league)) ||
-			createLeagueForm.leagues.length > 0
-		);
+		return createLeagueDirtyState.isDirty(createLeagueForm);
 	}
 
 	function openCreateLeagueWizard(): void {
@@ -505,6 +484,7 @@
 		resetCreateLeagueWizard();
 		createLeagueForm.offeringId = data.offering.id;
 		createLeagueForm.league.seasonId = data.season?.id ?? '';
+		createLeagueDirtyState.captureBaseline(createLeagueForm);
 		isCreateLeagueModalOpen = true;
 	}
 
