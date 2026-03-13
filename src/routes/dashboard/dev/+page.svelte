@@ -1,7 +1,3 @@
-<svelte:head>
-	<title>Developer Tools | PlayIMs</title>
-</svelte:head>
-
 <script lang="ts">
 	import {
 		IconCode,
@@ -11,6 +7,7 @@
 		IconDatabase,
 		IconRocket
 	} from '@tabler/icons-svelte';
+	import PageTitle from '$lib/components/PageTitle.svelte';
 	import OrganizationAdminPanel from './_components/OrganizationAdminPanel.svelte';
 
 	type OrganizationMembership = {
@@ -85,6 +82,8 @@
 		}
 	];
 </script>
+
+<PageTitle pageTitle="Developer Tools" />
 
 <div class="space-y-6 p-4">
 	<OrganizationAdminPanel organizations={data.organizations ?? []} {form} />

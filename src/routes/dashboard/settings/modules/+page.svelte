@@ -2,6 +2,7 @@
 	import { applyAction, enhance } from '$app/forms';
 	import type { ActionResult } from '@sveltejs/kit';
 	import { tick } from 'svelte';
+	import PageTitle from '$lib/components/PageTitle.svelte';
 	import {
 		IconAlertTriangle,
 	IconBallAmericanFootball,
@@ -373,8 +374,9 @@
 	const isRowDirty = (tabKey: DashboardNavKey): boolean => labels[tabKey] !== initialLabels[tabKey];
 </script>
 
+<PageTitle pageTitle={`${labels.settings}: Modules`} />
+
 <svelte:head>
-	<title>{labels.settings}: Modules - PlayIMs</title>
 	<meta
 		name="description"
 		content="Configure organization-level modules by renaming and reordering sidebar tabs."

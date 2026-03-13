@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
+	import PageTitle from '$lib/components/PageTitle.svelte';
 	import {
 		themeColors,
 		updateColor,
@@ -546,8 +547,9 @@
 	}
 </script>
 
+<PageTitle pageTitle="Color Theme Editor" />
+
 <svelte:head>
-	<title>Color Theme Editor - PlayIMs</title>
 	<meta name="description" content="Customize your color theme with dynamic HEX color generation" />
 </svelte:head>
 

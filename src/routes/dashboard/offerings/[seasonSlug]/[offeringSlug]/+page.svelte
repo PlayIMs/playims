@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
 	import type { PageData } from './$types';
+	import PageTitle from '$lib/components/PageTitle.svelte';
 	import {
 		adjustEditingIndexOnRemove,
 		adjustEditingIndexOnReorder,
@@ -1868,8 +1869,9 @@
 	const createLeagueStepProgress = $derived.by(() => Math.round((createLeagueStep / 4) * 100));
 </script>
 
+<PageTitle pageTitle={data.offering?.name ?? 'Offering'} />
+
 <svelte:head>
-	<title>{data.offering?.name ?? 'Offering'} - PlayIMs</title>
 	<meta
 		name="description"
 		content="Offering details and all leagues available within this season offering."
@@ -2077,38 +2079,44 @@
 												{@const offeringDivision = division as OfferingDivisionRow}
 												{@const divisionStatus = divisionLockStatus(offeringDivision)}
 												{#if column.key === 'division'}
-													<div class="flex items-center gap-2">
-														<div
-															class="flex h-9 w-9 shrink-0 items-center justify-center bg-primary text-white"
-															aria-hidden="true"
+													<div class="flex items-start gap-2">
+														<a
+															href={divisionHref(league, offeringDivision)}
+															class="group inline-flex w-fit max-w-full min-w-0 items-start gap-2"
 														>
-															<HeaderIcon class="h-5 w-5" />
-														</div>
-														<div class="min-w-0">
-															<div class="flex items-center gap-1.5">
-																<a
-																	href={divisionHref(league, offeringDivision)}
-																	class="font-sans text-sm font-bold text-neutral-950 hover:underline"
-																>
-																	{offeringDivision.name}
-																</a>
-																<HoverTooltip
-																	text={divisionJoinTooltip(offeringDivision)}
-																	wrapperClass="inline-flex shrink-0"
-																>
-																	<span class="inline-flex text-neutral-950" aria-hidden="true">
-																		<divisionStatus.icon
-																			class={`h-4 w-4 ${divisionStatus.label === 'Unlocked' ? 'opacity-50' : ''}`}
-																		/>
-																	</span>
-																</HoverTooltip>
-																<span class="sr-only">{divisionStatus.label}</span>
+															<div
+																class="flex h-9 w-9 shrink-0 items-center justify-center bg-primary text-white transition-colors group-hover:bg-primary-700 group-focus-visible:bg-primary-700"
+																aria-hidden="true"
+															>
+																<HeaderIcon class="h-5 w-5" />
 															</div>
+															<div class="min-w-0">
+																<div class="flex items-center gap-1.5">
+																	<span
+																		class="font-sans text-sm font-bold text-neutral-950 group-hover:underline group-focus-visible:underline"
+																	>
+																		{offeringDivision.name}
+																	</span>
+																</div>
 															{#if offeringDivision.description}
 																<p class="mt-1 font-sans text-xs leading-snug text-neutral-700">
 																	{offeringDivision.description}
 																</p>
 															{/if}
+														</div>
+														</a>
+														<div class="pt-0.5">
+															<HoverTooltip
+																text={divisionJoinTooltip(offeringDivision)}
+																wrapperClass="inline-flex shrink-0"
+															>
+																<span class="inline-flex text-neutral-950" aria-hidden="true">
+																	<divisionStatus.icon
+																		class={`h-4 w-4 ${divisionStatus.label === 'Unlocked' ? 'opacity-50' : ''}`}
+																	/>
+																</span>
+															</HoverTooltip>
+															<span class="sr-only">{divisionStatus.label}</span>
 														</div>
 													</div>
 												{:else if column.key === 'max-teams'}

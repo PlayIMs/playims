@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { IconEye, IconEyeOff } from '@tabler/icons-svelte';
+	import PageTitle from '$lib/components/PageTitle.svelte';
 	import { toast } from '$lib/toasts';
 
 	let { data, form } = $props<{
@@ -96,9 +97,7 @@
 	});
 </script>
 
-<svelte:head>
-	<title>Register | PlayIMs</title>
-</svelte:head>
+<PageTitle pageTitle="Register" />
 
 <div class="min-h-screen bg-secondary-500 flex items-center justify-center px-4 py-10">
 	<div class="w-full max-w-md bg-white border border-neutral-200 p-6">

@@ -25,6 +25,7 @@
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
+	import PageTitle from '$lib/components/PageTitle.svelte';
 	import {
 		defaultPhoneCountryIso2ByDialCode,
 		phoneCountries,
@@ -637,8 +638,9 @@
 	});
 </script>
 
+<PageTitle pageTitle="Account" />
+
 <svelte:head>
-	<title>Account - PlayIMs</title>
 	<meta
 		name="description"
 		content="Manage your PlayIMs account profile, security settings, and account lifecycle."

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import PageTitle from '$lib/components/PageTitle.svelte';
 	import {
 		IconDeviceFloppy,
 		IconHash,
@@ -612,8 +613,9 @@
 	});
 </script>
 
+<PageTitle pageTitle="Branding Settings" />
+
 <svelte:head>
-	<title>Branding Settings - PlayIMs</title>
 	<meta
 		name="description"
 		content="Set your organization color system and manage reusable branding themes."

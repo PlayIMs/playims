@@ -9,6 +9,7 @@
 	import OfferingsTable from '$lib/components/OfferingsTable.svelte';
 	import SmallStandingsTable from '$lib/components/SmallStandingsTable.svelte';
 	import DashboardSidebarPanel from '$lib/components/dashboard/DashboardSidebarPanel.svelte';
+	import PageTitle from '$lib/components/PageTitle.svelte';
 	import SplitAddAction from '$lib/components/dashboard/SplitAddAction.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import type { HeaderHierarchySegment } from '$lib/components/navigation/header-hierarchy.js';
@@ -1830,8 +1831,9 @@
 	);
 </script>
 
+<PageTitle pageTitle={data.league?.name ?? pageLabel} />
+
 <svelte:head>
-	<title>{data.league?.name ?? pageLabel} - PlayIMs</title>
 	<meta
 		name="description"
 		content="League information, division standings, waitlist management, and team placement tools."

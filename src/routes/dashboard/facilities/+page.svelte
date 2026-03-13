@@ -3,6 +3,7 @@
 	import { enhance } from '$app/forms';
 	import { SvelteSet } from 'svelte/reactivity';
 	import ModalShell from '$lib/components/modals/ModalShell.svelte';
+	import PageTitle from '$lib/components/PageTitle.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import CreateFacilityWizard from './_wizards/CreateFacilityWizard.svelte';
 	import {
@@ -1048,8 +1049,9 @@
 	}
 </script>
 
+<PageTitle pageTitle={pageLabel} />
+
 <svelte:head>
-	<title>{pageLabel} - PlayIMs</title>
 	<meta
 		name="description"
 		content="Manage sports facilities and venue areas. Create, edit, and organize your league's locations."

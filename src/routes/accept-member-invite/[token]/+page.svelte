@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import PageTitle from '$lib/components/PageTitle.svelte';
 	import { toast } from '$lib/toasts';
 	import type { PageData } from './$types';
 
@@ -90,9 +91,7 @@
 	});
 </script>
 
-<svelte:head>
-	<title>Accept Member Invite - PlayIMs</title>
-</svelte:head>
+<PageTitle pageTitle="Accept Member Invite" organizationName={data.invite?.clientName ?? null} />
 
 <div class="min-h-screen bg-neutral p-4 lg:p-8">
 		<div class="mx-auto max-w-3xl space-y-4 border-4 border-secondary bg-neutral-400 p-4 lg:p-6">

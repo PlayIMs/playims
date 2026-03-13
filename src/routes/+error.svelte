@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import ErrorView from '$lib/components/ErrorView.svelte';
+	import PageTitle from '$lib/components/PageTitle.svelte';
 
 	let statusText = $derived($page.status === 404 ? '404' : String($page.status ?? 'Error'));
 	let titleText = $derived($page.status === 404 ? 'Page Not Found' : 'Something Went Wrong');
@@ -15,8 +16,9 @@
 	let showBackButton = $derived($page.status === 404);
 </script>
 
+<PageTitle pageTitle={$page.status === 404 ? 'Page Not Found' : 'Error'} />
+
 <svelte:head>
-	<title>{$page.status === 404 ? 'Page Not Found' : 'Error'} - PlayIMs</title>
 	<meta
 		name="description"
 		content="The page you're looking for doesn't exist. Return to PlayIMs home."

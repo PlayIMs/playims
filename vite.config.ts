@@ -15,7 +15,7 @@ export default defineConfig({
 			// Registration is handled in src/hooks.client.ts to keep dev/prod behavior explicit.
 			injectRegister: false,
 			manifest: {
-				name: 'PlayIMs - Intramural Sports League Manager',
+				name: 'PlayIMs',
 				short_name: 'PlayIMs',
 				description:
 					'Modern intramural sports league management platform with intuitive team management, automated scheduling, and real-time standings.',

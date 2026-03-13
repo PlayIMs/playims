@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { invalidateAll, replaceState } from '$app/navigation';
 	import { onDestroy, tick } from 'svelte';
+	import PageTitle from '$lib/components/PageTitle.svelte';
 	import {
 		adjustEditingIndexOnRemove,
 		adjustEditingIndexOnReorder,
@@ -4590,8 +4591,9 @@
 	}
 </script>
 
+<PageTitle pageTitle={pageLabel} />
+
 <svelte:head>
-	<title>{pageLabel} - PlayIMs</title>
 	<meta
 		name="description"
 		content="View intramural offerings by season with leagues, registration status, and deadlines."
@@ -5189,28 +5191,40 @@
 									{#snippet cell(league, column)}
 										{#if column.key === 'league'}
 											{@const OfferingIcon = offeringIconFor(offering.offeringName)}
-											<div class="flex items-center gap-2">
-												<div
-													class="w-9 h-9 bg-primary text-white flex items-center justify-center shrink-0 cursor-pointer transition-colors hover:bg-primary-700"
-													aria-hidden="true"
+											{#if selectedSeason?.slug && offering.offeringSlug && league.leagueSlug}
+												<a
+													href={`/dashboard/offerings/${selectedSeason.slug}/${offering.offeringSlug}/${league.leagueSlug}`}
+													class="group inline-flex w-fit max-w-full items-center gap-2"
 												>
-													<OfferingIcon class="w-6 h-6" />
-												</div>
-												<div class="min-w-0">
-													{#if selectedSeason?.slug && offering.offeringSlug && league.leagueSlug}
-														<a
-															href={`/dashboard/offerings/${selectedSeason.slug}/${offering.offeringSlug}/${league.leagueSlug}`}
-															class="text-sm font-bold text-neutral-950 font-sans hover:underline"
+													<div
+														class="flex h-9 w-9 shrink-0 items-center justify-center bg-primary text-white transition-colors group-hover:bg-primary-700 group-focus-visible:bg-primary-700"
+														aria-hidden="true"
+													>
+														<OfferingIcon class="h-6 w-6" />
+													</div>
+													<div class="min-w-0">
+														<span
+															class="font-sans text-sm font-bold text-neutral-950 group-hover:underline group-focus-visible:underline"
 														>
 															{league.categoryLabel}
-														</a>
-													{:else}
-														<p class="text-sm font-bold text-neutral-950 font-sans">
+														</span>
+													</div>
+												</a>
+											{:else}
+												<div class="flex items-center gap-2">
+													<div
+														class="flex h-9 w-9 shrink-0 items-center justify-center bg-primary text-white"
+														aria-hidden="true"
+													>
+														<OfferingIcon class="h-6 w-6" />
+													</div>
+													<div class="min-w-0">
+														<p class="font-sans text-sm font-bold text-neutral-950">
 															{league.categoryLabel}
 														</p>
-													{/if}
+													</div>
 												</div>
-											</div>
+											{/if}
 										{:else if column.key === 'status'}
 											<HoverTooltip
 												text={statusTooltipText(league.status, league.statusLabel)}

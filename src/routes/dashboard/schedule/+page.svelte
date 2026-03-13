@@ -10,6 +10,7 @@
 		IconLivePhoto
 	} from '@tabler/icons-svelte';
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
+	import PageTitle from '$lib/components/PageTitle.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import { toast } from '$lib/toasts';
@@ -325,8 +326,9 @@
 	});
 </script>
 
+<PageTitle pageTitle={pageLabel} />
+
 <svelte:head>
-	<title>{pageLabel} - PlayIMs</title>
 	<meta
 		name="description"
 		content="View upcoming and completed intramural events, with offering and status filters."

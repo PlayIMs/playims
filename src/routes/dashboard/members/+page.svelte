@@ -18,6 +18,7 @@
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import InfoPopover from '$lib/components/InfoPopover.svelte';
+	import PageTitle from '$lib/components/PageTitle.svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import { toast } from '$lib/toasts';
 	import type {
@@ -670,8 +671,9 @@
 	});
 </script>
 
+<PageTitle pageTitle={pageLabel} />
+
 <svelte:head>
-	<title>{pageLabel} - PlayIMs</title>
 	<meta
 		name="description"
 		content="Manage active organization members and pending member invites."

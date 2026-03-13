@@ -5,6 +5,7 @@
 	import OfferingsTable from '$lib/components/OfferingsTable.svelte';
 	import SmallStandingsTable from '$lib/components/SmallStandingsTable.svelte';
 	import DashboardSidebarPanel from '$lib/components/dashboard/DashboardSidebarPanel.svelte';
+	import PageTitle from '$lib/components/PageTitle.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import type { HeaderHierarchySegment } from '$lib/components/navigation/header-hierarchy.js';
@@ -405,8 +406,9 @@
 	]);
 </script>
 
+<PageTitle pageTitle={data.division?.name ?? 'Division'} />
+
 <svelte:head>
-	<title>{data.division?.name ?? 'Division'} - PlayIMs</title>
 	<meta
 		name="description"
 		content="Division details including teams, standings, and waitlist management."

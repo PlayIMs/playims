@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import PageTitle from '$lib/components/PageTitle.svelte';
 	import {
 		IconBell,
 		IconBuilding,
@@ -64,8 +65,9 @@
 		activePath === href || activePath.startsWith(`${href}/`);
 </script>
 
+<PageTitle pageTitle={settingsTitle} />
+
 <svelte:head>
-	<title>{settingsTitle} - PlayIMs</title>
 	<meta name="description" content="Organization settings and configuration center." />
 </svelte:head>
 

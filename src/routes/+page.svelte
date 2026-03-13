@@ -1,4 +1,6 @@
 <script lang="ts">
+	import PageTitle from '$lib/components/PageTitle.svelte';
+
 	export let data: {
 		isDevelopment: boolean;
 		environment: string;
@@ -7,9 +9,10 @@
 	};
 </script>
 
+<PageTitle pageTitle="Home" />
+
 <svelte:head>
 	<!-- Primary Meta Tags -->
-	<title>PlayIMs - Intramural Sports League Manager | Modern Sports League Software</title>
 	<meta
 		name="description"
 		content="PlayIMs is the modern intramural sports league management platform. Easy team management, automated scheduling, real-time standings, and intuitive administration tools for schools and organizations."

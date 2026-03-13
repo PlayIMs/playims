@@ -1,7 +1,3 @@
-<svelte:head>
-	<title>Toast Lab | PlayIMs</title>
-</svelte:head>
-
 <script lang="ts">
 	import {
 		IconBellRinging,
@@ -14,6 +10,7 @@
 		IconTrash,
 		IconWand
 	} from '@tabler/icons-svelte';
+	import PageTitle from '$lib/components/PageTitle.svelte';
 	import ToastItem from '$lib/components/toast/ToastItem.svelte';
 	import {
 		DEFAULT_TOAST_DESKTOP_PLACEMENT,
@@ -557,6 +554,8 @@
 		}
 	}
 </script>
+
+<PageTitle pageTitle="Toast Lab" />
 
 <div class="space-y-6">
 	<section class="border-2 border-neutral-950 bg-neutral">

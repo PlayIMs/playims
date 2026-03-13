@@ -15,6 +15,7 @@
 		IconArrowRight
 	} from '@tabler/icons-svelte';
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
+	import PageTitle from '$lib/components/PageTitle.svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import { toast } from '$lib/toasts';
 
@@ -68,8 +69,9 @@
 	);
 </script>
 
+<PageTitle pageTitle={pageLabel} />
+
 <svelte:head>
-	<title>{pageLabel} - PlayIMs</title>
 	<meta
 		name="description"
 		content="Manage your intramural sports leagues, view today's schedule, track live games, and monitor team standings."

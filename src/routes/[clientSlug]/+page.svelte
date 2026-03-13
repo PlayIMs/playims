@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PageTitle from '$lib/components/PageTitle.svelte';
 	import { toast } from '$lib/toasts';
 
 	let { data } = $props();
@@ -77,9 +78,7 @@
 	});
 </script>
 
-<svelte:head>
-	<title>{data.client.name} | PlayIMs</title>
-</svelte:head>
+<PageTitle pageTitle="Organization Access" organizationName={data.client.name} />
 
 <div class="min-h-screen bg-neutral-500">
 	<div class="max-w-3xl mx-auto px-6 py-16">
