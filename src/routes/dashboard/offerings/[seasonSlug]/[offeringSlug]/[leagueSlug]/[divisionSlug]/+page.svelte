@@ -191,6 +191,7 @@
 				href: currentOfferingHref,
 				currentValue: currentOfferingHref,
 				menuAriaLabel: 'Switch offering',
+				searchEnabled: false,
 				options: (data.offeringOptions ?? []).map((option: OfferingHierarchyOption) => ({
 					value: option.href,
 					label: option.label

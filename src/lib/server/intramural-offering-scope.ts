@@ -32,6 +32,35 @@ export const leagueMatchesSeason = (league: League, season: Season): boolean => 
 	return normalizeIntramuralText(formatLegacySeasonLabel(league)) === normalizeIntramuralText(season.name);
 };
 
+export const offeringMatchesSeason = (
+	offering: Offering,
+	season: Season,
+	leagues: League[]
+): boolean => {
+	const directSeasonId = offering.seasonId?.trim();
+	if (directSeasonId) {
+		return directSeasonId === season.id;
+	}
+
+	const offeringId = offering.id?.trim();
+	if (!offeringId) return false;
+
+	return leagues.some(
+		(league) => league.offeringId?.trim() === offeringId && leagueMatchesSeason(league, season)
+	);
+};
+
+export const resolveOfferingNavigationSeason = (
+	currentSeason: Season | null | undefined,
+	fallbackSeason: Season
+): Season => {
+	if (currentSeason?.id) {
+		return currentSeason;
+	}
+
+	return fallbackSeason;
+};
+
 export const buildLegacyLeagueSlug = (
 	leagueName: string | null | undefined,
 	offeringSlug: string | null | undefined

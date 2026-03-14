@@ -3,6 +3,8 @@ import type { League, Offering } from '$lib/database';
 import { requireAuthenticatedClientId } from '$lib/server/client-context';
 import { getTenantDbOps } from '$lib/server/database/context';
 import {
+	offeringMatchesSeason,
+	resolveOfferingNavigationSeason,
 	resolveLeagueForOffering,
 	resolveOfferingForSeason
 } from '$lib/server/intramural-offering-scope';
@@ -106,11 +108,13 @@ export const load: PageServerLoad = async (event) => {
 			throw error(404, 'League not found.');
 		}
 
-		const [allOfferings, allLeagues, divisions] = await Promise.all([
+		const [allOfferings, allLeagues, divisions, currentSeason] = await Promise.all([
 			dbOps.offerings.getByClientId(clientId),
 			dbOps.leagues.getByClientId(clientId),
-			dbOps.divisions.getByLeagueId(league.id)
+			dbOps.divisions.getByLeagueId(league.id),
+			dbOps.seasons.getCurrentByClientId(clientId)
 		]);
+		const navigationSeason = resolveOfferingNavigationSeason(currentSeason, season);
 		const division =
 			divisions.find(
 				(candidate) =>
@@ -222,22 +226,12 @@ export const load: PageServerLoad = async (event) => {
 				description: team.description?.trim() || null
 			}))
 			.sort((a, b) => a.name.localeCompare(b.name));
-		const resolveOfferingInSeason = (candidate: Offering): boolean => {
-			const directSeasonId = candidate.seasonId?.trim();
-			if (directSeasonId === season.id) return true;
-			if (!candidate.id) return false;
-			return allLeagues.some(
-				(candidateLeague) =>
-					candidateLeague.offeringId === candidate.id &&
-					(candidateLeague.seasonId?.trim() === season.id || candidateLeague.season?.trim() === season.name?.trim())
-			);
-		};
 		const offeringOptions = allOfferings
 			.filter((candidate): candidate is Offering & { id: string } => Boolean(candidate.id))
-			.filter(resolveOfferingInSeason)
+			.filter((candidate) => offeringMatchesSeason(candidate, navigationSeason, allLeagues))
 			.map<NavigationOption>((candidate) => ({
 				label: candidate.name?.trim() || 'Offering',
-				href: `/dashboard/offerings/${season.slug?.trim() || params.seasonSlug}/${candidate.slug?.trim() || candidate.id}`
+				href: `/dashboard/offerings/${navigationSeason.slug?.trim() || params.seasonSlug}/${candidate.slug?.trim() || candidate.id}`
 			}))
 			.sort((a, b) => a.label.localeCompare(b.label));
 		const leagueOptions = allLeagues
