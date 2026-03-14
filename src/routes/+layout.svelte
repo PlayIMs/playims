@@ -8,6 +8,7 @@
 	import '../app.css';
 	import Toaster from '$lib/components/toast/Toaster.svelte';
 	import UrlBar from '$lib/components/UrlBar.svelte';
+	import MegaSearchPalette from '$lib/components/MegaSearchPalette.svelte';
 	import * as theme from '$lib/theme';
 	import { forceRadioTabStop, selectArrow, skipDatePickerTabStop } from '$lib/actions';
 	import {
@@ -181,7 +182,9 @@
 		let sessionStart = parseStoredHistoryIndex(
 			window.sessionStorage.getItem(PWA_HISTORY_SESSION_START_KEY)
 		);
-		let maxHistoryIndex = parseStoredHistoryIndex(window.sessionStorage.getItem(PWA_HISTORY_MAX_KEY));
+		let maxHistoryIndex = parseStoredHistoryIndex(
+			window.sessionStorage.getItem(PWA_HISTORY_MAX_KEY)
+		);
 		let historyEntries = parseStoredPwaHistoryEntries(
 			window.sessionStorage.getItem(PWA_HISTORY_ENTRIES_KEY)
 		);
@@ -555,7 +558,7 @@
 
 			let safeTheme = defaultTheme;
 			let safeZinc = defaultZinc;
-			const themeStorageKey = {themeStorageKeyJson};
+			const themeStorageKey = { themeStorageKeyJson };
 
 			const themeElement = document.getElementById('initial-theme-data');
 			const zincElement = document.getElementById('zinc-palette-data');
@@ -618,8 +621,8 @@
 		<UrlBar
 			{canGoBack}
 			{canGoForward}
-			backHistoryEntries={backHistoryEntries}
-			forwardHistoryEntries={forwardHistoryEntries}
+			{backHistoryEntries}
+			{forwardHistoryEntries}
 			onBack={navigateBack}
 			onForward={navigateForward}
 			onJumpToHistory={jumpToHistoryIndex}
@@ -630,5 +633,8 @@
 	<main style="padding-top: var(--pwa-top-bar-offset, 0px);">
 		{@render children()}
 	</main>
+	{#if activeClientId}
+		<MegaSearchPalette />
+	{/if}
 	<Toaster />
 </div>

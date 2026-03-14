@@ -24,6 +24,7 @@ import { ClientDatabaseRouteOperations } from './client-database-routes.js';
 import { ClientNavigationLabelOperations } from './client-navigation-labels.js';
 import { SignupInviteKeyOperations } from './signup-invite-keys.js';
 import { AuthRateLimitOperations } from './auth-rate-limits.js';
+import { SearchRecentOperations } from './search-recents.js';
 
 /**
  * Unified database operations class
@@ -51,6 +52,7 @@ export class DatabaseOperations {
 	public clientNavigationLabels: ClientNavigationLabelOperations;
 	public signupInviteKeys: SignupInviteKeyOperations;
 	public authRateLimits: AuthRateLimitOperations;
+	public searchRecents: SearchRecentOperations;
 
 	constructor(platformOrDb: { env: { DB: D1Database } } | D1Database) {
 		let db: D1Database;
@@ -96,6 +98,7 @@ export class DatabaseOperations {
 		this.clientNavigationLabels = new ClientNavigationLabelOperations(drizzleDb);
 		this.signupInviteKeys = new SignupInviteKeyOperations(drizzleDb);
 		this.authRateLimits = new AuthRateLimitOperations(drizzleDb);
+		this.searchRecents = new SearchRecentOperations(drizzleDb);
 	}
 }
 
@@ -121,3 +124,4 @@ export { ClientDatabaseRouteOperations } from './client-database-routes.js';
 export { ClientNavigationLabelOperations } from './client-navigation-labels.js';
 export { SignupInviteKeyOperations } from './signup-invite-keys.js';
 export { AuthRateLimitOperations } from './auth-rate-limits.js';
+export { SearchRecentOperations } from './search-recents.js';

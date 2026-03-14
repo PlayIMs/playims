@@ -183,6 +183,13 @@
       "when": 1773014559983,
       "tag": "0025_unusual_groot",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1773448043334,
+      "tag": "0026_woozy_nightshade",
+      "breakpoints": true
     }
   ]
 }

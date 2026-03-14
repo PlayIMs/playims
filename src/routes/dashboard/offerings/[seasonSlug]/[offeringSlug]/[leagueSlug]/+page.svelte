@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { beforeNavigate, goto, invalidateAll } from '$app/navigation';
+	import { tick } from 'svelte';
 	import type { PageData } from './$types';
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
@@ -973,6 +974,8 @@
 	let moveTeamFormError = $state('');
 	let removeModalTeam = $state<{ id: string; name: string } | null>(null);
 	let removingTeamId = $state<string | null>(null);
+	let highlightedTeamId = $state<string | null>(null);
+	let handledDeepLinkedTeamId = $state<string | null>(null);
 	const createDivisionDirtyState = createWizardDirtyState<DivisionWizardForm>();
 	const editDivisionDirtyState = createWizardDirtyState<DivisionWizardForm>();
 	const createTeamDirtyState = createWizardDirtyState<TeamWizardForm>();
@@ -998,6 +1001,34 @@
 			createTeamServerFieldErrors = {};
 		}
 	}
+
+	function teamRowId(teamId: string): string {
+		return `league-team-${teamId}`;
+	}
+
+	function teamRowClass(teamId: string): string {
+		const classes: string[] = [];
+		if (canManageLeague) {
+			classes.push('group');
+		}
+		if (highlightedTeamId === teamId) {
+			classes.push('bg-primary-50');
+		}
+		return classes.join(' ');
+	}
+
+	$effect(() => {
+		const deepLinkedTeamId = data.teamId?.trim() ?? '';
+		if (!deepLinkedTeamId || handledDeepLinkedTeamId === deepLinkedTeamId) return;
+		handledDeepLinkedTeamId = deepLinkedTeamId;
+		highlightedTeamId = deepLinkedTeamId;
+		void tick().then(() => {
+			document.getElementById(teamRowId(deepLinkedTeamId))?.scrollIntoView({
+				block: 'center',
+				behavior: 'smooth'
+			});
+		});
+	});
 
 	function resetCreateDivisionWizard(): void {
 		createDivisionInitialForm = defaultDivisionForm();
@@ -2038,6 +2069,8 @@
 											columns={divisionTableColumns}
 											rows={division.teams}
 											caption={`${division.name} teams table`}
+											rowId={(team) => teamRowId((team as ActiveTeamRow).id)}
+											rowClass={(team) => teamRowClass((team as ActiveTeamRow).id)}
 										>
 											{#snippet emptyBody()}
 												<tr class="bg-neutral-25">
@@ -2161,7 +2194,8 @@
 										columns={waitlistTableColumns}
 										rows={visibleWaitlistTeams}
 										caption="League waitlist table"
-										rowClass={() => (canManageLeague ? 'group' : '')}
+										rowId={(team) => teamRowId((team as WaitlistTeamRow).id)}
+										rowClass={(team) => teamRowClass((team as WaitlistTeamRow).id)}
 									>
 										{#snippet emptyBody()}
 											<tr class="bg-neutral-25">

@@ -2,10 +2,12 @@ import { requireAuthenticatedClientId } from '$lib/server/client-context';
 import { getCentralDbOps } from '$lib/server/database/context';
 import { memberListQuerySchema } from '$lib/server/members/validation';
 import { isAdminLikeRole, normalizeRole } from '$lib/server/auth/rbac';
+import { readMemberSearchSelection } from '$lib/search/page-state.js';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async (event) => {
 	const { platform, locals, url } = event;
+	const { memberId } = readMemberSearchSelection(url);
 	const parsedQuery = memberListQuerySchema.parse({
 		q: url.searchParams.get('q'),
 		sex: url.searchParams.get('sex'),
@@ -36,6 +38,7 @@ export const load: PageServerLoad = async (event) => {
 				canManageRoles: false,
 				canRemoveMembers: false
 			},
+			memberId,
 			error: 'Database is unavailable.'
 		};
 	}
@@ -92,6 +95,7 @@ export const load: PageServerLoad = async (event) => {
 			canAddMembers: canAdministerMembers,
 			canManageRoles: canAdministerMembers,
 			canRemoveMembers: canAdministerMembers
-		}
+		},
+		memberId
 	};
 };

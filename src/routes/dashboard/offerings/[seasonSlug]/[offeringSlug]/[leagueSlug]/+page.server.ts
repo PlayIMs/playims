@@ -7,6 +7,7 @@ import {
 	resolveLeagueForOffering,
 	resolveOfferingForSeason
 } from '$lib/server/intramural-offering-scope';
+import { readLeagueSearchSelection } from '$lib/search/page-state.js';
 import type { PageServerLoad } from './$types';
 
 type TeamPlacement = 'active' | 'waitlist';
@@ -116,6 +117,7 @@ const formatUserDisplayName = (user: {
 
 export const load: PageServerLoad = async (event) => {
 	const { platform, locals, params } = event;
+	const { teamId } = readLeagueSearchSelection(event.url);
 	if (!platform?.env?.DB) {
 		return {
 			league: null,
@@ -131,6 +133,7 @@ export const load: PageServerLoad = async (event) => {
 				waitlistCount: 0,
 				lockedDivisionCount: 0
 			},
+			teamId,
 			error: 'Database not configured'
 		};
 	}
@@ -399,7 +402,8 @@ export const load: PageServerLoad = async (event) => {
 				activeTeamCount: divisionsData.reduce((sum, division) => sum + division.teamCount, 0),
 				waitlistCount: waitlistTeams.length,
 				lockedDivisionCount: divisionsData.filter((division) => division.isLocked).length
-			}
+			},
+			teamId
 		};
 	} catch (err) {
 		if ((err as { status?: number })?.status === 404) {
@@ -421,6 +425,7 @@ export const load: PageServerLoad = async (event) => {
 				waitlistCount: 0,
 				lockedDivisionCount: 0
 			},
+			teamId,
 			error: 'Unable to load league details right now.'
 		};
 	}

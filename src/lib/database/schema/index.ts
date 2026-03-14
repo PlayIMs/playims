@@ -25,3 +25,4 @@ export * from './user-clients';
 export * from './member-invites';
 export * from './signup-invite-keys';
 export * from './auth-rate-limits';
+export * from './search-recents';

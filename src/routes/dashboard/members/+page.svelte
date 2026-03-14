@@ -130,6 +130,7 @@
 	const cache = new Map<string, { expiresAt: number; payload: MemberListResponse['data'] }>();
 	const detailCache = new Map<string, MemberDetail>();
 	let lastPageFeedbackToast = $state('');
+	let handledDeepLinkedMemberId = $state<string | null>(null);
 
 	const activeSearch = $derived.by(() => searchQuery.trim());
 	const totalPages = $derived.by(() => Math.max(1, Math.ceil(totalCount / pageSize)));
@@ -651,6 +652,20 @@
 	});
 
 	$effect(() => {
+		const deepLinkedMemberId = data.memberId?.trim() ?? '';
+		if (!deepLinkedMemberId || handledDeepLinkedMemberId === deepLinkedMemberId) {
+			return;
+		}
+
+		handledDeepLinkedMemberId = deepLinkedMemberId;
+		selectedMemberId = deepLinkedMemberId;
+		void loadMember(deepLinkedMemberId).then((detail) => {
+			if (!detail) return;
+			viewOpen = true;
+		});
+	});
+
+	$effect(() => {
 		if (typeof window === 'undefined') return;
 		syncUrl();
 		if (searchTimer) clearTimeout(searchTimer);
@@ -906,7 +921,11 @@
 									</tr>
 								{:else}
 									{#each members as row (row.membershipId)}
-										<tr class="border-b border-secondary-200 text-sm text-neutral-950">
+										<tr
+											class={`border-b border-secondary-200 text-sm text-neutral-950 ${
+												row.membershipId === selectedMemberId ? 'bg-primary-50' : ''
+											}`}
+										>
 											<td class="px-3 py-3">{row.studentId ?? '--'}</td>
 											<td class="px-3 py-3">{row.firstName ?? '--'}</td>
 											<td class="px-3 py-3 font-semibold">{row.lastName ?? '--'}</td>
@@ -949,7 +968,11 @@
 							</div>
 						{:else}
 							{#each members as row (row.membershipId)}
-								<div class="overflow-hidden border-2 border-neutral-950 bg-white">
+								<div
+									class={`overflow-hidden border-2 border-neutral-950 ${
+										row.membershipId === selectedMemberId ? 'bg-primary-50' : 'bg-white'
+									}`}
+								>
 									<div
 										class="flex items-start justify-between gap-3 border-b border-secondary-200 bg-neutral-100 px-4 py-3"
 									>

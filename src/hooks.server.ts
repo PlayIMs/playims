@@ -73,6 +73,8 @@ const API_ROUTE_POLICIES: ApiRoutePolicy[] = [
 		pattern: /^\/api\/address-suggest$/,
 		policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES }
 	},
+	{ pattern: /^\/api\/search$/, policy: { access: 'public' } },
+	{ pattern: /^\/api\/search\/recent$/, policy: { access: 'authenticated' } },
 	{ pattern: /^\/api\/themes$/, policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES } },
 	{
 		pattern: /^\/api\/themes\/current$/,
@@ -162,6 +164,11 @@ const MEMBERS_RATE_LIMIT: RateLimitConfig = {
 	maxRequests: 90
 };
 
+const SEARCH_RATE_LIMIT: RateLimitConfig = {
+	windowMs: 60_000,
+	maxRequests: 120
+};
+
 const RATE_LIMIT_ACCOUNT_PATHS = new Set([
 	'/api/auth/login',
 	'/api/auth/register',
@@ -201,6 +208,10 @@ const resolveRateLimitConfig = (pathname: string): RateLimitConfig | null => {
 
 	if (pathname === '/api/address-suggest') {
 		return ADDRESS_SUGGEST_RATE_LIMIT;
+	}
+
+	if (pathname === '/api/search' || pathname === '/api/search/recent') {
+		return SEARCH_RATE_LIMIT;
 	}
 
 	if (pathname === '/api/themes' || pathname.startsWith('/api/themes/')) {

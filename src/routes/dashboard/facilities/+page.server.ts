@@ -6,6 +6,7 @@ import {
 } from '$lib/server/client-context';
 import { canManageWrites } from '$lib/server/auth/permissions';
 import { getTenantDbOps } from '$lib/server/database/context';
+import { readFacilitySearchSelection } from '$lib/search/page-state.js';
 
 function asTrimmedString(value: FormDataEntryValue | null): string | null {
 	if (typeof value !== 'string') return null;
@@ -124,7 +125,7 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
 	// Secured server-side query (no client-side DB access).
 	const dbOps = await getTenantDbOps({ locals, platform }, clientId);
 
-	const facilityId = url.searchParams.get('facilityId');
+	const { facilityId, areaId } = readFacilitySearchSelection(url);
 
 	const facilities = clientId ? await dbOps.facilities.getAll(clientId) : [];
 	const facilityAreas = clientId ? await dbOps.facilityAreas.getAll(clientId) : [];
@@ -132,6 +133,7 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
 	return {
 		clientId,
 		facilityId,
+		areaId,
 		facilities,
 		facilityAreas
 	};

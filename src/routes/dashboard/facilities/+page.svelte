@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { PageProps } from './$types';
 	import { enhance } from '$app/forms';
+	import { tick } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import ModalShell from '$lib/components/modals/ModalShell.svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
@@ -141,6 +142,8 @@
 	let facilityAreasData = $state<FacilityAreaRecord[]>([]);
 	let lastFacilityFeedbackToast = $state('');
 	let lastFacilitySuccessToast = $state('');
+	let highlightedAreaId = $state<string | null>(null);
+	let handledDeepLinkedAreaId = $state<string | null>(null);
 
 	function createAreaDraftId(): string {
 		return generateUuidV4();
@@ -729,6 +732,21 @@
 	});
 
 	$effect(() => {
+		const deepLinkedAreaId = data.areaId?.trim() ?? '';
+		if (!deepLinkedAreaId || handledDeepLinkedAreaId === deepLinkedAreaId) return;
+		handledDeepLinkedAreaId = deepLinkedAreaId;
+		highlightedAreaId = deepLinkedAreaId;
+		if (data.facilityId) {
+			expandedFacilityIds.add(data.facilityId);
+		}
+		void tick().then(() => {
+			document
+				.getElementById(`facility-area-${deepLinkedAreaId}`)
+				?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+		});
+	});
+
+	$effect(() => {
 		if (typeof window === 'undefined') return;
 		if (!isCreateFacilityOpen || !hasUnsavedCreateFacilityChanges()) return;
 
@@ -1187,7 +1205,12 @@
 						{@const activeAreaCount = getActiveAreaCount(facility.id)}
 						{@const isArchived = facility.isActive === 0}
 						{@const isPartiallyArchived = !isArchived && viewArchiveMode}
-						<div class="bg-neutral-400 border-2 border-secondary">
+						<div
+							id={`facility-${facility.id}`}
+							class={`bg-neutral-400 border-2 border-secondary ${
+								data.facilityId === facility.id && !data.areaId ? 'ring-2 ring-primary-500' : ''
+							}`}
+						>
 							<!-- Facility Header -->
 							<div class="p-4 {isExpanded ? 'border-b border-secondary' : ''}">
 								{#if isEditing}
@@ -1569,7 +1592,16 @@
 												{@const isEditingArea = editingAreaId === area.id}
 												{@const isAreaArchived = area.isActive === 0}
 												{@const isMatchedArea = matchedAreaIds.has(area.id)}
-												<li class="p-3 {isMatchedArea ? 'bg-secondary-50' : ''}">
+												<li
+													id={`facility-area-${area.id}`}
+													class={`p-3 ${
+														highlightedAreaId === area.id
+															? 'bg-primary-50 ring-1 ring-primary-500'
+															: isMatchedArea
+																? 'bg-secondary-50'
+																: ''
+													}`}
+												>
 													{#if isEditingArea}
 														<!-- Inline Area Edit Form -->
 														<form

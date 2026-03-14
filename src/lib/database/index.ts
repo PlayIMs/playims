@@ -56,7 +56,9 @@ export type {
 	SignupInviteKey,
 	NewSignupInviteKey,
 	AuthRateLimit,
-	NewAuthRateLimit
+	NewAuthRateLimit,
+	SearchRecent,
+	NewSearchRecent
 } from './schema/index.js';
 
 /**
