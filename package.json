@@ -6,6 +6,7 @@
 	"packageManager": "pnpm@10.32.1",
 	"scripts": {
 		"dev": "vite dev --open",
+		"dev:portless": "portless playims vite dev",
 		"catch-up": "node scripts/catch-up.mjs",
 		"updates": "ncu --interactive --format group",
 		"db:migrate:local": "wrangler d1 migrations apply playims-central-db-dev --local",

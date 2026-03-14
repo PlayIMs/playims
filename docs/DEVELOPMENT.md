@@ -10,6 +10,13 @@ Before you begin, ensure you have the following installed:
   ```bash
   npm install -g pnpm
   ```
+- **Portless**: Named local domains for development. Install it globally:
+  ```bash
+  npm install -g portless
+  ```
+  Official Portless docs currently list support for **macOS and Linux only**. If you develop on
+  native Windows, keep using `pnpm dev`. If you want Portless on a Windows machine, run the
+  project inside **WSL2** and use `pnpm dev:portless` there.
 - **Wrangler**: Cloudflare CLI. Install it globally:
   ```bash
   npm install -g wrangler
@@ -74,11 +81,38 @@ pnpm dev
 
 This will:
 
-- Start the Vite development server
-- Automatically open your browser to the local development URL
+- Start the Vite development server directly
+- Open the normal local Vite URL in your browser
 - Use your local D1 database (created in step 2)
 
-_Note: This runs `vite dev`. To test with Cloudflare platform features closer to production, use `pnpm build && wrangler pages dev .svelte-kit/cloudflare`._
+If you are on macOS, Linux, or WSL2 and want the Portless hostname instead, first install Portless
+globally and run this one-time HTTPS setup:
+
+```bash
+npm install -g portless
+portless proxy start --https
+```
+
+Then start the app with:
+
+```bash
+pnpm dev:portless
+```
+
+That gives you:
+
+- `http://playims.localhost:1355`, or
+- `https://playims.localhost` after the HTTPS setup above
+
+If you are on native Windows, do not use Portless directly. Use:
+
+```bash
+pnpm dev
+```
+
+_Note: `pnpm dev:portless` follows the official Portless SvelteKit/Vite setup. To test with
+Cloudflare platform features closer to production, use
+`pnpm build && wrangler pages dev .svelte-kit/cloudflare`._
 
 ## Getting Started (After Initial Setup)
 
@@ -88,7 +122,17 @@ Once you've completed the first-time setup, you can simply run:
 pnpm dev
 ```
 
-to start developing. The local database will persist between sessions, so you only need to run `pnpm db:migrate:local` again when new migrations are added to the project.
+to start developing on the standard local Vite server. The local database will persist between
+sessions, so you only need to run `pnpm db:migrate:local` again when new migrations are added to
+the project.
+
+If you are using a supported Portless environment such as macOS, Linux, or WSL2, run:
+
+```bash
+pnpm dev:portless
+```
+
+to use the `playims.localhost` hostname instead.
 
 ## Testing And Verification
 
