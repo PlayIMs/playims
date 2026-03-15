@@ -44,6 +44,7 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 	import type { Snippet } from 'svelte';
+	import { clampModalTranslate } from './modal-drag.js';
 
 	interface Props {
 		open?: boolean;
@@ -76,6 +77,7 @@
 	let pointerDownStartedInside = $state(false);
 	let hasBodyScrollLock = $state(false);
 	let backdropElement = $state<HTMLDivElement | null>(null);
+	let topClearanceProbeElement = $state<HTMLDivElement | null>(null);
 	let panelElement = $state<HTMLDivElement | null>(null);
 	let panelTranslateX = $state(0);
 	let panelTranslateY = $state(0);
@@ -156,45 +158,47 @@
 		return window.matchMedia('(min-width: 1024px)').matches ? 24 : 16;
 	}
 
+	function parsePixelValue(value: string | null | undefined): number {
+		if (!value) {
+			return 0;
+		}
+
+		const parsed = Number.parseFloat(value);
+		return Number.isFinite(parsed) ? parsed : 0;
+	}
+
 	function clampTranslate(nextX: number, nextY: number): { x: number; y: number } {
 		if (!panelElement) {
 			return { x: nextX, y: nextY };
 		}
 
 		const rect = panelElement.getBoundingClientRect();
-		const padding = viewportPaddingPx();
-		const backdropRect = backdropElement?.getBoundingClientRect();
-		const minLeft = (backdropRect?.left ?? 0) + padding;
-		const maxRight = (backdropRect?.right ?? window.innerWidth) - padding;
-		const minTop = (backdropRect?.top ?? 0) + padding;
-		const maxBottom = (backdropRect?.bottom ?? window.innerHeight) - padding;
-
-		let deltaX = nextX - panelTranslateX;
-		let deltaY = nextY - panelTranslateY;
-		let projectedLeft = rect.left + deltaX;
-		let projectedRight = rect.right + deltaX;
-		let projectedTop = rect.top + deltaY;
-		let projectedBottom = rect.bottom + deltaY;
-
-		if (projectedLeft < minLeft) {
-			deltaX += minLeft - projectedLeft;
-			projectedRight = rect.right + deltaX;
-		}
-		if (projectedRight > maxRight) {
-			deltaX -= projectedRight - maxRight;
-		}
-		if (projectedTop < minTop) {
-			deltaY += minTop - projectedTop;
-			projectedBottom = rect.bottom + deltaY;
-		}
-		if (projectedBottom > maxBottom) {
-			deltaY -= projectedBottom - maxBottom;
-		}
-
-		return {
-			x: panelTranslateX + deltaX,
-			y: panelTranslateY + deltaY
+		const backdropRect = backdropElement?.getBoundingClientRect() ?? {
+			left: 0,
+			right: window.innerWidth,
+			top: 0,
+			bottom: window.innerHeight
 		};
+		const backdropStyles =
+			backdropElement ? window.getComputedStyle(backdropElement) : null;
+		const padding = viewportPaddingPx();
+		const topClearance = Math.max(0, topClearanceProbeElement?.getBoundingClientRect().top ?? 0);
+
+		return clampModalTranslate({
+			nextX,
+			nextY,
+			currentX: panelTranslateX,
+			currentY: panelTranslateY,
+			panelRect: rect,
+			boundsRect: backdropRect,
+			insets: {
+				top: parsePixelValue(backdropStyles?.paddingTop) || padding,
+				right: parsePixelValue(backdropStyles?.paddingRight) || padding,
+				bottom: parsePixelValue(backdropStyles?.paddingBottom) || padding,
+				left: parsePixelValue(backdropStyles?.paddingLeft) || padding
+			},
+			topClearance
+		});
 	}
 
 	function isDragHandleTarget(target: EventTarget | null): boolean {
@@ -307,6 +311,12 @@
 		tabindex="0"
 		aria-label={closeAriaLabel}
 	>
+		<div
+			bind:this={topClearanceProbeElement}
+			class="pointer-events-none invisible fixed left-0 h-0 w-0"
+			style="top: calc(env(titlebar-area-height, 0px) + var(--pwa-top-bar-offset, 0px));"
+			aria-hidden="true"
+		></div>
 		<div
 			bind:this={panelElement}
 			class={panelClass}
