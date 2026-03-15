@@ -719,7 +719,7 @@
 		return {
 			name: '',
 			slug: '',
-			maxTeams: '8',
+			maxTeams: '6',
 			description: '',
 			dayOfWeek: '',
 			gameTime: '',

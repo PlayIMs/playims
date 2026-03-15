@@ -10,16 +10,18 @@ protect the shared inference utility directly so UI refactors do not break the p
 Summary of tests:
 1. It verifies that comma-separated, slash-separated, and abbreviated day patterns normalize correctly.
 2. It verifies that weekday ranges and sorted selections format into stable canonical strings.
-3. It verifies that explicit day selections win over parsed text when both are available.
+3. It verifies that inferred time ranges preserve dash semantics while slash stays discrete.
 4. It verifies that inferred times normalize correctly and carry a shared meridiem when needed.
 */
 
 import { describe, expect, it } from 'vitest';
 import {
 	formatDivisionDays,
+	formatDivisionTimes,
 	inferDivisionNameDetails,
 	inferGameTimeFromDivisionName,
-	parseDivisionDays
+	parseDivisionDays,
+	parseDivisionTimeSegments
 } from '../../src/lib/utils/division-schedule-inference';
 
 describe('division schedule inference', () => {
@@ -55,6 +57,14 @@ describe('division schedule inference', () => {
 		expect(inferGameTimeFromDivisionName('Monday, Wednesday, Tuesday 5:00 PM / 7')).toBe(
 			'5:00 PM / 7:00 PM'
 		);
+		expect(inferGameTimeFromDivisionName('Tuesday 6P-8P')).toBe('6:00 PM - 8:00 PM');
+		expect(inferGameTimeFromDivisionName('Wednesday 9A/10A')).toBe('9:00 AM / 10:00 AM');
+		expect(inferGameTimeFromDivisionName('Monday-Friday 6pm-8pm')).toBe('6:00 PM - 8:00 PM');
+		expect(inferGameTimeFromDivisionName('Tuesday 6-8 PM')).toBe('6:00 PM - 8:00 PM');
+		expect(inferDivisionNameDetails('Monday-Friday|6pm-8pm')).toEqual({
+			dayOfWeek: 'Monday-Friday',
+			gameTime: '6:00 PM - 8:00 PM'
+		});
 		expect(inferDivisionNameDetails('Monday /Tuesday')).toEqual({
 			dayOfWeek: 'Monday / Tuesday',
 			gameTime: ''
@@ -67,5 +77,38 @@ describe('division schedule inference', () => {
 			dayOfWeek: 'Monday / Wednesday / Friday',
 			gameTime: '2:00 PM'
 		});
+	});
+
+	it('preserves range versus discrete time separators in canonical display output', () => {
+		expect(parseDivisionTimeSegments('6pm-8pm')).toEqual([
+			{
+				kind: 'range',
+				values: ['6:00 PM', '8:00 PM']
+			}
+		]);
+		expect(parseDivisionTimeSegments('6P-8P')).toEqual([
+			{
+				kind: 'range',
+				values: ['6:00 PM', '8:00 PM']
+			}
+		]);
+		expect(parseDivisionTimeSegments('9A/10A')).toEqual([
+			{
+				kind: 'list',
+				values: ['9:00 AM', '10:00 AM']
+			}
+		]);
+		expect(parseDivisionTimeSegments('5:30/6:15PM')).toEqual([
+			{
+				kind: 'list',
+				values: ['5:30 PM', '6:15 PM']
+			}
+		]);
+		expect(formatDivisionTimes(parseDivisionTimeSegments('Monday-Friday 6pm-8pm'))).toBe(
+			'6:00 PM - 8:00 PM'
+		);
+		expect(formatDivisionTimes(parseDivisionTimeSegments('Tuesday 5:30/6:15PM'))).toBe(
+			'5:30 PM / 6:15 PM'
+		);
 	});
 });

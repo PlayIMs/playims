@@ -191,7 +191,7 @@
 	let createDivisionForm = $state<DivisionWizardForm>({
 		name: '',
 		slug: '',
-		maxTeams: '8',
+		maxTeams: '6',
 		description: '',
 		dayOfWeek: '',
 		gameTime: '',
@@ -202,7 +202,7 @@
 	let createDivisionInitialForm = $state<DivisionWizardForm>({
 		name: '',
 		slug: '',
-		maxTeams: '8',
+		maxTeams: '6',
 		description: '',
 		dayOfWeek: '',
 		gameTime: '',
@@ -413,7 +413,7 @@
 		return {
 			name: '',
 			slug: '',
-			maxTeams: '8',
+			maxTeams: '6',
 			description: '',
 			dayOfWeek: '',
 			gameTime: '',

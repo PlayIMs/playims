@@ -3,6 +3,11 @@ export interface DivisionNameInference {
 	gameTime: string;
 }
 
+export interface DivisionTimeSegment {
+	kind: 'single' | 'list' | 'range';
+	values: string[];
+}
+
 export interface DivisionDayOption {
 	shortLabel: string;
 	value: string;
@@ -20,7 +25,7 @@ export const DIVISION_DAY_OPTIONS: DivisionDayOption[] = [
 ];
 
 const RANGE_CONNECTOR_PATTERN = /^\s*(?:-|to|through|thru)\s*$/i;
-const TIME_SEPARATOR_PATTERN = /\s*(?:\/|,|&|and)\s*/i;
+const TIME_LIST_CONNECTOR_PATTERN = /^\s*(?:\/|,|&|and)\s*$/i;
 const DAY_INDEX_BY_VALUE = new Map(
 	DIVISION_DAY_OPTIONS.map((option, index) => [option.value, index] as const)
 );
@@ -36,9 +41,10 @@ const DAY_TOKEN_REGEX = new RegExp(
 		.join('|')})\\b`,
 	'gi'
 );
-const TIME_GROUP_REGEX =
-	/\b(?:1[0-2]|0?[1-9])(?::[0-5]\d)?(?:\s*[AaPp]\.?\s*[Mm]\.?)?(?:\s*(?:\/|,|&|and)\s*(?:1[0-2]|0?[1-9])(?::[0-5]\d)?(?:\s*[AaPp]\.?\s*[Mm]\.?)?)*\b/gi;
-const TIME_TOKEN_REGEX = /^\s*(1[0-2]|0?[1-9])(?::([0-5]\d))?\s*([AaPp])?(?:\.?\s*[Mm]\.?)?\s*$/i;
+const TIME_MATCH_REGEX =
+	/\b(?:1[0-2]|0?[1-9])(?::[0-5]\d)?(?:\s*[AaPp](?:\.?\s*[Mm]\.?)?)?\b/gi;
+const TIME_TOKEN_REGEX =
+	/^\s*(1[0-2]|0?[1-9])(?::([0-5]\d))?\s*([AaPp])?(?:\.?\s*[Mm]\.?)?\s*$/i;
 
 function escapeRegex(value: string): string {
 	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -94,14 +100,10 @@ function normalizeTimeValue(rawValue: string, fallbackMeridiem?: 'AM' | 'PM'): s
 	return `${hour}:${minutes} ${meridiem}`;
 }
 
-function parseTimeGroup(group: string): string[] {
-	const parts = group
-		.split(TIME_SEPARATOR_PATTERN)
-		.map((value) => value.trim())
-		.filter(Boolean);
-	if (parts.length === 0) return [];
+function normalizeTimeValues(values: string[]): string[] {
+	if (values.length === 0) return [];
 
-	const explicitMeridiems = parts
+	const explicitMeridiems = values
 		.map((value) => {
 			const match = TIME_TOKEN_REGEX.exec(value);
 			if (!match?.[3]) return null;
@@ -112,10 +114,98 @@ function parseTimeGroup(group: string): string[] {
 		explicitMeridiems.length === 1 ? explicitMeridiems[0] : explicitMeridiems.at(-1);
 
 	return uniqueValuesInOrder(
-		parts
+		values
 			.map((value) => normalizeTimeValue(value, fallbackMeridiem))
 			.filter((value): value is string => Boolean(value))
 	);
+}
+
+function pushTimeSegment(
+	segments: DivisionTimeSegment[],
+	kind: DivisionTimeSegment['kind'],
+	values: string[]
+): void {
+	const normalizedValues = normalizeTimeValues(values);
+	if (normalizedValues.length === 0) return;
+
+	if (kind === 'range' && normalizedValues.length >= 2) {
+		segments.push({
+			kind: 'range',
+			values: normalizedValues.slice(0, 2)
+		});
+		return;
+	}
+
+	if (normalizedValues.length === 1) {
+		segments.push({
+			kind: 'single',
+			values: normalizedValues
+		});
+		return;
+	}
+
+	segments.push({
+		kind: 'list',
+		values: normalizedValues
+	});
+}
+
+export function parseDivisionTimeSegments(value: string): DivisionTimeSegment[] {
+	const matches = Array.from(value.matchAll(TIME_MATCH_REGEX))
+		.map((match) => {
+			if (match.index === undefined) return null;
+			return {
+				value: match[0],
+				index: match.index,
+				length: match[0].length
+			};
+		})
+		.filter(
+			(match): match is { value: string; index: number; length: number } => Boolean(match)
+		);
+	if (matches.length === 0) return [];
+
+	const segments: DivisionTimeSegment[] = [];
+	let currentValues = [matches[0].value];
+	let currentKind: DivisionTimeSegment['kind'] = 'single';
+
+	for (let index = 0; index < matches.length - 1; index += 1) {
+		const currentMatch = matches[index];
+		const nextMatch = matches[index + 1];
+		const betweenText = value.slice(currentMatch.index + currentMatch.length, nextMatch.index);
+
+		if (RANGE_CONNECTOR_PATTERN.test(betweenText) && currentValues.length === 1) {
+			currentKind = 'range';
+			currentValues.push(nextMatch.value);
+			continue;
+		}
+
+		if (TIME_LIST_CONNECTOR_PATTERN.test(betweenText)) {
+			currentKind = 'list';
+			currentValues.push(nextMatch.value);
+			continue;
+		}
+
+		pushTimeSegment(segments, currentKind, currentValues);
+		currentValues = [nextMatch.value];
+		currentKind = 'single';
+	}
+
+	pushTimeSegment(segments, currentKind, currentValues);
+	return segments;
+}
+
+export function formatDivisionTimes(segments: DivisionTimeSegment[]): string {
+	return segments
+		.map((segment) => {
+			if (segment.kind === 'range' && segment.values.length >= 2) {
+				return `${segment.values[0]} - ${segment.values[1]}`;
+			}
+
+			return segment.values.join(' / ');
+		})
+		.filter(Boolean)
+		.join(' / ');
 }
 
 export function parseDivisionDays(value: string): string[] {
@@ -193,10 +283,7 @@ export function inferDayOfWeekFromDivisionName(name: string): string {
 }
 
 export function inferGameTimeFromDivisionName(name: string): string {
-	const timeValues = uniqueValuesInOrder(
-		Array.from(name.matchAll(TIME_GROUP_REGEX)).flatMap((match) => parseTimeGroup(match[0] ?? ''))
-	);
-	return timeValues.join(' / ');
+	return formatDivisionTimes(parseDivisionTimeSegments(name));
 }
 
 export function inferDivisionNameDetails(name: string): DivisionNameInference {
