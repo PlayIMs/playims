@@ -24,10 +24,20 @@
 	import { toast } from '$lib/toasts';
 	import { parseDateTooltipValue } from '$lib/utils/date-tooltip.js';
 	import { compareByDayOfWeekAndTime } from '$lib/utils/schedule-sort.js';
-	import { createWizardDirtyState, slugifyFinal } from '$lib/components/wizard';
+	import {
+		adjustEditingIndexOnRemove,
+		adjustEditingIndexOnReorder,
+		createWizardDirtyState,
+		duplicateCollectionItem,
+		moveCollectionItemByOffset,
+		removeCollectionItem,
+		slugifyFinal
+	} from '$lib/components/wizard';
+	import { generateUuidV4 } from '$lib/utils/uuid.js';
 	import {
 		inferDivisionNameDetails
 	} from '$lib/utils/division-schedule-inference.js';
+	import CreateDivisionCollectionWizard from './_wizards/CreateDivisionCollectionWizard.svelte';
 	import CreateDivisionWizard from './_wizards/CreateDivisionWizard.svelte';
 	import MoveTeamWizard from './_wizards/MoveTeamWizard.svelte';
 	import CreateTeamWizard from './_wizards/CreateTeamWizard.svelte';
@@ -96,6 +106,15 @@
 		isLocked: boolean;
 	}
 
+	interface DivisionWizardDraft extends DivisionWizardForm {
+		draftId: string;
+	}
+
+	interface CreateDivisionWizardState {
+		form: DivisionWizardForm;
+		drafts: DivisionWizardDraft[];
+	}
+
 	interface TeamWizardForm {
 		name: string;
 		slug: string;
@@ -140,6 +159,8 @@
 		divisionId: string;
 		placement: PlacementValue;
 	}
+
+	type CreateDivisionWizardStep = 1 | 2 | 3;
 
 	type ActiveTeamRow = DivisionSection['teams'][number];
 	type WaitlistTeamRow = NonNullable<PageData['waitlistTeams']>[number];
@@ -739,6 +760,72 @@
 		};
 	}
 
+	function createDivisionDraftId(): string {
+		return generateUuidV4();
+	}
+
+	function cloneCreateDivisionForm(values: DivisionWizardForm): DivisionWizardForm {
+		return {
+			name: values.name,
+			slug: values.slug,
+			maxTeams: values.maxTeams,
+			description: values.description,
+			dayOfWeek: values.dayOfWeek,
+			gameTime: values.gameTime,
+			location: values.location,
+			startDate: values.startDate,
+			isLocked: values.isLocked
+		};
+	}
+
+	function cloneCreateDivisionDraft(values: DivisionWizardDraft): DivisionWizardDraft {
+		return {
+			draftId: values.draftId,
+			...cloneCreateDivisionForm(values)
+		};
+	}
+
+	function createDivisionWizardStateSnapshot(): CreateDivisionWizardState {
+		return {
+			form: cloneCreateDivisionForm(createDivisionForm),
+			drafts: createDivisionDrafts.map((draft) => cloneCreateDivisionDraft(draft))
+		};
+	}
+
+	function sortDivisionDraftsBySchedule(drafts: DivisionWizardDraft[]): DivisionWizardDraft[] {
+		return [...drafts].sort(compareByDayOfWeekAndTime);
+	}
+
+	function applyCreateDivisionDraftOrdering(drafts: DivisionWizardDraft[]): DivisionWizardDraft[] {
+		return createDivisionManualOrder ? drafts : sortDivisionDraftsBySchedule(drafts);
+	}
+
+	function inferCreateDivisionManualFlags(values: DivisionWizardForm): void {
+		const inferred = inferDivisionNameDetails(values.name);
+		createDivisionDayOfWeekManual =
+			values.dayOfWeek.trim().length > 0 && values.dayOfWeek.trim() !== inferred.dayOfWeek.trim();
+		createDivisionGameTimeManual =
+			values.gameTime.trim().length > 0 && values.gameTime.trim() !== inferred.gameTime.trim();
+	}
+
+	function normalizeCreateDivisionDraft(
+		values: DivisionWizardForm,
+		draftId = createDivisionDraftId()
+	): DivisionWizardDraft {
+		return {
+			draftId,
+			name: values.name.trim(),
+			slug: slugifyFinal(values.slug),
+			maxTeams: values.maxTeams.trim(),
+			description: values.description.trim(),
+			dayOfWeek: values.dayOfWeek.trim(),
+			gameTime: values.gameTime.trim(),
+			location: values.location.trim(),
+			startDate: values.startDate.trim(),
+			isLocked: values.isLocked
+		};
+	}
+
 	function divisionFormFromDivision(division: DivisionSection): DivisionWizardForm {
 		return {
 			name: division.name ?? '',
@@ -941,6 +1028,7 @@
 	]);
 
 	let createDivisionOpen = $state(false);
+	let createDivisionStep = $state<CreateDivisionWizardStep>(1);
 	let createTeamOpen = $state(false);
 	let editDivisionOpen = $state(false);
 	let createDivisionUnsavedConfirmOpen = $state(false);
@@ -950,6 +1038,7 @@
 	let createTeamSubmitting = $state(false);
 	let editDivisionSubmitting = $state(false);
 	let createDivisionValidationVisible = $state(false);
+	let createDivisionCollectionValidationVisible = $state(false);
 	let createTeamValidationVisible = $state(false);
 	let editDivisionValidationVisible = $state(false);
 	let createDivisionSlugTouched = $state(false);
@@ -957,6 +1046,9 @@
 	let editDivisionSlugTouched = $state(false);
 	let createDivisionDayOfWeekManual = $state(false);
 	let createDivisionGameTimeManual = $state(false);
+	let createDivisionEditingIndex = $state<number | null>(null);
+	let createDivisionDraftActive = $state(false);
+	let createDivisionManualOrder = $state(false);
 	let createDivisionFormError = $state('');
 	let createTeamFormError = $state('');
 	let editDivisionFormError = $state('');
@@ -964,6 +1056,8 @@
 	let createTeamServerFieldErrors = $state<Record<string, string>>({});
 	let editDivisionServerFieldErrors = $state<Record<string, string>>({});
 	let createDivisionForm = $state<DivisionWizardForm>(defaultDivisionForm());
+	let createDivisionDrafts = $state<DivisionWizardDraft[]>([]);
+	let createDivisionCommittedDrafts = $state<DivisionWizardDraft[]>([]);
 	let createTeamForm = $state<TeamWizardForm>(defaultTeamForm());
 	let editDivisionForm = $state<DivisionWizardForm>(defaultDivisionForm());
 	let createDivisionInitialForm = $state<DivisionWizardForm>(defaultDivisionForm());
@@ -1004,7 +1098,7 @@
 	});
 	let highlightedTeamId = $state<string | null>(null);
 	let handledDeepLinkedTeamId = $state<string | null>(null);
-	const createDivisionDirtyState = createWizardDirtyState<DivisionWizardForm>();
+	const createDivisionDirtyState = createWizardDirtyState<CreateDivisionWizardState>();
 	const editDivisionDirtyState = createWizardDirtyState<DivisionWizardForm>();
 	const createTeamDirtyState = createWizardDirtyState<TeamWizardForm>();
 	const moveTeamDirtyState = createWizardDirtyState<MoveTeamWizardForm>();
@@ -1059,9 +1153,17 @@
 	});
 
 	function resetCreateDivisionWizard(): void {
+		createDivisionStep = 1;
+		createDivisionSubmitting = false;
 		createDivisionInitialForm = defaultDivisionForm();
 		createDivisionForm = { ...createDivisionInitialForm };
+		createDivisionDrafts = [];
+		createDivisionCommittedDrafts = [];
+		createDivisionEditingIndex = null;
+		createDivisionDraftActive = false;
+		createDivisionManualOrder = false;
 		createDivisionValidationVisible = false;
+		createDivisionCollectionValidationVisible = false;
 		createDivisionSlugTouched = false;
 		createDivisionDayOfWeekManual = false;
 		createDivisionGameTimeManual = false;
@@ -1102,6 +1204,116 @@
 		}
 	}
 
+	function startAddingCreateDivisionDraft(): void {
+		clearCreateDivisionApiErrors();
+		createDivisionEditingIndex = null;
+		createDivisionSlugTouched = false;
+		createDivisionDayOfWeekManual = false;
+		createDivisionGameTimeManual = false;
+		createDivisionValidationVisible = false;
+		createDivisionForm = defaultDivisionForm();
+		createDivisionDraftActive = true;
+		createDivisionStep = 2;
+	}
+
+	function cancelCreateDivisionDraft(): void {
+		createDivisionEditingIndex = null;
+		createDivisionSlugTouched = false;
+		createDivisionDayOfWeekManual = false;
+		createDivisionGameTimeManual = false;
+		createDivisionValidationVisible = false;
+		createDivisionDraftActive = false;
+		createDivisionForm = defaultDivisionForm();
+	}
+
+	function startEditingCreateDivision(index: number): void {
+		const sourceDraft = createDivisionDrafts[index];
+		if (!sourceDraft) return;
+		clearCreateDivisionApiErrors();
+		createDivisionEditingIndex = index;
+		createDivisionForm = cloneCreateDivisionForm(sourceDraft);
+		createDivisionSlugTouched = sourceDraft.slug.trim() !== slugifyFinal(sourceDraft.name);
+		inferCreateDivisionManualFlags(sourceDraft);
+		createDivisionValidationVisible = false;
+		createDivisionDraftActive = true;
+		createDivisionStep = 2;
+	}
+
+	function duplicateCreateDivision(index: number): void {
+		const sourceDraft = createDivisionDrafts[index];
+		if (!sourceDraft) return;
+
+		const baseName = sourceDraft.name.trim() || 'Division';
+		const baseSlug = slugifyFinal(sourceDraft.slug || sourceDraft.name || 'division');
+		let copyNumber = 1;
+		let nextName = `${baseName} Copy`;
+		let nextSlug = `${baseSlug}-copy`;
+		const existingNames = new Set([
+			...data.divisions.map((division: DivisionSection) => division.name.trim().toLowerCase()),
+			...createDivisionDrafts.map((draft) => draft.name.trim().toLowerCase()),
+			...createDivisionCommittedDrafts.map((draft) => draft.name.trim().toLowerCase())
+		]);
+		const existingSlugs = new Set([
+			...data.divisions.map((division: DivisionSection) => slugifyFinal(division.slug)),
+			...createDivisionDrafts.map((draft) => slugifyFinal(draft.slug)),
+			...createDivisionCommittedDrafts.map((draft) => slugifyFinal(draft.slug))
+		]);
+		while (existingNames.has(nextName.toLowerCase()) || existingSlugs.has(nextSlug)) {
+			copyNumber += 1;
+			nextName = `${baseName} Copy ${copyNumber}`;
+			nextSlug = `${baseSlug}-copy-${copyNumber}`;
+		}
+
+		const duplicate: DivisionWizardDraft = {
+			...cloneCreateDivisionDraft(sourceDraft),
+			draftId: createDivisionDraftId(),
+			name: nextName,
+			slug: nextSlug
+		};
+
+		createDivisionDrafts = createDivisionManualOrder
+			? duplicateCollectionItem(createDivisionDrafts, index, () => duplicate)
+			: sortDivisionDraftsBySchedule([...createDivisionDrafts, duplicate]);
+
+		if (createDivisionManualOrder && createDivisionEditingIndex !== null && createDivisionEditingIndex > index) {
+			createDivisionEditingIndex += 1;
+		}
+	}
+
+	function moveCreateDivision(index: number, direction: 'up' | 'down'): void {
+		const targetIndex = direction === 'up' ? index - 1 : index + 1;
+		if (
+			index < 0 ||
+			targetIndex < 0 ||
+			index >= createDivisionDrafts.length ||
+			targetIndex >= createDivisionDrafts.length
+		) {
+			return;
+		}
+
+		createDivisionManualOrder = true;
+		createDivisionDrafts = moveCollectionItemByOffset(
+			createDivisionDrafts,
+			index,
+			direction === 'up' ? -1 : 1
+		);
+		createDivisionEditingIndex = adjustEditingIndexOnReorder(
+			createDivisionEditingIndex,
+			index,
+			targetIndex
+		);
+	}
+
+	function removeCreateDivision(index: number): void {
+		if (!createDivisionDrafts[index]) return;
+		const wasEditingRemoved = createDivisionEditingIndex === index;
+		createDivisionDrafts = removeCollectionItem(createDivisionDrafts, index);
+		createDivisionEditingIndex = adjustEditingIndexOnRemove(createDivisionEditingIndex, index);
+		if (wasEditingRemoved) {
+			cancelCreateDivisionDraft();
+		}
+	}
+
 	function resetEditDivisionWizard(division: DivisionSection | null = null): void {
 		editDivisionInitialForm = division ? divisionFormFromDivision(division) : defaultDivisionForm();
 		editDivisionForm = { ...editDivisionInitialForm };
@@ -1132,7 +1344,7 @@
 
 	function openCreateDivisionWizard(): void {
 		resetCreateDivisionWizard();
-		createDivisionDirtyState.captureBaseline(createDivisionForm);
+		createDivisionDirtyState.captureBaseline(createDivisionWizardStateSnapshot());
 		createDivisionOpen = true;
 	}
 
@@ -1276,7 +1488,7 @@
 	}
 
 	function hasUnsavedCreateDivisionChanges(): boolean {
-		return createDivisionDirtyState.isDirty(createDivisionForm);
+		return createDivisionDirtyState.isDirty(createDivisionWizardStateSnapshot());
 	}
 
 	function hasUnsavedEditDivisionChanges(): boolean {
@@ -1338,7 +1550,11 @@
 
 	function getDivisionFieldErrors(
 		values: DivisionWizardForm,
-		options?: { excludeDivisionId?: string | null }
+		options?: {
+			excludeDivisionId?: string | null;
+			excludeDraftId?: string | null;
+			includeDrafts?: boolean;
+		}
 	): Record<string, string> {
 		const errors: Record<string, string> = {};
 		const name = values.name.trim();
@@ -1347,6 +1563,11 @@
 		const normalizedSlug = slug.toLowerCase();
 		const maxTeams = Number(values.maxTeams);
 		const excludeDivisionId = options?.excludeDivisionId ?? null;
+		const excludeDraftId = options?.excludeDraftId ?? null;
+		const includeDrafts = options?.includeDrafts ?? false;
+		const otherDrafts = includeDrafts
+			? createDivisionDrafts.filter((draft) => draft.draftId !== excludeDraftId)
+			: [];
 
 		if (!name) errors['name'] = 'Division name is required.';
 		if (!slug) errors['slug'] = 'Division slug is required.';
@@ -1377,6 +1598,34 @@
 			)
 		) {
 			errors['slug'] = 'A division with this slug already exists for this league.';
+		}
+		if (
+			includeDrafts &&
+			name &&
+			otherDrafts.some((draft) => draft.name.trim().toLowerCase() === normalizedName)
+		) {
+			errors['name'] = 'A division with this name is already in this draft list.';
+		}
+		if (
+			includeDrafts &&
+			slug &&
+			otherDrafts.some((draft) => draft.slug.trim().toLowerCase() === normalizedSlug)
+		) {
+			errors['slug'] = 'A division with this slug is already in this draft list.';
+		}
+		if (
+			includeDrafts &&
+			name &&
+			createDivisionCommittedDrafts.some((draft) => draft.name.trim().toLowerCase() === normalizedName)
+		) {
+			errors['name'] = 'A division with this name was already created in this session.';
+		}
+		if (
+			includeDrafts &&
+			slug &&
+			createDivisionCommittedDrafts.some((draft) => draft.slug.trim().toLowerCase() === normalizedSlug)
+		) {
+			errors['slug'] = 'A division with this slug was already created in this session.';
 		}
 
 		return errors;
@@ -1458,8 +1707,21 @@
 		return errors;
 	}
 
+	const createDivisionCollectionError = $derived.by(() =>
+		createDivisionCollectionValidationVisible && createDivisionDrafts.length === 0
+			? 'Add at least one division before continuing.'
+			: ''
+	);
 	const createDivisionFieldErrors = $derived.by(() => ({
-		...(createDivisionValidationVisible ? getDivisionFieldErrors(createDivisionForm) : {}),
+		...(createDivisionValidationVisible
+			? getDivisionFieldErrors(createDivisionForm, {
+					excludeDraftId:
+						createDivisionEditingIndex === null
+							? null
+							: createDivisionDrafts[createDivisionEditingIndex]?.draftId ?? null,
+					includeDrafts: true
+				})
+			: {}),
 		...createDivisionServerFieldErrors
 	}));
 	const editDivisionFieldErrors = $derived.by(() => ({
@@ -1493,7 +1755,45 @@
 
 	const moveTeamFieldErrors = $derived.by(() => getMoveTeamFieldErrors(moveTeamForm));
 
-	const canSubmitCreateDivision = $derived.by(() => !createDivisionSubmitting);
+	const createDivisionContextRows = $derived.by(() => [
+		{
+			label: 'Offering',
+			value: data.offering?.name ?? 'Offering'
+		},
+		{
+			label: 'Season',
+			value: data.season?.name ?? 'Season'
+		},
+		{
+			label: 'League',
+			value: data.league?.name ?? 'League'
+		}
+	]);
+	const canGoNextCreateDivisionStep = $derived.by(() => {
+		if (createDivisionSubmitting || createDivisionStep === 3) return false;
+		if (createDivisionStep === 1) return true;
+		if (!createDivisionDraftActive) {
+			return createDivisionDrafts.length > 0;
+		}
+		return (
+			Object.keys(
+				getDivisionFieldErrors(createDivisionForm, {
+					excludeDraftId:
+						createDivisionEditingIndex === null
+							? null
+							: createDivisionDrafts[createDivisionEditingIndex]?.draftId ?? null,
+					includeDrafts: true
+				})
+			).length === 0
+		);
+	});
+	const canSubmitCreateDivision = $derived.by(
+		() =>
+			createDivisionStep === 3 &&
+			createDivisionDrafts.length > 0 &&
+			!createDivisionDraftActive &&
+			!createDivisionSubmitting
+	);
 	const canSubmitEditDivision = $derived.by(
 		() => Boolean(editDivisionContext) && !editDivisionSubmitting && hasUnsavedEditDivisionChanges()
 	);
@@ -1508,10 +1808,91 @@
 			!moveTeamSubmitting
 	);
 
-	async function createDivision(): Promise<void> {
+	function addOrUpdateCreateDivisionDraft(): boolean {
 		createDivisionValidationVisible = true;
-		const clientErrors = getDivisionFieldErrors(createDivisionForm);
-		if (Object.keys(clientErrors).length > 0 || !data.league?.id) {
+		const editingDraftId =
+			createDivisionEditingIndex === null ? null : createDivisionDrafts[createDivisionEditingIndex]?.draftId ?? null;
+		const draftErrors = getDivisionFieldErrors(createDivisionForm, {
+			excludeDraftId: editingDraftId,
+			includeDrafts: true
+		});
+		if (Object.keys(draftErrors).length > 0) {
+			return false;
+		}
+
+		const normalizedDraft = normalizeCreateDivisionDraft(
+			createDivisionForm,
+			editingDraftId ?? createDivisionDraftId()
+		);
+		if (createDivisionEditingIndex === null) {
+			createDivisionDrafts = applyCreateDivisionDraftOrdering([
+				...createDivisionDrafts,
+				normalizedDraft
+			]);
+		} else {
+			createDivisionDrafts = applyCreateDivisionDraftOrdering(
+				createDivisionDrafts.map((draft, index) =>
+					index === createDivisionEditingIndex ? normalizedDraft : draft
+				)
+			);
+		}
+
+		createDivisionCollectionValidationVisible = false;
+		cancelCreateDivisionDraft();
+		return true;
+	}
+
+	function nextCreateDivisionStep(): void {
+		clearCreateDivisionApiErrors();
+		if (createDivisionSubmitting || createDivisionStep === 3) return;
+		if (createDivisionStep === 1) {
+			createDivisionStep = 2;
+			return;
+		}
+		if (createDivisionDraftActive) {
+			void addOrUpdateCreateDivisionDraft();
+			return;
+		}
+
+		createDivisionCollectionValidationVisible = true;
+		if (createDivisionDrafts.length === 0) return;
+		createDivisionStep = 3;
+	}
+
+	function handleCreateDivisionBackAction(): void {
+		clearCreateDivisionApiErrors();
+		if (createDivisionDraftActive && createDivisionStep === 2) {
+			cancelCreateDivisionDraft();
+			createDivisionStep = 2;
+			return;
+		}
+		if (createDivisionStep === 3) {
+			createDivisionStep = 2;
+			return;
+		}
+		if (createDivisionStep === 2) {
+			createDivisionStep = 1;
+		}
+	}
+
+	function startEditingCreateDivisionDraftsStep(): void {
+		clearCreateDivisionApiErrors();
+		createDivisionDraftActive = false;
+		createDivisionEditingIndex = null;
+		createDivisionValidationVisible = false;
+		createDivisionStep = 2;
+	}
+
+	async function submitCreateDivisionWizard(): Promise<void> {
+		if (!data.league?.id) return;
+		if (createDivisionDraftActive) {
+			createDivisionStep = 2;
+			return;
+		}
+
+		createDivisionCollectionValidationVisible = true;
+		if (createDivisionDrafts.length === 0) {
+			createDivisionStep = 2;
 			return;
 		}
 
@@ -1528,40 +1909,73 @@
 		createDivisionServerFieldErrors = {};
 
 		try {
-			const response = await fetch(apiPath, {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({
-					action: 'create-division',
-					leagueId: data.league.id,
-					division: {
-						name: createDivisionForm.name.trim(),
-						slug: createDivisionForm.slug.trim(),
-						description: createDivisionForm.description.trim() || null,
-						dayOfWeek: createDivisionForm.dayOfWeek.trim() || null,
-						gameTime: createDivisionForm.gameTime.trim() || null,
-						maxTeams: Number(createDivisionForm.maxTeams),
-						location: createDivisionForm.location.trim() || null,
-						isLocked: createDivisionForm.isLocked,
-						startDate: createDivisionForm.startDate || null
+			const pendingDrafts = createDivisionDrafts.map((draft) => cloneCreateDivisionDraft(draft));
+			const createdDrafts: DivisionWizardDraft[] = [];
+			for (let index = 0; index < pendingDrafts.length; index += 1) {
+				const draft = pendingDrafts[index];
+				const response = await fetch(apiPath, {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({
+						action: 'create-division',
+						leagueId: data.league.id,
+						division: {
+							name: draft.name.trim(),
+							slug: draft.slug.trim(),
+							description: draft.description.trim() || null,
+							dayOfWeek: draft.dayOfWeek.trim() || null,
+							gameTime: draft.gameTime.trim() || null,
+							maxTeams: Number(draft.maxTeams),
+							location: draft.location.trim() || null,
+							isLocked: draft.isLocked,
+							startDate: draft.startDate.trim() || null
+						}
+					})
+				});
+				const payload = await readResponse(response);
+				if (!response.ok || !payload.success) {
+					const unresolvedDrafts = pendingDrafts.slice(index);
+					const failedDraft = unresolvedDrafts[0];
+					createDivisionCommittedDrafts = [
+						...createDivisionCommittedDrafts,
+						...createdDrafts
+					];
+					createDivisionDrafts = unresolvedDrafts;
+					if (failedDraft) {
+						createDivisionForm = cloneCreateDivisionForm(failedDraft);
+						createDivisionEditingIndex = 0;
+						createDivisionDraftActive = true;
+						createDivisionSlugTouched = failedDraft.slug.trim() !== slugifyFinal(failedDraft.name);
+						inferCreateDivisionManualFlags(failedDraft);
+						createDivisionValidationVisible = true;
 					}
-				})
-			});
-			const payload = await readResponse(response);
-			if (!response.ok || !payload.success) {
-				createDivisionServerFieldErrors = readScopedFieldErrors(payload.fieldErrors, 'division');
-				createDivisionFormError =
-					payload.error ??
-					firstFieldError(payload.fieldErrors) ??
-					'Unable to create division right now.';
-				return;
+					createDivisionStep = 2;
+					createDivisionServerFieldErrors = readScopedFieldErrors(payload.fieldErrors, 'division');
+					createDivisionFormError =
+						payload.error ??
+						firstFieldError(payload.fieldErrors) ??
+						'Unable to create division right now.';
+					if (createdDrafts.length > 0) {
+						toast.success(
+							`${createdDrafts.length} ${createdDrafts.length === 1 ? 'division was' : 'divisions were'} created. Fix the remaining drafts to continue.`,
+							{
+								title: data.league.name
+							}
+						);
+					}
+					return;
+				}
+				createdDrafts.push(draft);
 			}
 
 			closeCreateDivisionWizard();
 			await invalidateAll();
-			toast.success('Division added.', {
-				title: data.league.name
-			});
+			toast.success(
+				`${createdDrafts.length} ${createdDrafts.length === 1 ? 'division' : 'divisions'} added.`,
+				{
+					title: data.league.name
+				}
+			);
 		} catch {
 			createDivisionFormError = 'Unable to create division right now.';
 		} finally {
@@ -2837,15 +3251,22 @@
 		</div>
 	</div>
 {/if}
-<CreateDivisionWizard
+<CreateDivisionCollectionWizard
 	open={createDivisionOpen}
+	step={createDivisionStep}
 	form={createDivisionForm}
+	drafts={createDivisionDrafts}
 	fieldErrors={createDivisionFieldErrors}
+	collectionError={createDivisionCollectionError}
 	formError={createDivisionFormError}
 	submitting={createDivisionSubmitting}
+	canGoNext={canGoNextCreateDivisionStep}
 	canSubmit={canSubmitCreateDivision}
+	draftActive={createDivisionDraftActive}
+	editingIndex={createDivisionEditingIndex}
 	slugTouched={createDivisionSlugTouched}
 	unsavedConfirmOpen={createDivisionUnsavedConfirmOpen}
+	contextRows={createDivisionContextRows}
 	showLocation={false}
 	showStartDate={false}
 	onSlugTouchedChange={(value) => {
@@ -2855,12 +3276,23 @@
 	onDayOfWeekInput={handleCreateDivisionDayOfWeekInput}
 	onGameTimeInput={handleCreateDivisionGameTimeInput}
 	onRequestClose={requestCloseCreateDivisionWizard}
-	onSubmit={createDivision}
+	onSubmit={() => {
+		void submitCreateDivisionWizard();
+	}}
 	onInput={clearCreateDivisionApiErrors}
 	onUnsavedConfirm={closeCreateDivisionWizard}
 	onUnsavedCancel={() => {
 		createDivisionUnsavedConfirmOpen = false;
 	}}
+	onNext={nextCreateDivisionStep}
+	onBack={handleCreateDivisionBackAction}
+	onAddDraft={startAddingCreateDivisionDraft}
+	onEditDraft={startEditingCreateDivision}
+	onCopyDraft={duplicateCreateDivision}
+	onMoveDraftUp={(index) => moveCreateDivision(index, 'up')}
+	onMoveDraftDown={(index) => moveCreateDivision(index, 'down')}
+	onRemoveDraft={removeCreateDivision}
+	onEditDraftsStep={startEditingCreateDivisionDraftsStep}
 />
 
 <CreateDivisionWizard

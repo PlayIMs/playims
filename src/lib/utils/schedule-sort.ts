@@ -1,3 +1,5 @@
+import { parseDivisionDays } from './division-schedule-inference.js';
+
 const DAY_OF_WEEK_ORDER = new Map<string, number>([
 	['sunday', 0],
 	['sun', 0],
@@ -27,6 +29,12 @@ export interface ScheduleSortable {
 export function dayOfWeekSortValue(value: string | null | undefined): number {
 	const normalized = value?.trim().toLowerCase();
 	if (!normalized) return Number.MAX_SAFE_INTEGER;
+
+	const firstParsedDay = parseDivisionDays(value ?? '')[0]?.trim().toLowerCase();
+	if (firstParsedDay) {
+		return DAY_OF_WEEK_ORDER.get(firstParsedDay) ?? Number.MAX_SAFE_INTEGER;
+	}
+
 	return DAY_OF_WEEK_ORDER.get(normalized) ?? Number.MAX_SAFE_INTEGER;
 }
 
@@ -34,15 +42,15 @@ export function timeSortValue(value: string | null | undefined): number {
 	const normalized = value?.trim().toLowerCase();
 	if (!normalized) return Number.MAX_SAFE_INTEGER;
 
-	const meridiemMatch = normalized.match(/^(\d{1,2}):(\d{2})\s*([ap])m$/i);
+	const meridiemMatch = normalized.match(/(\d{1,2})(?::(\d{2}))?\s*([ap])(?:m)?/i);
 	if (meridiemMatch) {
 		let hour = Number(meridiemMatch[1]) % 12;
-		const minute = Number(meridiemMatch[2]);
+		const minute = Number(meridiemMatch[2] ?? '0');
 		if (meridiemMatch[3].toLowerCase() === 'p') hour += 12;
 		return hour * 60 + minute;
 	}
 
-	const twentyFourHourMatch = normalized.match(/^(\d{1,2}):(\d{2})$/);
+	const twentyFourHourMatch = normalized.match(/(\d{1,2}):(\d{2})/);
 	if (twentyFourHourMatch) {
 		const hour = Number(twentyFourHourMatch[1]);
 		const minute = Number(twentyFourHourMatch[2]);
