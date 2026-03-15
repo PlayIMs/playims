@@ -220,6 +220,19 @@
 	});
 
 	$effect(() => {
+		if (!open || typeof window === 'undefined') return;
+		cursorOffsetXPx;
+		cursorOffsetYPx;
+		paddingPx;
+		minWidthPx;
+		panelClass;
+		maxWidthClass;
+		normalizedText;
+		normalizedShortcutKeys.length;
+		void tick().then(updatePosition);
+	});
+
+	$effect(() => {
 		if (normalizedText.length > 0 || normalizedShortcutKeys.length > 0 || !open) return;
 		hide();
 	});
