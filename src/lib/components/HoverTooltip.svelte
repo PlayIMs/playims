@@ -54,6 +54,7 @@
 	let open = $state(false);
 	let panelStyle = $state(HIDDEN_PANEL_STYLE);
 	let focusInside = $state(false);
+	let dismissedUntilReset = $state(false);
 	let pointerX = $state<number | null>(null);
 	let pointerY = $state<number | null>(null);
 	let frameId: number | null = null;
@@ -133,6 +134,7 @@
 
 	function show(): void {
 		if (!normalizedText && normalizedShortcutKeys.length === 0) return;
+		if (dismissedUntilReset) return;
 		open = true;
 		panelStyle = HIDDEN_PANEL_STYLE;
 		schedulePositionUpdate();
@@ -145,8 +147,14 @@
 	}
 
 	function dismissForWindowExit(): void {
+		dismissedUntilReset = false;
 		pointerX = null;
 		pointerY = null;
+		hide();
+	}
+
+	function dismissForActivation(): void {
+		dismissedUntilReset = true;
 		hide();
 	}
 
@@ -166,6 +174,7 @@
 	}
 
 	function handleRootPointerLeave(): void {
+		dismissedUntilReset = false;
 		pointerX = null;
 		pointerY = null;
 		if (!focusInside) hide();
@@ -175,11 +184,13 @@
 		const nextTarget = event.relatedTarget;
 		if (!(nextTarget instanceof Node)) {
 			focusInside = false;
+			dismissedUntilReset = false;
 			hide();
 			return;
 		}
 		if (root?.contains(nextTarget)) return;
 		focusInside = false;
+		dismissedUntilReset = false;
 		hide();
 	}
 
@@ -249,6 +260,12 @@
 	onmouseenter={handleRootPointerEnter}
 	onmousemove={handleRootPointerMove}
 	onmouseleave={handleRootPointerLeave}
+	onpointerdown={() => {
+		dismissForActivation();
+	}}
+	onclick={() => {
+		dismissForActivation();
+	}}
 	onfocusin={() => {
 		focusInside = true;
 		show();
