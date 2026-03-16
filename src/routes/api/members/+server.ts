@@ -4,7 +4,7 @@ import {
 	requireAuthenticatedUserId
 } from '$lib/server/client-context';
 import { getCentralDbOps } from '$lib/server/database/context';
-import { isAdminLikeRole } from '$lib/server/auth/rbac';
+import { PERMISSIONS, requirePermission } from '$lib/server/auth/permissions';
 import { createMemberSchema, memberListQuerySchema } from '$lib/server/members/validation';
 import { buildMemberInviteUrl, generateMemberInviteToken, getMemberInviteExpiryIso, hashMemberInviteToken } from '$lib/server/members/invites';
 import type { CreateMemberResponse, MemberListResponse } from '$lib/members/types.js';
@@ -105,7 +105,7 @@ export const POST: RequestHandler = async (event) => {
 		);
 	}
 
-	if (!isAdminLikeRole(event.locals.user?.role)) {
+	if (!requirePermission(event.locals, PERMISSIONS.ADD_MEMBER, { mutate: true })) {
 		return json(
 			{
 				success: false,

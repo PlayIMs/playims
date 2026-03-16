@@ -4,7 +4,7 @@ import {
 	requireAuthenticatedUserId
 } from '$lib/server/client-context';
 import { getCentralDbOps } from '$lib/server/database/context';
-import { isAdminLikeRole } from '$lib/server/auth/rbac';
+import { PERMISSIONS, requirePermission } from '$lib/server/auth/permissions';
 import { inviteActionSchema } from '$lib/server/members/validation';
 import { buildMemberInviteUrl, generateMemberInviteToken, getMemberInviteExpiryIso, hashMemberInviteToken } from '$lib/server/members/invites';
 import type { RequestHandler } from './$types';
@@ -14,7 +14,7 @@ export const PATCH: RequestHandler = async (event) => {
 		return json({ success: false, error: 'Database is unavailable.' }, { status: 500 });
 	}
 
-	if (!isAdminLikeRole(event.locals.user?.role)) {
+	if (!requirePermission(event.locals, PERMISSIONS.MANAGE_MEMBER_INVITES, { mutate: true })) {
 		return json(
 			{ success: false, error: 'Only administrators and developers can manage invites.' },
 			{ status: 403 }

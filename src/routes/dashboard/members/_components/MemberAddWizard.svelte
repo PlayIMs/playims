@@ -2,13 +2,13 @@
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import { WizardModal, WizardStepFooter } from '$lib/components/wizard';
-	import type { MemberInviteMode, MemberSex } from '$lib/members/types.js';
+	import type { MemberAssignableRole, MemberInviteMode, MemberSex } from '$lib/members/types.js';
 	import { toast } from '$lib/toasts';
 
 	export interface MemberAddFormState {
 		mode: MemberInviteMode;
 		email: string;
-		role: 'participant' | 'manager' | 'admin';
+		role: MemberAssignableRole;
 		firstName: string;
 		lastName: string;
 		studentId: string;
@@ -19,6 +19,7 @@
 		open: boolean;
 		step: 1 | 2;
 		form: MemberAddFormState;
+		roleOptions: Array<{ value: MemberAssignableRole; label: string }>;
 		submitting?: boolean;
 		error?: string;
 		fieldErrors?: Record<string, string>;
@@ -32,6 +33,7 @@
 		open,
 		step,
 		form,
+		roleOptions,
 		submitting = false,
 		error = '',
 		fieldErrors = {},
@@ -41,11 +43,6 @@
 		onNext
 	}: Props = $props();
 
-	const roleOptions = [
-		{ value: 'participant', label: 'Participant' },
-		{ value: 'manager', label: 'Manager' },
-		{ value: 'admin', label: 'Admin' }
-	];
 	const sexOptions = [
 		{ value: 'M', label: 'M' },
 		{ value: 'F', label: 'F' }
@@ -143,7 +140,7 @@
 					ariaLabel="Select member role"
 					buttonClass="w-full border-2 border-secondary-400 bg-white px-4 py-2 text-base leading-6 font-normal text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2 hover:bg-white focus:outline-none focus-visible:outline-none focus-visible:border-secondary-500 focus-visible:ring-0 focus-visible:shadow-[0_0_0_1px_var(--color-secondary-500)]"
 					on:change={(event) => {
-						form.role = event.detail.value as 'participant' | 'manager' | 'admin';
+						form.role = event.detail.value as MemberAssignableRole;
 					}}
 				/>
 			</div>

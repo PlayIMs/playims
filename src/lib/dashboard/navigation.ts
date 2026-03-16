@@ -29,25 +29,37 @@ export type DashboardNavigationConfig = {
 	labels: DashboardNavigationLabels;
 	order: DashboardNavigationOrder;
 };
-export type DashboardAuthRole = 'participant' | 'manager' | 'admin' | 'dev';
+export type DashboardPermissionSnapshot = Record<string, boolean>;
 
-const PARTICIPANT_VIEW_HIDDEN_NAV_KEYS = new Set<DashboardNavKey>([
-	'memberManagement',
-	'facilities',
-	'payments',
-	'forms',
-	'reports',
-	'settings'
-]);
-const PARTICIPANT_VIEW_HIDDEN_ROUTE_PREFIXES = [
-	'/dashboard/members',
-	'/dashboard/facilities',
-	'/dashboard/payments',
-	'/dashboard/forms',
-	'/dashboard/reports',
-	'/dashboard/settings'
-] as const;
 const DEV_ONLY_ROUTE_PREFIX = '/dashboard/dev';
+const ACCOUNT_ROUTE_PREFIX = '/dashboard/account';
+const NOTIFICATIONS_ROUTE_PREFIX = '/dashboard/settings/notifications';
+
+const NAV_ITEM_PERMISSION: Record<DashboardNavKey, string> = {
+	dashboard: 'VIEW_DASHBOARD_HOME',
+	schedule: 'VIEW_SCHEDULE',
+	offerings: 'VIEW_OFFERINGS',
+	clubSports: 'VIEW_CLUB_SPORTS',
+	memberManagement: 'VIEW_MEMBER_MANAGEMENT',
+	communicationCenter: 'VIEW_COMMUNICATION_CENTER',
+	facilities: 'VIEW_FACILITIES',
+	equipmentCheckout: 'VIEW_EQUIPMENT_CHECKOUT',
+	payments: 'VIEW_PAYMENTS',
+	forms: 'VIEW_FORMS',
+	reports: 'VIEW_REPORTS',
+	settings: 'VIEW_SETTINGS'
+};
+
+const DASHBOARD_ROUTE_PERMISSIONS: Array<{ prefix: string; permission: string }> = [
+	{ prefix: '/dashboard/members', permission: 'VIEW_MEMBER_MANAGEMENT' },
+	{ prefix: '/dashboard/facilities', permission: 'VIEW_FACILITIES' },
+	{ prefix: '/dashboard/payments', permission: 'VIEW_PAYMENTS' },
+	{ prefix: '/dashboard/forms', permission: 'VIEW_FORMS' },
+	{ prefix: '/dashboard/reports', permission: 'VIEW_REPORTS' },
+	{ prefix: '/dashboard/settings', permission: 'VIEW_SETTINGS' },
+	{ prefix: '/dashboard/offerings', permission: 'VIEW_OFFERINGS' },
+	{ prefix: '/dashboard/schedule', permission: 'VIEW_SCHEDULE' }
+];
 
 const collapseWhitespace = (value: string): string => value.trim().replace(/\s+/g, ' ');
 
@@ -153,30 +165,25 @@ export const orderDashboardNavigationItems = (
 		.filter((item): item is DashboardNavItem => Boolean(item));
 };
 
-export const filterDashboardNavigationItemsForAuthMode = ({
+const hasPermission = (permissions: DashboardPermissionSnapshot, permission: string): boolean =>
+	permissions[permission] === true;
+
+export const filterDashboardNavigationItemsForPermissions = ({
 	items,
-	effectiveRole,
-	isViewingAsRole
+	permissions
 }: {
 	items: readonly DashboardNavItem[];
-	effectiveRole: DashboardAuthRole;
-	isViewingAsRole: boolean;
+	permissions: DashboardPermissionSnapshot;
 }): DashboardNavItem[] => {
-	if (effectiveRole !== 'participant') {
-		return [...items];
-	}
-
-	return items.filter((item) => !PARTICIPANT_VIEW_HIDDEN_NAV_KEYS.has(item.key));
+	return items.filter((item) => hasPermission(permissions, NAV_ITEM_PERMISSION[item.key]));
 };
 
-export const canAccessDashboardRouteForAuthMode = ({
+export const canAccessDashboardRouteForPermissions = ({
 	pathname,
-	effectiveRole,
-	isViewingAsRole
+	permissions
 }: {
 	pathname: string;
-	effectiveRole: DashboardAuthRole;
-	isViewingAsRole: boolean;
+	permissions: DashboardPermissionSnapshot;
 }): boolean => {
 	const normalizedPath = pathname.trim();
 	if (normalizedPath.length === 0) {
@@ -187,16 +194,33 @@ export const canAccessDashboardRouteForAuthMode = ({
 		normalizedPath === DEV_ONLY_ROUTE_PREFIX ||
 		normalizedPath.startsWith(`${DEV_ONLY_ROUTE_PREFIX}/`)
 	) {
-		return effectiveRole === 'dev';
+		return hasPermission(permissions, 'ACCESS_DEV_TOOLS');
 	}
 
-	if (effectiveRole !== 'participant') {
-		return true;
+	if (
+		normalizedPath === ACCOUNT_ROUTE_PREFIX ||
+		normalizedPath.startsWith(`${ACCOUNT_ROUTE_PREFIX}/`)
+	) {
+		return hasPermission(permissions, 'VIEW_ACCOUNT');
 	}
 
-	return !PARTICIPANT_VIEW_HIDDEN_ROUTE_PREFIXES.some(
-		(prefix) => normalizedPath === prefix || normalizedPath.startsWith(`${prefix}/`)
-	);
+	if (
+		normalizedPath === NOTIFICATIONS_ROUTE_PREFIX ||
+		normalizedPath.startsWith(`${NOTIFICATIONS_ROUTE_PREFIX}/`)
+	) {
+		return hasPermission(permissions, 'VIEW_NOTIFICATIONS');
+	}
+
+	for (const entry of DASHBOARD_ROUTE_PERMISSIONS) {
+		if (
+			normalizedPath === entry.prefix ||
+			normalizedPath.startsWith(`${entry.prefix}/`)
+		) {
+			return hasPermission(permissions, entry.permission);
+		}
+	}
+
+	return hasPermission(permissions, 'VIEW_DASHBOARD_HOME');
 };
 
 export const toDashboardNavigationOverrides = (

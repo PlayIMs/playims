@@ -7,7 +7,7 @@ import {
 	normalizeDashboardNavigationLabel,
 	type DashboardNavKey
 } from '$lib/dashboard/navigation';
-import { canManageWrites } from '$lib/server/auth/permissions';
+import { PERMISSIONS, requirePermission } from '$lib/server/auth/permissions';
 import {
 	requireAuthenticatedClientId,
 	requireAuthenticatedUserId
@@ -135,7 +135,7 @@ const isMissingNavigationOrderSchemaError = (message: string): boolean =>
 
 export const load: PageServerLoad = async ({ locals }) => {
 	return {
-		canEditNavigation: canManageWrites(locals),
+		canEditNavigation: requirePermission(locals, PERMISSIONS.EDIT_NAVIGATION_SETTINGS),
 		maxLabelLength: MAX_NAV_LABEL_LENGTH
 	};
 };
@@ -149,7 +149,7 @@ export const actions: Actions = {
 			});
 		}
 
-		if (!canManageWrites(locals)) {
+		if (!requirePermission(locals, PERMISSIONS.EDIT_NAVIGATION_SETTINGS, { mutate: true })) {
 			return fail(403, {
 				action: 'saveNavigationOrder',
 				error: 'You do not have permission to update settings in the current view mode.'
@@ -217,7 +217,7 @@ export const actions: Actions = {
 			});
 		}
 
-		if (!canManageWrites(locals)) {
+		if (!requirePermission(locals, PERMISSIONS.EDIT_NAVIGATION_SETTINGS, { mutate: true })) {
 			return fail(403, {
 				action: 'saveNavigationLabels',
 				error: 'You do not have permission to update settings in the current view mode.'

@@ -1,4 +1,4 @@
-export type ViewSwitcherRole = 'participant' | 'manager' | 'admin' | 'dev';
+export type ViewSwitcherRole = string;
 
 export type ViewRoleSwitcherOption = {
 	role: ViewSwitcherRole;
@@ -9,19 +9,16 @@ export type ViewRoleSwitcherOption = {
 	quickKey: string | null;
 };
 
-const roleLabel: Record<ViewSwitcherRole, string> = {
-	participant: 'Participant',
-	manager: 'Manager',
-	admin: 'Admin',
-	dev: 'Dev'
-};
+const toRoleLabel = (role: ViewSwitcherRole): string =>
+	role
+		.trim()
+		.split(/[_\s-]+/)
+		.filter(Boolean)
+		.map((segment) => segment[0]?.toUpperCase() + segment.slice(1).toLowerCase())
+		.join(' ');
 
-const roleQuickKey: Record<ViewSwitcherRole, string> = {
-	participant: 'P',
-	manager: 'M',
-	admin: 'A',
-	dev: 'D'
-};
+const toRoleQuickKey = (role: ViewSwitcherRole): string =>
+	role.trim().charAt(0).toUpperCase();
 
 export const buildViewRoleSwitcherOptions = (
 	currentRole: ViewSwitcherRole,
@@ -31,7 +28,7 @@ export const buildViewRoleSwitcherOptions = (
 
 	return orderedRoles.map((role) => {
 		const isCurrent = role === currentRole;
-		const title = roleLabel[role];
+		const title = toRoleLabel(role);
 
 		return {
 			role,
@@ -41,7 +38,7 @@ export const buildViewRoleSwitcherOptions = (
 				: `Switch to ${title} view permissions.`,
 			searchText: `${title} ${role}`,
 			isCurrent,
-			quickKey: isCurrent ? null : roleQuickKey[role]
+			quickKey: isCurrent ? null : toRoleQuickKey(role)
 		};
 	});
 };

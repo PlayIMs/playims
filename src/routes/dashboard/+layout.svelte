@@ -30,9 +30,9 @@
 	import { flip } from 'svelte/animate';
 	import { cubicInOut } from 'svelte/easing';
 	import {
-		canAccessDashboardRouteForAuthMode,
+		canAccessDashboardRouteForPermissions,
 		DASHBOARD_NAV_KEY_SET,
-		filterDashboardNavigationItemsForAuthMode,
+		filterDashboardNavigationItemsForPermissions,
 		mergeDashboardNavigationConfig,
 		mergeDashboardNavigationLabels,
 		mergeDashboardNavigationOrder,
@@ -46,6 +46,8 @@
 		STANDALONE_DISPLAY_MODE_QUERY,
 		isStandaloneDisplayMode
 	} from '$lib/utils/pwa-navigation';
+	import { resolveViewRoleSwitcherState } from '$lib/utils/view-role-state';
+	import type { LayoutProps } from './$types';
 	import SwitchOrganizationWizard from './_wizards/SwitchOrganizationWizard.svelte';
 	import ViewRoleWizard from './_wizards/ViewRoleWizard.svelte';
 
@@ -55,6 +57,7 @@
 		clientName: string;
 		clientSlug: string | null;
 		role: string;
+		permissions: Record<string, boolean>;
 		isCurrent: boolean;
 		isDefault: boolean;
 		lastUsedAt: string | null;
@@ -67,7 +70,7 @@
 		standalone?: boolean;
 	};
 
-	let { children, data } = $props();
+	let { children, data }: LayoutProps = $props();
 
 	let isSidebarOpen = $state(true);
 	let isStandalonePwa = $state(false);
@@ -95,10 +98,9 @@
 	let navigationLabels = $state<DashboardNavigationLabels>(mergeDashboardNavigationLabels());
 	let navigationOrder = $state<DashboardNavigationOrder>(mergeDashboardNavigationOrder());
 	const menuItems = $derived.by(() =>
-		filterDashboardNavigationItemsForAuthMode({
+		filterDashboardNavigationItemsForPermissions({
 			items: orderDashboardNavigationItems(navigationOrder),
-			effectiveRole,
-			isViewingAsRole
+			permissions: data?.permissions ?? {}
 		}).map((item) => ({
 			...item,
 			label: navigationLabels[item.key],
@@ -189,18 +191,19 @@
 		}
 		return 'participant';
 	};
-	const resolveViewTargets = (baseRole: AuthRole): AuthRole[] => {
-		if (baseRole === 'dev') return ['admin', 'manager', 'participant'];
-		if (baseRole === 'admin') return ['manager', 'participant'];
-		if (baseRole === 'manager') return ['participant'];
-		return [];
-	};
 	const baseRole = $derived.by(() => normalizeRole(data?.authMode?.baseRole));
-	const effectiveRole = $derived.by(() => normalizeRole(data?.authMode?.effectiveRole));
-	const isDeveloperRole = $derived.by(() => effectiveRole === 'dev');
-	const canViewAsRole = $derived.by(() => data?.authMode?.canViewAsRole === true);
+	const viewRoleState = $derived.by(() =>
+		resolveViewRoleSwitcherState({
+			effectiveRole: data?.authMode?.effectiveRole,
+			canViewAsRole: data?.authMode?.canViewAsRole === true,
+			availableTargets: data?.viewRoleTargets ?? []
+		})
+	);
+	const effectiveRole = $derived.by(() => viewRoleState.effectiveRole);
+	const isDeveloperRole = $derived.by(() => data?.permissions?.ACCESS_DEV_TOOLS === true);
 	const isViewingAsRole = $derived.by(() => data?.authMode?.isViewingAsRole === true);
-	const availableViewTargets = $derived.by(() => resolveViewTargets(baseRole));
+	const canViewAsCurrentRole = $derived.by(() => viewRoleState.canSwitchToAnotherRole);
+	const availableViewTargets = $derived.by(() => viewRoleState.availableTargets);
 	const shellTopInset = $derived.by(() =>
 		isViewingAsRole
 			? 'calc(var(--pwa-top-bar-offset, 0px) + 1rem)'
@@ -233,9 +236,9 @@
 	const topBarUtilityButtonClass =
 		'flex h-8 w-8 items-center justify-center text-primary-25 transition-colors duration-150';
 	const isViewRoleButtonDisabled = $derived.by(
-		() => !canViewAsRole || isViewingAsRole || roleWizardSubmitting || organizationSwitching
+		() => !canViewAsCurrentRole || roleWizardSubmitting || organizationSwitching
 	);
-	const showViewRoleButton = $derived.by(() => effectiveRole !== 'participant');
+	const showViewRoleButton = $derived.by(() => canViewAsCurrentRole);
 	const canSwitchOrganization = $derived.by(() => organizations.length > 1);
 	const isOrganizationButtonDisabled = $derived.by(
 		() => !canSwitchOrganization || organizationSwitching || organizationWizardSubmitting
@@ -244,16 +247,19 @@
 		if (organizationSwitching) {
 			return 'Unavailable while switching organizations';
 		}
+		if (canViewAsCurrentRole) {
+			return 'View as another role';
+		}
 		if (isViewingAsRole) {
 			return `Currently viewing as ${viewingModeLabel}`;
 		}
-		if (!canViewAsRole) {
+		if (!canViewAsCurrentRole) {
 			return 'View as role unavailable';
 		}
-		return 'View as role';
+		return 'View as another role';
 	});
 	const viewRoleShortcutKeys = $derived.by(() =>
-		viewRoleTooltipText === 'View as role' ? ['Ctrl', 'Shift', 'R'] : []
+		!organizationSwitching && canViewAsCurrentRole ? ['Ctrl', 'Shift', 'R'] : []
 	);
 	const organizationTooltipText = $derived.by(() => {
 		if (organizationSwitching) {
@@ -341,7 +347,7 @@
 	}
 
 	const openRoleWizard = () => {
-		if (!canViewAsRole || isViewingAsRole || roleWizardSubmitting || organizationSwitching) {
+		if (!canViewAsCurrentRole || roleWizardSubmitting || organizationSwitching) {
 			return;
 		}
 		organizationWizardOpen = false;
@@ -372,15 +378,11 @@
 		organizationWizardOpen = false;
 	};
 
-	const refreshAfterRoleChange = async (
-		nextEffectiveRole: AuthRole,
-		nextIsViewingAsRole: boolean
-	) => {
+	const refreshAfterRoleChange = async (nextPermissions: Record<string, boolean>) => {
 		if (
-			!canAccessDashboardRouteForAuthMode({
+			!canAccessDashboardRouteForPermissions({
 				pathname: activePath,
-				effectiveRole: nextEffectiveRole,
-				isViewingAsRole: nextIsViewingAsRole
+				permissions: nextPermissions
 			})
 		) {
 			await goto('/dashboard', { invalidateAll: true });
@@ -390,8 +392,19 @@
 		await invalidateAll();
 	};
 
-	const applyViewRole = async (targetRole: AuthRole | null) => {
-		if (!browser || !canViewAsRole || roleWizardSubmitting || organizationSwitching) {
+	type ViewRoleApiPayload = {
+		error?: string;
+		data?: {
+			session?: {
+				role?: string | null;
+				isViewingAsRole?: boolean;
+			};
+			permissions?: Record<string, boolean>;
+		};
+	};
+
+	const applyViewRole = async (targetRole: string | null) => {
+		if (!browser || !canViewAsCurrentRole || roleWizardSubmitting || organizationSwitching) {
 			return;
 		}
 
@@ -406,25 +419,9 @@
 				body: JSON.stringify({ targetRole })
 			});
 
-			let payload: {
-				error?: string;
-				data?: {
-					session?: {
-						role?: string | null;
-						isViewingAsRole?: boolean;
-					};
-				};
-			} | null = null;
+			let payload: ViewRoleApiPayload | null = null;
 			try {
-				payload = (await response.json()) as {
-					error?: string;
-					data?: {
-						session?: {
-							role?: string | null;
-							isViewingAsRole?: boolean;
-						};
-					};
-				};
+				payload = (await response.json()) as ViewRoleApiPayload;
 			} catch {
 				payload = null;
 			}
@@ -436,9 +433,8 @@
 			}
 
 			roleWizardOpen = false;
-			const nextEffectiveRole = normalizeRole(payload?.data?.session?.role);
-			const nextIsViewingAsRole = payload?.data?.session?.isViewingAsRole === true;
-			await refreshAfterRoleChange(nextEffectiveRole, nextIsViewingAsRole);
+			const nextPermissions = payload?.data?.permissions ?? {};
+			await refreshAfterRoleChange(nextPermissions);
 		} catch {
 			viewModeBadgeError = 'Unable to update role view.';
 		} finally {
@@ -462,25 +458,9 @@
 				body: JSON.stringify({ targetRole: null })
 			});
 
-			let payload: {
-				error?: string;
-				data?: {
-					session?: {
-						role?: string | null;
-						isViewingAsRole?: boolean;
-					};
-				};
-			} | null = null;
+			let payload: ViewRoleApiPayload | null = null;
 			try {
-				payload = (await response.json()) as {
-					error?: string;
-					data?: {
-						session?: {
-							role?: string | null;
-							isViewingAsRole?: boolean;
-						};
-					};
-				};
+				payload = (await response.json()) as ViewRoleApiPayload;
 			} catch {
 				payload = null;
 			}
@@ -491,9 +471,8 @@
 				return;
 			}
 
-			const nextEffectiveRole = normalizeRole(payload?.data?.session?.role);
-			const nextIsViewingAsRole = payload?.data?.session?.isViewingAsRole === true;
-			await refreshAfterRoleChange(nextEffectiveRole, nextIsViewingAsRole);
+			const nextPermissions = payload?.data?.permissions ?? {};
+			await refreshAfterRoleChange(nextPermissions);
 		} catch {
 			viewModeBadgeError = 'Unable to restore role view.';
 		} finally {
@@ -759,7 +738,7 @@
 	});
 
 	$effect(() => {
-		if (!browser || (!canViewAsRole && !canSwitchOrganization)) {
+		if (!browser || (!canViewAsCurrentRole && !canSwitchOrganization && !isViewingAsRole)) {
 			return;
 		}
 
@@ -771,17 +750,19 @@
 				return;
 			}
 
-			if (event.code === 'KeyR' && canViewAsRole) {
+			if (event.code === 'KeyR') {
 				event.preventDefault();
 				event.stopPropagation();
 				event.stopImmediatePropagation();
+				if (canViewAsCurrentRole) {
+					openRoleWizard();
+					return;
+				}
+
 				if (isViewingAsRole) {
 					void exitViewMode();
 					return;
 				}
-
-				openRoleWizard();
-				return;
 			}
 
 			if (event.code !== 'KeyO' || !canSwitchOrganization) {

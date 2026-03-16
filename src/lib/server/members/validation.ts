@@ -1,10 +1,11 @@
 import { z } from 'zod';
+import { MEMBER_ASSIGNABLE_ROLE_VALUES, ROLE_VALUES } from '$lib/server/auth/permissions';
 
 const SIMPLE_EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export const memberAssignableRoleSchema = z.enum(['participant', 'manager', 'admin']);
+export const memberAssignableRoleSchema = z.enum(MEMBER_ASSIGNABLE_ROLE_VALUES);
 export const memberSexSchema = z.enum(['M', 'F']);
-export const memberRoleFilterSchema = z.enum(['participant', 'manager', 'admin', 'dev']);
+export const memberRoleFilterSchema = z.enum(ROLE_VALUES);
 export const memberSortKeySchema = z
 	.enum(['studentId', 'firstName', 'lastName', 'name', 'email', 'sex', 'role'])
 	.transform((value) => (value === 'name' ? 'lastName' : value));

@@ -1,4 +1,8 @@
-import { canViewAsRole, isAdminLikeRole, normalizeRole } from '$lib/server/auth/rbac';
+import {
+	applyMembershipRoleToLocals,
+	hasPermission,
+	PERMISSIONS,
+} from '$lib/server/auth/permissions';
 import { normalizeClientSlug, validateClientSlug } from '$lib/server/client-slug';
 import { getCentralDbOps } from '$lib/server/database/context';
 import { json } from '@sveltejs/kit';
@@ -138,7 +142,7 @@ export const PATCH: RequestHandler = async (event) => {
 	if (!membership) {
 		return toOrgManageError(403, 'You do not have access to that organization.');
 	}
-	if (!isAdminLikeRole(membership.role)) {
+	if (!hasPermission(membership.role, PERMISSIONS.EDIT_ORGANIZATION_DETAILS)) {
 		return toOrgManageError(
 			403,
 			'Only administrators and developers can edit organization settings.'
@@ -301,27 +305,10 @@ export const DELETE: RequestHandler = async (event) => {
 			return toOrgManageError(500, 'Unable to switch organizations right now.');
 		}
 
-		const resolvedRole = normalizeRole(fallbackMembership.role);
-		const canViewAsRoleEnabled = canViewAsRole(resolvedRole);
-		event.locals.session = {
-			...event.locals.session,
+		applyMembershipRoleToLocals(event, {
 			clientId: fallbackMembership.clientId,
-			activeClientId: fallbackMembership.clientId,
-			role: resolvedRole,
-			baseRole: resolvedRole,
-			canViewAsRole: canViewAsRoleEnabled,
-			isViewingAsRole: false,
-			viewAsRole: null
-		};
-		event.locals.user = {
-			...event.locals.user,
-			clientId: fallbackMembership.clientId,
-			role: resolvedRole,
-			baseRole: resolvedRole,
-			canViewAsRole: canViewAsRoleEnabled,
-			isViewingAsRole: false,
-			viewAsRole: null
-		};
+			baseRole: fallbackMembership.role
+		});
 	}
 
 	const defaultMembership =

@@ -292,14 +292,8 @@
 		return 'participant';
 	}
 
-	const canManageOfferings = $derived.by(() => {
-		const role = normalizeAuthRole(data?.authMode?.effectiveRole);
-		return role === 'manager' || role === 'admin' || role === 'dev';
-	});
-	const canEditLeagueRows = $derived.by(() => {
-		const role = normalizeAuthRole(data?.authMode?.effectiveRole);
-		return role === 'admin' || role === 'dev';
-	});
+	const canManageOfferings = $derived.by(() => data.permissions?.MANAGE_OFFERINGS === true);
+	const canEditLeagueRows = $derived.by(() => data.permissions?.EDIT_LEAGUE_ROWS === true);
 
 	let activities = $state<Activity[]>([]);
 	let seasons = $state<PageData['seasons']>([]);

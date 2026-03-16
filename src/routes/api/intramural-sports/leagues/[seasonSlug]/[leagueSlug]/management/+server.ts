@@ -4,7 +4,7 @@ import {
 	requireAuthenticatedClientId,
 	requireAuthenticatedUserId
 } from '$lib/server/client-context';
-import { DASHBOARD_ALLOWED_ROLES, hasAnyRole } from '$lib/server/auth/rbac';
+import { PERMISSIONS, requirePermission } from '$lib/server/auth/permissions';
 import { getTenantDbOps } from '$lib/server/database/context';
 import {
 	createIntramuralDivisionSchema,
@@ -162,7 +162,7 @@ export const POST: RequestHandler = async (event) => {
 		);
 	}
 
-	if (!hasAnyRole(event.locals.user?.role, DASHBOARD_ALLOWED_ROLES)) {
+	if (!requirePermission(event.locals, PERMISSIONS.MANAGE_OFFERINGS, { mutate: true })) {
 		return json(
 			{
 				success: false,
@@ -523,7 +523,7 @@ export const PATCH: RequestHandler = async (event) => {
 		);
 	}
 
-	if (!hasAnyRole(event.locals.user?.role, DASHBOARD_ALLOWED_ROLES)) {
+	if (!requirePermission(event.locals, PERMISSIONS.MANAGE_OFFERINGS, { mutate: true })) {
 		return json(
 			{
 				success: false,
@@ -707,7 +707,7 @@ export const DELETE: RequestHandler = async (event) => {
 		);
 	}
 
-	if (!hasAnyRole(event.locals.user?.role, DASHBOARD_ALLOWED_ROLES)) {
+	if (!requirePermission(event.locals, PERMISSIONS.MANAGE_OFFERINGS, { mutate: true })) {
 		return json(
 			{
 				success: false,

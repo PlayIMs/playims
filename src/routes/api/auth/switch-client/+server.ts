@@ -1,4 +1,4 @@
-import { canViewAsRole, normalizeRole } from '$lib/server/auth/rbac';
+import { applyMembershipRoleToLocals, buildPermissionSnapshot } from '$lib/server/auth/permissions';
 import { switchClientSchema } from '$lib/server/auth/validation';
 import { getCentralDbOps } from '$lib/server/database/context';
 import { json } from '@sveltejs/kit';
@@ -49,33 +49,17 @@ export const POST: RequestHandler = async (event) => {
 
 	await dbOps.userClients.touchLastUsedMembership(userId, requestedClientId, nowIso, userId);
 
-	const resolvedRole = normalizeRole(activeMembership.role);
-	const canViewAsRoleEnabled = canViewAsRole(resolvedRole);
-	event.locals.session = {
-		...event.locals.session,
+	const roleContext = applyMembershipRoleToLocals(event, {
 		clientId: requestedClientId,
-		activeClientId: requestedClientId,
-		role: resolvedRole,
-		baseRole: resolvedRole,
-		canViewAsRole: canViewAsRoleEnabled,
-		isViewingAsRole: false,
-		viewAsRole: null
-	};
-	event.locals.user = {
-		...event.locals.user,
-		clientId: requestedClientId,
-		role: resolvedRole,
-		baseRole: resolvedRole,
-		canViewAsRole: canViewAsRoleEnabled,
-		isViewingAsRole: false,
-		viewAsRole: null
-	};
+		baseRole: activeMembership.role
+	});
 
 	return json({
 		success: true,
 		data: {
 			user: event.locals.user,
-			session: event.locals.session
+			session: event.locals.session,
+			permissions: buildPermissionSnapshot(roleContext.role)
 		}
 	});
 };

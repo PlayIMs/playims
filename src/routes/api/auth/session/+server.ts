@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { getCentralDbOps } from '$lib/server/database/context';
+import { buildPermissionSnapshot, getViewAsRoleTargets } from '$lib/server/auth/permissions';
 import type { RequestHandler } from './$types';
 
 // Authenticated endpoint: returns safe session/user data for UI hydration.
@@ -35,7 +36,9 @@ export const GET: RequestHandler = async (event) => {
 		data: {
 			user: locals.user,
 			session: locals.session,
-			memberships
+			memberships,
+			permissions: buildPermissionSnapshot(locals.user.role),
+			viewRoleTargets: getViewAsRoleTargets(locals.user.role)
 		}
 	});
 };

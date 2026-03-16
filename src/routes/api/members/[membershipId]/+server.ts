@@ -5,7 +5,13 @@ import {
 } from '$lib/server/client-context';
 import { getCentralDbOps } from '$lib/server/database/context';
 import { updateMemberSchema } from '$lib/server/members/validation';
-import { canViewAsRole, isAdminLikeRole, normalizeRole } from '$lib/server/auth/rbac';
+import {
+	applyMembershipRoleToLocals,
+	buildAuthRoleContext,
+	hasPermission,
+	PERMISSIONS,
+	requirePermission
+} from '$lib/server/auth/permissions';
 import type { MemberRole, UpdateMemberResponse } from '$lib/members/types.js';
 import type { RequestHandler } from './$types';
 
@@ -30,13 +36,16 @@ const resolveActiveClientId = (locals: App.Locals): string =>
 	locals.session?.activeClientId ?? locals.user?.clientId ?? '';
 
 const buildAuthModePayload = (role: string) => {
-	const normalizedRole = normalizeRole(role);
+	const roleContext = buildAuthRoleContext({
+		baseRole: role,
+		requestedViewAsRole: null
+	});
 	return {
-		baseRole: normalizedRole,
-		effectiveRole: normalizedRole,
-		canViewAsRole: canViewAsRole(normalizedRole),
-		isViewingAsRole: false,
-		viewAsRole: null
+		baseRole: roleContext.baseRole,
+		effectiveRole: roleContext.role,
+		canViewAsRole: roleContext.canViewAsRole,
+		isViewingAsRole: roleContext.isViewingAsRole,
+		viewAsRole: roleContext.viewAsRole
 	};
 };
 
@@ -167,7 +176,7 @@ export const PATCH: RequestHandler = async (event) => {
 		} satisfies UpdateMemberResponse);
 	}
 
-	if (!isAdminLikeRole(event.locals.user?.role)) {
+	if (!requirePermission(event.locals, PERMISSIONS.CHANGE_MEMBER_ROLE, { mutate: true })) {
 		return json(
 			{ success: false, error: 'Only administrators and developers can change member roles.' } satisfies UpdateMemberResponse,
 			{ status: 403 }
@@ -175,8 +184,8 @@ export const PATCH: RequestHandler = async (event) => {
 	}
 
 	if (
-		(membership.role === 'admin' || membership.role === 'dev') &&
-		parsed.data.role === 'participant'
+		hasPermission(membership.role, PERMISSIONS.CHANGE_MEMBER_ROLE) &&
+		!hasPermission(parsed.data.role, PERMISSIONS.CHANGE_MEMBER_ROLE)
 	) {
 		const remainingAdminLikeMembers = await dbOps.members.countAdminLikeMembers(
 			clientId,
@@ -220,26 +229,10 @@ export const PATCH: RequestHandler = async (event) => {
 		const nowIso = new Date().toISOString();
 		await dbOps.sessions.updateClientContext(event.locals.session.id, clientId, nowIso);
 		authMode = buildAuthModePayload(updatedMember.role);
-		if (event.locals.session) {
-			event.locals.session = {
-				...event.locals.session,
-				role: authMode.effectiveRole,
-				baseRole: authMode.baseRole,
-				canViewAsRole: authMode.canViewAsRole,
-				isViewingAsRole: false,
-				viewAsRole: null
-			};
-		}
-		if (event.locals.user) {
-			event.locals.user = {
-				...event.locals.user,
-				role: authMode.effectiveRole,
-				baseRole: authMode.baseRole,
-				canViewAsRole: authMode.canViewAsRole,
-				isViewingAsRole: false,
-				viewAsRole: null
-			};
-		}
+		applyMembershipRoleToLocals(event, {
+			clientId,
+			baseRole: updatedMember.role
+		});
 	}
 
 	return json({
@@ -256,7 +249,7 @@ export const DELETE: RequestHandler = async (event) => {
 		return json({ success: false, error: 'Database is unavailable.' }, { status: 500 });
 	}
 
-	if (!isAdminLikeRole(event.locals.user?.role)) {
+	if (!requirePermission(event.locals, PERMISSIONS.REMOVE_MEMBER, { mutate: true })) {
 		return json(
 			{ success: false, error: 'Only administrators and developers can remove members.' },
 			{ status: 403 }
@@ -271,7 +264,7 @@ export const DELETE: RequestHandler = async (event) => {
 		return json({ success: false, error: 'Member not found.' }, { status: 404 });
 	}
 
-	if (membership.role === 'admin' || membership.role === 'dev') {
+	if (hasPermission(membership.role, PERMISSIONS.CHANGE_MEMBER_ROLE)) {
 		const remainingAdminLikeMembers = await dbOps.members.countAdminLikeMembers(
 			clientId,
 			event.params.membershipId
@@ -324,36 +317,16 @@ export const DELETE: RequestHandler = async (event) => {
 			membership.userId,
 			fallbackMembership.clientId
 		);
-		const nextRole = normalizeRole(updatedDefault?.role ?? fallbackMembership.role);
 		const nowIso = new Date().toISOString();
 		await dbOps.sessions.updateClientContext(event.locals.session.id, fallbackMembership.clientId, nowIso);
-		if (event.locals.session) {
-			event.locals.session = {
-				...event.locals.session,
-				clientId: fallbackMembership.clientId,
-				activeClientId: fallbackMembership.clientId,
-				role: nextRole,
-				baseRole: nextRole,
-				canViewAsRole: canViewAsRole(nextRole),
-				isViewingAsRole: false,
-				viewAsRole: null
-			};
-		}
-		if (event.locals.user) {
-			event.locals.user = {
-				...event.locals.user,
-				clientId: fallbackMembership.clientId,
-				role: nextRole,
-				baseRole: nextRole,
-				canViewAsRole: canViewAsRole(nextRole),
-				isViewingAsRole: false,
-				viewAsRole: null
-			};
-		}
+		const roleContext = applyMembershipRoleToLocals(event, {
+			clientId: fallbackMembership.clientId,
+			baseRole: updatedDefault?.role ?? fallbackMembership.role
+		});
 
 		payload = {
 			activeClientId: fallbackMembership.clientId,
-			authMode: buildAuthModePayload(nextRole)
+			authMode: buildAuthModePayload(roleContext.role)
 		};
 	}
 

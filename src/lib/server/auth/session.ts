@@ -13,11 +13,8 @@ import {
 	AUTH_SESSION_TTL_SECONDS
 } from './constants';
 import {
-	canViewAsLowerRole,
-	canViewAsRole,
-	normalizeRole,
-	normalizeRoleOrNull
-} from './rbac';
+	buildAuthRoleContext
+} from './permissions';
 
 /**
  * Session helper module.
@@ -188,31 +185,6 @@ const getClientLocation = (event: RequestEvent): {
 	};
 };
 
-const buildRoleContext = (input: {
-	baseRole: string | null | undefined;
-	requestedViewAsRole: string | null | undefined;
-}) => {
-	const baseRole = normalizeRole(input.baseRole);
-	const requestedViewAsRole = normalizeRoleOrNull(input.requestedViewAsRole);
-	const canViewAsRoleEnabled = canViewAsRole(baseRole);
-	const viewAsRole =
-		canViewAsRoleEnabled &&
-		requestedViewAsRole !== null &&
-		canViewAsLowerRole(baseRole, requestedViewAsRole)
-			? requestedViewAsRole
-			: null;
-	const isViewingAsRole = viewAsRole !== null;
-	const role = viewAsRole ?? baseRole;
-
-	return {
-		baseRole,
-		canViewAsRole: canViewAsRoleEnabled,
-		isViewingAsRole,
-		viewAsRole,
-		role
-	};
-};
-
 const buildSafeUserWithContext = (
 	user: User,
 	context: {
@@ -221,7 +193,7 @@ const buildSafeUserWithContext = (
 		requestedViewAsRole: string | null | undefined;
 	}
 ) => {
-	const roleContext = buildRoleContext({
+	const roleContext = buildAuthRoleContext({
 		baseRole: context.baseRole,
 		requestedViewAsRole: context.requestedViewAsRole
 	});
@@ -284,7 +256,7 @@ export const createSessionForUser = async (
 
 	await dbOps.userClients.touchLastUsedMembership(user.id, clientId, nowIso, user.id);
 
-	const roleContext = buildRoleContext({
+	const roleContext = buildAuthRoleContext({
 		baseRole: context.activeRole,
 		requestedViewAsRole: null
 	});
@@ -381,7 +353,7 @@ export const resolveSessionFromRequest = async (
 	}
 
 	await dbOps.users.touchLastActive(found.user.id);
-	const roleContext = buildRoleContext({
+	const roleContext = buildAuthRoleContext({
 		baseRole: activeMembership.role,
 		requestedViewAsRole: found.session.viewAsRole
 	});

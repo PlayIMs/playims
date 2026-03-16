@@ -2,8 +2,13 @@ import {
 	requireAuthenticatedClientId,
 	requireAuthenticatedUserId
 } from '$lib/server/client-context';
-import { canManageWrites } from '$lib/server/auth/permissions';
-import { canViewAsRole, normalizeRole } from '$lib/server/auth/rbac';
+import {
+	applyMembershipRoleToLocals,
+	buildPermissionSnapshot,
+	canViewAsRole,
+	PERMISSIONS,
+	requirePermission
+} from '$lib/server/auth/permissions';
 import { accountCreateOrganizationSchema } from '$lib/server/auth/validation';
 import { validateClientSlug } from '$lib/server/client-slug';
 import { getCentralDbOps } from '$lib/server/database/context';
@@ -15,6 +20,7 @@ export type OrganizationAdminMembership = {
 	clientName: string;
 	clientSlug: string | null;
 	role: string;
+	permissions: ReturnType<typeof buildPermissionSnapshot>;
 	isDefault: boolean;
 	isCurrent: boolean;
 	selfJoinEnabled: boolean;
@@ -87,6 +93,7 @@ export const loadOrganizationAdminMemberships = async (
 			clientName: client?.name?.trim() || 'Organization',
 			clientSlug: client?.slug?.trim() || null,
 			role: membership.role ?? 'participant',
+			permissions: buildPermissionSnapshot(membership.role ?? 'participant'),
 			isDefault: membership.isDefault === 1,
 			isCurrent: membership.clientId === activeClientId,
 			selfJoinEnabled: client?.selfJoinEnabled === 1,
@@ -105,7 +112,7 @@ export const createOrganizationAction = async (event: RequestEvent) => {
 	if (!event.locals.user || !event.locals.session) {
 		return fail(401, { action: 'createOrganization', error: 'Authentication required.' });
 	}
-	if (!canManageWrites(event.locals)) {
+	if (!requirePermission(event.locals, PERMISSIONS.CREATE_ORGANIZATION, { mutate: true })) {
 		return fail(403, {
 			action: 'createOrganization',
 			error: 'You do not have permission to create organizations in the current view mode.'
@@ -222,27 +229,10 @@ export const createOrganizationAction = async (event: RequestEvent) => {
 		);
 		if (updatedSession) {
 			switched = true;
-			const resolvedRole = normalizeRole(membership.role);
-			const canViewAsRoleEnabled = canViewAsRole(resolvedRole);
-			event.locals.session = {
-				...event.locals.session,
+			applyMembershipRoleToLocals(event, {
 				clientId: createdClient.id,
-				activeClientId: createdClient.id,
-				role: resolvedRole,
-				baseRole: resolvedRole,
-				canViewAsRole: canViewAsRoleEnabled,
-				isViewingAsRole: false,
-				viewAsRole: null
-			};
-			event.locals.user = {
-				...event.locals.user,
-				clientId: createdClient.id,
-				role: resolvedRole,
-				baseRole: resolvedRole,
-				canViewAsRole: canViewAsRoleEnabled,
-				isViewingAsRole: false,
-				viewAsRole: null
-			};
+				baseRole: membership.role
+			});
 		}
 	}
 

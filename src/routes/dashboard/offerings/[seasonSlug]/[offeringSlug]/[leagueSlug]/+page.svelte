@@ -199,10 +199,7 @@
 		return 'participant';
 	}
 
-	const canManageLeague = $derived.by(() => {
-		const role = normalizeAuthRole(data?.authMode?.effectiveRole);
-		return role === 'manager' || role === 'admin' || role === 'dev';
-	});
+	const canManageLeague = $derived.by(() => data.permissions?.MANAGE_OFFERINGS === true);
 
 	function sportIconFor(offeringName: string, sportName: string | null | undefined) {
 		const key = `${offeringName} ${sportName ?? ''}`.trim().toLowerCase();

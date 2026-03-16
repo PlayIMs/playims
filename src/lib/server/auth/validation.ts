@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MEMBER_ASSIGNABLE_ROLE_VALUES, ROLE_VALUES } from './permissions';
 
 // Shared field-level validators for auth payloads/forms.
 const SIMPLE_EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -149,7 +150,7 @@ export const switchClientSchema = z.object({
 });
 
 export const viewAsRoleSchema = z.object({
-	targetRole: z.enum(['participant', 'manager', 'admin', 'dev']).nullable()
+	targetRole: z.enum(ROLE_VALUES).nullable()
 });
 
 export const joinClientSchema = z
@@ -214,7 +215,7 @@ export const accountCreateOrganizationSchema = z.object({
 		.enum(['0', '1'])
 		.optional()
 		.transform((value) => value === '1'),
-	membershipRole: z.enum(['participant', 'manager', 'admin']).default('manager'),
+	membershipRole: z.enum(MEMBER_ASSIGNABLE_ROLE_VALUES).default('manager'),
 	switchToOrganization: z
 		.enum(['0', '1'])
 		.optional()

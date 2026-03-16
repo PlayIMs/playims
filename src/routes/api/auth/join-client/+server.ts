@@ -1,5 +1,9 @@
 import { json } from '@sveltejs/kit';
-import { canViewAsRole, normalizeRole } from '$lib/server/auth/rbac';
+import {
+	applyMembershipRoleToLocals,
+	buildPermissionSnapshot,
+	normalizeRole
+} from '$lib/server/auth/permissions';
 import { joinClientSchema } from '$lib/server/auth/validation';
 import { requireAuthenticatedUserId } from '$lib/server/client-context';
 import { normalizeClientSlug } from '$lib/server/client-slug';
@@ -100,26 +104,10 @@ export const POST: RequestHandler = async (event) => {
 	await dbOps.userClients.setDefaultMembership(userId, targetClient.id);
 
 	const resolvedRole = normalizeRole(membership.role);
-	const canViewAsRoleEnabled = canViewAsRole(resolvedRole);
-	event.locals.session = {
-		...event.locals.session,
+	const roleContext = applyMembershipRoleToLocals(event, {
 		clientId: targetClient.id,
-		activeClientId: targetClient.id,
-		role: resolvedRole,
-		baseRole: resolvedRole,
-		canViewAsRole: canViewAsRoleEnabled,
-		isViewingAsRole: false,
-		viewAsRole: null
-	};
-	event.locals.user = {
-		...event.locals.user,
-		clientId: targetClient.id,
-		role: resolvedRole,
-		baseRole: resolvedRole,
-		canViewAsRole: canViewAsRoleEnabled,
-		isViewingAsRole: false,
-		viewAsRole: null
-	};
+		baseRole: membership.role
+	});
 
 	return json({
 		success: true,
@@ -130,7 +118,8 @@ export const POST: RequestHandler = async (event) => {
 			joinedNow: !existingMembership,
 			role: resolvedRole,
 			user: event.locals.user,
-			session: event.locals.session
+			session: event.locals.session,
+			permissions: buildPermissionSnapshot(roleContext.role)
 		}
 	});
 };

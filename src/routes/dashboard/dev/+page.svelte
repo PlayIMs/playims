@@ -15,6 +15,7 @@
 		clientName: string;
 		clientSlug: string | null;
 		role: string;
+		permissions: Record<string, boolean>;
 		isDefault: boolean;
 		isCurrent: boolean;
 		selfJoinEnabled: boolean;

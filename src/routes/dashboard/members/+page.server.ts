@@ -1,7 +1,11 @@
 import { requireAuthenticatedClientId } from '$lib/server/client-context';
 import { getCentralDbOps } from '$lib/server/database/context';
 import { memberListQuerySchema } from '$lib/server/members/validation';
-import { isAdminLikeRole, normalizeRole } from '$lib/server/auth/rbac';
+import {
+	getMemberAssignableRoleOptions,
+	PERMISSIONS,
+	requirePermission
+} from '$lib/server/auth/permissions';
 import { readMemberSearchSelection } from '$lib/search/page-state.js';
 import type { PageServerLoad } from './$types';
 
@@ -38,6 +42,7 @@ export const load: PageServerLoad = async (event) => {
 				canManageRoles: false,
 				canRemoveMembers: false
 			},
+			memberAssignableRoleOptions: getMemberAssignableRoleOptions(),
 			memberId,
 			error: 'Database is unavailable.'
 		};
@@ -73,8 +78,9 @@ export const load: PageServerLoad = async (event) => {
 		recordCount: memberResult.rows.length + pendingInvites.length
 	};
 
-	const effectiveRole = normalizeRole(locals.user?.role);
-	const canAdministerMembers = isAdminLikeRole(effectiveRole);
+	const canAddMembers = requirePermission(locals, PERMISSIONS.ADD_MEMBER);
+	const canManageRoles = requirePermission(locals, PERMISSIONS.CHANGE_MEMBER_ROLE);
+	const canRemoveMembers = requirePermission(locals, PERMISSIONS.REMOVE_MEMBER);
 
 	return {
 		members: {
@@ -92,10 +98,11 @@ export const load: PageServerLoad = async (event) => {
 		},
 		pendingInvites,
 		capabilities: {
-			canAddMembers: canAdministerMembers,
-			canManageRoles: canAdministerMembers,
-			canRemoveMembers: canAdministerMembers
+			canAddMembers,
+			canManageRoles,
+			canRemoveMembers
 		},
+		memberAssignableRoleOptions: getMemberAssignableRoleOptions(),
 		memberId
 	};
 };

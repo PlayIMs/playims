@@ -1,8 +1,12 @@
 import { dev } from '$app/environment';
-import { canAccessDashboardRouteForAuthMode } from '$lib/dashboard/navigation';
+import { canAccessDashboardRouteForPermissions } from '$lib/dashboard/navigation';
 import { clearSessionCookie, resolveSessionFromRequest } from '$lib/server/auth/session';
-import type { AuthRole } from '$lib/server/auth/rbac';
-import { DASHBOARD_ALLOWED_ROLES, hasAnyRole, normalizeRole } from '$lib/server/auth/rbac';
+import type { AuthPermission, AuthRole } from '$lib/server/auth/permissions';
+import {
+	buildPermissionSnapshot,
+	hasLocalsAnyPermission,
+	PERMISSIONS
+} from '$lib/server/auth/permissions';
 import { AuthServiceError, requireSessionSecret } from '$lib/server/auth/service';
 import {
 	AUTH_SESSION_COOKIE_NAME,
@@ -49,8 +53,8 @@ type ApiAccessPolicy =
 			access: 'authenticated';
 	  }
 	| {
-			access: 'role';
-			roles: readonly AuthRole[];
+			access: 'permission';
+			permissions: readonly AuthPermission[] | ((method: string) => readonly AuthPermission[]);
 	  };
 
 type ApiRoutePolicy = {
@@ -58,7 +62,6 @@ type ApiRoutePolicy = {
 	policy: ApiAccessPolicy;
 };
 
-// Single source of truth for API access requirements.
 const API_ROUTE_POLICIES: ApiRoutePolicy[] = [
 	{ pattern: /^\/api\/auth\/login$/, policy: { access: 'public' } },
 	{ pattern: /^\/api\/auth\/register$/, policy: { access: 'public' } },
@@ -71,51 +74,77 @@ const API_ROUTE_POLICIES: ApiRoutePolicy[] = [
 	{ pattern: /^\/api\/auth\/view-as-role$/, policy: { access: 'authenticated' } },
 	{
 		pattern: /^\/api\/address-suggest$/,
-		policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES }
+		policy: { access: 'permission', permissions: [PERMISSIONS.USE_ADDRESS_SUGGEST] }
 	},
 	{ pattern: /^\/api\/search$/, policy: { access: 'public' } },
 	{ pattern: /^\/api\/search\/recent$/, policy: { access: 'authenticated' } },
-	{ pattern: /^\/api\/themes$/, policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES } },
+	{ pattern: /^\/api\/themes$/, policy: { access: 'permission', permissions: [PERMISSIONS.MANAGE_THEMES] } },
 	{
 		pattern: /^\/api\/themes\/current$/,
-		policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES }
+		policy: { access: 'permission', permissions: [PERMISSIONS.MANAGE_THEMES] }
 	},
-	{ pattern: /^\/api\/themes\/[^/]+$/, policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES } },
+	{
+		pattern: /^\/api\/themes\/[^/]+$/,
+		policy: { access: 'permission', permissions: [PERMISSIONS.MANAGE_THEMES] }
+	},
 	{
 		pattern: /^\/api\/intramural-sports\/offerings$/,
-		policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES }
+		policy: { access: 'permission', permissions: [PERMISSIONS.MANAGE_OFFERINGS] }
 	},
 	{
 		pattern: /^\/api\/intramural-sports\/leagues$/,
-		policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES }
+		policy: { access: 'permission', permissions: [PERMISSIONS.MANAGE_OFFERINGS] }
 	},
 	{
 		pattern: /^\/api\/intramural-sports\/leagues\/[^/]+\/[^/]+\/management$/,
-		policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES }
+		policy: { access: 'permission', permissions: [PERMISSIONS.MANAGE_OFFERINGS] }
 	},
 	{
 		pattern: /^\/api\/intramural-sports\/seasons$/,
-		policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES }
+		policy: { access: 'permission', permissions: [PERMISSIONS.MANAGE_OFFERINGS] }
 	},
 	{
 		pattern: /^\/api\/facilities$/,
-		policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES }
+		policy: {
+			access: 'permission',
+			permissions: (method) =>
+				method === 'GET'
+					? [PERMISSIONS.VIEW_FACILITIES]
+					: [PERMISSIONS.MANAGE_FACILITIES]
+		}
 	},
 	{
 		pattern: /^\/api\/members$/,
-		policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES }
+		policy: {
+			access: 'permission',
+			permissions: (method) =>
+				method === 'GET'
+					? [PERMISSIONS.VIEW_MEMBER_MANAGEMENT]
+					: [PERMISSIONS.ADD_MEMBER]
+		}
 	},
 	{
 		pattern: /^\/api\/members\/[^/]+$/,
-		policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES }
+		policy: {
+			access: 'permission',
+			permissions: (method) => {
+				if (method === 'GET') {
+					return [PERMISSIONS.VIEW_MEMBER_MANAGEMENT];
+				}
+				if (method === 'DELETE') {
+					return [PERMISSIONS.REMOVE_MEMBER];
+				}
+				return [PERMISSIONS.EDIT_MEMBER_PROFILE, PERMISSIONS.CHANGE_MEMBER_ROLE];
+			}
+		}
 	},
 	{
 		pattern: /^\/api\/member-invites$/,
-		policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES }
+		policy: { access: 'permission', permissions: [PERMISSIONS.VIEW_MEMBER_MANAGEMENT] }
 	},
 	{
 		pattern: /^\/api\/member-invites\/[^/]+$/,
-		policy: { access: 'role', roles: DASHBOARD_ALLOWED_ROLES }
+		policy: { access: 'permission', permissions: [PERMISSIONS.MANAGE_MEMBER_INVITES] }
 	}
 ];
 
@@ -827,7 +856,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 			});
 		}
 
-		if (apiPolicy.access === 'authenticated' || apiPolicy.access === 'role') {
+		if (apiPolicy.access === 'authenticated' || apiPolicy.access === 'permission') {
 			if (!event.locals.user || !event.locals.session) {
 				const response = toApiErrorResponse(
 					401,
@@ -854,11 +883,15 @@ export const handle: Handle = async ({ event, resolve }) => {
 			}
 		}
 
-		if (apiPolicy.access === 'role') {
-			const roleForPolicy = isMutatingRequest
-				? event.locals.user?.role
-				: (event.locals.user?.baseRole ?? event.locals.user?.role);
-			if (!hasAnyRole(roleForPolicy, apiPolicy.roles)) {
+		if (apiPolicy.access === 'permission') {
+			const requiredPermissions =
+				typeof apiPolicy.permissions === 'function'
+					? apiPolicy.permissions(method)
+					: apiPolicy.permissions;
+			const allowed = hasLocalsAnyPermission(event.locals, requiredPermissions, {
+				mutate: isMutatingRequest
+			});
+			if (!allowed) {
 				const response = toApiErrorResponse(
 					403,
 					event.locals.requestId,
@@ -874,7 +907,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 					recordCount: 0,
 					status: 403,
 					durationMs: nowMs() - startedAt,
-					error: 'Role-based access denied'
+					error: 'Permission-based access denied'
 				});
 
 				return withSecurityHeaders(response, {
@@ -965,15 +998,19 @@ export const handle: Handle = async ({ event, resolve }) => {
 				});
 			}
 
-			const effectiveRole = normalizeRole(event.locals.user.role ?? event.locals.user.baseRole);
-			const isViewingAsRole = event.locals.user.isViewingAsRole === true;
-			if (
-				!canAccessDashboardRouteForAuthMode({
-					pathname,
-					effectiveRole,
-					isViewingAsRole
-				})
-			) {
+			const permissionSnapshot = buildPermissionSnapshot(
+				event.locals.user.role ?? event.locals.user.baseRole
+			);
+			const canAccessProtectedPage =
+				pathname === '/colors'
+					? permissionSnapshot.ACCESS_DEV_TOOLS === true
+					: pathname === '/schedule'
+						? permissionSnapshot.VIEW_SCHEDULE === true
+						: canAccessDashboardRouteForPermissions({
+								pathname,
+								permissions: permissionSnapshot
+							});
+			if (!canAccessProtectedPage) {
 				const response = toPageErrorResponse(403, 'Forbidden');
 				logRequestSummary({
 					scope: 'SSR',
@@ -983,7 +1020,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 					recordCount: 0,
 					status: 403,
 					durationMs: nowMs() - startedAt,
-					error: 'Role-based access denied'
+					error: 'Permission-based access denied'
 				});
 				return withSecurityHeaders(response, {
 					requestId: event.locals.requestId,
@@ -995,7 +1032,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 		if (
 			isAuthPagePath(pathname) &&
 			event.locals.user &&
-			hasAnyRole(event.locals.user.baseRole ?? event.locals.user.role, DASHBOARD_ALLOWED_ROLES)
+			buildPermissionSnapshot(event.locals.user.baseRole ?? event.locals.user.role)
+				.VIEW_DASHBOARD_HOME
 		) {
 			// Logged-in users should not stay on login/register pages.
 			const nextParam = sanitizeNextPath(getSafeSearchParam(event.url, 'next'));

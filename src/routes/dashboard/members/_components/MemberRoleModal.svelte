@@ -3,11 +3,13 @@
 	import ModalShell from '$lib/components/modals/ModalShell.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import { toast } from '$lib/toasts';
+	import type { MemberAssignableRole } from '$lib/members/types.js';
 
 	interface Props {
 		open: boolean;
 		memberName: string;
-		roleValue: 'participant' | 'manager' | 'admin';
+		roleValue: MemberAssignableRole;
+		roleOptions: Array<{ value: MemberAssignableRole; label: string }>;
 		submitting?: boolean;
 		error?: string;
 		onClose: () => void;
@@ -18,18 +20,13 @@
 		open,
 		memberName,
 		roleValue = 'participant',
+		roleOptions,
 		submitting = false,
 		error = '',
 		onClose,
 		onSubmit
 	}: Props = $props();
-	const dispatch = createEventDispatcher<{ roleChange: { value: 'participant' | 'manager' | 'admin' } }>();
-
-	const roleOptions = [
-		{ value: 'participant', label: 'Participant' },
-		{ value: 'manager', label: 'Manager' },
-		{ value: 'admin', label: 'Admin' }
-	];
+	const dispatch = createEventDispatcher<{ roleChange: { value: MemberAssignableRole } }>();
 
 	let lastErrorToast = $state('');
 
@@ -78,7 +75,7 @@
 				ariaLabel="Select member role"
 				buttonClass="w-full border-2 border-secondary-400 bg-white px-4 py-2 text-base leading-6 font-normal text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2 hover:bg-white focus:outline-none focus-visible:outline-none focus-visible:border-secondary-500 focus-visible:ring-0 focus-visible:shadow-[0_0_0_1px_var(--color-secondary-500)]"
 				on:change={(event) => {
-					roleValue = event.detail.value as 'participant' | 'manager' | 'admin';
+					roleValue = event.detail.value as MemberAssignableRole;
 					dispatch('roleChange', { value: roleValue });
 				}}
 			/>

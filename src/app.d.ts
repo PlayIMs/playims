@@ -3,6 +3,7 @@
 import type { D1Database } from '@cloudflare/workers-types';
 import type { DatabaseOperations } from '$lib/database';
 import type { ResolvedTenantDatabaseRoute } from '$lib/server/database/context';
+import type { AuthRole } from '$lib/server/auth/permissions';
 
 declare global {
 	namespace App {
@@ -12,11 +13,11 @@ declare global {
 			user?: {
 				id: string;
 				clientId: string;
-				role: 'participant' | 'manager' | 'admin' | 'dev';
-				baseRole: 'participant' | 'manager' | 'admin' | 'dev';
+				role: AuthRole;
+				baseRole: AuthRole;
 				canViewAsRole: boolean;
 				isViewingAsRole: boolean;
-				viewAsRole: 'participant' | 'manager' | 'admin' | 'dev' | null;
+				viewAsRole: AuthRole | null;
 				email?: string;
 				firstName?: string | null;
 				lastName?: string | null;
@@ -29,11 +30,11 @@ declare global {
 				userId: string;
 				clientId: string;
 				activeClientId: string;
-				role: 'participant' | 'manager' | 'admin' | 'dev';
-				baseRole: 'participant' | 'manager' | 'admin' | 'dev';
+				role: AuthRole;
+				baseRole: AuthRole;
 				canViewAsRole: boolean;
 				isViewingAsRole: boolean;
-				viewAsRole: 'participant' | 'manager' | 'admin' | 'dev' | null;
+				viewAsRole: AuthRole | null;
 				authProvider: 'password' | string;
 				expiresAt: string;
 			};

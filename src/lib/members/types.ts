@@ -1,9 +1,11 @@
+import type { AuthRole, MemberAssignableRole } from '$lib/server/auth/permissions';
+
 export const MEMBER_PAGE_SIZE = 50;
 export const MEMBER_INVITE_PAGE_SIZE = 10;
 
 export type MemberSex = 'M' | 'F';
-export type MemberAssignableRole = 'participant' | 'manager' | 'admin';
-export type MemberRole = MemberAssignableRole | 'dev';
+export type MemberRole = AuthRole;
+export type { MemberAssignableRole };
 export type MemberSortKey = 'studentId' | 'firstName' | 'lastName' | 'email' | 'sex' | 'role';
 export type SortDirection = 'asc' | 'desc';
 export type MemberInviteMode = 'invite' | 'preprovision';

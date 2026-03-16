@@ -3,7 +3,7 @@ import {
 	requireAuthenticatedClientId,
 	requireAuthenticatedUserId
 } from '$lib/server/client-context';
-import { isAdminLikeRole } from '$lib/server/auth/rbac';
+import { PERMISSIONS, requirePermission } from '$lib/server/auth/permissions';
 import { getTenantD1Database, getTenantDbOps } from '$lib/server/database/context';
 import {
 	createIntramuralSeasonSchema,
@@ -997,7 +997,7 @@ export const DELETE: RequestHandler = async (event) => {
 	}
 
 	const input: DeleteIntramuralSeasonInput = parsed.data;
-	if (!isAdminLikeRole(event.locals.user?.role)) {
+	if (!requirePermission(event.locals, PERMISSIONS.DELETE_SEASONS, { mutate: true })) {
 		return json(
 			{
 				success: false,

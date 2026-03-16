@@ -2,8 +2,9 @@ import type { RequestEvent } from '@sveltejs/kit';
 import type { League, Offering, Season } from '$lib/database';
 import {
 	DASHBOARD_NAV_ITEMS,
-	filterDashboardNavigationItemsForAuthMode
+	filterDashboardNavigationItemsForPermissions
 } from '$lib/dashboard/navigation';
+import { buildPermissionSnapshot } from '$lib/server/auth/permissions';
 import { requireAuthenticatedClientId } from '$lib/server/client-context';
 import { getCentralDbOps, getTenantDbOps } from '$lib/server/database/context';
 import { leagueMatchesSeason } from '$lib/server/intramural-offering-scope';
@@ -108,11 +109,10 @@ function isActiveFlag(value: unknown): boolean {
 function buildDashboardPageResults(event: SearchEvent): MegaSearchResult[] {
 	if (!isAuthenticatedSearch(event)) return [];
 	const effectiveRole = event.locals.user?.role ?? 'participant';
-	const isViewingAsRole = Boolean(event.locals.user?.isViewingAsRole);
-	return filterDashboardNavigationItemsForAuthMode({
+	const permissions = buildPermissionSnapshot(effectiveRole);
+	return filterDashboardNavigationItemsForPermissions({
 		items: DASHBOARD_NAV_ITEMS,
-		effectiveRole,
-		isViewingAsRole
+		permissions
 	})
 		.filter((item) => item.href !== '#')
 		.map((item) => ({

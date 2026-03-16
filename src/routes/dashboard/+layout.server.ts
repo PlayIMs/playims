@@ -5,6 +5,7 @@ import {
 	mergeDashboardNavigationOrder,
 	type DashboardNavKey
 } from '$lib/dashboard/navigation';
+import { buildPermissionSnapshot, getViewAsRoleTargets } from '$lib/server/auth/permissions';
 import { requireAuthenticatedClientId } from '$lib/server/client-context';
 import { getTenantDbOps } from '$lib/server/database/context';
 import { loadOrganizationAdminMemberships } from '$lib/server/organization-admin';
@@ -20,6 +21,7 @@ export const load: LayoutServerLoad = async ({ locals, platform }) => {
 		clientName: string;
 		clientSlug: string | null;
 		role: string;
+		permissions: Record<string, boolean>;
 		isCurrent: boolean;
 		isDefault: boolean;
 		lastUsedAt: string | null;
@@ -65,6 +67,7 @@ export const load: LayoutServerLoad = async ({ locals, platform }) => {
 				clientName: membership.clientName,
 				clientSlug: membership.clientSlug,
 				role: membership.role,
+				permissions: membership.permissions,
 				isCurrent: membership.isCurrent,
 				isDefault: membership.isDefault,
 				lastUsedAt: membership.lastUsedAt
@@ -88,6 +91,8 @@ export const load: LayoutServerLoad = async ({ locals, platform }) => {
 	const canViewAsRole = locals.user?.canViewAsRole ?? false;
 	const isViewingAsRole = locals.user?.isViewingAsRole ?? false;
 	const viewAsRole = locals.user?.viewAsRole ?? null;
+	const permissions = buildPermissionSnapshot(effectiveRole);
+	const viewRoleTargets = getViewAsRoleTargets(effectiveRole);
 
 	return {
 		viewer: {
@@ -103,6 +108,8 @@ export const load: LayoutServerLoad = async ({ locals, platform }) => {
 			canViewAsRole,
 			isViewingAsRole,
 			viewAsRole
-		}
+		},
+		permissions,
+		viewRoleTargets
 	};
 };

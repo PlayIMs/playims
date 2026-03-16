@@ -1,4 +1,4 @@
-import { DASHBOARD_ALLOWED_ROLES, hasAnyRole } from '$lib/server/auth/rbac';
+import { buildPermissionSnapshot } from '$lib/server/auth/permissions';
 import { AuthServiceError, registerWithPassword } from '$lib/server/auth/service';
 import { registerSchema } from '$lib/server/auth/validation';
 import { getCentralDbOps } from '$lib/server/database/context';
@@ -23,7 +23,7 @@ const resolvePostAuthRedirect = (nextPath: string | null | undefined, role: stri
 		return sanitizedNextPath;
 	}
 
-	return hasAnyRole(role, DASHBOARD_ALLOWED_ROLES) ? '/dashboard' : '/';
+	return buildPermissionSnapshot(role).VIEW_DASHBOARD_HOME ? '/dashboard' : '/';
 };
 
 const FIELD_LABELS: Record<string, string> = {

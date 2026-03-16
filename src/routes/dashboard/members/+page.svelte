@@ -23,6 +23,7 @@
 	import { toast } from '$lib/toasts';
 	import type {
 		CreateMemberResponse,
+		MemberAssignableRole,
 		MemberDetail,
 		MemberListResponse,
 		MemberListRow,
@@ -48,9 +49,12 @@
 				(data?.navigationLabels ?? {}) as Partial<Record<DashboardNavKey, string>>
 			).memberManagement
 	);
-	const canAddMembers = $derived.by(() => data.capabilities.canAddMembers === true);
-	const canManageRoles = $derived.by(() => data.capabilities.canManageRoles === true);
-	const canRemoveMembers = $derived.by(() => data.capabilities.canRemoveMembers === true);
+	const canAddMembers = $derived.by(() => data.permissions?.ADD_MEMBER === true);
+	const canManageRoles = $derived.by(() => data.permissions?.CHANGE_MEMBER_ROLE === true);
+	const canRemoveMembers = $derived.by(() => data.permissions?.REMOVE_MEMBER === true);
+	const memberAssignableRoleOptions = $derived.by(
+		() => data.memberAssignableRoleOptions ?? []
+	);
 	const ACTION_DROPDOWN_BUTTON_CLASS = 'button-secondary-outlined p-1.5 cursor-pointer';
 	const ACTION_DROPDOWN_LIST_CLASS = 'mt-1 w-44 border-2 border-neutral-950 bg-white z-20';
 	const ACTION_DROPDOWN_OPTION_CLASS =
@@ -110,7 +114,7 @@
 	let editSubmitting = $state(false);
 	let editError = $state('');
 	let editFieldErrors = $state<Record<string, string>>({});
-	let roleValue = $state<'participant' | 'manager' | 'admin'>('participant');
+	let roleValue = $state<MemberAssignableRole>('participant');
 	let roleSubmitting = $state(false);
 	let roleError = $state('');
 	let removeSubmitting = $state(false);
@@ -173,6 +177,14 @@
 		if (role === 'admin') return 'border-primary-500 bg-primary-100 text-primary-900';
 		if (role === 'manager') return 'border-secondary-500 bg-secondary-100 text-secondary-900';
 		return 'border-secondary-300 bg-neutral-100 text-neutral-950';
+	}
+
+	function resolveAssignableRoleValue(role: MemberRole): MemberAssignableRole {
+		return memberAssignableRoleOptions.some(
+			(option: { value: MemberAssignableRole; label: string }) => option.value === role
+		)
+			? (role as MemberAssignableRole)
+			: 'participant';
 	}
 
 	function buildPaginationItems(page: number, pageCount: number): Array<number | 'ellipsis'> {
@@ -405,8 +417,7 @@
 			return;
 		}
 		if (kind === 'permissions') {
-			roleValue =
-				detail.role === 'admin' ? 'admin' : detail.role === 'manager' ? 'manager' : 'participant';
+			roleValue = resolveAssignableRoleValue(detail.role);
 			roleOpen = true;
 			return;
 		}
@@ -1200,6 +1211,7 @@
 	open={addOpen}
 	step={addStep}
 	form={addForm}
+	roleOptions={memberAssignableRoleOptions}
 	submitting={addSubmitting}
 	error={addError}
 	fieldErrors={addFieldErrors}
@@ -1231,6 +1243,7 @@
 	open={roleOpen}
 	memberName={selectedMember?.fullName ?? 'this member'}
 	{roleValue}
+	roleOptions={memberAssignableRoleOptions}
 	submitting={roleSubmitting}
 	error={roleError}
 	onClose={() => (roleOpen = false)}

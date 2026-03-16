@@ -1,4 +1,11 @@
-import { canViewAsLowerRole, canViewAsRole, normalizeRole } from '$lib/server/auth/rbac';
+import {
+	applyMembershipRoleToLocals,
+	buildPermissionSnapshot,
+	canViewAsLowerRole,
+	canViewAsRole,
+	getViewAsRoleTargets,
+	normalizeRole
+} from '$lib/server/auth/permissions';
 import { viewAsRoleSchema } from '$lib/server/auth/validation';
 import { getCentralDbOps } from '$lib/server/database/context';
 import { json } from '@sveltejs/kit';
@@ -55,31 +62,19 @@ export const POST: RequestHandler = async (event) => {
 		return json({ success: false, error: 'Failed to update view mode.' }, { status: 500 });
 	}
 
-	const isViewingAsRole = nextViewAsRole !== null;
-	const role = isViewingAsRole ? nextViewAsRole : baseRole;
-
-	event.locals.session = {
-		...event.locals.session,
-		role,
+	const roleContext = applyMembershipRoleToLocals(event, {
+		clientId: event.locals.session.activeClientId,
 		baseRole,
-		canViewAsRole: canViewAsRoleEnabled,
-		isViewingAsRole,
-		viewAsRole: nextViewAsRole
-	};
-	event.locals.user = {
-		...event.locals.user,
-		role,
-		baseRole,
-		canViewAsRole: canViewAsRoleEnabled,
-		isViewingAsRole,
-		viewAsRole: nextViewAsRole
-	};
+		requestedViewAsRole: nextViewAsRole
+	});
 
 	return json({
 		success: true,
 		data: {
 			user: event.locals.user,
-			session: event.locals.session
+			session: event.locals.session,
+			permissions: buildPermissionSnapshot(roleContext.role),
+			viewRoleTargets: getViewAsRoleTargets(roleContext.role)
 		}
 	});
 };

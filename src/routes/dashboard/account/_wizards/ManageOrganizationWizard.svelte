@@ -19,6 +19,7 @@
 		clientName: string;
 		clientSlug: string | null;
 		role: string;
+		permissions: Record<string, boolean>;
 		isDefault: boolean;
 		isCurrent: boolean;
 		selfJoinEnabled: boolean;
@@ -88,10 +89,9 @@
 		() =>
 			sortedOrganizations.find((organization) => organization.clientId === organizationId) ?? null
 	);
-	const selectedRole = $derived.by(
-		() => selectedOrganization?.role?.trim().toLowerCase() ?? 'participant'
+	const canEditDetails = $derived.by(
+		() => selectedOrganization?.permissions?.EDIT_ORGANIZATION_DETAILS === true
 	);
-	const canEditDetails = $derived.by(() => selectedRole === 'admin' || selectedRole === 'dev');
 	const canSetDefault = $derived.by(() =>
 		Boolean(selectedOrganization && !selectedOrganization.isDefault)
 	);
@@ -119,6 +119,11 @@
 		if (selectedOrganization.isCurrent) flags.push('Current');
 		if (selectedOrganization.isDefault) flags.push('Default');
 		return flags.length > 0 ? flags.join(' / ') : '';
+	});
+	const selectedRole = $derived.by(() => {
+		const role = selectedOrganization?.role?.trim() ?? '';
+		if (!role) return 'Participant';
+		return role.charAt(0).toUpperCase() + role.slice(1);
 	});
 
 	function normalizeSlug(value: string): string {

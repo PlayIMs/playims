@@ -4,7 +4,7 @@ import {
 	requireAuthenticatedClientId,
 	requireAuthenticatedUserId
 } from '$lib/server/client-context';
-import { canManageWrites } from '$lib/server/auth/permissions';
+import { PERMISSIONS, requirePermission } from '$lib/server/auth/permissions';
 import { getTenantDbOps } from '$lib/server/database/context';
 import { readFacilitySearchSelection } from '$lib/search/page-state.js';
 
@@ -142,7 +142,7 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
 export const actions: Actions = {
 	createFacilityWithAreas: async ({ request, platform, locals }) => {
 		if (!platform) throw error(500, 'Platform not available');
-		if (!canManageWrites(locals)) {
+		if (!requirePermission(locals, PERMISSIONS.MANAGE_FACILITIES, { mutate: true })) {
 			return fail(403, {
 				message: 'You do not have permission to modify facilities in the current view mode.',
 				action: 'createFacilityWithAreas'
@@ -260,7 +260,7 @@ export const actions: Actions = {
 
 	createFacility: async ({ request, platform, locals }) => {
 		if (!platform) throw error(500, 'Platform not available');
-		if (!canManageWrites(locals)) {
+		if (!requirePermission(locals, PERMISSIONS.MANAGE_FACILITIES, { mutate: true })) {
 			return fail(403, {
 				message: 'You do not have permission to modify facilities in the current view mode.',
 				action: 'createFacility'
@@ -337,7 +337,7 @@ export const actions: Actions = {
 
 	updateFacility: async ({ request, platform, locals }) => {
 		if (!platform) throw error(500, 'Platform not available');
-		if (!canManageWrites(locals)) {
+		if (!requirePermission(locals, PERMISSIONS.MANAGE_FACILITIES, { mutate: true })) {
 			return fail(403, {
 				message: 'You do not have permission to modify facilities in the current view mode.',
 				action: 'updateFacility'
@@ -442,7 +442,7 @@ export const actions: Actions = {
 
 	setFacilityArchived: async ({ request, platform, locals }) => {
 		if (!platform) throw error(500, 'Platform not available');
-		if (!canManageWrites(locals)) {
+		if (!requirePermission(locals, PERMISSIONS.MANAGE_FACILITIES, { mutate: true })) {
 			return fail(403, {
 				message: 'You do not have permission to modify facilities in the current view mode.',
 				action: 'setFacilityArchived'
@@ -473,7 +473,7 @@ export const actions: Actions = {
 
 	createFacilityArea: async ({ request, platform, locals }) => {
 		if (!platform) throw error(500, 'Platform not available');
-		if (!canManageWrites(locals)) {
+		if (!requirePermission(locals, PERMISSIONS.MANAGE_FACILITIES, { mutate: true })) {
 			return fail(403, {
 				message: 'You do not have permission to modify facilities in the current view mode.',
 				action: 'createFacilityArea'
@@ -556,7 +556,7 @@ export const actions: Actions = {
 
 	updateFacilityArea: async ({ request, platform, locals }) => {
 		if (!platform) throw error(500, 'Platform not available');
-		if (!canManageWrites(locals)) {
+		if (!requirePermission(locals, PERMISSIONS.MANAGE_FACILITIES, { mutate: true })) {
 			return fail(403, {
 				message: 'You do not have permission to modify facilities in the current view mode.',
 				action: 'updateFacilityArea'
@@ -644,7 +644,7 @@ export const actions: Actions = {
 
 	moveFacilityArea: async ({ request, platform, locals }) => {
 		if (!platform) throw error(500, 'Platform not available');
-		if (!canManageWrites(locals)) {
+		if (!requirePermission(locals, PERMISSIONS.MANAGE_FACILITIES, { mutate: true })) {
 			return fail(403, {
 				message: 'You do not have permission to modify facilities in the current view mode.',
 				action: 'moveFacilityArea'
@@ -679,7 +679,7 @@ export const actions: Actions = {
 
 	setFacilityAreaArchived: async ({ request, platform, locals }) => {
 		if (!platform) throw error(500, 'Platform not available');
-		if (!canManageWrites(locals)) {
+		if (!requirePermission(locals, PERMISSIONS.MANAGE_FACILITIES, { mutate: true })) {
 			return fail(403, {
 				message: 'You do not have permission to modify facilities in the current view mode.',
 				action: 'setFacilityAreaArchived'
@@ -710,7 +710,7 @@ export const actions: Actions = {
 
 	deleteFacility: async ({ request, platform, locals }) => {
 		if (!platform) throw error(500, 'Platform not available');
-		if (!canManageWrites(locals)) {
+		if (!requirePermission(locals, PERMISSIONS.MANAGE_FACILITIES, { mutate: true })) {
 			return fail(403, {
 				message: 'You do not have permission to modify facilities in the current view mode.',
 				action: 'deleteFacility'
@@ -752,7 +752,7 @@ export const actions: Actions = {
 
 	deleteFacilityArea: async ({ request, platform, locals }) => {
 		if (!platform) throw error(500, 'Platform not available');
-		if (!canManageWrites(locals)) {
+		if (!requirePermission(locals, PERMISSIONS.MANAGE_FACILITIES, { mutate: true })) {
 			return fail(403, {
 				message: 'You do not have permission to modify facilities in the current view mode.',
 				action: 'deleteFacilityArea'
