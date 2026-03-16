@@ -1,12 +1,12 @@
 /*
 Brief description:
-This file verifies that the developer page exposes the temporary create-organization action.
+This file verifies that the developer page exposes the current create-organization action.
 
 Deeper explanation:
-The organization tools were moved off the account page, but the create flow still depends on a
+The developer tools page owns the current organization create flow. That flow still depends on a
 page action with authentication, slug validation, membership creation, and optional session
-switching. This test protects the temporary developer-page bridge so the relocated UI still submits
-to a real action instead of silently losing its backend behavior.
+switching. These tests protect that server path so the UI cannot drift away from the backend
+behavior that actually creates and activates an organization.
 
 Summary of tests:
 1. It verifies that the developer page create-organization action creates the org, membership, and active session context.
@@ -66,8 +66,8 @@ describe('developer page create-organization action', () => {
 		});
 	});
 
-	it('creates an organization through the temporary developer-page bridge', async () => {
-		// this proves the relocated dev-page UI still reaches the real create-organization mutation path.
+	it('creates an organization through the developer tools page action', async () => {
+		// this proves the dev-page UI still reaches the real create-organization mutation path.
 		const formData = new FormData();
 		formData.set('organizationName', 'Developer Org');
 		formData.set('organizationSlug', 'developer-org');

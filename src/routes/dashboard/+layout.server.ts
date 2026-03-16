@@ -5,11 +5,9 @@ import {
 	mergeDashboardNavigationOrder,
 	type DashboardNavKey
 } from '$lib/dashboard/navigation';
-import {
-	requireAuthenticatedClientId,
-	requireAuthenticatedUserId
-} from '$lib/server/client-context';
-import { getCentralDbOps, getTenantDbOps } from '$lib/server/database/context';
+import { requireAuthenticatedClientId } from '$lib/server/client-context';
+import { getTenantDbOps } from '$lib/server/database/context';
+import { loadOrganizationAdminMemberships } from '$lib/server/organization-admin';
 import type { LayoutServerLoad } from './$types';
 
 const isDashboardNavKey = (value: string): value is DashboardNavKey =>
@@ -24,17 +22,16 @@ export const load: LayoutServerLoad = async ({ locals, platform }) => {
 		role: string;
 		isCurrent: boolean;
 		isDefault: boolean;
+		lastUsedAt: string | null;
 	}> = [];
 
 	if (platform?.env?.DB) {
 		try {
 			const clientId = requireAuthenticatedClientId(locals);
-			const userId = requireAuthenticatedUserId(locals);
-			const centralDb = getCentralDbOps({ locals, platform });
 			const db = await getTenantDbOps({ locals, platform }, clientId);
 			const [storedLabels, memberships] = await Promise.all([
 				db.clientNavigationLabels.getByClientId(clientId),
-				centralDb.userClients.listActiveForUserWithClientDetails(userId)
+				loadOrganizationAdminMemberships({ locals, platform })
 			]);
 
 			const overrides: Partial<Record<DashboardNavKey, string>> = {};
@@ -63,20 +60,15 @@ export const load: LayoutServerLoad = async ({ locals, platform }) => {
 				labels: mergeDashboardNavigationLabels(overrides),
 				order: resolvedOrder
 			});
-			organizations = memberships
-				.map(({ membership, client }) => ({
-					clientId: membership.clientId,
-					clientName: client?.name?.trim() || 'Organization',
-					clientSlug: client?.slug?.trim() || null,
-					role: membership.role ?? 'participant',
-					isCurrent: membership.clientId === clientId,
-					isDefault: membership.isDefault === 1
-				}))
-				.toSorted((a, b) => {
-					if (a.isCurrent && !b.isCurrent) return -1;
-					if (!a.isCurrent && b.isCurrent) return 1;
-					return a.clientName.localeCompare(b.clientName, 'en', { sensitivity: 'base' });
-				});
+			organizations = memberships.map((membership) => ({
+				clientId: membership.clientId,
+				clientName: membership.clientName,
+				clientSlug: membership.clientSlug,
+				role: membership.role,
+				isCurrent: membership.isCurrent,
+				isDefault: membership.isDefault,
+				lastUsedAt: membership.lastUsedAt
+			}));
 		} catch (error) {
 			const message = error instanceof Error ? error.message : '';
 			if (

@@ -312,12 +312,12 @@
 			</div>
 			<div class="space-y-2">
 				<p class="text-xs font-bold uppercase tracking-[0.16em] text-secondary-700">
-					Temporary Location
+					Organization Tools
 				</p>
 				<h2 class="font-serif text-3xl leading-none text-secondary-900">Organization Admin</h2>
 				<p class="max-w-3xl text-sm leading-6 text-secondary-800">
-					The organization create and manage tools are temporarily parked here while the
-					account page is simplified.
+					Create a new organization or manage organizations you already belong to from the
+					developer tools area.
 				</p>
 			</div>
 		</div>
