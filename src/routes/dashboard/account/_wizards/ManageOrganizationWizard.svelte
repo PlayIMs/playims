@@ -636,8 +636,7 @@
 	<div class="p-4 space-y-3 overflow-y-auto">
 		<div class="border-2 border-error-300 bg-error-50 p-3 space-y-2">
 			<p class="text-sm text-error-900 font-semibold">
-				Leaving this organization removes your membership and access to this organization's
-				dashboard.
+				Leaving this organization removes your membership and access to the organization.
 			</p>
 			<p class="text-sm text-error-700 font-semibold">
 				This action can only be undone by joining again or being re-added by an administrator.
@@ -686,4 +685,3 @@
 		</button>
 	</div>
 </ModalShell>
-

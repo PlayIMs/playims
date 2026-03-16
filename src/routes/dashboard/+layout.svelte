@@ -57,6 +57,11 @@
 		role: string;
 		isCurrent: boolean;
 		isDefault: boolean;
+		lastUsedAt: string | null;
+	};
+	type OrganizationActionResult = {
+		success: boolean;
+		error?: string;
 	};
 	type NavigatorWithStandalone = Navigator & {
 		standalone?: boolean;
@@ -496,7 +501,24 @@
 		}
 	};
 
-	const switchOrganization = async (clientId: string) => {
+	const refreshAfterOrganizationContextChange = async (): Promise<void> => {
+		const currentUrl = `${activePath}${activeSearch}`;
+		const routeProbe = await fetch(currentUrl, {
+			method: 'GET',
+			headers: {
+				accept: 'text/html'
+			}
+		});
+
+		if (!routeProbe.ok) {
+			await goto('/dashboard', { invalidateAll: true });
+			return;
+		}
+
+		await invalidateAll();
+	};
+
+	const switchOrganization = async (clientId: string): Promise<OrganizationActionResult> => {
 		if (
 			!browser ||
 			!clientId ||
@@ -504,7 +526,9 @@
 			organizationSwitching ||
 			organizationWizardSubmitting
 		) {
-			return;
+			return {
+				success: false
+			};
 		}
 
 		organizationWizardSubmitting = true;
@@ -528,26 +552,80 @@
 
 			if (!response.ok) {
 				organizationWizardError = payload?.error ?? 'Unable to switch organizations right now.';
-				return;
+				return {
+					success: false,
+					error: organizationWizardError
+				};
 			}
 
 			organizationWizardOpen = false;
-			const currentUrl = `${activePath}${activeSearch}`;
-			const routeProbe = await fetch(currentUrl, {
-				method: 'GET',
-				headers: {
-					accept: 'text/html'
-				}
-			});
-
-			if (!routeProbe.ok) {
-				await goto('/dashboard', { invalidateAll: true });
-				return;
-			}
-
-			await invalidateAll();
+			await refreshAfterOrganizationContextChange();
+			return {
+				success: true
+			};
 		} catch {
 			organizationWizardError = 'Unable to switch organizations right now.';
+			return {
+				success: false,
+				error: organizationWizardError
+			};
+		} finally {
+			organizationWizardSubmitting = false;
+			setOrganizationSwitchingState(false);
+		}
+	};
+
+	const leaveOrganizationMembership = async (
+		clientId: string,
+		confirmSlug: string
+	): Promise<OrganizationActionResult> => {
+		if (!browser || !clientId || organizationSwitching || organizationWizardSubmitting) {
+			return {
+				success: false
+			};
+		}
+
+		organizationWizardSubmitting = true;
+		organizationWizardError = '';
+		setOrganizationSwitchingState(true);
+		try {
+			const response = await fetch('/api/auth/organizations', {
+				method: 'DELETE',
+				headers: {
+					'content-type': 'application/json'
+				},
+				body: JSON.stringify({
+					clientId,
+					confirmSlug
+				})
+			});
+
+			let payload: { error?: string } | null = null;
+			try {
+				payload = (await response.json()) as { error?: string };
+			} catch {
+				payload = null;
+			}
+
+			if (!response.ok) {
+				organizationWizardError = payload?.error ?? 'Unable to leave organization right now.';
+				return {
+					success: false,
+					error: organizationWizardError
+				};
+			}
+
+			organizationWizardOpen = false;
+			await refreshAfterOrganizationContextChange();
+			return {
+				success: true
+			};
+		} catch {
+			organizationWizardError = 'Unable to leave organization right now.';
+			return {
+				success: false,
+				error: organizationWizardError
+			};
 		} finally {
 			organizationWizardSubmitting = false;
 			setOrganizationSwitchingState(false);
@@ -1139,6 +1217,7 @@
 		{organizations}
 		selectedOrganizationId={currentOrganizationId}
 		onRequestClose={closeOrganizationWizard}
-		onSelectOrganization={(clientId) => void switchOrganization(clientId)}
+		onSelectOrganization={switchOrganization}
+		onLeaveOrganization={leaveOrganizationMembership}
 	/>
 </div>
