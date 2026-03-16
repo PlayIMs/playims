@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto, invalidateAll } from '$app/navigation';
+	import { tick } from 'svelte';
 	import type { PageData } from './$types';
 	import PageTitle from '$lib/components/PageTitle.svelte';
 	import {
@@ -24,6 +25,10 @@
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import HeaderHierarchyTabs from '$lib/components/navigation/HeaderHierarchyTabs.svelte';
 	import OfferingsTable from '$lib/components/OfferingsTable.svelte';
+	import {
+		resolveAnchoredFloatingPosition,
+		toFixedStyle
+	} from '$lib/components/floating-position.js';
 	import DashboardSidebarPanel from '$lib/components/dashboard/DashboardSidebarPanel.svelte';
 	import SplitAddAction from '$lib/components/dashboard/SplitAddAction.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
@@ -61,6 +66,10 @@
 	type CreateDivisionWizardStep = 1 | 2 | 3;
 	type LeagueGender = '' | 'male' | 'female' | 'mixed';
 	type LeagueSkillLevel = '' | 'competitive' | 'intermediate' | 'recreational' | 'all';
+	type ActiveDivisionLockTarget = {
+		league: OfferingLeagueRow;
+		division: OfferingDivisionRow;
+	};
 
 	interface DivisionWizardForm {
 		name: string;
@@ -168,6 +177,9 @@
 
 	const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 	const DATE_TIME_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+	const DIVISION_LOCK_PANEL_GAP_PX = 4;
+	const FLOATING_EDGE_PADDING_PX = 8;
+	const LOCK_TOOLTIP_OPEN_OFFSET_Y_PX = -30;
 	const FORM_DROPDOWN_BUTTON_CLASS =
 		'w-full border-2 border-secondary-400 bg-white px-4 py-2 text-base leading-6 font-normal text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2 hover:bg-white focus:outline-none focus-visible:outline-none focus-visible:border-secondary-500 focus-visible:ring-0 focus-visible:shadow-[0_0_0_1px_var(--color-secondary-500)] disabled:cursor-not-allowed disabled:opacity-60';
 
@@ -197,6 +209,17 @@
 	let createDivisionFormError = $state('');
 	let createDivisionServerFieldErrors = $state<Record<string, string>>({});
 	let createDivisionLeague = $state<OfferingLeagueRow | null>(null);
+	let divisionLockPopover = $state<{
+		leagueId: string;
+		divisionId: string;
+		anchorElement: HTMLElement;
+	} | null>(null);
+	let divisionLockPopoverPanel = $state<HTMLDivElement | null>(null);
+	let divisionLockPopoverStyle = $state(
+		'position: fixed; left: 0px; top: 0px; visibility: hidden;'
+	);
+	let divisionLockCancelButton = $state<HTMLButtonElement | null>(null);
+	let divisionLockSubmittingId = $state<string | null>(null);
 	let createDivisionEditingIndex = $state<number | null>(null);
 	let createDivisionDraftActive = $state(false);
 	let createDivisionManualOrder = $state(false);
@@ -270,6 +293,26 @@
 	}
 
 	const canManageOffering = $derived.by(() => data.permissions?.MANAGE_OFFERINGS === true);
+	const activeDivisionLockTarget = $derived.by<ActiveDivisionLockTarget | null>(() => {
+		const activeLeagueId = divisionLockPopover?.leagueId;
+		const activeDivisionId = divisionLockPopover?.divisionId;
+		if (!activeLeagueId || !activeDivisionId) return null;
+
+		for (const league of data.leagues) {
+			if (league.id !== activeLeagueId) continue;
+			const division =
+				league.divisions.find(
+					(candidate: OfferingDivisionRow) => candidate.id === activeDivisionId
+				) ?? null;
+			if (!division) return null;
+			return {
+				league,
+				division
+			};
+		}
+
+		return null;
+	});
 
 	function sportIconFor(offeringName: string, sportName: string | null | undefined) {
 		const key = `${offeringName} ${sportName ?? ''}`.trim().toLowerCase();
@@ -463,6 +506,23 @@
 		};
 	}
 
+	function divisionFormFromDivision(division: OfferingDivisionRow): DivisionWizardForm {
+		return {
+			name: division.name ?? '',
+			slug: division.slug ?? '',
+			maxTeams:
+				typeof division.maxTeams === 'number' && Number.isFinite(division.maxTeams)
+					? String(division.maxTeams)
+					: '',
+			description: division.description ?? '',
+			dayOfWeek: division.dayOfWeek ?? '',
+			gameTime: division.gameTime ?? '',
+			location: division.location ?? '',
+			startDate: division.startDate ?? '',
+			isLocked: Boolean(division.isLocked)
+		};
+	}
+
 	function createDivisionWizardStateSnapshot(): CreateDivisionWizardState {
 		return {
 			form: cloneCreateDivisionForm(createDivisionForm),
@@ -638,6 +698,64 @@
 		};
 	});
 
+	$effect(() => {
+		if (typeof window === 'undefined' || !divisionLockPopover || !activeDivisionLockTarget) return;
+		let frameId: number | null = null;
+
+		const schedulePositionUpdate = () => {
+			if (frameId !== null) return;
+			frameId = window.requestAnimationFrame(() => {
+				frameId = null;
+				updateDivisionLockPopoverPosition();
+			});
+		};
+
+		void tick().then(() => {
+			updateDivisionLockPopoverPosition();
+			divisionLockCancelButton?.focus();
+		});
+
+		const handleWindowPointerDown = (event: PointerEvent) => {
+			if (!divisionLockPopover || divisionLockSubmittingId) return;
+			const target = event.target;
+			if (!(target instanceof Node)) return;
+			if (divisionLockPopover.anchorElement.contains(target)) return;
+			if (divisionLockPopoverPanel?.contains(target)) return;
+			closeDivisionLockPopover();
+		};
+
+		const handleWindowKeydown = (event: KeyboardEvent) => {
+			if (event.key !== 'Escape' || divisionLockSubmittingId) return;
+			closeDivisionLockPopover();
+			event.preventDefault();
+			event.stopPropagation();
+			event.stopImmediatePropagation();
+		};
+
+		const handleWindowResize = () => {
+			schedulePositionUpdate();
+		};
+
+		const handleWindowScroll = () => {
+			schedulePositionUpdate();
+		};
+
+		window.addEventListener('pointerdown', handleWindowPointerDown);
+		window.addEventListener('keydown', handleWindowKeydown, true);
+		window.addEventListener('resize', handleWindowResize);
+		window.addEventListener('scroll', handleWindowScroll, true);
+
+		return () => {
+			window.removeEventListener('pointerdown', handleWindowPointerDown);
+			window.removeEventListener('keydown', handleWindowKeydown, true);
+			window.removeEventListener('resize', handleWindowResize);
+			window.removeEventListener('scroll', handleWindowScroll, true);
+			if (frameId !== null) {
+				window.cancelAnimationFrame(frameId);
+			}
+		};
+	});
+
 	function leagueStatusFor(league: OfferingLeagueRow) {
 		if (!league.isActive || league.isLocked) {
 			return {
@@ -685,6 +803,9 @@
 	}
 
 	function divisionJoinTooltip(division: OfferingDivisionRow): string {
+		if (canManageOffering) {
+			return division.isLocked ? 'Click to unlock this division' : 'Click to lock this division';
+		}
 		return division.isLocked ? 'This division cannot be joined' : 'This division can be joined';
 	}
 
@@ -1516,6 +1637,144 @@
 			createDivisionFormError = 'Unable to create division right now.';
 		} finally {
 			createDivisionSubmitting = false;
+		}
+	}
+
+	function applyDivisionLockState(leagueId: string, divisionId: string, isLocked: boolean): void {
+		data = {
+			...data,
+			leagues: data.leagues.map((league: OfferingLeagueRow) =>
+				league.id === leagueId
+					? {
+							...league,
+							divisions: league.divisions.map((division: OfferingDivisionRow) =>
+								division.id === divisionId ? { ...division, isLocked } : division
+							)
+						}
+					: league
+			)
+		};
+	}
+
+	function closeDivisionLockPopover(force = false): void {
+		if (!force && divisionLockSubmittingId) return;
+		divisionLockPopover = null;
+		divisionLockPopoverPanel = null;
+		divisionLockCancelButton = null;
+		divisionLockPopoverStyle = 'position: fixed; left: 0px; top: 0px; visibility: hidden;';
+	}
+
+	function updateDivisionLockPopoverPosition(): void {
+		if (
+			typeof window === 'undefined' ||
+			!divisionLockPopover?.anchorElement ||
+			!divisionLockPopoverPanel
+		) {
+			return;
+		}
+
+		const anchorRect = divisionLockPopover.anchorElement.getBoundingClientRect();
+		const panelRect = divisionLockPopoverPanel.getBoundingClientRect();
+		const position = resolveAnchoredFloatingPosition({
+			anchorRect,
+			panelWidth: panelRect.width,
+			panelHeight: panelRect.height,
+			align: 'left',
+			gapPx: DIVISION_LOCK_PANEL_GAP_PX,
+			paddingPx: FLOATING_EDGE_PADDING_PX,
+			preferVertical: 'bottom',
+			viewportWidth: window.innerWidth,
+			viewportHeight: window.innerHeight
+		});
+
+		const maxWidthStyle =
+			panelRect.width > position.maxWidth ? `max-width: ${Math.round(position.maxWidth)}px;` : '';
+		divisionLockPopoverStyle = toFixedStyle(position, maxWidthStyle);
+	}
+
+	function openDivisionLockPopover(
+		leagueId: string,
+		divisionId: string,
+		anchorElement: HTMLElement
+	): void {
+		if (
+			divisionLockPopover?.leagueId === leagueId &&
+			divisionLockPopover?.divisionId === divisionId &&
+			divisionLockPopover.anchorElement === anchorElement
+		) {
+			closeDivisionLockPopover();
+			return;
+		}
+
+		divisionLockPopover = {
+			leagueId,
+			divisionId,
+			anchorElement
+		};
+		divisionLockPopoverStyle = 'position: fixed; left: 0px; top: 0px; visibility: hidden;';
+	}
+
+	async function toggleDivisionLock(target: ActiveDivisionLockTarget): Promise<void> {
+		if (!canManageOffering || !target.league.id) return;
+
+		const apiPath = createDivisionManagementApiPath(target.league);
+		if (!apiPath) {
+			toast.error('League route is missing season or league slug.', {
+				title: target.league.name ?? pageLabel
+			});
+			return;
+		}
+
+		const nextIsLocked = !target.division.isLocked;
+		const divisionForm = divisionFormFromDivision(target.division);
+		divisionLockSubmittingId = target.division.id;
+
+		try {
+			const response = await fetch(apiPath, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					action: 'update-division',
+					leagueId: target.league.id,
+					divisionId: target.division.id,
+					division: {
+						name: divisionForm.name.trim(),
+						slug: divisionForm.slug.trim(),
+						description: normalizeOptionalTextForRequest(divisionForm.description),
+						dayOfWeek: normalizeOptionalTextForRequest(divisionForm.dayOfWeek),
+						gameTime: normalizeOptionalTextForRequest(divisionForm.gameTime),
+						maxTeams: Number(divisionForm.maxTeams),
+						location: normalizeOptionalTextForRequest(divisionForm.location),
+						isLocked: nextIsLocked,
+						startDate: divisionForm.startDate || null
+					}
+				})
+			});
+			const payload = await readManageLeagueResponse(response);
+			if (!response.ok || !payload.success) {
+				toast.error(
+					payload.error ??
+						firstFieldError(payload.fieldErrors) ??
+						`Unable to ${nextIsLocked ? 'lock' : 'unlock'} division right now.`,
+					{
+						title: target.league.name
+					}
+				);
+				return;
+			}
+
+			applyDivisionLockState(target.league.id, target.division.id, nextIsLocked);
+			closeDivisionLockPopover(true);
+			toast.success(nextIsLocked ? 'Division locked.' : 'Division unlocked.', {
+				title: target.league.name
+			});
+			void invalidateAll();
+		} catch {
+			toast.error(`Unable to ${nextIsLocked ? 'lock' : 'unlock'} division right now.`, {
+				title: target.league.name ?? pageLabel
+			});
+		} finally {
+			divisionLockSubmittingId = null;
 		}
 	}
 
@@ -2503,13 +2762,37 @@
 														<div class="pt-0.5">
 															<HoverTooltip
 																text={divisionJoinTooltip(offeringDivision)}
+																cursorOffsetYPx={divisionLockPopover?.divisionId === offeringDivision.id
+																	? LOCK_TOOLTIP_OPEN_OFFSET_Y_PX
+																	: 18}
 																wrapperClass="inline-flex shrink-0"
 															>
-																<span class="inline-flex text-neutral-950" aria-hidden="true">
-																	<divisionStatus.icon
-																		class={`h-4 w-4 ${divisionStatus.label === 'Unlocked' ? 'opacity-50' : ''}`}
-																	/>
-																</span>
+																{#if canManageOffering}
+																	<button
+																		type="button"
+																		class="inline-flex cursor-pointer items-center justify-center border-0 bg-transparent p-0 text-neutral-950 hover:text-secondary-900 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+																		aria-label={offeringDivision.isLocked
+																			? `Unlock ${offeringDivision.name}`
+																			: `Lock ${offeringDivision.name}`}
+																		aria-haspopup="dialog"
+																		aria-expanded={divisionLockPopover?.divisionId === offeringDivision.id}
+																		disabled={divisionLockSubmittingId === offeringDivision.id}
+																		onclick={(event) => {
+																			if (!(event.currentTarget instanceof HTMLElement)) return;
+																			openDivisionLockPopover(league.id, offeringDivision.id, event.currentTarget);
+																		}}
+																	>
+																		<divisionStatus.icon
+																			class={`h-4 w-4 ${divisionStatus.label === 'Unlocked' ? 'opacity-50' : ''}`}
+																		/>
+																	</button>
+																{:else}
+																	<span class="inline-flex text-neutral-950" aria-hidden="true">
+																		<divisionStatus.icon
+																			class={`h-4 w-4 ${divisionStatus.label === 'Unlocked' ? 'opacity-50' : ''}`}
+																		/>
+																	</span>
+																{/if}
 															</HoverTooltip>
 															<span class="sr-only">{divisionStatus.label}</span>
 														</div>
@@ -3351,6 +3634,48 @@
 		/>
 	{/snippet}
 </CreateLeagueWizard>
+
+{#if activeDivisionLockTarget}
+	<div
+		bind:this={divisionLockPopoverPanel}
+		class="z-[280] border-2 border-neutral-950 bg-white p-1 shadow-md"
+		style={divisionLockPopoverStyle}
+		role="dialog"
+		aria-modal="false"
+		aria-label={activeDivisionLockTarget.division.isLocked ? 'Unlock division' : 'Lock division'}
+	>
+		<div class="flex items-center gap-1">
+			<button
+				type="button"
+				class="inline-flex h-7 items-center justify-center border border-secondary-300 bg-white px-2.5 text-[11px] font-semibold leading-none text-neutral-950 cursor-pointer hover:bg-neutral-50 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-secondary-500 disabled:cursor-not-allowed disabled:opacity-50"
+				bind:this={divisionLockCancelButton}
+				disabled={divisionLockSubmittingId === activeDivisionLockTarget.division.id}
+				onclick={() => {
+					closeDivisionLockPopover();
+				}}
+			>
+				Cancel
+			</button>
+			<button
+				type="button"
+				class="inline-flex h-7 items-center justify-center gap-1 border border-primary-600 bg-primary-500 px-2.5 text-[11px] font-semibold leading-none cursor-pointer hover:bg-primary-600 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
+				style:color="var(--color-primary-05)"
+				disabled={divisionLockSubmittingId === activeDivisionLockTarget.division.id}
+				onclick={() => {
+					void toggleDivisionLock(activeDivisionLockTarget);
+				}}
+			>
+				{#if activeDivisionLockTarget.division.isLocked}
+					<IconLockOpen class="h-3.5 w-3.5 opacity-90" />
+					<span>Unlock</span>
+				{:else}
+					<IconLock class="h-3.5 w-3.5" />
+					<span>Lock</span>
+				{/if}
+			</button>
+		</div>
+	</div>
+{/if}
 
 <CreateDivisionCollectionWizard
 	open={createDivisionOpen}
