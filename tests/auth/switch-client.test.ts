@@ -20,7 +20,8 @@ const mocks = vi.hoisted(() => {
 		dbOps: {
 			userClients: {
 				getActiveMembership: vi.fn(),
-				setDefaultMembership: vi.fn()
+				setDefaultMembership: vi.fn(),
+				touchLastUsedMembership: vi.fn()
 			},
 			sessions: {
 				updateClientContext: vi.fn()
@@ -91,10 +92,10 @@ describe('switch-client endpoint', () => {
 		mocks.dbOps.sessions.updateClientContext.mockResolvedValue({
 			id: 'session-1'
 		});
-		mocks.dbOps.userClients.setDefaultMembership.mockResolvedValue({
+		mocks.dbOps.userClients.touchLastUsedMembership.mockResolvedValue({
 			userId: 'user-1',
 			clientId: '33333333-3333-4333-8333-333333333333',
-			isDefault: 1
+			lastUsedAt: new Date().toISOString()
 		});
 
 		const event = {
@@ -141,6 +142,12 @@ describe('switch-client endpoint', () => {
 			'session-1',
 			'33333333-3333-4333-8333-333333333333',
 			expect.any(String)
+		);
+		expect(mocks.dbOps.userClients.touchLastUsedMembership).toHaveBeenCalledWith(
+			'user-1',
+			'33333333-3333-4333-8333-333333333333',
+			expect.any(String),
+			'user-1'
 		);
 	});
 });

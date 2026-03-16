@@ -49,7 +49,7 @@ const createTempDatabase = async (): Promise<TestDatabase> => {
 		'CREATE TABLE users (id text primary key not null, email text, email_verified_at text, password_hash text, sso_user_id text, first_name text, last_name text, cell_phone text, avatar_url text, created_at text, updated_at text, created_user text, updated_user text, first_login_at text, last_login_at text, status text, timezone text, last_active_at text, session_count integer, preferences text, notes text);'
 	);
 	await client.execute(
-		'CREATE TABLE user_clients (id text primary key not null, user_id text not null, client_id text not null, role text not null, status text not null, student_id text, sex text, is_default integer not null, created_at text not null, updated_at text not null, created_user text, updated_user text);'
+		'CREATE TABLE user_clients (id text primary key not null, user_id text not null, client_id text not null, role text not null, status text not null, student_id text, sex text, is_default integer not null, last_used_at text, created_at text not null, updated_at text not null, created_user text, updated_user text);'
 	);
 	await client.execute(
 		'CREATE TABLE member_invites (id text primary key not null, client_id text not null, email text not null, first_name text, last_name text, student_id text, sex text, role text not null, mode text not null, token_hash text not null, status text not null, expires_at text not null, accepted_at text, accepted_user_id text, created_at text not null, updated_at text not null, created_user text, updated_user text);'
@@ -87,7 +87,7 @@ const seedExistingAccountInvite = async (client: ReturnType<typeof createClient>
 		]
 	});
 	await client.execute({
-		sql: 'INSERT INTO user_clients (id, user_id, client_id, role, status, student_id, sex, is_default, created_at, updated_at, created_user, updated_user) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);',
+		sql: 'INSERT INTO user_clients (id, user_id, client_id, role, status, student_id, sex, is_default, last_used_at, created_at, updated_at, created_user, updated_user) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);',
 		args: [
 			existingMembershipId,
 			existingUserId,
@@ -97,6 +97,7 @@ const seedExistingAccountInvite = async (client: ReturnType<typeof createClient>
 			'ST-001',
 			'F',
 			0,
+			null,
 			nowIso,
 			nowIso,
 			null,

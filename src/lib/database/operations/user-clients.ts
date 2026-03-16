@@ -1,4 +1,4 @@
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import type { DrizzleClient } from '../drizzle.js';
 import { clients, userClients, type UserClient } from '../schema/index.js';
 
@@ -90,7 +90,32 @@ export class UserClientOperations {
 			.from(userClients)
 			.leftJoin(clients, eq(userClients.clientId, clients.id))
 			.where(and(eq(userClients.userId, userId), eq(userClients.status, 'active')))
-			.orderBy(asc(userClients.createdAt));
+			.orderBy(desc(userClients.lastUsedAt), asc(userClients.createdAt));
+	}
+
+	async touchLastUsedMembership(
+		userId: string,
+		clientId: string,
+		lastUsedAt = new Date().toISOString(),
+		updatedUser?: string | null
+	): Promise<UserClient | null> {
+		const updated = await this.db
+			.update(userClients)
+			.set({
+				lastUsedAt,
+				updatedAt: lastUsedAt,
+				updatedUser: updatedUser ?? null
+			})
+			.where(
+				and(
+					eq(userClients.userId, userId),
+					eq(userClients.clientId, clientId),
+					eq(userClients.status, 'active')
+				)
+			)
+			.returning();
+
+		return updated[0] ?? null;
 	}
 
 	async ensureMembership(input: {

@@ -22,6 +22,7 @@ export const userClients = sqliteTable(
 		studentId: text('student_id'),
 		sex: text(),
 		isDefault: integer('is_default').notNull().default(0),
+		lastUsedAt: text('last_used_at'),
 		createdAt: text('created_at').notNull(),
 		updatedAt: text('updated_at').notNull(),
 		createdUser: text('created_user'),
@@ -37,7 +38,8 @@ export const userClients = sqliteTable(
 		index('user_clients_client_status_user_idx').on(table.clientId, table.status, table.userId),
 		index('user_clients_client_status_role_idx').on(table.clientId, table.status, table.role),
 		index('user_clients_client_status_sex_idx').on(table.clientId, table.status, table.sex),
-		index('user_clients_default_idx').on(table.userId, table.isDefault)
+		index('user_clients_default_idx').on(table.userId, table.isDefault),
+		index('user_clients_user_last_used_idx').on(table.userId, table.lastUsedAt)
 	]
 );
 

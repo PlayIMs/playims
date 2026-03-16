@@ -282,6 +282,8 @@ export const createSessionForUser = async (
 		throw new Error('AUTH_SESSION_CREATE_FAILED');
 	}
 
+	await dbOps.userClients.touchLastUsedMembership(user.id, clientId, nowIso, user.id);
+
 	const roleContext = buildRoleContext({
 		baseRole: context.activeRole,
 		requestedViewAsRole: null

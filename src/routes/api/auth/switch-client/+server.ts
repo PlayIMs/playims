@@ -47,6 +47,8 @@ export const POST: RequestHandler = async (event) => {
 		return json({ success: false, error: 'Failed to switch client context.' }, { status: 500 });
 	}
 
+	await dbOps.userClients.touchLastUsedMembership(userId, requestedClientId, nowIso, userId);
+
 	const resolvedRole = normalizeRole(activeMembership.role);
 	const canViewAsRoleEnabled = canViewAsRole(resolvedRole);
 	event.locals.session = {
