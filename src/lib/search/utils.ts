@@ -188,11 +188,8 @@ export function buildTeamSearchHref(input: {
 	seasonSlug: string;
 	offeringSlug: string;
 	leagueSlug: string;
-	teamId: string;
+	divisionSlug: string;
+	teamSlug: string;
 }): string {
-	const url = new URL(
-		`https://playims.test/dashboard/offerings/${input.seasonSlug}/${input.offeringSlug}/${input.leagueSlug}`
-	);
-	url.searchParams.set('teamId', input.teamId);
-	return `${url.pathname}${url.search}`;
+	return `/dashboard/offerings/${input.seasonSlug}/${input.offeringSlug}/${input.leagueSlug}/${input.divisionSlug}/${input.teamSlug}`;
 }

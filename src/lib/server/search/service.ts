@@ -353,7 +353,10 @@ export async function getMegaSearchResponse(
 			const seasonSlug = season?.slug?.trim();
 			const offeringSlug = offering?.slug?.trim();
 			const leagueSlug = league?.slug?.trim();
-			if (!team.id || !seasonSlug || !offeringSlug || !leagueSlug) continue;
+			const divisionSlug = division?.slug?.trim() || division?.id?.trim();
+			const teamSlug = team.slug?.trim() || team.id?.trim();
+			if (!team.id || !seasonSlug || !offeringSlug || !leagueSlug || !divisionSlug || !teamSlug)
+				continue;
 			const result: MegaSearchResult = {
 				id: team.id,
 				resultKey: `teams:${team.id}`,
@@ -365,10 +368,12 @@ export async function getMegaSearchResponse(
 					seasonSlug,
 					offeringSlug,
 					leagueSlug,
-					teamId: team.id
+					divisionSlug,
+					teamSlug
 				})
 			};
-			const score = scoreResult(trimmedQuery, result);
+			// slight team boost ensures team-name queries prioritize direct team routes over parent records.
+			const score = scoreResult(trimmedQuery, result) + 25;
 			if (score > 0) scored.push({ ...result, score });
 		}
 

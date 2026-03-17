@@ -148,8 +148,9 @@ describe('mega search helpers', () => {
 				seasonSlug: 'fall-2026',
 				offeringSlug: 'indoor-soccer',
 				leagueSlug: 'co-rec',
-				teamId: 'team-7'
+				divisionSlug: 'division-a',
+				teamSlug: 'team-7'
 			})
-		).toBe('/dashboard/offerings/fall-2026/indoor-soccer/co-rec?teamId=team-7');
+		).toBe('/dashboard/offerings/fall-2026/indoor-soccer/co-rec/division-a/team-7');
 	});
 });
