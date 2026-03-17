@@ -25,6 +25,9 @@
 		hasSearchQuery?: boolean;
 		emptySearchMessage?: string;
 		emptyMessage?: string;
+		teamHrefByTeamId?: (teamId: string) => string | undefined;
+		highlightTeamId?: string | null;
+		onlyHighlightTeamName?: boolean;
 	}
 
 	let {
@@ -33,8 +36,16 @@
 		caption,
 		hasSearchQuery = false,
 		emptySearchMessage = 'No standings rows match this search.',
-		emptyMessage = 'No standings posted yet.'
+		emptyMessage = 'No standings posted yet.',
+		teamHrefByTeamId,
+		highlightTeamId = null,
+		onlyHighlightTeamName = false
 	}: Props = $props();
+
+	function teamNameClass(teamId: string): string {
+		const shouldBold = onlyHighlightTeamName ? highlightTeamId === teamId : true;
+		return shouldBold ? 'font-bold' : 'font-normal';
+	}
 
 	const columns: OfferingsTableColumn[] = [
 		{
@@ -166,6 +177,7 @@
 				{standingsRow.rank}
 			</p>
 		{:else if column.key === 'team'}
+			{@const teamHref = teamHrefByTeamId?.(standingsRow.teamId)}
 			<div class="flex min-w-0 items-center gap-1.5">
 				<div
 					class="flex h-5 w-5 shrink-0 items-center justify-center bg-primary text-white"
@@ -174,9 +186,18 @@
 					<Icon class="h-3 w-3" />
 				</div>
 				<HoverTooltip text={standingsRow.teamName} wrapperClass="block min-w-0">
-					<p class="truncate font-sans text-xs font-bold text-neutral-950">
-						{standingsRow.teamName}
-					</p>
+					{#if teamHref}
+						<a
+							href={teamHref}
+							class={`truncate font-sans text-xs text-neutral-950 underline-offset-2 hover:text-primary-700 hover:underline focus-visible:outline-none focus-visible:underline ${teamNameClass(standingsRow.teamId)}`}
+						>
+							{standingsRow.teamName}
+						</a>
+					{:else}
+						<p class={`truncate font-sans text-xs text-neutral-950 ${teamNameClass(standingsRow.teamId)}`}>
+							{standingsRow.teamName}
+						</p>
+					{/if}
 				</HoverTooltip>
 			</div>
 		{:else if column.key === 'record'}

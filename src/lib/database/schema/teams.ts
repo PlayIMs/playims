@@ -22,6 +22,7 @@ export const teams = sqliteTable('teams', {
 	currentRosterSize: integer('current_roster_size').default(0).notNull(),
 	teamColor: text('team_color'),
 	dateRegistered: text('date_registered'),
+	dateJoinedDivision: text('date_joined_division'),
 	isActive: integer('is_active').default(1).notNull(),
 	createdAt: text('created_at').notNull(),
 	updatedAt: text('updated_at').notNull(),

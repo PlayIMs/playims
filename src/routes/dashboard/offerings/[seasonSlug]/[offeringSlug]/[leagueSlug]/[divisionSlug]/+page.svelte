@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import type { PageData } from './$types';
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import HeaderHierarchyTabs from '$lib/components/navigation/HeaderHierarchyTabs.svelte';
@@ -166,6 +168,24 @@
 		const divisionSlug = data.division?.slug?.trim() || data.division?.id?.trim();
 		if (!divisionSlug || baseLeagueHref === '/dashboard/offerings') return baseLeagueHref;
 		return `${baseLeagueHref}/${divisionSlug}`;
+	}
+
+	function teamHref(teamSlug: string | null | undefined, teamId: string | null | undefined): string {
+		const seasonSlug = data.season?.slug?.trim();
+		const offeringSlug = data.offering?.slug?.trim();
+		const leagueSlug = data.league?.slug?.trim() || data.league?.id?.trim();
+		const divisionSlug = data.division?.slug?.trim() || data.division?.id?.trim();
+		const teamSegment = teamSlug?.trim() || teamId?.trim() || '';
+		if (!seasonSlug || !offeringSlug || !leagueSlug || !divisionSlug || !teamSegment) {
+			return divisionHref();
+		}
+		return resolve('/dashboard/offerings/[seasonSlug]/[offeringSlug]/[leagueSlug]/[divisionSlug]/[teamSlug]', {
+			seasonSlug,
+			offeringSlug,
+			leagueSlug,
+			divisionSlug,
+			teamSlug: teamSegment
+		});
 	}
 
 	const hierarchySegments = $derived.by<HeaderHierarchySegment[]>(() => {
@@ -345,6 +365,13 @@
 	});
 
 	const hasSearchQuery = $derived.by(() => normalizedSearchQuery.length > 0);
+	const standingsTeamHrefByTeamId = $derived.by(
+		() => (teamId: string): string | undefined => {
+			const team = [...data.teams, ...data.waitlistTeams].find((candidate) => candidate.id === teamId);
+			if (!team) return undefined;
+			return teamHref(team.slug, team.id);
+		}
+	);
 
 	const teamsColumns = $derived.by<OfferingsTableColumn[]>(() => [
 		{
@@ -565,7 +592,55 @@
 													</div>
 													<div class="min-w-0">
 														<p class="font-sans text-sm font-bold text-neutral-950">
-															{activeTeam.name}
+															<button
+																type="button"
+																class="cursor-pointer underline-offset-2 hover:text-primary-700 hover:underline focus-visible:outline-none focus-visible:underline"
+																onclick={() => {
+																	const seasonSlug = data.season?.slug;
+																	const offeringSlug = data.offering?.slug;
+																	const leagueSlug = data.league?.slug || data.league?.id;
+																	const divisionSlug = data.division?.slug || data.division?.id;
+																	const teamSlug = activeTeam.slug || activeTeam.id;
+																	if (
+																		seasonSlug &&
+																		offeringSlug &&
+																		leagueSlug &&
+																		divisionSlug &&
+																		teamSlug
+																	) {
+																		void goto(
+																			resolve(
+																				'/dashboard/offerings/[seasonSlug]/[offeringSlug]/[leagueSlug]/[divisionSlug]/[teamSlug]',
+																				{
+																					seasonSlug,
+																					offeringSlug,
+																					leagueSlug,
+																					divisionSlug,
+																					teamSlug
+																				}
+																			)
+																		);
+																		return;
+																	}
+																	if (seasonSlug && offeringSlug && leagueSlug && divisionSlug) {
+																		void goto(
+																			resolve(
+																				'/dashboard/offerings/[seasonSlug]/[offeringSlug]/[leagueSlug]/[divisionSlug]',
+																				{
+																					seasonSlug,
+																					offeringSlug,
+																					leagueSlug,
+																					divisionSlug
+																				}
+																			)
+																		);
+																		return;
+																	}
+																	void goto(resolve('/dashboard/offerings'));
+																}}
+															>
+																{activeTeam.name}
+															</button>
 														</p>
 														<p
 															class="mt-0 font-sans text-[11px] font-normal leading-tight text-neutral-700"
@@ -704,6 +779,7 @@
 								rows={visibleStandings}
 								icon={HeaderIcon}
 								caption="Division standings table"
+								teamHrefByTeamId={standingsTeamHrefByTeamId}
 								{hasSearchQuery}
 								emptySearchMessage="No standings rows match this search."
 								emptyMessage="No standings posted yet."

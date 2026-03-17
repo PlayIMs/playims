@@ -295,7 +295,7 @@ export const load: PageServerLoad = async (event) => {
 						rosterSize: rosterCountByTeamId.get(team.id) ?? team.currentRosterSize ?? 0,
 						captainName: captainNameByTeamId.get(team.id) ?? null,
 						dateCreated: team.createdAt ?? team.dateRegistered ?? null,
-						dateJoined: team.updatedAt ?? team.createdAt ?? team.dateRegistered ?? null,
+						dateJoined: team.dateJoinedDivision ?? team.createdAt ?? team.dateRegistered ?? null,
 						description: team.description?.trim() || null,
 						teamColor: team.teamColor?.trim() || null
 					}));

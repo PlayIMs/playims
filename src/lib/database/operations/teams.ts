@@ -64,6 +64,7 @@ export class TeamOperations {
 		currentRosterSize: number;
 		teamColor: string | null;
 		dateRegistered: string | null;
+		dateJoinedDivision: string | null;
 		isActive: number;
 		createdUser?: string | null;
 		updatedUser?: string | null;
@@ -86,6 +87,7 @@ export class TeamOperations {
 				currentRosterSize: data.currentRosterSize,
 				teamColor: data.teamColor,
 				dateRegistered: data.dateRegistered,
+				dateJoinedDivision: data.dateJoinedDivision,
 				isActive: data.isActive,
 				createdAt: now,
 				updatedAt: now,
@@ -103,15 +105,18 @@ export class TeamOperations {
 		data: {
 			divisionId: string;
 			teamStatus: string;
+			currentDivisionId?: string | null;
 		},
 		updatedUser?: string | null
 	): Promise<Team | null> {
 		const now = new Date().toISOString();
+		const divisionChanged = (data.currentDivisionId?.trim() ?? '') !== data.divisionId.trim();
 		const result = await this.db
 			.update(teams)
 			.set({
 				divisionId: data.divisionId,
 				teamStatus: data.teamStatus,
+				dateJoinedDivision: divisionChanged ? now : undefined,
 				updatedAt: now,
 				updatedUser: updatedUser ?? null
 			})

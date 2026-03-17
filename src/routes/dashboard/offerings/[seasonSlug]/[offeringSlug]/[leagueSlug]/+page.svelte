@@ -3063,9 +3063,8 @@
 											{/if}
 										</div>
 									</div>
-								</div>
-								<div class="border border-neutral-950 bg-white p-2.5">
-									<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+									<div class="mt-2 border-t border-secondary-200 pt-2">
+										<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
 										<div class="min-w-0">
 											<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
 												Team Registration
@@ -3102,6 +3101,7 @@
 												/>
 											</p>
 										</div>
+									</div>
 									</div>
 								</div>
 							</div>

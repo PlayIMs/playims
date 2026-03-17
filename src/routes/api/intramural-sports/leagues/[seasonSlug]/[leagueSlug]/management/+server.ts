@@ -458,6 +458,7 @@ export const POST: RequestHandler = async (event) => {
 			);
 		}
 
+		const nowIso = new Date().toISOString();
 		const createdTeam = await dbOps.teams.create({
 			clientId,
 			divisionId: targetDivision.id,
@@ -470,7 +471,8 @@ export const POST: RequestHandler = async (event) => {
 			isAutoAcceptMembers: 0,
 			currentRosterSize: 0,
 			teamColor: input.team.teamColor,
-			dateRegistered: new Date().toISOString(),
+			dateRegistered: nowIso,
+			dateJoinedDivision: nowIso,
 			isActive: 1,
 			createdUser: userId,
 			updatedUser: userId
@@ -659,7 +661,8 @@ export const PATCH: RequestHandler = async (event) => {
 			team.id,
 			{
 				divisionId: targetDivision.id,
-				teamStatus: normalizePlacement(input.placement)
+				teamStatus: normalizePlacement(input.placement),
+				currentDivisionId: team.divisionId
 			},
 			userId
 		);

@@ -13,8 +13,9 @@ Summary of tests:
 2. It verifies that updating a missing division returns a not-found response.
 3. It verifies that active teams cannot be added directly into locked divisions.
 4. It verifies that active teams cannot be added into full divisions.
-5. It verifies that moving a team into a full division is rejected.
-6. It verifies that removing a team also clears dependent records and resyncs division counts.
+5. It verifies that a successful team move records the previous division for placement tracking.
+6. It verifies that moving a team into a full division is rejected.
+7. It verifies that removing a team also clears dependent records and resyncs division counts.
 */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -340,6 +341,46 @@ describe('league management route', () => {
 			'This division is already at capacity. Add the team to the waitlist instead.'
 		]);
 		expect(mocks.dbOps.teams.create).not.toHaveBeenCalled();
+	});
+
+	it('passes current division context when moving a team to another division', async () => {
+		// this keeps the move mutation aware of whether the division actually changed so joined timestamps stay accurate.
+		mocks.dbOps.teams.getByClientIdAndDivisionIds
+			.mockResolvedValueOnce([
+				{
+					id: 'team-1',
+					divisionId: 'division-a',
+					teamStatus: 'active'
+				}
+			])
+			.mockResolvedValueOnce([]);
+
+		const response = await PATCH(
+			createEvent({
+				method: 'PATCH',
+				body: moveTeamBody()
+			})
+		);
+		const payload = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(payload).toEqual({
+			success: true,
+			data: {
+				leagueId: LEAGUE_ID,
+				teamId: 'team-1'
+			}
+		});
+		expect(mocks.dbOps.teams.updatePlacement).toHaveBeenCalledWith(
+			CLIENT_ID,
+			'team-1',
+			{
+				divisionId: 'division-b',
+				teamStatus: 'active',
+				currentDivisionId: 'division-a'
+			},
+			'user-1'
+		);
 	});
 
 	it('rejects moving a team into a full target division', async () => {
