@@ -221,6 +221,53 @@ function toSeasonResponse(
 	};
 }
 
+export const GET: RequestHandler = async (event) => {
+	if (!event.platform?.env?.DB) {
+		return json(
+			{
+				success: false,
+				error: 'Unable to load seasons right now.'
+			},
+			{ status: 500 }
+		);
+	}
+
+	const clientId = requireAuthenticatedClientId(event.locals);
+	const dbOps = await getTenantDbOps(event, clientId);
+
+	try {
+		const seasons = await dbOps.seasons.getByClientId(clientId);
+		const sortedSeasons = [...seasons]
+			.filter((season): season is (typeof seasons)[number] & { id: string } => Boolean(season.id))
+			.sort((a, b) => (b.startDate ?? '').localeCompare(a.startDate ?? ''));
+		const currentSeasonId = sortedSeasons.find((season) => season.isCurrent === 1)?.id ?? null;
+
+		return json({
+			success: true,
+			data: {
+				currentSeasonId,
+				seasons: sortedSeasons.map((season) =>
+					toSeasonResponse(season, {
+						name: season.name?.trim() || 'Season',
+						slug: season.slug?.trim() || normalizeSlug(season.name || 'season'),
+						startDate: season.startDate ?? '',
+						endDate: season.endDate ?? null
+					})
+				)
+			}
+		});
+	} catch (error) {
+		console.error('Failed to load intramural seasons:', error);
+		return json(
+			{
+				success: false,
+				error: 'Unable to load seasons right now.'
+			},
+			{ status: 500 }
+		);
+	}
+};
+
 export const POST: RequestHandler = async (event) => {
 	if (!event.platform?.env?.DB) {
 		return json(

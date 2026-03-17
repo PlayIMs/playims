@@ -61,6 +61,27 @@ export const resolveOfferingNavigationSeason = (
 	return fallbackSeason;
 };
 
+export function buildSeasonScopedOfferingOptions(input: {
+	season: Pick<Season, 'id' | 'name' | 'slug'>;
+	offerings: Offering[];
+	leagues: League[];
+}): Array<{ label: string; href: string }> {
+	const { season, offerings, leagues } = input;
+	const seasonSlug = season.slug?.trim();
+	if (!season.id || !seasonSlug) {
+		return [];
+	}
+
+	return offerings
+		.filter((candidate): candidate is Offering & { id: string } => Boolean(candidate.id))
+		.filter((candidate) => offeringMatchesSeason(candidate, season as Season, leagues))
+		.map((candidate) => ({
+			label: candidate.name?.trim() || 'Offering',
+			href: `/dashboard/offerings/${seasonSlug}/${candidate.slug?.trim() || candidate.id}`
+		}))
+		.sort((a, b) => a.label.localeCompare(b.label));
+}
+
 export const buildLegacyLeagueSlug = (
 	leagueName: string | null | undefined,
 	offeringSlug: string | null | undefined

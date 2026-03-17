@@ -241,6 +241,13 @@
 			}
 		];
 	});
+	const includeHierarchySeasonContext = $derived.by(() => data.season?.isCurrent === false);
+	const hierarchySeasonLabel = $derived.by(() =>
+		includeHierarchySeasonContext ? (data.season?.name ?? null) : null
+	);
+	const hierarchySeasonSlug = $derived.by(() =>
+		includeHierarchySeasonContext ? (data.season?.slug ?? null) : null
+	);
 
 	const standingsRows = $derived.by<StandingsDisplayRow[]>(() => {
 		const standingsByTeamId = new Map<string, StandingsRow>(
@@ -464,6 +471,9 @@
 							<HeaderHierarchyTabs
 								segments={hierarchySegments}
 								class="max-w-[min(100vw-7rem,100%)]"
+								seasonLabel={hierarchySeasonLabel}
+								seasonSlug={hierarchySeasonSlug}
+								includeSeasonContext={includeHierarchySeasonContext}
 							/>
 						</div>
 					{/if}

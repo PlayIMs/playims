@@ -1,11 +1,10 @@
 import { error, redirect } from '@sveltejs/kit';
-import type { League, Offering } from '$lib/database';
+import type { League } from '$lib/database';
 import { requireAuthenticatedClientId } from '$lib/server/client-context';
 import { getTenantDbOps } from '$lib/server/database/context';
 import {
+	buildSeasonScopedOfferingOptions,
 	leagueMatchesSeason,
-	offeringMatchesSeason,
-	resolveOfferingNavigationSeason,
 	resolveLeagueForOffering,
 	resolveOfferingForSeason
 } from '$lib/server/intramural-offering-scope';
@@ -165,14 +164,12 @@ export const load: PageServerLoad = async (event) => {
 			throw error(404, 'League not found.');
 		}
 
-		const [divisions, standings, allLeagues, offerings, currentSeason] = await Promise.all([
+		const [divisions, standings, allLeagues, offerings] = await Promise.all([
 			dbOps.divisions.getByLeagueId(league.id),
 			dbOps.divisionStandings.getByClientIdAndLeagueId(clientId, league.id),
 			dbOps.leagues.getByClientId(clientId),
-			dbOps.offerings.getByClientId(clientId),
-			dbOps.seasons.getCurrentByClientId(clientId)
+			dbOps.offerings.getByClientId(clientId)
 		]);
-		const navigationSeason = resolveOfferingNavigationSeason(currentSeason, season);
 		const offeringLeagues = allLeagues
 			.filter(
 				(candidateLeague): candidateLeague is League & { id: string } =>
@@ -187,14 +184,11 @@ export const load: PageServerLoad = async (event) => {
 				isLocked: candidateLeague.isLocked === 1
 			}))
 			.sort((a, b) => a.name.localeCompare(b.name));
-		const offeringOptions = offerings
-			.filter((candidate): candidate is Offering & { id: string } => Boolean(candidate.id))
-			.filter((candidate) => offeringMatchesSeason(candidate, navigationSeason, allLeagues))
-			.map<NavigationOption>((candidate) => ({
-				label: candidate.name?.trim() || 'Offering',
-				href: `/dashboard/offerings/${navigationSeason.slug?.trim() || params.seasonSlug}/${candidate.slug?.trim() || candidate.id}`
-			}))
-			.sort((a, b) => a.label.localeCompare(b.label));
+		const offeringOptions = buildSeasonScopedOfferingOptions({
+			season,
+			offerings,
+			leagues: allLeagues
+		});
 
 		const divisionIds = divisions
 			.map((division) => division.id)

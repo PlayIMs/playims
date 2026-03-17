@@ -69,6 +69,15 @@ vi.mock('$lib/server/database/context', () => ({
 
 vi.mock('$lib/server/intramural-offering-scope', () => ({
 	offeringMatchesSeason: vi.fn(() => true),
+	buildSeasonScopedOfferingOptions: vi.fn(({ season, offerings }) =>
+		offerings
+			.filter((offering: { seasonId?: string | null }) => offering.seasonId === season.id)
+			.map((offering: { name?: string | null; slug?: string | null; id: string }) => ({
+				label: offering.name?.trim() || 'Offering',
+				href: `/dashboard/offerings/${season.slug?.trim() || season.id}/${offering.slug?.trim() || offering.id}`
+			}))
+			.sort((a: { label: string }, b: { label: string }) => a.label.localeCompare(b.label))
+	),
 	resolveOfferingNavigationSeason: vi.fn((currentSeason, season) => currentSeason ?? season),
 	resolveOfferingForSeason: mocks.resolveOfferingForSeason,
 	resolveLeagueForOffering: mocks.resolveLeagueForOffering
@@ -132,15 +141,18 @@ describe('team detail page load', () => {
 		mocks.dbOps.seasons.getByClientIdAndSlug.mockResolvedValue({
 			id: 'season-1',
 			name: 'Spring 2026',
-			slug: 'spring-2026'
+			slug: 'spring-2026',
+			isCurrent: 0
 		});
 		mocks.dbOps.seasons.getCurrentByClientId.mockResolvedValue({
-			id: 'season-1',
-			name: 'Spring 2026',
-			slug: 'spring-2026'
+			id: 'season-2',
+			name: 'Fall 2026',
+			slug: 'fall-2026',
+			isCurrent: 1
 		});
 		mocks.dbOps.offerings.getByClientId.mockResolvedValue([
-			{ id: 'off-1', name: 'Basketball', slug: 'basketball', seasonId: 'season-1' }
+			{ id: 'off-1', name: 'Basketball', slug: 'basketball', seasonId: 'season-1' },
+			{ id: 'off-2', name: 'Flag Football', slug: 'flag-football', seasonId: 'season-2' }
 		]);
 		mocks.dbOps.leagues.getByClientId.mockResolvedValue([
 			{
@@ -277,6 +289,16 @@ describe('team detail page load', () => {
 			location: 'Main Gym - Court A',
 			status: 'Scheduled'
 		});
+		expect(result.season).toMatchObject({
+			slug: 'spring-2026',
+			isCurrent: false
+		});
+		expect(result.offeringOptions).toEqual([
+			{
+				label: 'Basketball',
+				href: '/dashboard/offerings/spring-2026/basketball'
+			}
+		]);
 	});
 
 	it('redirects to offerings when the team slug does not exist in the division', async () => {

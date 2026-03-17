@@ -5,9 +5,16 @@ import {
 } from '$lib/server/client-context';
 import { getTenantDbOps } from '$lib/server/database/context';
 import {
+	isAdminLikeRole,
+	resolveRoleForPermissionCheck
+} from '$lib/server/auth/permissions';
+import {
 	createIntramuralOfferingWithLeagueSchema,
 	type CreateIntramuralOfferingWithLeagueInput,
-	type CreatedIntramuralActivity
+	type CreatedIntramuralActivity,
+	type UpdateIntramuralOfferingInput,
+	type UpdateIntramuralOfferingResponse,
+	updateIntramuralOfferingSchema
 } from '$lib/server/intramural-offerings-validation';
 import {
 	normalizeIntramuralSlug,
@@ -106,6 +113,169 @@ const suggestNextSlug = (inputSlug: string, existingSlugs: Set<string>): string 
 	}
 
 	return nextSlug;
+};
+
+export const PATCH: RequestHandler = async (event) => {
+	if (!event.platform?.env?.DB) {
+		return json(
+			{
+				success: false,
+				error: 'Unable to save offering right now.'
+			} satisfies UpdateIntramuralOfferingResponse,
+			{ status: 500 }
+		);
+	}
+
+	const role = resolveRoleForPermissionCheck(event.locals, { mutate: true });
+	if (!isAdminLikeRole(role)) {
+		return json(
+			{
+				success: false,
+				error: 'Only administrators and developers can edit offerings.'
+			} satisfies UpdateIntramuralOfferingResponse,
+			{ status: 403 }
+		);
+	}
+
+	let body: unknown;
+	try {
+		body = (await event.request.json()) as unknown;
+	} catch {
+		return json(
+			{
+				success: false,
+				error: 'Invalid request payload.'
+			} satisfies UpdateIntramuralOfferingResponse,
+			{ status: 400 }
+		);
+	}
+
+	const parsed = updateIntramuralOfferingSchema.safeParse(body);
+	if (!parsed.success) {
+		return json(
+			{
+				success: false,
+				error: 'Invalid request payload.',
+				fieldErrors: toFieldErrorMap(parsed.error.issues)
+			} satisfies UpdateIntramuralOfferingResponse,
+			{ status: 400 }
+		);
+	}
+
+	const input: UpdateIntramuralOfferingInput = parsed.data;
+	const clientId = requireAuthenticatedClientId(event.locals);
+	const dbOps = await getTenantDbOps(event, clientId);
+	const userId = requireAuthenticatedUserId(event.locals);
+
+	try {
+		const [existingOffering, allOfferings] = await Promise.all([
+			dbOps.offerings.getByClientIdAndId(clientId, input.offeringId),
+			dbOps.offerings.getByClientId(clientId)
+		]);
+
+		if (!existingOffering?.id) {
+			return json(
+				{
+					success: false,
+					error: 'Offering not found.'
+				} satisfies UpdateIntramuralOfferingResponse,
+				{ status: 404 }
+			);
+		}
+
+		const seasonOfferings = allOfferings.filter(
+			(offering) =>
+				offering.seasonId === existingOffering.seasonId && offering.id !== existingOffering.id
+		);
+		const duplicateSlug = seasonOfferings.find(
+			(offering) =>
+				normalizeIntramuralSlug(offering.slug) === normalizeIntramuralSlug(input.offering.slug)
+		);
+		const duplicateName = seasonOfferings.find(
+			(offering) =>
+				normalizeIntramuralText(offering.name) === normalizeIntramuralText(input.offering.name)
+		);
+		const issues: Array<{ path: Array<string | number>; message: string }> = [];
+
+		if (duplicateSlug) {
+			const seasonOfferingSlugs = new Set(
+				seasonOfferings
+					.map((offering) => normalizeIntramuralSlug(offering.slug))
+					.filter((slug) => slug.length > 0)
+			);
+			const suggestedSlug = suggestNextSlug(input.offering.slug, seasonOfferingSlugs);
+			issues.push({
+				path: ['offering', 'slug'],
+				message: suggestedSlug
+					? `An offering with this slug already exists for the selected season. Try "${suggestedSlug}".`
+					: 'An offering with this slug already exists for the selected season.'
+			});
+		}
+
+		if (duplicateName) {
+			issues.push({
+				path: ['offering', 'name'],
+				message:
+					duplicateName.isActive === 0
+						? 'An archived offering with this name already exists for the selected season.'
+						: 'An offering with this name already exists for the selected season.'
+			});
+		}
+
+		if (issues.length > 0) {
+			return json(
+				{
+					success: false,
+					error: 'Duplicate offering detected.',
+					fieldErrors: toFieldErrorMap(issues)
+				} satisfies UpdateIntramuralOfferingResponse,
+				{ status: 409 }
+			);
+		}
+
+		const updated = await dbOps.offerings.updateByClientIdAndId(
+			clientId,
+			existingOffering.id,
+			{
+				name: input.offering.name,
+				slug: input.offering.slug,
+				isActive: input.offering.isActive ? 1 : 0,
+				imageUrl: input.offering.imageUrl,
+				minPlayers: input.offering.minPlayers,
+				maxPlayers: input.offering.maxPlayers,
+				rulebookUrl: input.offering.rulebookUrl,
+				sport: input.offering.sport,
+				description: input.offering.description
+			},
+			userId
+		);
+
+		if (!updated?.id) {
+			return json(
+				{
+					success: false,
+					error: 'Unable to save offering right now.'
+				} satisfies UpdateIntramuralOfferingResponse,
+				{ status: 500 }
+			);
+		}
+
+		return json({
+			success: true,
+			data: {
+				offeringId: updated.id
+			}
+		} satisfies UpdateIntramuralOfferingResponse);
+	} catch (error) {
+		console.error('Failed to update intramural offering:', error);
+		return json(
+			{
+				success: false,
+				error: 'Unable to save offering right now.'
+			} satisfies UpdateIntramuralOfferingResponse,
+			{ status: 500 }
+		);
+	}
 };
 
 export const POST: RequestHandler = async (event) => {

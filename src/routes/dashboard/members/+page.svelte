@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto, invalidateAll, replaceState } from '$app/navigation';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import {
 		IconChevronDown,
 		IconChevronLeft,
@@ -21,6 +21,7 @@
 	import PageTitle from '$lib/components/PageTitle.svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import { toast } from '$lib/toasts';
+	import { syncMembersUrlIfReady } from '$lib/members/url-state.js';
 	import type {
 		CreateMemberResponse,
 		MemberAssignableRole,
@@ -130,6 +131,7 @@
 	});
 	let searchTimer: ReturnType<typeof setTimeout> | null = null;
 	let fetchAbortController: AbortController | null = null;
+	let urlSyncReady = $state(false);
 	let fetchCounter = 0;
 	const cache = new Map<string, { expiresAt: number; payload: MemberListResponse['data'] }>();
 	const detailCache = new Map<string, MemberDetail>();
@@ -220,21 +222,21 @@
 
 	function syncUrl(): void {
 		if (typeof window === 'undefined') return;
-		const url = new URL(window.location.href);
-		const trimmedQuery = searchQuery.trim();
-		if (trimmedQuery) url.searchParams.set('q', trimmedQuery);
-		else url.searchParams.delete('q');
-		if (sexFilter) url.searchParams.set('sex', sexFilter);
-		else url.searchParams.delete('sex');
-		if (roleFilter) url.searchParams.set('role', roleFilter);
-		else url.searchParams.delete('role');
-		if (sortKey !== 'lastName') url.searchParams.set('sort', sortKey);
-		else url.searchParams.delete('sort');
-		if (sortDir !== 'asc') url.searchParams.set('dir', sortDir);
-		else url.searchParams.delete('dir');
-		if (currentPage > 1) url.searchParams.set('page', String(currentPage));
-		else url.searchParams.delete('page');
-		replaceState(`${url.pathname}${url.search}${url.hash}`, {});
+		syncMembersUrlIfReady({
+			href: window.location.href,
+			ready: urlSyncReady,
+			replace: (href) => {
+				replaceState(href, {});
+			},
+			state: {
+				searchQuery,
+				sexFilter,
+				roleFilter,
+				sortKey,
+				sortDir,
+				currentPage
+			}
+		});
 	}
 
 	async function fetchMembers(force = false): Promise<void> {
@@ -689,6 +691,10 @@
 		return () => {
 			if (searchTimer) clearTimeout(searchTimer);
 		};
+	});
+
+	onMount(() => {
+		urlSyncReady = true;
 	});
 
 	onDestroy(() => {

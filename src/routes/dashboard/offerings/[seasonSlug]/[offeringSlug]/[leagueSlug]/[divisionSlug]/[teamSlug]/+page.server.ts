@@ -1,10 +1,9 @@
 import { error, redirect } from '@sveltejs/kit';
-import type { League, Offering } from '$lib/database';
+import type { League } from '$lib/database';
 import { requireAuthenticatedClientId } from '$lib/server/client-context';
 import { getTenantDbOps } from '$lib/server/database/context';
 import {
-	offeringMatchesSeason,
-	resolveOfferingNavigationSeason,
+	buildSeasonScopedOfferingOptions,
 	resolveLeagueForOffering,
 	resolveOfferingForSeason
 } from '$lib/server/intramural-offering-scope';
@@ -158,13 +157,11 @@ export const load: PageServerLoad = async (event) => {
 			throw error(404, 'League not found.');
 		}
 
-		const [allOfferings, allLeagues, divisions, currentSeason] = await Promise.all([
+		const [allOfferings, allLeagues, divisions] = await Promise.all([
 			dbOps.offerings.getByClientId(clientId),
 			dbOps.leagues.getByClientId(clientId),
-			dbOps.divisions.getByLeagueId(league.id),
-			dbOps.seasons.getCurrentByClientId(clientId)
+			dbOps.divisions.getByLeagueId(league.id)
 		]);
-		const navigationSeason = resolveOfferingNavigationSeason(currentSeason, season);
 		const division =
 			divisions.find(
 				(candidate) =>
@@ -317,14 +314,11 @@ export const load: PageServerLoad = async (event) => {
 			})
 			.sort((a, b) => parseTimestamp(a.scheduledStartAt) - parseTimestamp(b.scheduledStartAt));
 
-		const offeringOptions = allOfferings
-			.filter((candidate): candidate is Offering & { id: string } => Boolean(candidate.id))
-			.filter((candidate) => offeringMatchesSeason(candidate, navigationSeason, allLeagues))
-			.map<NavigationOption>((candidate) => ({
-				label: candidate.name?.trim() || 'Offering',
-				href: `/dashboard/offerings/${navigationSeason.slug?.trim() || params.seasonSlug}/${candidate.slug?.trim() || candidate.id}`
-			}))
-			.sort((a, b) => a.label.localeCompare(b.label));
+		const offeringOptions = buildSeasonScopedOfferingOptions({
+			season,
+			offerings: allOfferings,
+			leagues: allLeagues
+		});
 		const leagueOptions = allLeagues
 			.filter(
 				(candidate): candidate is League & { id: string } =>
@@ -370,7 +364,8 @@ export const load: PageServerLoad = async (event) => {
 			season: {
 				id: season.id ?? '',
 				name: season.name?.trim() || 'Season',
-				slug: season.slug?.trim() || ''
+				slug: season.slug?.trim() || '',
+				isCurrent: season.isCurrent === 1
 			},
 			offering: {
 				id: offering.id ?? '',

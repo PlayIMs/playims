@@ -130,6 +130,44 @@ export class OfferingOperations {
 		return result[0] ?? null;
 	}
 
+	async updateByClientIdAndId(
+		clientId: string,
+		offeringId: string,
+		data: {
+			name: string;
+			slug: string;
+			isActive: number;
+			imageUrl: string | null;
+			minPlayers: number | null;
+			maxPlayers: number | null;
+			rulebookUrl: string | null;
+			sport: string | null;
+			description: string | null;
+		},
+		updatedUser?: string | null
+	): Promise<Offering | null> {
+		const now = new Date().toISOString();
+		const result = await this.db
+			.update(offerings)
+			.set({
+				name: data.name,
+				slug: data.slug,
+				isActive: data.isActive,
+				imageUrl: data.imageUrl,
+				minPlayers: data.minPlayers,
+				maxPlayers: data.maxPlayers,
+				rulebookUrl: data.rulebookUrl,
+				sport: data.sport,
+				description: data.description,
+				updatedAt: now,
+				updatedUser: updatedUser ?? null
+			})
+			.where(and(eq(offerings.clientId, clientId), eq(offerings.id, offeringId)))
+			.returning();
+
+		return result[0] ?? null;
+	}
+
 	async deleteById(id: string): Promise<boolean> {
 		const result = await this.db.delete(offerings).where(eq(offerings.id, id)).returning();
 		return result.length > 0;

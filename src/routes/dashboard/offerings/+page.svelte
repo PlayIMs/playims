@@ -20,6 +20,7 @@
 	import CreateLeagueWizard from './_wizards/CreateLeagueWizard.svelte';
 	import CreateOfferingWizard from './_wizards/CreateOfferingWizard.svelte';
 	import CreateSeasonWizard from './_wizards/CreateSeasonWizard.svelte';
+	import EditOfferingWizard from './_wizards/EditOfferingWizard.svelte';
 	import ManageSeasonWizard from './_wizards/ManageSeasonWizard.svelte';
 	import type { PageData } from './$types';
 	import {
@@ -56,6 +57,7 @@
 
 	type Activity = PageData['activities'][number];
 	type LeagueOfferingOption = PageData['leagueOfferingOptions'][number];
+type OfferingTemplate = PageData['offeringTemplates'][number];
 	type LeagueTemplate = PageData['leagueTemplates'][number];
 	type OfferingStatus = 'open' | 'waitlisted' | 'closed';
 
@@ -207,6 +209,15 @@
 		includeDivisions: boolean;
 	}
 
+interface UpdateOfferingApiResponse {
+	success: boolean;
+	data?: {
+		offeringId: string;
+	};
+	error?: string;
+	fieldErrors?: Record<string, string[] | undefined>;
+}
+
 	interface SeasonCopyPreview {
 		offeringCount: number;
 		leagueCount: number;
@@ -294,10 +305,16 @@
 
 	const canManageOfferings = $derived.by(() => data.permissions?.MANAGE_OFFERINGS === true);
 	const canEditLeagueRows = $derived.by(() => data.permissions?.EDIT_LEAGUE_ROWS === true);
+	const canEditOfferingSettings = $derived.by(
+		() =>
+			canManageOfferings &&
+			['admin', 'dev'].includes(normalizeAuthRole(data.authMode?.effectiveRole))
+	);
 
 	let activities = $state<Activity[]>([]);
 	let seasons = $state<PageData['seasons']>([]);
 	let selectedSeasonId = $state('');
+	const offeringTemplates = $derived.by(() => data.offeringTemplates ?? []);
 	let leagueTemplates = $state<LeagueTemplate[]>([]);
 	let leagueOfferingOptions = $state<PageData['leagueOfferingOptions']>([]);
 	let searchQuery = $state('');
@@ -338,6 +355,13 @@
 	let createSubmitting = $state(false);
 	let createFormError = $state('');
 	let createSuccessMessage = $state('');
+let isEditOfferingModalOpen = $state(false);
+let editOfferingWizardUnsavedConfirmOpen = $state(false);
+let editOfferingValidationVisible = $state(false);
+let editOfferingSubmitting = $state(false);
+let editOfferingFormError = $state('');
+let editOfferingServerFieldErrors = $state<Record<string, string>>({});
+let editingOfferingId = $state<string | null>(null);
 	let offeringSlugTouched = $state(false);
 	let leagueSlugTouched = $state(false);
 	let leagueEditingIndex = $state<number | null>(null);
@@ -358,11 +382,13 @@
 	let createLeagueCopiedFromExisting = $state(false);
 	let createLeagueServerFieldErrors = $state<Record<string, string>>({});
 	let createLeagueForm = $state<LeagueWizardFormState>(createEmptyCreateLeagueForm());
+let editOfferingForm = $state<WizardOfferingInput>(createEmptyOfferingInput());
 	let createSeasonStartDateInput = $state<HTMLInputElement | null>(null);
 	let createSeasonEndDateInput = $state<HTMLInputElement | null>(null);
 	let lastPageErrorToast = $state('');
 	let lastSuccessToast = $state('');
 	const createOfferingWizardDirtyState = createWizardDirtyState<WizardFormState>();
+const editOfferingWizardDirtyState = createWizardDirtyState<WizardOfferingInput>();
 	const createLeagueWizardDirtyState = createWizardDirtyState<LeagueWizardFormState>();
 	const createSeasonWizardDirtyState = createWizardDirtyState<{
 		form: WizardSeasonInput;
@@ -537,22 +563,26 @@
 		};
 	}
 
+	function createEmptyOfferingInput(): WizardOfferingInput {
+		return {
+			seasonId: '',
+			name: '',
+			slug: '',
+			linkedOfferingId: '',
+			isActive: true,
+			imageUrl: '',
+			minPlayers: 0,
+			maxPlayers: 0,
+			rulebookUrl: '',
+			sport: '',
+			type: 'league',
+			description: ''
+		};
+	}
+
 	function createEmptyCreateForm(): WizardFormState {
 		return {
-			offering: {
-				seasonId: '',
-				name: '',
-				slug: '',
-				linkedOfferingId: '',
-				isActive: true,
-				imageUrl: '',
-				minPlayers: 0,
-				maxPlayers: 0,
-				rulebookUrl: '',
-				sport: '',
-				type: 'league',
-				description: ''
-			},
+			offering: createEmptyOfferingInput(),
 			addLeagues: 'no',
 			league: createEmptyLeague(),
 			leagues: []
@@ -1059,6 +1089,43 @@
 		return true;
 	}
 
+	function buildEditableOfferingInput(template: OfferingTemplate): WizardOfferingInput {
+		return {
+			seasonId: template.seasonId,
+			name: template.name.trim(),
+			slug: slugifyFinal(template.slug || template.name || ''),
+			linkedOfferingId: '',
+			isActive: template.isActive,
+			imageUrl: template.imageUrl ?? '',
+			minPlayers: template.minPlayers ?? 0,
+			maxPlayers: template.maxPlayers ?? 0,
+			rulebookUrl: template.rulebookUrl ?? '',
+			sport: template.sport ?? '',
+			type: template.type,
+			description: template.description ?? ''
+		};
+	}
+
+	function openEditOfferingWizard(offering: OfferingGroup): void {
+		if (!canEditOfferingSettings || !offering.offeringId) return;
+
+		const template = offeringTemplates.find(
+			(existingOffering: OfferingTemplate) => existingOffering.id === offering.offeringId
+		);
+		if (!template) {
+			toast.error('Unable to load this offering right now.', {
+				title: pageLabel
+			});
+			return;
+		}
+
+		resetEditOfferingWizard();
+		editingOfferingId = template.id;
+		editOfferingForm = buildEditableOfferingInput(template);
+		editOfferingWizardDirtyState.captureBaseline(editOfferingForm);
+		isEditOfferingModalOpen = true;
+	}
+
 	function buildEditableLeagueDraft(template: LeagueTemplate): WizardLeagueInput {
 		return {
 			draftId: template.id,
@@ -1149,6 +1216,23 @@
 		resetCreateWizard();
 	}
 
+	function resetEditOfferingWizard(): void {
+		isEditOfferingModalOpen = false;
+		editOfferingWizardUnsavedConfirmOpen = false;
+		editOfferingValidationVisible = false;
+		editOfferingSubmitting = false;
+		editOfferingFormError = '';
+		editOfferingServerFieldErrors = {};
+		editingOfferingId = null;
+		offeringSlugTouched = false;
+		editOfferingForm = createEmptyOfferingInput();
+		editOfferingWizardDirtyState.clearBaseline();
+	}
+
+	function closeEditOfferingWizard(): void {
+		resetEditOfferingWizard();
+	}
+
 	function closeCreateLeagueWizard(): void {
 		isCreateLeagueModalOpen = false;
 		createLeagueWizardUnsavedConfirmOpen = false;
@@ -1161,6 +1245,10 @@
 
 	function hasUnsavedCreateWizardChanges(): boolean {
 		return createOfferingWizardDirtyState.isDirty(createForm);
+	}
+
+	function hasUnsavedEditOfferingChanges(): boolean {
+		return editOfferingWizardDirtyState.isDirty(editOfferingForm);
 	}
 
 	function hasUnsavedCreateLeagueWizardChanges(): boolean {
@@ -1184,6 +1272,16 @@
 			return;
 		}
 		createWizardUnsavedConfirmOpen = true;
+	}
+
+	function requestCloseEditOfferingWizard(): void {
+		if (!isEditOfferingModalOpen) return;
+		if (editOfferingSubmitting) return;
+		if (!hasUnsavedEditOfferingChanges()) {
+			closeEditOfferingWizard();
+			return;
+		}
+		editOfferingWizardUnsavedConfirmOpen = true;
 	}
 
 	function requestCloseCreateLeagueWizard(): void {
@@ -1215,6 +1313,15 @@
 		createWizardUnsavedConfirmOpen = false;
 	}
 
+	function confirmDiscardEditOfferingWizard(): void {
+		editOfferingWizardUnsavedConfirmOpen = false;
+		closeEditOfferingWizard();
+	}
+
+	function cancelDiscardEditOfferingWizard(): void {
+		editOfferingWizardUnsavedConfirmOpen = false;
+	}
+
 	function confirmDiscardCreateLeagueWizard(): void {
 		createLeagueWizardUnsavedConfirmOpen = false;
 		closeCreateLeagueWizard();
@@ -1242,6 +1349,15 @@
 		}
 	}
 
+	function clearEditOfferingApiErrors(): void {
+		if (Object.keys(editOfferingServerFieldErrors).length > 0) {
+			editOfferingServerFieldErrors = {};
+		}
+		if (editOfferingFormError) {
+			editOfferingFormError = '';
+		}
+	}
+
 	function clearCreateLeagueApiErrors(): void {
 		if (Object.keys(createLeagueServerFieldErrors).length > 0) {
 			createLeagueServerFieldErrors = {};
@@ -1263,12 +1379,15 @@
 	$effect(() => {
 		if (typeof window === 'undefined') return;
 		const hasUnsavedCreateOfferingChanges = isCreateModalOpen && hasUnsavedCreateWizardChanges();
+		const hasUnsavedEditOfferingWizardChanges =
+			isEditOfferingModalOpen && hasUnsavedEditOfferingChanges();
 		const hasUnsavedCreateLeagueChanges =
 			isCreateLeagueModalOpen && hasUnsavedCreateLeagueWizardChanges();
 		const hasUnsavedCreateSeasonChanges =
 			isCreateSeasonModalOpen && hasUnsavedCreateSeasonWizardChanges();
 		if (
 			!hasUnsavedCreateOfferingChanges &&
+			!hasUnsavedEditOfferingWizardChanges &&
 			!hasUnsavedCreateLeagueChanges &&
 			!hasUnsavedCreateSeasonChanges
 		)
@@ -1444,32 +1563,50 @@
 		return 4;
 	}
 
-	function getTakenOfferingSlugsForSeason(seasonId: string): Set<string> {
+	function getTakenOfferingSlugsForSeason(
+		seasonId: string,
+		excludeOfferingId: string | null = null
+	): Set<string> {
 		const normalizedSeasonId = seasonId.trim();
 		if (!normalizedSeasonId) return new Set<string>();
 		return new Set(
 			leagueOfferingOptions
-				.filter((offering) => offering.seasonId === normalizedSeasonId)
+				.filter(
+					(offering) =>
+						offering.seasonId === normalizedSeasonId &&
+						(!excludeOfferingId || offering.id !== excludeOfferingId)
+				)
 				.map((offering) => slugifyFinal(offering.slug || ''))
 				.filter((slug) => slug.length > 0)
 		);
 	}
 
-	function getTakenOfferingNamesForSeason(seasonId: string): Set<string> {
+	function getTakenOfferingNamesForSeason(
+		seasonId: string,
+		excludeOfferingId: string | null = null
+	): Set<string> {
 		const normalizedSeasonId = seasonId.trim();
 		if (!normalizedSeasonId) return new Set<string>();
 		return new Set(
 			leagueOfferingOptions
-				.filter((offering) => offering.seasonId === normalizedSeasonId)
+				.filter(
+					(offering) =>
+						offering.seasonId === normalizedSeasonId &&
+						(!excludeOfferingId || offering.id !== excludeOfferingId)
+				)
 				.map((offering) => offering.name.trim().toLowerCase())
 				.filter((name) => name.length > 0)
 		);
 	}
 
-	function suggestNextOfferingSlug(slug: string, seasonId: string): string | null {
+	function suggestNextOfferingSlug(
+		slug: string,
+		seasonId: string,
+		excludeOfferingId: string | null = null
+	): string | null {
 		const normalizedSlug = slugifyFinal(slug);
 		if (!normalizedSlug) return null;
-		const takenSlugs = getTakenOfferingSlugsForSeason(seasonId);
+		const takenSlugs = getTakenOfferingSlugsForSeason(seasonId, excludeOfferingId);
 		if (!takenSlugs.has(normalizedSlug)) return normalizedSlug;
 		let suffix = 1;
 		let suggestedSlug = `${normalizedSlug}-${suffix}`;
@@ -1480,7 +1617,10 @@
 		return suggestedSlug;
 	}
 
-	function getOfferingFieldErrors(values: WizardOfferingInput): Record<string, string> {
+	function getOfferingFieldErrors(
+		values: WizardOfferingInput,
+		excludeOfferingId: string | null = null
+	): Record<string, string> {
 		const errors: Record<string, string> = {};
 		const seasonId = values.seasonId.trim();
 		const name = values.name.trim();
@@ -1493,16 +1633,16 @@
 		if (!slug) errors['offering.slug'] = 'Offering slug is required.';
 		if (!values.type) errors['offering.type'] = 'Type is required.';
 		if (seasonId && name) {
-			const takenNames = getTakenOfferingNamesForSeason(seasonId);
+			const takenNames = getTakenOfferingNamesForSeason(seasonId, excludeOfferingId);
 			if (takenNames.has(name.toLowerCase())) {
 				errors['offering.name'] =
 					'An offering with this name already exists for the selected season.';
 			}
 		}
 		if (seasonId && slug) {
-			const takenSlugs = getTakenOfferingSlugsForSeason(seasonId);
+			const takenSlugs = getTakenOfferingSlugsForSeason(seasonId, excludeOfferingId);
 			if (takenSlugs.has(slug)) {
-				const suggestedSlug = suggestNextOfferingSlug(slug, seasonId);
+				const suggestedSlug = suggestNextOfferingSlug(slug, seasonId, excludeOfferingId);
 				errors['offering.slug'] = suggestedSlug
 					? `An offering with this slug already exists for the selected season. Try "${suggestedSlug}".`
 					: 'An offering with this slug already exists for the selected season.';
@@ -2077,6 +2217,69 @@
 		}
 		if (createForm.leagues.length === 0) {
 			createForm.addLeagues = 'no';
+		}
+	}
+
+	async function submitEditOfferingWizard(): Promise<void> {
+		editOfferingValidationVisible = true;
+		const clientErrors = getOfferingFieldErrors(editOfferingForm, editingOfferingId);
+		if (Object.keys(clientErrors).length > 0) {
+			return;
+		}
+
+		const offeringId = editingOfferingId?.trim() ?? '';
+		if (!offeringId) {
+			editOfferingFormError = 'Unable to update offering right now.';
+			return;
+		}
+
+		editOfferingSubmitting = true;
+		editOfferingFormError = '';
+		editOfferingServerFieldErrors = {};
+		createSuccessMessage = '';
+
+		try {
+			const response = await fetch('/api/intramural-sports/offerings', {
+				method: 'PATCH',
+				headers: {
+					'content-type': 'application/json'
+				},
+				body: JSON.stringify({
+					offeringId,
+					offering: {
+						name: editOfferingForm.name.trim(),
+						slug: slugifyFinal(editOfferingForm.slug),
+						isActive: editOfferingForm.isActive,
+						imageUrl: normalizeOptionalUrlForRequest(editOfferingForm.imageUrl),
+						minPlayers: normalizePlayerCountForRequest(editOfferingForm.minPlayers),
+						maxPlayers: normalizePlayerCountForRequest(editOfferingForm.maxPlayers),
+						rulebookUrl: normalizeOptionalUrlForRequest(editOfferingForm.rulebookUrl),
+						sport: normalizeOptionalTextForRequest(editOfferingForm.sport),
+						description: normalizeOptionalTextForRequest(editOfferingForm.description)
+					}
+				})
+			});
+
+			let body: UpdateOfferingApiResponse | null = null;
+			try {
+				body = (await response.json()) as UpdateOfferingApiResponse;
+			} catch {
+				body = null;
+			}
+
+			if (!response.ok || !body?.success || !body?.data?.offeringId) {
+				editOfferingServerFieldErrors = toServerFieldErrorMap(body?.fieldErrors);
+				editOfferingFormError = body?.error || 'Unable to update offering right now.';
+				return;
+			}
+
+			createSuccessMessage = 'Offering updated successfully.';
+			closeEditOfferingWizard();
+			await invalidateAll();
+		} catch {
+			editOfferingFormError = 'Unable to update offering right now.';
+		} finally {
+			editOfferingSubmitting = false;
 		}
 	}
 
@@ -4477,6 +4680,24 @@
 		}
 		return visibleErrors;
 	});
+	const currentEditingOfferingTemplate = $derived.by(
+		() =>
+			offeringTemplates.find((offering: OfferingTemplate) => offering.id === editingOfferingId) ??
+			null
+	);
+	const editOfferingClientErrors = $derived.by(() =>
+		getOfferingFieldErrors(editOfferingForm, editingOfferingId)
+	);
+	const editOfferingFieldErrors = $derived.by(() => {
+		const nextErrors: Record<string, string> = { ...editOfferingServerFieldErrors };
+		if (!editOfferingValidationVisible) {
+			return nextErrors;
+		}
+		return {
+			...editOfferingClientErrors,
+			...nextErrors
+		};
+	});
 	const canGoNextStep = $derived.by(
 		() => createStep < 5 && Object.keys(clientCreateFieldErrors).length === 0 && !createSubmitting
 	);
@@ -4486,6 +4707,9 @@
 			Object.keys(getSubmitClientErrors(createForm)).length === 0 &&
 			Object.keys(serverFieldErrors).length === 0 &&
 			!createSubmitting
+	);
+	const canSubmitEditOffering = $derived.by(
+		() => hasUnsavedEditOfferingChanges() && !editOfferingSubmitting
 	);
 	const createStepProgress = $derived.by(() => Math.round((createStep / 5) * 100));
 
@@ -5135,6 +5359,20 @@
 											<span class="badge-secondary-outlined text-xs uppercase tracking-wide">
 												{offering.closedCount} Closed
 											</span>
+										{/if}
+										{#if canEditOfferingSettings && offering.offeringId}
+											<HoverTooltip text="Edit offering" wrapperClass="inline-flex">
+												<button
+													type="button"
+													class="button-secondary-outlined inline-flex h-7 w-7 items-center justify-center p-0 cursor-pointer"
+													aria-label={`Edit ${offering.offeringName}`}
+													onclick={() => {
+														openEditOfferingWizard(offering);
+													}}
+												>
+													<IconDotsVertical class="h-4 w-4" />
+												</button>
+											</HoverTooltip>
 										{/if}
 									</div>
 								</div>
@@ -6132,6 +6370,287 @@
 	}}
 	on:duplicate={handleManageSeasonDuplicate}
 />
+
+<EditOfferingWizard
+	open={isEditOfferingModalOpen}
+	formError={editOfferingFormError}
+	unsavedConfirmOpen={editOfferingWizardUnsavedConfirmOpen}
+	onRequestClose={requestCloseEditOfferingWizard}
+	onSubmit={() => {
+		void submitEditOfferingWizard();
+	}}
+	onInput={clearEditOfferingApiErrors}
+	onUnsavedConfirm={confirmDiscardEditOfferingWizard}
+	onUnsavedCancel={cancelDiscardEditOfferingWizard}
+>
+	<div class="space-y-4">
+		<div class="border border-neutral-950 bg-neutral p-3">
+			<p class="text-sm font-semibold text-neutral-950">Offering context</p>
+			<div class="mt-2 grid grid-cols-1 gap-3 text-sm text-neutral-950 md:grid-cols-3">
+				<p>
+					<span class="font-semibold">Season:</span>
+					{currentEditingOfferingTemplate
+						? getSeasonLabel(currentEditingOfferingTemplate.seasonId)
+						: 'Unknown'}
+				</p>
+				<p>
+					<span class="font-semibold">Type:</span>
+					{editOfferingForm.type === 'tournament' ? 'Tournament' : 'League'}
+				</p>
+				<p>
+					<span class="font-semibold">Linked leagues/groups:</span>
+					This editor does not modify league or group rows.
+				</p>
+			</div>
+		</div>
+
+		<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+			<div>
+				<label for="edit-offering-name" class="mb-1 block text-sm font-sans text-neutral-950">
+					Name <span class="text-error-700">*</span>
+				</label>
+				<input
+					id="edit-offering-name"
+					type="text"
+					class="input-secondary"
+					value={editOfferingForm.name}
+					placeholder="Basketball"
+					data-wizard-autofocus
+					oninput={(event) => {
+						const value = (event.currentTarget as HTMLInputElement).value;
+						editOfferingForm.name = value;
+						if (!offeringSlugTouched) {
+							editOfferingForm.slug = slugifyFinal(value);
+						}
+						clearEditOfferingApiErrors();
+					}}
+					autocomplete="off"
+				/>
+				{#if editOfferingFieldErrors['offering.name']}
+					<p class="mt-1 text-xs text-error-700">{editOfferingFieldErrors['offering.name']}</p>
+				{/if}
+			</div>
+
+			<div>
+				<div class="mb-1 flex h-5 items-center gap-1.5 leading-none">
+					<label for="edit-offering-slug" class="text-sm leading-5 font-sans text-neutral-950">
+						Slug <span class="text-error-700">*</span>
+					</label>
+					<InfoPopover
+						buttonAriaLabel="Offering slug help"
+						buttonVariant="label-inline"
+						align="left"
+						panelWidthClass="w-80"
+					>
+						<div class="space-y-2">
+							<p>A slug is the URL-friendly identifier used in links and lookups.</p>
+							<p>Leave the default slug if you are unsure.</p>
+						</div>
+					</InfoPopover>
+				</div>
+				<div class="relative">
+					<input
+						id="edit-offering-slug"
+						type="text"
+						class="input-secondary pr-10"
+						value={editOfferingForm.slug}
+						placeholder="basketball"
+						oninput={(event) => {
+							offeringSlugTouched = true;
+							editOfferingForm.slug = applyLiveSlugInput(
+								event.currentTarget as HTMLInputElement
+							);
+							clearEditOfferingApiErrors();
+						}}
+						autocomplete="off"
+					/>
+					<HoverTooltip
+						text="Revert to default"
+						wrapperClass="absolute right-2 top-1/2 inline-flex shrink-0 z-10"
+					>
+						<button
+							type="button"
+							tabindex="-1"
+							class="-translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
+							aria-label="Revert offering slug to default"
+							onclick={() => {
+								offeringSlugTouched = false;
+								editOfferingForm.slug = slugifyFinal(editOfferingForm.name);
+								clearEditOfferingApiErrors();
+							}}
+						>
+							<IconRestore class="h-4 w-4" />
+						</button>
+					</HoverTooltip>
+				</div>
+				{#if editOfferingFieldErrors['offering.slug']}
+					<p class="mt-1 text-xs text-error-700">{editOfferingFieldErrors['offering.slug']}</p>
+				{/if}
+			</div>
+		</div>
+
+		<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+			<div>
+				<label for="edit-offering-sport" class="mb-1 block text-sm font-sans text-neutral-950">
+					Sport
+				</label>
+				<input
+					id="edit-offering-sport"
+					type="text"
+					class="input-secondary"
+					bind:value={editOfferingForm.sport}
+					placeholder="Basketball (optional)"
+					autocomplete="off"
+					oninput={clearEditOfferingApiErrors}
+				/>
+				{#if editOfferingFieldErrors['offering.sport']}
+					<p class="mt-1 text-xs text-error-700">{editOfferingFieldErrors['offering.sport']}</p>
+				{/if}
+			</div>
+
+			<div>
+				<label for="edit-offering-min-players" class="mb-1 block text-sm font-sans text-neutral-950">
+					Min Roster Players
+				</label>
+				<input
+					id="edit-offering-min-players"
+					type="number"
+					class="input-secondary"
+					min="1"
+					step="1"
+					value={editOfferingForm.minPlayers > 0 ? String(editOfferingForm.minPlayers) : ''}
+					oninput={(event) => {
+						const parsed = Number.parseInt((event.currentTarget as HTMLInputElement).value, 10);
+						editOfferingForm.minPlayers = Number.isNaN(parsed) ? 0 : parsed;
+						clearEditOfferingApiErrors();
+					}}
+				/>
+				{#if editOfferingFieldErrors['offering.minPlayers']}
+					<p class="mt-1 text-xs text-error-700">
+						{editOfferingFieldErrors['offering.minPlayers']}
+					</p>
+				{/if}
+			</div>
+
+			<div>
+				<label for="edit-offering-max-players" class="mb-1 block text-sm font-sans text-neutral-950">
+					Max Roster Players
+				</label>
+				<input
+					id="edit-offering-max-players"
+					type="number"
+					class="input-secondary"
+					min="1"
+					step="1"
+					value={editOfferingForm.maxPlayers > 0 ? String(editOfferingForm.maxPlayers) : ''}
+					oninput={(event) => {
+						const parsed = Number.parseInt((event.currentTarget as HTMLInputElement).value, 10);
+						editOfferingForm.maxPlayers = Number.isNaN(parsed) ? 0 : parsed;
+						clearEditOfferingApiErrors();
+					}}
+				/>
+				{#if editOfferingFieldErrors['offering.maxPlayers']}
+					<p class="mt-1 text-xs text-error-700">
+						{editOfferingFieldErrors['offering.maxPlayers']}
+					</p>
+				{/if}
+			</div>
+		</div>
+
+		<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+			<div>
+				<label for="edit-offering-image-url" class="mb-1 block text-sm font-sans text-neutral-950">
+					Image URL
+				</label>
+				<input
+					id="edit-offering-image-url"
+					type="url"
+					class="input-secondary"
+					bind:value={editOfferingForm.imageUrl}
+					placeholder="https://example.com/offering-image.jpg"
+					autocomplete="off"
+					oninput={clearEditOfferingApiErrors}
+				/>
+				{#if editOfferingFieldErrors['offering.imageUrl']}
+					<p class="mt-1 text-xs text-error-700">
+						{editOfferingFieldErrors['offering.imageUrl']}
+					</p>
+				{/if}
+			</div>
+
+			<div>
+				<label for="edit-offering-rulebook-url" class="mb-1 block text-sm font-sans text-neutral-950">
+					Rulebook URL
+				</label>
+				<input
+					id="edit-offering-rulebook-url"
+					type="url"
+					class="input-secondary"
+					bind:value={editOfferingForm.rulebookUrl}
+					placeholder="https://example.com/rules"
+					autocomplete="off"
+					oninput={clearEditOfferingApiErrors}
+				/>
+				{#if editOfferingFieldErrors['offering.rulebookUrl']}
+					<p class="mt-1 text-xs text-error-700">
+						{editOfferingFieldErrors['offering.rulebookUrl']}
+					</p>
+				{/if}
+			</div>
+		</div>
+
+		<div>
+			<label for="edit-offering-description" class="mb-1 block text-sm font-sans text-neutral-950">
+				Description
+			</label>
+			<textarea
+				id="edit-offering-description"
+				class="textarea-secondary min-h-28"
+				bind:value={editOfferingForm.description}
+				placeholder="Describe this offering."
+				oninput={clearEditOfferingApiErrors}
+			></textarea>
+			{#if editOfferingFieldErrors['offering.description']}
+				<p class="mt-1 text-xs text-error-700">
+					{editOfferingFieldErrors['offering.description']}
+				</p>
+			{/if}
+		</div>
+
+		<div class="border border-neutral-950 bg-white p-3">
+			<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
+				<input
+					type="checkbox"
+					class="toggle-secondary"
+					bind:checked={editOfferingForm.isActive}
+					onchange={clearEditOfferingApiErrors}
+				/>
+				Active
+			</label>
+		</div>
+	</div>
+
+	{#snippet footer()}
+		<div class="flex justify-end border-t border-neutral-950 pt-2">
+			<div class="flex items-center gap-2 justify-end">
+				<button
+					type="button"
+					class="button-secondary-outlined cursor-pointer"
+					onclick={requestCloseEditOfferingWizard}
+				>
+					Close
+				</button>
+				<button
+					type="submit"
+					class="button-secondary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+					disabled={!canSubmitEditOffering}
+				>
+					{editOfferingSubmitting ? 'Saving...' : 'Save Changes'}
+				</button>
+			</div>
+		</div>
+	{/snippet}
+</EditOfferingWizard>
 
 <CreateLeagueWizard
 	open={isCreateLeagueModalOpen}

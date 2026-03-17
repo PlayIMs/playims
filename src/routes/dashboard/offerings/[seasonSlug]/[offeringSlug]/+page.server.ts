@@ -3,11 +3,10 @@ import type { League, Offering, Season } from '$lib/database';
 import { requireAuthenticatedClientId } from '$lib/server/client-context';
 import { getTenantDbOps } from '$lib/server/database/context';
 import {
-	offeringMatchesSeason,
+	buildSeasonScopedOfferingOptions,
 	leagueMatchesSeason,
 	normalizeIntramuralSlug,
 	normalizeIntramuralText,
-	resolveOfferingNavigationSeason,
 	resolveOfferingForSeason
 } from '$lib/server/intramural-offering-scope';
 import type { PageServerLoad } from './$types';
@@ -211,18 +210,11 @@ export const load: PageServerLoad = async (event) => {
 			if (startDateDiff !== 0) return startDateDiff;
 			return a.seasonName.localeCompare(b.seasonName);
 		});
-		const navigationSeason = resolveOfferingNavigationSeason(
-			seasons.find((candidate) => candidate.isCurrent === 1) ?? null,
-			season
-		);
-		const offeringOptions = offerings
-			.filter((candidate): candidate is Offering & { id: string } => Boolean(candidate.id))
-			.filter((candidate) => offeringMatchesSeason(candidate, navigationSeason, allLeagues))
-			.map<NavigationOption>((candidate) => ({
-				label: candidate.name?.trim() || 'Offering',
-				href: `/dashboard/offerings/${navigationSeason.slug?.trim() || params.seasonSlug}/${candidate.slug?.trim() || candidate.id}`
-			}))
-			.sort((a, b) => a.label.localeCompare(b.label));
+		const offeringOptions = buildSeasonScopedOfferingOptions({
+			season,
+			offerings,
+			leagues: allLeagues
+		});
 
 		const leagues = allLeagues.filter(
 			(league) => league.offeringId === offering.id && leagueMatchesSeason(league, season)

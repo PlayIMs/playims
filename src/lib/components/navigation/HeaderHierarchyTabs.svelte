@@ -1,6 +1,10 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
+	import {
+		appendSeasonQueryToHierarchyHref,
+		shouldShowHierarchySeasonContext
+	} from '$lib/components/navigation/header-hierarchy-utils.js';
 	import type {
 		HeaderHierarchyOption,
 		HeaderHierarchySegment
@@ -10,18 +14,50 @@
 	interface Props {
 		segments: HeaderHierarchySegment[];
 		class?: string;
+		seasonLabel?: string | null;
+		seasonSlug?: string | null;
+		includeSeasonContext?: boolean;
 	}
 
-	let { segments, class: className = '' }: Props = $props();
+	let {
+		segments,
+		class: className = '',
+		seasonLabel = null,
+		seasonSlug = null,
+		includeSeasonContext = false
+	}: Props = $props();
+
+	function hrefWithSeasonContext(href: string): string {
+		return appendSeasonQueryToHierarchyHref(href, {
+			seasonSlug,
+			includeSeasonQuery: includeSeasonContext
+		});
+	}
+
+	function resolvedHref(href: string): string {
+		return (resolve as unknown as (route: string) => string)(hrefWithSeasonContext(href));
+	}
 
 	function menuOptionsFor(segment: HeaderHierarchySegment): HeaderHierarchyOption[] {
+		const currentValue = resolvedHref(segment.currentValue);
+		const seasonContextLabel =
+			shouldShowHierarchySeasonContext(segment.key, includeSeasonContext) && seasonLabel
+				? seasonLabel
+				: undefined;
+
 		return segment.options.map((option) =>
-			option.value === segment.currentValue
+			resolvedHref(option.value) === currentValue
 				? {
 						...option,
+						value: resolvedHref(option.value),
+						statusLabel: seasonContextLabel,
 						disabled: true
 					}
-				: option
+				: {
+						...option,
+						value: resolvedHref(option.value),
+						statusLabel: seasonContextLabel
+					}
 		);
 	}
 
@@ -31,7 +67,9 @@
 
 	async function handleAction(value: string, currentValue: string): Promise<void> {
 		if (!value || value === currentValue) return;
-		await goto(value);
+		if (typeof window !== 'undefined') {
+			window.location.assign(value);
+		}
 	}
 </script>
 
@@ -40,15 +78,22 @@
 		aria-label="Hierarchy navigation"
 		class={`inline-flex min-w-0 max-w-full ml-0.5 items-center gap-1 overflow-visible whitespace-nowrap ${className}`}
 	>
-		{#each segments as segment, index}
+		{#each segments as segment, index (segment.key)}
 			<div class="inline-flex min-w-0 shrink-0 items-center gap-0.5">
-				<a
-					href={segment.href}
-					aria-current={segment.href === segment.currentValue ? 'page' : undefined}
-					class="inline-flex min-w-0 items-center text-[13px] leading-4 font-normal text-neutral-900 transition-colors duration-150 focus:outline-none"
+				<button
+					type="button"
+					aria-current={resolvedHref(segment.href) === resolvedHref(segment.currentValue)
+						? 'page'
+						: undefined}
+					class="inline-flex min-w-0 cursor-pointer items-center text-[13px] leading-4 font-normal text-neutral-900 transition-colors duration-150 focus:outline-none"
+					onclick={() => {
+						if (typeof window !== 'undefined') {
+							window.location.assign(resolvedHref(segment.href));
+						}
+					}}
 				>
 					<span class="truncate">{segment.label}</span>
-				</a>
+				</button>
 				{#if segment.showMenu !== false}
 					<ListboxDropdown
 						options={menuOptionsFor(segment)}

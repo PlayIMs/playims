@@ -138,6 +138,18 @@ const offeringInputSchema = z.object({
 	description: optionalText('Offering description', 2000)
 });
 
+const editableOfferingInputSchema = z.object({
+	name: requiredText('Offering name', 140),
+	slug: slugField('Offering slug'),
+	isActive: z.boolean(),
+	imageUrl: optionalUrl('Offering image URL'),
+	minPlayers: optionalInt('Minimum roster players', 1, 100),
+	maxPlayers: optionalInt('Maximum roster players', 1, 100),
+	rulebookUrl: optionalUrl('Rulebook URL'),
+	sport: optionalText('Sport', 80),
+	description: optionalText('Offering description', 2000)
+});
+
 const seasonInputSchema = z.object({
 	name: requiredText('Season name', 140),
 	slug: slugField('Season slug'),
@@ -501,6 +513,23 @@ export const createIntramuralOfferingWithLeagueSchema = z
 		});
 	});
 
+export const updateIntramuralOfferingSchema = z
+	.object({
+		offeringId: requiredText('Offering', 120),
+		offering: editableOfferingInputSchema
+	})
+	.superRefine((payload, ctx) => {
+		const minPlayers = payload.offering.minPlayers;
+		const maxPlayers = payload.offering.maxPlayers;
+		if (minPlayers !== null && maxPlayers !== null && minPlayers > maxPlayers) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ['offering', 'maxPlayers'],
+				message: 'Maximum players must be greater than or equal to minimum players.'
+			});
+		}
+	});
+
 export const createIntramuralLeagueSchema = z
 	.object({
 		offeringId: requiredText('Offering', 120),
@@ -621,6 +650,7 @@ export const createIntramuralSeasonSchema = z
 export type CreateIntramuralOfferingWithLeagueInput = z.infer<
 	typeof createIntramuralOfferingWithLeagueSchema
 >;
+export type UpdateIntramuralOfferingInput = z.infer<typeof updateIntramuralOfferingSchema>;
 
 export type CreateIntramuralLeagueInput = z.infer<typeof createIntramuralLeagueSchema>;
 export type UpdateIntramuralLeagueInput = z.infer<typeof updateIntramuralLeagueSchema>;
@@ -670,6 +700,15 @@ export type CreateIntramuralOfferingWithLeagueResponse = {
 };
 
 export type CreateIntramuralLeagueResponse = CreateIntramuralOfferingWithLeagueResponse;
+
+export type UpdateIntramuralOfferingResponse = {
+	success: boolean;
+	data?: {
+		offeringId: string;
+	};
+	error?: string;
+	fieldErrors?: Record<string, string[] | undefined>;
+};
 
 export type CreatedIntramuralSeason = {
 	id: string;

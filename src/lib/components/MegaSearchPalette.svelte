@@ -2,8 +2,32 @@
 	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { tick } from 'svelte';
+	import { IconHistory } from '@tabler/icons-svelte';
+	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import type { MegaSearchGroup, MegaSearchResponse, MegaSearchResult } from '$lib/search/types.js';
+	import {
+		buildMegaSearchSeasonDropdownOptions,
+		resolveMegaSearchDefaultSeasonId,
+		resolveMegaSearchScopedSeasonSlug
+	} from '$lib/search/season-scope.js';
+
+	interface MegaSearchSeasonResponse {
+		success: boolean;
+		data?: {
+			currentSeasonId: string | null;
+			seasons: Array<{
+				id: string;
+				name: string;
+				slug: string;
+				startDate: string;
+				endDate: string | null;
+				isCurrent: boolean;
+				isActive: boolean;
+			}>;
+		};
+		error?: string;
+	}
 
 	let open = $state(false);
 	let query = $state('');
@@ -17,6 +41,9 @@
 	let abortController: AbortController | null = null;
 	let lastFocusedElement = $state<HTMLElement | null>(null);
 	let shortcutHint = $state('Ctrl + K');
+	let seasons = $state<NonNullable<MegaSearchSeasonResponse['data']>['seasons']>([]);
+	let scopedSeasonId = $state('');
+	let loadingSeasonScope = $state(false);
 
 	const flatResults = $derived.by(() =>
 		groups.flatMap((group) =>
@@ -27,6 +54,11 @@
 		)
 	);
 	const hasResults = $derived.by(() => flatResults.length > 0);
+	const todayIsoDate = $derived.by(() => new Date().toISOString().slice(0, 10));
+	const seasonDropdownOptions = $derived.by(() =>
+		buildMegaSearchSeasonDropdownOptions(seasons, todayIsoDate)
+	);
+	const scopedSeasonSlug = $derived.by(() => resolveMegaSearchScopedSeasonSlug(seasons, scopedSeasonId));
 
 	function isEditableTarget(target: EventTarget | null): boolean {
 		if (!(target instanceof HTMLElement)) return false;
@@ -53,7 +85,10 @@
 		groups = [];
 		totalCount = 0;
 		highlightedIndex = -1;
+		seasons = [];
+		scopedSeasonId = '';
 		focusInput();
+		void loadSeasonScope();
 	}
 
 	function closePalette(): void {
@@ -70,17 +105,27 @@
 		lastFocusedElement?.focus();
 	}
 
-	function resolveSeasonContext(): string | null {
-		if (!browser) return null;
-		const currentUrl = new URL(window.location.href);
-		const pathSegments = currentUrl.pathname.split('/').filter(Boolean);
+	async function loadSeasonScope(): Promise<void> {
+		if (!browser || !open) return;
+		loadingSeasonScope = true;
+		try {
+			const response = await fetch('/api/intramural-sports/seasons');
+			const payload = (await response.json()) as MegaSearchSeasonResponse;
+			if (!response.ok || !payload.success || !payload.data) {
+				seasons = [];
+				scopedSeasonId = '';
+				return;
+			}
 
-		if (pathSegments[0] === 'dashboard' && pathSegments[1] === 'offerings' && pathSegments[2]) {
-			return decodeURIComponent(pathSegments[2]);
+			const nextSeasons = payload.data.seasons ?? [];
+			seasons = nextSeasons;
+			scopedSeasonId = resolveMegaSearchDefaultSeasonId(nextSeasons);
+		} catch {
+			seasons = [];
+			scopedSeasonId = '';
+		} finally {
+			loadingSeasonScope = false;
 		}
-
-		const seasonParam = currentUrl.searchParams.get('season');
-		return seasonParam?.trim() ? seasonParam.trim() : null;
 	}
 
 	async function loadResults(nextQuery: string): Promise<void> {
@@ -95,9 +140,8 @@
 			if (trimmedQuery) {
 				url.searchParams.set('q', trimmedQuery);
 			}
-			const seasonContext = resolveSeasonContext();
-			if (seasonContext) {
-				url.searchParams.set('season', seasonContext);
+			if (scopedSeasonSlug) {
+				url.searchParams.set('season', scopedSeasonSlug);
 			}
 			const response = await fetch(url, { signal: abortController.signal });
 			const payload = (await response.json()) as MegaSearchResponse;
@@ -172,6 +216,11 @@
 	async function selectHighlightedResult(): Promise<void> {
 		if (highlightedIndex < 0 || highlightedIndex >= flatResults.length) return;
 		await selectResult(flatResults[highlightedIndex]!.item);
+	}
+
+	function handleSeasonScopeChange(value: string): void {
+		if (!value || value === scopedSeasonId) return;
+		scopedSeasonId = value;
 	}
 
 	function handleInputKeydown(event: KeyboardEvent): void {
@@ -262,6 +311,7 @@
 
 	$effect(() => {
 		if (!browser || !open) return;
+		scopedSeasonSlug;
 		if (debounceTimer) clearTimeout(debounceTimer);
 		const delay = query.trim().length > 0 ? 150 : 0;
 		debounceTimer = setTimeout(() => {
@@ -275,7 +325,7 @@
 
 {#if open}
 	<div
-		class="fixed inset-0 z-[80] bg-secondary-950/30 backdrop-blur-[1px]"
+		class="fixed inset-0 z-80 bg-secondary-950/30 backdrop-blur-[1px]"
 		role="presentation"
 		onclick={closePalette}
 	>
@@ -290,21 +340,48 @@
 				onkeydown={(event) => event.stopPropagation()}
 			>
 				<div class="border-b border-secondary-200 bg-neutral-25 px-4 py-4">
-					<SearchInput
-						id="mega-search-input"
-						label="Search anything"
-						value={query}
-						bind:inputElement
-						placeholder="Search pages, members, offerings, teams, facilities, and more"
-						inputClass="input-secondary min-h-12 border-2 border-neutral-950 pl-10 pr-10 text-base"
-						iconClass="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-950"
-						clearButtonClass="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-neutral-950 hover:text-secondary-900"
-						clearIconClass="h-4 w-4"
-						onInputKeydown={handleInputKeydown}
-						on:input={(event) => {
-							query = event.detail.value;
-						}}
-					/>
+					<div class="flex items-start gap-2">
+						<div class="min-w-0 flex-1">
+							<SearchInput
+								id="mega-search-input"
+								label="Search anything"
+								value={query}
+								bind:inputElement
+								placeholder="Search pages, members, offerings, teams, facilities, and more"
+								inputClass="input-secondary min-h-12 border-2 border-neutral-950 pl-10 pr-10 text-base"
+								iconClass="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-950"
+								clearButtonClass="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-neutral-950 hover:text-secondary-900"
+								clearIconClass="h-4 w-4"
+								onInputKeydown={handleInputKeydown}
+								on:input={(event) => {
+									query = event.detail.value;
+								}}
+							/>
+						</div>
+						<ListboxDropdown
+							options={seasonDropdownOptions}
+							value={scopedSeasonId}
+							ariaLabel="Search season scope"
+							emptyText={loadingSeasonScope ? 'Loading seasons...' : 'No seasons configured.'}
+							disabled={loadingSeasonScope || seasonDropdownOptions.length === 0}
+							searchEnabled={seasonDropdownOptions.length > 8}
+							searchPlaceholder="Search seasons"
+							searchAriaLabel="Search seasons"
+							buttonClass="button-secondary-outlined inline-flex h-12 w-12 shrink-0 items-center justify-center p-0 cursor-pointer"
+							listClass="mt-1 bg-white z-20 max-h-80 overflow-y-auto shadow-[0_12px_24px_rgba(20,33,61,0.22)]"
+							optionClass="block w-full px-3 py-1.5 text-left text-sm font-normal whitespace-nowrap text-neutral-950 cursor-pointer"
+							activeOptionClass="bg-neutral-100 text-neutral-950"
+							on:change={(event) => {
+								handleSeasonScopeChange(event.detail.value);
+							}}
+						>
+							{#snippet trigger(_, selectedOption)}
+								<IconHistory
+									class={`h-4 w-4 ${selectedOption ? 'text-secondary-900' : 'text-neutral-700'}`}
+								/>
+							{/snippet}
+						</ListboxDropdown>
+					</div>
 					<div
 						class="mt-2 flex items-center justify-between gap-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-700"
 					>

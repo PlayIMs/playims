@@ -37,7 +37,9 @@ const mocks = vi.hoisted(() => {
 			},
 			offerings: {
 				getByClientId: vi.fn(),
+				getByClientIdAndId: vi.fn(),
 				create: vi.fn(),
+				updateByClientIdAndId: vi.fn(),
 				updateSeriesId: vi.fn(),
 				deleteById: vi.fn()
 			},
@@ -65,13 +67,17 @@ vi.mock('$lib/server/database/context', () => {
 	};
 });
 
-import { POST as createOffering } from '../../src/routes/api/intramural-sports/offerings/+server';
+import {
+	PATCH as updateOffering,
+	POST as createOffering
+} from '../../src/routes/api/intramural-sports/offerings/+server';
 import {
 	PATCH as updateLeague,
 	POST as createLeague
 } from '../../src/routes/api/intramural-sports/leagues/+server';
 import {
 	DELETE as deleteSeason,
+	GET as listSeasons,
 	PATCH as manageSeason,
 	POST as createSeason
 } from '../../src/routes/api/intramural-sports/seasons/+server';
@@ -88,13 +94,21 @@ const createRouteEvent = (input?: {
 }) => {
 	const path = input?.path ?? '/api/intramural-sports';
 	const url = new URL(`https://playims.test${path}`);
+	const method = input?.method ?? 'POST';
 	return {
 		url,
-		request: new Request(url, {
-			method: input?.method ?? 'POST',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify(input?.body ?? {})
-		}),
+		request: new Request(
+			url,
+			method === 'GET' || method === 'HEAD'
+				? {
+						method
+					}
+				: {
+						method,
+						headers: { 'content-type': 'application/json' },
+						body: JSON.stringify(input?.body ?? {})
+					}
+		),
 		params: {},
 		platform: input?.withDatabase === false ? { env: {} } : { env: { DB: {} } },
 		locals: {
@@ -233,6 +247,27 @@ const createLeagueUpdatePayload = (
 	}
 });
 
+const createOfferingUpdatePayload = (
+	overrides?: {
+		offering?: Record<string, unknown>;
+		offeringId?: string;
+	}
+) => ({
+	offeringId: overrides?.offeringId ?? 'offering-1',
+	offering: {
+		name: 'Basketball',
+		slug: 'basketball',
+		isActive: true,
+		imageUrl: null,
+		minPlayers: 5,
+		maxPlayers: 10,
+		rulebookUrl: null,
+		sport: 'Basketball',
+		description: null,
+		...(overrides?.offering ?? {})
+	}
+});
+
 // this helper builds valid season payloads and only includes optional nested objects when needed.
 // that matters because undefined optional objects and present optional objects can trigger different
 // route behavior, so the helper preserves that distinction.
@@ -303,10 +338,27 @@ describe('intramural routes', () => {
 				isActive: 1
 			}
 		]);
+		mocks.dbOps.offerings.getByClientIdAndId.mockResolvedValue({
+			id: 'offering-1',
+			name: 'Basketball',
+			slug: 'basketball',
+			seasonId: 'season-1',
+			type: 'league',
+			sport: 'Basketball',
+			description: null,
+			minPlayers: 5,
+			maxPlayers: 10,
+			rulebookUrl: null,
+			imageUrl: null,
+			isActive: 1
+		});
 		mocks.dbOps.offerings.create.mockResolvedValue({
 			id: 'offering-2',
 			name: 'Basketball',
 			type: 'league'
+		});
+		mocks.dbOps.offerings.updateByClientIdAndId.mockResolvedValue({
+			id: 'offering-1'
 		});
 		mocks.dbOps.offerings.updateSeriesId.mockResolvedValue(undefined);
 		mocks.dbOps.offerings.deleteById.mockResolvedValue(undefined);
@@ -478,6 +530,64 @@ describe('intramural routes', () => {
 		expect(mocks.dbOps.leagues.updateByClientIdAndId).not.toHaveBeenCalled();
 	});
 
+	it('blocks offering updates for managers even when they can manage offerings elsewhere', async () => {
+		// the new edit-offering modal is reserved for admin-like roles, so the route should match that rule.
+		const response = await updateOffering(
+			createRouteEvent({
+				method: 'PATCH',
+				path: '/api/intramural-sports/offerings',
+				role: 'manager',
+				body: createOfferingUpdatePayload()
+			})
+		);
+		const payload = await response.json();
+
+		expect(response.status).toBe(403);
+		expect(payload.error).toBe('Only administrators and developers can edit offerings.');
+		expect(mocks.dbOps.offerings.updateByClientIdAndId).not.toHaveBeenCalled();
+	});
+
+	it('updates offering details without modifying league payloads', async () => {
+		// offering edits should stay scoped to offering metadata and avoid league-side mutations.
+		const response = await updateOffering(
+			createRouteEvent({
+				method: 'PATCH',
+				path: '/api/intramural-sports/offerings',
+				body: createOfferingUpdatePayload({
+					offering: {
+						name: 'Indoor Basketball',
+						slug: 'indoor-basketball',
+						isActive: false,
+						sport: 'Basketball',
+						description: 'Updated offering details.',
+						minPlayers: 6,
+						maxPlayers: 12
+					}
+				})
+			})
+		);
+		const payload = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(payload.success).toBe(true);
+		expect(mocks.dbOps.offerings.updateByClientIdAndId).toHaveBeenCalledWith(
+			'client-1',
+			'offering-1',
+			{
+				name: 'Indoor Basketball',
+				slug: 'indoor-basketball',
+				isActive: 0,
+				imageUrl: null,
+				minPlayers: 6,
+				maxPlayers: 12,
+				rulebookUrl: null,
+				sport: 'Basketball',
+				description: 'Updated offering details.'
+			},
+			'user-1'
+		);
+	});
+
 	it('blocks duplicate season creation before any writes happen', async () => {
 		// duplicate checks should happen before create calls. this test exists so a future refactor
 		// does not accidentally write partial data before discovering the collision.
@@ -502,6 +612,46 @@ describe('intramural routes', () => {
 		expect(response.status).toBe(409);
 		expect(payload.error).toBe('Duplicate season detected.');
 		expect(mocks.dbOps.seasons.create).not.toHaveBeenCalled();
+	});
+
+	it('lists season history with the current season id for season-scoped clients', async () => {
+		// mega search needs a lightweight season list so it can reset its scope to the org current season.
+		mocks.dbOps.seasons.getByClientId.mockResolvedValue([
+			{
+				id: 'season-1',
+				name: 'Spring 2026',
+				slug: 'spring-2026',
+				startDate: '2026-03-20',
+				endDate: '2026-05-01',
+				isCurrent: 0,
+				isActive: 1
+			},
+			{
+				id: 'season-2',
+				name: 'Fall 2026',
+				slug: 'fall-2026',
+				startDate: '2026-09-01',
+				endDate: '2026-11-15',
+				isCurrent: 1,
+				isActive: 1
+			}
+		]);
+
+		const response = await listSeasons(
+			createRouteEvent({
+				method: 'GET',
+				path: '/api/intramural-sports/seasons'
+			})
+		);
+		const payload = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(payload.success).toBe(true);
+		expect(payload.data.currentSeasonId).toBe('season-2');
+		expect(payload.data.seasons.map((season: { id: string }) => season.id)).toEqual([
+			'season-2',
+			'season-1'
+		]);
 	});
 
 	it('prevents archiving the current season when there is no fallback active season', async () => {

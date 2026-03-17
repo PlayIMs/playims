@@ -57,6 +57,22 @@ interface LeagueOfferingOption {
 	isActive: boolean;
 }
 
+interface ExistingOfferingTemplate {
+	id: string;
+	seasonId: string;
+	name: string;
+	slug: string;
+	description: string | null;
+	isActive: boolean;
+	imageUrl: string | null;
+	minPlayers: number | null;
+	maxPlayers: number | null;
+	rulebookUrl: string | null;
+	sport: string | null;
+	type: ActivityType;
+	seriesId: string | null;
+}
+
 interface ExistingLeagueTemplate {
 	id: string;
 	offeringId: string;
@@ -160,6 +176,7 @@ export const load: PageServerLoad = async (event) => {
 			currentSeasonId: null as string | null,
 			activities: [] as ActivityCard[],
 			leagueOfferingOptions: [] as LeagueOfferingOption[],
+			offeringTemplates: [] as ExistingOfferingTemplate[],
 			leagueTemplates: [] as ExistingLeagueTemplate[],
 			error: 'Database not configured'
 		};
@@ -307,6 +324,26 @@ export const load: PageServerLoad = async (event) => {
 				isActive: offering.isActive !== 0
 			}))
 			.sort((a, b) => a.name.localeCompare(b.name));
+		const offeringTemplates = offerings
+			.filter((offering): offering is Offering & { id: string; seasonId: string } => {
+				return Boolean(offering.id) && Boolean(offering.seasonId);
+			})
+			.map<ExistingOfferingTemplate>((offering) => ({
+				id: offering.id,
+				seasonId: offering.seasonId,
+				name: offering.name?.trim() || 'Untitled Offering',
+				slug: offering.slug?.trim() || '',
+				description: offering.description?.trim() || null,
+				isActive: offering.isActive !== 0,
+				imageUrl: offering.imageUrl ?? null,
+				minPlayers: offering.minPlayers ?? null,
+				maxPlayers: offering.maxPlayers ?? null,
+				rulebookUrl: offering.rulebookUrl?.trim() || null,
+				sport: offering.sport?.trim() || null,
+				type: toActivityType(offering.type),
+				seriesId: offering.seriesId?.trim() || null
+			}))
+			.sort((a, b) => a.name.localeCompare(b.name));
 
 		const leagueTemplates = leagues
 			.filter((league): league is League & { id: string; offeringId: string } => {
@@ -348,6 +385,7 @@ export const load: PageServerLoad = async (event) => {
 			currentSeasonId,
 			activities,
 			leagueOfferingOptions,
+			offeringTemplates,
 			leagueTemplates
 		};
 	} catch (error) {
@@ -358,6 +396,7 @@ export const load: PageServerLoad = async (event) => {
 			currentSeasonId: null as string | null,
 			activities: [] as ActivityCard[],
 			leagueOfferingOptions: [] as LeagueOfferingOption[],
+			offeringTemplates: [] as ExistingOfferingTemplate[],
 			leagueTemplates: [] as ExistingLeagueTemplate[],
 			error: 'Unable to load intramural offerings right now'
 		};
