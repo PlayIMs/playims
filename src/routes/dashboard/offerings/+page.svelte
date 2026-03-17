@@ -305,11 +305,7 @@ interface UpdateOfferingApiResponse {
 
 	const canManageOfferings = $derived.by(() => data.permissions?.MANAGE_OFFERINGS === true);
 	const canEditLeagueRows = $derived.by(() => data.permissions?.EDIT_LEAGUE_ROWS === true);
-	const canEditOfferingSettings = $derived.by(
-		() =>
-			canManageOfferings &&
-			['admin', 'dev'].includes(normalizeAuthRole(data.authMode?.effectiveRole))
-	);
+	const canEditOfferingSettings = $derived.by(() => canManageOfferings);
 
 	let activities = $state<Activity[]>([]);
 	let seasons = $state<PageData['seasons']>([]);

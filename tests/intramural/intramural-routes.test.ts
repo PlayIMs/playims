@@ -530,8 +530,8 @@ describe('intramural routes', () => {
 		expect(mocks.dbOps.leagues.updateByClientIdAndId).not.toHaveBeenCalled();
 	});
 
-	it('blocks offering updates for managers even when they can manage offerings elsewhere', async () => {
-		// the new edit-offering modal is reserved for admin-like roles, so the route should match that rule.
+	it('allows managers to update offering details', async () => {
+		// managers already have offerings-management permission, so the edit-offering route should honor it.
 		const response = await updateOffering(
 			createRouteEvent({
 				method: 'PATCH',
@@ -542,9 +542,9 @@ describe('intramural routes', () => {
 		);
 		const payload = await response.json();
 
-		expect(response.status).toBe(403);
-		expect(payload.error).toBe('Only administrators and developers can edit offerings.');
-		expect(mocks.dbOps.offerings.updateByClientIdAndId).not.toHaveBeenCalled();
+		expect(response.status).toBe(200);
+		expect(payload.success).toBe(true);
+		expect(mocks.dbOps.offerings.updateByClientIdAndId).toHaveBeenCalled();
 	});
 
 	it('updates offering details without modifying league payloads', async () => {

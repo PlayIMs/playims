@@ -5,8 +5,8 @@ import {
 } from '$lib/server/client-context';
 import { getTenantDbOps } from '$lib/server/database/context';
 import {
-	isAdminLikeRole,
-	resolveRoleForPermissionCheck
+	PERMISSIONS,
+	requirePermission
 } from '$lib/server/auth/permissions';
 import {
 	createIntramuralOfferingWithLeagueSchema,
@@ -126,12 +126,11 @@ export const PATCH: RequestHandler = async (event) => {
 		);
 	}
 
-	const role = resolveRoleForPermissionCheck(event.locals, { mutate: true });
-	if (!isAdminLikeRole(role)) {
+	if (!requirePermission(event.locals, PERMISSIONS.MANAGE_OFFERINGS, { mutate: true })) {
 		return json(
 			{
 				success: false,
-				error: 'Only administrators and developers can edit offerings.'
+				error: 'Only managers, administrators, and developers can edit offerings.'
 			} satisfies UpdateIntramuralOfferingResponse,
 			{ status: 403 }
 		);
