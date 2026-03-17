@@ -34,6 +34,7 @@
 		IconCalendar,
 		IconCopy,
 		IconCrosshair,
+		IconDots,
 		IconDotsVertical,
 		IconHistory,
 		IconPencil,
@@ -57,7 +58,7 @@
 
 	type Activity = PageData['activities'][number];
 	type LeagueOfferingOption = PageData['leagueOfferingOptions'][number];
-type OfferingTemplate = PageData['offeringTemplates'][number];
+	type OfferingTemplate = PageData['offeringTemplates'][number];
 	type LeagueTemplate = PageData['leagueTemplates'][number];
 	type OfferingStatus = 'open' | 'waitlisted' | 'closed';
 
@@ -209,14 +210,14 @@ type OfferingTemplate = PageData['offeringTemplates'][number];
 		includeDivisions: boolean;
 	}
 
-interface UpdateOfferingApiResponse {
-	success: boolean;
-	data?: {
-		offeringId: string;
-	};
-	error?: string;
-	fieldErrors?: Record<string, string[] | undefined>;
-}
+	interface UpdateOfferingApiResponse {
+		success: boolean;
+		data?: {
+			offeringId: string;
+		};
+		error?: string;
+		fieldErrors?: Record<string, string[] | undefined>;
+	}
 
 	interface SeasonCopyPreview {
 		offeringCount: number;
@@ -351,13 +352,13 @@ interface UpdateOfferingApiResponse {
 	let createSubmitting = $state(false);
 	let createFormError = $state('');
 	let createSuccessMessage = $state('');
-let isEditOfferingModalOpen = $state(false);
-let editOfferingWizardUnsavedConfirmOpen = $state(false);
-let editOfferingValidationVisible = $state(false);
-let editOfferingSubmitting = $state(false);
-let editOfferingFormError = $state('');
-let editOfferingServerFieldErrors = $state<Record<string, string>>({});
-let editingOfferingId = $state<string | null>(null);
+	let isEditOfferingModalOpen = $state(false);
+	let editOfferingWizardUnsavedConfirmOpen = $state(false);
+	let editOfferingValidationVisible = $state(false);
+	let editOfferingSubmitting = $state(false);
+	let editOfferingFormError = $state('');
+	let editOfferingServerFieldErrors = $state<Record<string, string>>({});
+	let editingOfferingId = $state<string | null>(null);
 	let offeringSlugTouched = $state(false);
 	let leagueSlugTouched = $state(false);
 	let leagueEditingIndex = $state<number | null>(null);
@@ -378,13 +379,13 @@ let editingOfferingId = $state<string | null>(null);
 	let createLeagueCopiedFromExisting = $state(false);
 	let createLeagueServerFieldErrors = $state<Record<string, string>>({});
 	let createLeagueForm = $state<LeagueWizardFormState>(createEmptyCreateLeagueForm());
-let editOfferingForm = $state<WizardOfferingInput>(createEmptyOfferingInput());
+	let editOfferingForm = $state<WizardOfferingInput>(createEmptyOfferingInput());
 	let createSeasonStartDateInput = $state<HTMLInputElement | null>(null);
 	let createSeasonEndDateInput = $state<HTMLInputElement | null>(null);
 	let lastPageErrorToast = $state('');
 	let lastSuccessToast = $state('');
 	const createOfferingWizardDirtyState = createWizardDirtyState<WizardFormState>();
-const editOfferingWizardDirtyState = createWizardDirtyState<WizardOfferingInput>();
+	const editOfferingWizardDirtyState = createWizardDirtyState<WizardOfferingInput>();
 	const createLeagueWizardDirtyState = createWizardDirtyState<LeagueWizardFormState>();
 	const createSeasonWizardDirtyState = createWizardDirtyState<{
 		form: WizardSeasonInput;
@@ -3014,7 +3015,8 @@ const editOfferingWizardDirtyState = createWizardDirtyState<WizardOfferingInput>
 						...createLeagueServerFieldErrors
 					};
 					createLeagueStep = firstInvalidCreateLeagueStep(combinedErrors);
-					createLeagueFormError = body?.error || `Unable to update ${wizardEntryUnitSingular()} right now.`;
+					createLeagueFormError =
+						body?.error || `Unable to update ${wizardEntryUnitSingular()} right now.`;
 					return;
 				}
 
@@ -5360,13 +5362,13 @@ const editOfferingWizardDirtyState = createWizardDirtyState<WizardOfferingInput>
 											<HoverTooltip text="Edit offering" wrapperClass="inline-flex">
 												<button
 													type="button"
-													class="button-secondary-outlined inline-flex h-7 w-7 items-center justify-center p-0 cursor-pointer"
+													class="inline-flex h-7 w-7 items-center justify-center p-0 cursor-pointer"
 													aria-label={`Edit ${offering.offeringName}`}
 													onclick={() => {
 														openEditOfferingWizard(offering);
 													}}
 												>
-													<IconDotsVertical class="h-4 w-4" />
+													<IconDots class="h-4 w-4" />
 												</button>
 											</HoverTooltip>
 										{/if}
@@ -5504,11 +5506,7 @@ const editOfferingWizardDirtyState = createWizardDirtyState<WizardOfferingInput>
 											</p>
 											<p class="mt-1 text-xs leading-snug text-neutral-950 font-sans">
 												<DateHoverText
-													display={formatSeasonBoundaryText(
-														league.seasonEndDate,
-														'Ends',
-														'Ended'
-													)}
+													display={formatSeasonBoundaryText(league.seasonEndDate, 'Ends', 'Ended')}
 													value={league.seasonEndDate}
 													wrapperClass="inline"
 												/>
@@ -6453,9 +6451,7 @@ const editOfferingWizardDirtyState = createWizardDirtyState<WizardOfferingInput>
 						placeholder="basketball"
 						oninput={(event) => {
 							offeringSlugTouched = true;
-							editOfferingForm.slug = applyLiveSlugInput(
-								event.currentTarget as HTMLInputElement
-							);
+							editOfferingForm.slug = applyLiveSlugInput(event.currentTarget as HTMLInputElement);
 							clearEditOfferingApiErrors();
 						}}
 						autocomplete="off"
@@ -6505,7 +6501,10 @@ const editOfferingWizardDirtyState = createWizardDirtyState<WizardOfferingInput>
 			</div>
 
 			<div>
-				<label for="edit-offering-min-players" class="mb-1 block text-sm font-sans text-neutral-950">
+				<label
+					for="edit-offering-min-players"
+					class="mb-1 block text-sm font-sans text-neutral-950"
+				>
 					Min Roster Players
 				</label>
 				<input
@@ -6529,7 +6528,10 @@ const editOfferingWizardDirtyState = createWizardDirtyState<WizardOfferingInput>
 			</div>
 
 			<div>
-				<label for="edit-offering-max-players" class="mb-1 block text-sm font-sans text-neutral-950">
+				<label
+					for="edit-offering-max-players"
+					class="mb-1 block text-sm font-sans text-neutral-950"
+				>
 					Max Roster Players
 				</label>
 				<input
@@ -6575,7 +6577,10 @@ const editOfferingWizardDirtyState = createWizardDirtyState<WizardOfferingInput>
 			</div>
 
 			<div>
-				<label for="edit-offering-rulebook-url" class="mb-1 block text-sm font-sans text-neutral-950">
+				<label
+					for="edit-offering-rulebook-url"
+					class="mb-1 block text-sm font-sans text-neutral-950"
+				>
 					Rulebook URL
 				</label>
 				<input
