@@ -24,6 +24,7 @@ Use shared wizard primitives for consistent modal behavior, step framing, and dr
 - `InfoPopover` helper panels close on `Escape`, outside click, and trigger re-click (toggle behavior).
 - `WizardModal` is draggable by grabbing the header area; drag state is temporary for that open modal instance and resets on close.
 - Dragging is viewport-bounded so no part of the wizard panel can be moved off-screen.
+- `WizardModal` form content uses the thin scrollbar treatment by default when vertical scrolling is needed.
 - `WizardUnsavedConfirm` centers to the active wizard panel (not the viewport) and still uses a full-viewport scrim.
 
 ## Shared Utilities

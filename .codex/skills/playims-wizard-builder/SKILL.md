@@ -85,6 +85,7 @@ For single-step switchers such as `Switch View Role`, `Switch Organization`, or 
 - Preserve the shared keyboard model unless the user asks otherwise: Up/Down navigation, Shift-assisted reverse traversal, Enter to submit, and context-appropriate quick keys.
 - Quick-key instructions must reflect only the keys actually available to the user in that switcher.
 - When one switcher in a route is updated, compare nearby switchers and keep parity unless the user explicitly requests divergence.
+- Default wizard/body scroll regions should inherit the thin scrollbar treatment from `WizardModal`; do not leave wizard scroll shells on the thicker browser-default scrollbar unless the user explicitly asks for that.
 
 ## Workflow
 
@@ -162,6 +163,7 @@ For single-step switchers such as `Switch View Role`, `Switch Organization`, or 
 - Keep numeric step IDs unless asked to change.
 - Preserve existing copy and behavior by default (parity-first).
 - Prefer splitting dense content into additional wizard steps instead of relying on in-panel scroll.
+- When in-panel scrolling is still necessary, keep the shared thin wizard scrollbar treatment rather than introducing a heavier one-off scrollbar.
 - Do not change backend schemas/migrations/API contracts unless requested.
 - If adding a new `/api/...` endpoint for the wizard, update security policy map and rate limiting in `src/hooks.server.ts` (`API_ROUTE_POLICIES` and `resolveRateLimitConfig`) to avoid 403 policy blocks.
 - For all newly added wizard select/dropdown controls, use `ListboxDropdown` and not native `<select>`.

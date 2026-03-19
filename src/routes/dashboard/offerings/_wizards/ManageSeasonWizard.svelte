@@ -392,12 +392,7 @@
 >
 	<div class="grid grid-cols-1 lg:grid-cols-[16rem_minmax(0,1fr)] gap-4 min-h-0">
 		<section class="border-2 border-neutral-950 bg-white min-h-0 flex flex-col">
-			<div class="px-3 py-2 border-b border-secondary-200 flex items-center gap-2">
-				<p
-					class="h-6 inline-flex items-center text-xs font-semibold uppercase tracking-wide text-neutral-950 shrink-0"
-				>
-					Seasons
-				</p>
+			<div class="px-3 py-2 border-b border-secondary-200 flex items-center">
 				<SearchInput
 					id="manage-season-search"
 					label="Search seasons"
@@ -405,7 +400,7 @@
 					disabled={isSubmitting}
 					placeholder="Search seasons"
 					autocomplete="off"
-					wrapperClass="relative ml-2 flex-1 min-w-0"
+					wrapperClass="relative w-full min-w-0"
 					iconClass="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-950"
 					inputClass="input-secondary h-6 min-h-0 w-full pl-7 pr-7 py-0 text-xs leading-5 disabled:cursor-not-allowed"
 					clearButtonClass="absolute right-1 top-1/2 -translate-y-1/2 text-neutral-950 hover:text-secondary-900 cursor-pointer"
@@ -416,7 +411,7 @@
 					}}
 				/>
 			</div>
-			<div class="max-h-[52vh] overflow-y-auto p-2 space-y-2">
+			<div class="max-h-[52vh] overflow-y-auto scrollbar-thin p-2 space-y-2">
 				{#if filteredSeasons.length === 0}
 					<p class="text-sm text-neutral-900 px-1 py-2">
 						{seasonSearchTerm.trim() ? 'No seasons match your search.' : 'No seasons available.'}

@@ -34,13 +34,14 @@ Architecture baseline:
 - Panel: `w-full max-w-* border-4 border-secondary bg-neutral-400 overflow-hidden flex flex-col`
 - Header: `p-4 border-b border-secondary space-y-3`
 - Progress bar shell: `border border-neutral-950 bg-white h-3`
-- Form shell default: `p-4 space-y-5 flex-1 min-h-0 overflow-y-auto`
+- Form shell default: `p-4 space-y-5 flex-1 min-h-0 overflow-y-auto scrollbar-thin`
 
 Behavior expectations:
 
 - Escape routes through modal close flow.
 - First focus lands on `data-wizard-autofocus` field if present.
 - Header drag behavior is supported through `ModalShell`.
+- When the form shell scrolls, it should use the shared thin scrollbar treatment by default.
 
 ## Step Composition Recipe
 

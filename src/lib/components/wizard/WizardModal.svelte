@@ -30,7 +30,7 @@
 		progressPercent,
 		closeAriaLabel,
 		maxWidthClass = 'max-w-5xl',
-		formClass = 'p-4 space-y-5 flex-1 min-h-0 overflow-y-auto',
+		formClass = 'p-4 space-y-5 flex-1 min-h-0 overflow-y-auto scrollbar-thin',
 		autoFocusFirstField = true,
 		error,
 		children,

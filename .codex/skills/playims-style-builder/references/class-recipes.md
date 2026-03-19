@@ -86,7 +86,7 @@ Use this as a quick copy/paste matrix. Prefer these recipes before inventing new
 | -------------------------- | ----------------------------------------------------------------------------------------------- |
 | Wizard modal panel         | `wizard-modal-panel ... border-4 border-secondary bg-neutral-400 overflow-hidden flex flex-col` |
 | Wizard header              | `p-4 border-b border-secondary space-y-3`                                                       |
-| Wizard form default        | `p-4 space-y-5 flex-1 min-h-0 overflow-y-auto`                                                  |
+| Wizard form default        | `p-4 space-y-5 flex-1 min-h-0 overflow-y-auto scrollbar-thin`                                   |
 | Wizard footer container    | `pt-2 border-t border-neutral-950 flex justify-end`                                             |
 | Draft collection container | `border border-neutral-950 bg-white p-3 space-y-3`                                              |
 | Draft item card            | `border border-neutral-950 bg-neutral p-3 space-y-2`                                            |
