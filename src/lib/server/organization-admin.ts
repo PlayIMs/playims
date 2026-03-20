@@ -1,3 +1,4 @@
+import { canAccessDashboardRouteForPermissions } from '$lib/dashboard/navigation';
 import {
 	requireAuthenticatedClientId,
 	requireAuthenticatedUserId
@@ -12,7 +13,7 @@ import {
 import { accountCreateOrganizationSchema } from '$lib/server/auth/validation';
 import { validateClientSlug } from '$lib/server/client-slug';
 import { getCentralDbOps } from '$lib/server/database/context';
-import { fail } from '@sveltejs/kit';
+import { fail, redirect } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
 
 export type OrganizationAdminMembership = {
@@ -229,10 +230,20 @@ export const createOrganizationAction = async (event: RequestEvent) => {
 		);
 		if (updatedSession) {
 			switched = true;
-			applyMembershipRoleToLocals(event, {
+			const roleContext = applyMembershipRoleToLocals(event, {
 				clientId: createdClient.id,
 				baseRole: membership.role
 			});
+			const pathname = event.url.pathname.trim();
+			if (
+				pathname.startsWith('/dashboard') &&
+				!canAccessDashboardRouteForPermissions({
+					pathname,
+					permissions: buildPermissionSnapshot(roleContext.role)
+				})
+			) {
+				throw redirect(303, '/dashboard');
+			}
 		}
 	}
 

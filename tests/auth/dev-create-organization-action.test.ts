@@ -9,8 +9,9 @@ switching. These tests protect that server path so the UI cannot drift away from
 behavior that actually creates and activates an organization.
 
 Summary of tests:
-1. It verifies that the developer page create-organization action creates the org, membership, and active session context.
+1. It verifies that the developer page create-organization action can create an organization without switching away from the page.
 2. It verifies that the action accepts participant membership when creating a test organization.
+3. It verifies that the action redirects to the dashboard when a switched organization cannot access the current developer route.
 */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -66,14 +67,14 @@ describe('developer page create-organization action', () => {
 		});
 	});
 
-	it('creates an organization through the developer tools page action', async () => {
-		// this proves the dev-page UI still reaches the real create-organization mutation path.
+	it('creates an organization through the developer tools page action without switching contexts', async () => {
+		// this proves the dev-page UI still reaches the real create-organization mutation path when no redirect is needed.
 		const formData = new FormData();
 		formData.set('organizationName', 'Developer Org');
 		formData.set('organizationSlug', 'developer-org');
 		formData.set('selfJoinEnabled', '1');
 		formData.set('membershipRole', 'admin');
-		formData.set('switchToOrganization', '1');
+		formData.set('switchToOrganization', '0');
 		formData.set('setDefaultOrganization', '1');
 		formData.set('metadata', '{"source":"dev-page"}');
 
@@ -104,14 +105,15 @@ describe('developer page create-organization action', () => {
 			request: new Request('https://playims.test/dashboard/dev?/createOrganization', {
 				method: 'POST',
 				body: formData
-			})
+			}),
+			url: new URL('https://playims.test/dashboard/dev?/createOrganization')
 		} as any;
 
 		const result = await actions.createOrganization(event);
 
 		expect(result).toEqual({
 			action: 'createOrganization',
-			success: 'Organization "Developer Org" created and activated.'
+			success: 'Organization "Developer Org" created.'
 		});
 		expect(mocks.dbOps.clients.create).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -130,13 +132,9 @@ describe('developer page create-organization action', () => {
 				isDefault: true
 			})
 		);
-		expect(mocks.dbOps.sessions.updateClientContext).toHaveBeenCalledWith(
-			'session-1',
-			CREATED_CLIENT_ID,
-			expect.any(String)
-		);
-		expect(event.locals.session.activeClientId).toBe(CREATED_CLIENT_ID);
-		expect(event.locals.user.clientId).toBe(CREATED_CLIENT_ID);
+		expect(mocks.dbOps.sessions.updateClientContext).not.toHaveBeenCalled();
+		expect(event.locals.session.activeClientId).toBe('client-1');
+		expect(event.locals.user.clientId).toBe('client-1');
 	});
 
 	it('accepts participant membership for a newly created organization', async () => {
@@ -152,7 +150,7 @@ describe('developer page create-organization action', () => {
 		formData.set('organizationSlug', 'participant-sandbox');
 		formData.set('selfJoinEnabled', '0');
 		formData.set('membershipRole', 'participant');
-		formData.set('switchToOrganization', '1');
+		formData.set('switchToOrganization', '0');
 		formData.set('setDefaultOrganization', '0');
 
 		const event = {
@@ -182,14 +180,15 @@ describe('developer page create-organization action', () => {
 			request: new Request('https://playims.test/dashboard/dev?/createOrganization', {
 				method: 'POST',
 				body: formData
-			})
+			}),
+			url: new URL('https://playims.test/dashboard/dev?/createOrganization')
 		} as any;
 
 		const result = await actions.createOrganization(event);
 
 		expect(result).toEqual({
 			action: 'createOrganization',
-			success: 'Organization "Developer Org" created and activated.'
+			success: 'Organization "Developer Org" created.'
 		});
 		expect(mocks.dbOps.userClients.ensureMembership).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -199,11 +198,63 @@ describe('developer page create-organization action', () => {
 				isDefault: false
 			})
 		);
-		expect(event.locals.session.role).toBe('participant');
-		expect(event.locals.session.baseRole).toBe('participant');
-		expect(event.locals.session.canViewAsRole).toBe(false);
-		expect(event.locals.user.role).toBe('participant');
-		expect(event.locals.user.baseRole).toBe('participant');
-		expect(event.locals.user.canViewAsRole).toBe(false);
+		expect(mocks.dbOps.sessions.updateClientContext).not.toHaveBeenCalled();
+		expect(event.locals.session.role).toBe('admin');
+		expect(event.locals.session.baseRole).toBe('admin');
+		expect(event.locals.session.canViewAsRole).toBe(true);
+		expect(event.locals.user.role).toBe('admin');
+		expect(event.locals.user.baseRole).toBe('admin');
+		expect(event.locals.user.canViewAsRole).toBe(true);
+	});
+
+	it('redirects to the dashboard when the switched organization cannot access the developer page', async () => {
+		// this protects the exact failure path where a successful switch would otherwise reload into a 403 page.
+		const formData = new FormData();
+		formData.set('organizationName', 'Restricted Org');
+		formData.set('organizationSlug', 'restricted-org');
+		formData.set('selfJoinEnabled', '0');
+		formData.set('membershipRole', 'admin');
+		formData.set('switchToOrganization', '1');
+		formData.set('setDefaultOrganization', '1');
+
+		const event = {
+			platform: { env: { DB: {} } },
+			locals: {
+				user: {
+					id: 'user-1',
+					clientId: 'client-1',
+					role: 'dev',
+					baseRole: 'dev',
+					canViewAsRole: true,
+					isViewingAsRole: false,
+					viewAsRole: null
+				},
+				session: {
+					id: 'session-1',
+					userId: 'user-1',
+					clientId: 'client-1',
+					activeClientId: 'client-1',
+					role: 'dev',
+					baseRole: 'dev',
+					canViewAsRole: true,
+					isViewingAsRole: false,
+					viewAsRole: null
+				}
+			},
+			request: new Request('https://playims.test/dashboard/dev?/createOrganization', {
+				method: 'POST',
+				body: formData
+			}),
+			url: new URL('https://playims.test/dashboard/dev?/createOrganization')
+		} as any;
+
+		await expect(actions.createOrganization(event)).rejects.toMatchObject({
+			status: 303,
+			location: '/dashboard'
+		});
+		expect(event.locals.session.activeClientId).toBe(CREATED_CLIENT_ID);
+		expect(event.locals.session.role).toBe('admin');
+		expect(event.locals.user.clientId).toBe(CREATED_CLIENT_ID);
+		expect(event.locals.user.role).toBe('admin');
 	});
 });
