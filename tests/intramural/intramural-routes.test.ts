@@ -12,11 +12,12 @@ change one rule at a time while keeping the rest of the route environment stable
 Summary of tests:
 1. It verifies that the route suggests the next available offering slug when the requested one is taken.
 2. It verifies that linked offerings join an existing cross-season series.
-3. It verifies that tournament offerings use group wording in duplicate errors.
-4. It verifies that league updates reject seasons outside the selected offering.
-5. It verifies that duplicate season creation is blocked before any writes happen.
-6. It verifies that the current season cannot be archived without a fallback active season.
-7. It verifies that season deletion is restricted to administrator-like roles.
+3. It verifies that copied seasons automatically keep copied offerings linked to their source history.
+4. It verifies that tournament offerings use group wording in duplicate errors.
+5. It verifies that league updates reject seasons outside the selected offering.
+6. It verifies that duplicate season creation is blocked before any writes happen.
+7. It verifies that the current season cannot be archived without a fallback active season.
+8. It verifies that season deletion is restricted to administrator-like roles.
 */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -40,6 +41,7 @@ const mocks = vi.hoisted(() => {
 				getByClientIdAndId: vi.fn(),
 				create: vi.fn(),
 				updateByClientIdAndId: vi.fn(),
+				backfillSeriesIdsBySharedName: vi.fn(),
 				updateSeriesId: vi.fn(),
 				deleteById: vi.fn()
 			},
@@ -357,6 +359,7 @@ describe('intramural routes', () => {
 			name: 'Basketball',
 			type: 'league'
 		});
+		mocks.dbOps.offerings.backfillSeriesIdsBySharedName.mockResolvedValue(0);
 		mocks.dbOps.offerings.updateByClientIdAndId.mockResolvedValue({
 			id: 'offering-1'
 		});
@@ -458,6 +461,109 @@ describe('intramural routes', () => {
 			'offering-1',
 			expect.any(String),
 			'user-1'
+		);
+		expect(mocks.dbOps.offerings.backfillSeriesIdsBySharedName).toHaveBeenCalledWith(
+			'client-1',
+			'user-1'
+		);
+	});
+
+	it('keeps copied season offerings linked to their source offering history', async () => {
+		// copied offerings should inherit the source series id so the new season extends the same offering.
+		mocks.dbOps.seasons.getByClientId.mockResolvedValue([
+			{
+				id: 'season-1',
+				name: 'Spring 2026',
+				slug: 'spring-2026',
+				startDate: '2026-03-20',
+				endDate: '2026-05-01',
+				isCurrent: 1,
+				isActive: 1
+			}
+		]);
+		mocks.dbOps.offerings.getByClientId.mockResolvedValue([
+			{
+				id: 'offering-1',
+				name: 'Basketball',
+				slug: 'basketball',
+				seasonId: 'season-1',
+				seriesId: null,
+				isActive: 1,
+				type: 'league'
+			}
+		]);
+		mocks.dbOps.leagues.getByClientId.mockResolvedValue([
+			{
+				id: 'league-1',
+				offeringId: 'offering-1',
+				seasonId: 'season-1',
+				name: 'Open League',
+				slug: 'open-league',
+				stackOrder: 1,
+				description: null,
+				season: 'Spring',
+				year: 2026,
+				gender: 'mixed',
+				skillLevel: 'all',
+				regStartDate: '2026-03-01T09:00',
+				regEndDate: '2026-03-10T09:00',
+				seasonStartDate: '2026-03-20',
+				seasonEndDate: '2026-04-20',
+				hasPostseason: 0,
+				postseasonStartDate: null,
+				postseasonEndDate: null,
+				hasPreseason: 0,
+				preseasonStartDate: null,
+				preseasonEndDate: null,
+				isActive: 1,
+				isLocked: 0,
+				imageUrl: null
+			}
+		]);
+		mocks.dbOps.offerings.create.mockResolvedValueOnce({
+			id: '11111111-1111-4111-8111-111111111111',
+			name: 'Basketball',
+			type: 'league'
+		});
+
+		const response = await createSeason(
+			createRouteEvent({
+				path: '/api/intramural-sports/seasons',
+				body: createSeasonPayload({
+					season: {
+						name: 'Summer 2026',
+						slug: 'summer-2026',
+						startDate: '2026-06-01',
+						endDate: '2026-07-15'
+					},
+					copyOptions: {
+						sourceSeasonId: 'season-1',
+						scope: 'offerings-only',
+						includeDivisions: false
+					}
+				})
+			})
+		);
+		const payload = await response.json();
+
+		expect(response.status).toBe(201);
+		expect(payload.success).toBe(true);
+		expect(mocks.dbOps.offerings.backfillSeriesIdsBySharedName).toHaveBeenCalledWith(
+			'client-1',
+			'user-1'
+		);
+		expect(mocks.dbOps.offerings.updateSeriesId).toHaveBeenCalledWith(
+			'client-1',
+			'offering-1',
+			expect.any(String),
+			'user-1'
+		);
+		expect(mocks.dbOps.offerings.create).toHaveBeenCalledWith(
+			expect.objectContaining({
+				seasonId: 'season-2',
+				name: 'Basketball',
+				seriesId: expect.any(String)
+			})
 		);
 	});
 

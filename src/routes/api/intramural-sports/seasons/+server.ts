@@ -427,6 +427,7 @@ export const POST: RequestHandler = async (event) => {
 			| undefined;
 
 		if (input.copyOptions && sourceSeasonId) {
+			await dbOps.offerings.backfillSeriesIdsBySharedName(clientId, userId);
 			const [existingOfferings, allLeagues] = await Promise.all([
 				dbOps.offerings.getByClientId(clientId),
 				dbOps.leagues.getByClientId(clientId)
