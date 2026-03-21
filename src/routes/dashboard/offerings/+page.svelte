@@ -53,6 +53,12 @@
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import type { OfferingsTableColumn } from '$lib/components/offerings-table.js';
+	import { buildPreviousOfferingLinkChoices } from '$lib/utils/offering-linking.js';
+	import {
+		getCreateOfferingVisibleSteps,
+		shouldShowOfferingLinkStep,
+		type OfferingWizardStep as WizardStep
+	} from '$lib/utils/offering-wizard-steps.js';
 	import {
 		getEffectiveOfferingEndMs,
 		isOfferingTimelineConcluded
@@ -128,7 +134,6 @@
 
 	type RegistrationWindowState = 'upcoming' | 'open' | 'closed';
 	type OfferingView = 'leagues' | 'tournaments' | 'all';
-	type WizardStep = 1 | 2 | 3 | 4 | 5;
 	type LeagueWizardStep = 1 | 2 | 3 | 4;
 	type SeasonWizardStep = 1 | 2 | 3 | 4;
 	type AuthRole = 'participant' | 'manager' | 'admin' | 'dev';
@@ -279,10 +284,11 @@
 	const DATE_TIME_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
 	const WIZARD_STEP_TITLES: Record<WizardStep, string> = {
 		1: 'Offering Basics',
-		2: 'Offering Setup',
-		3: 'League Options',
-		4: 'League Schedule',
-		5: 'Review & Create'
+		2: 'Link to Previous Offering',
+		3: 'Offering Setup',
+		4: 'League Options',
+		5: 'League Schedule',
+		6: 'Review & Create'
 	};
 	const SEASON_WIZARD_STEP_TITLES: Record<SeasonWizardStep, string> = {
 		1: 'Season Details',
@@ -644,8 +650,8 @@
 	}
 
 	function wizardStepTitle(step: WizardStep): string {
-		if (step === 3) return isTournamentWizard() ? 'Tournament Groups' : 'League Options';
-		if (step === 4) return isTournamentWizard() ? 'Tournament Schedule' : 'League Schedule';
+		if (step === 4) return isTournamentWizard() ? 'Tournament Groups' : 'League Options';
+		if (step === 5) return isTournamentWizard() ? 'Tournament Schedule' : 'League Schedule';
 		return WIZARD_STEP_TITLES[step];
 	}
 
@@ -1884,13 +1890,16 @@
 				'offering.seasonId',
 				'offering.name',
 				'offering.slug',
-				'offering.linkedOfferingId',
 				'offering.type',
 				'offering.description'
 			]);
 		}
 
 		if (step === 2) {
+			return pickFieldErrors(getOfferingFieldErrors(values.offering), ['offering.linkedOfferingId']);
+		}
+
+		if (step === 3) {
 			return pickFieldErrors(getOfferingFieldErrors(values.offering), [
 				'offering.imageUrl',
 				'offering.minPlayers',
@@ -1899,7 +1908,7 @@
 			]);
 		}
 
-		if (step === 3) {
+		if (step === 4) {
 			if (!leagueDraftActive) return {};
 			return pickFieldErrors(getLeagueFieldErrors(values.league), [
 				'league.name',
@@ -1911,7 +1920,7 @@
 			]);
 		}
 
-		if (step === 4) {
+		if (step === 5) {
 			if (!leagueDraftActive) return {};
 			return pickFieldErrors(getLeagueFieldErrors(values.league), [
 				'league.regStartDate',
@@ -1953,13 +1962,15 @@
 					'offering.seasonId',
 					'offering.name',
 					'offering.slug',
-					'offering.linkedOfferingId',
 					'offering.sport',
 					'offering.type'
 				].includes(key)
 			)
 		) {
 			return 1;
+		}
+		if (keys.some((key) => key === 'offering.linkedOfferingId')) {
+			return 2;
 		}
 		if (
 			keys.some((key) =>
@@ -1971,7 +1982,7 @@
 				].includes(key)
 			)
 		) {
-			return 2;
+			return 3;
 		}
 		if (
 			keys.some((key) =>
@@ -1985,12 +1996,12 @@
 				].includes(key)
 			)
 		) {
-			return 3;
-		}
-		if (keys.some((key) => key.startsWith('league.'))) {
 			return 4;
 		}
-		return 5;
+		if (keys.some((key) => key.startsWith('league.'))) {
+			return 5;
+		}
+		return 6;
 	}
 
 	function normalizeDateForRequest(value: string): string {
@@ -2054,8 +2065,8 @@
 
 	function addOrUpdateDraftLeague(): boolean {
 		const draftErrors = {
-			...getCurrentStepClientErrors(createForm, 3),
-			...getCurrentStepClientErrors(createForm, 4)
+			...getCurrentStepClientErrors(createForm, 4),
+			...getCurrentStepClientErrors(createForm, 5)
 		};
 		if (Object.keys(draftErrors).length > 0) {
 			createStep = firstInvalidStep(draftErrors);
@@ -2114,7 +2125,7 @@
 		};
 		createForm.addLeagues = 'yes';
 		leagueDraftActive = true;
-		createStep = 3;
+		createStep = 4;
 	}
 
 	function cancelLeagueDraft(): void {
@@ -2145,7 +2156,7 @@
 		};
 		createForm.addLeagues = 'yes';
 		leagueDraftActive = true;
-		createStep = 3;
+		createStep = 4;
 	}
 
 	function startEditingOffering(): void {
@@ -2155,7 +2166,7 @@
 
 	function startEditingLeagues(): void {
 		clearCreateApiErrors();
-		createStep = 3;
+		createStep = 4;
 	}
 
 	function duplicateLeague(index: number): void {
@@ -4133,9 +4144,17 @@
 			statusLabel: seasonStatusLabelForHistory(season)
 		}))
 	]);
+	const createOfferingSeasonDropdownOptions = $derived.by<DropdownOption[]>(() => [
+		{ value: '', label: 'Select season...' },
+		...seasons.filter((season) => season.isActive).map((season) => ({
+			value: season.id,
+			label: season.name,
+			statusLabel: seasonStatusLabelForHistory(season)
+		}))
+	]);
 	const createOfferingLeagueSeasonDropdownOptions = $derived.by<DropdownOption[]>(() => {
 		const offeringSeason = seasons.find((season) => season.id === createForm.offering.seasonId);
-		if (!offeringSeason) return seasonDropdownOptions;
+		if (!offeringSeason) return createOfferingSeasonDropdownOptions;
 		return [
 			{
 				value: offeringSeason.id,
@@ -4144,35 +4163,40 @@
 			}
 		];
 	});
-	const offeringLinkCandidates = $derived.by<LeagueOfferingOption[]>(() => {
-		const selectedSeasonId = createForm.offering.seasonId.trim();
-		const normalizedName = createForm.offering.name.trim().toLowerCase();
-		const normalizedSlug = slugifyFinal(createForm.offering.slug);
-		if (!selectedSeasonId || (!normalizedName && !normalizedSlug)) {
-			return [];
-		}
-
-		return leagueOfferingOptions
-			.filter((offering) => {
-				if (!offering.id || offering.seasonId === selectedSeasonId) return false;
-				const nameMatches =
-					normalizedName.length > 0 && offering.name.trim().toLowerCase() === normalizedName;
-				const slugMatches =
-					normalizedSlug.length > 0 && slugifyFinal(offering.slug) === normalizedSlug;
-				return nameMatches || slugMatches;
-			})
-			.sort((a, b) => (b.seasonName ?? '').localeCompare(a.seasonName ?? ''));
-	});
+	const previousOfferingLinkChoices = $derived.by(() =>
+		buildPreviousOfferingLinkChoices({
+			offerings: leagueOfferingOptions.map((offering) => ({
+				id: offering.id,
+				name: offering.name,
+				slug: offering.slug,
+				seasonId: offering.seasonId,
+				seasonName: offering.seasonName,
+				seriesId: offering.seriesId,
+				isActive: offering.isActive
+			})),
+			seasons: seasons.map((season) => ({
+				id: season.id,
+				name: season.name,
+				startDate: season.startDate
+			})),
+			selectedSeasonId: createForm.offering.seasonId,
+			offeringName: createForm.offering.name,
+			offeringSlug: createForm.offering.slug
+		})
+	);
 	const offeringLinkDropdownOptions = $derived.by<DropdownOption[]>(() => [
 		{ value: '', label: 'Do not link' },
-		...offeringLinkCandidates.map((offering) => ({
+		...previousOfferingLinkChoices.map((offering) => ({
 			value: offering.id,
-			label: `${offering.name} (${offering.seasonName ?? 'Other season'})`
+			label:
+				offering.seasonCount > 1
+					? `${offering.name} (${offering.seasonCount} previous seasons)`
+					: `${offering.name} (${offering.seasonName ?? 'Previous season'})`
 		}))
 	]);
 	const selectedLinkedOffering = $derived.by(
 		() =>
-			leagueOfferingOptions.find(
+			previousOfferingLinkChoices.find(
 				(offering) => offering.id === createForm.offering.linkedOfferingId.trim()
 			) ?? null
 	);
@@ -4223,7 +4247,7 @@
 	$effect(() => {
 		const linkedOfferingId = createForm.offering.linkedOfferingId.trim();
 		if (!linkedOfferingId) return;
-		const stillAvailable = offeringLinkCandidates.some(
+		const stillAvailable = previousOfferingLinkChoices.some(
 			(offering) => offering.id === linkedOfferingId
 		);
 		if (!stillAvailable) {
@@ -4696,11 +4720,11 @@
 		};
 	});
 	const canGoNextStep = $derived.by(
-		() => createStep < 5 && Object.keys(clientCreateFieldErrors).length === 0 && !createSubmitting
+		() => createStep < 6 && Object.keys(clientCreateFieldErrors).length === 0 && !createSubmitting
 	);
 	const canSubmitCreate = $derived.by(
 		() =>
-			createStep === 5 &&
+			createStep === 6 &&
 			Object.keys(getSubmitClientErrors(createForm)).length === 0 &&
 			Object.keys(serverFieldErrors).length === 0 &&
 			!createSubmitting
@@ -4708,33 +4732,55 @@
 	const canSubmitEditOffering = $derived.by(
 		() => hasUnsavedEditOfferingChanges() && !editOfferingSubmitting
 	);
-	const createStepProgress = $derived.by(() => Math.round((createStep / 5) * 100));
+	const shouldShowCreateOfferingLinkStep = $derived.by(() =>
+		shouldShowOfferingLinkStep(
+			previousOfferingLinkChoices.length,
+			createForm.offering.linkedOfferingId
+		)
+	);
+	const createVisibleSteps = $derived.by<WizardStep[]>(() =>
+		getCreateOfferingVisibleSteps(shouldShowCreateOfferingLinkStep)
+	);
+	const createStepDisplay = $derived.by(() => {
+		const currentStepIndex = createVisibleSteps.indexOf(createStep);
+		return currentStepIndex >= 0 ? currentStepIndex + 1 : 1;
+	});
+	const createStepProgress = $derived.by(() =>
+		Math.round((createStepDisplay / createVisibleSteps.length) * 100)
+	);
+
+	$effect(() => {
+		if (createVisibleSteps.includes(createStep)) return;
+		createStep = createStep === 2 ? 3 : (createVisibleSteps[createVisibleSteps.length - 1] ?? 1);
+	});
 
 	function nextCreateStep(): void {
 		clearCreateApiErrors();
-		if (createStep === 5 || createSubmitting) return;
+		if (createStep === 6 || createSubmitting) return;
 		const stepErrors = getCurrentStepClientErrors(createForm, createStep);
 		if (Object.keys(stepErrors).length > 0) {
 			createStep = firstInvalidStep(stepErrors);
 			return;
 		}
 
-		if (createStep === 3) {
-			createStep = leagueDraftActive ? 4 : 5;
+		if (createStep === 4) {
+			createStep = leagueDraftActive ? 5 : 6;
 			return;
 		}
 
-		if (createStep === 4) {
+		if (createStep === 5) {
 			if (!leagueDraftActive) {
-				createStep = 3;
+				createStep = 4;
 				return;
 			}
 			if (!addOrUpdateDraftLeague()) return;
-			createStep = 3;
+			createStep = 4;
 			return;
 		}
 
-		createStep = (createStep + 1) as WizardStep;
+		const currentStepIndex = createVisibleSteps.indexOf(createStep);
+		if (currentStepIndex < 0 || currentStepIndex >= createVisibleSteps.length - 1) return;
+		createStep = createVisibleSteps[currentStepIndex + 1];
 	}
 
 	function nextCreateSeasonStep(): void {
@@ -4771,18 +4817,20 @@
 		clearCreateApiErrors();
 		if (createStep === 1) return;
 
-		if (createStep === 5) {
-			createStep = leagueDraftActive ? 4 : 3;
+		if (createStep === 6) {
+			createStep = leagueDraftActive ? 5 : 4;
 			return;
 		}
 
-		createStep = (createStep - 1) as WizardStep;
+		const currentStepIndex = createVisibleSteps.indexOf(createStep);
+		if (currentStepIndex <= 0) return;
+		createStep = createVisibleSteps[currentStepIndex - 1];
 	}
 
 	function handleCreateBackAction(): void {
-		if (leagueDraftActive && (createStep === 3 || createStep === 4)) {
+		if (leagueDraftActive && (createStep === 4 || createStep === 5)) {
 			cancelLeagueDraft();
-			createStep = 3;
+			createStep = 4;
 			return;
 		}
 		previousCreateStep();
@@ -4821,7 +4869,7 @@
 		<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
 			<div class="flex items-center gap-3 py-2 lg:py-3">
 				<div
-					class="bg-primary text-white border-2 border-primary-700 w-[2.75rem] h-[2.75rem] lg:w-[3.4rem] lg:h-[3.4rem] flex items-center justify-center"
+					class="bg-primary text-white border-2 border-primary-700 w-11 h-11 lg:w-[3.4rem] lg:h-[3.4rem] flex items-center justify-center"
 					aria-hidden="true"
 				>
 					<IconBallAmericanFootball class="w-7 h-7 lg:w-8 lg:h-8" />
@@ -4950,7 +4998,7 @@
 						/>
 					</div>
 
-					<div class="p-4 space-y-4 min-h-[34rem]">
+					<div class="p-4 space-y-4 min-h-136">
 						<div class="border border-neutral-950 bg-white p-4 space-y-2">
 							<h3 class="text-xl font-bold font-serif text-neutral-950">
 								{#if seasons.length === 0}
@@ -7468,7 +7516,8 @@
 
 <CreateOfferingWizard
 	open={isCreateModalOpen}
-	step={createStep}
+	step={createStepDisplay}
+	stepCount={createVisibleSteps.length}
 	stepTitle={wizardStepTitle(createStep)}
 	stepProgress={createStepProgress}
 	formError={createFormError}
@@ -7572,7 +7621,7 @@
 						Season <span class="text-error-700">*</span>
 					</p>
 					<ListboxDropdown
-						options={seasonDropdownOptions}
+						options={createOfferingSeasonDropdownOptions}
 						value={createForm.offering.seasonId}
 						ariaLabel="Offering season"
 						buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
@@ -7631,59 +7680,6 @@
 				</div>
 			</div>
 
-			{#if offeringLinkCandidates.length > 0 || createForm.offering.linkedOfferingId}
-				<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-					<div>
-						<p class="block text-sm font-sans text-neutral-950 mb-1">Link Across Seasons</p>
-						<ListboxDropdown
-							options={offeringLinkDropdownOptions}
-							value={createForm.offering.linkedOfferingId}
-							ariaLabel="Link offering with another season"
-							buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
-							on:change={(event) => {
-								createForm.offering.linkedOfferingId = event.detail.value;
-								clearCreateApiErrors();
-							}}
-						/>
-						<p class="mt-1 text-xs text-neutral-900">
-							Optional. Use this when the same offering exists in another season and should stay
-							connected.
-						</p>
-						{#if createFieldErrors['offering.linkedOfferingId']}
-							<p class="text-xs text-error-700 mt-1">
-								{createFieldErrors['offering.linkedOfferingId']}
-							</p>
-						{/if}
-					</div>
-
-					<div class="border border-neutral-950 bg-neutral p-3">
-						{#if selectedLinkedOffering}
-							<p class="text-sm font-semibold text-neutral-950">Selected link</p>
-							<p class="mt-1 text-sm text-neutral-950">
-								{selectedLinkedOffering.name} from {selectedLinkedOffering.seasonName ??
-									'another season'}
-							</p>
-							<p class="mt-1 text-xs text-neutral-900">
-								New URLs stay season-specific, but this keeps equivalent offerings connected behind
-								the scenes.
-							</p>
-						{:else}
-							<p class="text-sm font-semibold text-neutral-950">Matching offerings found</p>
-							<p class="mt-1 text-xs text-neutral-900">
-								Pick one if this offering should be treated as the same offering in a different
-								season.
-							</p>
-						{/if}
-					</div>
-				</div>
-			{:else if createForm.offering.seasonId.trim() && (createForm.offering.name.trim().length > 0 || slugifyFinal(createForm.offering.slug).length > 0)}
-				<div class="border border-neutral-950 bg-neutral p-3">
-					<p class="text-sm text-neutral-950">
-						No matching offering was found in other seasons yet.
-					</p>
-				</div>
-			{/if}
-
 			<div>
 				<label for="offering-description" class="block text-sm font-sans text-neutral-950 mb-1"
 					>Description</label
@@ -7704,6 +7700,53 @@
 	{/if}
 
 	{#if createStep === 2}
+		<div class="space-y-4">
+			<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+				<div>
+					<p class="block text-sm font-sans text-neutral-950 mb-1">Link to Previous Offering</p>
+					<ListboxDropdown
+						options={offeringLinkDropdownOptions}
+						value={createForm.offering.linkedOfferingId}
+						ariaLabel="Link offering with a previous offering"
+						buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
+						on:change={(event) => {
+							createForm.offering.linkedOfferingId = event.detail.value;
+							clearCreateApiErrors();
+						}}
+					/>
+					<p class="mt-1 text-xs text-neutral-900">
+						Optional. Use this when the same offering already existed in a previous season and
+						should stay connected as one cross-season offering.
+					</p>
+					{#if createFieldErrors['offering.linkedOfferingId']}
+						<p class="text-xs text-error-700 mt-1">
+							{createFieldErrors['offering.linkedOfferingId']}
+						</p>
+					{/if}
+				</div>
+
+				<div class="border border-neutral-950 bg-neutral p-3">
+					{#if selectedLinkedOffering}
+						<p class="text-sm font-semibold text-neutral-950">Selected previous offering</p>
+						<p class="mt-1 text-sm text-neutral-950">
+							{selectedLinkedOffering.name}
+						</p>
+						<p class="mt-1 text-xs text-neutral-900">
+							Previously used in {selectedLinkedOffering.seasonNames.join(', ')}.
+						</p>
+					{:else}
+						<p class="text-sm font-semibold text-neutral-950">Matching previous offerings found</p>
+						<p class="mt-1 text-xs text-neutral-900">
+							Pick one if this offering should extend an existing offering history from earlier
+							seasons.
+						</p>
+					{/if}
+				</div>
+			</div>
+		</div>
+	{/if}
+
+	{#if createStep === 3}
 		<div class="space-y-4">
 			<div class="grid grid-cols-1 lg:grid-cols-[15rem_minmax(0,1fr)] gap-5">
 				<div class="space-y-4 max-w-60">
@@ -7812,7 +7855,7 @@
 		</div>
 	{/if}
 
-	{#if createStep === 3}
+	{#if createStep === 4}
 		<div class="space-y-4">
 			{#if !leagueDraftActive}
 				<WizardDraftCollection
@@ -8056,12 +8099,12 @@
 		</div>
 	{/if}
 
-	{#if createStep === 4}
+	{#if createStep === 5}
 		<div class="space-y-4">
 			{#if !leagueDraftActive}
 				<div class="border border-neutral-950 bg-white p-4">
 					<p class="text-sm leading-5 font-sans text-neutral-950">
-						No {wizardUnitSingular()} draft is open. Go back to {wizardStepTitle(3)} and click the plus
+						No {wizardUnitSingular()} draft is open. Go back to {wizardStepTitle(4)} and click the plus
 						button to add one.
 					</p>
 				</div>
@@ -8306,7 +8349,7 @@
 		</div>
 	{/if}
 
-	{#if createStep === 5}
+	{#if createStep === 6}
 		<div class="space-y-4">
 			<div class="border-2 border-neutral-950 bg-white p-4 space-y-2">
 				<div class="flex items-start justify-between gap-2">
@@ -8334,8 +8377,8 @@
 				</p>
 				{#if selectedLinkedOffering}
 					<p class="text-sm leading-5 text-neutral-950">
-						<span class="font-semibold">Linked Offering:</span>
-						{selectedLinkedOffering.name} ({selectedLinkedOffering.seasonName ?? 'Other season'})
+						<span class="font-semibold">Previous Offering Link:</span>
+						{selectedLinkedOffering.name} ({selectedLinkedOffering.seasonNames.join(', ')})
 					</p>
 				{/if}
 				<p class="text-sm leading-5 text-neutral-950">
@@ -8483,16 +8526,16 @@
 
 	{#snippet footer()}
 		<WizardStepFooter
-			step={createStep}
-			lastStep={5}
+			step={createStepDisplay}
+			lastStep={createVisibleSteps.length}
 			showBack={createStep > 1}
 			canGoNext={canGoNextStep}
 			canSubmit={canSubmitCreate}
-			nextLabel={createStep === 3 && !leagueDraftActive
+			nextLabel={createStep === 4 && !leagueDraftActive
 				? createForm.leagues.length === 0
 					? 'Skip to Review'
 					: 'Review'
-				: createStep === 4 && leagueDraftActive
+				: createStep === 5 && leagueDraftActive
 					? leagueEditingIndex === null
 						? `Add ${wizardUnitTitleSingular()}`
 						: `Update ${wizardUnitTitleSingular()}`

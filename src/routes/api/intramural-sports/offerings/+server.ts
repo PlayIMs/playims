@@ -328,6 +328,7 @@ export const POST: RequestHandler = async (event) => {
 
 	try {
 		const issues: Array<{ path: Array<string | number>; message: string }> = [];
+		await dbOps.offerings.backfillSeriesIdsBySharedName(clientId, userId);
 		const seasons = await dbOps.seasons.getByClientId(clientId);
 		const existingOfferings = await dbOps.offerings.getByClientId(clientId);
 		const seasonById = new Map(seasons.map((season) => [season.id, season]));

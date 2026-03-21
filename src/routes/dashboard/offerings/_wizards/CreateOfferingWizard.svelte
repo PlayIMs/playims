@@ -6,6 +6,7 @@
 	interface Props {
 		open: boolean;
 		step: number;
+		stepCount: number;
 		stepTitle: string;
 		stepProgress: number;
 		formError: string;
@@ -22,6 +23,7 @@
 	let {
 		open,
 		step,
+		stepCount,
 		stepTitle,
 		stepProgress,
 		formError,
@@ -61,7 +63,7 @@
 	{open}
 	title="New Offering"
 	{step}
-	stepCount={5}
+	{stepCount}
 	{stepTitle}
 	progressPercent={stepProgress}
 	closeAriaLabel="Close create offering modal"

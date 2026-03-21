@@ -189,6 +189,7 @@ export const load: PageServerLoad = async (event) => {
 	const db = await getTenantDbOps(event, clientId);
 
 	try {
+		await db.offerings.backfillSeriesIdsBySharedName(clientId);
 		const [seasonsRaw, offerings, leagues] = await Promise.all([
 			db.seasons.getByClientId(clientId),
 			db.offerings.getByClientId(clientId),

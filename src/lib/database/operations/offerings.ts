@@ -2,6 +2,7 @@
 import { and, asc, eq } from 'drizzle-orm';
 import type { DrizzleClient } from '../drizzle.js';
 import { offerings, type Offering } from '../schema/index.js';
+import { buildOfferingSeriesBackfillPlan } from '$lib/utils/offering-linking.js';
 
 export class OfferingOperations {
 	constructor(private db: DrizzleClient) {}
@@ -128,6 +129,20 @@ export class OfferingOperations {
 			.returning();
 
 		return result[0] ?? null;
+	}
+
+	async backfillSeriesIdsBySharedName(
+		clientId: string,
+		updatedUser?: string | null
+	): Promise<number> {
+		const existingOfferings = await this.getByClientId(clientId);
+		const updates = buildOfferingSeriesBackfillPlan(existingOfferings, () => crypto.randomUUID());
+
+		for (const update of updates) {
+			await this.updateSeriesId(clientId, update.offeringId, update.seriesId, updatedUser);
+		}
+
+		return updates.length;
 	}
 
 	async updateByClientIdAndId(
