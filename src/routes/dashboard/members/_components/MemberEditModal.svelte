@@ -29,8 +29,9 @@
 		error = '',
 		fieldErrors = {},
 		onClose,
-		onSubmit
+	onSubmit
 	}: Props = $props();
+	let formElement = $state<HTMLFormElement | null>(null);
 
 	const sexOptions = [
 		{ value: 'M', label: 'M' },
@@ -62,12 +63,15 @@
 <ModalShell
 	{open}
 	panelClass="flex max-h-[calc(100vh-2rem)] w-full max-w-3xl flex-col overflow-hidden border-4 border-secondary bg-neutral-400 lg:max-h-[calc(100vh-3rem)]"
+	saveShortcutEnabled
 	on:requestClose={onClose}
+	on:saveShortcut={() => formElement?.requestSubmit()}
 >
 	<div class="border-b border-secondary px-4 py-3">
 		<h3 class="text-2xl font-bold font-serif text-neutral-950">Edit Member</h3>
 	</div>
 	<form
+		bind:this={formElement}
 		class="flex flex-1 flex-col overflow-hidden bg-neutral-400"
 		onsubmit={(event) => {
 			event.preventDefault();

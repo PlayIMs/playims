@@ -45,6 +45,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import type { Snippet } from 'svelte';
 	import { clampModalTranslate } from './modal-drag.js';
+	import { isSaveShortcutEvent } from './save-shortcut.js';
 
 	interface Props {
 		open?: boolean;
@@ -54,6 +55,7 @@
 		alignmentClass?: string;
 		paddingClass?: string;
 		lockBodyScroll?: boolean;
+		saveShortcutEnabled?: boolean;
 		draggable?: boolean;
 		dragHandleSelector?: string;
 		children?: Snippet;
@@ -67,12 +69,13 @@
 		alignmentClass = 'items-center',
 		paddingClass = 'p-4 lg:p-6',
 		lockBodyScroll = true,
+		saveShortcutEnabled = false,
 		draggable = false,
 		dragHandleSelector = '',
 		children
 	}: Props = $props();
 
-	const dispatch = createEventDispatcher<{ requestClose: void }>();
+	const dispatch = createEventDispatcher<{ requestClose: void; saveShortcut: void }>();
 	const modalId = Symbol('modal-shell');
 	let pointerDownStartedInside = $state(false);
 	let hasBodyScrollLock = $state(false);
@@ -288,14 +291,19 @@
 		if (typeof window === 'undefined' || !open) return;
 
 		const handleWindowKeydown = (event: KeyboardEvent) => {
+			if (saveShortcutEnabled && isTopModal(modalId) && isSaveShortcutEvent(event)) {
+				event.preventDefault();
+				dispatch('saveShortcut');
+				return;
+			}
 			if (event.key !== 'Escape') return;
 			if (!isTopModal(modalId)) return;
 			dispatch('requestClose');
 		};
 
-		window.addEventListener('keydown', handleWindowKeydown);
+		window.addEventListener('keydown', handleWindowKeydown, true);
 		return () => {
-			window.removeEventListener('keydown', handleWindowKeydown);
+			window.removeEventListener('keydown', handleWindowKeydown, true);
 		};
 	});
 </script>

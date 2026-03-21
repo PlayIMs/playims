@@ -12,6 +12,7 @@
 		title: string;
 		unsavedConfirmOpen: boolean;
 		formClass?: string;
+		saveShortcutEnabled?: boolean;
 		onRequestClose: () => void;
 		onSubmit: () => void;
 		onInput: () => void;
@@ -30,6 +31,7 @@
 		title,
 		unsavedConfirmOpen,
 		formClass = 'p-4 space-y-5 flex-1 min-h-0 overflow-y-auto',
+		saveShortcutEnabled = false,
 		onRequestClose,
 		onSubmit,
 		onInput,
@@ -74,6 +76,7 @@
 	on:input={onInput}
 	maxWidthClass="max-w-4xl"
 	{formClass}
+	{saveShortcutEnabled}
 >
 	{@render children?.()}
 	{@render footer?.()}

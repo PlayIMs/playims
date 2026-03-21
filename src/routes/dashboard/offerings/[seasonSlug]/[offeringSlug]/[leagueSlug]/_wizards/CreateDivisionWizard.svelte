@@ -113,6 +113,7 @@
 	progressPercent={100}
 	{closeAriaLabel}
 	maxWidthClass="max-w-3xl"
+	saveShortcutEnabled={submitLabel.trim().toLowerCase().startsWith('save')}
 	on:requestClose={onRequestClose}
 	on:submit={onSubmit}
 	on:input={onInput}

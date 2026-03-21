@@ -59,6 +59,7 @@
 	stepTitle="Offering Details"
 	progressPercent={100}
 	closeAriaLabel="Close edit offering modal"
+	saveShortcutEnabled
 	on:requestClose={onRequestClose}
 	on:submit={onSubmit}
 	on:input={onInput}

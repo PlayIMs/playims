@@ -16,6 +16,7 @@
 		maxWidthClass?: string;
 		formClass?: string;
 		autoFocusFirstField?: boolean;
+		saveShortcutEnabled?: boolean;
 		error?: Snippet;
 		children?: Snippet;
 		footer?: Snippet;
@@ -32,6 +33,7 @@
 		maxWidthClass = 'max-w-5xl',
 		formClass = 'p-4 space-y-5 flex-1 min-h-0 overflow-y-auto scrollbar-thin',
 		autoFocusFirstField = true,
+		saveShortcutEnabled = false,
 		error,
 		children,
 		footer
@@ -80,9 +82,11 @@
 	{open}
 	{closeAriaLabel}
 	{panelClass}
+	saveShortcutEnabled={saveShortcutEnabled}
 	draggable
 	dragHandleSelector="[data-wizard-modal-drag-handle]"
 	on:requestClose={() => dispatch('requestClose')}
+	on:saveShortcut={() => formElement?.requestSubmit()}
 >
 	<div
 		class="p-4 border-b border-secondary space-y-3 cursor-move select-none"

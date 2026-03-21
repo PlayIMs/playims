@@ -26,6 +26,8 @@ Use shared wizard primitives for consistent modal behavior, step framing, and dr
 - Dragging is viewport-bounded so no part of the wizard panel can be moved off-screen.
 - `WizardModal` form content uses the thin scrollbar treatment by default when vertical scrolling is needed.
 - `WizardUnsavedConfirm` centers to the active wizard panel (not the viewport) and still uses a full-viewport scrim.
+- Save-only wizards and modal forms should enable the shared `Ctrl/Cmd+S` shortcut through `saveShortcutEnabled` on `WizardModal` or `ModalShell`.
+- Only enable that shortcut for save/edit flows; do not enable it for create, delete, archive, or other non-save actions.
 
 ## Shared Utilities
 
