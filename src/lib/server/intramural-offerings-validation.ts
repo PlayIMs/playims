@@ -682,6 +682,9 @@ export type CreatedIntramuralActivity = {
 	registrationEnd: string | null;
 	seasonStart: string | null;
 	seasonEnd: string | null;
+	hasPostseason: boolean;
+	postseasonStart: string | null;
+	postseasonEnd: string | null;
 	divisionCount: number;
 	spotsRemaining: number | null;
 	isLocked: boolean;

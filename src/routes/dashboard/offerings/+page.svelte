@@ -53,6 +53,10 @@
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import type { OfferingsTableColumn } from '$lib/components/offerings-table.js';
+	import {
+		getEffectiveOfferingEndMs,
+		isOfferingTimelineConcluded
+	} from '$lib/utils/offering-timeline.js';
 	import { toast } from '$lib/toasts';
 	import { generateUuidV4 } from '$lib/utils/uuid.js';
 
@@ -81,6 +85,8 @@
 		seasonRangeText: string;
 		seasonStartDate: string | null;
 		seasonEndDate: string | null;
+		hasPostseason: boolean;
+		postseasonEndDate: string | null;
 		seasonConcluded: boolean;
 	}
 
@@ -2342,32 +2348,14 @@
 				return;
 			}
 
-			activities = [...body.data.activities, ...activities];
-			leagueOfferingOptions = [
-				{
-					id: body.data.offeringId,
-					name: payload.offering.name,
-					slug: payload.offering.slug,
-					sport: payload.offering.sport ?? 'Unspecified sport',
-					type: payload.offering.type,
-					seasonId: payload.offering.seasonId,
-					seasonName: getSeasonLabel(payload.offering.seasonId),
-					seriesId:
-						leagueOfferingOptions.find(
-							(offeringOption) => offeringOption.id === createForm.offering.linkedOfferingId
-						)?.seriesId ?? null,
-					isActive: payload.offering.isActive
-				},
-				...leagueOfferingOptions.filter(
-					(offeringOption) => offeringOption.id !== body.data?.offeringId
-				)
-			];
 			searchQuery = '';
 			const createdLeagueCount = body.data.leagueIds.length;
 			createSuccessMessage =
 				createdLeagueCount > 0
 					? `Offering and ${createdLeagueCount} ${pluralize(createdLeagueCount, 'league', 'leagues')} created successfully.`
 					: 'Offering created successfully.';
+			await invalidateAll();
+			selectedSeasonId = payload.offering.seasonId;
 			closeCreateWizard();
 		} catch {
 			createFormError = 'Unable to save offering right now.';
@@ -3728,7 +3716,11 @@
 
 	function mostRecentOfferingEndMs(offering: OfferingGroup): number {
 		return offering.leagues.reduce((latestEndMs, league) => {
-			const endMs = parseDate(league.seasonEndDate)?.getTime() ?? Number.NEGATIVE_INFINITY;
+			const endMs = getEffectiveOfferingEndMs({
+				seasonEnd: league.seasonEndDate,
+				hasPostseason: league.hasPostseason,
+				postseasonEnd: league.postseasonEndDate
+			});
 			return Math.max(latestEndMs, endMs);
 		}, Number.NEGATIVE_INFINITY);
 	}
@@ -3911,8 +3903,6 @@
 			const status = getOfferingStatus(activity, registrationWindow.windowState);
 			const joinTeam = getJoinTeamInfo(activity);
 			const categoryLabel = buildCategoryLabel(activity);
-			const seasonEndMs = parseDate(activity.seasonEnd)?.getTime() ?? Number.POSITIVE_INFINITY;
-
 			const leagueOffering: LeagueOffering = {
 				id: activity.id,
 				leagueSlug: activity.leagueSlug ?? null,
@@ -3939,7 +3929,16 @@
 				seasonRangeText: formatRange(activity.seasonStart, activity.seasonEnd),
 				seasonStartDate: activity.seasonStart ?? null,
 				seasonEndDate: activity.seasonEnd ?? null,
-				seasonConcluded: seasonEndMs < now.getTime()
+				hasPostseason: activity.hasPostseason ?? false,
+				postseasonEndDate: activity.postseasonEnd ?? null,
+				seasonConcluded: isOfferingTimelineConcluded(
+					{
+						seasonEnd: activity.seasonEnd ?? null,
+						hasPostseason: activity.hasPostseason ?? false,
+						postseasonEnd: activity.postseasonEnd ?? null
+					},
+					now
+				)
 			};
 
 			offeringGroup.leagues.push(leagueOffering);

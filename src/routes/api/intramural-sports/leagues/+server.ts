@@ -53,6 +53,9 @@ const mapActivity = (input: {
 	registrationEnd: string;
 	seasonStart: string;
 	seasonEnd: string;
+	hasPostseason: boolean;
+	postseasonStart: string | null;
+	postseasonEnd: string | null;
 	isLocked: boolean;
 	isActive: boolean;
 }): CreatedIntramuralActivity => ({
@@ -73,6 +76,9 @@ const mapActivity = (input: {
 	registrationEnd: input.registrationEnd,
 	seasonStart: input.seasonStart,
 	seasonEnd: input.seasonEnd,
+	hasPostseason: input.hasPostseason,
+	postseasonStart: input.postseasonStart,
+	postseasonEnd: input.postseasonEnd,
 	divisionCount: 0,
 	spotsRemaining: null,
 	isLocked: input.isLocked,
@@ -308,6 +314,13 @@ export const POST: RequestHandler = async (event) => {
 					registrationEnd: createdLeague.regEndDate ?? leagueInput.regEndDate,
 					seasonStart: createdLeague.seasonStartDate ?? leagueInput.seasonStartDate,
 					seasonEnd: createdLeague.seasonEndDate ?? leagueInput.seasonEndDate,
+					hasPostseason: (createdLeague.hasPostseason ?? 0) === 1,
+					postseasonStart:
+						createdLeague.postseasonStartDate ??
+						(leagueInput.hasPostseason ? leagueInput.postseasonStartDate : null),
+					postseasonEnd:
+						createdLeague.postseasonEndDate ??
+						(leagueInput.hasPostseason ? leagueInput.postseasonEndDate : null),
 					isLocked: createdLeague.isLocked === 1,
 					isActive: createdLeague.isActive !== 0
 				})

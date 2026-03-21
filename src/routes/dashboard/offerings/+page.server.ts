@@ -29,6 +29,9 @@ interface ActivityCard {
 	registrationEnd: string | null;
 	seasonStart: string | null;
 	seasonEnd: string | null;
+	hasPostseason: boolean;
+	postseasonStart: string | null;
+	postseasonEnd: string | null;
 	divisionCount: number;
 	spotsRemaining: number | null;
 	isLocked: boolean;
@@ -276,6 +279,9 @@ export const load: PageServerLoad = async (event) => {
 					registrationEnd: league.regEndDate ?? null,
 					seasonStart: league.seasonStartDate ?? null,
 					seasonEnd: league.seasonEndDate ?? null,
+					hasPostseason: league.hasPostseason === 1,
+					postseasonStart: league.postseasonStartDate ?? null,
+					postseasonEnd: league.postseasonEndDate ?? null,
 					divisionCount,
 					spotsRemaining: null,
 					isLocked: league.isLocked === 1,
