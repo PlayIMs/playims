@@ -34,9 +34,11 @@
 		slugifyFinal
 	} from '$lib/components/wizard';
 	import { generateUuidV4 } from '$lib/utils/uuid.js';
+	import { inferDivisionNameDetails } from '$lib/utils/division-schedule-inference.js';
 	import {
-		inferDivisionNameDetails
-	} from '$lib/utils/division-schedule-inference.js';
+		cloneDivisionWizardForm,
+		normalizeCreateDivisionDraft
+	} from '$lib/utils/division-wizard-form.js';
 	import CreateDivisionCollectionWizard from './_wizards/CreateDivisionCollectionWizard.svelte';
 	import CreateDivisionWizard from './_wizards/CreateDivisionWizard.svelte';
 	import MoveTeamWizard from './_wizards/MoveTeamWizard.svelte';
@@ -773,17 +775,7 @@
 	}
 
 	function cloneCreateDivisionForm(values: DivisionWizardForm): DivisionWizardForm {
-		return {
-			name: values.name,
-			slug: values.slug,
-			maxTeams: values.maxTeams,
-			description: values.description,
-			dayOfWeek: values.dayOfWeek,
-			gameTime: values.gameTime,
-			location: values.location,
-			startDate: values.startDate,
-			isLocked: values.isLocked
-		};
+		return cloneDivisionWizardForm(values);
 	}
 
 	function cloneCreateDivisionDraft(values: DivisionWizardDraft): DivisionWizardDraft {
@@ -814,24 +806,6 @@
 			values.dayOfWeek.trim().length > 0 && values.dayOfWeek.trim() !== inferred.dayOfWeek.trim();
 		createDivisionGameTimeManual =
 			values.gameTime.trim().length > 0 && values.gameTime.trim() !== inferred.gameTime.trim();
-	}
-
-	function normalizeCreateDivisionDraft(
-		values: DivisionWizardForm,
-		draftId = createDivisionDraftId()
-	): DivisionWizardDraft {
-		return {
-			draftId,
-			name: values.name.trim(),
-			slug: slugifyFinal(values.slug),
-			maxTeams: values.maxTeams.trim(),
-			description: values.description.trim(),
-			dayOfWeek: values.dayOfWeek.trim(),
-			gameTime: values.gameTime.trim(),
-			location: values.location.trim(),
-			startDate: values.startDate.trim(),
-			isLocked: values.isLocked
-		};
 	}
 
 	function divisionFormFromDivision(division: DivisionSection): DivisionWizardForm {
