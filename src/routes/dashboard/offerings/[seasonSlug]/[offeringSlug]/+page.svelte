@@ -23,7 +23,7 @@
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import InfoPopover from '$lib/components/InfoPopover.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
-	import HeaderHierarchyTabs from '$lib/components/navigation/HeaderHierarchyTabs.svelte';
+	import Breadcrumb from '$lib/components/navigation/Breadcrumb.svelte';
 	import DataTable from '$lib/components/DataTable.svelte';
 	import {
 		resolveAnchoredFloatingPosition,
@@ -33,10 +33,15 @@
 	import SplitAddAction from '$lib/components/dashboard/SplitAddAction.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
-	import type { HeaderHierarchySegment } from '$lib/components/navigation/header-hierarchy.js';
+	import type { BreadcrumbSegment } from '$lib/components/navigation/breadcrumb.js';
 	import type { DataTableColumn } from '$lib/components/data-table.js';
 	import type { ManageIntramuralLeagueResponse } from '$lib/server/intramural-offerings-validation';
 	import { toast } from '$lib/toasts';
+	import {
+		getCreateDivisionWizardInitialFlowState,
+		getCreateDivisionWizardPostAddFlowState,
+		type CreateDivisionWizardStep
+	} from '$lib/utils/create-division-wizard-flow.js';
 	import { inferDivisionNameDetails } from '$lib/utils/division-schedule-inference.js';
 	import { compareByDayOfWeekAndTime } from '$lib/utils/schedule-sort.js';
 	import { generateUuidV4 } from '$lib/utils/uuid.js';
@@ -60,10 +65,9 @@
 
 	type OfferingLeagueRow = NonNullable<PageData['leagues']>[number];
 	type OfferingDivisionRow = OfferingLeagueRow['divisions'][number];
-	type HierarchyOption = NonNullable<PageData['offeringOptions']>[number];
+	type BreadcrumbOption = NonNullable<PageData['offeringOptions']>[number];
 	type OfferingType = 'league' | 'tournament';
 	type LeagueWizardStep = 1 | 2 | 3 | 4;
-	type CreateDivisionWizardStep = 1 | 2 | 3;
 	type LeagueGender = '' | 'male' | 'female' | 'mixed';
 	type LeagueSkillLevel = '' | 'competitive' | 'intermediate' | 'recreational' | 'all';
 	type ActiveDivisionLockTarget = {
@@ -578,14 +582,15 @@
 	}
 
 	function resetCreateDivisionWizard(): void {
-		createDivisionStep = 1;
+		const initialFlow = getCreateDivisionWizardInitialFlowState();
+		createDivisionStep = initialFlow.step;
 		createDivisionSubmitting = false;
 		createDivisionInitialForm = createEmptyDivision();
 		createDivisionForm = { ...createDivisionInitialForm };
 		createDivisionDrafts = [];
 		createDivisionCommittedDrafts = [];
 		createDivisionEditingIndex = null;
-		createDivisionDraftActive = false;
+		createDivisionDraftActive = initialFlow.draftActive;
 		createDivisionManualOrder = false;
 		createDivisionValidationVisible = false;
 		createDivisionCollectionValidationVisible = false;
@@ -1287,14 +1292,15 @@
 
 	function startAddingCreateDivisionDraft(): void {
 		clearCreateDivisionApiErrors();
+		const initialFlow = getCreateDivisionWizardInitialFlowState();
 		createDivisionEditingIndex = null;
 		createDivisionSlugTouched = false;
 		createDivisionDayOfWeekManual = false;
 		createDivisionGameTimeManual = false;
 		createDivisionValidationVisible = false;
 		createDivisionForm = createEmptyDivision();
-		createDivisionDraftActive = true;
-		createDivisionStep = 2;
+		createDivisionDraftActive = initialFlow.draftActive;
+		createDivisionStep = initialFlow.step;
 	}
 
 	function cancelCreateDivisionDraft(): void {
@@ -1311,13 +1317,14 @@
 		const sourceDraft = createDivisionDrafts[index];
 		if (!sourceDraft) return;
 		clearCreateDivisionApiErrors();
+		const initialFlow = getCreateDivisionWizardInitialFlowState();
 		createDivisionEditingIndex = index;
 		createDivisionForm = cloneCreateDivisionForm(sourceDraft);
 		createDivisionSlugTouched = sourceDraft.slug.trim() !== slugifyFinal(sourceDraft.name);
 		inferCreateDivisionManualFlags(sourceDraft);
 		createDivisionValidationVisible = false;
-		createDivisionDraftActive = true;
-		createDivisionStep = 2;
+		createDivisionDraftActive = initialFlow.draftActive;
+		createDivisionStep = initialFlow.step;
 	}
 
 	function duplicateCreateDivision(index: number): void {
@@ -2220,7 +2227,7 @@
 	const HeaderIcon = $derived.by(() =>
 		sportIconFor(data.offering?.name ?? 'Offering', data.offering?.sport ?? null)
 	);
-	const hierarchySegments = $derived.by<HeaderHierarchySegment[]>(() => {
+	const breadcrumbSegments = $derived.by<BreadcrumbSegment[]>(() => {
 		const currentHref = offeringSeasonHref(data.season?.slug, data.offering?.slug);
 		if (!data.offering) return [];
 
@@ -2241,19 +2248,19 @@
 				currentValue: currentHref,
 				menuAriaLabel: 'Switch offering',
 				searchEnabled: false,
-				options: (data.offeringOptions ?? []).map((option: HierarchyOption) => ({
+				options: (data.offeringOptions ?? []).map((option: BreadcrumbOption) => ({
 					value: option.href,
 					label: option.label
 				}))
 			}
 		];
 	});
-	const includeHierarchySeasonContext = $derived.by(() => data.season?.isCurrent === false);
-	const hierarchySeasonLabel = $derived.by(() =>
-		includeHierarchySeasonContext ? (data.season?.name ?? null) : null
+	const includeBreadcrumbSeasonContext = $derived.by(() => data.season?.isCurrent === false);
+	const breadcrumbSeasonLabel = $derived.by(() =>
+		includeBreadcrumbSeasonContext ? (data.season?.name ?? null) : null
 	);
-	const hierarchySeasonSlug = $derived.by(() =>
-		includeHierarchySeasonContext ? (data.season?.slug ?? null) : null
+	const breadcrumbSeasonSlug = $derived.by(() =>
+		includeBreadcrumbSeasonContext ? (data.season?.slug ?? null) : null
 	);
 
 	const normalizedSearchQuery = $derived.by(() => normalizeSearchValue(searchQuery));
@@ -2559,14 +2566,14 @@
 					>
 						{data.offering?.name ?? 'Offering'}
 					</h1>
-					{#if hierarchySegments.length > 0}
+					{#if breadcrumbSegments.length > 0}
 						<div class="absolute left-0 top-[calc(100%+0.2rem)] z-10">
-							<HeaderHierarchyTabs
-								segments={hierarchySegments}
+							<Breadcrumb
+								segments={breadcrumbSegments}
 								class="max-w-[min(100vw-7rem,100%)]"
-								seasonLabel={hierarchySeasonLabel}
-								seasonSlug={hierarchySeasonSlug}
-								includeSeasonContext={includeHierarchySeasonContext}
+								seasonLabel={breadcrumbSeasonLabel}
+								seasonSlug={breadcrumbSeasonSlug}
+								includeSeasonContext={includeBreadcrumbSeasonContext}
 							/>
 						</div>
 					{/if}
@@ -3715,7 +3722,7 @@
 	submitLabel="Create Divisions"
 	submittingLabel="Creating..."
 	errorToastTitle={createDivisionLeague ? `Create division for ${createDivisionLeague.name}` : 'Create division'}
-	onSlugTouchedChange={(value) => {
+	onSlugTouchedChange={(value: boolean) => {
 		createDivisionSlugTouched = value;
 	}}
 	onNameInput={handleCreateDivisionNameInput}
@@ -3735,8 +3742,8 @@
 	onAddDraft={startAddingCreateDivisionDraft}
 	onEditDraft={startEditingCreateDivision}
 	onCopyDraft={duplicateCreateDivision}
-	onMoveDraftUp={(index) => moveCreateDivision(index, 'up')}
-	onMoveDraftDown={(index) => moveCreateDivision(index, 'down')}
+	onMoveDraftUp={(index: number) => moveCreateDivision(index, 'up')}
+	onMoveDraftDown={(index: number) => moveCreateDivision(index, 'down')}
 	onRemoveDraft={removeCreateDivision}
 	onEditDraftsStep={startEditingCreateDivisionDraftsStep}
 />

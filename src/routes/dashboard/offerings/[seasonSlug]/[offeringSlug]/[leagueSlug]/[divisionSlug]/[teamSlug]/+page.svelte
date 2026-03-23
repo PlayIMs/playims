@@ -1,13 +1,13 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
-	import HeaderHierarchyTabs from '$lib/components/navigation/HeaderHierarchyTabs.svelte';
+	import Breadcrumb from '$lib/components/navigation/Breadcrumb.svelte';
 	import DashboardSidebarPanel from '$lib/components/dashboard/DashboardSidebarPanel.svelte';
 	import DataTable from '$lib/components/DataTable.svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
 	import SmallStandingsTable from '$lib/components/SmallStandingsTable.svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
-	import type { HeaderHierarchySegment } from '$lib/components/navigation/header-hierarchy.js';
+	import type { BreadcrumbSegment } from '$lib/components/navigation/breadcrumb.js';
 	import type { DataTableColumn } from '$lib/components/data-table.js';
 	import {
 		createLocalChatMessage,
@@ -157,7 +157,7 @@
 			)?.href;
 		}
 	);
-	const hierarchySegments = $derived.by<HeaderHierarchySegment[]>(() => {
+	const breadcrumbSegments = $derived.by<BreadcrumbSegment[]>(() => {
 		if (!data.offering || !data.league || !data.division || !data.team) return [];
 		const currentOfferingHref = offeringHref();
 		const currentLeagueHref = leagueHref();
@@ -221,12 +221,12 @@
 			}
 		];
 	});
-	const includeHierarchySeasonContext = $derived.by(() => data.season?.isCurrent === false);
-	const hierarchySeasonLabel = $derived.by(() =>
-		includeHierarchySeasonContext ? (data.season?.name ?? null) : null
+	const includeBreadcrumbSeasonContext = $derived.by(() => data.season?.isCurrent === false);
+	const breadcrumbSeasonLabel = $derived.by(() =>
+		includeBreadcrumbSeasonContext ? (data.season?.name ?? null) : null
 	);
-	const hierarchySeasonSlug = $derived.by(() =>
-		includeHierarchySeasonContext ? (data.season?.slug ?? null) : null
+	const breadcrumbSeasonSlug = $derived.by(() =>
+		includeBreadcrumbSeasonContext ? (data.season?.slug ?? null) : null
 	);
 
 	const rosterColumns = $derived.by<DataTableColumn[]>(() => [
@@ -273,14 +273,14 @@
 					>
 						{data.team?.name ?? 'Team'}
 					</h1>
-					{#if hierarchySegments.length > 0}
+					{#if breadcrumbSegments.length > 0}
 						<div class="absolute left-0 top-[calc(100%+0.2rem)] z-10">
-							<HeaderHierarchyTabs
-								segments={hierarchySegments}
+							<Breadcrumb
+								segments={breadcrumbSegments}
 								class="max-w-[min(100vw-7rem,100%)]"
-								seasonLabel={hierarchySeasonLabel}
-								seasonSlug={hierarchySeasonSlug}
-								includeSeasonContext={includeHierarchySeasonContext}
+								seasonLabel={breadcrumbSeasonLabel}
+								seasonSlug={breadcrumbSeasonSlug}
+								includeSeasonContext={includeBreadcrumbSeasonContext}
 							/>
 						</div>
 					{/if}

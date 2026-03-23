@@ -13,9 +13,11 @@ Summary of tests:
 2. It verifies that updating a missing division returns a not-found response.
 3. It verifies that active teams cannot be added directly into locked divisions.
 4. It verifies that active teams cannot be added into full divisions.
-5. It verifies that a successful team move records the previous division for placement tracking.
-6. It verifies that moving a team into a full division is rejected.
-7. It verifies that removing a team also clears dependent records and resyncs division counts.
+5. It verifies that creating the team that fills a division also auto-locks that division.
+6. It verifies that a successful team move records the previous division for placement tracking.
+7. It verifies that moving a team into a full division is rejected.
+8. It verifies that removing a team also clears dependent records and auto-unlocks the division when it drops below capacity.
+9. It verifies that updating max teams recalculates the stored lock state based on current active teams.
 */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -34,9 +36,11 @@ const mocks = vi.hoisted(() => {
 			},
 			divisions: {
 				getByLeagueId: vi.fn(),
+				getById: vi.fn(),
 				create: vi.fn(),
 				update: vi.fn(),
-				updateTeamsCount: vi.fn()
+				updateTeamsCount: vi.fn(),
+				syncCapacityState: vi.fn()
 			},
 			teams: {
 				getByClientIdAndSlug: vi.fn(),
@@ -228,10 +232,19 @@ describe('league management route', () => {
 		mocks.dbOps.divisions.create.mockResolvedValue({
 			id: 'division-new'
 		});
+		mocks.dbOps.divisions.getById.mockImplementation(async (divisionId: string) => {
+			const divisions = mocks.dbOps.divisions.getByLeagueId.mock.results.at(-1)?.value;
+			if (divisions && typeof divisions?.then === 'function') {
+				const resolvedDivisions = await divisions;
+				return resolvedDivisions.find((division: { id: string }) => division.id === divisionId) ?? null;
+			}
+			return null;
+		});
 		mocks.dbOps.divisions.update.mockResolvedValue({
 			id: 'division-a'
 		});
 		mocks.dbOps.divisions.updateTeamsCount.mockResolvedValue(undefined);
+		mocks.dbOps.divisions.syncCapacityState.mockResolvedValue(undefined);
 		mocks.dbOps.teams.getByClientIdAndSlug.mockResolvedValue(null);
 		mocks.dbOps.teams.getByClientIdAndDivisionIds.mockResolvedValue([]);
 		mocks.dbOps.teams.create.mockResolvedValue({
@@ -343,6 +356,47 @@ describe('league management route', () => {
 		expect(mocks.dbOps.teams.create).not.toHaveBeenCalled();
 	});
 
+	it('auto-locks a division when a newly created active team fills it to capacity', async () => {
+		// this protects the visual and stored lock state from drifting after the final open team slot is used.
+		mocks.dbOps.divisions.getByLeagueId.mockResolvedValue([
+			divisionFixture({
+				id: 'division-a',
+				maxTeams: 2,
+				isLocked: 0
+			})
+		]);
+		mocks.dbOps.teams.getByClientIdAndDivisionIds
+			.mockResolvedValueOnce([
+				{
+					id: 'team-existing',
+					divisionId: 'division-a',
+					teamStatus: 'active'
+				}
+			])
+			.mockResolvedValueOnce([
+				{
+					id: 'team-existing',
+					divisionId: 'division-a',
+					teamStatus: 'active'
+				},
+				{
+					id: 'team-created',
+					divisionId: 'division-a',
+					teamStatus: 'active'
+				}
+			]);
+
+		const response = await POST(
+			createEvent({
+				method: 'POST',
+				body: createTeamBody()
+			})
+		);
+
+		expect(response.status).toBe(201);
+		expect(mocks.dbOps.divisions.syncCapacityState).toHaveBeenCalledWith('division-a', 2, 1, 'user-1');
+	});
+
 	it('passes current division context when moving a team to another division', async () => {
 		// this keeps the move mutation aware of whether the division actually changed so joined timestamps stay accurate.
 		mocks.dbOps.teams.getByClientIdAndDivisionIds
@@ -412,8 +466,15 @@ describe('league management route', () => {
 		expect(mocks.dbOps.teams.updatePlacement).not.toHaveBeenCalled();
 	});
 
-	it('removes a team and resyncs division counts after cleanup', async () => {
-		// this is the success path that proves roster cleanup, standings cleanup, deletion, and count sync stay coupled.
+	it('removes a team and auto-unlocks the division when it drops below capacity', async () => {
+		// this is the success path that proves roster cleanup, standings cleanup, deletion, and capacity sync stay coupled.
+		mocks.dbOps.divisions.getByLeagueId.mockResolvedValue([
+			divisionFixture({
+				id: 'division-a',
+				maxTeams: 2,
+				isLocked: 1
+			})
+		]);
 		mocks.dbOps.teams.getByClientIdAndDivisionIds
 			.mockResolvedValueOnce([
 				{
@@ -446,6 +507,66 @@ describe('league management route', () => {
 			'team-1'
 		);
 		expect(mocks.dbOps.teams.deleteByClientIdAndId).toHaveBeenCalledWith(CLIENT_ID, 'team-1');
-		expect(mocks.dbOps.divisions.updateTeamsCount).toHaveBeenCalledWith('division-a', 0, 'user-1');
+		expect(mocks.dbOps.divisions.syncCapacityState).toHaveBeenCalledWith('division-a', 0, 0, 'user-1');
+	});
+
+	it('recalculates the lock state when max teams changes', async () => {
+		// changing capacity must immediately update stored lock state so the page matches the new team limit.
+		mocks.dbOps.divisions.getByLeagueId.mockResolvedValue([
+			divisionFixture({
+				id: 'division-a',
+				maxTeams: 4,
+				isLocked: 0
+			})
+		]);
+		mocks.dbOps.teams.getByClientIdAndDivisionIds.mockResolvedValue([
+			{
+				id: 'team-1',
+				divisionId: 'division-a',
+				teamStatus: 'active'
+			},
+			{
+				id: 'team-2',
+				divisionId: 'division-a',
+				teamStatus: 'active'
+			},
+			{
+				id: 'team-3',
+				divisionId: 'division-a',
+				teamStatus: 'active'
+			}
+		]);
+		mocks.dbOps.divisions.update.mockResolvedValue({
+			id: 'division-a'
+		});
+
+		const response = await POST(
+			createEvent({
+				method: 'POST',
+				body: updateDivisionBody({
+					division: {
+						maxTeams: 3,
+						isLocked: false
+					}
+				})
+			})
+		);
+		const payload = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(payload).toEqual({
+			success: true,
+			data: {
+				leagueId: LEAGUE_ID,
+				divisionId: 'division-a'
+			}
+		});
+		expect(mocks.dbOps.divisions.update).toHaveBeenCalledWith(
+			'division-a',
+			expect.objectContaining({
+				maxTeams: 3,
+				isLocked: 1
+			})
+		);
 	});
 });

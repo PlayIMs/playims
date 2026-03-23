@@ -131,6 +131,27 @@ export class DivisionOperations {
 		return result[0] ?? null;
 	}
 
+	async syncCapacityState(
+		divisionId: string,
+		teamsCount: number,
+		isLocked: number,
+		updatedUser?: string | null
+	): Promise<Division | null> {
+		const now = new Date().toISOString();
+		const result = await this.db
+			.update(divisions)
+			.set({
+				teamsCount,
+				isLocked,
+				updatedAt: now,
+				updatedUser: updatedUser ?? null
+			})
+			.where(eq(divisions.id, divisionId))
+			.returning();
+
+		return result[0] ?? null;
+	}
+
 	async update(
 		divisionId: string,
 		data: {

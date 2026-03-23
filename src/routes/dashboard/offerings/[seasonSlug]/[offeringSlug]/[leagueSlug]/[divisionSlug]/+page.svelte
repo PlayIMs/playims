@@ -3,14 +3,14 @@
 	import { resolve } from '$app/paths';
 	import type { PageData } from './$types';
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
-	import HeaderHierarchyTabs from '$lib/components/navigation/HeaderHierarchyTabs.svelte';
+	import Breadcrumb from '$lib/components/navigation/Breadcrumb.svelte';
 	import DataTable from '$lib/components/DataTable.svelte';
 	import SmallStandingsTable from '$lib/components/SmallStandingsTable.svelte';
 	import DashboardSidebarPanel from '$lib/components/dashboard/DashboardSidebarPanel.svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
-	import type { HeaderHierarchySegment } from '$lib/components/navigation/header-hierarchy.js';
+	import type { BreadcrumbSegment } from '$lib/components/navigation/breadcrumb.js';
 	import type { DataTableColumn } from '$lib/components/data-table.js';
 	import { parseDateTooltipValue } from '$lib/utils/date-tooltip.js';
 	import {
@@ -29,9 +29,9 @@
 	type StandingsRow = NonNullable<PageData['standings']>[number];
 	type TeamRow = NonNullable<PageData['teams']>[number];
 	type WaitlistTeamRow = NonNullable<PageData['waitlistTeams']>[number];
-	type OfferingHierarchyOption = NonNullable<PageData['offeringOptions']>[number];
-	type LeagueHierarchyOption = NonNullable<PageData['leagueOptions']>[number];
-	type DivisionHierarchyOption = NonNullable<PageData['divisionOptions']>[number];
+	type OfferingBreadcrumbOption = NonNullable<PageData['offeringOptions']>[number];
+	type LeagueBreadcrumbOption = NonNullable<PageData['leagueOptions']>[number];
+	type DivisionBreadcrumbOption = NonNullable<PageData['divisionOptions']>[number];
 	type StandingsDisplayRow = {
 		rank: number;
 		teamId: string;
@@ -196,7 +196,7 @@
 		});
 	}
 
-	const hierarchySegments = $derived.by<HeaderHierarchySegment[]>(() => {
+	const breadcrumbSegments = $derived.by<BreadcrumbSegment[]>(() => {
 		if (!data.offering || !data.league || !data.division) return [];
 
 		const currentOfferingHref = offeringHref();
@@ -220,7 +220,7 @@
 				currentValue: currentOfferingHref,
 				menuAriaLabel: 'Switch offering',
 				searchEnabled: false,
-				options: (data.offeringOptions ?? []).map((option: OfferingHierarchyOption) => ({
+				options: (data.offeringOptions ?? []).map((option: OfferingBreadcrumbOption) => ({
 					value: option.href,
 					label: option.label
 				}))
@@ -231,7 +231,7 @@
 				href: currentLeagueHref,
 				currentValue: currentLeagueHref,
 				menuAriaLabel: 'Switch league',
-				options: (data.leagueOptions ?? []).map((option: LeagueHierarchyOption) => ({
+				options: (data.leagueOptions ?? []).map((option: LeagueBreadcrumbOption) => ({
 					value: option.href,
 					label: option.label
 				}))
@@ -242,19 +242,19 @@
 				href: currentDivisionHref,
 				currentValue: currentDivisionHref,
 				menuAriaLabel: 'Switch division',
-				options: (data.divisionOptions ?? []).map((option: DivisionHierarchyOption) => ({
+				options: (data.divisionOptions ?? []).map((option: DivisionBreadcrumbOption) => ({
 					value: option.href,
 					label: option.label
 				}))
 			}
 		];
 	});
-	const includeHierarchySeasonContext = $derived.by(() => data.season?.isCurrent === false);
-	const hierarchySeasonLabel = $derived.by(() =>
-		includeHierarchySeasonContext ? (data.season?.name ?? null) : null
+	const includeBreadcrumbSeasonContext = $derived.by(() => data.season?.isCurrent === false);
+	const breadcrumbSeasonLabel = $derived.by(() =>
+		includeBreadcrumbSeasonContext ? (data.season?.name ?? null) : null
 	);
-	const hierarchySeasonSlug = $derived.by(() =>
-		includeHierarchySeasonContext ? (data.season?.slug ?? null) : null
+	const breadcrumbSeasonSlug = $derived.by(() =>
+		includeBreadcrumbSeasonContext ? (data.season?.slug ?? null) : null
 	);
 
 	const standingsRows = $derived.by<StandingsDisplayRow[]>(() => {
@@ -478,14 +478,14 @@
 					>
 						{data.division?.name ?? 'Division'}
 					</h1>
-					{#if hierarchySegments.length > 0}
+					{#if breadcrumbSegments.length > 0}
 						<div class="absolute left-0 top-[calc(100%+0.2rem)] z-10">
-							<HeaderHierarchyTabs
-								segments={hierarchySegments}
+							<Breadcrumb
+								segments={breadcrumbSegments}
 								class="max-w-[min(100vw-7rem,100%)]"
-								seasonLabel={hierarchySeasonLabel}
-								seasonSlug={hierarchySeasonSlug}
-								includeSeasonContext={includeHierarchySeasonContext}
+								seasonLabel={breadcrumbSeasonLabel}
+								seasonSlug={breadcrumbSeasonSlug}
+								includeSeasonContext={includeBreadcrumbSeasonContext}
 							/>
 						</div>
 					{/if}

@@ -50,6 +50,9 @@ const normalizePlacement = (value: 'active' | 'waitlist'): string =>
 const isActiveTeamStatus = (value: string | null | undefined): boolean =>
 	normalizeText(value) === ACTIVE_TEAM_STATUS;
 
+const shouldAutoLockDivision = (maxTeams: number | null | undefined, activeTeamCount: number): number =>
+	typeof maxTeams === 'number' && activeTeamCount >= maxTeams ? 1 : 0;
+
 async function syncDivisionTeamCounts(
 	dbOps: Awaited<ReturnType<typeof getTenantDbOps>>,
 	clientId: string,
@@ -75,9 +78,13 @@ async function syncDivisionTeamCounts(
 	}
 
 	for (const divisionId of uniqueDivisionIds) {
-		await dbOps.divisions.updateTeamsCount(
+		const division = await dbOps.divisions.getById(divisionId);
+		if (!division?.id) continue;
+		const teamsCount = activeTeamCounts.get(divisionId) ?? 0;
+		await dbOps.divisions.syncCapacityState(
 			divisionId,
-			activeTeamCounts.get(divisionId) ?? 0,
+			teamsCount,
+			shouldAutoLockDivision(division.maxTeams, teamsCount),
 			updatedUser
 		);
 	}
@@ -317,6 +324,18 @@ export const POST: RequestHandler = async (event) => {
 					);
 				}
 
+				let nextIsLocked = input.division.isLocked ? 1 : 0;
+				if (input.division.maxTeams !== targetDivision.maxTeams) {
+					const divisionTeams = await dbOps.teams.getByClientIdAndDivisionIds(clientId, [
+						targetDivision.id
+					]);
+					const activeTeamCount = activeTeamsInDivision(
+						targetDivision.id,
+						divisionTeams as Array<{ id: string; divisionId: string; teamStatus: string | null }>
+					);
+					nextIsLocked = shouldAutoLockDivision(input.division.maxTeams, activeTeamCount);
+				}
+
 				const updatedDivision = await dbOps.divisions.update(input.divisionId, {
 					name: input.division.name,
 					slug: input.division.slug,
@@ -325,7 +344,7 @@ export const POST: RequestHandler = async (event) => {
 					gameTime: input.division.gameTime,
 					maxTeams: input.division.maxTeams,
 					location: input.division.location,
-					isLocked: input.division.isLocked ? 1 : 0,
+					isLocked: nextIsLocked,
 					startDate: input.division.startDate,
 					updatedUser: userId
 				});
