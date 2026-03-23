@@ -48,11 +48,11 @@
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import InfoPopover from '$lib/components/InfoPopover.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
-	import OfferingsTable from '$lib/components/OfferingsTable.svelte';
+	import DataTable from '$lib/components/DataTable.svelte';
 	import SplitAddAction from '$lib/components/dashboard/SplitAddAction.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
-	import type { OfferingsTableColumn } from '$lib/components/offerings-table.js';
+	import type { DataTableColumn } from '$lib/components/data-table.js';
 	import { buildPreviousOfferingLinkChoices } from '$lib/utils/offering-linking.js';
 	import {
 		getCreateOfferingVisibleSteps,
@@ -3764,8 +3764,8 @@
 		return group.offeringType === 'tournament' ? 'Tournament Date(s)' : 'Season Date Range';
 	}
 
-	function offeringTableColumnsFor(group: OfferingGroup): OfferingsTableColumn[] {
-		const columns: OfferingsTableColumn[] = [
+	function offeringTableColumnsFor(group: OfferingGroup): DataTableColumn[] {
+		const columns: DataTableColumn[] = [
 			{
 				key: 'league',
 				label: columnHeaderFor(group, 'league'),
@@ -5422,7 +5422,7 @@
 									</div>
 								</div>
 
-								<OfferingsTable
+								<DataTable
 									columns={offeringTableColumnsFor(offering)}
 									rows={offering.leagues}
 									caption={`${offering.offeringName} ${entryLabelFor(offering)} table`}
@@ -5580,7 +5580,7 @@
 											{/if}
 										{/if}
 									{/snippet}
-								</OfferingsTable>
+								</DataTable>
 							</article>
 						{/snippet}
 

@@ -2,16 +2,18 @@
 
 ## Files to Read
 
-- `src/lib/components/OfferingsTable.svelte`
-- `src/lib/components/offerings-table.ts`
+- `src/lib/components/DataTable.svelte`
+- `src/lib/components/data-table.ts`
 - `src/routes/dashboard/offerings/+page.svelte`
 - `src/app.css` when badge/button classes or theme tokens matter
 
 ## Shared Component Contract
 
-Use `OfferingsTable` as the default starting point for dashboard tables that should look like the offerings page.
+Use `DataTable` as the default starting point for dashboard tables that should look like the offerings page.
 
-- `columns`: array of `{ key, label, widthClass?, headerClass?, cellClass?, rowHeader? }`
+- `columns`: array of `DataTableColumn` objects
+- Use `width` for column sizing
+- Use typed alignment and padding props such as `headerTextAlignment`, `cellTextAlignment`, `cellVerticalAlignment`, `headerPaddingLeft`, and `cellPaddingRight`
 - `rows`: array of row objects
 - `caption`: optional screen-reader-only caption
 - `rowId(row, rowIndex)`: optional row id hook
@@ -31,13 +33,13 @@ The component already owns:
 
 ### Offerings board proportions
 
-Use these width classes when the table mirrors the offerings board:
+Use these widths when the table mirrors the offerings board:
 
-- first column: `w-[24%]`
-- second column: `w-[12%]`
-- third column: `w-[22%]`
-- fourth column: `w-[20%]`
-- fifth column: `w-[22%]`
+- first column: `24%`
+- second column: `12%`
+- third column: `22%`
+- fourth column: `20%`
+- fifth column: `22%`
 
 ### First column
 
@@ -67,7 +69,7 @@ Use these width classes when the table mirrors the offerings board:
 
 ## Guardrails
 
-- Do not hand-roll new offerings-style table wrappers when `OfferingsTable` fits.
+- Do not hand-roll new offerings-style table wrappers when `DataTable` fits.
 - Do not change header typography, casing, or neutral header background for new matching tables.
 - Do not replace badge classes with ad-hoc pills.
 - Do not move row-specific business logic into the shared component.

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import OfferingsTable from '$lib/components/OfferingsTable.svelte';
+	import DataTable from '$lib/components/DataTable.svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
-	import type { OfferingsTableColumn } from '$lib/components/offerings-table.js';
+	import type { DataTableColumn } from '$lib/components/data-table.js';
 
 	interface StandingsRow {
 		rank: number;
@@ -47,7 +47,7 @@
 		return shouldBold ? 'font-bold' : 'font-normal';
 	}
 
-	const columns: OfferingsTableColumn[] = [
+	const columns: DataTableColumn[] = [
 		{
 			key: 'rank',
 			label: 'RNK',
@@ -158,7 +158,7 @@
 	}
 </script>
 
-<OfferingsTable {columns} {rows} {caption} tableClass="w-full table-fixed border-collapse">
+<DataTable {columns} {rows} {caption} tableClass="w-full table-fixed border-collapse">
 	{#snippet emptyBody()}
 		<tr class="bg-neutral-25">
 			<td colspan={columns.length} class="px-2 py-8 text-center text-sm italic text-neutral-700">
@@ -230,4 +230,4 @@
 			</p>
 		{/if}
 	{/snippet}
-</OfferingsTable>
+</DataTable>

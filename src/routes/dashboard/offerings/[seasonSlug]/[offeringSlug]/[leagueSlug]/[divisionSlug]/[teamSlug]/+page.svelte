@@ -3,12 +3,12 @@
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import HeaderHierarchyTabs from '$lib/components/navigation/HeaderHierarchyTabs.svelte';
 	import DashboardSidebarPanel from '$lib/components/dashboard/DashboardSidebarPanel.svelte';
-	import OfferingsTable from '$lib/components/OfferingsTable.svelte';
+	import DataTable from '$lib/components/DataTable.svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
 	import SmallStandingsTable from '$lib/components/SmallStandingsTable.svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import type { HeaderHierarchySegment } from '$lib/components/navigation/header-hierarchy.js';
-	import type { OfferingsTableColumn } from '$lib/components/offerings-table.js';
+	import type { DataTableColumn } from '$lib/components/data-table.js';
 	import {
 		createLocalChatMessage,
 		summarizeTeamRosterCounts,
@@ -229,14 +229,14 @@
 		includeHierarchySeasonContext ? (data.season?.slug ?? null) : null
 	);
 
-	const rosterColumns = $derived.by<OfferingsTableColumn[]>(() => [
+	const rosterColumns = $derived.by<DataTableColumn[]>(() => [
 		{ key: 'player', label: 'Player', width: '34%', rowHeader: true },
 		{ key: 'email', label: 'Email', width: '28%' },
 		{ key: 'role', label: 'Role', width: '14%', cellVerticalAlignment: 'top' },
 		{ key: 'status', label: 'Status', width: '10%', cellVerticalAlignment: 'top' },
 		{ key: 'joined', label: 'Joined', width: '14%', cellVerticalAlignment: 'top' }
 	]);
-	const scheduleColumns = $derived.by<OfferingsTableColumn[]>(() => [
+	const scheduleColumns = $derived.by<DataTableColumn[]>(() => [
 		{ key: 'game', label: 'Game', width: '28%', rowHeader: true },
 		{ key: 'time', label: 'Time', width: '28%', cellVerticalAlignment: 'top' },
 		{ key: 'location', label: 'Location', width: '20%', cellVerticalAlignment: 'top' },
@@ -330,7 +330,7 @@
 									</p>
 								</div>
 							</div>
-							<OfferingsTable
+			<DataTable
 								columns={rosterColumns}
 								rows={data.roster}
 								caption="Team roster table"
@@ -372,7 +372,7 @@
 										</p>
 									{/if}
 								{/snippet}
-							</OfferingsTable>
+			</DataTable>
 						</section>
 
 						<section class="space-y-3 p-4">
@@ -382,7 +382,7 @@
 									Upcoming and completed games for {data.team.name}.
 								</p>
 							</div>
-							<OfferingsTable
+			<DataTable
 								columns={scheduleColumns}
 								rows={data.schedule}
 								caption="Team schedule table"
@@ -427,7 +427,7 @@
 										</span>
 									{/if}
 								{/snippet}
-							</OfferingsTable>
+			</DataTable>
 						</section>
 					</div>
 				</section>

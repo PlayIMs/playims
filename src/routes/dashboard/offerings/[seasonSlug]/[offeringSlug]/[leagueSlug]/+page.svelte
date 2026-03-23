@@ -7,14 +7,14 @@
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import HeaderHierarchyTabs from '$lib/components/navigation/HeaderHierarchyTabs.svelte';
 	import ModalShell from '$lib/components/modals/ModalShell.svelte';
-	import OfferingsTable from '$lib/components/OfferingsTable.svelte';
+	import DataTable from '$lib/components/DataTable.svelte';
 	import SmallStandingsTable from '$lib/components/SmallStandingsTable.svelte';
 	import DashboardSidebarPanel from '$lib/components/dashboard/DashboardSidebarPanel.svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
 	import SplitAddAction from '$lib/components/dashboard/SplitAddAction.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import type { HeaderHierarchySegment } from '$lib/components/navigation/header-hierarchy.js';
-	import type { OfferingsTableColumn } from '$lib/components/offerings-table.js';
+	import type { DataTableColumn } from '$lib/components/data-table.js';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import {
 		resolveAnchoredFloatingPosition,
@@ -604,7 +604,7 @@
 		);
 	}
 
-	function divisionTableColumnsFor(): OfferingsTableColumn[] {
+	function divisionTableColumnsFor(): DataTableColumn[] {
 		return [
 			{
 				key: 'team',
@@ -650,8 +650,8 @@
 		];
 	}
 
-	function waitlistTableColumnsFor(canManage: boolean): OfferingsTableColumn[] {
-		const manageColumns: OfferingsTableColumn[] = canManage
+	function waitlistTableColumnsFor(canManage: boolean): DataTableColumn[] {
+		const manageColumns: DataTableColumn[] = canManage
 			? [
 					{
 						key: 'manage',
@@ -885,9 +885,9 @@
 		{ value: 'waitlist', label: 'Waitlist', statusLabel: 'Saved for later placement' }
 	] satisfies DropdownOption[];
 
-	const divisionTableColumns = $derived.by<OfferingsTableColumn[]>(() => divisionTableColumnsFor());
+	const divisionTableColumns = $derived.by<DataTableColumn[]>(() => divisionTableColumnsFor());
 
-	const waitlistTableColumns = $derived.by<OfferingsTableColumn[]>(() =>
+	const waitlistTableColumns = $derived.by<DataTableColumn[]>(() =>
 		waitlistTableColumnsFor(canManageLeague)
 	);
 
@@ -2721,7 +2721,7 @@
 											<p class="text-sm leading-6 text-neutral-950">{division.description}</p>
 										{/if}
 
-										<OfferingsTable
+								<DataTable
 											columns={divisionTableColumns}
 											rows={division.teams}
 											caption={`${division.name} teams table`}
@@ -2810,7 +2810,7 @@
 													</div>
 												{/if}
 											{/snippet}
-										</OfferingsTable>
+								</DataTable>
 									</section>
 								{/each}
 
@@ -2846,7 +2846,7 @@
 											</span>
 										</div>
 									</div>
-									<OfferingsTable
+						<DataTable
 										columns={waitlistTableColumns}
 										rows={visibleWaitlistTeams}
 										caption="League waitlist table"
@@ -2962,7 +2962,7 @@
 												</div>
 											{/if}
 										{/snippet}
-									</OfferingsTable>
+						</DataTable>
 								</section>
 							</div>
 						{/if}

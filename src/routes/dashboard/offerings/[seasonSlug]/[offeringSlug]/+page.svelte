@@ -24,7 +24,7 @@
 	import InfoPopover from '$lib/components/InfoPopover.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import HeaderHierarchyTabs from '$lib/components/navigation/HeaderHierarchyTabs.svelte';
-	import OfferingsTable from '$lib/components/OfferingsTable.svelte';
+	import DataTable from '$lib/components/DataTable.svelte';
 	import {
 		resolveAnchoredFloatingPosition,
 		toFixedStyle
@@ -34,7 +34,7 @@
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import type { HeaderHierarchySegment } from '$lib/components/navigation/header-hierarchy.js';
-	import type { OfferingsTableColumn } from '$lib/components/offerings-table.js';
+	import type { DataTableColumn } from '$lib/components/data-table.js';
 	import type { ManageIntramuralLeagueResponse } from '$lib/server/intramural-offerings-validation';
 	import { toast } from '$lib/toasts';
 	import { inferDivisionNameDetails } from '$lib/utils/division-schedule-inference.js';
@@ -2382,7 +2382,7 @@
 		}
 	]);
 
-	const divisionTableColumns = $derived.by<OfferingsTableColumn[]>(() => [
+	const divisionTableColumns = $derived.by<DataTableColumn[]>(() => [
 		{
 			key: 'division',
 			label: 'Division',
@@ -2414,7 +2414,7 @@
 			cellVerticalAlignment: 'top'
 		}
 	]);
-	const emptyOfferingTableColumns = $derived.by<OfferingsTableColumn[]>(() => [
+	const emptyOfferingTableColumns = $derived.by<DataTableColumn[]>(() => [
 		{
 			key: 'entry',
 			label: entryUnitTitleSingular(),
@@ -2653,7 +2653,7 @@
 					<div class="min-h-[34rem]">
 						{#if visibleLeagues.length === 0}
 							<div class="p-4">
-								<OfferingsTable
+					<DataTable
 									columns={emptyOfferingTableColumns}
 									rows={[]}
 									caption={`${data.offering.name} ${entryUnitPlural()} table`}
@@ -2686,7 +2686,7 @@
 									{/snippet}
 
 									{#snippet cell(_row, _column)}{/snippet}
-								</OfferingsTable>
+					</DataTable>
 							</div>
 						{:else}
 							<div class="divide-y divide-neutral-950">
@@ -2723,7 +2723,7 @@
 											</div>
 										</div>
 
-										<OfferingsTable
+					<DataTable
 											columns={divisionTableColumns}
 											rows={league.divisions}
 											caption={`${league.name} divisions table`}
@@ -2821,7 +2821,7 @@
 													</p>
 												{/if}
 											{/snippet}
-										</OfferingsTable>
+					</DataTable>
 									</section>
 								{/each}
 							</div>

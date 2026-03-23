@@ -1,13 +1,13 @@
 ---
-name: playims-offerings-table-builder
-description: Build or refactor PlayIMs dashboard tables using `src/lib/components/OfferingsTable.svelte` so new tables match the offerings page table chrome, header typography, uppercase casing, badge colors, striping, borders, and row-action behavior. Use when adding a new table, converting an ad-hoc list into a table, or restyling inconsistent tables under `src/routes/dashboard/**`.
+name: playims-data-table-builder
+description: Build or refactor PlayIMs dashboard tables using `src/lib/components/DataTable.svelte` so new tables match the offerings page table chrome, header typography, uppercase casing, badge colors, striping, borders, and row-action behavior. Use when adding a new table, converting an ad-hoc list into a table, or restyling inconsistent tables under `src/routes/dashboard/**`.
 ---
 
-# PlayIMs Offerings Table Builder
+# PlayIMs Data Table Builder
 
 ## Goal
 
-Implement dashboard tables that look like the offerings page and route new table work through the shared `OfferingsTable` component whenever it fits.
+Implement dashboard tables that look like the offerings page and route new table work through the shared `DataTable` component whenever it fits.
 
 Use `$playims-style-builder` alongside this skill when the surrounding page shell or action bars also need dashboard-aligned styling.
 
@@ -17,8 +17,8 @@ Use `$playims-listbox-dropdown-builder` for offerings-style row action menus and
 
 Read these files before editing:
 
-- `src/lib/components/OfferingsTable.svelte`
-- `src/lib/components/offerings-table.ts`
+- `src/lib/components/DataTable.svelte`
+- `src/lib/components/data-table.ts`
 - `src/lib/components/ListboxDropdown.svelte` when the table needs row actions
 - `src/routes/dashboard/offerings/+page.svelte`
 - `src/app.css` when badge classes or theme tokens matter
@@ -28,7 +28,7 @@ Read these files before editing:
 
 1. Confirm the table should match the offerings page visual language.
 
-- Default to `OfferingsTable` for dashboard tables with fixed headers and row-based content.
+- Default to `DataTable` for dashboard tables with fixed headers and row-based content.
 - Keep route-specific sorting, filters, action menus, and data shaping in the parent route.
 
 2. Define columns explicitly.
@@ -60,7 +60,7 @@ Read these files before editing:
 - Use modal flows for destructive or multi-field actions:
   - Use a confirm modal for delete/remove actions.
   - Use a shared wizard modal for move/reassignment flows.
-- Keep row actions in the parent route so `OfferingsTable` remains a presentation shell.
+- Keep row actions in the parent route so `DataTable` remains a presentation shell.
 
 ## Progressive Disclosure Map
 
@@ -68,7 +68,7 @@ Read these files before editing:
 
 ## Guardrails
 
-- Do not rebuild offerings-style table wrappers inline if `OfferingsTable` can handle the job.
+- Do not rebuild offerings-style table wrappers inline if `DataTable` can handle the job.
 - Do not change header font treatment, uppercase casing, tracking, or neutral header background for matching tables.
 - Do not push route-specific business logic into the shared component.
 - Do not invent new status pill styles when existing badge classes fit.
@@ -80,6 +80,6 @@ Read these files before editing:
 ## Validation
 
 - Run `pnpm check`.
-- Run `pnpm build` when changing `OfferingsTable.svelte` or multiple consumers.
+- Run `pnpm build` when changing `DataTable.svelte` or multiple consumers.
 - Manually verify mobile overflow and desktop column balance for any touched table.
 - Manually verify row-action visibility on mouse hover and keyboard focus, plus dropdown alignment near the right viewport edge.

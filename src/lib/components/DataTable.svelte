@@ -2,15 +2,14 @@
 	import type { Snippet } from 'svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import type {
-		OfferingsTableColumn,
-		OfferingsTableHeaderTextTransform,
-		OfferingsTableHorizontalPadding,
-		OfferingsTableTextAlignment,
-		OfferingsTableVerticalAlignment
-	} from '$lib/components/offerings-table.js';
+		DataTableColumn,
+		DataTableHeaderTextTransform,
+		DataTableTextAlignment,
+		DataTableVerticalAlignment
+	} from '$lib/components/data-table.js';
 
 	interface Props {
-		columns: OfferingsTableColumn[];
+		columns: DataTableColumn[];
 		rows: TRow[];
 		caption?: string;
 		wrapperClass?: string;
@@ -18,7 +17,7 @@
 		rowId?: (row: TRow, rowIndex: number) => string | undefined;
 		rowClass?: (row: TRow, rowIndex: number) => string | undefined;
 		emptyBody?: Snippet<[]>;
-		cell: Snippet<[TRow, OfferingsTableColumn]>;
+		cell: Snippet<[TRow, DataTableColumn]>;
 	}
 
 	let {
@@ -34,8 +33,8 @@
 	}: Props = $props();
 
 	function resolveTextAlignmentClass(
-		alignment: OfferingsTableTextAlignment | undefined,
-		fallback: OfferingsTableTextAlignment
+		alignment: DataTableTextAlignment | undefined,
+		fallback: DataTableTextAlignment
 	): string {
 		switch (alignment ?? fallback) {
 			case 'center':
@@ -48,7 +47,7 @@
 	}
 
 	function resolveVerticalAlignmentClass(
-		alignment: OfferingsTableVerticalAlignment | undefined
+		alignment: DataTableVerticalAlignment | undefined
 	): string {
 		switch (alignment) {
 			case 'top':
@@ -62,7 +61,7 @@
 		}
 	}
 
-	function resolveHeaderPaddingClass(column: OfferingsTableColumn): string {
+	function resolveHeaderPaddingClass(column: DataTableColumn): string {
 		if (column.headerPaddingX === 'none') return '';
 		const classes: string[] = [];
 		if (!column.headerPaddingLeft) classes.push('pl-2');
@@ -70,7 +69,7 @@
 		return classes.join(' ');
 	}
 
-	function resolveBodyPaddingClass(column: OfferingsTableColumn): string {
+	function resolveBodyPaddingClass(column: DataTableColumn): string {
 		if (column.cellPaddingX === 'none') return '';
 		const classes: string[] = [];
 		if (!column.cellPaddingLeft) classes.push('pl-2');
@@ -79,12 +78,12 @@
 	}
 
 	function resolveHeaderTextTransformClass(
-		textTransform: OfferingsTableHeaderTextTransform | undefined
+		textTransform: DataTableHeaderTextTransform | undefined
 	): string {
 		return textTransform === 'normal' ? 'normal-case' : 'uppercase';
 	}
 
-	function resolveHeaderCellClass(column: OfferingsTableColumn): string {
+	function resolveHeaderCellClass(column: DataTableColumn): string {
 		const classes = [
 			resolveHeaderPaddingClass(column),
 			'py-1',
@@ -95,11 +94,11 @@
 		return classes.filter(Boolean).join(' ');
 	}
 
-	function headerHoverTooltipText(column: OfferingsTableColumn): string | undefined {
+	function headerHoverTooltipText(column: DataTableColumn): string | undefined {
 		return column.headerHoverTooltipText ?? column.headerTooltipText;
 	}
 
-	function resolveBodyCellClass(column: OfferingsTableColumn): string {
+	function resolveBodyCellClass(column: DataTableColumn): string {
 		const classes = [
 			resolveBodyPaddingClass(column),
 			'py-1',

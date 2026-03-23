@@ -4,14 +4,14 @@
 	import type { PageData } from './$types';
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import HeaderHierarchyTabs from '$lib/components/navigation/HeaderHierarchyTabs.svelte';
-	import OfferingsTable from '$lib/components/OfferingsTable.svelte';
+	import DataTable from '$lib/components/DataTable.svelte';
 	import SmallStandingsTable from '$lib/components/SmallStandingsTable.svelte';
 	import DashboardSidebarPanel from '$lib/components/dashboard/DashboardSidebarPanel.svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import type { HeaderHierarchySegment } from '$lib/components/navigation/header-hierarchy.js';
-	import type { OfferingsTableColumn } from '$lib/components/offerings-table.js';
+	import type { DataTableColumn } from '$lib/components/data-table.js';
 	import {
 		IconBallAmericanFootball,
 		IconBallBaseball,
@@ -380,7 +380,7 @@
 		}
 	);
 
-	const teamsColumns = $derived.by<OfferingsTableColumn[]>(() => [
+	const teamsColumns = $derived.by<DataTableColumn[]>(() => [
 		{
 			key: 'team',
 			label: 'Team',
@@ -413,7 +413,7 @@
 		}
 	]);
 
-	const waitlistColumns = $derived.by<OfferingsTableColumn[]>(() => [
+	const waitlistColumns = $derived.by<DataTableColumn[]>(() => [
 		{
 			key: 'team',
 			label: 'Team',
@@ -570,7 +570,7 @@
 										</div>
 									</div>
 
-									<OfferingsTable
+			<DataTable
 										columns={teamsColumns}
 										rows={visibleTeams}
 										caption="Division active teams table"
@@ -705,7 +705,7 @@
 												</span>
 											{/if}
 										{/snippet}
-									</OfferingsTable>
+			</DataTable>
 								</section>
 
 								<section class="space-y-3 p-4">
@@ -723,7 +723,7 @@
 										</div>
 									</div>
 
-									<OfferingsTable
+			<DataTable
 										columns={waitlistColumns}
 										rows={visibleWaitlistTeams}
 										caption="Division waitlist table"
@@ -775,7 +775,7 @@
 												</p>
 											{/if}
 										{/snippet}
-									</OfferingsTable>
+			</DataTable>
 								</section>
 							</div>
 						{/if}
