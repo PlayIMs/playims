@@ -36,6 +36,11 @@
 	import { generateUuidV4 } from '$lib/utils/uuid.js';
 	import { inferDivisionNameDetails } from '$lib/utils/division-schedule-inference.js';
 	import {
+		getCreateDivisionWizardInitialFlowState,
+		getCreateDivisionWizardPostAddFlowState,
+		type CreateDivisionWizardStep
+	} from '$lib/utils/create-division-wizard-flow.js';
+	import {
 		cloneDivisionWizardForm,
 		normalizeCreateDivisionDraft
 	} from '$lib/utils/division-wizard-form.js';
@@ -157,12 +162,17 @@
 		defaultsToWaitlist: boolean;
 	}
 
+	type CreateTeamActivePlacementOverride = 'locked-add' | 'locked-add-unlock' | 'full-add';
+
+	interface CreateTeamOverrideDialogState {
+		divisionName: string;
+		term: 'locked' | 'full';
+	}
+
 	interface MoveTeamWizardForm {
 		divisionId: string;
 		placement: PlacementValue;
 	}
-
-	type CreateDivisionWizardStep = 1 | 2 | 3;
 
 	type ActiveTeamRow = DivisionSection['teams'][number];
 	type WaitlistTeamRow = NonNullable<PageData['waitlistTeams']>[number];
@@ -1025,6 +1035,7 @@
 	let createDivisionUnsavedConfirmOpen = $state(false);
 	let createTeamUnsavedConfirmOpen = $state(false);
 	let editDivisionUnsavedConfirmOpen = $state(false);
+	let createTeamOverrideDialog = $state<CreateTeamOverrideDialogState | null>(null);
 	let createDivisionSubmitting = $state(false);
 	let createTeamSubmitting = $state(false);
 	let editDivisionSubmitting = $state(false);
@@ -1110,6 +1121,7 @@
 
 	function clearCreateTeamApiErrors(): void {
 		createTeamFormError = '';
+		createTeamOverrideDialog = null;
 		if (Object.keys(createTeamServerFieldErrors).length > 0) {
 			createTeamServerFieldErrors = {};
 		}
@@ -1144,14 +1156,15 @@
 	});
 
 	function resetCreateDivisionWizard(): void {
-		createDivisionStep = 1;
+		const initialFlow = getCreateDivisionWizardInitialFlowState();
+		createDivisionStep = initialFlow.step;
 		createDivisionSubmitting = false;
 		createDivisionInitialForm = defaultDivisionForm();
 		createDivisionForm = { ...createDivisionInitialForm };
 		createDivisionDrafts = [];
 		createDivisionCommittedDrafts = [];
 		createDivisionEditingIndex = null;
-		createDivisionDraftActive = false;
+		createDivisionDraftActive = initialFlow.draftActive;
 		createDivisionManualOrder = false;
 		createDivisionValidationVisible = false;
 		createDivisionCollectionValidationVisible = false;
@@ -1197,14 +1210,15 @@
 
 	function startAddingCreateDivisionDraft(): void {
 		clearCreateDivisionApiErrors();
+		const initialFlow = getCreateDivisionWizardInitialFlowState();
 		createDivisionEditingIndex = null;
 		createDivisionSlugTouched = false;
 		createDivisionDayOfWeekManual = false;
 		createDivisionGameTimeManual = false;
 		createDivisionValidationVisible = false;
 		createDivisionForm = defaultDivisionForm();
-		createDivisionDraftActive = true;
-		createDivisionStep = 2;
+		createDivisionDraftActive = initialFlow.draftActive;
+		createDivisionStep = initialFlow.step;
 	}
 
 	function cancelCreateDivisionDraft(): void {
@@ -1221,13 +1235,14 @@
 		const sourceDraft = createDivisionDrafts[index];
 		if (!sourceDraft) return;
 		clearCreateDivisionApiErrors();
+		const initialFlow = getCreateDivisionWizardInitialFlowState();
 		createDivisionEditingIndex = index;
 		createDivisionForm = cloneCreateDivisionForm(sourceDraft);
 		createDivisionSlugTouched = sourceDraft.slug.trim() !== slugifyFinal(sourceDraft.name);
 		inferCreateDivisionManualFlags(sourceDraft);
 		createDivisionValidationVisible = false;
-		createDivisionDraftActive = true;
-		createDivisionStep = 2;
+		createDivisionDraftActive = initialFlow.draftActive;
+		createDivisionStep = initialFlow.step;
 	}
 
 	function duplicateCreateDivision(index: number): void {
@@ -1329,6 +1344,7 @@
 		createTeamSlugTouched = false;
 		createTeamServerFieldErrors = {};
 		createTeamFormError = '';
+		createTeamOverrideDialog = null;
 		createTeamUnsavedConfirmOpen = false;
 		createTeamDirtyState.clearBaseline();
 	}
@@ -1660,17 +1676,6 @@
 			errors['slug'] = 'A team with this slug already exists in this league.';
 		}
 
-		if (values.placement === 'active' && targetDivision?.isLocked) {
-			errors['divisionId'] = 'This division is locked. Add the team to the waitlist instead.';
-		} else if (
-			values.placement === 'active' &&
-			values.divisionId &&
-			isDivisionFull(values.divisionId)
-		) {
-			errors['divisionId'] =
-				'This division is already at capacity. Add the team to the waitlist instead.';
-		}
-
 		return errors;
 	}
 
@@ -1744,6 +1749,25 @@
 		};
 	});
 
+	function createTeamOverrideRequirement(): CreateTeamOverrideDialogState | null {
+		if (createTeamForm.placement !== 'active') return null;
+		const divisionStatus = createTeamSelectedDivisionStatus;
+		if (!divisionStatus) return null;
+		if (divisionStatus.isFull) {
+			return {
+				divisionName: divisionStatus.name,
+				term: 'full'
+			};
+		}
+		if (divisionStatus.isLocked) {
+			return {
+				divisionName: divisionStatus.name,
+				term: 'locked'
+			};
+		}
+		return null;
+	}
+
 	const moveTeamFieldErrors = $derived.by(() => getMoveTeamFieldErrors(moveTeamForm));
 
 	const createDivisionContextRows = $derived.by(() => [
@@ -1762,8 +1786,7 @@
 	]);
 	const canGoNextCreateDivisionStep = $derived.by(() => {
 		if (createDivisionSubmitting || createDivisionStep === 3) return false;
-		if (createDivisionStep === 1) return true;
-		if (!createDivisionDraftActive) {
+		if (createDivisionStep === 2 && !createDivisionDraftActive) {
 			return createDivisionDrafts.length > 0;
 		}
 		return (
@@ -1836,12 +1859,11 @@
 	function nextCreateDivisionStep(): void {
 		clearCreateDivisionApiErrors();
 		if (createDivisionSubmitting || createDivisionStep === 3) return;
-		if (createDivisionStep === 1) {
-			createDivisionStep = 2;
-			return;
-		}
 		if (createDivisionDraftActive) {
-			void addOrUpdateCreateDivisionDraft();
+			if (!addOrUpdateCreateDivisionDraft()) return;
+			const postAddFlow = getCreateDivisionWizardPostAddFlowState();
+			createDivisionDraftActive = postAddFlow.draftActive;
+			createDivisionStep = postAddFlow.step;
 			return;
 		}
 
@@ -1852,9 +1874,11 @@
 
 	function handleCreateDivisionBackAction(): void {
 		clearCreateDivisionApiErrors();
-		if (createDivisionDraftActive && createDivisionStep === 2) {
+		if (createDivisionDraftActive && createDivisionStep === 1) {
 			cancelCreateDivisionDraft();
-			createDivisionStep = 2;
+			const postAddFlow = getCreateDivisionWizardPostAddFlowState();
+			createDivisionDraftActive = postAddFlow.draftActive;
+			createDivisionStep = postAddFlow.step;
 			return;
 		}
 		if (createDivisionStep === 3) {
@@ -1862,7 +1886,9 @@
 			return;
 		}
 		if (createDivisionStep === 2) {
-			createDivisionStep = 1;
+			const initialFlow = getCreateDivisionWizardInitialFlowState();
+			createDivisionDraftActive = initialFlow.draftActive;
+			createDivisionStep = initialFlow.step;
 		}
 	}
 
@@ -1877,7 +1903,7 @@
 	async function submitCreateDivisionWizard(): Promise<void> {
 		if (!data.league?.id) return;
 		if (createDivisionDraftActive) {
-			createDivisionStep = 2;
+			createDivisionStep = 1;
 			return;
 		}
 
@@ -1933,14 +1959,17 @@
 					];
 					createDivisionDrafts = unresolvedDrafts;
 					if (failedDraft) {
+						const initialFlow = getCreateDivisionWizardInitialFlowState();
 						createDivisionForm = cloneCreateDivisionForm(failedDraft);
 						createDivisionEditingIndex = 0;
-						createDivisionDraftActive = true;
+						createDivisionDraftActive = initialFlow.draftActive;
 						createDivisionSlugTouched = failedDraft.slug.trim() !== slugifyFinal(failedDraft.name);
 						inferCreateDivisionManualFlags(failedDraft);
 						createDivisionValidationVisible = true;
+						createDivisionStep = initialFlow.step;
+					} else {
+						createDivisionStep = 2;
 					}
-					createDivisionStep = 2;
 					createDivisionServerFieldErrors = readScopedFieldErrors(payload.fieldErrors, 'division');
 					createDivisionFormError =
 						payload.error ??
@@ -2038,13 +2067,9 @@
 		}
 	}
 
-	async function createTeam(): Promise<void> {
-		createTeamValidationVisible = true;
-		const clientErrors = getCreateTeamFieldErrors(createTeamForm);
-		if (Object.keys(clientErrors).length > 0 || !data.league?.id) {
-			return;
-		}
-
+	async function submitCreateTeam(
+		activePlacementOverride: CreateTeamActivePlacementOverride | null
+	): Promise<void> {
 		const apiPath = managementApiPath();
 		if (!apiPath) {
 			toast.error('League route is missing season or league slug.', {
@@ -2072,11 +2097,13 @@
 						imageUrl: null,
 						teamColor: createTeamForm.teamColor.trim() || null,
 						placement: createTeamForm.placement
-					}
+					},
+					activePlacementOverride
 				})
 			});
 			const payload = await readResponse(response);
 			if (!response.ok || !payload.success) {
+				createTeamOverrideDialog = null;
 				createTeamServerFieldErrors = readScopedFieldErrors(payload.fieldErrors, 'team');
 				createTeamFormError =
 					payload.error ??
@@ -2092,10 +2119,27 @@
 				title: data.league.name
 			});
 		} catch {
+			createTeamOverrideDialog = null;
 			createTeamFormError = 'Unable to create team right now.';
 		} finally {
 			createTeamSubmitting = false;
 		}
+	}
+
+	async function createTeam(): Promise<void> {
+		createTeamValidationVisible = true;
+		const clientErrors = getCreateTeamFieldErrors(createTeamForm);
+		if (Object.keys(clientErrors).length > 0 || !data.league?.id) {
+			return;
+		}
+
+		const overrideRequirement = createTeamOverrideRequirement();
+		if (overrideRequirement) {
+			createTeamOverrideDialog = overrideRequirement;
+			return;
+		}
+
+		await submitCreateTeam(null);
 	}
 
 	function handleCreateTeamDivisionChange(divisionId: string): void {
@@ -3124,7 +3168,7 @@
 												<div class="min-w-0">
 													<div class="flex flex-wrap items-center gap-1.5">
 														<a
-															href={`#division-${division.slug || division.id}`}
+															href={divisionHref(division)}
 															class="font-serif text-lg font-bold text-neutral-950 underline-offset-2 hover:underline"
 														>
 															{division.name}
@@ -3264,7 +3308,7 @@
 	contextRows={createDivisionContextRows}
 	showLocation={false}
 	showStartDate={false}
-	onSlugTouchedChange={(value) => {
+	onSlugTouchedChange={(value: boolean) => {
 		createDivisionSlugTouched = value;
 	}}
 	onNameInput={handleCreateDivisionNameInput}
@@ -3284,8 +3328,8 @@
 	onAddDraft={startAddingCreateDivisionDraft}
 	onEditDraft={startEditingCreateDivision}
 	onCopyDraft={duplicateCreateDivision}
-	onMoveDraftUp={(index) => moveCreateDivision(index, 'up')}
-	onMoveDraftDown={(index) => moveCreateDivision(index, 'down')}
+	onMoveDraftUp={(index: number) => moveCreateDivision(index, 'up')}
+	onMoveDraftDown={(index: number) => moveCreateDivision(index, 'down')}
 	onRemoveDraft={removeCreateDivision}
 	onEditDraftsStep={startEditingCreateDivisionDraftsStep}
 />
@@ -3340,6 +3384,80 @@
 		createTeamUnsavedConfirmOpen = false;
 	}}
 />
+<ModalShell
+	open={Boolean(createTeamOverrideDialog)}
+	closeAriaLabel="Close team override confirmation"
+	panelClass="w-full max-w-md border-4 border-secondary bg-neutral-400 overflow-hidden"
+	paddingClass="p-0"
+	on:requestClose={() => {
+		if (createTeamSubmitting) return;
+		createTeamOverrideDialog = null;
+	}}
+>
+	{#if createTeamOverrideDialog}
+		<div class="bg-white">
+			<div class="border-b border-neutral-950 px-4 py-3">
+				<p class="text-sm leading-5 text-neutral-950">
+					{#if createTeamOverrideDialog.term === 'full'}
+						<span class="font-semibold">{createTeamOverrideDialog.divisionName}</span> is full.
+						Add this team anyway as a manual override?
+					{:else}
+						<span class="font-semibold">{createTeamOverrideDialog.divisionName}</span> is locked.
+						Do you want to add this team anyway?
+					{/if}
+				</p>
+			</div>
+			<div class="flex items-center justify-end gap-2 bg-neutral px-4 py-3">
+				<button
+					type="button"
+					class="inline-flex h-8 items-center justify-center border-2 border-secondary-500 bg-white px-2.5 text-[11px] font-semibold leading-none text-neutral-950 cursor-pointer hover:bg-secondary-50 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-secondary-500 disabled:cursor-not-allowed disabled:opacity-50"
+					disabled={createTeamSubmitting}
+					onclick={() => {
+						createTeamOverrideDialog = null;
+					}}
+				>
+					Cancel
+				</button>
+				{#if createTeamOverrideDialog.term === 'locked'}
+					<button
+						type="button"
+						class="inline-flex h-8 items-center justify-center border-2 border-secondary-500 bg-white px-2.5 text-[11px] font-semibold leading-none text-neutral-950 cursor-pointer hover:bg-secondary-50 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-secondary-500 disabled:cursor-not-allowed disabled:opacity-50"
+						disabled={createTeamSubmitting}
+						onclick={() => {
+							void submitCreateTeam('locked-add');
+						}}
+					>
+						Add
+					</button>
+					<button
+						type="button"
+						class="inline-flex h-8 items-center justify-center gap-1 border border-primary-600 bg-primary-500 px-2.5 text-[11px] font-semibold leading-none cursor-pointer hover:bg-primary-600 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
+						style:color="var(--color-primary-05)"
+						disabled={createTeamSubmitting}
+						onclick={() => {
+							void submitCreateTeam('locked-add-unlock');
+						}}
+					>
+						<IconLockOpen class="h-3.5 w-3.5" />
+						<span>Add and Unlock</span>
+					</button>
+				{:else}
+					<button
+						type="button"
+						class="inline-flex h-8 items-center justify-center border border-primary-600 bg-primary-500 px-2.5 text-[11px] font-semibold leading-none cursor-pointer hover:bg-primary-600 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
+						style:color="var(--color-primary-05)"
+						disabled={createTeamSubmitting}
+						onclick={() => {
+							void submitCreateTeam('full-add');
+						}}
+					>
+						Add
+					</button>
+				{/if}
+			</div>
+		</div>
+	{/if}
+</ModalShell>
 
 <MoveTeamWizard
 	open={Boolean(moveTeamContext)}
