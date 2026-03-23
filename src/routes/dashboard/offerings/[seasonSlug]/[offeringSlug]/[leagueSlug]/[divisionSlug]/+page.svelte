@@ -1,18 +1,14 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import type { PageData } from './$types';
-	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import Breadcrumb from '$lib/components/navigation/Breadcrumb.svelte';
-	import DataTable from '$lib/components/DataTable.svelte';
 	import SmallStandingsTable from '$lib/components/SmallStandingsTable.svelte';
+	import TeamPlacementTable from '$lib/components/TeamPlacementTable.svelte';
 	import DashboardSidebarPanel from '$lib/components/dashboard/DashboardSidebarPanel.svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import type { BreadcrumbSegment } from '$lib/components/navigation/breadcrumb.js';
-	import type { DataTableColumn } from '$lib/components/data-table.js';
-	import { parseDateTooltipValue } from '$lib/utils/date-tooltip.js';
 	import {
 		IconBallAmericanFootball,
 		IconBallBaseball,
@@ -67,14 +63,6 @@
 		return values.some((value) => normalizeSearchValue(value).includes(query));
 	}
 
-	function approvalBadgeLabel(isApproved: boolean): string {
-		return isApproved ? 'Approved' : 'Unapproved';
-	}
-
-	function approvalBadgeClass(isApproved: boolean): string {
-		return isApproved ? 'badge-secondary-outlined' : 'badge-primary-outlined';
-	}
-
 	function sportIconFor(offeringName: string, sportName: string | null | undefined) {
 		const key = `${offeringName} ${sportName ?? ''}`.trim().toLowerCase();
 		if (key.includes('flag football')) return IconBallAmericanFootball;
@@ -89,14 +77,6 @@
 		return IconBallFootball;
 	}
 
-	function captainLabel(captainName: string | null | undefined): string {
-		return captainName?.trim() || 'No Captain';
-	}
-
-	function hasRosterLimit(): boolean {
-		return typeof data.offering?.maxPlayers === 'number';
-	}
-
 	function formatDateTime(value: string | null | undefined): string {
 		if (!value) return 'TBD';
 		const parsed = new Date(value);
@@ -108,13 +88,6 @@
 			hour: 'numeric',
 			minute: '2-digit'
 		});
-	}
-
-	function sortableTimestampValue(value: string | null | undefined): number | null {
-		if (!value) return null;
-		const parsed = parseDateTooltipValue(value);
-		if (!parsed || Number.isNaN(parsed.getTime())) return null;
-		return parsed.getTime();
 	}
 
 	function parseWinPctValue(value: string | null | undefined): number {
@@ -178,7 +151,10 @@
 		return `${baseLeagueHref}/${divisionSlug}`;
 	}
 
-	function teamHref(teamSlug: string | null | undefined, teamId: string | null | undefined): string {
+	function teamHref(
+		teamSlug: string | null | undefined,
+		teamId: string | null | undefined
+	): string {
 		const seasonSlug = data.season?.slug?.trim();
 		const offeringSlug = data.offering?.slug?.trim();
 		const leagueSlug = data.league?.slug?.trim() || data.league?.id?.trim();
@@ -187,13 +163,16 @@
 		if (!seasonSlug || !offeringSlug || !leagueSlug || !divisionSlug || !teamSegment) {
 			return divisionHref();
 		}
-		return resolve('/dashboard/offerings/[seasonSlug]/[offeringSlug]/[leagueSlug]/[divisionSlug]/[teamSlug]', {
-			seasonSlug,
-			offeringSlug,
-			leagueSlug,
-			divisionSlug,
-			teamSlug: teamSegment
-		});
+		return resolve(
+			'/dashboard/offerings/[seasonSlug]/[offeringSlug]/[leagueSlug]/[divisionSlug]/[teamSlug]',
+			{
+				seasonSlug,
+				offeringSlug,
+				leagueSlug,
+				divisionSlug,
+				teamSlug: teamSegment
+			}
+		);
 	}
 
 	const breadcrumbSegments = $derived.by<BreadcrumbSegment[]>(() => {
@@ -370,7 +349,10 @@
 				[
 					team.name,
 					team.slug,
+					team.captainName,
 					team.description,
+					formatDateTime(team.dateCreated),
+					formatDateTime(team.dateJoined),
 					formatDateTime(team.dateRegistered),
 					String(team.rosterSize)
 				],
@@ -380,77 +362,13 @@
 	});
 
 	const hasSearchQuery = $derived.by(() => normalizedSearchQuery.length > 0);
-	const standingsTeamHrefByTeamId = $derived.by(
-		() => (teamId: string): string | undefined => {
-			const team = [...data.teams, ...data.waitlistTeams].find((candidate) => candidate.id === teamId);
-			if (!team) return undefined;
-			return teamHref(team.slug, team.id);
-		}
-	);
-
-	const teamsColumns = $derived.by<DataTableColumn<TeamRow>[]>(() => [
-		{
-			key: 'team',
-			label: 'Team',
-			width: '32%',
-			rowHeader: true,
-			sortValue: (team) => team.name
-		},
-		{
-			key: 'date-created',
-			label: 'Date Created',
-			width: '22%',
-			cellVerticalAlignment: 'top',
-			sortValue: (team) => sortableTimestampValue(team.dateCreated)
-		},
-		{
-			key: 'date-joined',
-			label: 'Date Joined',
-			width: '22%',
-			cellVerticalAlignment: 'top',
-			sortValue: (team) => sortableTimestampValue(team.dateJoined)
-		},
-		{
-			key: 'roster',
-			label: 'Roster',
-			width: '12%',
-			cellVerticalAlignment: 'top',
-			sortValue: (team) => team.rosterSize
-		},
-		{
-			key: 'status',
-			label: 'Status',
-			width: '12%',
-			cellVerticalAlignment: 'top'
-		}
-	]);
-
-	const waitlistColumns = $derived.by<DataTableColumn[]>(() => [
-		{
-			key: 'team',
-			label: 'Team',
-			width: '48%',
-			rowHeader: true
-		},
-		{
-			key: 'status',
-			label: 'Status',
-			width: '16%',
-			cellVerticalAlignment: 'top'
-		},
-		{
-			key: 'roster',
-			label: 'Roster',
-			width: '14%',
-			cellVerticalAlignment: 'top'
-		},
-		{
-			key: 'registration',
-			label: 'Team Registration',
-			width: '22%',
-			cellVerticalAlignment: 'top'
-		}
-	]);
+	const standingsTeamHrefByTeamId = $derived.by(() => (teamId: string): string | undefined => {
+		const team = [...data.teams, ...data.waitlistTeams].find(
+			(candidate) => candidate.id === teamId
+		);
+		if (!team) return undefined;
+		return teamHref(team.slug, team.id);
+	});
 </script>
 
 <PageTitle pageTitle={data.division?.name ?? 'Division'} />
@@ -575,150 +493,18 @@
 												<h2 class="text-2xl font-bold font-serif text-neutral-950">Teams</h2>
 											</div>
 										</div>
-										<div class="flex flex-wrap items-center gap-1">
-											<span class="badge-secondary-outlined px-2 py-0.5 text-xs">
-												{visibleTeams.reduce((sum, team) => sum + team.rosterSize, 0)} rostered players
-											</span>
-										</div>
 									</div>
 
-			<DataTable
-											columns={teamsColumns}
-											rows={visibleTeams}
-											defaultSort={{ columnKey: 'date-joined', direction: 'asc' }}
-											caption="Division active teams table"
-									>
-										{#snippet emptyBody()}
-											<tr class="bg-neutral-25">
-												<td
-													colspan={teamsColumns.length}
-													class="px-2 py-10 text-center text-sm italic text-neutral-700"
-												>
-													{#if hasSearchQuery}
-														No active teams match this search.
-													{:else}
-														No active teams in this division yet.
-													{/if}
-												</td>
-											</tr>
-										{/snippet}
-
-										{#snippet cell(team, column)}
-											{@const activeTeam = team as TeamRow}
-											{#if column.key === 'team'}
-												<div class="flex items-center gap-2">
-													<div
-														class="flex h-9 w-9 shrink-0 items-center justify-center bg-primary text-white"
-														aria-hidden="true"
-													>
-														<HeaderIcon class="h-5 w-5" />
-													</div>
-													<div class="min-w-0">
-														<p class="font-sans text-sm font-bold text-neutral-950">
-															<button
-																type="button"
-																class="cursor-pointer underline-offset-2 hover:text-primary-700 hover:underline focus-visible:outline-none focus-visible:underline"
-																onclick={() => {
-																	const seasonSlug = data.season?.slug;
-																	const offeringSlug = data.offering?.slug;
-																	const leagueSlug = data.league?.slug || data.league?.id;
-																	const divisionSlug = data.division?.slug || data.division?.id;
-																	const teamSlug = activeTeam.slug || activeTeam.id;
-																	if (
-																		seasonSlug &&
-																		offeringSlug &&
-																		leagueSlug &&
-																		divisionSlug &&
-																		teamSlug
-																	) {
-																		void goto(
-																			resolve(
-																				'/dashboard/offerings/[seasonSlug]/[offeringSlug]/[leagueSlug]/[divisionSlug]/[teamSlug]',
-																				{
-																					seasonSlug,
-																					offeringSlug,
-																					leagueSlug,
-																					divisionSlug,
-																					teamSlug
-																				}
-																			)
-																		);
-																		return;
-																	}
-																	if (seasonSlug && offeringSlug && leagueSlug && divisionSlug) {
-																		void goto(
-																			resolve(
-																				'/dashboard/offerings/[seasonSlug]/[offeringSlug]/[leagueSlug]/[divisionSlug]',
-																				{
-																					seasonSlug,
-																					offeringSlug,
-																					leagueSlug,
-																					divisionSlug
-																				}
-																			)
-																		);
-																		return;
-																	}
-																	void goto(resolve('/dashboard/offerings'));
-																}}
-															>
-																{activeTeam.name}
-															</button>
-														</p>
-														<p
-															class="mt-0 font-sans text-[11px] font-normal leading-tight text-neutral-700"
-														>
-															{captainLabel(activeTeam.captainName)}
-														</p>
-														{#if activeTeam.description}
-															<div class="mt-1 max-w-full overflow-x-auto pb-1 scrollbar-thin">
-																<p
-																	class="min-w-max font-sans text-xs leading-snug whitespace-nowrap text-neutral-700"
-																>
-																	{activeTeam.description}
-																</p>
-															</div>
-														{/if}
-													</div>
-												</div>
-											{:else if column.key === 'date-created'}
-												<p class="font-sans text-xs leading-snug text-neutral-950">
-													<DateHoverText
-														display={formatDateTime(activeTeam.dateCreated)}
-														value={activeTeam.dateCreated}
-														includeTime
-														wrapperClass="inline"
-													/>
-												</p>
-											{:else if column.key === 'date-joined'}
-												<p class="font-sans text-xs leading-snug text-neutral-950">
-													<DateHoverText
-														display={formatDateTime(activeTeam.dateJoined)}
-														value={activeTeam.dateJoined}
-														includeTime
-														wrapperClass="inline"
-													/>
-												</p>
-											{:else if column.key === 'roster'}
-												<p class="font-sans text-xs leading-snug text-neutral-950">
-													{activeTeam.rosterSize} /
-													{#if hasRosterLimit()}
-														{data.offering?.maxPlayers}
-													{:else}
-														<span class="text-sm leading-none" aria-label="No max players">
-															&infin;
-														</span>
-													{/if}
-												</p>
-											{:else if column.key === 'status'}
-												<span
-													class={`${approvalBadgeClass(activeTeam.status === 'active')} text-xs uppercase tracking-wide`}
-												>
-													{approvalBadgeLabel(activeTeam.status === 'active')}
-												</span>
-											{/if}
-										{/snippet}
-			</DataTable>
+									<TeamPlacementTable
+										rows={visibleTeams}
+										icon={HeaderIcon}
+										caption="Division active teams table"
+										maxPlayers={data.offering?.maxPlayers ?? null}
+										{hasSearchQuery}
+										emptySearchMessage="No active teams match this search."
+										emptyMessage="No active teams in this division yet."
+										teamHref={(team) => teamHref(team.slug, team.id)}
+									/>
 								</section>
 
 								<section class="space-y-3 p-4">
@@ -727,68 +513,19 @@
 											<div class="flex flex-wrap items-center gap-2">
 												<h2 class="text-2xl font-bold font-serif text-neutral-950">Waitlist</h2>
 											</div>
-											<p class="mt-1 text-sm text-neutral-900">
-												{visibleWaitlistTeams.length} waitlist team{visibleWaitlistTeams.length ===
-												1
-													? ''
-													: 's'} showing
-											</p>
 										</div>
 									</div>
 
-			<DataTable
-										columns={waitlistColumns}
+									<TeamPlacementTable
 										rows={visibleWaitlistTeams}
+										icon={HeaderIcon}
 										caption="Division waitlist table"
-									>
-										{#snippet emptyBody()}
-											<tr class="bg-neutral-25">
-												<td
-													colspan={waitlistColumns.length}
-													class="px-2 py-10 text-center text-sm italic text-neutral-700"
-												>
-													{#if hasSearchQuery}
-														No waitlist teams match this search.
-													{:else}
-														No waitlisted teams for this division.
-													{/if}
-												</td>
-											</tr>
-										{/snippet}
-
-										{#snippet cell(team, column)}
-											{@const waitlistTeam = team as WaitlistTeamRow}
-											{#if column.key === 'team'}
-												<div class="min-w-0">
-													<p class="font-sans text-sm font-bold text-neutral-950">
-														{waitlistTeam.name}
-													</p>
-													{#if waitlistTeam.description}
-														<p class="mt-1 font-sans text-xs leading-snug text-neutral-700">
-															{waitlistTeam.description}
-														</p>
-													{/if}
-												</div>
-											{:else if column.key === 'status'}
-												<span class="badge-primary-outlined text-xs uppercase tracking-wide">
-													Waitlist
-												</span>
-											{:else if column.key === 'roster'}
-												<p class="font-sans text-xs leading-snug text-neutral-950">
-													{waitlistTeam.rosterSize}
-												</p>
-											{:else if column.key === 'registration'}
-												<p class="font-sans text-xs leading-snug text-neutral-950">
-													<DateHoverText
-														display={formatDateTime(waitlistTeam.dateRegistered)}
-														value={waitlistTeam.dateRegistered}
-														includeTime
-														wrapperClass="inline"
-													/>
-												</p>
-											{/if}
-										{/snippet}
-			</DataTable>
+										maxPlayers={data.offering?.maxPlayers ?? null}
+										{hasSearchQuery}
+										emptySearchMessage="No waitlist teams match this search."
+										emptyMessage="No waitlisted teams for this division."
+										teamHref={(team) => teamHref(team.slug, team.id)}
+									/>
 								</section>
 							</div>
 						{/if}
