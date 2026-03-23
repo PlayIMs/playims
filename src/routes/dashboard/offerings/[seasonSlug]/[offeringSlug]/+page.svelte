@@ -2382,12 +2382,13 @@
 		}
 	]);
 
-	const divisionTableColumns = $derived.by<DataTableColumn[]>(() => [
+	const divisionTableColumns = $derived.by<DataTableColumn<OfferingDivisionRow>[]>(() => [
 		{
 			key: 'division',
 			label: 'Division',
 			width: '58%',
-			rowHeader: true
+			rowHeader: true,
+			sortComparator: compareByDayOfWeekAndTime
 		},
 		{
 			key: 'max-teams',
@@ -2395,7 +2396,8 @@
 			width: '14%',
 			headerTextAlignment: 'center',
 			cellTextAlignment: 'center',
-			cellVerticalAlignment: 'top'
+			cellVerticalAlignment: 'top',
+			sortValue: (division) => division.maxTeams ?? null
 		},
 		{
 			key: 'confirmed',
@@ -2403,7 +2405,8 @@
 			width: '14%',
 			headerTextAlignment: 'center',
 			cellTextAlignment: 'center',
-			cellVerticalAlignment: 'top'
+			cellVerticalAlignment: 'top',
+			sortValue: (division) => division.teamCount
 		},
 		{
 			key: 'pending',
@@ -2411,7 +2414,8 @@
 			width: '14%',
 			headerTextAlignment: 'center',
 			cellTextAlignment: 'center',
-			cellVerticalAlignment: 'top'
+			cellVerticalAlignment: 'top',
+			sortValue: (division) => division.waitlistCount
 		}
 	]);
 	const emptyOfferingTableColumns = $derived.by<DataTableColumn[]>(() => [
@@ -2724,10 +2728,11 @@
 										</div>
 
 					<DataTable
-											columns={divisionTableColumns}
-											rows={league.divisions}
-											caption={`${league.name} divisions table`}
-										>
+						columns={divisionTableColumns}
+						rows={league.divisions}
+						caption={`${league.name} divisions table`}
+						defaultSort={{ columnKey: 'division', direction: 'asc' }}
+					>
 											{#snippet emptyBody()}
 												<tr class="bg-neutral-25">
 													<td

@@ -4,12 +4,21 @@
 	import type {
 		DataTableColumn,
 		DataTableHeaderTextTransform,
+		DataTableSortDirection,
+		DataTableSortState,
 		DataTableTextAlignment,
 		DataTableVerticalAlignment
 	} from '$lib/components/data-table.js';
+	import {
+		areDataTableSortStatesEqual,
+		getActiveDataTableSortState,
+		getNextDataTableSortOverride,
+		isDataTableColumnSortable,
+		sortDataTableRows
+	} from '$lib/components/data-table-sort.js';
 
 	interface Props {
-		columns: DataTableColumn[];
+		columns: DataTableColumn<TRow>[];
 		rows: TRow[];
 		caption?: string;
 		wrapperClass?: string;
@@ -17,7 +26,8 @@
 		rowId?: (row: TRow, rowIndex: number) => string | undefined;
 		rowClass?: (row: TRow, rowIndex: number) => string | undefined;
 		emptyBody?: Snippet<[]>;
-		cell: Snippet<[TRow, DataTableColumn]>;
+		defaultSort?: DataTableSortState | null;
+		cell: Snippet<[TRow, DataTableColumn<TRow>]>;
 	}
 
 	let {
@@ -29,8 +39,10 @@
 		rowId,
 		rowClass,
 		emptyBody,
+		defaultSort = null,
 		cell
 	}: Props = $props();
+	let sortOverride = $state<DataTableSortState | null>(null);
 
 	function resolveTextAlignmentClass(
 		alignment: DataTableTextAlignment | undefined,
@@ -61,7 +73,7 @@
 		}
 	}
 
-	function resolveHeaderPaddingClass(column: DataTableColumn): string {
+	function resolveHeaderPaddingClass(column: DataTableColumn<TRow>): string {
 		if (column.headerPaddingX === 'none') return '';
 		const classes: string[] = [];
 		if (!column.headerPaddingLeft) classes.push('pl-2');
@@ -69,7 +81,7 @@
 		return classes.join(' ');
 	}
 
-	function resolveBodyPaddingClass(column: DataTableColumn): string {
+	function resolveBodyPaddingClass(column: DataTableColumn<TRow>): string {
 		if (column.cellPaddingX === 'none') return '';
 		const classes: string[] = [];
 		if (!column.cellPaddingLeft) classes.push('pl-2');
@@ -83,7 +95,7 @@
 		return textTransform === 'normal' ? 'normal-case' : 'uppercase';
 	}
 
-	function resolveHeaderCellClass(column: DataTableColumn): string {
+	function resolveHeaderCellClass(column: DataTableColumn<TRow>): string {
 		const classes = [
 			resolveHeaderPaddingClass(column),
 			'py-1',
@@ -94,11 +106,11 @@
 		return classes.filter(Boolean).join(' ');
 	}
 
-	function headerHoverTooltipText(column: DataTableColumn): string | undefined {
+	function headerHoverTooltipText(column: DataTableColumn<TRow>): string | undefined {
 		return column.headerHoverTooltipText ?? column.headerTooltipText;
 	}
 
-	function resolveBodyCellClass(column: DataTableColumn): string {
+	function resolveBodyCellClass(column: DataTableColumn<TRow>): string {
 		const classes = [
 			resolveBodyPaddingClass(column),
 			'py-1',
@@ -120,6 +132,32 @@
 		const baseClass = defaultRowClass(rowIndex, rows.length);
 		return extraClass ? `${baseClass} ${extraClass}` : baseClass;
 	}
+
+	const activeSortState = $derived.by(() => getActiveDataTableSortState(sortOverride, defaultSort));
+
+	const sortedRows = $derived.by(() => sortDataTableRows(rows, columns, activeSortState));
+
+	function handleSortColumnClick(column: DataTableColumn<TRow>): void {
+		if (!isDataTableColumnSortable(column)) return;
+		sortOverride = getNextDataTableSortOverride(column.key, sortOverride, defaultSort);
+	}
+
+	function headerAriaSort(column: DataTableColumn<TRow>): 'none' | 'ascending' | 'descending' {
+		if (activeSortState?.columnKey !== column.key) return 'none';
+		return activeSortState.direction === 'asc' ? 'ascending' : 'descending';
+	}
+
+	function sortIndicator(column: DataTableColumn<TRow>): DataTableSortDirection | null {
+		return isDataTableColumnSortable(column) && sortOverride?.columnKey === column.key
+			? sortOverride.direction
+			: null;
+	}
+
+	function sortIndicatorSymbol(direction: DataTableSortDirection | null): string {
+		if (direction === 'asc') return '\u25B4';
+		if (direction === 'desc') return '\u25BE';
+		return '';
+	}
 </script>
 
 <div class={wrapperClass}>
@@ -137,11 +175,38 @@
 				{#each columns as column}
 					<th
 						scope="col"
+						aria-sort={headerAriaSort(column)}
 						class={resolveHeaderCellClass(column)}
 						style:padding-left={column.headerPaddingLeft}
 						style:padding-right={column.headerPaddingRight}
 					>
-						{#if headerHoverTooltipText(column)}
+						{#if isDataTableColumnSortable(column)}
+							<button
+								type="button"
+								class="inline-flex items-center justify-center gap-0.5 cursor-pointer focus-visible:outline-none"
+								onclick={() => handleSortColumnClick(column)}
+							>
+								{#if headerHoverTooltipText(column)}
+									<HoverTooltip
+										text={headerHoverTooltipText(column) ?? ''}
+										wrapperClass="inline-flex"
+										maxWidthClass="max-w-72"
+									>
+										<span>{column.label}</span>
+									</HoverTooltip>
+								{:else}
+									<span>{column.label}</span>
+								{/if}
+								{#if sortIndicator(column)}
+									<span
+										aria-hidden="true"
+										class="text-[12px] mb-[0.05rem] leading-none self-center"
+									>
+										{sortIndicatorSymbol(sortIndicator(column))}
+									</span>
+								{/if}
+							</button>
+						{:else if headerHoverTooltipText(column)}
 							<HoverTooltip
 								text={headerHoverTooltipText(column) ?? ''}
 								wrapperClass="inline-flex"
@@ -171,7 +236,7 @@
 					</tr>
 				{/if}
 			{:else}
-				{#each rows as row, rowIndex}
+				{#each sortedRows as row, rowIndex}
 					<tr id={rowId?.(row, rowIndex)} class={resolvedRowClass(row, rowIndex)}>
 						{#each columns as column}
 							{#if column.rowHeader}

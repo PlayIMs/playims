@@ -245,6 +245,13 @@
 		});
 	}
 
+	function sortableTimestampValue(value: string | null | undefined): number | null {
+		if (!value) return null;
+		const parsed = parseDateTooltipValue(value);
+		if (!parsed || Number.isNaN(parsed.getTime())) return null;
+		return parsed.getTime();
+	}
+
 	function valueHasExplicitTime(value: string | null | undefined): boolean {
 		return typeof value === 'string' && DATE_TIME_PATTERN.test(value.trim());
 	}
@@ -604,7 +611,7 @@
 		);
 	}
 
-	function divisionTableColumnsFor(): DataTableColumn[] {
+	function divisionTableColumnsFor(): DataTableColumn<ActiveTeamRow>[] {
 		return [
 			{
 				key: 'team',
@@ -613,7 +620,8 @@
 				rowHeader: true,
 				headerTextAlignment: 'left',
 				cellTextAlignment: 'left',
-				cellVerticalAlignment: 'middle'
+				cellVerticalAlignment: 'middle',
+				sortValue: (team) => team.name
 			},
 			{
 				key: 'date-created',
@@ -621,7 +629,8 @@
 				width: '22%',
 				headerTextAlignment: 'left',
 				cellTextAlignment: 'left',
-				cellVerticalAlignment: 'middle'
+				cellVerticalAlignment: 'middle',
+				sortValue: (team) => sortableTimestampValue(team.dateCreated)
 			},
 			{
 				key: 'date-joined',
@@ -629,7 +638,8 @@
 				width: '22%',
 				headerTextAlignment: 'left',
 				cellTextAlignment: 'left',
-				cellVerticalAlignment: 'middle'
+				cellVerticalAlignment: 'middle',
+				sortValue: (team) => sortableTimestampValue(team.dateJoined)
 			},
 			{
 				key: 'roster',
@@ -637,7 +647,8 @@
 				width: '12%',
 				headerTextAlignment: 'center',
 				cellTextAlignment: 'center',
-				cellVerticalAlignment: 'middle'
+				cellVerticalAlignment: 'middle',
+				sortValue: (team) => team.rosterSize
 			},
 			{
 				key: 'status',
@@ -885,7 +896,9 @@
 		{ value: 'waitlist', label: 'Waitlist', statusLabel: 'Saved for later placement' }
 	] satisfies DropdownOption[];
 
-	const divisionTableColumns = $derived.by<DataTableColumn[]>(() => divisionTableColumnsFor());
+	const divisionTableColumns = $derived.by<DataTableColumn<ActiveTeamRow>[]>(() =>
+		divisionTableColumnsFor()
+	);
 
 	const waitlistTableColumns = $derived.by<DataTableColumn[]>(() =>
 		waitlistTableColumnsFor(canManageLeague)
@@ -2724,6 +2737,7 @@
 								<DataTable
 											columns={divisionTableColumns}
 											rows={division.teams}
+											defaultSort={{ columnKey: 'date-joined', direction: 'asc' }}
 											caption={`${division.name} teams table`}
 											rowId={(team) => teamRowId((team as ActiveTeamRow).id)}
 											rowClass={(team) => teamRowClass((team as ActiveTeamRow).id)}

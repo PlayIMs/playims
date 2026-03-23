@@ -12,6 +12,7 @@
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import type { HeaderHierarchySegment } from '$lib/components/navigation/header-hierarchy.js';
 	import type { DataTableColumn } from '$lib/components/data-table.js';
+	import { parseDateTooltipValue } from '$lib/utils/date-tooltip.js';
 	import {
 		IconBallAmericanFootball,
 		IconBallBaseball,
@@ -107,6 +108,13 @@
 			hour: 'numeric',
 			minute: '2-digit'
 		});
+	}
+
+	function sortableTimestampValue(value: string | null | undefined): number | null {
+		if (!value) return null;
+		const parsed = parseDateTooltipValue(value);
+		if (!parsed || Number.isNaN(parsed.getTime())) return null;
+		return parsed.getTime();
 	}
 
 	function parseWinPctValue(value: string | null | undefined): number {
@@ -380,30 +388,34 @@
 		}
 	);
 
-	const teamsColumns = $derived.by<DataTableColumn[]>(() => [
+	const teamsColumns = $derived.by<DataTableColumn<TeamRow>[]>(() => [
 		{
 			key: 'team',
 			label: 'Team',
 			width: '32%',
-			rowHeader: true
+			rowHeader: true,
+			sortValue: (team) => team.name
 		},
 		{
 			key: 'date-created',
 			label: 'Date Created',
 			width: '22%',
-			cellVerticalAlignment: 'top'
+			cellVerticalAlignment: 'top',
+			sortValue: (team) => sortableTimestampValue(team.dateCreated)
 		},
 		{
 			key: 'date-joined',
 			label: 'Date Joined',
 			width: '22%',
-			cellVerticalAlignment: 'top'
+			cellVerticalAlignment: 'top',
+			sortValue: (team) => sortableTimestampValue(team.dateJoined)
 		},
 		{
 			key: 'roster',
 			label: 'Roster',
 			width: '12%',
-			cellVerticalAlignment: 'top'
+			cellVerticalAlignment: 'top',
+			sortValue: (team) => team.rosterSize
 		},
 		{
 			key: 'status',
@@ -571,9 +583,10 @@
 									</div>
 
 			<DataTable
-										columns={teamsColumns}
-										rows={visibleTeams}
-										caption="Division active teams table"
+											columns={teamsColumns}
+											rows={visibleTeams}
+											defaultSort={{ columnKey: 'date-joined', direction: 'asc' }}
+											caption="Division active teams table"
 									>
 										{#snippet emptyBody()}
 											<tr class="bg-neutral-25">

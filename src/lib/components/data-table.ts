@@ -2,8 +2,14 @@ export type DataTableTextAlignment = 'left' | 'center' | 'right';
 export type DataTableVerticalAlignment = 'top' | 'middle' | 'bottom';
 export type DataTableHorizontalPadding = 'default' | 'none';
 export type DataTableHeaderTextTransform = 'uppercase' | 'normal';
+export type DataTableSortDirection = 'asc' | 'desc';
 
-export interface DataTableColumn {
+export interface DataTableSortState {
+	columnKey: string;
+	direction: DataTableSortDirection;
+}
+
+export interface DataTableColumn<TRow = unknown> {
 	key: string;
 	label: string;
 	/**
@@ -27,4 +33,6 @@ export interface DataTableColumn {
 	headerTextTransform?: DataTableHeaderTextTransform;
 	tabularNumbers?: boolean;
 	rowHeader?: boolean;
+	sortValue?: (row: TRow) => string | number | null | undefined;
+	sortComparator?: (a: TRow, b: TRow) => number;
 }
