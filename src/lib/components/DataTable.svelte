@@ -183,7 +183,7 @@
 						{#if isDataTableColumnSortable(column)}
 							<button
 								type="button"
-								class="inline-flex items-center justify-center gap-0.5 cursor-pointer focus-visible:outline-none"
+								class="relative inline-flex items-center justify-center overflow-visible cursor-pointer focus-visible:outline-none"
 								onclick={() => handleSortColumnClick(column)}
 							>
 								{#if headerHoverTooltipText(column)}
@@ -200,7 +200,7 @@
 								{#if sortIndicator(column)}
 									<span
 										aria-hidden="true"
-										class="text-[12px] mb-[0.05rem] leading-none self-center"
+										class="pointer-events-none absolute left-full top-1/2 ml-1 -translate-y-1/2 text-[12px] leading-none"
 									>
 										{sortIndicatorSymbol(sortIndicator(column))}
 									</span>
