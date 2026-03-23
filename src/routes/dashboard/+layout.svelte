@@ -1,6 +1,7 @@
 <script lang="ts">
 	import {
 		IconLayoutDashboard,
+		IconLayoutNavbarFilled,
 		IconCalendarWeek,
 		IconBallAmericanFootball,
 		IconTrophy,
@@ -259,7 +260,7 @@
 		return 'View as another role';
 	});
 	const viewRoleShortcutKeys = $derived.by(() =>
-		!organizationSwitching && canViewAsCurrentRole ? ['Ctrl', 'Shift', 'R'] : []
+		!organizationSwitching && canViewAsCurrentRole ? ['Mod', 'Shift', 'R'] : []
 	);
 	const organizationTooltipText = $derived.by(() => {
 		if (organizationSwitching) {
@@ -271,8 +272,12 @@
 		return 'Switch organization';
 	});
 	const organizationShortcutKeys = $derived.by(() =>
-		organizationTooltipText === 'Switch organization' ? ['Ctrl', 'Shift', 'O'] : []
+		organizationTooltipText === 'Switch organization' ? ['Mod', 'Shift', 'O'] : []
 	);
+	const sidebarToggleTooltipText = $derived.by(() =>
+		isSidebarOpen ? 'Close navigation bar' : 'Open navigation bar'
+	);
+	const sidebarToggleShortcutKeys = ['Mod', 'B'];
 	const ORGANIZATION_SWITCHING_SESSION_KEY = 'playims:organization-switching';
 	let roleWizardOpen = $state(false);
 	let roleWizardSubmitting = $state(false);
@@ -786,6 +791,34 @@
 			return;
 		}
 
+		const handleSidebarToggleShortcut = (event: KeyboardEvent) => {
+			const isToggleShortcut =
+				(event.ctrlKey || event.metaKey) &&
+				!event.shiftKey &&
+				!event.altKey &&
+				event.code === 'KeyB';
+
+			if (!isToggleShortcut) {
+				return;
+			}
+
+			event.preventDefault();
+			event.stopPropagation();
+			event.stopImmediatePropagation();
+			toggleSidebar();
+		};
+
+		window.addEventListener('keydown', handleSidebarToggleShortcut, true);
+		return () => {
+			window.removeEventListener('keydown', handleSidebarToggleShortcut, true);
+		};
+	});
+
+	$effect(() => {
+		if (!browser) {
+			return;
+		}
+
 		const html = document.documentElement;
 		const body = document.body;
 		const previousHtmlOverflow = html.style.overflow;
@@ -978,20 +1011,30 @@
 						: 'justify-center'}"
 				>
 					{#if isSidebarOpen}
-						<h1 class="text-xl font-bold font-serif tracking-wider">Navigation</h1>
+						<h1
+							class="flex items-center gap-2 overflow-hidden whitespace-nowrap text-xl font-bold font-serif tracking-wider"
+						>
+							<IconLayoutNavbarFilled class="h-5 w-5 shrink-0" />
+							<span class="truncate">Navigation Bar</span>
+						</h1>
 					{/if}
-					<button
-						onclick={toggleSidebar}
-						class="p-2 hover:bg-primary-600 transition-colors duration-150 cursor-pointer"
-						aria-label={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-						type="button"
+					<HoverTooltip
+						text={sidebarToggleTooltipText}
+						shortcutKeys={sidebarToggleShortcutKeys}
 					>
-						{#if isSidebarOpen}
-							<IconChevronLeft class="w-5 h-5" />
-						{:else}
-							<IconChevronRight class="w-5 h-5" />
-						{/if}
-					</button>
+						<button
+							onclick={toggleSidebar}
+							class="p-2 hover:bg-primary-600 transition-colors duration-150 cursor-pointer"
+							aria-label={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+							type="button"
+						>
+							{#if isSidebarOpen}
+								<IconChevronLeft class="w-5 h-5" />
+							{:else}
+								<IconChevronRight class="w-5 h-5" />
+							{/if}
+						</button>
+					</HoverTooltip>
 				</div>
 
 				<!-- Menu -->
@@ -1007,7 +1050,7 @@
 										href={item.href}
 										class="w-full whitespace-nowrap {isSidebarOpen
 											? 'px-4 py-3 md:px-3 md:py-2.5 md:gap-2.5 xl:px-4 xl:py-3 xl:gap-3 flex items-center text-base md:text-sm xl:text-base'
-											: 'px-2 py-3 md:px-1.5 md:py-2.5 xl:px-2 xl:py-3 flex items-center justify-center'} transition-colors duration-150 cursor-pointer {isMenuItemActive(
+											: 'px-2 py-3 md:px-1.5 md:py-2.5 xl:px-2 xl:py-3 flex items-center justify-start'} overflow-hidden transition-colors duration-150 cursor-pointer {isMenuItemActive(
 											item.href
 										)
 											? 'bg-primary-600 border-l-4 border-neutral-500 text-white'
@@ -1019,7 +1062,7 @@
 									>
 										<item.icon class="w-5 h-5 md:w-4 md:h-4 xl:w-5 xl:h-5 shrink-0" />
 										{#if isSidebarOpen}
-											<span>{item.label}</span>
+											<span class="truncate">{item.label}</span>
 										{/if}
 									</a>
 								</HoverTooltip>
@@ -1029,12 +1072,12 @@
 				</nav>
 
 				{#if showSidebarFooter}
-					<div
-						class="absolute bottom-0 left-0 right-0 border-t border-primary-600 bg-primary-500 p-2"
-					>
-						{#if isSidebarOpen}
+				<div
+					class="absolute bottom-0 left-0 right-0 overflow-hidden border-t border-primary-600 bg-primary-500 p-2"
+				>
+					{#if isSidebarOpen}
 							<div class="space-y-2">
-								<div class="flex w-full items-center justify-around gap-2">
+								<div class="flex w-full items-center justify-around gap-2 overflow-hidden">
 									<HoverTooltip text="Help">
 										<button
 											type="button"
@@ -1120,7 +1163,7 @@
 								</a>
 							</div>
 						{:else}
-							<div class="flex flex-col items-center gap-2">
+							<div class="flex flex-col items-start gap-2">
 								<HoverTooltip text="Help">
 									<button
 										type="button"

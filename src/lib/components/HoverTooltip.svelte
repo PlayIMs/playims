@@ -20,6 +20,7 @@
 
 	interface Props {
 		text: string;
+		case?: 'title' | 'preserve';
 		shortcutKeys?: string[];
 		cursorOffsetXPx?: number;
 		cursorOffsetYPx?: number;
@@ -34,6 +35,7 @@
 
 	let {
 		text,
+		case: textCase = 'title',
 		shortcutKeys = [],
 		cursorOffsetXPx = 20,
 		cursorOffsetYPx = 18,
@@ -53,16 +55,49 @@
 	let panel = $state<HTMLElement | null>(null);
 	let open = $state(false);
 	let panelStyle = $state(HIDDEN_PANEL_STYLE);
-	let focusInside = $state(false);
 	let dismissedUntilReset = $state(false);
 	let pointerX = $state<number | null>(null);
 	let pointerY = $state<number | null>(null);
 	let frameId: number | null = null;
+	let isMacLikePlatform = $state(false);
 	const tooltipId = nextTooltipId('hover-tooltip');
 	const normalizedText = $derived.by(() => String(text ?? '').trim());
+	const tooltipTextClass = $derived.by(() => (textCase === 'preserve' ? '' : 'capitalize'));
+	const resolveShortcutKeyLabel = (value: string, useMacLabels: boolean): string => {
+		const normalized = value.trim().toLowerCase();
+		if (normalized === 'mod' || normalized === 'cmdorctrl' || normalized === 'ctrl/cmd') {
+			return useMacLabels ? 'Cmd' : 'Ctrl';
+		}
+
+		return value.trim();
+	};
 	const normalizedShortcutKeys = $derived.by(() =>
-		shortcutKeys.map((key) => String(key ?? '').trim()).filter((key) => key.length > 0)
+		shortcutKeys
+			.map((key) => resolveShortcutKeyLabel(String(key ?? ''), isMacLikePlatform))
+			.filter((key) => key.length > 0)
 	);
+
+	$effect(() => {
+		if (typeof navigator === 'undefined') {
+			isMacLikePlatform = false;
+			return;
+		}
+
+		const userAgentDataPlatform =
+			'userAgentData' in navigator &&
+			typeof navigator.userAgentData === 'object' &&
+			navigator.userAgentData !== null &&
+			'platform' in navigator.userAgentData
+				? String(navigator.userAgentData.platform ?? '')
+				: '';
+		const platformSource =
+			userAgentDataPlatform.trim() ||
+			navigator.platform?.trim() ||
+			navigator.userAgent?.trim() ||
+			'';
+
+		isMacLikePlatform = /mac|iphone|ipad|ipod/i.test(platformSource);
+	});
 
 	function portalToBody(node: HTMLElement): { destroy(): void } | void {
 		if (typeof document === 'undefined' || !document.body) return;
@@ -177,21 +212,18 @@
 		dismissedUntilReset = false;
 		pointerX = null;
 		pointerY = null;
-		if (!focusInside) hide();
+		hide();
 	}
 
-	function handleFocusOut(event: FocusEvent): void {
-		const nextTarget = event.relatedTarget;
-		if (!(nextTarget instanceof Node)) {
-			focusInside = false;
-			dismissedUntilReset = false;
-			hide();
-			return;
-		}
-		if (root?.contains(nextTarget)) return;
-		focusInside = false;
-		dismissedUntilReset = false;
-		hide();
+	function isPointerInsideRoot(clientX: number, clientY: number): boolean {
+		if (!root) return false;
+		const rect = root.getBoundingClientRect();
+		return (
+			clientX >= rect.left &&
+			clientX <= rect.right &&
+			clientY >= rect.top &&
+			clientY <= rect.bottom
+		);
 	}
 
 	onDestroy(() => {
@@ -201,6 +233,16 @@
 	$effect(() => {
 		if (!open || typeof window === 'undefined') return;
 		void tick().then(updatePosition);
+		const handleWindowPointerMove = (event: PointerEvent) => {
+			setPointerFromEvent(event);
+			if (!isPointerInsideRoot(event.clientX, event.clientY)) {
+				dismissedUntilReset = false;
+				hide();
+				return;
+			}
+
+			schedulePositionUpdate();
+		};
 		const handleWindowMouseOut = (event: MouseEvent) => {
 			if (shouldHideHoverTooltipOnWindowMouseOut(event.relatedTarget)) {
 				dismissForWindowExit();
@@ -215,12 +257,14 @@
 			}
 		};
 
+		window.addEventListener('pointermove', handleWindowPointerMove, true);
 		window.addEventListener('resize', schedulePositionUpdate);
 		window.addEventListener('scroll', schedulePositionUpdate, true);
 		window.addEventListener('mouseout', handleWindowMouseOut);
 		window.addEventListener('blur', handleWindowBlur);
 		document.addEventListener('visibilitychange', handleVisibilityChange);
 		return () => {
+			window.removeEventListener('pointermove', handleWindowPointerMove, true);
 			window.removeEventListener('resize', schedulePositionUpdate);
 			window.removeEventListener('scroll', schedulePositionUpdate, true);
 			window.removeEventListener('mouseout', handleWindowMouseOut);
@@ -266,11 +310,6 @@
 	onclick={() => {
 		dismissForActivation();
 	}}
-	onfocusin={() => {
-		focusInside = true;
-		show();
-	}}
-	onfocusout={handleFocusOut}
 >
 	{@render children?.()}
 	{#if open}
@@ -283,7 +322,7 @@
 			bind:this={panel}
 			use:portalToBody
 		>
-			<span class="inline-flex flex-wrap items-center gap-1.5 capitalize">
+			<span class={`inline-flex flex-wrap items-center gap-1.5 ${tooltipTextClass}`.trim()}>
 				{#if normalizedText}
 					<span>{normalizedText}</span>
 				{/if}
