@@ -19,6 +19,8 @@ export interface OfferingsTableColumn {
 	cellTextAlignment?: OfferingsTableTextAlignment;
 	cellVerticalAlignment?: OfferingsTableVerticalAlignment;
 	headerPaddingX?: OfferingsTableHorizontalPadding;
+	headerPaddingLeft?: string;
+	headerPaddingRight?: string;
 	cellPaddingX?: OfferingsTableHorizontalPadding;
 	cellPaddingLeft?: string;
 	cellPaddingRight?: string;

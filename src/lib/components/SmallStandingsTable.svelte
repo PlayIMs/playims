@@ -63,7 +63,9 @@
 			key: 'team',
 			label: 'Team',
 			width: '28%',
-			rowHeader: true
+			rowHeader: true,
+			headerPaddingRight: '0px',
+			cellPaddingRight: '0px'
 		},
 		{
 			key: 'record',

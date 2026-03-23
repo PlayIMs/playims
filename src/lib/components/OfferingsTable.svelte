@@ -62,8 +62,12 @@
 		}
 	}
 
-	function resolvePaddingXClass(padding: OfferingsTableHorizontalPadding | undefined): string {
-		return padding === 'none' ? '' : 'px-2';
+	function resolveHeaderPaddingClass(column: OfferingsTableColumn): string {
+		if (column.headerPaddingX === 'none') return '';
+		const classes: string[] = [];
+		if (!column.headerPaddingLeft) classes.push('pl-2');
+		if (!column.headerPaddingRight) classes.push('pr-2');
+		return classes.join(' ');
 	}
 
 	function resolveBodyPaddingClass(column: OfferingsTableColumn): string {
@@ -82,7 +86,7 @@
 
 	function resolveHeaderCellClass(column: OfferingsTableColumn): string {
 		const classes = [
-			resolvePaddingXClass(column.headerPaddingX),
+			resolveHeaderPaddingClass(column),
 			'py-1',
 			resolveTextAlignmentClass(column.headerTextAlignment, 'left'),
 			resolveHeaderTextTransformClass(column.headerTextTransform),
@@ -132,7 +136,12 @@
 		<thead>
 			<tr class="border-b border-neutral-950 bg-neutral">
 				{#each columns as column}
-					<th scope="col" class={resolveHeaderCellClass(column)}>
+					<th
+						scope="col"
+						class={resolveHeaderCellClass(column)}
+						style:padding-left={column.headerPaddingLeft}
+						style:padding-right={column.headerPaddingRight}
+					>
 						{#if headerHoverTooltipText(column)}
 							<HoverTooltip
 								text={headerHoverTooltipText(column) ?? ''}
