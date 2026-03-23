@@ -5,7 +5,7 @@
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
-	import HeaderHierarchyTabs from '$lib/components/navigation/HeaderHierarchyTabs.svelte';
+	import Breadcrumb from '$lib/components/navigation/Breadcrumb.svelte';
 	import ModalShell from '$lib/components/modals/ModalShell.svelte';
 	import DataTable from '$lib/components/DataTable.svelte';
 	import SmallStandingsTable from '$lib/components/SmallStandingsTable.svelte';
@@ -13,7 +13,7 @@
 	import PageTitle from '$lib/components/PageTitle.svelte';
 	import SplitAddAction from '$lib/components/dashboard/SplitAddAction.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
-	import type { HeaderHierarchySegment } from '$lib/components/navigation/header-hierarchy.js';
+	import type { BreadcrumbSegment } from '$lib/components/navigation/breadcrumb.js';
 	import type { DataTableColumn } from '$lib/components/data-table.js';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import {
@@ -61,7 +61,7 @@
 
 	type DivisionSection = NonNullable<PageData['divisions']>[number];
 	type DivisionStandingsRow = DivisionSection['standings'][number];
-	type HierarchyOption = NonNullable<PageData['offeringOptions']>[number];
+	type BreadcrumbOption = NonNullable<PageData['offeringOptions']>[number];
 	type PlacementValue = 'active' | 'waitlist';
 	type StandingsDisplayRow = {
 		rank: number;
@@ -958,7 +958,7 @@
 	const selectedLeagueValue = $derived.by(() =>
 		leagueDetailHref(data.league?.slug, data.league?.id)
 	);
-	const hierarchySegments = $derived.by<HeaderHierarchySegment[]>(() => {
+	const breadcrumbSegments = $derived.by<BreadcrumbSegment[]>(() => {
 		if (!data.offering || !data.league) return [];
 
 		const currentOfferingHref = offeringHref();
@@ -981,7 +981,7 @@
 				currentValue: currentOfferingHref,
 				menuAriaLabel: 'Switch offering',
 				searchEnabled: false,
-				options: (data.offeringOptions ?? []).map((option: HierarchyOption) => ({
+				options: (data.offeringOptions ?? []).map((option: BreadcrumbOption) => ({
 					value: option.href,
 					label: option.label
 				}))
@@ -999,12 +999,12 @@
 			}
 		];
 	});
-	const includeHierarchySeasonContext = $derived.by(() => data.season?.isCurrent === false);
-	const hierarchySeasonLabel = $derived.by(() =>
-		includeHierarchySeasonContext ? (data.season?.name ?? null) : null
+	const includeBreadcrumbSeasonContext = $derived.by(() => data.season?.isCurrent === false);
+	const breadcrumbSeasonLabel = $derived.by(() =>
+		includeBreadcrumbSeasonContext ? (data.season?.name ?? null) : null
 	);
-	const hierarchySeasonSlug = $derived.by(() =>
-		includeHierarchySeasonContext ? (data.season?.slug ?? null) : null
+	const breadcrumbSeasonSlug = $derived.by(() =>
+		includeBreadcrumbSeasonContext ? (data.season?.slug ?? null) : null
 	);
 
 	const leagueAddActionOptions = $derived.by<DropdownOption[]>(() => [
@@ -2503,14 +2503,14 @@
 					>
 						{data.league?.name ?? 'League'}
 					</h1>
-					{#if hierarchySegments.length > 0}
+					{#if breadcrumbSegments.length > 0}
 						<div class="absolute left-0 top-[calc(100%+0.2rem)] z-10">
-							<HeaderHierarchyTabs
-								segments={hierarchySegments}
+							<Breadcrumb
+								segments={breadcrumbSegments}
 								class="max-w-[min(100vw-7rem,100%)]"
-								seasonLabel={hierarchySeasonLabel}
-								seasonSlug={hierarchySeasonSlug}
-								includeSeasonContext={includeHierarchySeasonContext}
+								seasonLabel={breadcrumbSeasonLabel}
+								seasonSlug={breadcrumbSeasonSlug}
+								includeSeasonContext={includeBreadcrumbSeasonContext}
 							/>
 						</div>
 					{/if}

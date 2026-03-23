@@ -1508,12 +1508,11 @@
 	function nextCreateDivisionStep(): void {
 		clearCreateDivisionApiErrors();
 		if (createDivisionSubmitting || createDivisionStep === 3) return;
-		if (createDivisionStep === 1) {
-			createDivisionStep = 2;
-			return;
-		}
 		if (createDivisionDraftActive) {
-			void addOrUpdateCreateDivisionDraft();
+			if (!addOrUpdateCreateDivisionDraft()) return;
+			const postAddFlow = getCreateDivisionWizardPostAddFlowState();
+			createDivisionDraftActive = postAddFlow.draftActive;
+			createDivisionStep = postAddFlow.step;
 			return;
 		}
 
@@ -1524,9 +1523,11 @@
 
 	function handleCreateDivisionBackAction(): void {
 		clearCreateDivisionApiErrors();
-		if (createDivisionDraftActive && createDivisionStep === 2) {
+		if (createDivisionDraftActive && createDivisionStep === 1) {
 			cancelCreateDivisionDraft();
-			createDivisionStep = 2;
+			const postAddFlow = getCreateDivisionWizardPostAddFlowState();
+			createDivisionDraftActive = postAddFlow.draftActive;
+			createDivisionStep = postAddFlow.step;
 			return;
 		}
 		if (createDivisionStep === 3) {
@@ -1534,7 +1535,9 @@
 			return;
 		}
 		if (createDivisionStep === 2) {
-			createDivisionStep = 1;
+			const initialFlow = getCreateDivisionWizardInitialFlowState();
+			createDivisionDraftActive = initialFlow.draftActive;
+			createDivisionStep = initialFlow.step;
 		}
 	}
 
@@ -1549,7 +1552,7 @@
 	async function submitCreateDivisionWizard(): Promise<void> {
 		if (!createDivisionLeague?.id) return;
 		if (createDivisionDraftActive) {
-			createDivisionStep = 2;
+			createDivisionStep = 1;
 			return;
 		}
 
@@ -1605,14 +1608,17 @@
 					];
 					createDivisionDrafts = unresolvedDrafts;
 					if (failedDraft) {
+						const initialFlow = getCreateDivisionWizardInitialFlowState();
 						createDivisionForm = cloneCreateDivisionForm(failedDraft);
 						createDivisionEditingIndex = 0;
-						createDivisionDraftActive = true;
+						createDivisionDraftActive = initialFlow.draftActive;
 						createDivisionSlugTouched = failedDraft.slug.trim() !== slugifyFinal(failedDraft.name);
 						inferCreateDivisionManualFlags(failedDraft);
 						createDivisionValidationVisible = true;
+						createDivisionStep = initialFlow.step;
+					} else {
+						createDivisionStep = 2;
 					}
-					createDivisionStep = 2;
 					createDivisionServerFieldErrors = readScopedFieldErrors(payload.fieldErrors, 'division');
 					createDivisionFormError =
 						payload.error ??
@@ -2329,8 +2335,7 @@
 	]);
 	const canGoNextCreateDivisionStep = $derived.by(() => {
 		if (createDivisionSubmitting || createDivisionStep === 3) return false;
-		if (createDivisionStep === 1) return true;
-		if (!createDivisionDraftActive) {
+		if (createDivisionStep === 2 && !createDivisionDraftActive) {
 			return createDivisionDrafts.length > 0;
 		}
 		return (
