@@ -623,12 +623,23 @@
 		);
 	}
 
-	function divisionTableColumnsFor(): DataTableColumn<ActiveTeamRow>[] {
+	function divisionTableColumnsFor(canManage: boolean): DataTableColumn<ActiveTeamRow>[] {
+		const manageColumns: DataTableColumn<ActiveTeamRow>[] = canManage
+			? [
+					{
+						key: 'manage',
+						label: '',
+						width: '12%',
+						cellVerticalAlignment: 'middle'
+					}
+				]
+			: [];
+
 		return [
 			{
 				key: 'team',
 				label: 'Team',
-				width: '32%',
+				width: canManage ? '28%' : '32%',
 				rowHeader: true,
 				headerTextAlignment: 'left',
 				cellTextAlignment: 'left',
@@ -638,7 +649,7 @@
 			{
 				key: 'date-created',
 				label: 'Date Created',
-				width: '22%',
+				width: canManage ? '20%' : '22%',
 				headerTextAlignment: 'left',
 				cellTextAlignment: 'left',
 				cellVerticalAlignment: 'middle',
@@ -647,7 +658,7 @@
 			{
 				key: 'date-joined',
 				label: 'Date Joined',
-				width: '22%',
+				width: canManage ? '20%' : '22%',
 				headerTextAlignment: 'left',
 				cellTextAlignment: 'left',
 				cellVerticalAlignment: 'middle',
@@ -669,7 +680,8 @@
 				headerTextAlignment: 'center',
 				cellTextAlignment: 'center',
 				cellVerticalAlignment: 'middle'
-			}
+			},
+			...manageColumns
 		];
 	}
 
@@ -881,7 +893,7 @@
 	] satisfies DropdownOption[];
 
 	const divisionTableColumns = $derived.by<DataTableColumn<ActiveTeamRow>[]>(() =>
-		divisionTableColumnsFor()
+		divisionTableColumnsFor(canManageLeague)
 	);
 
 	const waitlistTableColumns = $derived.by<DataTableColumn[]>(() =>
@@ -2839,6 +2851,36 @@
 														>
 															{approvalBadgeLabel(true)}
 														</span>
+													</div>
+												{:else if column.key === 'manage' && canManageLeague}
+													<div class="flex justify-end">
+														<ListboxDropdown
+															options={teamActionOptions({
+																id: activeTeam.id,
+																name: activeTeam.name,
+																currentDivisionId: division.id,
+																currentDivisionName: division.name,
+																currentPlacement: 'active'
+															})}
+															value=""
+															mode="action"
+															align="right"
+															ariaLabel={`Actions for ${activeTeam.name}`}
+															buttonClass={ACTION_DROPDOWN_BUTTON_CLASS}
+															listClass={ACTION_DROPDOWN_LIST_CLASS}
+															optionClass={ACTION_DROPDOWN_OPTION_CLASS}
+															activeOptionClass="bg-neutral-100 text-neutral-950"
+															on:action={(event) =>
+																handleTeamAction(event.detail.value as TeamActionValue, {
+																	id: activeTeam.id,
+																	name: activeTeam.name,
+																	currentDivisionId: division.id,
+																	currentDivisionName: division.name,
+																	currentPlacement: 'active'
+																})}
+														>
+															{#snippet trigger()}<IconDots class="h-4 w-4" />{/snippet}
+														</ListboxDropdown>
 													</div>
 												{/if}
 											{/snippet}
