@@ -345,7 +345,7 @@
 				onclick={(event) => event.stopPropagation()}
 				onkeydown={(event) => event.stopPropagation()}
 			>
-				<div class="border-b border-secondary-200 bg-neutral-25 px-4 py-4">
+				<div class="border-b border-neutral-500 bg-neutral-25 px-4 py-4">
 					<div class="flex items-start gap-2">
 						<div class="min-w-0 flex-1">
 							<SearchInput
@@ -375,7 +375,7 @@
 							searchEnabled={seasonDropdownOptions.length > 8}
 							searchPlaceholder="Search seasons"
 							searchAriaLabel="Search seasons"
-							buttonClass="button-secondary-outlined inline-flex h-12 w-12 shrink-0 items-center justify-center p-0 cursor-pointer"
+							buttonClass="button-neutral-outlined inline-flex h-12 w-12 shrink-0 items-center justify-center p-0 cursor-pointer"
 							listClass="mt-1 bg-white z-20 max-h-80 overflow-y-auto shadow-[0_12px_24px_rgba(20,33,61,0.22)]"
 							optionClass="block w-full px-3 py-1.5 text-left text-sm font-normal whitespace-nowrap text-neutral-950 cursor-pointer"
 							activeOptionClass="bg-neutral-100 text-neutral-950"
@@ -385,7 +385,7 @@
 						>
 							{#snippet trigger(_, selectedOption)}
 								<IconHistory
-									class={`h-4 w-4 ${selectedOption ? 'text-secondary-900' : 'text-neutral-700'}`}
+									class={`h-4 w-4 ${selectedOption ? 'text-neutral-950' : 'text-neutral-700'}`}
 								/>
 							{/snippet}
 						</ListboxDropdown>
@@ -413,13 +413,13 @@
 						<p class="px-4 py-6 text-sm text-neutral-950">No matches found.</p>
 					{:else}
 						{#each $megaSearchGroups as group}
-							<section class="border-t border-secondary-200 first:border-t-0">
+							<section class="border-t border-neutral-700 first:border-t-0">
 								<div
 									class="bg-neutral-25 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-neutral-700"
 								>
 									{group.label}
 								</div>
-								<div class="divide-y divide-secondary-200">
+								<div class="divide-y divide-neutral-700">
 									{#each group.items as item}
 										{@const flatIndex = flatResults.findIndex(
 											(entry) => entry.item.resultKey === item.resultKey
@@ -449,7 +449,7 @@
 											<div class="shrink-0 text-right">
 												{#if item.badge}
 													<span
-														class="inline-flex border border-secondary-300 bg-neutral-50 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-neutral-950"
+														class="inline-flex border border-neutral-500 bg-neutral-100 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-neutral-950"
 													>
 														{item.badge}
 													</span>

@@ -36,8 +36,8 @@
 	);
 	const badgeClass = $derived.by(() =>
 		variant === 'compact'
-			? 'pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 border border-secondary-300 bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-700'
-			: 'pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 border border-secondary-300 bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-700'
+			? 'pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-700'
+			: 'pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-700'
 	);
 
 	function openFromLauncher(initialQuery?: string): void {
