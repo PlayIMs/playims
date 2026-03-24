@@ -65,6 +65,10 @@
 		return segment.showMenu === false || segment.options.length <= 1;
 	}
 
+	function showDropdown(segment: BreadcrumbSegment): boolean {
+		return segment.showMenu !== false && segment.options.length > 1;
+	}
+
 	async function handleAction(value: string, currentValue: string): Promise<void> {
 		if (!value || value === currentValue) return;
 		if (typeof window !== 'undefined') {
@@ -94,7 +98,7 @@
 				>
 					<span class="truncate">{segment.label}</span>
 				</button>
-				{#if segment.showMenu !== false}
+				{#if showDropdown(segment)}
 					<ListboxDropdown
 						options={menuOptionsFor(segment)}
 						value=""
