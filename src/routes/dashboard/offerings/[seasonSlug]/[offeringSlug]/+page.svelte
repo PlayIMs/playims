@@ -2665,7 +2665,7 @@
 								>
 									{#snippet trigger(_, selectedOption)}
 										<IconHistory
-											class={`h-4 w-4 ${selectedOption ? 'text-secondary-900' : 'text-neutral-700'}`}
+											class={`h-4 w-4 ${selectedOption ? 'text-neutral-950' : 'text-neutral-700'}`}
 										/>
 									{/snippet}
 								</ListboxDropdown>
@@ -2776,7 +2776,7 @@
 													{leagueVisibleTeamCount(league)} teams
 												</span>
 												{#if leagueVisibleWaitlistCount(league) > 0}
-													<span class="badge-primary-outlined text-xs uppercase tracking-wide">
+													<span class="badge-primary-outlined text-sm uppercase tracking-wide">
 														{leagueVisibleWaitlistCount(league)} waitlist
 													</span>
 												{/if}

@@ -122,7 +122,7 @@
 	}
 
 	function defaultRowClass(rowIndex: number, rowCount: number): string {
-		const borderClass = rowIndex < rowCount - 1 ? 'border-b border-secondary-200' : '';
+		const borderClass = rowIndex < rowCount - 1 ? 'border-b border-neutral-950' : '';
 		const stripeClass = rowIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05';
 		return ['align-middle', borderClass, stripeClass].filter(Boolean).join(' ');
 	}

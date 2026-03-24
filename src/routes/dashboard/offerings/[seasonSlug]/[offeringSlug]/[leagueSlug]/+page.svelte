@@ -2819,7 +2819,7 @@
 														{divisionCapacityLabel(division)}
 													</span>
 													{#if division.waitlistCount > 0}
-														<span class="text-xs font-sans font-normal text-neutral-700">
+														<span class="text-sm font-sans font-normal text-neutral-700">
 															{divisionWaitlistLabel(division)}
 														</span>
 													{/if}

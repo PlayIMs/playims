@@ -298,7 +298,16 @@
 		4: 'Review & Create'
 	};
 	const COMPACT_DROPDOWN_BUTTON_CLASS =
-		'button-secondary-outlined w-auto min-w-36 px-3 py-1 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2 focus-visible:ring-2 focus-visible:ring-primary-500';
+		'button-neutral-outlined w-auto min-w-36 px-3 py-1 text-sm font-semibold cursor-pointer inline-flex items-center justify-between gap-2';
+	const HISTORY_BUTTON_CLASS =
+		'button-neutral-outlined p-1.5 cursor-pointer';
+	const HISTORY_DROPDOWN_LIST_CLASS =
+		'mt-1 w-64 border-2 border-neutral-950 bg-white z-20 max-h-72 overflow-y-auto';
+	const HISTORY_DROPDOWN_SEPARATOR_CLASS = 'border-neutral-950';
+	const HISTORY_DROPDOWN_FOOTER_ACTION_CLASS =
+		'w-full button-neutral-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer justify-center';
+	const HISTORY_DROPDOWN_FOOTER_ICON_ACTION_CLASS =
+		'button-neutral-outlined w-9 h-9 p-0 cursor-pointer inline-flex items-center justify-center';
 	const FORM_DROPDOWN_BUTTON_CLASS =
 		'w-full border-2 border-secondary-400 bg-white px-4 py-2 text-base leading-6 font-normal text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2 hover:bg-white focus:outline-none focus-visible:outline-none focus-visible:border-secondary-500 focus-visible:ring-0 focus-visible:shadow-[0_0_0_1px_var(--color-secondary-500)] disabled:cursor-not-allowed disabled:opacity-60';
 	let { data } = $props<{ data: PageData }>();
@@ -4916,12 +4925,15 @@
 											options={seasonHistoryDropdownOptions}
 											value={selectedSeasonId}
 											ariaLabel="Season history"
-											buttonClass="button-secondary-outlined p-1.5 cursor-pointer"
+											buttonClass={HISTORY_BUTTON_CLASS}
+											listClass={HISTORY_DROPDOWN_LIST_CLASS}
+											separatorClass={HISTORY_DROPDOWN_SEPARATOR_CLASS}
 											emptyText="No seasons configured."
 											footerActionLabel="Add New Season"
 											footerActionAriaLabel="Add new season"
+											footerActionClass={HISTORY_DROPDOWN_FOOTER_ACTION_CLASS}
 											footerSecondaryActionAriaLabel="Manage seasons"
-											footerSecondaryActionClass="button-secondary-outlined w-9 h-9 p-0 cursor-pointer inline-flex items-center justify-center"
+											footerSecondaryActionClass={HISTORY_DROPDOWN_FOOTER_ICON_ACTION_CLASS}
 											on:change={(event) => {
 												handleSeasonHistoryChange(event.detail.value);
 											}}
@@ -4930,7 +4942,7 @@
 										>
 											{#snippet trigger(_, selectedOption)}
 												<IconHistory
-													class={`w-4 h-4 ${selectedOption ? 'text-secondary-900' : 'text-neutral-700'}`}
+													class={`w-4 h-4 ${selectedOption ? 'text-neutral-950' : 'text-neutral-700'}`}
 												/>
 											{/snippet}
 											{#snippet footerSecondaryAction()}
@@ -4942,7 +4954,9 @@
 											options={seasonHistoryDropdownOptions}
 											value={selectedSeasonId}
 											ariaLabel="Season history"
-											buttonClass="button-secondary-outlined p-1.5 cursor-pointer"
+											buttonClass={HISTORY_BUTTON_CLASS}
+											listClass={HISTORY_DROPDOWN_LIST_CLASS}
+											separatorClass={HISTORY_DROPDOWN_SEPARATOR_CLASS}
 											emptyText="No seasons configured."
 											on:change={(event) => {
 												handleSeasonHistoryChange(event.detail.value);
@@ -4950,7 +4964,7 @@
 										>
 											{#snippet trigger(_, selectedOption)}
 												<IconHistory
-													class={`w-4 h-4 ${selectedOption ? 'text-secondary-900' : 'text-neutral-700'}`}
+													class={`w-4 h-4 ${selectedOption ? 'text-neutral-950' : 'text-neutral-700'}`}
 												/>
 											{/snippet}
 										</ListboxDropdown>
@@ -4958,11 +4972,11 @@
 								{/if}
 							</div>
 							<div class="flex items-center gap-2 text-xs text-neutral-950 font-sans">
-								<span class="border border-secondary-300 px-2 py-1">
+								<span class="badge-neutral-outlined px-2 py-1">
 									{badgeOfferingCount}
 									{pluralize(badgeOfferingCount, 'offering', 'offerings')}
 								</span>
-								<span class="border border-secondary-300 px-2 py-1">
+								<span class="badge-neutral-outlined px-2 py-1">
 									{badgeLeagueOrGroupCount}
 									{badgeLeagueOrGroupLabel}
 								</span>
@@ -4996,8 +5010,8 @@
 							autocomplete="off"
 							wrapperClass="relative"
 							iconClass="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-950"
-							inputClass="input-secondary pl-10 pr-10 py-1 text-sm disabled:cursor-not-allowed"
-							clearButtonClass="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-950 hover:text-secondary-900 cursor-pointer"
+							inputClass="input-neutral pl-10 pr-10 py-1 text-sm disabled:cursor-not-allowed"
+							clearButtonClass="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-700 hover:text-neutral-950 cursor-pointer"
 							clearIconClass="w-4 h-4"
 							clearAriaLabel="Clear search"
 							on:input={(event) => {
@@ -5071,7 +5085,7 @@
 										<tbody>
 											{#each [0, 1, 2, 3] as _, leagueIndex}
 												<tr
-													class={`align-middle ${leagueIndex < 3 ? 'border-b border-secondary-200' : ''} ${leagueIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}
+													class={`align-middle ${leagueIndex < 3 ? 'border-b border-neutral-950' : ''} ${leagueIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}
 												>
 													<th scope="row" class="px-2 py-1 text-left">
 														<div class="flex items-center gap-2">
@@ -5183,12 +5197,15 @@
 										options={seasonHistoryDropdownOptions}
 										value={selectedSeasonId}
 										ariaLabel="Season history"
-										buttonClass="button-secondary-outlined p-1.5 cursor-pointer"
+										buttonClass={HISTORY_BUTTON_CLASS}
+										listClass={HISTORY_DROPDOWN_LIST_CLASS}
+										separatorClass={HISTORY_DROPDOWN_SEPARATOR_CLASS}
 										emptyText="No seasons configured."
 										footerActionLabel="Add New Season"
 										footerActionAriaLabel="Add new season"
+										footerActionClass={HISTORY_DROPDOWN_FOOTER_ACTION_CLASS}
 										footerSecondaryActionAriaLabel="Manage seasons"
-										footerSecondaryActionClass="button-secondary-outlined w-9 h-9 p-0 cursor-pointer inline-flex items-center justify-center"
+										footerSecondaryActionClass={HISTORY_DROPDOWN_FOOTER_ICON_ACTION_CLASS}
 										on:change={(event) => {
 											handleSeasonHistoryChange(event.detail.value);
 										}}
@@ -5197,7 +5214,7 @@
 									>
 										{#snippet trigger(_, selectedOption)}
 											<IconHistory
-												class={`w-4 h-4 ${selectedOption ? 'text-secondary-900' : 'text-neutral-700'}`}
+												class={`w-4 h-4 ${selectedOption ? 'text-neutral-950' : 'text-neutral-700'}`}
 											/>
 										{/snippet}
 										{#snippet footerSecondaryAction()}
@@ -5209,26 +5226,28 @@
 										options={seasonHistoryDropdownOptions}
 										value={selectedSeasonId}
 										ariaLabel="Season history"
-										buttonClass="button-secondary-outlined p-1.5 cursor-pointer"
+										buttonClass={HISTORY_BUTTON_CLASS}
+										listClass={HISTORY_DROPDOWN_LIST_CLASS}
+										separatorClass={HISTORY_DROPDOWN_SEPARATOR_CLASS}
 										emptyText="No seasons configured."
 										on:change={(event) => {
 											handleSeasonHistoryChange(event.detail.value);
 										}}
-									>
-										{#snippet trigger(_, selectedOption)}
-											<IconHistory
-												class={`w-4 h-4 ${selectedOption ? 'text-secondary-900' : 'text-neutral-700'}`}
-											/>
-										{/snippet}
-									</ListboxDropdown>
+										>
+											{#snippet trigger(_, selectedOption)}
+												<IconHistory
+													class={`w-4 h-4 ${selectedOption ? 'text-neutral-950' : 'text-neutral-700'}`}
+												/>
+											{/snippet}
+										</ListboxDropdown>
 								{/if}
 							</div>
 							<div class="flex items-center gap-2 text-xs text-neutral-950 font-sans">
-								<span class="border border-secondary-300 px-2 py-1">
+								<span class="badge-neutral-outlined px-2 py-1">
 									{badgeOfferingCount}
 									{pluralize(badgeOfferingCount, 'offering', 'offerings')}
 								</span>
-								<span class="border border-secondary-300 px-2 py-1">
+								<span class="badge-neutral-outlined px-2 py-1">
 									{badgeLeagueOrGroupCount}
 									{badgeLeagueOrGroupLabel}
 								</span>
@@ -5261,8 +5280,8 @@
 							autocomplete="off"
 							wrapperClass="relative"
 							iconClass="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-950"
-							inputClass="input-secondary pl-10 pr-10 py-1 text-sm disabled:cursor-not-allowed"
-							clearButtonClass="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-950 hover:text-secondary-900 cursor-pointer"
+							inputClass="input-neutral pl-10 pr-10 py-1 text-sm disabled:cursor-not-allowed"
+							clearButtonClass="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-700 hover:text-neutral-950 cursor-pointer"
 							clearIconClass="w-4 h-4"
 							clearAriaLabel="Clear search"
 							on:input={(event) => {
@@ -5334,7 +5353,7 @@
 											<tbody>
 												{#each [0, 1, 2, 3] as _, leagueIndex}
 													<tr
-														class={`align-middle ${leagueIndex < 3 ? 'border-b border-secondary-200' : ''} ${leagueIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}
+													class={`align-middle ${leagueIndex < 3 ? 'border-b border-neutral-950' : ''} ${leagueIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}
 													>
 														<th scope="row" class="px-2 py-1 text-left">
 															<div class="flex items-center gap-2">
@@ -5389,9 +5408,7 @@
 												</h3>
 											{/if}
 											{#if showAllOfferings}
-												<span
-													class="badge-secondary-outlined text-[10px] uppercase tracking-wide px-1.5 py-0 self-center"
-												>
+												<span class="badge-neutral-outlined text-[10px] uppercase tracking-wide px-1.5 py-0 self-center">
 													{offering.offeringType === 'tournament' ? 'Tournament' : 'League'}
 												</span>
 											{/if}
@@ -6422,6 +6439,7 @@
 
 <EditOfferingWizard
 	open={isEditOfferingModalOpen}
+	title={editOfferingForm.name.trim() ? `Edit ${editOfferingForm.name.trim()} Offering` : 'Edit Offering'}
 	formError={editOfferingFormError}
 	unsavedConfirmOpen={editOfferingWizardUnsavedConfirmOpen}
 	onRequestClose={requestCloseEditOfferingWizard}
@@ -6433,26 +6451,6 @@
 	onUnsavedCancel={cancelDiscardEditOfferingWizard}
 >
 	<div class="space-y-4">
-		<div class="border border-neutral-950 bg-neutral p-3">
-			<p class="text-sm font-semibold text-neutral-950">Offering context</p>
-			<div class="mt-2 grid grid-cols-1 gap-3 text-sm text-neutral-950 md:grid-cols-3">
-				<p>
-					<span class="font-semibold">Season:</span>
-					{currentEditingOfferingTemplate
-						? getSeasonLabel(currentEditingOfferingTemplate.seasonId)
-						: 'Unknown'}
-				</p>
-				<p>
-					<span class="font-semibold">Type:</span>
-					{editOfferingForm.type === 'tournament' ? 'Tournament' : 'League'}
-				</p>
-				<p>
-					<span class="font-semibold">Linked leagues/groups:</span>
-					This editor does not modify league or group rows.
-				</p>
-			</div>
-		</div>
-
 		<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
 			<div>
 				<label for="edit-offering-name" class="mb-1 block text-sm font-sans text-neutral-950">

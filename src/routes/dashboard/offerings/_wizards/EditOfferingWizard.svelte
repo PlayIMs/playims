@@ -5,6 +5,7 @@
 
 	interface Props {
 		open: boolean;
+		title?: string;
 		formError: string;
 		unsavedConfirmOpen: boolean;
 		onRequestClose: () => void;
@@ -18,6 +19,7 @@
 
 	let {
 		open,
+		title = 'Edit Offering',
 		formError,
 		unsavedConfirmOpen,
 		onRequestClose,
@@ -53,7 +55,7 @@
 
 <WizardModal
 	{open}
-	title="Edit Offering"
+	{title}
 	step={1}
 	stepCount={1}
 	stepTitle="Offering Details"

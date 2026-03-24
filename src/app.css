@@ -88,18 +88,18 @@
 
 /* Disable Tailwind Forms plugin default blue focus ring */
 @layer base {
-	[type='text']:focus:not(.input-primary):not(.input-secondary),
-	[type='email']:focus:not(.input-primary):not(.input-secondary),
-	[type='url']:focus:not(.input-primary):not(.input-secondary),
-	[type='password']:focus:not(.input-primary):not(.input-secondary),
-	[type='number']:focus:not(.input-primary):not(.input-secondary),
-	[type='date']:focus:not(.input-primary):not(.input-secondary),
-	[type='datetime-local']:focus:not(.input-primary):not(.input-secondary),
-	[type='month']:focus:not(.input-primary):not(.input-secondary),
-	[type='week']:focus:not(.input-primary):not(.input-secondary),
-	[type='time']:focus:not(.input-primary):not(.input-secondary),
-	[type='search']:focus:not(.input-primary):not(.input-secondary),
-	[type='tel']:focus:not(.input-primary):not(.input-secondary),
+	[type='text']:focus:not(.input-primary):not(.input-secondary):not(.input-neutral),
+	[type='email']:focus:not(.input-primary):not(.input-secondary):not(.input-neutral),
+	[type='url']:focus:not(.input-primary):not(.input-secondary):not(.input-neutral),
+	[type='password']:focus:not(.input-primary):not(.input-secondary):not(.input-neutral),
+	[type='number']:focus:not(.input-primary):not(.input-secondary):not(.input-neutral),
+	[type='date']:focus:not(.input-primary):not(.input-secondary):not(.input-neutral),
+	[type='datetime-local']:focus:not(.input-primary):not(.input-secondary):not(.input-neutral),
+	[type='month']:focus:not(.input-primary):not(.input-secondary):not(.input-neutral),
+	[type='week']:focus:not(.input-primary):not(.input-secondary):not(.input-neutral),
+	[type='time']:focus:not(.input-primary):not(.input-secondary):not(.input-neutral),
+	[type='search']:focus:not(.input-primary):not(.input-secondary):not(.input-neutral),
+	[type='tel']:focus:not(.input-primary):not(.input-secondary):not(.input-neutral),
 	[type='checkbox']:focus:not(.checkbox-primary):not(.checkbox-secondary):not(
 			.checkbox-secondary
 		):not(.toggle-primary):not(.toggle-secondary),
@@ -965,6 +965,45 @@
 		box-shadow: 0 0 0 1px var(--color-secondary-500) !important;
 	}
 
+	input[type='text'].input-neutral,
+	input[type='email'].input-neutral,
+	input[type='password'].input-neutral,
+	input[type='number'].input-neutral,
+	input[type='tel'].input-neutral,
+	input[type='url'].input-neutral,
+	input[type='search'].input-neutral,
+	input[type='date'].input-neutral,
+	input[type='datetime-local'].input-neutral,
+	input[type='month'].input-neutral,
+	input[type='week'].input-neutral,
+	input[type='time'].input-neutral {
+		border: 2px solid var(--color-neutral-950);
+		padding: 0.5rem 1rem;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		width: 100%;
+		background-color: white;
+		color: var(--color-neutral-950);
+	}
+
+	input[type='text'].input-neutral:focus,
+	input[type='email'].input-neutral:focus,
+	input[type='password'].input-neutral:focus,
+	input[type='number'].input-neutral:focus,
+	input[type='tel'].input-neutral:focus,
+	input[type='url'].input-neutral:focus,
+	input[type='search'].input-neutral:focus,
+	input[type='date'].input-neutral:focus,
+	input[type='datetime-local'].input-neutral:focus,
+	input[type='month'].input-neutral:focus,
+	input[type='week'].input-neutral:focus,
+	input[type='time'].input-neutral:focus {
+		outline: none;
+		border-color: var(--color-neutral-950);
+		--tw-ring-color: var(--color-neutral-950) !important;
+		box-shadow: 0 0 0 1px var(--color-neutral-950) !important;
+	}
+
 	input[type='text'].input-secondary,
 	input[type='email'].input-secondary,
 	input[type='password'].input-secondary,
@@ -1205,6 +1244,11 @@
 	:is(button, a)[class*='button-secondary-outlined']:focus-visible {
 		border-color: var(--color-secondary-500);
 		box-shadow: 0 0 0 1px var(--color-secondary-600);
+	}
+
+	:is(button, a)[class*='button-neutral-outlined']:focus-visible {
+		border-color: var(--color-neutral-950);
+		box-shadow: 0 0 0 1px var(--color-neutral-950);
 	}
 
 	:is(button, a)[class*='button-error-outlined']:focus-visible {
@@ -1683,6 +1727,35 @@
 		background-color: var(--color-secondary-100);
 	}
 
+	/* Neutral Outlined Buttons */
+	:is(button, a).button-neutral-outlined {
+		background-color: transparent;
+		border: 2px solid var(--color-neutral-950);
+		color: var(--color-neutral-950);
+		padding: 0.75rem 1.5rem;
+		font-weight: 700;
+		font-size: 1rem;
+		line-height: 1.5rem;
+		transition: background-color 0.2s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+	}
+
+	:is(button, a).button-neutral-outlined:hover:not(:disabled) {
+		background-color: var(--color-neutral-100);
+	}
+
+	:is(button, a).button-neutral-outlined:active:not(:disabled) {
+		background-color: var(--color-neutral-200);
+	}
+
+	:is(button, a).button-neutral-outlined:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
 	/* Secondary Buttons */
 	:is(button, a).button-secondary {
 		background-color: var(--color-secondary-500);
@@ -1990,6 +2063,21 @@
 		outline-offset: -2px;
 		border: none;
 		color: var(--color-secondary-500);
+		padding: 0.25rem 0.75rem;
+		font-weight: 700;
+		font-size: 0.875rem;
+		line-height: 1.25rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		background-color: transparent;
+	}
+
+	.badge-neutral-outlined {
+		outline: 2px solid var(--color-neutral-950);
+		outline-offset: -2px;
+		border: none;
+		color: var(--color-neutral-950);
 		padding: 0.25rem 0.75rem;
 		font-weight: 700;
 		font-size: 0.875rem;
@@ -2543,13 +2631,13 @@
 	}
 
 	/* Base styles for all form inputs - exclude themed classes */
-	input[type='text']:not(.input-primary):not(.input-secondary),
-	input[type='email']:not(.input-primary):not(.input-secondary),
-	input[type='password']:not(.input-primary):not(.input-secondary),
-	input[type='number']:not(.input-primary):not(.input-secondary),
-	input[type='tel']:not(.input-primary):not(.input-secondary),
-	input[type='url']:not(.input-primary):not(.input-secondary),
-	input[type='search']:not(.input-primary):not(.input-secondary),
+	input[type='text']:not(.input-primary):not(.input-secondary):not(.input-neutral),
+	input[type='email']:not(.input-primary):not(.input-secondary):not(.input-neutral),
+	input[type='password']:not(.input-primary):not(.input-secondary):not(.input-neutral),
+	input[type='number']:not(.input-primary):not(.input-secondary):not(.input-neutral),
+	input[type='tel']:not(.input-primary):not(.input-secondary):not(.input-neutral),
+	input[type='url']:not(.input-primary):not(.input-secondary):not(.input-neutral),
+	input[type='search']:not(.input-primary):not(.input-secondary):not(.input-neutral),
 	textarea:not(.textarea-primary):not(.textarea-secondary),
 	select:not(.select-primary):not(.select-secondary) {
 		--tw-ring-color: transparent !important;
@@ -2558,37 +2646,37 @@
 	}
 
 	/* Focus styles for all form inputs - exclude themed classes */
-	input[type='text']:not(.input-primary):not(.input-secondary):not(.checkbox-primary):not(
+	input[type='text']:not(.input-primary):not(.input-secondary):not(.input-neutral):not(.checkbox-primary):not(
 			.checkbox-secondary
 		):not(.radio-primary):not(.radio-secondary):not(.radio-secondary):not(.toggle-primary):not(
 			.toggle-secondary
 		):not(.toggle-secondary):focus,
-	input[type='email']:not(.input-primary):not(.input-secondary):not(.checkbox-primary):not(
+	input[type='email']:not(.input-primary):not(.input-secondary):not(.input-neutral):not(.checkbox-primary):not(
 			.checkbox-secondary
 		):not(.radio-primary):not(.radio-secondary):not(.radio-secondary):not(.toggle-primary):not(
 			.toggle-secondary
 		):not(.toggle-secondary):focus,
-	input[type='password']:not(.input-primary):not(.input-secondary):not(.checkbox-primary):not(
+	input[type='password']:not(.input-primary):not(.input-secondary):not(.input-neutral):not(.checkbox-primary):not(
 			.checkbox-secondary
 		):not(.radio-primary):not(.radio-secondary):not(.radio-secondary):not(.toggle-primary):not(
 			.toggle-secondary
 		):not(.toggle-secondary):focus,
-	input[type='number']:not(.input-primary):not(.input-secondary):not(.checkbox-primary):not(
+	input[type='number']:not(.input-primary):not(.input-secondary):not(.input-neutral):not(.checkbox-primary):not(
 			.checkbox-secondary
 		):not(.radio-primary):not(.radio-secondary):not(.radio-secondary):not(.toggle-primary):not(
 			.toggle-secondary
 		):not(.toggle-secondary):focus,
-	input[type='tel']:not(.input-primary):not(.input-secondary):not(.checkbox-primary):not(
+	input[type='tel']:not(.input-primary):not(.input-secondary):not(.input-neutral):not(.checkbox-primary):not(
 			.checkbox-secondary
 		):not(.radio-primary):not(.radio-secondary):not(.radio-secondary):not(.toggle-primary):not(
 			.toggle-secondary
 		):not(.toggle-secondary):focus,
-	input[type='url']:not(.input-primary):not(.input-secondary):not(.checkbox-primary):not(
+	input[type='url']:not(.input-primary):not(.input-secondary):not(.input-neutral):not(.checkbox-primary):not(
 			.checkbox-secondary
 		):not(.radio-primary):not(.radio-secondary):not(.radio-secondary):not(.toggle-primary):not(
 			.toggle-secondary
 		):not(.toggle-secondary):focus,
-	input[type='search']:not(.input-primary):not(.input-secondary):not(.checkbox-primary):not(
+	input[type='search']:not(.input-primary):not(.input-secondary):not(.input-neutral):not(.checkbox-primary):not(
 			.checkbox-secondary
 		):not(.radio-primary):not(.radio-secondary):not(.radio-secondary):not(.toggle-primary):not(
 			.toggle-secondary
@@ -2655,6 +2743,21 @@
 	textarea.textarea-secondary:focus,
 	select.select-secondary:focus {
 		--tw-ring-color: var(--color-secondary-500) !important;
+	}
+
+	input[type='text'].input-neutral:focus,
+	input[type='email'].input-neutral:focus,
+	input[type='password'].input-neutral:focus,
+	input[type='number'].input-neutral:focus,
+	input[type='tel'].input-neutral:focus,
+	input[type='url'].input-neutral:focus,
+	input[type='search'].input-neutral:focus,
+	input[type='date'].input-neutral:focus,
+	input[type='datetime-local'].input-neutral:focus,
+	input[type='month'].input-neutral:focus,
+	input[type='week'].input-neutral:focus,
+	input[type='time'].input-neutral:focus {
+		--tw-ring-color: var(--color-neutral-950) !important;
 	}
 
 	input[type='checkbox'].checkbox-secondary:focus,

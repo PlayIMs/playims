@@ -187,16 +187,22 @@
 				>
 					<Icon class="h-3 w-3" />
 				</div>
-				<HoverTooltip text={standingsRow.teamName} wrapperClass="block min-w-0">
+				<HoverTooltip
+					text={standingsRow.teamName}
+					case="preserve"
+					wrapperClass="block min-w-0 flex-1"
+				>
 					{#if teamHref}
 						<a
 							href={teamHref}
-							class={`truncate font-sans text-xs text-neutral-950 underline-offset-2 hover:text-primary-700 hover:underline focus-visible:outline-none focus-visible:underline ${teamNameClass(standingsRow.teamId)}`}
+							class={`block w-full truncate font-sans text-xs text-neutral-950 underline-offset-2 hover:text-primary-700 hover:underline focus-visible:outline-none focus-visible:underline ${teamNameClass(standingsRow.teamId)}`}
 						>
 							{standingsRow.teamName}
 						</a>
 					{:else}
-						<p class={`truncate font-sans text-xs text-neutral-950 ${teamNameClass(standingsRow.teamId)}`}>
+						<p
+							class={`block w-full truncate font-sans text-xs text-neutral-950 ${teamNameClass(standingsRow.teamId)}`}
+						>
 							{standingsRow.teamName}
 						</p>
 					{/if}
