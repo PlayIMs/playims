@@ -16,6 +16,7 @@ export const divisions = sqliteTable(
 		location: text(),
 		isActive: integer('is_active'),
 		isLocked: integer('is_locked'),
+		doAutoLock: integer('do_auto_lock'),
 		teamsCount: integer('teams_count'),
 		startDate: text('start_date'),
 		createdAt: text('created_at'),

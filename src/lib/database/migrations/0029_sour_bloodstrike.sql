@@ -1,0 +1,1 @@
+ALTER TABLE `divisions` ADD `do_auto_lock` integer;

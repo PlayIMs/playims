@@ -41,6 +41,7 @@ interface DivisionRow {
 	startDate: string | null;
 	maxTeams: number | null;
 	isLocked: boolean;
+	doAutoLock: boolean;
 	teamCount: number;
 	waitlistCount: number;
 }
@@ -264,6 +265,7 @@ export const load: PageServerLoad = async (event) => {
 				startDate: division.startDate ?? null,
 				maxTeams: division.maxTeams ?? null,
 				isLocked: division.isLocked === 1,
+				doAutoLock: division.doAutoLock !== 0,
 				teamCount: activeTeamCountByDivisionId.get(divisionId) ?? 0,
 				waitlistCount: waitlistCountByDivisionId.get(divisionId) ?? 0
 			};

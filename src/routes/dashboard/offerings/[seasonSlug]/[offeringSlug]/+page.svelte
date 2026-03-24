@@ -60,7 +60,8 @@
 		IconPencil,
 		IconRestore,
 		IconShip,
-		IconTarget
+		IconTarget,
+		IconX
 	} from '@tabler/icons-svelte';
 
 	type OfferingLeagueRow = NonNullable<PageData['leagues']>[number];
@@ -82,10 +83,11 @@
 		description: string;
 		dayOfWeek: string;
 		gameTime: string;
-		location: string;
-		startDate: string;
-		isLocked: boolean;
-	}
+	location: string;
+	startDate: string;
+	isLocked: boolean;
+	doAutoLock: boolean;
+}
 
 	interface DivisionWizardDraft extends DivisionWizardForm {
 		draftId: string;
@@ -242,7 +244,8 @@
 		gameTime: '',
 		location: '',
 		startDate: '',
-		isLocked: false
+		isLocked: false,
+		doAutoLock: true
 	});
 	let createDivisionInitialForm = $state<DivisionWizardForm>({
 		name: '',
@@ -253,7 +256,8 @@
 		gameTime: '',
 		location: '',
 		startDate: '',
-		isLocked: false
+		isLocked: false,
+		doAutoLock: true
 	});
 	let createLeagueForm = $state<LeagueWizardFormState>({
 		offeringId: '',
@@ -481,7 +485,8 @@
 			gameTime: '',
 			location: '',
 			startDate: '',
-			isLocked: false
+			isLocked: false,
+			doAutoLock: true
 		};
 	}
 
@@ -499,7 +504,8 @@
 			gameTime: values.gameTime,
 			location: values.location,
 			startDate: values.startDate,
-			isLocked: values.isLocked
+			isLocked: values.isLocked,
+			doAutoLock: values.doAutoLock
 		};
 	}
 
@@ -523,7 +529,8 @@
 			gameTime: division.gameTime ?? '',
 			location: division.location ?? '',
 			startDate: division.startDate ?? '',
-			isLocked: Boolean(division.isLocked)
+			isLocked: Boolean(division.isLocked),
+			doAutoLock: division.doAutoLock !== false
 		};
 	}
 
@@ -564,7 +571,8 @@
 			gameTime: values.gameTime.trim(),
 			location: values.location.trim(),
 			startDate: values.startDate.trim(),
-			isLocked: values.isLocked
+			isLocked: values.isLocked,
+			doAutoLock: values.doAutoLock
 		};
 	}
 
@@ -1594,6 +1602,7 @@
 							maxTeams: Number(draft.maxTeams),
 							location: normalizeOptionalTextForRequest(draft.location),
 							isLocked: draft.isLocked,
+							doAutoLock: draft.doAutoLock,
 							startDate: draft.startDate.trim() || null
 						}
 					})
@@ -1653,7 +1662,11 @@
 		}
 	}
 
-	function applyDivisionLockState(leagueId: string, divisionId: string, isLocked: boolean): void {
+	function applyDivisionLockState(
+		leagueId: string,
+		divisionId: string,
+		nextState: { isLocked: boolean; doAutoLock: boolean }
+	): void {
 		data = {
 			...data,
 			leagues: data.leagues.map((league: OfferingLeagueRow) =>
@@ -1661,7 +1674,7 @@
 					? {
 							...league,
 							divisions: league.divisions.map((division: OfferingDivisionRow) =>
-								division.id === divisionId ? { ...division, isLocked } : division
+								division.id === divisionId ? { ...division, ...nextState } : division
 							)
 						}
 					: league
@@ -1728,6 +1741,32 @@
 	}
 
 	async function toggleDivisionLock(target: ActiveDivisionLockTarget): Promise<void> {
+		await updateDivisionLockMode(target, {
+			isLocked: !target.division.isLocked,
+			doAutoLock: false,
+			successMessage: !target.division.isLocked ? 'Division locked.' : 'Division unlocked.',
+			errorAction: !target.division.isLocked ? 'lock division' : 'unlock division'
+		});
+	}
+
+	async function revertDivisionLockToDefault(target: ActiveDivisionLockTarget): Promise<void> {
+		await updateDivisionLockMode(target, {
+			isLocked: target.division.isLocked,
+			doAutoLock: true,
+			successMessage: 'Division lock reset to default.',
+			errorAction: 'reset division lock'
+		});
+	}
+
+	async function updateDivisionLockMode(
+		target: ActiveDivisionLockTarget,
+		options: {
+			isLocked: boolean;
+			doAutoLock: boolean;
+			successMessage: string;
+			errorAction: string;
+		}
+	): Promise<void> {
 		if (!canManageOffering || !target.league.id) return;
 
 		const apiPath = createDivisionManagementApiPath(target.league);
@@ -1738,7 +1777,6 @@
 			return;
 		}
 
-		const nextIsLocked = !target.division.isLocked;
 		const divisionForm = divisionFormFromDivision(target.division);
 		divisionLockSubmittingId = target.division.id;
 
@@ -1758,7 +1796,8 @@
 						gameTime: normalizeOptionalTextForRequest(divisionForm.gameTime),
 						maxTeams: Number(divisionForm.maxTeams),
 						location: normalizeOptionalTextForRequest(divisionForm.location),
-						isLocked: nextIsLocked,
+						isLocked: options.isLocked,
+						doAutoLock: options.doAutoLock,
 						startDate: divisionForm.startDate || null
 					}
 				})
@@ -1768,7 +1807,7 @@
 				toast.error(
 					payload.error ??
 						firstFieldError(payload.fieldErrors) ??
-						`Unable to ${nextIsLocked ? 'lock' : 'unlock'} division right now.`,
+						`Unable to ${options.errorAction} right now.`,
 					{
 						title: target.league.name
 					}
@@ -1776,14 +1815,17 @@
 				return;
 			}
 
-			applyDivisionLockState(target.league.id, target.division.id, nextIsLocked);
+			applyDivisionLockState(target.league.id, target.division.id, {
+				isLocked: options.isLocked,
+				doAutoLock: options.doAutoLock
+			});
 			closeDivisionLockPopover(true);
-			toast.success(nextIsLocked ? 'Division locked.' : 'Division unlocked.', {
+			toast.success(options.successMessage, {
 				title: target.league.name
 			});
 			void invalidateAll();
 		} catch {
-			toast.error(`Unable to ${nextIsLocked ? 'lock' : 'unlock'} division right now.`, {
+			toast.error(`Unable to ${options.errorAction} right now.`, {
 				title: target.league.name ?? pageLabel
 			});
 		} finally {
@@ -3674,32 +3716,53 @@
 		<div class="flex items-center gap-1">
 			<button
 				type="button"
-				class="inline-flex h-7 items-center justify-center border border-secondary-300 bg-white px-2.5 text-[11px] font-semibold leading-none text-neutral-950 cursor-pointer hover:bg-neutral-50 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-secondary-500 disabled:cursor-not-allowed disabled:opacity-50"
+				class="button-secondary-outlined inline-flex h-7 items-center justify-center gap-1 px-2.5 text-[11px] leading-none cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
 				bind:this={divisionLockCancelButton}
 				disabled={divisionLockSubmittingId === activeDivisionLockTarget.division.id}
 				onclick={() => {
 					closeDivisionLockPopover();
 				}}
 			>
-				Cancel
+				<IconX class="h-3.5 w-3.5" />
+				<span>Cancel</span>
 			</button>
-			<button
-				type="button"
-				class="inline-flex h-7 items-center justify-center gap-1 border border-primary-600 bg-primary-500 px-2.5 text-[11px] font-semibold leading-none cursor-pointer hover:bg-primary-600 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
-				style:color="var(--color-primary-05)"
-				disabled={divisionLockSubmittingId === activeDivisionLockTarget.division.id}
-				onclick={() => {
-					void toggleDivisionLock(activeDivisionLockTarget);
-				}}
+			<HoverTooltip
+				text={activeDivisionLockTarget.division.isLocked ? 'Unlock division' : 'Lock division'}
+				wrapperClass="inline-flex shrink-0"
 			>
-				{#if activeDivisionLockTarget.division.isLocked}
-					<IconLockOpen class="h-3.5 w-3.5 opacity-90" />
-					<span>Unlock</span>
-				{:else}
-					<IconLock class="h-3.5 w-3.5" />
-					<span>Lock</span>
-				{/if}
-			</button>
+				<button
+					type="button"
+					class="inline-flex h-7 items-center justify-center gap-1 border border-primary-600 bg-primary-500 px-2.5 text-[11px] font-semibold leading-none cursor-pointer hover:bg-primary-600 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
+					style:color="var(--color-primary-05)"
+					disabled={divisionLockSubmittingId === activeDivisionLockTarget.division.id}
+					onclick={() => {
+						void toggleDivisionLock(activeDivisionLockTarget);
+					}}
+				>
+					{#if activeDivisionLockTarget.division.isLocked}
+						<IconLockOpen class="h-3.5 w-3.5 opacity-90" />
+						<span>Unlock</span>
+					{:else}
+						<IconLock class="h-3.5 w-3.5" />
+						<span>Lock</span>
+					{/if}
+				</button>
+			</HoverTooltip>
+			{#if activeDivisionLockTarget.division.doAutoLock === false}
+				<HoverTooltip text="Use default locking" wrapperClass="ml-auto inline-flex shrink-0">
+					<button
+						type="button"
+						class="button-primary-outlined inline-flex h-7 items-center justify-center gap-1 px-2.5 text-[11px] leading-none cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+						disabled={divisionLockSubmittingId === activeDivisionLockTarget.division.id}
+						onclick={() => {
+							void revertDivisionLockToDefault(activeDivisionLockTarget);
+						}}
+					>
+						<IconRestore class="h-3.5 w-3.5" />
+						<span>Revert</span>
+					</button>
+				</HoverTooltip>
+			{/if}
 		</div>
 	</div>
 {/if}

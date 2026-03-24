@@ -51,6 +51,7 @@ interface DivisionSection {
 	startDate: string | null;
 	maxTeams: number | null;
 	isLocked: boolean;
+	doAutoLock: boolean;
 	teamCount: number;
 	waitlistCount: number;
 	standings: StandingsRow[];
@@ -308,6 +309,7 @@ export const load: PageServerLoad = async (event) => {
 					startDate: division.startDate ?? null,
 					maxTeams: division.maxTeams ?? null,
 					isLocked: division.isLocked === 1,
+					doAutoLock: division.doAutoLock !== 0,
 					teamCount: activeTeams.length,
 					waitlistCount,
 					standings: standingsByDivisionId.get(division.id) ?? [],

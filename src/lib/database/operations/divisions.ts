@@ -79,6 +79,7 @@ export class DivisionOperations {
 		location: string | null;
 		isActive: number;
 		isLocked: number;
+		doAutoLock: number;
 		teamsCount: number | null;
 		startDate: string | null;
 		createdUser?: string | null;
@@ -100,6 +101,7 @@ export class DivisionOperations {
 				location: data.location,
 				isActive: data.isActive,
 				isLocked: data.isLocked,
+				doAutoLock: data.doAutoLock,
 				teamsCount: data.teamsCount,
 				startDate: data.startDate,
 				createdAt: now,
@@ -135,6 +137,7 @@ export class DivisionOperations {
 		divisionId: string,
 		teamsCount: number,
 		isLocked: number,
+		doAutoLock: number,
 		updatedUser?: string | null
 	): Promise<Division | null> {
 		const now = new Date().toISOString();
@@ -143,6 +146,7 @@ export class DivisionOperations {
 			.set({
 				teamsCount,
 				isLocked,
+				doAutoLock,
 				updatedAt: now,
 				updatedUser: updatedUser ?? null
 			})
@@ -163,6 +167,7 @@ export class DivisionOperations {
 			maxTeams: number | null;
 			location: string | null;
 			isLocked: number;
+			doAutoLock: number;
 			startDate: string | null;
 			updatedUser?: string | null;
 		}
@@ -179,6 +184,7 @@ export class DivisionOperations {
 				maxTeams: data.maxTeams,
 				location: data.location,
 				isLocked: data.isLocked,
+				doAutoLock: data.doAutoLock,
 				startDate: data.startDate,
 				updatedAt: now,
 				updatedUser: data.updatedUser ?? null

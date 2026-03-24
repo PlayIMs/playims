@@ -203,10 +203,15 @@ const intramuralDivisionInputSchema = z.object({
 		.max(128, 'Division team limit must be 128 or less.'),
 	location: optionalText('Division location', 140),
 	isLocked: z.boolean(),
+	doAutoLock: z.boolean(),
 	startDate: optionalDate
 });
 
 const intramuralTeamPlacementSchema = z.enum(['active', 'waitlist']);
+const intramuralTeamActivePlacementOverrideSchema = z.union([
+	z.enum(['locked-add', 'locked-add-unlock', 'full-add']),
+	z.null()
+]);
 
 const intramuralTeamInputSchema = z.object({
 	divisionId: requiredText('Division', 120),
@@ -234,7 +239,8 @@ export const updateIntramuralDivisionSchema = z.object({
 export const createIntramuralTeamSchema = z.object({
 	action: z.literal('create-team'),
 	leagueId: requiredText('League', 120),
-	team: intramuralTeamInputSchema
+	team: intramuralTeamInputSchema,
+	activePlacementOverride: intramuralTeamActivePlacementOverrideSchema.default(null)
 });
 
 export const moveIntramuralTeamSchema = z.object({
@@ -242,7 +248,8 @@ export const moveIntramuralTeamSchema = z.object({
 	leagueId: requiredText('League', 120),
 	teamId: requiredText('Team', 120),
 	divisionId: requiredText('Division', 120),
-	placement: intramuralTeamPlacementSchema
+	placement: intramuralTeamPlacementSchema,
+	activePlacementOverride: intramuralTeamActivePlacementOverrideSchema.default(null)
 });
 
 export const removeIntramuralTeamSchema = z.object({

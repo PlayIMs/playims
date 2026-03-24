@@ -53,6 +53,27 @@ const isActiveTeamStatus = (value: string | null | undefined): boolean =>
 const shouldAutoLockDivision = (maxTeams: number | null | undefined, activeTeamCount: number): number =>
 	typeof maxTeams === 'number' && activeTeamCount >= maxTeams ? 1 : 0;
 
+const divisionUsesAutoLock = (division: { doAutoLock?: number | null }): boolean =>
+	(division.doAutoLock ?? 1) === 1;
+
+const resolveSyncedDivisionLockState = (
+	division: { maxTeams: number | null; isLocked: number | null; doAutoLock?: number | null },
+	activeTeamCount: number
+): { isLocked: number; doAutoLock: number } => {
+	const doAutoLock = divisionUsesAutoLock(division) ? 1 : 0;
+	if (doAutoLock === 1) {
+		return {
+			isLocked: shouldAutoLockDivision(division.maxTeams, activeTeamCount),
+			doAutoLock
+		};
+	}
+
+	return {
+		isLocked: division.isLocked === 1 ? 1 : 0,
+		doAutoLock
+	};
+};
+
 async function syncDivisionTeamCounts(
 	dbOps: Awaited<ReturnType<typeof getTenantDbOps>>,
 	clientId: string,
@@ -81,10 +102,12 @@ async function syncDivisionTeamCounts(
 		const division = await dbOps.divisions.getById(divisionId);
 		if (!division?.id) continue;
 		const teamsCount = activeTeamCounts.get(divisionId) ?? 0;
+		const nextLockState = resolveSyncedDivisionLockState(division, teamsCount);
 		await dbOps.divisions.syncCapacityState(
 			divisionId,
 			teamsCount,
-			shouldAutoLockDivision(division.maxTeams, teamsCount),
+			nextLockState.isLocked,
+			nextLockState.doAutoLock,
 			updatedUser
 		);
 	}
@@ -156,6 +179,24 @@ function activeTeamsInDivision(
 		if (ignoreTeamId && team.id === ignoreTeamId) return false;
 		return team.divisionId === divisionId && isActiveTeamStatus(team.teamStatus);
 	}).length;
+}
+
+function allowsLockedDivisionOverride(
+	override: CreateIntramuralTeamInput['activePlacementOverride']
+): boolean {
+	return override === 'locked-add' || override === 'locked-add-unlock';
+}
+
+function keepsDivisionLockedAfterManualAdd(
+	override: CreateIntramuralTeamInput['activePlacementOverride']
+): boolean {
+	return override === 'locked-add';
+}
+
+function unlocksDivisionAfterManualAdd(
+	override: CreateIntramuralTeamInput['activePlacementOverride']
+): boolean {
+	return override === 'locked-add-unlock';
 }
 
 export const POST: RequestHandler = async (event) => {
@@ -325,7 +366,12 @@ export const POST: RequestHandler = async (event) => {
 				}
 
 				let nextIsLocked = input.division.isLocked ? 1 : 0;
-				if (input.division.maxTeams !== targetDivision.maxTeams) {
+				let nextDoAutoLock = input.division.doAutoLock ? 1 : 0;
+				if (
+					nextDoAutoLock === 1 &&
+					(input.division.maxTeams !== targetDivision.maxTeams ||
+						divisionUsesAutoLock(targetDivision) === false)
+				) {
 					const divisionTeams = await dbOps.teams.getByClientIdAndDivisionIds(clientId, [
 						targetDivision.id
 					]);
@@ -345,6 +391,7 @@ export const POST: RequestHandler = async (event) => {
 					maxTeams: input.division.maxTeams,
 					location: input.division.location,
 					isLocked: nextIsLocked,
+					doAutoLock: nextDoAutoLock,
 					startDate: input.division.startDate,
 					updatedUser: userId
 				});
@@ -379,6 +426,7 @@ export const POST: RequestHandler = async (event) => {
 				location: input.division.location,
 				isActive: 1,
 				isLocked: input.division.isLocked ? 1 : 0,
+				doAutoLock: input.division.doAutoLock ? 1 : 0,
 				teamsCount: 0,
 				startDate: input.division.startDate,
 				createdUser: userId,
@@ -442,7 +490,19 @@ export const POST: RequestHandler = async (event) => {
 				.map((division) => division.id)
 				.filter((divisionId): divisionId is string => Boolean(divisionId))
 		);
-		if (input.team.placement === 'active' && targetDivision.isLocked) {
+		const activeTeamCount = activeTeamsInDivision(
+			targetDivision.id,
+			leagueTeamPool as Array<{ id: string; divisionId: string; teamStatus: string | null }>
+		);
+		const isDivisionFull =
+			typeof targetDivision.maxTeams === 'number' && activeTeamCount >= targetDivision.maxTeams;
+
+		if (
+			input.team.placement === 'active' &&
+			targetDivision.isLocked &&
+			!isDivisionFull &&
+			!allowsLockedDivisionOverride(input.activePlacementOverride)
+		) {
 			return json(
 				{
 					success: false,
@@ -455,14 +515,7 @@ export const POST: RequestHandler = async (event) => {
 			);
 		}
 
-		if (
-			input.team.placement === 'active' &&
-			typeof targetDivision.maxTeams === 'number' &&
-			activeTeamsInDivision(
-				targetDivision.id,
-				leagueTeamPool as Array<{ id: string; divisionId: string; teamStatus: string | null }>
-			) >= targetDivision.maxTeams
-		) {
+		if (input.team.placement === 'active' && isDivisionFull && input.activePlacementOverride !== 'full-add') {
 			return json(
 				{
 					success: false,
@@ -508,7 +561,22 @@ export const POST: RequestHandler = async (event) => {
 		}
 
 		if (isActiveTeamStatus(createdTeam.teamStatus)) {
-			await syncDivisionTeamCounts(dbOps, clientId, [targetDivision.id], userId);
+			if (
+				targetDivision.isLocked &&
+				!isDivisionFull &&
+				(keepsDivisionLockedAfterManualAdd(input.activePlacementOverride) ||
+					unlocksDivisionAfterManualAdd(input.activePlacementOverride))
+			) {
+				await dbOps.divisions.syncCapacityState(
+					targetDivision.id,
+					activeTeamCount + 1,
+					keepsDivisionLockedAfterManualAdd(input.activePlacementOverride) ? 1 : 0,
+					0,
+					userId
+				);
+			} else {
+				await syncDivisionTeamCounts(dbOps, clientId, [targetDivision.id], userId);
+			}
 		}
 
 		return json(
@@ -654,14 +722,37 @@ export const PATCH: RequestHandler = async (event) => {
 			);
 		}
 
+		const targetActiveTeamCount = activeTeamsInDivision(
+			targetDivision.id,
+			teams as Array<{ id: string; divisionId: string; teamStatus: string | null }>,
+			team.id
+		);
+		const targetDivisionIsFull =
+			typeof targetDivision.maxTeams === 'number' &&
+			targetActiveTeamCount >= targetDivision.maxTeams;
+
 		if (
 			input.placement === 'active' &&
-			typeof targetDivision.maxTeams === 'number' &&
-			activeTeamsInDivision(
-				targetDivision.id,
-				teams as Array<{ id: string; divisionId: string; teamStatus: string | null }>,
-				team.id
-			) >= targetDivision.maxTeams
+			targetDivision.isLocked &&
+			!targetDivisionIsFull &&
+			!allowsLockedDivisionOverride(input.activePlacementOverride)
+		) {
+			return json(
+				{
+					success: false,
+					error: 'Selected division is locked.',
+					fieldErrors: {
+						divisionId: ['This division is locked. Keep the team on the waitlist instead.']
+					}
+				} satisfies ManageIntramuralLeagueResponse,
+				{ status: 409 }
+			);
+		}
+
+		if (
+			input.placement === 'active' &&
+			targetDivisionIsFull &&
+			input.activePlacementOverride !== 'full-add'
 		) {
 			return json(
 				{
@@ -697,7 +788,31 @@ export const PATCH: RequestHandler = async (event) => {
 		}
 
 		await dbOps.divisionStandings.deleteByClientIdAndTeamId(clientId, team.id);
-		await syncDivisionTeamCounts(dbOps, clientId, [team.divisionId, targetDivision.id], userId);
+		if (
+			input.placement === 'active' &&
+			targetDivision.isLocked &&
+			!targetDivisionIsFull &&
+			(keepsDivisionLockedAfterManualAdd(input.activePlacementOverride) ||
+				unlocksDivisionAfterManualAdd(input.activePlacementOverride))
+		) {
+			await syncDivisionTeamCounts(
+				dbOps,
+				clientId,
+				[team.divisionId].filter(
+					(divisionId): divisionId is string => Boolean(divisionId && divisionId !== targetDivision.id)
+				),
+				userId
+			);
+			await dbOps.divisions.syncCapacityState(
+				targetDivision.id,
+				targetActiveTeamCount + 1,
+				keepsDivisionLockedAfterManualAdd(input.activePlacementOverride) ? 1 : 0,
+				0,
+				userId
+			);
+		} else {
+			await syncDivisionTeamCounts(dbOps, clientId, [team.divisionId, targetDivision.id], userId);
+		}
 
 		return json({
 			success: true,

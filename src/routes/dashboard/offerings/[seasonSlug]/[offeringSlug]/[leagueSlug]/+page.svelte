@@ -48,6 +48,7 @@
 	import CreateDivisionWizard from './_wizards/CreateDivisionWizard.svelte';
 	import MoveTeamWizard from './_wizards/MoveTeamWizard.svelte';
 	import CreateTeamWizard from './_wizards/CreateTeamWizard.svelte';
+	import DivisionActivePlacementOverrideModal from './_components/DivisionActivePlacementOverrideModal.svelte';
 	import {
 		IconBallAmericanFootball,
 		IconBallBaseball,
@@ -59,9 +60,11 @@
 		IconDots,
 		IconLock,
 		IconLockOpen,
+		IconRestore,
 		IconShip,
 		IconTarget,
-		IconTrash
+		IconTrash,
+		IconX
 	} from '@tabler/icons-svelte';
 
 	type DivisionSection = NonNullable<PageData['divisions']>[number];
@@ -108,10 +111,11 @@
 		description: string;
 		dayOfWeek: string;
 		gameTime: string;
-		location: string;
-		startDate: string;
-		isLocked: boolean;
-	}
+	location: string;
+	startDate: string;
+	isLocked: boolean;
+	doAutoLock: boolean;
+}
 
 	interface DivisionWizardDraft extends DivisionWizardForm {
 		draftId: string;
@@ -164,7 +168,7 @@
 
 	type CreateTeamActivePlacementOverride = 'locked-add' | 'locked-add-unlock' | 'full-add';
 
-	interface CreateTeamOverrideDialogState {
+	interface DivisionActivePlacementOverrideDialogState {
 		divisionName: string;
 		term: 'locked' | 'full';
 	}
@@ -629,7 +633,12 @@
 					{
 						key: 'manage',
 						label: '',
-						width: '12%',
+						width: '2.75rem',
+						headerPaddingX: 'none',
+						cellPaddingX: 'none',
+						cellPaddingLeft: '0.125rem',
+						cellPaddingRight: '0.125rem',
+						cellTextAlignment: 'right',
 						cellVerticalAlignment: 'middle'
 					}
 				]
@@ -788,7 +797,8 @@
 			gameTime: '',
 			location: '',
 			startDate: '',
-			isLocked: false
+			isLocked: false,
+			doAutoLock: true
 		};
 	}
 
@@ -843,7 +853,8 @@
 			gameTime: division.gameTime ?? '',
 			location: division.location ?? '',
 			startDate: division.startDate ?? '',
-			isLocked: Boolean(division.isLocked)
+			isLocked: Boolean(division.isLocked),
+			doAutoLock: division.doAutoLock !== false
 		};
 	}
 
@@ -1047,7 +1058,7 @@
 	let createDivisionUnsavedConfirmOpen = $state(false);
 	let createTeamUnsavedConfirmOpen = $state(false);
 	let editDivisionUnsavedConfirmOpen = $state(false);
-	let createTeamOverrideDialog = $state<CreateTeamOverrideDialogState | null>(null);
+	let createTeamOverrideDialog = $state<DivisionActivePlacementOverrideDialogState | null>(null);
 	let createDivisionSubmitting = $state(false);
 	let createTeamSubmitting = $state(false);
 	let editDivisionSubmitting = $state(false);
@@ -1091,6 +1102,7 @@
 	let moveTeamUnsavedConfirmOpen = $state(false);
 	let moveTeamSubmitting = $state(false);
 	let moveTeamFormError = $state('');
+	let moveTeamOverrideDialog = $state<DivisionActivePlacementOverrideDialogState | null>(null);
 	let removeModalTeam = $state<{ id: string; name: string } | null>(null);
 	let removingTeamId = $state<string | null>(null);
 	let divisionLockPopover = $state<{
@@ -1137,6 +1149,11 @@
 		if (Object.keys(createTeamServerFieldErrors).length > 0) {
 			createTeamServerFieldErrors = {};
 		}
+	}
+
+	function clearMoveTeamApiErrors(): void {
+		moveTeamFormError = '';
+		moveTeamOverrideDialog = null;
 	}
 
 	function teamRowId(teamId: string): string {
@@ -1430,6 +1447,7 @@
 		}
 		moveTeamForm = { ...moveTeamInitialForm };
 		moveTeamFormError = '';
+		moveTeamOverrideDialog = null;
 		moveTeamUnsavedConfirmOpen = false;
 		moveTeamDirtyState.clearBaseline();
 	}
@@ -1445,11 +1463,14 @@
 		resetMoveTeamWizard(null);
 	}
 
-	function applyDivisionLockState(divisionId: string, isLocked: boolean): void {
+	function applyDivisionLockState(
+		divisionId: string,
+		nextState: { isLocked: boolean; doAutoLock: boolean }
+	): void {
 		data = {
 			...data,
 			divisions: data.divisions.map((division: DivisionSection) =>
-				division.id === divisionId ? { ...division, isLocked } : division
+				division.id === divisionId ? { ...division, ...nextState } : division
 			)
 		};
 	}
@@ -1703,15 +1724,6 @@
 			errors['divisionId'] = 'Select a valid division for this league.';
 		}
 
-		if (
-			values.placement === 'active' &&
-			values.divisionId &&
-			isDivisionFull(values.divisionId, moveTeamContext.id)
-		) {
-			errors['divisionId'] =
-				'This division is already at capacity. Keep the team on the waitlist instead.';
-		}
-
 		return errors;
 	}
 
@@ -1761,23 +1773,43 @@
 		};
 	});
 
-	function createTeamOverrideRequirement(): CreateTeamOverrideDialogState | null {
-		if (createTeamForm.placement !== 'active') return null;
-		const divisionStatus = createTeamSelectedDivisionStatus;
-		if (!divisionStatus) return null;
-		if (divisionStatus.isFull) {
+	function divisionActivePlacementOverrideRequirement(
+		placement: PlacementValue,
+		divisionId: string,
+		ignoreTeamId?: string
+	): DivisionActivePlacementOverrideDialogState | null {
+		if (placement !== 'active') return null;
+		const division = findDivisionById(divisionId);
+		if (!division) return null;
+		if (isDivisionFull(division.id, ignoreTeamId)) {
 			return {
-				divisionName: divisionStatus.name,
+				divisionName: division.name,
 				term: 'full'
 			};
 		}
-		if (divisionStatus.isLocked) {
+		if (division.isLocked) {
 			return {
-				divisionName: divisionStatus.name,
+				divisionName: division.name,
 				term: 'locked'
 			};
 		}
 		return null;
+	}
+
+	function createTeamOverrideRequirement(): DivisionActivePlacementOverrideDialogState | null {
+		return divisionActivePlacementOverrideRequirement(
+			createTeamForm.placement,
+			createTeamForm.divisionId
+		);
+	}
+
+	function moveTeamOverrideRequirement(): DivisionActivePlacementOverrideDialogState | null {
+		if (!moveTeamContext) return null;
+		return divisionActivePlacementOverrideRequirement(
+			moveTeamForm.placement,
+			moveTeamForm.divisionId,
+			moveTeamContext.id
+		);
 	}
 
 	const moveTeamFieldErrors = $derived.by(() => getMoveTeamFieldErrors(moveTeamForm));
@@ -1957,6 +1989,7 @@
 							maxTeams: Number(draft.maxTeams),
 							location: draft.location.trim() || null,
 							isLocked: draft.isLocked,
+							doAutoLock: draft.doAutoLock,
 							startDate: draft.startDate.trim() || null
 						}
 					})
@@ -2053,6 +2086,7 @@
 						maxTeams: Number(editDivisionForm.maxTeams),
 						location: editDivisionForm.location.trim() || null,
 						isLocked: editDivisionForm.isLocked,
+						doAutoLock: editDivisionForm.doAutoLock,
 						startDate: editDivisionForm.startDate || null
 					}
 				})
@@ -2202,7 +2236,8 @@
 	async function updateTeamPlacement(
 		teamId: string,
 		targetDivisionId: string,
-		targetPlacement: PlacementValue
+		targetPlacement: PlacementValue,
+		activePlacementOverride: CreateTeamActivePlacementOverride | null = null
 	): Promise<boolean> {
 		if (!data.league?.id) return false;
 
@@ -2224,7 +2259,8 @@
 					leagueId: data.league.id,
 					teamId,
 					divisionId: targetDivisionId,
-					placement: targetPlacement
+					placement: targetPlacement,
+					activePlacementOverride
 				})
 			});
 			const payload = await readResponse(response);
@@ -2263,17 +2299,33 @@
 			return;
 		}
 
+		const overrideRequirement = moveTeamOverrideRequirement();
+		if (overrideRequirement) {
+			moveTeamOverrideDialog = overrideRequirement;
+			return;
+		}
+
+		await submitMoveTeamWithOverride(null);
+	}
+
+	async function submitMoveTeamWithOverride(
+		activePlacementOverride: CreateTeamActivePlacementOverride | null
+	): Promise<void> {
+		if (!moveTeamContext) return;
+
 		moveTeamSubmitting = true;
 		moveTeamFormError = '';
 
 		const didMove = await updateTeamPlacement(
 			moveTeamContext.id,
 			moveTeamForm.divisionId,
-			moveTeamForm.placement
+			moveTeamForm.placement,
+			activePlacementOverride
 		);
 
 		moveTeamSubmitting = false;
 		if (!didMove) {
+			moveTeamOverrideDialog = null;
 			moveTeamFormError = 'Unable to move team right now.';
 			return;
 		}
@@ -2323,6 +2375,32 @@
 	}
 
 	async function toggleDivisionLock(division: DivisionSection): Promise<void> {
+		await updateDivisionLockMode(division, {
+			isLocked: !division.isLocked,
+			doAutoLock: false,
+			successMessage: !division.isLocked ? 'Division locked.' : 'Division unlocked.',
+			errorAction: !division.isLocked ? 'lock division' : 'unlock division'
+		});
+	}
+
+	async function revertDivisionLockToDefault(division: DivisionSection): Promise<void> {
+		await updateDivisionLockMode(division, {
+			isLocked: division.isLocked,
+			doAutoLock: true,
+			successMessage: 'Division lock reset to default.',
+			errorAction: 'reset division lock'
+		});
+	}
+
+	async function updateDivisionLockMode(
+		division: DivisionSection,
+		options: {
+			isLocked: boolean;
+			doAutoLock: boolean;
+			successMessage: string;
+			errorAction: string;
+		}
+	): Promise<void> {
 		if (!data.league?.id) return;
 
 		const apiPath = managementApiPath();
@@ -2333,7 +2411,6 @@
 			return;
 		}
 
-		const nextIsLocked = !division.isLocked;
 		const divisionForm = divisionFormFromDivision(division);
 		divisionLockSubmittingId = division.id;
 
@@ -2353,7 +2430,8 @@
 						gameTime: divisionForm.gameTime.trim() || null,
 						maxTeams: Number(divisionForm.maxTeams),
 						location: divisionForm.location.trim() || null,
-						isLocked: nextIsLocked,
+						isLocked: options.isLocked,
+						doAutoLock: options.doAutoLock,
 						startDate: divisionForm.startDate || null
 					}
 				})
@@ -2363,7 +2441,7 @@
 				toast.error(
 					payload.error ??
 						firstFieldError(payload.fieldErrors) ??
-						`Unable to ${nextIsLocked ? 'lock' : 'unlock'} division right now.`,
+						`Unable to ${options.errorAction} right now.`,
 					{
 						title: data.league.name
 					}
@@ -2371,14 +2449,17 @@
 				return;
 			}
 
-			applyDivisionLockState(division.id, nextIsLocked);
+			applyDivisionLockState(division.id, {
+				isLocked: options.isLocked,
+				doAutoLock: options.doAutoLock
+			});
 			closeDivisionLockPopover(true);
-			toast.success(nextIsLocked ? 'Division locked.' : 'Division unlocked.', {
+			toast.success(options.successMessage, {
 				title: data.league.name
 			});
 			void invalidateAll();
 		} catch {
-			toast.error(`Unable to ${nextIsLocked ? 'lock' : 'unlock'} division right now.`, {
+			toast.error(`Unable to ${options.errorAction} right now.`, {
 				title: data.league?.name ?? pageLabel
 			});
 		} finally {
@@ -3303,32 +3384,53 @@
 		<div class="flex items-center gap-1">
 			<button
 				type="button"
-				class="inline-flex h-7 items-center justify-center border border-secondary-300 bg-white px-2.5 text-[11px] font-semibold leading-none text-neutral-950 cursor-pointer hover:bg-neutral-50 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-secondary-500 disabled:cursor-not-allowed disabled:opacity-50"
+				class="button-secondary-outlined inline-flex h-7 items-center justify-center gap-1 px-2.5 text-[11px] leading-none cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
 				bind:this={divisionLockCancelButton}
 				disabled={divisionLockSubmittingId === activeDivisionLockTarget.id}
 				onclick={() => {
 					closeDivisionLockPopover();
 				}}
 			>
-				Cancel
+				<IconX class="h-3.5 w-3.5" />
+				<span>Cancel</span>
 			</button>
-			<button
-				type="button"
-				class="inline-flex h-7 items-center justify-center gap-1 border border-primary-600 bg-primary-500 px-2.5 text-[11px] font-semibold leading-none cursor-pointer hover:bg-primary-600 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
-				style:color="var(--color-primary-05)"
-				disabled={divisionLockSubmittingId === activeDivisionLockTarget.id}
-				onclick={() => {
-					void toggleDivisionLock(activeDivisionLockTarget);
-				}}
+			<HoverTooltip
+				text={activeDivisionLockTarget.isLocked ? 'Unlock division' : 'Lock division'}
+				wrapperClass="inline-flex shrink-0"
 			>
-				{#if activeDivisionLockTarget.isLocked}
-					<IconLockOpen class="h-3.5 w-3.5 opacity-90" />
-					<span>Unlock</span>
-				{:else}
-					<IconLock class="h-3.5 w-3.5" />
-					<span>Lock</span>
-				{/if}
-			</button>
+				<button
+					type="button"
+					class="inline-flex h-7 items-center justify-center gap-1 border border-primary-600 bg-primary-500 px-2.5 text-[11px] font-semibold leading-none cursor-pointer hover:bg-primary-600 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
+					style:color="var(--color-primary-05)"
+					disabled={divisionLockSubmittingId === activeDivisionLockTarget.id}
+					onclick={() => {
+						void toggleDivisionLock(activeDivisionLockTarget);
+					}}
+				>
+					{#if activeDivisionLockTarget.isLocked}
+						<IconLockOpen class="h-3.5 w-3.5 opacity-90" />
+						<span>Unlock</span>
+					{:else}
+						<IconLock class="h-3.5 w-3.5" />
+						<span>Lock</span>
+					{/if}
+				</button>
+			</HoverTooltip>
+			{#if activeDivisionLockTarget.doAutoLock === false}
+				<HoverTooltip text="Use default locking" wrapperClass="ml-auto inline-flex shrink-0">
+					<button
+						type="button"
+						class="button-primary-outlined inline-flex h-7 items-center justify-center gap-1 px-2.5 text-[11px] leading-none cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+						disabled={divisionLockSubmittingId === activeDivisionLockTarget.id}
+						onclick={() => {
+							void revertDivisionLockToDefault(activeDivisionLockTarget);
+						}}
+					>
+						<IconRestore class="h-3.5 w-3.5" />
+						<span>Revert</span>
+					</button>
+				</HoverTooltip>
+			{/if}
 		</div>
 	</div>
 {/if}
@@ -3426,80 +3528,22 @@
 		createTeamUnsavedConfirmOpen = false;
 	}}
 />
-<ModalShell
+<DivisionActivePlacementOverrideModal
 	open={Boolean(createTeamOverrideDialog)}
-	closeAriaLabel="Close team override confirmation"
-	panelClass="w-full max-w-md border-4 border-secondary bg-neutral-400 overflow-hidden"
-	paddingClass="p-0"
-	on:requestClose={() => {
+	dialogState={createTeamOverrideDialog}
+	submitting={createTeamSubmitting}
+	actionLabel="Add"
+	onRequestClose={() => {
 		if (createTeamSubmitting) return;
 		createTeamOverrideDialog = null;
 	}}
->
-	{#if createTeamOverrideDialog}
-		<div class="bg-white">
-			<div class="border-b border-neutral-950 px-4 py-3">
-				<p class="text-sm leading-5 text-neutral-950">
-					{#if createTeamOverrideDialog.term === 'full'}
-						<span class="font-semibold">{createTeamOverrideDialog.divisionName}</span> is full.
-						Add this team anyway as a manual override?
-					{:else}
-						<span class="font-semibold">{createTeamOverrideDialog.divisionName}</span> is locked.
-						Do you want to add this team anyway?
-					{/if}
-				</p>
-			</div>
-			<div class="flex items-center justify-end gap-2 bg-neutral px-4 py-3">
-				<button
-					type="button"
-					class="inline-flex h-8 items-center justify-center border-2 border-secondary-500 bg-white px-2.5 text-[11px] font-semibold leading-none text-neutral-950 cursor-pointer hover:bg-secondary-50 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-secondary-500 disabled:cursor-not-allowed disabled:opacity-50"
-					disabled={createTeamSubmitting}
-					onclick={() => {
-						createTeamOverrideDialog = null;
-					}}
-				>
-					Cancel
-				</button>
-				{#if createTeamOverrideDialog.term === 'locked'}
-					<button
-						type="button"
-						class="inline-flex h-8 items-center justify-center border-2 border-secondary-500 bg-white px-2.5 text-[11px] font-semibold leading-none text-neutral-950 cursor-pointer hover:bg-secondary-50 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-secondary-500 disabled:cursor-not-allowed disabled:opacity-50"
-						disabled={createTeamSubmitting}
-						onclick={() => {
-							void submitCreateTeam('locked-add');
-						}}
-					>
-						Add
-					</button>
-					<button
-						type="button"
-						class="inline-flex h-8 items-center justify-center gap-1 border border-primary-600 bg-primary-500 px-2.5 text-[11px] font-semibold leading-none cursor-pointer hover:bg-primary-600 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
-						style:color="var(--color-primary-05)"
-						disabled={createTeamSubmitting}
-						onclick={() => {
-							void submitCreateTeam('locked-add-unlock');
-						}}
-					>
-						<IconLockOpen class="h-3.5 w-3.5" />
-						<span>Add and Unlock</span>
-					</button>
-				{:else}
-					<button
-						type="button"
-						class="inline-flex h-8 items-center justify-center border border-primary-600 bg-primary-500 px-2.5 text-[11px] font-semibold leading-none cursor-pointer hover:bg-primary-600 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
-						style:color="var(--color-primary-05)"
-						disabled={createTeamSubmitting}
-						onclick={() => {
-							void submitCreateTeam('full-add');
-						}}
-					>
-						Add
-					</button>
-				{/if}
-			</div>
-		</div>
-	{/if}
-</ModalShell>
+	onConfirm={() => {
+		void submitCreateTeam(createTeamOverrideDialog?.term === 'full' ? 'full-add' : 'locked-add');
+	}}
+	onConfirmAndUnlock={() => {
+		void submitCreateTeam('locked-add-unlock');
+	}}
+/>
 
 <MoveTeamWizard
 	open={Boolean(moveTeamContext)}
@@ -3517,11 +3561,27 @@
 	onRequestClose={requestCloseMoveTeamWizard}
 	onSubmit={submitMoveTeam}
 	onInput={() => {
-		moveTeamFormError = '';
+		clearMoveTeamApiErrors();
 	}}
 	onUnsavedConfirm={closeMoveTeamWizard}
 	onUnsavedCancel={() => {
 		moveTeamUnsavedConfirmOpen = false;
+	}}
+/>
+<DivisionActivePlacementOverrideModal
+	open={Boolean(moveTeamOverrideDialog)}
+	dialogState={moveTeamOverrideDialog}
+	submitting={moveTeamSubmitting}
+	actionLabel="Move"
+	onRequestClose={() => {
+		if (moveTeamSubmitting) return;
+		moveTeamOverrideDialog = null;
+	}}
+	onConfirm={() => {
+		void submitMoveTeamWithOverride(moveTeamOverrideDialog?.term === 'full' ? 'full-add' : 'locked-add');
+	}}
+	onConfirmAndUnlock={() => {
+		void submitMoveTeamWithOverride('locked-add-unlock');
 	}}
 />
 

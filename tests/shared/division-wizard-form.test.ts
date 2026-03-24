@@ -31,7 +31,8 @@ describe('division wizard form normalization', () => {
 					gameTime: ' 6:00 PM ',
 					location: ' Rec Center ',
 					startDate: ' 2026-05-01 ',
-					isLocked: true
+					isLocked: true,
+					doAutoLock: true
 				},
 				'draft-1'
 			)
@@ -45,7 +46,8 @@ describe('division wizard form normalization', () => {
 			gameTime: '6:00 PM',
 			location: 'Rec Center',
 			startDate: '2026-05-01',
-			isLocked: true
+			isLocked: true,
+			doAutoLock: true
 		});
 	});
 
@@ -61,7 +63,8 @@ describe('division wizard form normalization', () => {
 				gameTime: '',
 				location: '',
 				startDate: '',
-				isLocked: false
+				isLocked: false,
+				doAutoLock: true
 			})
 		).toEqual({
 			name: 'Tuesday',
@@ -72,7 +75,8 @@ describe('division wizard form normalization', () => {
 			gameTime: '',
 			location: '',
 			startDate: '',
-			isLocked: false
+			isLocked: false,
+			doAutoLock: true
 		});
 	});
 });

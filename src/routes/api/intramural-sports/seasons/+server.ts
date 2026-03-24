@@ -754,6 +754,7 @@ export const POST: RequestHandler = async (event) => {
 						location: sourceDivision.location ?? null,
 						isActive: sourceDivision.isActive !== 0 ? 1 : 0,
 						isLocked: sourceDivision.isLocked === 1 ? 1 : 0,
+						doAutoLock: sourceDivision.doAutoLock === 0 ? 0 : 1,
 						teamsCount: sourceDivision.teamsCount ?? null,
 						startDate: sourceDivision.startDate ?? null,
 						createdUser: userId,

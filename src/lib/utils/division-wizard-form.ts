@@ -10,6 +10,7 @@ export interface DivisionWizardFormLike {
 	location: string;
 	startDate: string;
 	isLocked: boolean;
+	doAutoLock: boolean;
 }
 
 export interface NormalizedDivisionWizardForm {
@@ -22,6 +23,7 @@ export interface NormalizedDivisionWizardForm {
 	location: string;
 	startDate: string;
 	isLocked: boolean;
+	doAutoLock: boolean;
 }
 
 export interface DivisionWizardDraftLike extends NormalizedDivisionWizardForm {
@@ -53,7 +55,8 @@ export function cloneDivisionWizardForm(
 		gameTime: values.gameTime,
 		location: values.location,
 		startDate: values.startDate,
-		isLocked: values.isLocked
+		isLocked: values.isLocked,
+		doAutoLock: values.doAutoLock
 	};
 }
 
@@ -71,6 +74,7 @@ export function normalizeCreateDivisionDraft(
 		gameTime: normalizeTextValue(values.gameTime),
 		location: normalizeTextValue(values.location),
 		startDate: normalizeTextValue(values.startDate),
-		isLocked: values.isLocked
+		isLocked: values.isLocked,
+		doAutoLock: values.doAutoLock
 	};
 }

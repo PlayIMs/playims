@@ -1,7 +1,7 @@
 // Database operations - Drizzle ORM
 // Fully typed database operations using Cloudflare D1
 
-import { createDrizzleClient } from '../drizzle.js';
+import { createDrizzleClient, type CreateDrizzleClientOptions } from '../drizzle.js';
 import type { D1Database } from '@cloudflare/workers-types';
 import { ClientOperations } from './clients.js';
 import { UserOperations } from './users.js';
@@ -54,7 +54,7 @@ export class DatabaseOperations {
 	public authRateLimits: AuthRateLimitOperations;
 	public searchRecents: SearchRecentOperations;
 
-	constructor(platformOrDb: { env: { DB: D1Database } } | D1Database) {
+	constructor(platformOrDb: { env: { DB: D1Database } } | D1Database, drizzleOptions?: CreateDrizzleClientOptions) {
 		let db: D1Database;
 
 		// Handle null/undefined platform in case of error
@@ -75,7 +75,7 @@ export class DatabaseOperations {
 			);
 		}
 
-		const drizzleDb = createDrizzleClient(db);
+		const drizzleDb = createDrizzleClient(db, drizzleOptions);
 
 		this.clients = new ClientOperations(drizzleDb);
 		this.users = new UserOperations(drizzleDb);
