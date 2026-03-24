@@ -274,7 +274,7 @@
 						{data.team?.name ?? 'Team'}
 					</h1>
 					{#if breadcrumbSegments.length > 0}
-						<div class="absolute left-0 top-[calc(100%+0.2rem)] z-10">
+							<div class="absolute left-0 top-[calc(100%+0.09rem)] z-10">
 							<Breadcrumb
 								segments={breadcrumbSegments}
 								class="max-w-[min(100vw-7rem,100%)]"
