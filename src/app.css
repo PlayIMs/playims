@@ -231,6 +231,10 @@
 
 /* Custom form controls using theme colors */
 @layer components {
+	.data-table-header-title-case {
+		@apply capitalize;
+	}
+
 	/* Checkbox Component Classes */
 	input[type='checkbox'].checkbox-primary {
 		appearance: none;

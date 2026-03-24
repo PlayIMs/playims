@@ -1,7 +1,7 @@
 export type DataTableTextAlignment = 'left' | 'center' | 'right';
 export type DataTableVerticalAlignment = 'top' | 'middle' | 'bottom';
 export type DataTableHorizontalPadding = 'default' | 'none';
-export type DataTableHeaderTextTransform = 'uppercase' | 'normal';
+export type DataTableHeaderTextTransform = 'title' | 'normal';
 export type DataTableSortDirection = 'asc' | 'desc';
 
 export interface DataTableSortState {
@@ -11,6 +11,9 @@ export interface DataTableSortState {
 
 export interface DataTableColumn<TRow = unknown> {
 	key: string;
+	/**
+	 * Use title case for user-facing column header labels.
+	 */
 	label: string;
 	/**
 	 * Recommended header hover tooltip copy shown when the user hovers the column title.

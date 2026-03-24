@@ -92,7 +92,7 @@
 	function resolveHeaderTextTransformClass(
 		textTransform: DataTableHeaderTextTransform | undefined
 	): string {
-		return textTransform === 'normal' ? 'normal-case' : 'uppercase';
+		return textTransform === 'normal' ? 'normal-case' : 'data-table-header-title-case';
 	}
 
 	function resolveHeaderCellClass(column: DataTableColumn<TRow>): string {
@@ -200,7 +200,7 @@
 								{#if sortIndicator(column)}
 									<span
 										aria-hidden="true"
-										class="pointer-events-none absolute left-full top-1/2 ml-1 -translate-y-1/2 text-[12px] leading-none"
+										class="pointer-events-none absolute left-full top-1/2 ml-0.5 -translate-y-1/2 text-[12px] leading-none"
 									>
 										{sortIndicatorSymbol(sortIndicator(column))}
 									</span>
