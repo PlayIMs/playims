@@ -85,6 +85,7 @@ Default class recipes to copy first:
 - Module body wrapper: `px-4 lg:px-6`
 - Module action/meta row: place page actions, timestamps, counts, and utility controls below the header inside the body wrapper, not inside the title strip
 - Compact icon dropdown trigger: `button-secondary-outlined p-1.5 cursor-pointer`
+- Neutralized header utility dropdown trigger: `button-neutral-outlined p-1.5 cursor-pointer`
 - Split add-menu dropdown trigger: `button-primary-outlined -ml-[2px] px-1 py-1 cursor-pointer`
 - Label-inline helper popover row: `mb-1 flex min-h-6 items-center gap-1.5`
 - Slug revert tooltip button: `border-0 bg-transparent ... text-secondary-700 hover:text-secondary-900`
@@ -127,6 +128,7 @@ Border token policy:
 
 - Use `neutral-950` for non-interactive page chrome: module shells, section shells, header dividers, card borders, table wrappers, draft containers, and wizard footers.
 - Keep `secondary-300` for inactive interactive states when the border is part of the control affordance itself, such as badge-like chips, unselected option cards, and button-adjacent control states, unless the user asks to restyle those controls too.
+- If a dashboard control cluster is explicitly restyled to neutral, carry that neutral family through the full interaction surface: trigger border, panel border, internal dividers, footer buttons, icons, hover fills, and focus treatment.
 - Do not put page subtitles in the module header by default.
 - Do not place primary action buttons in the module header by default.
 

@@ -16,7 +16,7 @@ Read these files before editing:
 - `src/lib/components/ListboxDropdown.svelte`
 - `src/lib/components/HoverTooltip.svelte`
 - Current consumers (search `ListboxDropdown` in `src/routes/dashboard/**`)
-- `src/app.css` (`button-secondary-outlined` and dropdown-related utility classes)
+- `src/app.css` (`button-secondary-outlined`, `button-neutral-outlined`, and dropdown-related utility classes)
 - `references/qa-matrix.md`
 
 ## Component Contract
@@ -122,6 +122,29 @@ Example dual-footer action usage (primary + square pencil):
 </ListboxDropdown>
 ```
 
+Example neutralized utility dropdown usage (when the user wants the whole control family neutral):
+
+```svelte
+<ListboxDropdown
+	options={seasonHistoryDropdownOptions}
+	value={selectedSeasonId}
+	ariaLabel="Season history"
+	buttonClass="button-neutral-outlined p-1.5 cursor-pointer"
+	listClass="mt-1 w-64 border-2 border-neutral-950 bg-white z-20 max-h-72 overflow-y-auto"
+	separatorClass="border-neutral-950"
+	footerActionLabel="Add New Season"
+	footerActionClass="w-full button-neutral-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer justify-center"
+	footerSecondaryActionAriaLabel="Manage seasons"
+	footerSecondaryActionClass="button-neutral-outlined w-9 h-9 p-0 cursor-pointer inline-flex items-center justify-center"
+	on:footerAction={openCreateSeasonWizard}
+	on:footerSecondaryAction={openManageSeasonWizard}
+>
+	{#snippet footerSecondaryAction()}
+		<IconPencil class="w-4 h-4" />
+	{/snippet}
+</ListboxDropdown>
+```
+
 Example action-menu usage (non-persistent):
 
 ```svelte
@@ -174,6 +197,7 @@ Example action-menu usage (non-persistent):
 
 - Start from default classes.
 - For compact icon triggers, pass `buttonClass="button-secondary-outlined p-1.5 cursor-pointer"`.
+- If the user asks for a neutral utility control cluster, switch the trigger, panel border, separators, and footer actions to neutral together instead of mixing neutral and secondary recipes.
 - Override `listClass` width/alignment only when required by layout constraints.
 
 4. Add optional footer actions when needed.

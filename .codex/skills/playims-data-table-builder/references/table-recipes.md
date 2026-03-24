@@ -27,7 +27,7 @@ The component already owns:
 - offerings-style header background and divider
 - header typography: bold, uppercase, tight tracking, neutral text
 - alternating neutral row striping
-- row separators
+- row separators using neutral borders
 
 ## Default Recipes
 
@@ -53,6 +53,11 @@ Use these widths when the table mirrors the offerings board:
 - Prefer `badge-primary` for open, `badge-primary-outlined` for waitlist/upcoming, and `badge-secondary-outlined` for closed
 - Keep status labels uppercase with `text-xs uppercase tracking-wide`
 
+### Offering-type title badges
+
+- When an offering title needs a small companion badge like `LEAGUE` or `TOURNAMENT`, prefer a plain neutral border with neutral text.
+- Do not default those title badges to `badge-secondary-outlined`; reserve secondary-outlined treatments for true secondary-status chips when the design calls for them.
+
 ### Date and schedule cells
 
 - Use `text-xs leading-snug text-neutral-950 font-sans`
@@ -71,6 +76,7 @@ Use these widths when the table mirrors the offerings board:
 
 - Do not hand-roll new offerings-style table wrappers when `DataTable` fits.
 - Do not change header typography, casing, or neutral header background for new matching tables.
+- Do not switch offerings-style row dividers back to secondary-tinted borders unless the user explicitly asks for that accent.
 - Do not replace badge classes with ad-hoc pills.
 - Do not move row-specific business logic into the shared component.
 - Do not make the component responsible for fetching, sorting, filtering, or pagination state.

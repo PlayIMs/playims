@@ -70,6 +70,7 @@ Read these files before editing:
 
 - Do not rebuild offerings-style table wrappers inline if `DataTable` can handle the job.
 - Do not change header font treatment, uppercase casing, tracking, or neutral header background for matching tables.
+- Keep offerings-style row dividers on neutral borders, not secondary-tinted borders, unless the user explicitly requests a different accent treatment.
 - Do not push route-specific business logic into the shared component.
 - Do not invent new status pill styles when existing badge classes fit.
 - Do not replace `DateHoverText`, `HoverTooltip`, or shared action controls with ad-hoc alternatives when those behaviors are already needed.
@@ -83,3 +84,4 @@ Read these files before editing:
 - Run `pnpm build` when changing `DataTable.svelte` or multiple consumers.
 - Manually verify mobile overflow and desktop column balance for any touched table.
 - Manually verify row-action visibility on mouse hover and keyboard focus, plus dropdown alignment near the right viewport edge.
+- When a table needs a compact offering-type badge next to a title, default that badge to a neutral border and neutral text rather than a secondary-outlined badge.
