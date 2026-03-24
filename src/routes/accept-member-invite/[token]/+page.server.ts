@@ -40,7 +40,7 @@ export const load: PageServerLoad = async (event) => {
 		viewerSignedIn &&
 		normalizeComparableEmail(event.locals.user?.email) === normalizeComparableEmail(invite.email);
 
-	event.locals.requestLogMeta = {
+	event.	locals.requestLogMeta = {
 		table: 'member_invites',
 		recordCount: 1
 	};

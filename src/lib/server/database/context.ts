@@ -1,4 +1,5 @@
 import { DatabaseOperations, type ClientDatabaseRoute } from '$lib/database';
+import { createDbTableSinkLogger } from '$lib/server/sqlite-query-tables.js';
 import type { D1Database } from '@cloudflare/workers-types';
 import type { RequestEvent } from '@sveltejs/kit';
 import type { ClientDatabaseRouteMode } from '$lib/database/operations/client-database-routes';
@@ -137,8 +138,10 @@ export const getCentralDbOps = (event: DbContextEvent): DatabaseOperations => {
 		return cache.centralOps;
 	}
 
+	const sink =
+		event.locals.dbTablesTouched ?? (event.locals.dbTablesTouched = new Set<string>());
 	const db = requireCentralD1Database(event);
-	cache.centralOps = new DatabaseOperations(db);
+	cache.centralOps = new DatabaseOperations(db, { logger: createDbTableSinkLogger(sink) });
 	return cache.centralOps;
 };
 
@@ -255,7 +258,12 @@ export const getTenantDbOps = async (
 
 	const d1 = await getTenantD1Database(event, trimmedClientId);
 	const centralD1 = requireCentralD1Database(event);
-	const dbOps = d1 === centralD1 ? getCentralDbOps(event) : new DatabaseOperations(d1);
+	const sink =
+		event.locals.dbTablesTouched ?? (event.locals.dbTablesTouched = new Set<string>());
+	const dbOps =
+		d1 === centralD1
+			? getCentralDbOps(event)
+			: new DatabaseOperations(d1, { logger: createDbTableSinkLogger(sink) });
 	cache.tenantOps?.set(trimmedClientId, dbOps);
 	return dbOps;
 };

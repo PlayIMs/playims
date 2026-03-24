@@ -26,11 +26,17 @@ const ANSI = {
 
 type RequestLogScope = 'API' | 'SSR';
 
+export type RequestLogTablesField = {
+	/** Log key: `table` for one name, `tables` for multiple (after noise filtering). */
+	key: 'table' | 'tables';
+	value: string;
+};
+
 type RequestSummaryLog = {
 	scope?: RequestLogScope;
 	method: string;
 	endpoint?: string;
-	table: string;
+	tablesField: RequestLogTablesField;
 	recordCount: number | null;
 	status: number;
 	durationMs: number;
@@ -133,22 +139,51 @@ const isSuccessStatus = (status: number) => status >= 200 && status < 400;
 
 export const nowMs = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
-export const getApiTableFromPath = (pathname: string) => {
-	const segments = pathname.split('/').filter(Boolean);
-	const resource = segments[1] ?? 'unknown';
-	return resource.replace(/-/g, '_');
-};
-
 export const isSsrDataRequestPath = (pathname: string) => pathname.endsWith('/__data.json');
 
-export const getSsrTableFromPath = (pathname: string) => {
-	const normalized = pathname.replace(/\/__data\.json$/, '');
-	const segments = normalized.split('/').filter(Boolean);
-	if (segments.length === 0) {
-		return 'root';
-	}
+/**
+ * Tables that appear on nearly every authenticated request — omitted from request log noise.
+ * Matches sqlite table names (snake_case) from `src/lib/database/schema/*.ts`.
+ */
+export const REQUEST_LOG_OMIT_TABLES = new Set<string>(['auth_rate_limits', 'sessions']);
 
-	return segments.join('_').replace(/-/g, '_');
+/**
+ * Builds the `table=` / `tables=` field for request logs.
+ * Merges tables inferred from Drizzle SQL with optional comma-separated hints from loaders,
+ * then drops {@link REQUEST_LOG_OMIT_TABLES}.
+ */
+export const formatRequestLogTables = (
+	touched: Set<string> | undefined,
+	manualHint?: string | null
+): RequestLogTablesField => {
+	const names = new Set<string>();
+	if (touched) {
+		for (const raw of touched) {
+			const trimmed = raw.trim();
+			if (trimmed.length > 0) {
+				names.add(trimmed);
+			}
+		}
+	}
+	if (manualHint?.trim()) {
+		for (const part of manualHint.split(',')) {
+			const trimmed = part.trim();
+			if (trimmed.length > 0) {
+				names.add(trimmed);
+			}
+		}
+	}
+	for (const omitted of REQUEST_LOG_OMIT_TABLES) {
+		names.delete(omitted);
+	}
+	if (names.size === 0) {
+		return { key: 'table', value: 'no_db_queries' };
+	}
+	const sorted = [...names].sort((a, b) => a.localeCompare(b));
+	if (sorted.length === 1) {
+		return { key: 'table', value: sorted[0]! };
+	}
+	return { key: 'tables', value: sorted.join(',') };
 };
 
 export const isStaticAssetRequestPath = (pathname: string) => {
@@ -208,7 +243,7 @@ export const logRequestSummary = ({
 	scope = 'API',
 	method,
 	endpoint,
-	table,
+	tablesField,
 	recordCount,
 	status,
 	durationMs,
@@ -223,6 +258,8 @@ export const logRequestSummary = ({
 	const scopeColor = scope === 'API' ? ANSI.teal : ANSI.violet;
 	const statusLabelColor = statusColor(status);
 	const keyColor = ANSI.orange;
+	const tableKey = tablesField.key;
+	const tableValue = tablesField.value;
 	const line =
 		`${ANSI.gray}${formatTimestamp(now)}${ANSI.reset} ` +
 		`${scopeColor}${ANSI.bold}[${scope}]${ANSI.reset} ` +
@@ -230,7 +267,7 @@ export const logRequestSummary = ({
 		`${methodColor(method)}${ANSI.bold}${methodLabel}${ANSI.reset} ` +
 		`${ANSI.rose}${route}${ANSI.reset} ` +
 		`${ANSI.dim}|${ANSI.reset} ` +
-		`${keyColor}table${ANSI.reset}=${ANSI.brightBlue}${ANSI.bold}${table}${ANSI.reset} ` +
+		`${keyColor}${tableKey}${ANSI.reset}=${ANSI.brightBlue}${ANSI.bold}${tableValue}${ANSI.reset} ` +
 		`${keyColor}rows${ANSI.reset}=${ANSI.lime}${ANSI.bold}${rows}${ANSI.reset} ` +
 		`${keyColor}status${ANSI.reset}=${statusLabelColor}${ANSI.bold}${status}${ANSI.reset} ` +
 		`${keyColor}dur${ANSI.reset}=${ANSI.brightWhite}${ANSI.bold}${formatDuration(durationMs)}${ANSI.reset}` +

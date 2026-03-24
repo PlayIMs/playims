@@ -14,8 +14,7 @@ import {
 } from '$lib/server/auth/constants';
 import { getCentralDbOps } from '$lib/server/database/context';
 import {
-	getApiTableFromPath,
-	getSsrTableFromPath,
+	formatRequestLogTables,
 	getErrorFromPayload,
 	getRecordCountFromPayload,
 	isStaticAssetRequestPath,
@@ -715,8 +714,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const startedAt = nowMs();
 	const method = event.request.method;
 	const endpoint = `${event.url.pathname}${getSafeSearch(event.url)}`;
-	const table = isApiRequest ? getApiTableFromPath(pathname) : getSsrTableFromPath(pathname);
 	const scope = isApiRequest ? 'API' : 'SSR';
+
+	event.locals.dbTablesTouched = new Set<string>();
+
+	const resolveLogTableField = () =>
+		formatRequestLogTables(event.locals.dbTablesTouched, event.locals.requestLogMeta?.table);
 
 	const getDbOps = () => getCentralDbOps(event);
 
@@ -755,7 +758,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 			scope,
 			method,
 			endpoint,
-			table,
+			tablesField: resolveLogTableField(),
 			recordCount: 0,
 			status: 403,
 			durationMs: nowMs() - startedAt,
@@ -789,7 +792,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 					scope: 'SSR',
 					method,
 					endpoint,
-					table,
+					tablesField: resolveLogTableField(),
 					recordCount: 0,
 					status: 429,
 					durationMs: nowMs() - startedAt,
@@ -818,7 +821,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 				scope: 'API',
 				method,
 				endpoint,
-				table,
+				tablesField: resolveLogTableField(),
 				recordCount: 0,
 				status: 403,
 				durationMs: nowMs() - startedAt,
@@ -843,7 +846,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 				scope: 'API',
 				method,
 				endpoint,
-				table,
+				tablesField: resolveLogTableField(),
 				recordCount: 0,
 				status: 500,
 				durationMs: nowMs() - startedAt,
@@ -869,7 +872,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 					scope: 'API',
 					method,
 					endpoint,
-					table,
+					tablesField: resolveLogTableField(),
 					recordCount: 0,
 					status: 401,
 					durationMs: nowMs() - startedAt,
@@ -903,7 +906,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 					scope: 'API',
 					method,
 					endpoint,
-					table,
+					tablesField: resolveLogTableField(),
 					recordCount: 0,
 					status: 403,
 					durationMs: nowMs() - startedAt,
@@ -943,7 +946,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 					scope: 'API',
 					method,
 					endpoint,
-					table,
+					tablesField: resolveLogTableField(),
 					recordCount: 0,
 					status: 429,
 					durationMs: nowMs() - startedAt,
@@ -967,7 +970,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 					scope: 'SSR',
 					method,
 					endpoint,
-					table,
+					tablesField: resolveLogTableField(),
 					recordCount: 0,
 					status: 500,
 					durationMs: nowMs() - startedAt,
@@ -986,7 +989,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 					scope: 'SSR',
 					method,
 					endpoint,
-					table,
+					tablesField: resolveLogTableField(),
 					recordCount: 0,
 					status: 303,
 					durationMs: nowMs() - startedAt,
@@ -1016,7 +1019,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 					scope: 'SSR',
 					method,
 					endpoint,
-					table,
+					tablesField: resolveLogTableField(),
 					recordCount: 0,
 					status: 403,
 					durationMs: nowMs() - startedAt,
@@ -1042,7 +1045,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 				scope: 'SSR',
 				method,
 				endpoint,
-				table,
+				tablesField: resolveLogTableField(),
 				recordCount: 0,
 				status: 303,
 				durationMs: nowMs() - startedAt,
@@ -1110,10 +1113,6 @@ export const handle: Handle = async ({ event, resolve }) => {
 		}
 
 		const requestLogMeta = event.locals.requestLogMeta;
-		const metaTable =
-			typeof requestLogMeta?.table === 'string' && requestLogMeta.table.trim().length > 0
-				? requestLogMeta.table.trim()
-				: null;
 		const metaRecordCount =
 			typeof requestLogMeta?.recordCount === 'number' &&
 			Number.isFinite(requestLogMeta.recordCount) &&
@@ -1150,7 +1149,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 			scope,
 			method,
 			endpoint,
-			table: metaTable ?? table,
+			tablesField: resolveLogTableField(),
 			recordCount,
 			status: response.status,
 			durationMs: nowMs() - startedAt,
@@ -1167,7 +1166,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 			scope,
 			method,
 			endpoint,
-			table,
+			tablesField: resolveLogTableField(),
 			recordCount: 0,
 			status: 500,
 			durationMs: nowMs() - startedAt,

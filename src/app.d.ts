@@ -39,13 +39,15 @@ declare global {
 				expiresAt: string;
 			};
 			/**
-			 * Optional per-request logging metadata used by SSR loaders to report table/row context
-			 * through the centralized request logger in hooks.server.ts.
+			 * Optional per-request logging metadata for the centralized request logger in hooks.server.ts.
+			 * `table` lists extra touched tables (comma-separated) merged with tables inferred from Drizzle SQL.
 			 */
 			requestLogMeta?: {
 				table?: string;
 				recordCount?: number | null;
 			};
+			/** Populated by Drizzle query logging for request summary lines (comma-separated in logs). */
+			dbTablesTouched?: Set<string>;
 			requestId?: string;
 			__dbCache?: {
 				centralOps?: DatabaseOperations;
