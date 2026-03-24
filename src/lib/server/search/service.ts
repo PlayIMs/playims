@@ -362,7 +362,10 @@ export async function getMegaSearchResponse(
 				resultKey: `teams:${team.id}`,
 				category: 'teams',
 				title: team.name?.trim() || 'Team',
-				subtitle: division?.name?.trim() || league?.name?.trim() || null,
+				subtitle:
+					[offering?.name?.trim(), league?.name?.trim(), division?.name?.trim()]
+						.filter(Boolean)
+						.join(' • ') || null,
 				meta: [offering?.name?.trim(), season?.name?.trim()].filter(Boolean).join(' ') || null,
 				href: buildTeamSearchHref({
 					seasonSlug,
@@ -372,8 +375,9 @@ export async function getMegaSearchResponse(
 					teamSlug
 				})
 			};
+			const baseScore = scoreResult(trimmedQuery, result);
 			// slight team boost ensures team-name queries prioritize direct team routes over parent records.
-			const score = scoreResult(trimmedQuery, result) + 25;
+			const score = baseScore > 0 ? baseScore + 25 : 0;
 			if (score > 0) scored.push({ ...result, score });
 		}
 

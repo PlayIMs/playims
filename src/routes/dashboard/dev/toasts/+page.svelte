@@ -28,6 +28,7 @@
 		type ToastRecord,
 		type ToastVariant
 	} from '$lib/toasts';
+	import DashboardMegaSearchLauncher from '$lib/components/dashboard/DashboardMegaSearchLauncher.svelte';
 
 	type DurationMode = 'default' | 'custom' | 'persistent';
 	type PreviewViewport = 'desktop' | 'mobile';
@@ -116,17 +117,20 @@
 		{
 			value: 'unique',
 			label: 'Unique',
-			description: 'Every toast gets unique copy so you can inspect stack growth and queue behavior.'
+			description:
+				'Every toast gets unique copy so you can inspect stack growth and queue behavior.'
 		},
 		{
 			value: 'collapse',
 			label: 'Deduplicate',
-			description: 'Uses identical copy so the duplicate counter and timer reset behavior are easy to inspect.'
+			description:
+				'Uses identical copy so the duplicate counter and timer reset behavior are easy to inspect.'
 		},
 		{
 			value: 'stack',
 			label: 'Force stack',
-			description: 'Uses identical copy with duplicate bypass enabled so matching toasts still pile up.'
+			description:
+				'Uses identical copy with duplicate bypass enabled so matching toasts still pile up.'
 		}
 	];
 	const mobileStageAlignmentClassByPlacement: Record<ToastMobilePlacement, string> = {
@@ -162,12 +166,7 @@
 		}).format(timestamp);
 	}
 
-	function parseIntegerInput(
-		value: string,
-		fallback: number,
-		min: number,
-		max: number
-	): number {
+	function parseIntegerInput(value: string, fallback: number, min: number, max: number): number {
 		const parsed = Number(value);
 		if (!Number.isFinite(parsed)) {
 			return fallback;
@@ -176,7 +175,10 @@
 		return Math.max(min, Math.min(max, Math.round(parsed)));
 	}
 
-	function getDurationValue(mode: DurationMode, customDurationMs: string): number | null | undefined {
+	function getDurationValue(
+		mode: DurationMode,
+		customDurationMs: string
+	): number | null | undefined {
 		if (mode === 'default') return undefined;
 		if (mode === 'persistent') return null;
 
@@ -410,10 +412,8 @@
 
 		stressRunning = true;
 		try {
-			const count =
-				options?.count ?? parseIntegerInput(stressCount, TOAST_STACK_LIMIT + 3, 1, 24);
-			const intervalMs =
-				options?.intervalMs ?? parseIntegerInput(stressIntervalMs, 140, 0, 5000);
+			const count = options?.count ?? parseIntegerInput(stressCount, TOAST_STACK_LIMIT + 3, 1, 24);
+			const intervalMs = options?.intervalMs ?? parseIntegerInput(stressIntervalMs, 140, 0, 5000);
 			const mode = options?.mode ?? stressMode;
 			const clearFirst = options?.clearFirst ?? stressClearFirst;
 			const includeActions = options?.includeActions ?? stressIncludeActions;
@@ -573,17 +573,19 @@
 						</p>
 						<h1 class="font-serif text-3xl leading-none text-secondary-900">Toast Lab</h1>
 						<p class="max-w-3xl text-sm leading-6 text-secondary-800">
-							Test every major toast behavior without pushing the rest of the UI around.
-							Use this page to tune timing, titles, actions, loading flows, and persistent
-							error handling before we wire additional patterns into production screens.
+							Test every major toast behavior without pushing the rest of the UI around. Use this
+							page to tune timing, titles, actions, loading flows, and persistent error handling
+							before we wire additional patterns into production screens.
 						</p>
 					</div>
 				</div>
-
+				<DashboardMegaSearchLauncher variant="compact" />
 			</div>
 		</div>
 
-		<div class="grid gap-3 border-b border-neutral-950 bg-neutral-100/70 p-4 md:grid-cols-2 xl:grid-cols-4">
+		<div
+			class="grid gap-3 border-b border-neutral-950 bg-neutral-100/70 p-4 md:grid-cols-2 xl:grid-cols-4"
+		>
 			<button
 				type="button"
 				class="button-secondary-outlined inline-flex cursor-pointer items-center justify-center gap-2 px-3 py-2 text-xs font-bold uppercase tracking-[0.14em]"
@@ -630,7 +632,10 @@
 
 					<div class="grid gap-4 p-4 md:grid-cols-2">
 						<div class="space-y-1 md:col-span-2">
-							<label class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-700" for="toast-title">
+							<label
+								class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-700"
+								for="toast-title"
+							>
 								Title
 							</label>
 							<input
@@ -657,7 +662,9 @@
 						</div>
 
 						<div class="space-y-2 md:col-span-2">
-							<p class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-700">Variant</p>
+							<p class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-700">
+								Variant
+							</p>
 							<div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
 								{#each variantOptions as option}
 									<label
@@ -709,9 +716,7 @@
 												</span>
 												<span
 													class={`text-xs ${
-														placement === option.value
-															? 'text-white/85'
-															: 'text-secondary-700'
+														placement === option.value ? 'text-white/85' : 'text-secondary-700'
 													}`}
 												>
 													{option.description}
@@ -762,7 +767,9 @@
 						</div>
 
 						<div class="space-y-2 md:col-span-2">
-							<p class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-700">Duration Mode</p>
+							<p class="text-xs font-bold uppercase tracking-[0.14em] text-secondary-700">
+								Duration Mode
+							</p>
 							<div class="grid gap-2 sm:grid-cols-3">
 								{#each durationModes as option}
 									<label
@@ -825,36 +832,55 @@
 						</div>
 
 						<div class="grid gap-3 md:col-span-2 sm:grid-cols-2 xl:grid-cols-3">
-							<label class="flex items-start gap-3 border border-secondary-300 bg-secondary-50 px-3 py-3">
+							<label
+								class="flex items-start gap-3 border border-secondary-300 bg-secondary-50 px-3 py-3"
+							>
 								<input class="checkbox-secondary mt-1" type="checkbox" bind:checked={dismissible} />
 								<span>
 									<span class="block text-sm font-semibold text-secondary-950">Dismissible</span>
 									<span class="block text-xs text-secondary-700">Show the close button.</span>
 								</span>
 							</label>
-							<label class="flex items-start gap-3 border border-secondary-300 bg-secondary-50 px-3 py-3">
-								<input class="checkbox-secondary mt-1" type="checkbox" bind:checked={showProgress} />
+							<label
+								class="flex items-start gap-3 border border-secondary-300 bg-secondary-50 px-3 py-3"
+							>
+								<input
+									class="checkbox-secondary mt-1"
+									type="checkbox"
+									bind:checked={showProgress}
+								/>
 								<span>
 									<span class="block text-sm font-semibold text-secondary-950">Progress Bar</span>
-									<span class="block text-xs text-secondary-700">Show remaining time visually.</span>
+									<span class="block text-xs text-secondary-700">Show remaining time visually.</span
+									>
 								</span>
 							</label>
-							<label class="flex items-start gap-3 border border-secondary-300 bg-secondary-50 px-3 py-3">
+							<label
+								class="flex items-start gap-3 border border-secondary-300 bg-secondary-50 px-3 py-3"
+							>
 								<input class="checkbox-secondary mt-1" type="checkbox" bind:checked={important} />
 								<span>
 									<span class="block text-sm font-semibold text-secondary-950">Important</span>
-									<span class="block text-xs text-secondary-700">Uses assertive live-region behavior.</span>
+									<span class="block text-xs text-secondary-700"
+										>Uses assertive live-region behavior.</span
+									>
 								</span>
 							</label>
-							<label class="flex items-start gap-3 border border-secondary-300 bg-secondary-50 px-3 py-3">
+							<label
+								class="flex items-start gap-3 border border-secondary-300 bg-secondary-50 px-3 py-3"
+							>
 								<input
 									class="checkbox-secondary mt-1"
 									type="checkbox"
 									bind:checked={ignoreDuplicateStack}
 								/>
 								<span>
-									<span class="block text-sm font-semibold text-secondary-950">Ignore Duplicate Stack</span>
-									<span class="block text-xs text-secondary-700">Allows identical toasts to stack instead of merging.</span>
+									<span class="block text-sm font-semibold text-secondary-950"
+										>Ignore Duplicate Stack</span
+									>
+									<span class="block text-xs text-secondary-700"
+										>Allows identical toasts to stack instead of merging.</span
+									>
 								</span>
 							</label>
 						</div>
@@ -943,7 +969,9 @@
 									</p>
 									<div class="space-y-2">
 										{#each actionBehaviors as behavior}
-											<label class="flex cursor-pointer gap-3 border border-secondary-300 bg-white px-3 py-3">
+											<label
+												class="flex cursor-pointer gap-3 border border-secondary-300 bg-white px-3 py-3"
+											>
 												<input
 													class="radio-secondary mt-1"
 													type="radio"
@@ -965,7 +993,9 @@
 									</div>
 								</div>
 
-								<label class="flex items-start gap-3 border border-secondary-300 bg-secondary-50 px-3 py-3">
+								<label
+									class="flex items-start gap-3 border border-secondary-300 bg-secondary-50 px-3 py-3"
+								>
 									<input
 										class="checkbox-secondary mt-1"
 										type="checkbox"
@@ -1053,7 +1083,9 @@
 					<div class="space-y-3 p-4">
 						{#if previewViewport === 'desktop'}
 							<div class="border border-neutral-950 bg-neutral-100/70 p-4">
-								<div class="rounded-sm border border-dashed border-neutral-950 bg-[linear-gradient(180deg,rgba(255,255,255,0.82),rgba(245,245,244,0.9))] p-5">
+								<div
+									class="rounded-sm border border-dashed border-neutral-950 bg-[linear-gradient(180deg,rgba(255,255,255,0.82),rgba(245,245,244,0.9))] p-5"
+								>
 									<div class="mx-auto w-full max-w-[26rem]">
 										<ToastItem item={previewToast} index={0} preview={true} />
 									</div>
@@ -1062,23 +1094,41 @@
 						{:else}
 							<div class="space-y-4">
 								<div class="grid gap-3 sm:grid-cols-[auto_auto] sm:justify-end">
-									<div class="border border-neutral-950 bg-white px-3 py-2 text-xs text-secondary-800">
-										<span class="font-bold uppercase tracking-[0.12em] text-secondary-700">Visible:</span>
+									<div
+										class="border border-neutral-950 bg-white px-3 py-2 text-xs text-secondary-800"
+									>
+										<span class="font-bold uppercase tracking-[0.12em] text-secondary-700"
+											>Visible:</span
+										>
 										<span class="ml-1">{mobileStageVisibleCount}</span>
 									</div>
-									<div class="border border-neutral-950 bg-white px-3 py-2 text-xs text-secondary-800">
-										<span class="font-bold uppercase tracking-[0.12em] text-secondary-700">Queued:</span>
+									<div
+										class="border border-neutral-950 bg-white px-3 py-2 text-xs text-secondary-800"
+									>
+										<span class="font-bold uppercase tracking-[0.12em] text-secondary-700"
+											>Queued:</span
+										>
 										<span class="ml-1">{mobileStageOverflowCount}</span>
 									</div>
 								</div>
 
-								<div class="overflow-hidden border border-neutral-950 bg-[linear-gradient(180deg,rgba(20,33,61,0.06),rgba(255,255,255,0.96))] p-4">
+								<div
+									class="overflow-hidden border border-neutral-950 bg-[linear-gradient(180deg,rgba(20,33,61,0.06),rgba(255,255,255,0.96))] p-4"
+								>
 									<div class="mx-auto w-full max-w-[18.8rem]">
-										<div class="rounded-[2.45rem] bg-black p-[0.2rem] shadow-[0_22px_48px_rgba(15,23,42,0.24)]">
+										<div
+											class="rounded-[2.45rem] bg-black p-[0.2rem] shadow-[0_22px_48px_rgba(15,23,42,0.24)]"
+										>
 											<div class="relative overflow-hidden rounded-[2.25rem] bg-white">
-												<div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle,rgba(20,33,61,0.16)_1px,transparent_1.2px)] [background-position:0_0] [background-size:8px_8px] opacity-25"></div>
-												<div class="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-center pt-2">
-													<div class="flex h-7 w-32 items-center justify-center rounded-b-[1.1rem] bg-black">
+												<div
+													class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle,rgba(20,33,61,0.16)_1px,transparent_1.2px)] [background-position:0_0] [background-size:8px_8px] opacity-25"
+												></div>
+												<div
+													class="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-center pt-2"
+												>
+													<div
+														class="flex h-7 w-32 items-center justify-center rounded-b-[1.1rem] bg-black"
+													>
 														<div class="flex items-center gap-2">
 															<div class="h-1 w-10 rounded-full bg-white/90"></div>
 															<div class="h-2 w-2 rounded-full bg-white/85"></div>
@@ -1086,7 +1136,9 @@
 													</div>
 												</div>
 												<div class="relative flex h-[38rem] flex-col px-4 pb-4 pt-3">
-													<div class="flex items-center justify-between px-2 pt-1 text-[0.62rem] font-bold text-neutral-950">
+													<div
+														class="flex items-center justify-between px-2 pt-1 text-[0.62rem] font-bold text-neutral-950"
+													>
 														<span>{mobilePreviewTime}</span>
 														<div class="flex items-center gap-1.5 text-neutral-950">
 															<span class="h-1.5 w-1.5 rounded-full bg-current opacity-90"></span>
@@ -1095,12 +1147,19 @@
 														</div>
 													</div>
 													<div class="mt-8 h-full overflow-hidden">
-														<div class={`flex h-full ${mobileStageAlignmentClassByPlacement[mobilePlacement]}`}>
+														<div
+															class={`flex h-full ${mobileStageAlignmentClassByPlacement[mobilePlacement]}`}
+														>
 															<div class="w-full overflow-hidden">
 																<div class="mx-auto flex max-w-[15rem] flex-col gap-2.5">
 																	{#if mobileStageOverflowCount > 0 && mobileStageOverflowAtTop}
-																		<div class="border border-neutral-950 bg-neutral-05/95 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-secondary-900 shadow-[0_10px_24px_rgba(20,33,61,0.16)] backdrop-blur">
-																			{mobileStageOverflowCount} more notification{mobileStageOverflowCount === 1 ? '' : 's'}
+																		<div
+																			class="border border-neutral-950 bg-neutral-05/95 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-secondary-900 shadow-[0_10px_24px_rgba(20,33,61,0.16)] backdrop-blur"
+																		>
+																			{mobileStageOverflowCount} more notification{mobileStageOverflowCount ===
+																			1
+																				? ''
+																				: 's'}
 																		</div>
 																	{/if}
 
@@ -1114,8 +1173,13 @@
 																	{/each}
 
 																	{#if mobileStageOverflowCount > 0 && !mobileStageOverflowAtTop}
-																		<div class="border border-neutral-950 bg-neutral-05/95 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-secondary-900 shadow-[0_10px_24px_rgba(20,33,61,0.16)] backdrop-blur">
-																			{mobileStageOverflowCount} more notification{mobileStageOverflowCount === 1 ? '' : 's'}
+																		<div
+																			class="border border-neutral-950 bg-neutral-05/95 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-secondary-900 shadow-[0_10px_24px_rgba(20,33,61,0.16)] backdrop-blur"
+																		>
+																			{mobileStageOverflowCount} more notification{mobileStageOverflowCount ===
+																			1
+																				? ''
+																				: 's'}
 																		</div>
 																	{/if}
 																</div>
@@ -1157,7 +1221,9 @@
 							{#if previewActions.length > 0}
 								<div class="divide-y divide-neutral-950">
 									{#each previewActions as action}
-										<div class="grid gap-2 px-3 py-3 text-sm text-secondary-900 sm:grid-cols-[auto_1fr_auto_auto] sm:items-center">
+										<div
+											class="grid gap-2 px-3 py-3 text-sm text-secondary-900 sm:grid-cols-[auto_1fr_auto_auto] sm:items-center"
+										>
 											<p class="font-bold uppercase tracking-[0.12em] text-secondary-700">
 												Action {action.slot}
 											</p>
@@ -1176,7 +1242,9 @@
 
 						<div class="grid gap-2 text-xs text-secondary-800 sm:grid-cols-2 xl:grid-cols-4">
 							<div class="border border-neutral-950 bg-white px-3 py-2">
-								<span class="font-bold uppercase tracking-[0.12em] text-secondary-700">Duration:</span>
+								<span class="font-bold uppercase tracking-[0.12em] text-secondary-700"
+									>Duration:</span
+								>
 								<span class="ml-1">
 									{durationMode === 'default'
 										? 'Shared default'
@@ -1198,7 +1266,9 @@
 								<span class="ml-1 uppercase">{mobilePlacement}</span>
 							</div>
 							<div class="border border-neutral-950 bg-white px-3 py-2">
-								<span class="font-bold uppercase tracking-[0.12em] text-secondary-700">Importance:</span>
+								<span class="font-bold uppercase tracking-[0.12em] text-secondary-700"
+									>Importance:</span
+								>
 								<span class="ml-1">{important ? 'Assertive' : 'Polite'}</span>
 							</div>
 						</div>
@@ -1292,32 +1362,45 @@
 						</div>
 
 						<div class="grid gap-2 sm:grid-cols-3">
-							<label class="flex items-start gap-3 border border-secondary-300 bg-secondary-50 px-3 py-3">
-								<input class="checkbox-secondary mt-1" type="checkbox" bind:checked={stressClearFirst} />
+							<label
+								class="flex items-start gap-3 border border-secondary-300 bg-secondary-50 px-3 py-3"
+							>
+								<input
+									class="checkbox-secondary mt-1"
+									type="checkbox"
+									bind:checked={stressClearFirst}
+								/>
 								<span>
 									<span class="block text-sm font-semibold text-secondary-950">Clear first</span>
 									<span class="block text-xs text-secondary-700">Start from an empty stack.</span>
 								</span>
 							</label>
-							<label class="flex items-start gap-3 border border-secondary-300 bg-secondary-50 px-3 py-3">
+							<label
+								class="flex items-start gap-3 border border-secondary-300 bg-secondary-50 px-3 py-3"
+							>
 								<input
 									class="checkbox-secondary mt-1"
 									type="checkbox"
 									bind:checked={stressIncludeActions}
 								/>
 								<span>
-									<span class="block text-sm font-semibold text-secondary-950">Include actions</span>
+									<span class="block text-sm font-semibold text-secondary-950">Include actions</span
+									>
 									<span class="block text-xs text-secondary-700">Test taller toasts too.</span>
 								</span>
 							</label>
-							<label class="flex items-start gap-3 border border-secondary-300 bg-secondary-50 px-3 py-3">
+							<label
+								class="flex items-start gap-3 border border-secondary-300 bg-secondary-50 px-3 py-3"
+							>
 								<input
 									class="checkbox-secondary mt-1"
 									type="checkbox"
 									bind:checked={stressFinalImportant}
 								/>
 								<span>
-									<span class="block text-sm font-semibold text-secondary-950">Last one important</span>
+									<span class="block text-sm font-semibold text-secondary-950"
+										>Last one important</span
+									>
 									<span class="block text-xs text-secondary-700">Force replacement when full.</span>
 								</span>
 							</label>
@@ -1338,4 +1421,3 @@
 		</div>
 	</section>
 </div>
-

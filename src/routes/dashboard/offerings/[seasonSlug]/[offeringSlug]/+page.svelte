@@ -30,6 +30,7 @@
 		toFixedStyle
 	} from '$lib/components/floating-position.js';
 	import DashboardSidebarPanel from '$lib/components/dashboard/DashboardSidebarPanel.svelte';
+	import DashboardMegaSearchLauncher from '$lib/components/dashboard/DashboardMegaSearchLauncher.svelte';
 	import SplitAddAction from '$lib/components/dashboard/SplitAddAction.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
@@ -83,11 +84,11 @@
 		description: string;
 		dayOfWeek: string;
 		gameTime: string;
-	location: string;
-	startDate: string;
-	isLocked: boolean;
-	doAutoLock: boolean;
-}
+		location: string;
+		startDate: string;
+		isLocked: boolean;
+		doAutoLock: boolean;
+	}
 
 	interface DivisionWizardDraft extends DivisionWizardForm {
 		draftId: string;
@@ -1352,9 +1353,7 @@
 			...createDivisionCommittedDrafts.map((draft) => draft.name.trim().toLowerCase())
 		]);
 		const existingSlugs = new Set([
-			...(createDivisionLeague?.divisions ?? []).map((division) =>
-				slugifyFinal(division.slug)
-			),
+			...(createDivisionLeague?.divisions ?? []).map((division) => slugifyFinal(division.slug)),
 			...createDivisionDrafts.map((draft) => slugifyFinal(draft.slug)),
 			...createDivisionCommittedDrafts.map((draft) => slugifyFinal(draft.slug))
 		]);
@@ -1375,7 +1374,11 @@
 			? duplicateCollectionItem(createDivisionDrafts, index, () => duplicate)
 			: sortDivisionDraftsBySchedule([...createDivisionDrafts, duplicate]);
 
-		if (createDivisionManualOrder && createDivisionEditingIndex !== null && createDivisionEditingIndex > index) {
+		if (
+			createDivisionManualOrder &&
+			createDivisionEditingIndex !== null &&
+			createDivisionEditingIndex > index
+		) {
 			createDivisionEditingIndex += 1;
 		}
 	}
@@ -1441,38 +1444,40 @@
 
 		if (
 			name &&
-			targetLeagueDivisions.some((division) => division.name.trim().toLowerCase() === normalizedName)
+			targetLeagueDivisions.some(
+				(division) => division.name.trim().toLowerCase() === normalizedName
+			)
 		) {
 			errors['name'] = 'A division with this name already exists for this league.';
 		}
-		if (
-			name &&
-			otherDrafts.some((draft) => draft.name.trim().toLowerCase() === normalizedName)
-		) {
+		if (name && otherDrafts.some((draft) => draft.name.trim().toLowerCase() === normalizedName)) {
 			errors['name'] = 'A division with this name is already in this draft list.';
 		}
 		if (
 			name &&
-			createDivisionCommittedDrafts.some((draft) => draft.name.trim().toLowerCase() === normalizedName)
+			createDivisionCommittedDrafts.some(
+				(draft) => draft.name.trim().toLowerCase() === normalizedName
+			)
 		) {
 			errors['name'] = 'A division with this name was already created in this session.';
 		}
 
 		if (
 			slug &&
-			targetLeagueDivisions.some((division) => division.slug.trim().toLowerCase() === normalizedSlug)
+			targetLeagueDivisions.some(
+				(division) => division.slug.trim().toLowerCase() === normalizedSlug
+			)
 		) {
 			errors['slug'] = 'A division with this slug already exists for this league.';
 		}
-		if (
-			slug &&
-			otherDrafts.some((draft) => draft.slug.trim().toLowerCase() === normalizedSlug)
-		) {
+		if (slug && otherDrafts.some((draft) => draft.slug.trim().toLowerCase() === normalizedSlug)) {
 			errors['slug'] = 'A division with this slug is already in this draft list.';
 		}
 		if (
 			slug &&
-			createDivisionCommittedDrafts.some((draft) => draft.slug.trim().toLowerCase() === normalizedSlug)
+			createDivisionCommittedDrafts.some(
+				(draft) => draft.slug.trim().toLowerCase() === normalizedSlug
+			)
 		) {
 			errors['slug'] = 'A division with this slug was already created in this session.';
 		}
@@ -1483,7 +1488,9 @@
 	function addOrUpdateCreateDivisionDraft(): boolean {
 		createDivisionValidationVisible = true;
 		const editingDraftId =
-			createDivisionEditingIndex === null ? null : createDivisionDrafts[createDivisionEditingIndex]?.draftId ?? null;
+			createDivisionEditingIndex === null
+				? null
+				: (createDivisionDrafts[createDivisionEditingIndex]?.draftId ?? null);
 		const draftErrors = getDivisionFieldErrors(createDivisionForm, {
 			excludeDraftId: editingDraftId
 		});
@@ -1611,10 +1618,7 @@
 				if (!response.ok || !payload.success) {
 					const unresolvedDrafts = pendingDrafts.slice(index);
 					const failedDraft = unresolvedDrafts[0];
-					createDivisionCommittedDrafts = [
-						...createDivisionCommittedDrafts,
-						...createdDrafts
-					];
+					createDivisionCommittedDrafts = [...createDivisionCommittedDrafts, ...createdDrafts];
 					createDivisionDrafts = unresolvedDrafts;
 					if (failedDraft) {
 						const initialFlow = getCreateDivisionWizardInitialFlowState();
@@ -1652,7 +1656,7 @@
 			toast.success(
 				`${createdDrafts.length} ${createdDrafts.length === 1 ? 'division' : 'divisions'} added.`,
 				{
-				title: createdLeagueName
+					title: createdLeagueName
 				}
 			);
 		} catch {
@@ -2356,7 +2360,7 @@
 					excludeDraftId:
 						createDivisionEditingIndex === null
 							? null
-							: createDivisionDrafts[createDivisionEditingIndex]?.draftId ?? null
+							: (createDivisionDrafts[createDivisionEditingIndex]?.draftId ?? null)
 				})
 			: {}),
 		...createDivisionServerFieldErrors
@@ -2386,7 +2390,7 @@
 					excludeDraftId:
 						createDivisionEditingIndex === null
 							? null
-							: createDivisionDrafts[createDivisionEditingIndex]?.draftId ?? null
+							: (createDivisionDrafts[createDivisionEditingIndex]?.draftId ?? null)
 				})
 			).length === 0
 		);
@@ -2600,31 +2604,34 @@
 <div class="w-full space-y-4">
 	<header class="bg-neutral">
 		<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
-			<div class="flex items-center gap-3 py-2 lg:py-3">
-				<div
-					class="bg-primary text-white border-2 border-primary-700 flex h-[2.75rem] w-[2.75rem] items-center justify-center lg:h-[3.4rem] lg:w-[3.4rem]"
-					aria-hidden="true"
-				>
-					<HeaderIcon class="h-7 w-7 lg:h-8 lg:w-8" />
-				</div>
-				<div class="relative min-w-0">
-					<h1
-						class="text-5xl lg:text-6xl leading-[0.9] tracking-[0.01em] font-bold font-serif text-neutral-950"
+			<div class="flex flex-col gap-4 py-2 lg:flex-row lg:items-start lg:justify-between">
+				<div class="flex items-center gap-3">
+					<div
+						class="bg-primary text-white border-2 border-primary-700 flex h-[2.75rem] w-[2.75rem] items-center justify-center lg:h-[3.4rem] lg:w-[3.4rem]"
+						aria-hidden="true"
 					>
-						{data.offering?.name ?? 'Offering'}
-					</h1>
-					{#if breadcrumbSegments.length > 0}
+						<HeaderIcon class="h-7 w-7 lg:h-8 lg:w-8" />
+					</div>
+					<div class="relative min-w-0">
+						<h1
+							class="text-5xl lg:text-6xl leading-[0.9] tracking-[0.01em] font-bold font-serif text-neutral-950"
+						>
+							{data.offering?.name ?? 'Offering'}
+						</h1>
+						{#if breadcrumbSegments.length > 0}
 							<div class="absolute left-0 top-[calc(100%+0.09rem)] z-10">
-							<Breadcrumb
-								segments={breadcrumbSegments}
-								class="max-w-[min(100vw-7rem,100%)]"
-								seasonLabel={breadcrumbSeasonLabel}
-								seasonSlug={breadcrumbSeasonSlug}
-								includeSeasonContext={includeBreadcrumbSeasonContext}
-							/>
-						</div>
-					{/if}
+								<Breadcrumb
+									segments={breadcrumbSegments}
+									class="max-w-[min(100vw-7rem,100%)]"
+									seasonLabel={breadcrumbSeasonLabel}
+									seasonSlug={breadcrumbSeasonSlug}
+									includeSeasonContext={includeBreadcrumbSeasonContext}
+								/>
+							</div>
+						{/if}
+					</div>
 				</div>
+				<DashboardMegaSearchLauncher wrapperClass="lg:pt-1" />
 			</div>
 		</div>
 	</header>
@@ -2711,7 +2718,7 @@
 					<div class="min-h-[34rem]">
 						{#if visibleLeagues.length === 0}
 							<div class="p-4">
-					<DataTable
+								<DataTable
 									columns={emptyOfferingTableColumns}
 									rows={[]}
 									caption={`${data.offering.name} ${entryUnitPlural()} table`}
@@ -2744,7 +2751,7 @@
 									{/snippet}
 
 									{#snippet cell(_row, _column)}{/snippet}
-					</DataTable>
+								</DataTable>
 							</div>
 						{:else}
 							<div class="divide-y divide-neutral-950">
@@ -2781,12 +2788,12 @@
 											</div>
 										</div>
 
-					<DataTable
-						columns={divisionTableColumns}
-						rows={league.divisions}
-						caption={`${league.name} divisions table`}
-						defaultSort={{ columnKey: 'division', direction: 'asc' }}
-					>
+										<DataTable
+											columns={divisionTableColumns}
+											rows={league.divisions}
+											caption={`${league.name} divisions table`}
+											defaultSort={{ columnKey: 'division', direction: 'asc' }}
+										>
 											{#snippet emptyBody()}
 												<tr class="bg-neutral-25">
 													<td
@@ -2821,17 +2828,18 @@
 																		{offeringDivision.name}
 																	</span>
 																</div>
-															{#if offeringDivision.description}
-																<p class="mt-1 font-sans text-xs leading-snug text-neutral-700">
-																	{offeringDivision.description}
-																</p>
-															{/if}
-														</div>
+																{#if offeringDivision.description}
+																	<p class="mt-1 font-sans text-xs leading-snug text-neutral-700">
+																		{offeringDivision.description}
+																	</p>
+																{/if}
+															</div>
 														</a>
 														<div class="pt-0.5">
 															<HoverTooltip
 																text={divisionJoinTooltip(offeringDivision)}
-																cursorOffsetYPx={divisionLockPopover?.divisionId === offeringDivision.id
+																cursorOffsetYPx={divisionLockPopover?.divisionId ===
+																offeringDivision.id
 																	? LOCK_TOOLTIP_OPEN_OFFSET_Y_PX
 																	: 18}
 																wrapperClass="inline-flex shrink-0"
@@ -2844,11 +2852,16 @@
 																			? `Unlock ${offeringDivision.name}`
 																			: `Lock ${offeringDivision.name}`}
 																		aria-haspopup="dialog"
-																		aria-expanded={divisionLockPopover?.divisionId === offeringDivision.id}
+																		aria-expanded={divisionLockPopover?.divisionId ===
+																			offeringDivision.id}
 																		disabled={divisionLockSubmittingId === offeringDivision.id}
 																		onclick={(event) => {
 																			if (!(event.currentTarget instanceof HTMLElement)) return;
-																			openDivisionLockPopover(league.id, offeringDivision.id, event.currentTarget);
+																			openDivisionLockPopover(
+																				league.id,
+																				offeringDivision.id,
+																				event.currentTarget
+																			);
 																		}}
 																	>
 																		<divisionStatus.icon
@@ -2880,7 +2893,7 @@
 													</p>
 												{/if}
 											{/snippet}
-					</DataTable>
+										</DataTable>
 									</section>
 								{/each}
 							</div>
@@ -3789,7 +3802,9 @@
 	closeAriaLabel="Close create division wizard"
 	submitLabel="Create Divisions"
 	submittingLabel="Creating..."
-	errorToastTitle={createDivisionLeague ? `Create division for ${createDivisionLeague.name}` : 'Create division'}
+	errorToastTitle={createDivisionLeague
+		? `Create division for ${createDivisionLeague.name}`
+		: 'Create division'}
 	onSlugTouchedChange={(value: boolean) => {
 		createDivisionSlugTouched = value;
 	}}

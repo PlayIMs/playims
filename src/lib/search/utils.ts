@@ -33,6 +33,10 @@ function tokenizeMegaSearchValue(value: string): string[] {
 	return value.split(' ').filter(Boolean);
 }
 
+function isSignificantMegaSearchToken(token: string): boolean {
+	return token.length >= 3;
+}
+
 function scorePhraseValue(query: string, candidate: string): number {
 	const normalizedCandidate = normalizeMegaSearchValue(candidate);
 	if (!normalizedCandidate) return 0;
@@ -99,6 +103,7 @@ export function scoreMegaSearchCandidate(
 
 	let total = 0;
 	let matchedTokens = 0;
+	let matchedSignificantTokens = 0;
 	for (const token of queryTokens) {
 		const bestForToken = normalizedCandidates.reduce(
 			(best, candidate) => Math.max(best, scoreTokenValue(token, candidate)),
@@ -107,10 +112,20 @@ export function scoreMegaSearchCandidate(
 		if (bestForToken > 0) {
 			total += bestForToken;
 			matchedTokens += 1;
+			if (isSignificantMegaSearchToken(token)) {
+				matchedSignificantTokens += 1;
+			}
 		}
 	}
 
 	if (matchedTokens === 0) return 0;
+	const significantQueryTokens = queryTokens.filter(isSignificantMegaSearchToken);
+	if (
+		significantQueryTokens.length >= 2 &&
+		matchedSignificantTokens < Math.max(2, Math.ceil(significantQueryTokens.length * 0.6))
+	) {
+		return 0;
+	}
 	return (
 		total +
 		matchedTokens * 90 +

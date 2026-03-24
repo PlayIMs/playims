@@ -10,6 +10,7 @@
 	import DataTable from '$lib/components/DataTable.svelte';
 	import SmallStandingsTable from '$lib/components/SmallStandingsTable.svelte';
 	import DashboardSidebarPanel from '$lib/components/dashboard/DashboardSidebarPanel.svelte';
+	import DashboardMegaSearchLauncher from '$lib/components/dashboard/DashboardMegaSearchLauncher.svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
 	import SplitAddAction from '$lib/components/dashboard/SplitAddAction.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
@@ -111,11 +112,11 @@
 		description: string;
 		dayOfWeek: string;
 		gameTime: string;
-	location: string;
-	startDate: string;
-	isLocked: boolean;
-	doAutoLock: boolean;
-}
+		location: string;
+		startDate: string;
+		isLocked: boolean;
+		doAutoLock: boolean;
+	}
 
 	interface DivisionWizardDraft extends DivisionWizardForm {
 		draftId: string;
@@ -400,6 +401,10 @@
 			return `${division.teamCount} / ${division.maxTeams} teams`;
 		}
 		return `${division.teamCount} teams`;
+	}
+
+	function divisionWaitlistLabel(division: DivisionSection): string {
+		return `${division.waitlistCount} waitlisted`;
 	}
 
 	function divisionMetaLine(division: DivisionSection): string {
@@ -1310,7 +1315,11 @@
 			? duplicateCollectionItem(createDivisionDrafts, index, () => duplicate)
 			: sortDivisionDraftsBySchedule([...createDivisionDrafts, duplicate]);
 
-		if (createDivisionManualOrder && createDivisionEditingIndex !== null && createDivisionEditingIndex > index) {
+		if (
+			createDivisionManualOrder &&
+			createDivisionEditingIndex !== null &&
+			createDivisionEditingIndex > index
+		) {
 			createDivisionEditingIndex += 1;
 		}
 	}
@@ -1656,14 +1665,18 @@
 		if (
 			includeDrafts &&
 			name &&
-			createDivisionCommittedDrafts.some((draft) => draft.name.trim().toLowerCase() === normalizedName)
+			createDivisionCommittedDrafts.some(
+				(draft) => draft.name.trim().toLowerCase() === normalizedName
+			)
 		) {
 			errors['name'] = 'A division with this name was already created in this session.';
 		}
 		if (
 			includeDrafts &&
 			slug &&
-			createDivisionCommittedDrafts.some((draft) => draft.slug.trim().toLowerCase() === normalizedSlug)
+			createDivisionCommittedDrafts.some(
+				(draft) => draft.slug.trim().toLowerCase() === normalizedSlug
+			)
 		) {
 			errors['slug'] = 'A division with this slug was already created in this session.';
 		}
@@ -1738,7 +1751,7 @@
 					excludeDraftId:
 						createDivisionEditingIndex === null
 							? null
-							: createDivisionDrafts[createDivisionEditingIndex]?.draftId ?? null,
+							: (createDivisionDrafts[createDivisionEditingIndex]?.draftId ?? null),
 					includeDrafts: true
 				})
 			: {}),
@@ -1839,7 +1852,7 @@
 					excludeDraftId:
 						createDivisionEditingIndex === null
 							? null
-							: createDivisionDrafts[createDivisionEditingIndex]?.draftId ?? null,
+							: (createDivisionDrafts[createDivisionEditingIndex]?.draftId ?? null),
 					includeDrafts: true
 				})
 			).length === 0
@@ -1869,7 +1882,9 @@
 	function addOrUpdateCreateDivisionDraft(): boolean {
 		createDivisionValidationVisible = true;
 		const editingDraftId =
-			createDivisionEditingIndex === null ? null : createDivisionDrafts[createDivisionEditingIndex]?.draftId ?? null;
+			createDivisionEditingIndex === null
+				? null
+				: (createDivisionDrafts[createDivisionEditingIndex]?.draftId ?? null);
 		const draftErrors = getDivisionFieldErrors(createDivisionForm, {
 			excludeDraftId: editingDraftId,
 			includeDrafts: true
@@ -1998,10 +2013,7 @@
 				if (!response.ok || !payload.success) {
 					const unresolvedDrafts = pendingDrafts.slice(index);
 					const failedDraft = unresolvedDrafts[0];
-					createDivisionCommittedDrafts = [
-						...createDivisionCommittedDrafts,
-						...createdDrafts
-					];
+					createDivisionCommittedDrafts = [...createDivisionCommittedDrafts, ...createdDrafts];
 					createDivisionDrafts = unresolvedDrafts;
 					if (failedDraft) {
 						const initialFlow = getCreateDivisionWizardInitialFlowState();
@@ -2627,31 +2639,34 @@
 <div class="w-full space-y-4">
 	<header class="bg-neutral">
 		<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
-			<div class="flex items-center gap-3 py-2 lg:py-3">
-				<div
-					class="bg-primary text-white border-2 border-primary-700 w-[2.75rem] h-[2.75rem] lg:w-[3.4rem] lg:h-[3.4rem] flex items-center justify-center"
-					aria-hidden="true"
-				>
-					<HeaderIcon class="w-7 h-7 lg:w-8 lg:h-8" />
-				</div>
-				<div class="relative min-w-0">
-					<h1
-						class="text-5xl lg:text-6xl leading-[0.9] tracking-[0.01em] font-bold font-serif text-neutral-950"
+			<div class="flex flex-col gap-4 py-2 lg:flex-row lg:items-start lg:justify-between">
+				<div class="flex items-center gap-3">
+					<div
+						class="bg-primary text-white border-2 border-primary-700 w-[2.75rem] h-[2.75rem] lg:w-[3.4rem] lg:h-[3.4rem] flex items-center justify-center"
+						aria-hidden="true"
 					>
-						{data.league?.name ?? 'League'}
-					</h1>
-					{#if breadcrumbSegments.length > 0}
+						<HeaderIcon class="w-7 h-7 lg:w-8 lg:h-8" />
+					</div>
+					<div class="relative min-w-0">
+						<h1
+							class="text-5xl lg:text-6xl leading-[0.9] tracking-[0.01em] font-bold font-serif text-neutral-950"
+						>
+							{data.league?.name ?? 'League'}
+						</h1>
+						{#if breadcrumbSegments.length > 0}
 							<div class="absolute left-0 top-[calc(100%+0.09rem)] z-10">
-							<Breadcrumb
-								segments={breadcrumbSegments}
-								class="max-w-[min(100vw-7rem,100%)]"
-								seasonLabel={breadcrumbSeasonLabel}
-								seasonSlug={breadcrumbSeasonSlug}
-								includeSeasonContext={includeBreadcrumbSeasonContext}
-							/>
-						</div>
-					{/if}
+								<Breadcrumb
+									segments={breadcrumbSegments}
+									class="max-w-[min(100vw-7rem,100%)]"
+									seasonLabel={breadcrumbSeasonLabel}
+									seasonSlug={breadcrumbSeasonSlug}
+									includeSeasonContext={includeBreadcrumbSeasonContext}
+								/>
+							</div>
+						{/if}
+					</div>
 				</div>
+				<DashboardMegaSearchLauncher wrapperClass="lg:pt-1" />
 			</div>
 		</div>
 	</header>
@@ -2772,7 +2787,9 @@
 															<button
 																type="button"
 																class="inline-flex cursor-pointer items-center justify-center border-0 bg-transparent p-0 text-neutral-950 hover:text-secondary-900 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
-																aria-label={division.isLocked ? `Unlock ${division.name}` : `Lock ${division.name}`}
+																aria-label={division.isLocked
+																	? `Unlock ${division.name}`
+																	: `Lock ${division.name}`}
 																aria-haspopup="dialog"
 																aria-expanded={divisionLockPopover?.divisionId === division.id}
 																disabled={divisionLockSubmittingId === division.id}
@@ -2801,6 +2818,11 @@
 													<span class="text-sm font-sans font-normal text-neutral-950">
 														{divisionCapacityLabel(division)}
 													</span>
+													{#if division.waitlistCount > 0}
+														<span class="text-xs font-sans font-normal text-neutral-700">
+															{divisionWaitlistLabel(division)}
+														</span>
+													{/if}
 												</div>
 												{#if divisionMetaLine(division)}
 													<p
@@ -2811,11 +2833,6 @@
 												{/if}
 											</div>
 											<div class="flex flex-wrap items-center gap-2">
-												{#if division.waitlistCount > 0}
-													<span class="badge-primary-outlined text-xs uppercase tracking-wide">
-														{division.waitlistCount} Waitlist
-													</span>
-												{/if}
 												{#if canManageLeague}
 													<div class="flex items-center">
 														<ListboxDropdown
@@ -2845,7 +2862,7 @@
 											<p class="text-sm leading-6 text-neutral-950">{division.description}</p>
 										{/if}
 
-								<DataTable
+										<DataTable
 											columns={divisionTableColumns}
 											rows={division.teams}
 											defaultSort={{ columnKey: 'date-joined', direction: 'asc' }}
@@ -2965,7 +2982,7 @@
 													</div>
 												{/if}
 											{/snippet}
-								</DataTable>
+										</DataTable>
 									</section>
 								{/each}
 
@@ -3001,7 +3018,7 @@
 											</span>
 										</div>
 									</div>
-						<DataTable
+									<DataTable
 										columns={waitlistTableColumns}
 										rows={visibleWaitlistTeams}
 										caption="League waitlist table"
@@ -3117,7 +3134,7 @@
 												</div>
 											{/if}
 										{/snippet}
-						</DataTable>
+									</DataTable>
 								</section>
 							</div>
 						{/if}
@@ -3230,43 +3247,43 @@
 									</div>
 									<div class="mt-2 border-t border-secondary-200 pt-2">
 										<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-										<div class="min-w-0">
-											<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
-												Team Registration
-											</p>
-											<p class="mt-0.5 leading-tight">
-												<DateHoverText
-													display={registrationWindowDetails.openText}
-													value={data.league.regStartDate}
-													includeTime
-													wrapperClass="inline"
-												/>
-											</p>
-											<p class="leading-tight">
-												<DateHoverText
-													display={registrationWindowDetails.closeText}
-													value={data.league.regEndDate}
-													includeTime
-													wrapperClass="inline"
-												/>
-											</p>
+											<div class="min-w-0">
+												<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+													Team Registration
+												</p>
+												<p class="mt-0.5 leading-tight">
+													<DateHoverText
+														display={registrationWindowDetails.openText}
+														value={data.league.regStartDate}
+														includeTime
+														wrapperClass="inline"
+													/>
+												</p>
+												<p class="leading-tight">
+													<DateHoverText
+														display={registrationWindowDetails.closeText}
+														value={data.league.regEndDate}
+														includeTime
+														wrapperClass="inline"
+													/>
+												</p>
+											</div>
+											<div
+												class="min-w-0 border-t border-secondary-200 pt-2 sm:border-t-0 sm:border-l sm:pl-2 sm:pt-0"
+											>
+												<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+													Join Team Deadline
+												</p>
+												<p class="mt-0.5 leading-tight">
+													<DateHoverText
+														display={joinTeamDeadlineDisplayText}
+														value={joinTeamDeadline()}
+														includeTime
+														wrapperClass="inline"
+													/>
+												</p>
+											</div>
 										</div>
-										<div
-											class="min-w-0 border-t border-secondary-200 pt-2 sm:border-t-0 sm:border-l sm:pl-2 sm:pt-0"
-										>
-											<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
-												Join Team Deadline
-											</p>
-											<p class="mt-0.5 leading-tight">
-												<DateHoverText
-													display={joinTeamDeadlineDisplayText}
-													value={joinTeamDeadline()}
-													includeTime
-													wrapperClass="inline"
-												/>
-											</p>
-										</div>
-									</div>
 									</div>
 								</div>
 							</div>
@@ -3307,7 +3324,9 @@
 																<button
 																	type="button"
 																	class="inline-flex cursor-pointer items-center justify-center border-0 bg-transparent p-0 text-neutral-950 hover:text-secondary-900 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
-																	aria-label={division.isLocked ? `Unlock ${division.name}` : `Lock ${division.name}`}
+																	aria-label={division.isLocked
+																		? `Unlock ${division.name}`
+																		: `Lock ${division.name}`}
 																	aria-haspopup="dialog"
 																	aria-expanded={divisionLockPopover?.divisionId === division.id}
 																	disabled={divisionLockSubmittingId === division.id}
@@ -3578,7 +3597,9 @@
 		moveTeamOverrideDialog = null;
 	}}
 	onConfirm={() => {
-		void submitMoveTeamWithOverride(moveTeamOverrideDialog?.term === 'full' ? 'full-add' : 'locked-add');
+		void submitMoveTeamWithOverride(
+			moveTeamOverrideDialog?.term === 'full' ? 'full-add' : 'locked-add'
+		);
 	}}
 	onConfirmAndUnlock={() => {
 		void submitMoveTeamWithOverride('locked-add-unlock');

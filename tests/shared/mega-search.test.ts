@@ -10,8 +10,9 @@ that convert search matches into navigable destinations across the app.
 Summary of tests:
 1. It verifies that exact matches rank above prefix and substring matches.
 2. It verifies that multi-term queries can match across punctuation and multiple result fields.
-3. It verifies that grouped results enforce per-category and total caps.
-4. It verifies that member, facility-area, and team href builders create the expected page state.
+3. It verifies that long multi-word queries reject results that match only one significant word.
+4. It verifies that grouped results enforce per-category and total caps.
+5. It verifies that member, facility-area, and team href builders create the expected page state.
 */
 
 import { describe, expect, it } from 'vitest';
@@ -51,6 +52,15 @@ describe('mega search helpers', () => {
 
 		expect(combinedMatch).toBeGreaterThan(0);
 		expect(combinedMatch).toBeGreaterThan(missingContext);
+	});
+
+	it('filters out results that only match one significant word from a long query', () => {
+		// long exact-name searches should not keep loose partials that share only one meaningful word.
+		const exact = scoreMegaSearchCandidate('ballers to wallers', ['Ballers to Wallers']);
+		const partial = scoreMegaSearchCandidate('ballers to wallers', ['Wallers United']);
+
+		expect(exact).toBeGreaterThan(0);
+		expect(partial).toBe(0);
 	});
 
 	it('groups results with per-category and total caps', () => {

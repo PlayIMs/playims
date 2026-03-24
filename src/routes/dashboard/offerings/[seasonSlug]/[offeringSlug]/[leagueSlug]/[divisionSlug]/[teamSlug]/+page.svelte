@@ -3,6 +3,7 @@
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import Breadcrumb from '$lib/components/navigation/Breadcrumb.svelte';
 	import DashboardSidebarPanel from '$lib/components/dashboard/DashboardSidebarPanel.svelte';
+	import DashboardMegaSearchLauncher from '$lib/components/dashboard/DashboardMegaSearchLauncher.svelte';
 	import DataTable from '$lib/components/DataTable.svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
 	import SmallStandingsTable from '$lib/components/SmallStandingsTable.svelte';
@@ -104,7 +105,10 @@
 		});
 	}
 
-	function formatGameWindow(startAt: string | null | undefined, endAt: string | null | undefined): string {
+	function formatGameWindow(
+		startAt: string | null | undefined,
+		endAt: string | null | undefined
+	): string {
 		if (!startAt && !endAt) return 'TBD';
 		if (!startAt && endAt) return `Until ${formatDateTime(endAt)}`;
 		if (startAt && !endAt) return formatDateTime(startAt);
@@ -146,17 +150,15 @@
 		sportIconFor(data.offering?.name ?? data.team?.name ?? 'Team', data.offering?.sport ?? null)
 	);
 	const currentTeamHref = $derived.by(() => teamHref());
-	const standingsTeamHrefByTeamId = $derived.by(
-		() => (teamId: string): string | undefined => {
-			const standingRow = data.standings.find(
-				(row: PageData['standings'][number]) => row.teamId === teamId
-			);
-			if (!standingRow) return undefined;
-			return (data.teamOptions ?? []).find(
-				(option: TeamOption) => option.label === standingRow.teamName
-			)?.href;
-		}
-	);
+	const standingsTeamHrefByTeamId = $derived.by(() => (teamId: string): string | undefined => {
+		const standingRow = data.standings.find(
+			(row: PageData['standings'][number]) => row.teamId === teamId
+		);
+		if (!standingRow) return undefined;
+		return (data.teamOptions ?? []).find(
+			(option: TeamOption) => option.label === standingRow.teamName
+		)?.href;
+	});
 	const breadcrumbSegments = $derived.by<BreadcrumbSegment[]>(() => {
 		if (!data.offering || !data.league || !data.division || !data.team) return [];
 		const currentOfferingHref = offeringHref();
@@ -260,31 +262,34 @@
 <div class="w-full space-y-4">
 	<header class="bg-neutral">
 		<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
-			<div class="flex items-center gap-3 py-2 lg:py-3">
-				<div
-					class="bg-primary text-white border-2 border-primary-700 flex h-11 w-11 items-center justify-center lg:h-[3.4rem] lg:w-[3.4rem]"
-					aria-hidden="true"
-				>
-					<IconUsers class="h-7 w-7 lg:h-8 lg:w-8" />
-				</div>
-				<div class="relative min-w-0">
-					<h1
-						class="text-5xl lg:text-6xl leading-[0.9] tracking-[0.01em] font-bold font-serif text-neutral-950"
+			<div class="flex flex-col gap-4 py-2 lg:flex-row lg:items-start lg:justify-between">
+				<div class="flex items-center gap-3">
+					<div
+						class="bg-primary text-white border-2 border-primary-700 flex h-11 w-11 items-center justify-center lg:h-[3.4rem] lg:w-[3.4rem]"
+						aria-hidden="true"
 					>
-						{data.team?.name ?? 'Team'}
-					</h1>
-					{#if breadcrumbSegments.length > 0}
+						<IconUsers class="h-7 w-7 lg:h-8 lg:w-8" />
+					</div>
+					<div class="relative min-w-0">
+						<h1
+							class="text-5xl lg:text-6xl leading-[0.9] tracking-[0.01em] font-bold font-serif text-neutral-950"
+						>
+							{data.team?.name ?? 'Team'}
+						</h1>
+						{#if breadcrumbSegments.length > 0}
 							<div class="absolute left-0 top-[calc(100%+0.09rem)] z-10">
-							<Breadcrumb
-								segments={breadcrumbSegments}
-								class="max-w-[min(100vw-7rem,100%)]"
-								seasonLabel={breadcrumbSeasonLabel}
-								seasonSlug={breadcrumbSeasonSlug}
-								includeSeasonContext={includeBreadcrumbSeasonContext}
-							/>
-						</div>
-					{/if}
+								<Breadcrumb
+									segments={breadcrumbSegments}
+									class="max-w-[min(100vw-7rem,100%)]"
+									seasonLabel={breadcrumbSeasonLabel}
+									seasonSlug={breadcrumbSeasonSlug}
+									includeSeasonContext={includeBreadcrumbSeasonContext}
+								/>
+							</div>
+						{/if}
+					</div>
 				</div>
+				<DashboardMegaSearchLauncher wrapperClass="lg:pt-1" />
 			</div>
 		</div>
 	</header>
@@ -325,16 +330,10 @@
 							<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
 								<div class="min-w-0">
 									<h3 class="text-2xl font-bold font-serif text-neutral-950">Roster</h3>
-									<p class="mt-1 text-sm text-neutral-900">
-										Current active players for this team.
-									</p>
+									<p class="mt-1 text-sm text-neutral-900">Current active players for this team.</p>
 								</div>
 							</div>
-			<DataTable
-								columns={rosterColumns}
-								rows={data.roster}
-								caption="Team roster table"
-							>
+							<DataTable columns={rosterColumns} rows={data.roster} caption="Team roster table">
 								{#snippet emptyBody()}
 									<tr class="bg-neutral-25">
 										<td
@@ -372,7 +371,7 @@
 										</p>
 									{/if}
 								{/snippet}
-			</DataTable>
+							</DataTable>
 						</section>
 
 						<section class="space-y-3 p-4">
@@ -382,7 +381,7 @@
 									Upcoming and completed games for {data.team.name}.
 								</p>
 							</div>
-			<DataTable
+							<DataTable
 								columns={scheduleColumns}
 								rows={data.schedule}
 								caption="Team schedule table"
@@ -422,12 +421,14 @@
 											{game.resultLabel}
 										</p>
 									{:else if column.key === 'status'}
-										<span class={`${statusBadgeClass(game.status)} text-xs uppercase tracking-wide`}>
+										<span
+											class={`${statusBadgeClass(game.status)} text-xs uppercase tracking-wide`}
+										>
 											{game.status}
 										</span>
 									{/if}
 								{/snippet}
-			</DataTable>
+							</DataTable>
 						</section>
 					</div>
 				</section>
@@ -461,7 +462,9 @@
 													</p>
 													<p class="mt-0.5 leading-tight">
 														<DateHoverText
-															display={formatDateTime(data.team.dateRegistered ?? data.team.createdAt)}
+															display={formatDateTime(
+																data.team.dateRegistered ?? data.team.createdAt
+															)}
 															value={data.team.dateRegistered ?? data.team.createdAt}
 															includeTime
 															wrapperClass="inline"
@@ -481,7 +484,9 @@
 													</p>
 													<p class="mt-0.5 leading-tight">
 														<DateHoverText
-															display={formatDateTime(data.team.dateJoinedDivision ?? data.team.createdAt)}
+															display={formatDateTime(
+																data.team.dateJoinedDivision ?? data.team.createdAt
+															)}
 															value={data.team.dateJoinedDivision ?? data.team.createdAt}
 															includeTime
 															wrapperClass="inline"
@@ -490,9 +495,7 @@
 												</div>
 											</div>
 										</div>
-										<div
-											class="min-w-0 border-t border-secondary-200 pt-2 sm:border-t-0 sm:pt-0"
-										>
+										<div class="min-w-0 border-t border-secondary-200 pt-2 sm:border-t-0 sm:pt-0">
 											<div class="flex items-start gap-2">
 												<IconUsers class="mt-0.5 h-4 w-4 shrink-0 text-secondary-700" />
 												<div class="min-w-0">
@@ -552,7 +555,9 @@
 						{#snippet content()}
 							<div class="space-y-2.5 text-sm text-neutral-950">
 								<div class="border border-neutral-950 bg-white">
-									<div class="flex items-center gap-2 border-b border-secondary-200 bg-neutral-25 px-3 py-2">
+									<div
+										class="flex items-center gap-2 border-b border-secondary-200 bg-neutral-25 px-3 py-2"
+									>
 										<IconMessageCircle class="h-4 w-4 shrink-0 text-secondary-700" />
 										<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
 											Local Preview Chat
@@ -567,7 +572,9 @@
 											{#each localChatMessages as message (message.id)}
 												<div class="border border-secondary-200 bg-neutral-25 px-2.5 py-2">
 													<div class="flex items-center justify-between gap-2">
-														<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+														<p
+															class="text-[11px] font-bold uppercase tracking-wide text-neutral-950"
+														>
 															{message.sender}
 														</p>
 														<p class="text-[11px] text-neutral-700">
@@ -599,9 +606,7 @@
 											bind:value={localChatDraft}
 										></textarea>
 										<div class="flex justify-end">
-											<button type="submit" class="button-primary px-3 py-1 text-xs">
-												Send
-											</button>
+											<button type="submit" class="button-primary px-3 py-1 text-xs"> Send </button>
 										</div>
 									</form>
 								</div>

@@ -5,7 +5,7 @@
 	import PageTitle from '$lib/components/PageTitle.svelte';
 	import {
 		IconAlertTriangle,
-	IconBallAmericanFootball,
+		IconBallAmericanFootball,
 		IconBuilding,
 		IconCalendarWeek,
 		IconChartBar,
@@ -33,6 +33,7 @@
 		type DashboardNavigationOrder,
 		type DashboardNavigationLabels
 	} from '$lib/dashboard/navigation';
+	import DashboardMegaSearchLauncher from '$lib/components/dashboard/DashboardMegaSearchLauncher.svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import { toast } from '$lib/toasts';
 	import type { PageProps } from './$types';
@@ -356,7 +357,7 @@
 	const navIconByKey = {
 		dashboard: IconLayoutDashboard,
 		schedule: IconCalendarWeek,
-	offerings: IconBallAmericanFootball,
+		offerings: IconBallAmericanFootball,
 		clubSports: IconTrophy,
 		memberManagement: IconUserCog,
 		communicationCenter: IconMessageCircle,
@@ -385,18 +386,21 @@
 
 <div class="w-full space-y-4">
 	<section class="border-2 border-neutral-950 bg-neutral p-3 lg:p-4 space-y-3">
-		<div class="flex items-start justify-between gap-3">
+		<div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
 			<div>
 				<h2 class="text-2xl font-bold font-serif text-neutral-950">Modules</h2>
 				<p class="text-xs text-neutral-950 mt-1">
 					Rename tabs and adjust order for this organization.
 				</p>
 			</div>
-			{#if orderSaveSubmitting}
-				<span class="text-[10px] uppercase tracking-wide text-primary-800 font-bold"
-					>Saving order...</span
-				>
-			{/if}
+			<div class="flex flex-col items-start gap-2 lg:items-end">
+				<DashboardMegaSearchLauncher variant="compact" />
+				{#if orderSaveSubmitting}
+					<span class="text-[10px] uppercase tracking-wide text-primary-800 font-bold"
+						>Saving order...</span
+					>
+				{/if}
+			</div>
 		</div>
 
 		<div class="space-y-2.5">
@@ -544,4 +548,3 @@
 		</form>
 	</section>
 </div>
-

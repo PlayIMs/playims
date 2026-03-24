@@ -8,7 +8,6 @@
 	import '../app.css';
 	import Toaster from '$lib/components/toast/Toaster.svelte';
 	import UrlBar from '$lib/components/UrlBar.svelte';
-	import MegaSearchPalette from '$lib/components/MegaSearchPalette.svelte';
 	import * as theme from '$lib/theme';
 	import { forceRadioTabStop, selectArrow, skipDatePickerTabStop } from '$lib/actions';
 	import {
@@ -633,8 +632,5 @@
 	<main style="padding-top: var(--pwa-top-bar-offset, 0px);">
 		{@render children()}
 	</main>
-	{#if activeClientId}
-		<MegaSearchPalette />
-	{/if}
 	<Toaster />
 </div>

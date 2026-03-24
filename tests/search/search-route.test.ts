@@ -11,9 +11,10 @@ Summary of tests:
 1. It verifies that public requests only return public page results.
 2. It verifies that authenticated requests return grouped page and record results while hiding inactive rows.
 3. It verifies that participant users do not receive restricted dashboard pages in results.
-4. It verifies that team-name results deep-link to the nested team page.
-5. It verifies that team results outrank divisions for equivalent team-name matches.
-6. It verifies that empty queries return recent items plus shortcuts.
+4. It verifies that long team-name queries do not return loose one-word partial matches.
+5. It verifies that team-name results deep-link to the nested team page.
+6. It verifies that team results outrank divisions for equivalent team-name matches.
+7. It verifies that empty queries return recent items plus shortcuts.
 */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -281,7 +282,6 @@ describe('mega search GET route', () => {
 		const serialized = JSON.stringify(payload.groups);
 
 		expect(response.status).toBe(200);
-		expect(categories).toContain('offerings');
 		expect(categories).toContain('leagues');
 		expect(categories).toContain('divisions');
 		expect(serialized).toContain('Co-Rec');
@@ -299,6 +299,86 @@ describe('mega search GET route', () => {
 		const serialized = JSON.stringify(payload.groups);
 
 		expect(serialized).not.toContain('/dashboard/settings');
+	});
+
+	it('rejects weak one-word partial team matches for long team-name queries', async () => {
+		// exact team-name searches should not fill the palette with teams that share only one major word.
+		mocks.tenantDbOps.seasons.getByClientId.mockResolvedValue([
+			{ id: 'season-1', name: 'Fall 2026', slug: 'fall-2026', isActive: 1, isCurrent: 1 }
+		]);
+		mocks.tenantDbOps.offerings.getByClientId.mockResolvedValue([
+			{
+				id: 'offering-1',
+				seasonId: 'season-1',
+				name: 'Basketball',
+				slug: 'basketball',
+				type: 'league',
+				isActive: 1
+			}
+		]);
+		mocks.tenantDbOps.leagues.getByClientId.mockResolvedValue([
+			{
+				id: 'league-1',
+				seasonId: 'season-1',
+				offeringId: 'offering-1',
+				name: 'Co-Rec',
+				slug: 'co-rec',
+				isActive: 1
+			}
+		]);
+		mocks.tenantDbOps.divisions.getByLeagueIds.mockResolvedValue([
+			{
+				id: 'division-1',
+				leagueId: 'league-1',
+				name: 'Division A',
+				slug: 'division-a',
+				isActive: 1
+			}
+		]);
+		mocks.tenantDbOps.teams.getByClientId.mockResolvedValue([
+			{
+				id: 'team-1',
+				divisionId: 'division-1',
+				name: 'Ballers to Wallers',
+				slug: 'ballers-to-wallers',
+				teamStatus: 'active',
+				isActive: 1
+			},
+			{
+				id: 'team-2',
+				divisionId: 'division-1',
+				name: 'Wallers United',
+				slug: 'wallers-united',
+				teamStatus: 'active',
+				isActive: 1
+			},
+			{
+				id: 'team-3',
+				divisionId: 'division-1',
+				name: 'Ballers United',
+				slug: 'ballers-united',
+				teamStatus: 'active',
+				isActive: 1
+			}
+		]);
+
+		const response = await GET(
+			createEvent({
+				query: 'ballers to wallers',
+				season: 'fall-2026',
+				userId: 'user-1',
+				role: 'admin'
+			})
+		);
+		const payload = await response.json();
+		const teamGroup = payload.groups.find(
+			(group: { category: string }) => group.category === 'teams'
+		);
+
+		expect(response.status).toBe(200);
+		expect(teamGroup?.items.map((item: { title: string }) => item.title)).toEqual([
+			'Ballers to Wallers'
+		]);
 	});
 
 	it('deep-links team-name results to the nested team page url', async () => {
@@ -355,12 +435,15 @@ describe('mega search GET route', () => {
 			})
 		);
 		const payload = await response.json();
-		const teamGroup = payload.groups.find((group: { category: string }) => group.category === 'teams');
+		const teamGroup = payload.groups.find(
+			(group: { category: string }) => group.category === 'teams'
+		);
 
 		expect(response.status).toBe(200);
 		expect(teamGroup?.items[0]?.href).toBe(
 			'/dashboard/offerings/fall-2026/soccer/co-rec/division-a/soccer-stars'
 		);
+		expect(teamGroup?.items[0]?.subtitle).toBe('Soccer • Co-Rec • Division A');
 	});
 
 	it('prioritizes team results over division results for exact team-name matches', async () => {

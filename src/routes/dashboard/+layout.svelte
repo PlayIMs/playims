@@ -43,6 +43,7 @@
 		type DashboardNavigationLabels
 	} from '$lib/dashboard/navigation';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
+	import MegaSearchPalette from '$lib/components/MegaSearchPalette.svelte';
 	import {
 		STANDALONE_DISPLAY_MODE_QUERY,
 		isStandaloneDisplayMode
@@ -1244,4 +1245,5 @@
 		onSelectOrganization={switchOrganization}
 		onLeaveOrganization={leaveOrganizationMembership}
 	/>
+	<MegaSearchPalette />
 </div>

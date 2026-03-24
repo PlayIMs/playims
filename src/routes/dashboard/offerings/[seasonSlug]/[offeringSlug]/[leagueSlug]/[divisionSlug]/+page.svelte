@@ -5,6 +5,7 @@
 	import SmallStandingsTable from '$lib/components/SmallStandingsTable.svelte';
 	import TeamPlacementTable from '$lib/components/TeamPlacementTable.svelte';
 	import DashboardSidebarPanel from '$lib/components/dashboard/DashboardSidebarPanel.svelte';
+	import DashboardMegaSearchLauncher from '$lib/components/dashboard/DashboardMegaSearchLauncher.svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
@@ -383,31 +384,34 @@
 <div class="w-full space-y-4">
 	<header class="bg-neutral">
 		<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
-			<div class="flex items-center gap-3 py-2 lg:py-3">
-				<div
-					class="bg-primary text-white border-2 border-primary-700 flex h-[2.75rem] w-[2.75rem] items-center justify-center lg:h-[3.4rem] lg:w-[3.4rem]"
-					aria-hidden="true"
-				>
-					<IconUsers class="h-7 w-7 lg:h-8 lg:w-8" />
-				</div>
-				<div class="relative min-w-0">
-					<h1
-						class="text-5xl lg:text-6xl leading-[0.9] tracking-[0.01em] font-bold font-serif text-neutral-950"
+			<div class="flex flex-col gap-4 py-2 lg:flex-row lg:items-start lg:justify-between">
+				<div class="flex items-center gap-3">
+					<div
+						class="bg-primary text-white border-2 border-primary-700 flex h-[2.75rem] w-[2.75rem] items-center justify-center lg:h-[3.4rem] lg:w-[3.4rem]"
+						aria-hidden="true"
 					>
-						{data.division?.name ?? 'Division'}
-					</h1>
-					{#if breadcrumbSegments.length > 0}
+						<IconUsers class="h-7 w-7 lg:h-8 lg:w-8" />
+					</div>
+					<div class="relative min-w-0">
+						<h1
+							class="text-5xl lg:text-6xl leading-[0.9] tracking-[0.01em] font-bold font-serif text-neutral-950"
+						>
+							{data.division?.name ?? 'Division'}
+						</h1>
+						{#if breadcrumbSegments.length > 0}
 							<div class="absolute left-0 top-[calc(100%+0.09rem)] z-10">
-							<Breadcrumb
-								segments={breadcrumbSegments}
-								class="max-w-[min(100vw-7rem,100%)]"
-								seasonLabel={breadcrumbSeasonLabel}
-								seasonSlug={breadcrumbSeasonSlug}
-								includeSeasonContext={includeBreadcrumbSeasonContext}
-							/>
-						</div>
-					{/if}
+								<Breadcrumb
+									segments={breadcrumbSegments}
+									class="max-w-[min(100vw-7rem,100%)]"
+									seasonLabel={breadcrumbSeasonLabel}
+									seasonSlug={breadcrumbSeasonSlug}
+									includeSeasonContext={includeBreadcrumbSeasonContext}
+								/>
+							</div>
+						{/if}
+					</div>
 				</div>
+				<DashboardMegaSearchLauncher wrapperClass="lg:pt-1" />
 			</div>
 		</div>
 	</header>
