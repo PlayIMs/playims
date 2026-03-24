@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import {
@@ -71,9 +72,7 @@
 
 	async function handleAction(value: string, currentValue: string): Promise<void> {
 		if (!value || value === currentValue) return;
-		if (typeof window !== 'undefined') {
-			window.location.assign(value);
-		}
+		await goto(value);
 	}
 </script>
 
@@ -84,20 +83,16 @@
 	>
 		{#each segments as segment, index (segment.key)}
 			<div class="inline-flex min-w-0 shrink-0 items-center gap-0.5">
-				<button
-					type="button"
+				<a
+					href={resolvedHref(segment.href)}
+					data-sveltekit-preload-data="hover"
 					aria-current={resolvedHref(segment.href) === resolvedHref(segment.currentValue)
 						? 'page'
 						: undefined}
 					class="inline-flex min-w-0 cursor-pointer items-center text-[13px] leading-4 font-normal text-neutral-900 transition-colors duration-150 focus:outline-none"
-					onclick={() => {
-						if (typeof window !== 'undefined') {
-							window.location.assign(resolvedHref(segment.href));
-						}
-					}}
 				>
 					<span class="truncate">{segment.label}</span>
-				</button>
+				</a>
 				{#if showDropdown(segment)}
 					<ListboxDropdown
 						options={menuOptionsFor(segment)}
