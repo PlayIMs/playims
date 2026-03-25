@@ -14,7 +14,7 @@ const slugify = (value: string) =>
 		.toLowerCase()
 		.trim()
 		.replace(/['"]/g, '')
-		.replace(/[\/&+_|\\]/g, '-')
+		.replace(/[/&+_|\\]/g, '-')
 		.replace(/\s+/g, '-')
 		.replace(/[^a-z0-9]+/g, '-')
 		.replace(/(^-|-$)/g, '');

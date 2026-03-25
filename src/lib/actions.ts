@@ -46,7 +46,7 @@ export function selectArrow(node: HTMLSelectElement) {
 		updateArrow();
 	}
 
-	function handleMouseDown(event: MouseEvent) {
+	function handleMouseDown() {
 		// Track if select was focused before this click
 		const wasFocused = document.activeElement === node;
 

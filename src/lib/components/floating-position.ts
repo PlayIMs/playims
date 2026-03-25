@@ -73,11 +73,12 @@ export function resolveCursorFloatingPosition(
 	}
 	left = clamp(left, bounds.left, bounds.right - panelWidth);
 
-	let top = options.cursorY + options.offsetY;
-	if (top + options.panelHeight > bounds.bottom) {
-		top = options.cursorY - options.offsetY - options.panelHeight;
-	}
-	top = clamp(top, bounds.top, bounds.bottom - options.panelHeight);
+	const preferredTop = options.cursorY + options.offsetY;
+	const unclampedTop =
+		preferredTop + options.panelHeight > bounds.bottom
+			? options.cursorY - options.offsetY - options.panelHeight
+			: preferredTop;
+	const top = clamp(unclampedTop, bounds.top, bounds.bottom - options.panelHeight);
 
 	return { left, top, maxWidth: bounds.width };
 }
@@ -99,13 +100,15 @@ export function resolveAnchoredFloatingPosition(
 	const fitsBelow = belowTop + options.panelHeight <= bounds.bottom;
 	const fitsAbove = aboveTop >= bounds.top;
 
-	let top = belowTop;
-	if (options.preferVertical === 'top') {
-		top = fitsAbove || !fitsBelow ? aboveTop : belowTop;
-	} else {
-		top = fitsBelow || !fitsAbove ? belowTop : aboveTop;
-	}
-	top = clamp(top, bounds.top, bounds.bottom - options.panelHeight);
+	const unclampedTop =
+		options.preferVertical === 'top'
+			? fitsAbove || !fitsBelow
+				? aboveTop
+				: belowTop
+			: fitsBelow || !fitsAbove
+				? belowTop
+				: aboveTop;
+	const top = clamp(unclampedTop, bounds.top, bounds.bottom - options.panelHeight);
 
 	return { left, top, maxWidth: bounds.width };
 }

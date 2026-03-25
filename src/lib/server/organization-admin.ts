@@ -6,7 +6,6 @@ import {
 import {
 	applyMembershipRoleToLocals,
 	buildPermissionSnapshot,
-	canViewAsRole,
 	PERMISSIONS,
 	requirePermission
 } from '$lib/server/auth/permissions';
@@ -167,7 +166,7 @@ export const createOrganizationAction = async (event: RequestEvent) => {
 		});
 	}
 
-	let createdClient: Awaited<ReturnType<typeof dbOps.clients.create>> | null = null;
+	let createdClient: Awaited<ReturnType<typeof dbOps.clients.create>> | undefined;
 	try {
 		createdClient = await dbOps.clients.create({
 			name: parsed.data.organizationName.trim(),

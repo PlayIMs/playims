@@ -14,7 +14,9 @@
 		toFixedStyle
 	} from '$lib/components/floating-position';
 	import { truncatePwaHistoryRoute, type PwaHistoryEntry } from '$lib/utils/pwa-navigation';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, type ComponentType, type SvelteComponent } from 'svelte';
+
+	type IconComponent = ComponentType<SvelteComponent<{ class?: string }>>;
 
 	type HistoryNavigationButtonProps = {
 		ariaLabel: string;
@@ -22,7 +24,7 @@
 		disabled: boolean;
 		entries: PwaHistoryEntry[];
 		align?: 'left' | 'right';
-		icon: any;
+		icon: IconComponent;
 		onNavigate: () => void;
 		onJumpToHistory: (targetIndex: number) => void;
 	};

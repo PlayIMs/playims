@@ -366,7 +366,7 @@ export const POST: RequestHandler = async (event) => {
 				}
 
 				let nextIsLocked = input.division.isLocked ? 1 : 0;
-				let nextDoAutoLock = input.division.doAutoLock ? 1 : 0;
+				const nextDoAutoLock = input.division.doAutoLock ? 1 : 0;
 				if (
 					nextDoAutoLock === 1 &&
 					(input.division.maxTeams !== targetDivision.maxTeams ||

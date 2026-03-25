@@ -26,6 +26,12 @@ import { SignupInviteKeyOperations } from './signup-invite-keys.js';
 import { AuthRateLimitOperations } from './auth-rate-limits.js';
 import { SearchRecentOperations } from './search-recents.js';
 
+const isD1Database = (value: unknown): value is D1Database =>
+	typeof value === 'object' &&
+	value !== null &&
+	'prepare' in value &&
+	typeof value.prepare === 'function';
+
 /**
  * Unified database operations class
  * Uses Drizzle ORM for type safety and Cloudflare D1 binding
@@ -67,7 +73,7 @@ export class DatabaseOperations {
 		// Handle both platform object and direct DB binding
 		if ('env' in platformOrDb && platformOrDb.env && platformOrDb.env.DB) {
 			db = platformOrDb.env.DB;
-		} else if (platformOrDb && typeof (platformOrDb as any).prepare === 'function') {
+		} else if (isD1Database(platformOrDb)) {
 			db = platformOrDb as D1Database;
 		} else {
 			throw new Error(

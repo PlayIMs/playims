@@ -11,13 +11,23 @@
 	import { IconChevronDown, IconChevronUp, IconInfoCircle } from '@tabler/icons-svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
-	import { createEventDispatcher, onDestroy, tick } from 'svelte';
+	import {
+		createEventDispatcher,
+		onDestroy,
+		tick,
+		type ComponentType,
+		type SvelteComponent
+	} from 'svelte';
 	import type { Snippet } from 'svelte';
+
+	type LabelIconComponent = ComponentType<
+		SvelteComponent<{ class?: string; stroke?: string | number }>
+	>;
 
 	interface ListboxDropdownOption {
 		value: string;
 		label: string;
-		labelIcon?: any;
+		labelIcon?: LabelIconComponent;
 		labelIconClass?: string;
 		labelIconAriaLabel?: string;
 		leadingVisualClass?: string;

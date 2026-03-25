@@ -2,6 +2,9 @@
 	import DataTable from '$lib/components/DataTable.svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import type { DataTableColumn } from '$lib/components/data-table.js';
+	import type { ComponentType, SvelteComponent } from 'svelte';
+
+	type IconComponent = ComponentType<SvelteComponent<{ class?: string }>>;
 
 	interface StandingsRow {
 		rank: number;
@@ -20,7 +23,7 @@
 
 	interface Props {
 		rows: StandingsRow[];
-		icon: any;
+		icon: IconComponent;
 		caption: string;
 		hasSearchQuery?: boolean;
 		emptySearchMessage?: string;

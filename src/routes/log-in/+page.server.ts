@@ -95,13 +95,13 @@ export const actions: Actions = {
 		const nextPath = sanitizeNextPath(submittedNextPath) ?? '';
 		const emailInput = formData.get('email')?.toString() ?? '';
 		const passwordInput = formData.get('password')?.toString() ?? '';
+		let authenticatedRole: string;
 
-		let resolvedSessionRole: string | null = null;
 		if (isLocalDevCredentialPair(emailInput, passwordInput)) {
 			try {
 				const dbOps = getCentralDbOps(event);
 				const authResult = await loginWithLocalDevCredentials(event, dbOps);
-				resolvedSessionRole = authResult.session.role;
+				authenticatedRole = authResult.session.role;
 			} catch (error) {
 				if (error instanceof AuthServiceError) {
 					const publicAuthError = mapLoginAuthError(error);
@@ -123,7 +123,7 @@ export const actions: Actions = {
 				});
 			}
 
-			throw redirect(303, resolvePostAuthRedirect(submittedNextPath, resolvedSessionRole));
+			throw redirect(303, resolvePostAuthRedirect(submittedNextPath, authenticatedRole));
 		}
 
 		const parsed = loginSchema.safeParse({
@@ -146,7 +146,7 @@ export const actions: Actions = {
 				email: parsed.data.email,
 				password: parsed.data.password
 			});
-			resolvedSessionRole = authResult.session.role;
+			authenticatedRole = authResult.session.role;
 		} catch (error) {
 			if (error instanceof AuthServiceError) {
 				const publicAuthError = mapLoginAuthError(error);
@@ -168,6 +168,6 @@ export const actions: Actions = {
 			});
 		}
 
-		throw redirect(303, resolvePostAuthRedirect(submittedNextPath, resolvedSessionRole));
+		throw redirect(303, resolvePostAuthRedirect(submittedNextPath, authenticatedRole));
 	}
 };

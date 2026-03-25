@@ -3657,14 +3657,12 @@
 	function getJoinTeamInfo(activity: Activity): { text: string; date: string | null } {
 		const seasonStart = parseDate(activity.seasonStart);
 		const regEnd = parseDate(activity.registrationEnd);
-		let joinDeadline: string | null = null;
-
-		if (seasonStart && regEnd) {
-			joinDeadline =
-				seasonStart.getTime() >= regEnd.getTime() ? activity.seasonStart : activity.registrationEnd;
-		} else {
-			joinDeadline = activity.seasonStart ?? activity.registrationEnd ?? null;
-		}
+		const joinDeadline =
+			seasonStart && regEnd
+				? seasonStart.getTime() >= regEnd.getTime()
+					? activity.seasonStart
+					: activity.registrationEnd
+				: activity.seasonStart ?? activity.registrationEnd ?? null;
 
 		if (!joinDeadline) return { text: 'Join team deadline TBD', date: null };
 		return { text: `Join by ${formatDeadlineDate(joinDeadline)}`, date: joinDeadline };

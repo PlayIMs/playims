@@ -3,17 +3,19 @@ import { and, desc, eq, sql } from 'drizzle-orm';
 import type { DrizzleClient } from '../drizzle.js';
 import { clients, userClients, users, type Client, type User } from '../schema/index.js';
 
+type UserWithClient = Partial<User> & Pick<User, 'id'> & { client?: Client | null };
+
 export class UserOperations {
 	constructor(private db: DrizzleClient) {}
 
-	private mapResult(row: { user: User; client: Client | null }) {
+	private mapResult(row: { user: User; client: Client | null }): UserWithClient {
 		return {
 			...row.user,
 			client: row.client
 		};
 	}
 
-	async getByClientId(clientId: string): Promise<any[]> {
+	async getByClientId(clientId: string): Promise<UserWithClient[]> {
 		const result = await this.db
 			.select({
 				user: users,

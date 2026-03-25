@@ -1,4 +1,4 @@
-const SLUG_SEPARATOR_PATTERN = /[\/&+_|\\]/g;
+const SLUG_SEPARATOR_PATTERN = /[/&+_|\\]/g;
 
 export function slugifyFinal(value: string): string {
 	return value
@@ -25,7 +25,7 @@ export function slugifyLiveWithCursor(
 
 		let next = '';
 		if (/[A-Za-z0-9]/.test(character)) next = character.toLowerCase();
-		else if (character === ' ' || character === '-' || /[\/&+_|\\]/.test(character)) next = '-';
+		else if (character === ' ' || character === '-' || /[/&+_|\\]/.test(character)) next = '-';
 
 		if (next === '-') {
 			if (output.length === 0) {

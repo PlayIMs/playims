@@ -26,7 +26,7 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 			dbName: isDevelopment ? 'playims-central-db-dev' : 'playims-central-db-prod',
 			isDevelopment
 		};
-	} catch (error) {
+	} catch {
 		return {
 			error: 'Failed to determine environment details',
 			environment: 'error',

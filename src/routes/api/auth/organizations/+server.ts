@@ -174,7 +174,7 @@ export const PATCH: RequestHandler = async (event) => {
 		});
 	}
 
-	let updatedClient = null as Awaited<ReturnType<typeof dbOps.clients.updateDetails>> | null;
+	let updatedClient: Awaited<ReturnType<typeof dbOps.clients.updateDetails>> | undefined;
 	try {
 		updatedClient = await dbOps.clients.updateDetails(
 			parsed.data.clientId,

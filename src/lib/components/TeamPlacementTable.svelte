@@ -3,6 +3,9 @@
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import type { DataTableColumn, DataTableSortState } from '$lib/components/data-table.js';
 	import { parseDateTooltipValue } from '$lib/utils/date-tooltip.js';
+	import type { ComponentType, SvelteComponent } from 'svelte';
+
+	type IconComponent = ComponentType<SvelteComponent<{ class?: string }>>;
 
 	interface TeamPlacementTableRow {
 		id: string;
@@ -18,7 +21,7 @@
 
 	interface Props {
 		rows: TeamPlacementTableRow[];
-		icon: any;
+		icon: IconComponent;
 		caption: string;
 		maxPlayers: number | null;
 		hasSearchQuery?: boolean;

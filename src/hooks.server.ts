@@ -1,7 +1,7 @@
 import { dev } from '$app/environment';
 import { canAccessDashboardRouteForPermissions } from '$lib/dashboard/navigation';
 import { clearSessionCookie, resolveSessionFromRequest } from '$lib/server/auth/session';
-import type { AuthPermission, AuthRole } from '$lib/server/auth/permissions';
+import type { AuthPermission } from '$lib/server/auth/permissions';
 import {
 	buildPermissionSnapshot,
 	hasLocalsAnyPermission,

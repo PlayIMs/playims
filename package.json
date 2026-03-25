@@ -20,9 +20,10 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"check": "svelte-check",
+		"lint": "eslint .",
 		"test": "vitest run",
 		"test:watch": "vitest",
-		"verify": "pnpm test && pnpm check",
+		"verify": "pnpm lint && pnpm test && pnpm check",
 		"test:auth": "vitest run tests/auth",
 		"test:members": "vitest run tests/members"
 	},

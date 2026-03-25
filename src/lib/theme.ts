@@ -213,20 +213,6 @@ function getLuminance(r: number, g: number, b: number): number {
 	return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
 }
 
-/** calculates wcag contrast ratio between two colors. */
-function getContrastRatio(color1: string, color2: string): number {
-	const rgb1 = hexToRgb(color1);
-	const rgb2 = hexToRgb(color2);
-
-	const lum1 = getLuminance(rgb1.r, rgb1.g, rgb1.b);
-	const lum2 = getLuminance(rgb2.r, rgb2.g, rgb2.b);
-
-	const lighter = Math.max(lum1, lum2);
-	const darker = Math.min(lum1, lum2);
-
-	return (lighter + 0.05) / (darker + 0.05);
-}
-
 /** determines if a color is light or dark based on luminance. */
 function isLightColor(hex: string): boolean {
 	const rgb = hexToRgb(hex);

@@ -29,7 +29,7 @@ function killOnWindows(targetPort) {
 }
 
 function killOnUnix(targetPort) {
-	let output = '';
+	let output;
 	try {
 		output = execSync(`lsof -ti tcp:${targetPort} -sTCP:LISTEN`, { encoding: 'utf8' });
 	} catch {
