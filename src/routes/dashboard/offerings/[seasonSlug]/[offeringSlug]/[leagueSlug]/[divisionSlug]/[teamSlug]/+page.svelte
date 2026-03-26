@@ -473,9 +473,7 @@
 												</div>
 											</div>
 										</div>
-										<div
-											class="min-w-0 border-t border-secondary-200 pt-2 sm:border-t-0 sm:border-l sm:pl-2 sm:pt-0"
-										>
+										<div class="dashboard-info-divider-split">
 											<div class="flex items-start gap-2">
 												<IconCalendar class="mt-0.5 h-4 w-4 shrink-0 text-secondary-700" />
 												<div class="min-w-0">
@@ -495,7 +493,7 @@
 												</div>
 											</div>
 										</div>
-										<div class="min-w-0 border-t border-secondary-200 pt-2 sm:border-t-0 sm:pt-0">
+										<div class="dashboard-info-divider-top">
 											<div class="flex items-start gap-2">
 												<IconUsers class="mt-0.5 h-4 w-4 shrink-0 text-secondary-700" />
 												<div class="min-w-0">
@@ -506,9 +504,7 @@
 												</div>
 											</div>
 										</div>
-										<div
-											class="min-w-0 border-t border-secondary-200 pt-2 sm:border-t-0 sm:border-l sm:pl-2 sm:pt-0"
-										>
+										<div class="dashboard-info-divider-split">
 											<div class="flex items-start gap-2">
 												<IconMailPlus class="mt-0.5 h-4 w-4 shrink-0 text-secondary-700" />
 												<div class="min-w-0">
@@ -532,7 +528,7 @@
 												</div>
 											</div>
 										</div>
-										<div class="min-w-0 sm:border-l sm:pl-2">
+										<div class="dashboard-info-divider-desktop-left">
 											<div class="flex items-start gap-2">
 												<IconUserCheck class="mt-0.5 h-4 w-4 shrink-0 text-secondary-700" />
 												<div class="min-w-0">

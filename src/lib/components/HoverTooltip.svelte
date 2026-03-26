@@ -41,7 +41,7 @@
 		cursorOffsetYPx = 18,
 		paddingPx = 8,
 		minWidthPx = 180,
-		panelClass = 'border border-secondary-300 bg-neutral px-2 py-1 text-[11px] text-neutral-950 shadow-sm',
+		panelClass = 'hover-tooltip-panel',
 		maxWidthClass = 'max-w-72',
 		wrapperClass = 'relative inline-flex shrink-0',
 		wrapperElement = 'div',
