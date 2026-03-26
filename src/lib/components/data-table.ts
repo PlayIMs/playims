@@ -1,7 +1,7 @@
 export type DataTableTextAlignment = 'left' | 'center' | 'right';
 export type DataTableVerticalAlignment = 'top' | 'middle' | 'bottom';
 export type DataTableHorizontalPadding = 'default' | 'none';
-export type DataTableHeaderTextTransform = 'title' | 'normal';
+export type DataTableHeaderTextTransform = 'title' | 'uppercase' | 'normal';
 export type DataTableSortDirection = 'asc' | 'desc';
 
 export interface DataTableSortState {

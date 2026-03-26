@@ -1,7 +1,10 @@
 <script lang="ts">
 	import DataTable from '$lib/components/DataTable.svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
-	import type { DataTableColumn } from '$lib/components/data-table.js';
+	import type {
+		DataTableColumn,
+		DataTableHeaderTextTransform
+	} from '$lib/components/data-table.js';
 	import type { ComponentType, SvelteComponent } from 'svelte';
 
 	type IconComponent = ComponentType<SvelteComponent<{ class?: string }>>;
@@ -50,8 +53,17 @@
 		return shouldBold ? 'font-bold' : 'font-normal';
 	}
 
+	const SMALL_STANDINGS_HEADER_TEXT_TRANSFORM: DataTableHeaderTextTransform = 'uppercase';
+
+	function createSmallStandingsColumn(column: DataTableColumn): DataTableColumn {
+		return {
+			headerTextTransform: SMALL_STANDINGS_HEADER_TEXT_TRANSFORM,
+			...column
+		};
+	}
+
 	const columns: DataTableColumn[] = [
-		{
+		createSmallStandingsColumn({
 			key: 'rank',
 			label: 'RNK',
 			headerHoverTooltipText: 'Rank',
@@ -61,16 +73,16 @@
 			cellVerticalAlignment: 'middle',
 			cellPaddingLeft: '12px',
 			tabularNumbers: true
-		},
-		{
+		}),
+		createSmallStandingsColumn({
 			key: 'team',
 			label: 'Team',
 			width: '28%',
 			rowHeader: true,
 			headerPaddingRight: '0px',
 			cellPaddingRight: '0px'
-		},
-		{
+		}),
+		createSmallStandingsColumn({
 			key: 'record',
 			label: 'W-L-T',
 			headerHoverTooltipText: 'Wins-Losses-Ties',
@@ -79,8 +91,8 @@
 			cellTextAlignment: 'center',
 			cellVerticalAlignment: 'middle',
 			tabularNumbers: true
-		},
-		{
+		}),
+		createSmallStandingsColumn({
 			key: 'points',
 			label: 'PTS',
 			headerHoverTooltipText: 'Points',
@@ -89,8 +101,8 @@
 			cellTextAlignment: 'center',
 			cellVerticalAlignment: 'middle',
 			tabularNumbers: true
-		},
-		{
+		}),
+		createSmallStandingsColumn({
 			key: 'pct',
 			label: 'PTS%',
 			headerHoverTooltipText: 'Points Percentage',
@@ -99,8 +111,8 @@
 			cellTextAlignment: 'center',
 			cellVerticalAlignment: 'middle',
 			tabularNumbers: true
-		},
-		{
+		}),
+		createSmallStandingsColumn({
 			key: 'streak',
 			label: 'STRK',
 			headerHoverTooltipText: 'Win/Loss/Tie Streak',
@@ -109,8 +121,8 @@
 			cellTextAlignment: 'center',
 			cellVerticalAlignment: 'middle',
 			tabularNumbers: true
-		},
-		{
+		}),
+		createSmallStandingsColumn({
 			key: 'sportsmanship',
 			label: 'SBR',
 			headerHoverTooltipText: 'Sporting Behavior Rating',
@@ -119,8 +131,8 @@
 			cellTextAlignment: 'center',
 			cellVerticalAlignment: 'middle',
 			tabularNumbers: true
-		},
-		{
+		}),
+		createSmallStandingsColumn({
 			key: 'forfeits',
 			label: 'FFS',
 			headerHoverTooltipText: 'Forfeits / Forgoes',
@@ -129,7 +141,7 @@
 			cellTextAlignment: 'center',
 			cellVerticalAlignment: 'middle',
 			tabularNumbers: true
-		}
+		})
 	];
 
 	function formatStandingCell(value: number | string | null | undefined): string {

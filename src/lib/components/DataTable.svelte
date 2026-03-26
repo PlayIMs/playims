@@ -92,7 +92,9 @@
 	function resolveHeaderTextTransformClass(
 		textTransform: DataTableHeaderTextTransform | undefined
 	): string {
-		return textTransform === 'normal' ? 'normal-case' : 'data-table-header-title-case';
+		if (textTransform === 'normal') return 'normal-case';
+		if (textTransform === 'uppercase') return 'uppercase';
+		return 'data-table-header-title-case';
 	}
 
 	function resolveHeaderCellClass(column: DataTableColumn<TRow>): string {
