@@ -128,13 +128,13 @@
 	>
 		<div
 			bind:this={panelElement}
-			class="w-full max-w-xl bg-neutral-400 border-4 border-secondary"
+			class="w-full max-w-xl border border-neutral-950 bg-neutral"
 			style={panelStyle}
 			role="dialog"
 			aria-modal="true"
 			tabindex="-1"
 		>
-			<div class="p-5 border-b border-secondary">
+			<div class="border-b border-neutral-950 bg-neutral-600/66 p-5">
 				<h3 class="text-2xl font-bold font-serif text-neutral-950">{title}</h3>
 			</div>
 			<div class="p-5 space-y-4">
@@ -142,14 +142,14 @@
 				<div class="flex items-center justify-end gap-3 pt-2">
 					<button
 						type="button"
-						class="button-secondary cursor-pointer"
+						class="button-secondary-outlined cursor-pointer"
 						onclick={() => dispatch('cancel')}
 					>
 						{cancelLabel}
 					</button>
 					<button
 						type="button"
-						class="button-secondary-outlined border-error-700 text-error-700 hover:bg-error-50 cursor-pointer"
+						class="button-error cursor-pointer"
 						onclick={() => dispatch('confirm')}
 					>
 						{confirmLabel}

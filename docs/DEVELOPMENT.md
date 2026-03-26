@@ -162,6 +162,40 @@ How to use them:
 
 See [TESTING.md](./TESTING.md) for the full repo workflow and Codex-specific guidance.
 
+## UI System And Shared Styling
+
+PlayIMs keeps the dashboard UI consistent by routing most visual rules through shared primitives
+instead of page-local one-offs.
+
+- The offerings page shell is the baseline for current dashboard styling.
+- `src/app.css` is the single source of truth for shared UI primitives such as buttons, borders,
+  surfaces, inputs, badges, and modal shells.
+- Scrollbar styling is intentionally left unchanged unless a task explicitly says otherwise.
+- Shared UI guidance uses only the `primary`, `secondary`, and `neutral` families.
+- `secondary` is the default control family for inputs, textareas, checkboxes, radios, toggles,
+  and dropdown triggers.
+- `ListboxDropdown` is the standard dashboard select system. Prefer it over native `<select>`
+  for dashboard-facing choices unless you need a documented exception for parity.
+- `ListboxDropdown` should stay on the shared defaults unless a route has a documented layout
+  exception. That means 2px trigger/panel borders, slightly darker neutral row dividers, and
+  darker neutral option-body text by default.
+- Dropdown divider borders and the footer-top border should stay matched instead of introducing a
+  separate accent-colored footer rule.
+- Dropdown utility icons such as the season-history trigger and edit/manage pencil action should
+  use the shared dark-neutral icon styling from the listbox system.
+- Shared dropdown option states should stay consistent too: default rows use a light neutral
+  surface, hovered rows use a slightly darker neutral surface, selected rows use the primary
+  surface with light primary text, and selected-hover rows use the slightly lighter primary state.
+- Avoid page-local listbox overrides for borders, divider colors, or option text colors when the
+  shared component already matches the page pattern.
+- `SearchInput` is the shared search default for page search bars and embedded search controls.
+- Modal and wizard shells should stay neutral and offerings-style, with the full-width header strip
+  and shared footer actions used across the app.
+- Compact icon-only actions should reuse shared helpers such as `dashboard-icon-button` rather
+  than introducing page-local icon button styles.
+- This work is a consistency cleanup, not a major redesign. Favor shared component reuse and
+  incremental alignment over broad layout rewrites.
+
 ## Commit Message Standard
 
 Use commit prefixes like `feat:`, `fix:`, and `docs:` followed by a brief, specific description.

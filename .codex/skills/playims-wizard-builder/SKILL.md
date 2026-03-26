@@ -7,7 +7,8 @@ description: Build or refactor PlayIMs dashboard wizard modals with the shared w
 
 ## Goal
 
-Implement wizard modals in PlayIMs with consistent UX, shared components, parity-safe behavior, and route-local wizard components.
+Implement wizard modals in PlayIMs with consistent UX, shared components, parity-safe behavior,
+and route-local wizard components that follow the offerings page shell as the baseline UI.
 
 ## Start Here
 
@@ -55,6 +56,7 @@ Follow this structure:
 8. For any new info/help popover in wizards, use `src/lib/components/InfoPopover.svelte` and follow `$playims-info-popover-builder`; do not introduce ad-hoc popover implementations.
 9. For wizard-adjacent admin entry points, prefer `ListboxDropdown` footer actions (primary and optional secondary icon action) to keep context actions in-flow.
 10. For hover hints on wizard controls (edit/copy/remove/revert icons and similar), use `HoverTooltip` and follow `$playims-hover-tooltip-builder`; do not use native `title` attributes.
+11. Keep compact icon-only actions on shared helpers such as `dashboard-icon-button` paired with the appropriate button family instead of page-local icon button recipes.
 
 ### InfoPopover Placement In Wizards
 
@@ -78,6 +80,7 @@ For single-step switchers such as `Switch View Role`, `Switch Organization`, or 
 
 - Use `WizardModal`, not ad-hoc modal markup.
 - Keep them visually and behaviorally aligned across routes; a new switcher should look like a sibling of the existing role/org switchers, not a separate modal family.
+- Follow the offerings-style modal shell: neutral surface, square framing, full-width header strip, and shared footer actions.
 - Use `maxWidthClass="max-w-lg"` unless the user explicitly asks for a larger switcher.
 - Use one summary panel at the top with current-state context and concise keyboard guidance.
 - Use a single-column list of selectable button cards with matching spacing, padding, and keycap placement across switchers.
@@ -119,6 +122,7 @@ For single-step switchers such as `Switch View Role`, `Switch Organization`, or 
 
 - Replace inline wizard markup with route wizard component.
 - Preserve existing API payloads and action endpoints unless explicitly requested otherwise.
+
 7. Standardize wizard hover tooltip affordances.
 
 - Replace wizard-native `title` hover hints with `HoverTooltip` wrappers when touched.
@@ -165,6 +169,7 @@ For single-step switchers such as `Switch View Role`, `Switch Organization`, or 
 - Preserve existing copy and behavior by default (parity-first).
 - Prefer splitting dense content into additional wizard steps instead of relying on in-panel scroll.
 - When in-panel scrolling is still necessary, keep the shared thin wizard scrollbar treatment rather than introducing a heavier one-off scrollbar.
+- Keep the base wizard shell neutral and offerings-aligned unless a route has a documented exception.
 - Do not change backend schemas/migrations/API contracts unless requested.
 - If adding a new `/api/...` endpoint for the wizard, update security policy map and rate limiting in `src/hooks.server.ts` (`API_ROUTE_POLICIES` and `resolveRateLimitConfig`) to avoid 403 policy blocks.
 - For all newly added wizard select/dropdown controls, use `ListboxDropdown` and not native `<select>`.
@@ -179,6 +184,7 @@ For single-step switchers such as `Switch View Role`, `Switch Organization`, or 
 - Do not ship wizards that rely on submit-only validation for required fields, duplicates, or format errors.
 - Do not show untouched step-level field errors on first render.
 - Do not skip browser-native unsaved prompts for refresh, tab close, or page/back navigation when a wizard has dirty state.
+- Do not introduce page-local icon action styling when the shared icon-button helpers already fit the use case.
 - Keep scope to dashboard routes unless user expands scope.
 
 ## Delivery Checklist

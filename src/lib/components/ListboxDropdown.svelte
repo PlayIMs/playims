@@ -93,18 +93,18 @@
 		placeholder = 'Select option',
 		emptyText = 'No options available.',
 		noteText,
-		noteClass = 'px-3 pb-2 text-xs text-neutral-900 text-left',
-		buttonClass = 'button-secondary-outlined px-3 py-1 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-60',
-		listClass = 'mt-1 w-64 border-2 border-secondary-300 bg-white z-20 max-h-72 overflow-y-auto',
-		optionClass = 'w-full text-left px-3 py-2 text-sm cursor-pointer text-neutral-950 transition-colors duration-100 touch-manipulation',
-		selectedOptionClass = 'bg-primary text-white font-semibold',
-		activeOptionClass = 'bg-neutral-300 text-neutral-950',
-		disabledOptionClass = 'opacity-50 cursor-not-allowed bg-white text-neutral-700',
-		separatorClass = 'border-secondary-200',
+		noteClass = '',
+		buttonClass = 'button-secondary-outlined min-h-10 px-3 py-2 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2 disabled:cursor-not-allowed disabled:opacity-60',
+		listClass = '',
+		optionClass = '',
+		selectedOptionClass = '',
+		activeOptionClass = '',
+		disabledOptionClass = '',
+		separatorClass = '',
 		preserveDisabledSeparatorOpacity = false,
 		footerActionLabel,
 		footerActionAriaLabel,
-		footerActionClass = 'w-full button-primary-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer justify-center',
+		footerActionClass = 'w-full button-primary px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer justify-center',
 		footerActionDisabled = false,
 		footerAction,
 		footerSecondaryActionLabel,
@@ -206,6 +206,20 @@
 
 	function normalizeText(value: string): string {
 		return value.toLowerCase().replace(/\s+/g, ' ').trim();
+	}
+
+	function joinClassNames(...values: Array<string | false | null | undefined>): string {
+		return values
+			.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+			.map((value) => value.trim())
+			.join(' ');
+	}
+
+	function stripOpacityClasses(classNames: string): string {
+		return classNames
+			.replace(/\bopacity-(?:\[[^\]]+\]|\d+)\b/g, '')
+			.replace(/\s+/g, ' ')
+			.trim();
 	}
 
 	function isTypeaheadCharacter(key: string): boolean {
@@ -678,36 +692,62 @@
 		skipBottomDivider: boolean
 	): string {
 		const hasBottomDivider = !isLastVisibleOption && !skipBottomDivider;
-		const optionBorderClass = `${hasBottomDivider ? `border-b ${separatorClass}` : 'border-b-0'} ${
-			option.separatorBefore ? `border-t ${separatorClass}` : ''
-		}`;
-		const optionBaseClass = `${optionClass} ${optionBorderClass}`;
+		const dividerClass = separatorClass || 'listbox-dropdown-divider';
+		const optionBorderClass = joinClassNames(
+			hasBottomDivider ? `border-b ${dividerClass}` : 'border-b-0',
+			option.separatorBefore ? `border-t ${dividerClass}` : ''
+		);
+		const optionBaseClass = joinClassNames(
+			'listbox-dropdown-option',
+			optionClass,
+			optionBorderClass
+		);
 		const isSelected = mode === 'action' ? false : option.value === value;
 		const isActive = index === activeIndex;
 
 		if (option.disabled) {
 			if (!preserveDisabledSeparatorOpacity) {
-				return `${optionBaseClass} ${disabledOptionClass}`;
+				return joinClassNames(
+					optionBaseClass,
+					'listbox-dropdown-option-disabled',
+					disabledOptionClass
+				);
 			}
 
-			const disabledNoOpacity = disabledOptionClass.replace(/\bopacity-\d+\b/g, '').trim();
-			const normalizedDisabledClass = disabledNoOpacity.replace(/\s+/g, ' ').trim();
-			return `${optionBaseClass} ${normalizedDisabledClass || 'cursor-not-allowed bg-white text-neutral-700'}`;
+			const normalizedDisabledClass = stripOpacityClasses(
+				joinClassNames('listbox-dropdown-option-disabled', disabledOptionClass)
+			);
+			return joinClassNames(optionBaseClass, normalizedDisabledClass);
 		}
 
 		if (isSelected && isActive) {
-			return `${optionBaseClass} cursor-pointer bg-primary-600 text-white font-semibold`;
+			return joinClassNames(
+				optionBaseClass,
+				'cursor-pointer',
+				'listbox-dropdown-option-selected-active',
+				selectedOptionClass
+			);
 		}
 
 		if (isSelected) {
-			return `${optionBaseClass} cursor-pointer ${selectedOptionClass}`;
+			return joinClassNames(
+				optionBaseClass,
+				'cursor-pointer',
+				'listbox-dropdown-option-selected',
+				selectedOptionClass
+			);
 		}
 
 		if (isActive) {
-			return `${optionBaseClass} cursor-pointer ${activeOptionClass}`;
+			return joinClassNames(
+				optionBaseClass,
+				'cursor-pointer',
+				'listbox-dropdown-option-active',
+				activeOptionClass
+			);
 		}
 
-		return `${optionBaseClass} cursor-pointer hover:bg-neutral-300 active:bg-neutral-300`;
+		return joinClassNames(optionBaseClass, 'cursor-pointer');
 	}
 
 	function optionDisabledInfoClassFor(
@@ -716,13 +756,20 @@
 		skipBottomDivider: boolean
 	): string {
 		const hasBottomDivider = !isLastVisibleOption && !skipBottomDivider;
-		const optionBorderClass = `${hasBottomDivider ? `border-b ${separatorClass}` : 'border-b-0'} ${
-			option.separatorBefore ? `border-t ${separatorClass}` : ''
-		}`;
-		const optionBaseClass = `${optionClass} ${optionBorderClass}`;
-		const disabledNoOpacity = disabledOptionClass.replace(/\bopacity-\d+\b/g, '').trim();
-		const normalizedDisabledClass = disabledNoOpacity.replace(/\s+/g, ' ').trim();
-		return `${optionBaseClass} ${normalizedDisabledClass || 'cursor-not-allowed bg-white text-neutral-700'}`;
+		const dividerClass = separatorClass || 'listbox-dropdown-divider';
+		const optionBorderClass = joinClassNames(
+			hasBottomDivider ? `border-b ${dividerClass}` : 'border-b-0',
+			option.separatorBefore ? `border-t ${dividerClass}` : ''
+		);
+		const optionBaseClass = joinClassNames(
+			'listbox-dropdown-option',
+			optionClass,
+			optionBorderClass
+		);
+		const normalizedDisabledClass = stripOpacityClasses(
+			joinClassNames('listbox-dropdown-option-disabled', disabledOptionClass)
+		);
+		return joinClassNames(optionBaseClass, normalizedDisabledClass);
 	}
 
 	function optionTooltipFor(option: ListboxDropdownOption): string | undefined {
@@ -834,13 +881,18 @@
 
 	{#if open}
 		<div
-			class={`${listClass} fixed ${panelUsesFlexColumn ? 'flex flex-col overflow-hidden' : ''}`}
+			class={joinClassNames(
+				'listbox-dropdown-panel mt-1 w-64 max-h-72 overflow-y-auto scrollbar-thin z-20',
+				listClass,
+				'fixed',
+				panelUsesFlexColumn ? 'flex flex-col overflow-hidden' : ''
+			)}
 			style={listInlineStyle}
 			bind:this={panelElement}
 			onfocusout={handlePanelFocusout}
 		>
 			{#if hasSearch}
-				<div class="border-b border-secondary-300 bg-neutral p-2">
+				<div class="listbox-dropdown-search-shell">
 					<SearchInput
 						id={`${dropdownId}-search`}
 						label={searchAriaLabel}
@@ -873,7 +925,7 @@
 				onkeydown={handleListKeydown}
 			>
 				{#if visibleOptionIndexes.length === 0}
-					<p class="px-3 py-2 text-xs text-neutral-900">{listEmptyText}</p>
+					<p class="listbox-dropdown-empty-state">{listEmptyText}</p>
 				{:else}
 					{#each visibleOptionIndexes as index, visiblePosition}
 						{@const option = options[index]!}
@@ -912,7 +964,7 @@
 											{#if option.labelIcon}
 												{@const LabelIcon = option.labelIcon}
 												<LabelIcon
-													class={`h-4 w-4 shrink-0 text-secondary-900 ${option.labelIconClass ?? ''}`}
+													class={`h-4 w-4 shrink-0 text-neutral-800 ${option.labelIconClass ?? ''}`}
 													stroke={1.8}
 												/>
 												{#if option.labelIconAriaLabel}
@@ -920,16 +972,14 @@
 												{/if}
 											{/if}
 											{#if option.statusLabel}
-												<span
-													class="text-[10px] uppercase tracking-wide shrink-0 text-neutral-600/45"
-												>
+												<span class="text-[10px] uppercase tracking-wide shrink-0 text-neutral-600">
 													{option.statusLabel}
 												</span>
 											{/if}
 										</span>
 										{#if option.description}
 											<span
-												class="mt-0.5 block text-[11px] font-normal normal-case tracking-normal text-neutral-700/50"
+												class="mt-0.5 block text-[11px] font-normal normal-case tracking-normal text-neutral-700"
 											>
 												{option.description}
 											</span>
@@ -938,14 +988,14 @@
 									{#if option.rightLabel || option.rightDescription}
 										<span class="shrink-0 text-right leading-tight">
 											{#if option.rightLabel}
-												<span class="block text-[10px] uppercase tracking-wide text-neutral-700/50">
+												<span class="block text-[10px] uppercase tracking-wide text-neutral-700">
 													{option.rightLabel}
 												</span>
 											{:else if option.rightDescription}
 												<span class="block h-[0.85rem]" aria-hidden="true"></span>
 											{/if}
 											{#if option.rightDescription}
-												<span class="mt-0.5 block text-[11px] text-neutral-700/50">
+												<span class="mt-0.5 block text-[11px] text-neutral-700">
 													{option.rightDescription}
 												</span>
 											{/if}
@@ -995,7 +1045,7 @@
 											{#if option.labelIcon}
 												{@const LabelIcon = option.labelIcon}
 												<LabelIcon
-													class={`h-4 w-4 shrink-0 ${isSelectedOption ? 'text-white' : 'text-secondary-900'} ${option.labelIconClass ?? ''}`}
+													class={`h-4 w-4 shrink-0 ${isSelectedOption ? 'text-primary-05' : 'text-neutral-800'} ${option.labelIconClass ?? ''}`}
 													stroke={1.8}
 												/>
 												{#if option.labelIconAriaLabel}
@@ -1004,7 +1054,7 @@
 											{/if}
 											{#if option.statusLabel}
 												<span
-													class={`text-[10px] uppercase tracking-wide shrink-0 ${isSelectedOption ? 'text-white/80' : 'text-secondary-700/70'}`}
+													class={`text-[10px] uppercase tracking-wide shrink-0 ${isSelectedOption ? 'text-primary-50' : 'text-neutral-700'}`}
 												>
 													{option.statusLabel}
 												</span>
@@ -1012,7 +1062,7 @@
 										</span>
 										{#if option.description}
 											<span
-												class={`mt-0.5 block text-[11px] font-normal normal-case tracking-normal ${isSelectedOption ? 'text-white/85' : 'text-neutral-700'}`}
+												class={`mt-0.5 block text-[11px] font-normal normal-case tracking-normal ${isSelectedOption ? 'text-primary-50' : 'text-neutral-800'}`}
 											>
 												{option.description}
 											</span>
@@ -1022,7 +1072,7 @@
 										<span class="shrink-0 text-right leading-tight">
 											{#if option.rightLabel}
 												<span
-													class={`block text-[10px] uppercase tracking-wide ${isSelectedOption ? 'text-white/90' : 'text-secondary-900'}`}
+													class={`block text-[10px] uppercase tracking-wide ${isSelectedOption ? 'text-primary-50' : 'text-neutral-800'}`}
 												>
 													{option.rightLabel}
 												</span>
@@ -1031,7 +1081,7 @@
 											{/if}
 											{#if option.rightDescription}
 												<span
-													class={`mt-0.5 block text-[11px] ${isSelectedOption ? 'text-white/85' : 'text-neutral-700'}`}
+													class={`mt-0.5 block text-[11px] ${isSelectedOption ? 'text-primary-50' : 'text-neutral-800'}`}
 												>
 													{option.rightDescription}
 												</span>
@@ -1046,11 +1096,11 @@
 			</div>
 
 			{#if noteText}
-				<p class={noteClass}>{noteText}</p>
+				<p class={joinClassNames('listbox-dropdown-note', noteClass)}>{noteText}</p>
 			{/if}
 
 			{#if hasFooterAction}
-				<div class="border-t-2 border-secondary-300 bg-neutral-100 p-1.5">
+				<div class="listbox-dropdown-footer">
 					<div
 						class={hasPrimaryFooterAction && hasSecondaryFooterAction
 							? 'grid grid-cols-[minmax(0,1fr)_auto] gap-1.5'

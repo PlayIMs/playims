@@ -190,9 +190,7 @@
 		'inline-flex h-9 w-9 items-center justify-center border-0 bg-transparent p-0 text-secondary-700 cursor-pointer opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 hover:bg-neutral-100 hover:text-secondary-900 focus:outline-none focus-visible:bg-neutral-100 focus-visible:text-secondary-900';
 	const SECTION_ACTION_DROPDOWN_BUTTON_CLASS =
 		'inline-flex h-9 w-9 items-center justify-center rounded-full border border-neutral-950 bg-white p-0 text-neutral-950 cursor-pointer hover:bg-neutral-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500';
-	const ACTION_DROPDOWN_LIST_CLASS = 'mt-1 w-52 border-2 border-neutral-950 bg-white z-20';
-	const ACTION_DROPDOWN_OPTION_CLASS =
-		'w-full px-3 py-2 text-left text-sm text-neutral-950 cursor-pointer';
+	const ACTION_DROPDOWN_LIST_CLASS = 'w-52';
 	const DIVISION_LOCK_PANEL_GAP_PX = 4;
 	const FLOATING_EDGE_PADDING_PX = 8;
 	const LOCK_TOOLTIP_OPEN_OFFSET_Y_PX = -30;
@@ -2843,8 +2841,6 @@
 															ariaLabel={`Actions for ${division.name}`}
 															buttonClass={SECTION_ACTION_DROPDOWN_BUTTON_CLASS}
 															listClass={ACTION_DROPDOWN_LIST_CLASS}
-															optionClass={ACTION_DROPDOWN_OPTION_CLASS}
-															activeOptionClass="bg-neutral-100 text-neutral-950"
 															on:action={(event) =>
 																handleDivisionAction(
 																	event.detail.value as DivisionActionValue,
@@ -2966,8 +2962,6 @@
 															ariaLabel={`Actions for ${activeTeam.name}`}
 															buttonClass={ACTION_DROPDOWN_BUTTON_CLASS}
 															listClass={ACTION_DROPDOWN_LIST_CLASS}
-															optionClass={ACTION_DROPDOWN_OPTION_CLASS}
-															activeOptionClass="bg-neutral-100 text-neutral-950"
 															on:action={(event) =>
 																handleTeamAction(event.detail.value as TeamActionValue, {
 																	id: activeTeam.id,
@@ -3118,8 +3112,6 @@
 														ariaLabel={`Actions for ${waitlistTeam.name}`}
 														buttonClass={ACTION_DROPDOWN_BUTTON_CLASS}
 														listClass={ACTION_DROPDOWN_LIST_CLASS}
-														optionClass={ACTION_DROPDOWN_OPTION_CLASS}
-														activeOptionClass="bg-neutral-100 text-neutral-950"
 														on:action={(event) =>
 															handleTeamAction(event.detail.value as TeamActionValue, {
 																id: waitlistTeam.id,
@@ -3174,9 +3166,7 @@
 												/>
 											</p>
 										</div>
-										<div
-											class="min-w-0 border-t border-secondary-200 pt-2 sm:border-t-0 sm:border-l sm:pl-2 sm:pt-0"
-										>
+										<div class="dashboard-info-divider-split">
 											<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
 												Preseason
 											</p>
@@ -3209,9 +3199,7 @@
 												</p>
 											{/if}
 										</div>
-										<div
-											class="min-w-0 border-t border-secondary-200 pt-2 sm:border-t-0 sm:border-l sm:pl-2 sm:pt-0"
-										>
+										<div class="dashboard-info-divider-split">
 											<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
 												Postseason
 											</p>
@@ -3245,7 +3233,7 @@
 											{/if}
 										</div>
 									</div>
-									<div class="mt-2 border-t border-secondary-200 pt-2">
+									<div class="dashboard-info-divider-stack">
 										<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
 											<div class="min-w-0">
 												<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
@@ -3268,9 +3256,7 @@
 													/>
 												</p>
 											</div>
-											<div
-												class="min-w-0 border-t border-secondary-200 pt-2 sm:border-t-0 sm:border-l sm:pl-2 sm:pt-0"
-											>
+											<div class="dashboard-info-divider-split">
 												<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
 													Join Team Deadline
 												</p>

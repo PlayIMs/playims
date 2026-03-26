@@ -71,12 +71,14 @@ Use this as a quick copy/paste matrix. Prefer these recipes before inventing new
 
 | Use Case                            | Canonical Classes                                                                                                              |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Default trigger (component default) | `button-secondary-outlined px-3 py-1 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center gap-2 ...` |
+| Default trigger (component default) | `button-secondary-outlined px-3 py-1 text-sm font-semibold text-neutral-900 cursor-pointer inline-flex items-center gap-2 ...` |
 | Compact icon trigger                | `button-secondary-outlined p-1.5 cursor-pointer`                                                                               |
 | Split add-menu trigger              | `button-primary-outlined -ml-[2px] px-1 py-1 cursor-pointer`                                                                   |
 | Compact action list panel           | `mt-1 w-44 border-2 border-neutral-950 bg-white z-20`                                                                          |
-| Compact option row                  | `w-full text-left px-3 py-2 text-sm text-neutral-950 cursor-pointer`                                                           |
-| Active compact option               | `bg-neutral-100 text-neutral-950`                                                                                              |
+| Compact option row                  | `w-full text-left px-3 py-2 text-sm text-neutral-900 cursor-pointer`                                                           |
+| Active compact option               | `bg-neutral-100 text-neutral-900`                                                                                              |
+| Selected compact option             | `bg-primary text-primary-05 font-semibold`                                                                                     |
+| Selected hovered option             | `bg-primary-400 text-primary-05 font-semibold`                                                                                 |
 | Footer primary action               | `w-full button-primary-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer justify-center`             |
 | Footer secondary action             | `button-secondary-outlined px-2 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer justify-center`                  |
 

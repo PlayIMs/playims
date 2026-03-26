@@ -1101,7 +1101,7 @@
 	<div class="px-4 lg:px-6 space-y-6">
 		<div class="flex justify-end">
 			<button
-				class="button-secondary flex items-center gap-2 disabled:opacity-60 disabled:pointer-events-none cursor-pointer"
+				class="button-primary flex items-center gap-2 disabled:opacity-60 disabled:pointer-events-none cursor-pointer"
 				type="button"
 				onclick={openCreateFacility}
 				disabled={!currentClientId}
@@ -1132,7 +1132,7 @@
 			</div>
 		</div>
 
-		<section class="border-2 border-neutral-950 bg-neutral">
+		<section class="section-shell">
 			<div class="p-4 border-b border-neutral-950 bg-neutral-600/66 space-y-3">
 				<div class="flex flex-wrap items-center justify-between gap-3">
 					<h2 class="text-2xl font-bold font-serif text-neutral-950">
@@ -1160,8 +1160,6 @@
 						label="Search facilities and areas"
 						value={facilitySearch}
 						placeholder="Search facilities and areas..."
-						wrapperClass="relative w-full"
-						inputClass="w-full input-secondary pl-10 pr-10 py-1 text-sm"
 						autocomplete="off"
 						data-lpignore="true"
 						on:input={(event) => {
@@ -1173,8 +1171,6 @@
 						label="Filter expanded area lists"
 						value={areaSearch}
 						placeholder="Filter areas in expanded facilities..."
-						wrapperClass="relative w-full"
-						inputClass="w-full input-secondary pl-10 pr-10 py-1 text-sm"
 						autocomplete="off"
 						data-lpignore="true"
 						on:input={(event) => {
@@ -1186,13 +1182,13 @@
 
 			<div class="p-4 space-y-4">
 				{#if facilities.length === 0}
-					<div class="p-8 text-center bg-neutral-400 border border-secondary">
+					<div class="section-card p-8 text-center">
 						<p class="text-neutral-950 font-sans mb-4">
 							{viewArchiveMode ? 'No archived facilities found.' : 'No facilities yet.'}
 						</p>
 						{#if !viewArchiveMode}
 							<button
-								class="button-secondary inline-flex items-center gap-2 cursor-pointer"
+								class="button-primary inline-flex items-center gap-2 cursor-pointer"
 								type="button"
 								onclick={openCreateFacility}
 							>
@@ -1211,12 +1207,12 @@
 						{@const isPartiallyArchived = !isArchived && viewArchiveMode}
 						<div
 							id={`facility-${facility.id}`}
-							class={`bg-neutral-400 border-2 border-secondary ${
+							class={`section-shell ${
 								data.facilityId === facility.id && !data.areaId ? 'ring-2 ring-primary-500' : ''
 							}`}
 						>
 							<!-- Facility Header -->
-							<div class="p-4 {isExpanded ? 'border-b border-secondary' : ''}">
+							<div class="p-4 {isExpanded ? 'border-b border-neutral-950' : ''}">
 								{#if isEditing}
 									{@const editingAddressExpanded =
 										facilityDrafts[facility.id]?._addressExpanded ?? false}
@@ -1299,12 +1295,12 @@
 										</div>
 										<!-- Address Toggle Button -->
 										<div
-											class="flex items-center justify-between border border-secondary p-3 bg-white"
+											class="flex items-center justify-between border border-neutral-950 p-3 bg-white"
 										>
 											<span class="text-sm font-sans text-neutral-950">Address</span>
 											<button
 												type="button"
-												class="button-secondary text-sm flex items-center gap-2 cursor-pointer"
+												class="button-secondary-outlined text-sm flex items-center gap-2 cursor-pointer"
 												onclick={() => {
 													facilityDrafts[facility.id] = {
 														...facilityDrafts[facility.id],
@@ -1422,9 +1418,9 @@
 														{facility.name || '(Unnamed facility)'}
 													</p>
 													{#if isArchived}
-														<span class="badge-secondary text-xs shrink-0">ARCHIVED</span>
+														<span class="badge-inactive text-xs shrink-0">ARCHIVED</span>
 													{:else if isPartiallyArchived}
-														<span class="badge-secondary text-xs shrink-0">HAS ARCHIVED AREAS</span>
+														<span class="badge-inactive text-xs shrink-0">HAS ARCHIVED AREAS</span>
 													{/if}
 												</div>
 												<div class="flex items-center gap-3 text-sm font-sans text-neutral-700">
@@ -1480,7 +1476,7 @@
 												{#if !isArchived}
 													<button
 														type="button"
-														class="button-secondary-outlined p-2! cursor-pointer"
+														class="button-secondary-outlined dashboard-icon-button cursor-pointer"
 														onclick={() => startEditingFacility(facility)}
 														aria-label="Edit facility"
 													>
@@ -1496,7 +1492,7 @@
 													/>
 													<button
 														type="button"
-														class="button-secondary-outlined p-2! cursor-pointer"
+														class="button-secondary-outlined dashboard-icon-button cursor-pointer"
 														aria-label={facility.isActive === 0
 															? 'Restore facility'
 															: 'Archive facility'}
@@ -1531,7 +1527,7 @@
 														<input type="hidden" name="confirmSlug" value={deleteConfirmSlug} />
 														<button
 															type="button"
-															class="button-secondary-outlined p-2! cursor-pointer"
+															class="button-secondary-outlined dashboard-icon-button cursor-pointer"
 															onclick={() =>
 																openConfirm({
 																	kind: 'facility-delete',
@@ -1552,17 +1548,17 @@
 
 							<!-- Areas Section (Expanded) -->
 							{#if isExpanded}
-								<div class="border-t border-secondary bg-white">
+								<div class="border-t border-neutral-950 bg-white">
 									<!-- Areas Header -->
 									<div
-										class="p-3 border-b border-secondary bg-neutral-100 flex items-center justify-between gap-3"
+										class="flex items-center justify-between gap-3 border-b border-neutral-200 bg-neutral p-3"
 									>
 										<span class="font-sans font-semibold text-neutral-950 text-sm">
 											Areas ({facilityAreas.length})
 										</span>
 										{#if !isArchived && !isPartiallyArchived}
 											<button
-												class="button-secondary text-sm flex items-center gap-1 cursor-pointer"
+												class="button-primary text-sm flex items-center gap-1 cursor-pointer"
 												type="button"
 												onclick={() => openCreateArea(facility.id)}
 											>
@@ -1591,7 +1587,7 @@
 											</p>
 										</div>
 									{:else}
-										<ul class="divide-y divide-secondary-200">
+										<ul class="divide-y divide-neutral-200">
 											{#each facilityAreas as area (area.id)}
 												{@const isEditingArea = editingAreaId === area.id}
 												{@const isAreaArchived = area.isActive === 0}
@@ -1677,14 +1673,14 @@
 															<div class="flex items-center gap-2 shrink-0">
 																<button
 																	type="submit"
-																	class="button-secondary-outlined p-2! cursor-pointer"
+																	class="button-secondary-outlined dashboard-icon-button cursor-pointer"
 																	aria-label="Save"
 																>
 																	<IconCheck class="w-4 h-4 text-secondary-700" />
 																</button>
 																<button
 																	type="button"
-																	class="button-secondary-outlined p-2! cursor-pointer"
+																	class="button-secondary-outlined dashboard-icon-button cursor-pointer"
 																	onclick={stopEditingArea}
 																	aria-label="Cancel"
 																>
@@ -1710,14 +1706,14 @@
 																	</p>
 																{/if}
 																{#if isAreaArchived}
-																	<span class="badge-secondary text-xs shrink-0">ARCHIVED</span>
+																	<span class="badge-inactive text-xs shrink-0">ARCHIVED</span>
 																{/if}
 															</div>
 															<div class="flex items-center gap-2 shrink-0">
 																{#if !isAreaArchived && !isArchived && !isPartiallyArchived}
 																	<button
 																		type="button"
-																		class="button-secondary-outlined p-2! cursor-pointer"
+																		class="button-secondary-outlined dashboard-icon-button cursor-pointer"
 																		onclick={() => startEditingArea(area)}
 																		aria-label="Edit area"
 																	>
@@ -1739,7 +1735,7 @@
 																		/>
 																		<button
 																			type="button"
-																			class="button-secondary-outlined p-2! cursor-pointer"
+																			class="button-secondary-outlined dashboard-icon-button cursor-pointer"
 																			aria-label={area.isActive === 0
 																				? 'Restore area'
 																				: 'Archive area'}
@@ -1770,7 +1766,7 @@
 																		<input type="hidden" name="isActive" value="1" />
 																		<button
 																			type="button"
-																			class="button-secondary-outlined p-2! cursor-pointer"
+																			class="button-secondary-outlined dashboard-icon-button cursor-pointer"
 																			aria-label="Restore area"
 																			onclick={() =>
 																				openConfirm({
@@ -1801,7 +1797,7 @@
 																		/>
 																		<button
 																			type="button"
-																			class="button-secondary-outlined p-2! cursor-pointer"
+																			class="button-secondary-outlined dashboard-icon-button cursor-pointer"
 																			onclick={() =>
 																				openConfirm({
 																					kind: 'area-delete',
@@ -1925,10 +1921,9 @@
 		backdropClass="bg-black/50"
 		alignmentClass="items-start"
 		paddingClass="p-6"
-		panelClass="w-full max-w-2xl bg-neutral-400 border-4 border-secondary"
 		on:requestClose={closeCreateArea}
 	>
-		<div class="p-5 border-b border-secondary">
+		<div class="border-b border-neutral-950 bg-neutral-600/66 p-5">
 			<h3 class="text-2xl font-bold font-serif text-neutral-950">New Area</h3>
 		</div>
 		<form
@@ -2020,10 +2015,12 @@
 			</div>
 
 			<div class="flex items-center justify-end gap-3">
-				<button type="button" class="button-secondary cursor-pointer" onclick={closeCreateArea}
-					>Cancel</button
+				<button
+					type="button"
+					class="button-secondary-outlined cursor-pointer"
+					onclick={closeCreateArea}>Cancel</button
 				>
-				<button type="submit" class="button-secondary flex items-center gap-2 cursor-pointer">
+				<button type="submit" class="button-primary flex items-center gap-2 cursor-pointer">
 					<IconPlus class="w-5 h-5" />
 					<span>Create Area</span>
 				</button>
@@ -2040,12 +2037,11 @@
 		backdropClass="bg-black/50"
 		alignmentClass="items-start"
 		paddingClass="p-6"
-		panelClass="w-full max-w-xl bg-neutral-400 border-4 border-secondary"
 		on:requestClose={closeConfirm}
 	>
 		{#if confirmIntent.kind === 'facility-delete' || confirmIntent.kind === 'area-delete'}
 			<!-- Delete Modal -->
-			<div class="p-5 border-b border-secondary">
+			<div class="border-b border-neutral-950 bg-neutral-600/66 p-5">
 				<h3 class="text-2xl font-bold font-serif text-neutral-950">Delete permanently?</h3>
 			</div>
 			<div class="p-5 space-y-4">
@@ -2109,7 +2105,7 @@
 			</div>
 		{:else}
 			<!-- Archive/Restore Modal -->
-			<div class="p-5 border-b border-secondary">
+			<div class="border-b border-neutral-950 bg-neutral-600/66 p-5">
 				<h3 class="text-2xl font-bold font-serif text-neutral-950">
 					{#if confirmIntent.kind === 'facility-archive' || confirmIntent.kind === 'area-archive'}
 						Archive?
@@ -2127,12 +2123,14 @@
 					<p class="font-sans text-neutral-950">This will make it active again.</p>
 				{/if}
 				<div class="flex items-center justify-end gap-3 pt-2">
-					<button type="button" class="button-secondary cursor-pointer" onclick={closeConfirm}
-						>Cancel</button
+					<button
+						type="button"
+						class="button-secondary-outlined cursor-pointer"
+						onclick={closeConfirm}>Cancel</button
 					>
 					<button
 						type="button"
-						class="button-primary-outlined flex items-center gap-2 min-w-[10rem] justify-center cursor-pointer"
+						class="button-primary flex items-center gap-2 min-w-[10rem] justify-center cursor-pointer"
 						onclick={() => {
 							if (!confirmIntent) return;
 

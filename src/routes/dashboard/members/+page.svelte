@@ -55,12 +55,6 @@
 	const canManageRoles = $derived.by(() => data.permissions?.CHANGE_MEMBER_ROLE === true);
 	const canRemoveMembers = $derived.by(() => data.permissions?.REMOVE_MEMBER === true);
 	const memberAssignableRoleOptions = $derived.by(() => data.memberAssignableRoleOptions ?? []);
-	const ACTION_DROPDOWN_BUTTON_CLASS = 'button-secondary-outlined p-1.5 cursor-pointer';
-	const ACTION_DROPDOWN_LIST_CLASS = 'mt-1 w-44 border-2 border-neutral-950 bg-white z-20';
-	const ACTION_DROPDOWN_OPTION_CLASS =
-		'w-full px-3 py-2 text-left text-sm text-neutral-950 cursor-pointer';
-	const MOBILE_FILTER_BUTTON_CLASS =
-		'w-full border-2 border-secondary-400 bg-white px-4 py-2 text-sm font-normal text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2 hover:bg-white focus:outline-none focus-visible:outline-none focus-visible:border-secondary-500 focus-visible:ring-0 focus-visible:shadow-[0_0_0_1px_var(--color-secondary-500)]';
 	const sexFilterOptions = [
 		{ value: '', label: 'All Genders' },
 		{ value: 'M', label: 'Male' },
@@ -175,9 +169,9 @@
 	}
 
 	function roleToneClass(role: MemberListRow['role'] | PendingInviteRow['role']): string {
-		if (role === 'admin') return 'border-primary-500 bg-primary-100 text-primary-900';
-		if (role === 'manager') return 'border-secondary-500 bg-secondary-100 text-secondary-900';
-		return 'border-secondary-300 bg-neutral-100 text-neutral-950';
+		if (role === 'admin') return 'badge-primary-outlined';
+		if (role === 'manager') return 'badge-secondary-outlined';
+		return 'badge-neutral-outlined';
 	}
 
 	function resolveAssignableRoleValue(role: MemberRole): MemberAssignableRole {
@@ -730,12 +724,12 @@
 			</div>
 		</div>
 
-		<div class="p-3 lg:p-4 space-y-4">
+		<div class="px-4 lg:px-6 space-y-6">
 			{#if canAddMembers}
 				<div class="flex justify-end">
 					<button
 						type="button"
-						class="button-secondary inline-flex items-center gap-2 cursor-pointer"
+						class="button-primary inline-flex items-center gap-2 cursor-pointer"
 						onclick={openAddMember}
 					>
 						<IconPlus class="w-5 h-5" />
@@ -744,9 +738,7 @@
 				</div>
 			{/if}
 			{#if latestInviteUrl}
-				<div
-					class="space-y-2 border-2 border-neutral-950 bg-white px-3 py-3 text-sm text-neutral-950"
-				>
+				<div class="section-card space-y-2 px-3 py-3 text-sm text-neutral-950">
 					<div class="flex flex-wrap items-center justify-between gap-2">
 						<p class="font-semibold">Latest invite link</p>
 						<button
@@ -763,7 +755,7 @@
 			{/if}
 
 			<div class="grid gap-4 xl:grid-cols-[18rem_minmax(0,1fr)]">
-				<aside class="space-y-4 border-2 border-neutral-950 bg-white p-4">
+				<aside class="section-shell space-y-4 p-4">
 					<div class="space-y-1">
 						<p class="text-[11px] font-bold uppercase tracking-[0.18em] text-neutral-950">
 							Filters
@@ -780,7 +772,7 @@
 								options={sexFilterOptions}
 								value={sexFilter}
 								ariaLabel="Filter members by gender"
-								buttonClass={MOBILE_FILTER_BUTTON_CLASS}
+								buttonClass="button-secondary-outlined min-h-10 w-full px-3 py-2 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2"
 								on:change={(event) => {
 									sexFilter = event.detail.value as MemberSex | '';
 									currentPage = 1;
@@ -793,7 +785,7 @@
 								options={roleFilterOptions}
 								value={roleFilter}
 								ariaLabel="Filter members by role"
-								buttonClass={MOBILE_FILTER_BUTTON_CLASS}
+								buttonClass="button-secondary-outlined min-h-10 w-full px-3 py-2 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2"
 								on:change={(event) => {
 									roleFilter = event.detail.value as MemberRole | '';
 									currentPage = 1;
@@ -813,7 +805,7 @@
 				</aside>
 
 				<div class="min-w-0 space-y-4">
-					<div class="border-2 border-neutral-950 bg-white p-4">
+					<div class="section-card p-4">
 						<SearchInput
 							id="member-search"
 							label="Search members"
@@ -826,10 +818,10 @@
 						/>
 					</div>
 
-					<div class="hidden overflow-x-auto border-2 border-neutral-950 bg-white lg:block">
+					<div class="section-card hidden overflow-x-auto lg:block">
 						<table class="min-w-full border-collapse">
 							<thead
-								class="border-b-2 border-neutral-950 bg-neutral-100 text-left text-xs uppercase tracking-wide text-neutral-950"
+								class="border-b border-neutral-950 bg-neutral text-left text-xs uppercase tracking-wide text-neutral-950"
 							>
 								<tr>
 									<th aria-sort={ariaSort('studentId')} class="px-3 py-2">
@@ -941,7 +933,7 @@
 								{:else}
 									{#each members as row (row.membershipId)}
 										<tr
-											class={`border-b border-secondary-200 text-sm text-neutral-950 ${
+											class={`border-b border-neutral-200 text-sm text-neutral-950 ${
 												row.membershipId === selectedMemberId ? 'bg-primary-50' : ''
 											}`}
 										>
@@ -950,7 +942,9 @@
 											<td class="px-3 py-3 font-semibold">{row.lastName ?? '--'}</td>
 											<td class="px-3 py-3">{row.email ?? '--'}</td>
 											<td class="px-3 py-3">{row.sex ?? '--'}</td>
-											<td class="px-3 py-3 capitalize">{row.role}</td>
+											<td class="px-3 py-3">
+												<span class={roleToneClass(row.role)}>{row.role}</span>
+											</td>
 											<td class="px-3 py-3 text-right">
 												<ListboxDropdown
 													options={actionOptions(row)}
@@ -958,10 +952,8 @@
 													mode="action"
 													align="right"
 													ariaLabel={`Actions for ${row.fullName}`}
-													buttonClass={ACTION_DROPDOWN_BUTTON_CLASS}
-													listClass={ACTION_DROPDOWN_LIST_CLASS}
-													optionClass={ACTION_DROPDOWN_OPTION_CLASS}
-													activeOptionClass="bg-neutral-100 text-neutral-950"
+													buttonClass="button-secondary-outlined dashboard-icon-button cursor-pointer"
+													listClass="w-44"
 													on:action={(event) =>
 														void openModal(
 															event.detail.value as 'view' | 'edit' | 'permissions' | 'remove',
@@ -980,31 +972,25 @@
 
 					<div class="grid gap-3 lg:hidden">
 						{#if members.length === 0}
-							<div
-								class="border-2 border-neutral-950 bg-white px-4 py-8 text-center text-sm text-neutral-950"
-							>
+							<div class="section-card px-4 py-8 text-center text-sm text-neutral-950">
 								No members match the current search.
 							</div>
 						{:else}
 							{#each members as row (row.membershipId)}
 								<div
-									class={`overflow-hidden border-2 border-neutral-950 ${
+									class={`section-card overflow-hidden ${
 										row.membershipId === selectedMemberId ? 'bg-primary-50' : 'bg-white'
 									}`}
 								>
 									<div
-										class="flex items-start justify-between gap-3 border-b border-secondary-200 bg-neutral-100 px-4 py-3"
+										class="flex items-start justify-between gap-3 border-b border-neutral-200 bg-neutral px-4 py-3"
 									>
 										<div class="min-w-0 space-y-1">
 											<div class="flex flex-wrap items-center gap-2">
-												<span
-													class="border border-secondary-300 bg-white px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-neutral-950"
-												>
+												<span class="badge-neutral-outlined">
 													ID {row.studentId ?? '--'}
 												</span>
-												<span
-													class={`border px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${roleToneClass(row.role)}`}
-												>
+												<span class={roleToneClass(row.role)}>
 													{row.role}
 												</span>
 											</div>
@@ -1018,10 +1004,8 @@
 											mode="action"
 											align="right"
 											ariaLabel={`Actions for ${row.fullName}`}
-											buttonClass={ACTION_DROPDOWN_BUTTON_CLASS}
-											listClass={ACTION_DROPDOWN_LIST_CLASS}
-											optionClass={ACTION_DROPDOWN_OPTION_CLASS}
-											activeOptionClass="bg-neutral-100 text-neutral-950"
+											buttonClass="button-secondary-outlined dashboard-icon-button cursor-pointer"
+											listClass="w-44"
 											on:action={(event) =>
 												void openModal(
 													event.detail.value as 'view' | 'edit' | 'permissions' | 'remove',
@@ -1033,11 +1017,11 @@
 									</div>
 									<div class="space-y-4 px-4 py-4">
 										<div class="grid grid-cols-2 gap-3 text-sm text-neutral-950">
-											<div class="space-y-1 border border-secondary-200 bg-neutral-50 px-3 py-2">
+											<div class="space-y-1 border border-neutral-200 bg-neutral-50 px-3 py-2">
 												<p class="text-[11px] font-bold uppercase tracking-wide">First Name</p>
 												<p>{row.firstName ?? '--'}</p>
 											</div>
-											<div class="space-y-1 border border-secondary-200 bg-neutral-50 px-3 py-2">
+											<div class="space-y-1 border border-neutral-200 bg-neutral-50 px-3 py-2">
 												<p class="text-[11px] font-bold uppercase tracking-wide">Last Name</p>
 												<p>{row.lastName ?? '--'}</p>
 											</div>
@@ -1051,13 +1035,13 @@
 											</p>
 										</div>
 										<div class="grid grid-cols-2 gap-3 text-sm text-neutral-950">
-											<div class="space-y-1 border border-secondary-200 bg-neutral-50 px-3 py-2">
+											<div class="space-y-1 border border-neutral-200 bg-neutral-50 px-3 py-2">
 												<p class="text-[11px] font-bold uppercase tracking-wide">Sex</p>
 												<p>{row.sex ?? '--'}</p>
 											</div>
-											<div class="space-y-1 border border-secondary-200 bg-neutral-50 px-3 py-2">
+											<div class="space-y-1 border border-neutral-200 bg-neutral-50 px-3 py-2">
 												<p class="text-[11px] font-bold uppercase tracking-wide">Role</p>
-												<p class="capitalize">{row.role}</p>
+												<span class={roleToneClass(row.role)}>{row.role}</span>
 											</div>
 										</div>
 									</div>
@@ -1075,7 +1059,7 @@
 						<div class="flex flex-wrap items-center justify-end gap-1.5">
 							<button
 								type="button"
-								class="inline-flex h-9 items-center justify-center gap-1 border-2 border-neutral-950 bg-white px-3 text-sm text-neutral-950 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+								class="pagination-button gap-1"
 								disabled={!hasPreviousPage || membersLoading || currentPage <= 1}
 								onclick={() => changePage(currentPage - 1)}
 							>
@@ -1092,11 +1076,7 @@
 								{:else}
 									<button
 										type="button"
-										class={`inline-flex h-9 min-w-9 items-center justify-center border-2 px-3 text-sm cursor-pointer ${
-											pageItem === currentPage
-												? 'border-primary-600 bg-primary-500 text-white'
-												: 'border-secondary-300 bg-white text-neutral-950'
-										}`}
+										class={`pagination-button ${pageItem === currentPage ? 'pagination-button-active' : ''}`}
 										disabled={membersLoading}
 										onclick={() => changePage(pageItem)}
 									>
@@ -1106,7 +1086,7 @@
 							{/each}
 							<button
 								type="button"
-								class="inline-flex h-9 items-center justify-center gap-1 border-2 border-neutral-950 bg-white px-3 text-sm text-neutral-950 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+								class="pagination-button gap-1"
 								disabled={!hasNextPage || membersLoading || currentPage >= totalPages}
 								onclick={() => changePage(currentPage + 1)}
 							>
@@ -1120,7 +1100,7 @@
 		</div>
 	</section>
 
-	<section class="space-y-3 border-2 border-neutral-950 bg-neutral p-3 lg:p-4">
+	<section class="section-shell space-y-3 p-4">
 		<div class="flex items-center gap-2">
 			<h3 class="text-xl font-bold font-serif text-neutral-950">Pending Invites</h3>
 			<InfoPopover buttonVariant="label-inline" buttonAriaLabel="Pending invite help">
@@ -1140,19 +1120,15 @@
 		{:else}
 			<div class="space-y-3">
 				{#each pendingInvites as invite (invite.inviteId)}
-					<div class="space-y-3 border-2 border-neutral-950 bg-white p-4">
+					<div class="section-card space-y-3 p-4">
 						<div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 							<div class="min-w-0">
 								<p class="break-all font-semibold text-neutral-950">{invite.email}</p>
 								<div class="mt-2 flex flex-wrap gap-2">
-									<span
-										class="border border-secondary-300 bg-neutral-100 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-neutral-950"
-									>
+									<span class="badge-secondary-outlined">
 										{invite.mode === 'preprovision' ? 'Pre-Provision' : 'Invite'}
 									</span>
-									<span
-										class={`border px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${roleToneClass(invite.role)}`}
-									>
+									<span class={roleToneClass(invite.role)}>
 										{invite.role}
 									</span>
 								</div>

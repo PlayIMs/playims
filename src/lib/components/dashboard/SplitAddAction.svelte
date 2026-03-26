@@ -38,9 +38,9 @@
 		ariaLabel = 'Open add menu',
 		buttonClass = 'button-primary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer',
 		menuButtonClass = 'button-primary-outlined -ml-[2px] px-1 py-1 cursor-pointer',
-		listClass = 'mt-1 w-44 border-2 border-neutral-950 bg-white z-20',
-		optionClass = 'w-full text-left px-3 py-2 text-sm text-neutral-950 cursor-pointer',
-		activeOptionClass = 'bg-neutral-100 text-neutral-950',
+		listClass = 'w-44',
+		optionClass = '',
+		activeOptionClass = '',
 		align = 'right',
 		disabled = false
 	}: Props = $props();

@@ -47,7 +47,7 @@
 
 	const panelClass = $derived.by(
 		() =>
-			`wizard-modal-panel w-full ${maxWidthClass} max-h-[calc(100vh-2rem)] lg:max-h-[calc(100vh-3rem)] border-4 border-secondary bg-neutral-400 overflow-hidden flex flex-col`
+			`wizard-modal-panel w-full ${maxWidthClass} max-h-[calc(100vh-2rem)] lg:max-h-[calc(100vh-3rem)] border border-neutral-950 bg-neutral overflow-hidden flex flex-col`
 	);
 	const showStepMeta = $derived.by(() => stepCount > 1);
 	let formElement = $state<HTMLFormElement | null>(null);
@@ -82,26 +82,26 @@
 	{open}
 	{closeAriaLabel}
 	{panelClass}
-	saveShortcutEnabled={saveShortcutEnabled}
+	{saveShortcutEnabled}
 	draggable
 	dragHandleSelector="[data-wizard-modal-drag-handle]"
 	on:requestClose={() => dispatch('requestClose')}
 	on:saveShortcut={() => formElement?.requestSubmit()}
 >
 	<div
-		class="p-4 border-b border-secondary space-y-3 cursor-move select-none"
+		class="cursor-move select-none space-y-3 border-b border-neutral-950 bg-neutral-600/66 p-4"
 		data-wizard-modal-drag-handle
 	>
 		<div class="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
 			<div>
 				<h2 class="text-3xl font-bold font-serif text-neutral-950">{title}</h2>
 				{#if showStepMeta}
-					<p class="text-sm font-sans text-neutral-950">Step {step} of {stepCount}: {stepTitle}</p>
+					<p class="text-sm font-sans text-neutral-800">Step {step} of {stepCount}: {stepTitle}</p>
 				{/if}
 			</div>
 			<button
 				type="button"
-				class="p-1 text-neutral-950 hover:text-secondary-900 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-500"
+				class="inline-flex h-9 w-9 items-center justify-center border border-neutral-950 bg-white text-neutral-950 hover:bg-neutral-100 cursor-pointer"
 				aria-label={closeAriaLabel}
 				data-modal-drag-ignore
 				onclick={() => dispatch('requestClose')}
@@ -111,7 +111,7 @@
 		</div>
 		{#if showStepMeta}
 			<div class="border border-neutral-950 bg-white h-3" aria-hidden="true">
-				<div class="h-full bg-secondary" style={`width: ${progressPercent}%`}></div>
+				<div class="h-full bg-primary" style={`width: ${progressPercent}%`}></div>
 			</div>
 		{/if}
 	</div>

@@ -100,6 +100,8 @@ Common selection-card recipe:
 
 - Use `ListboxDropdown` for new dropdown/select interactions.
 - Do not add new native `<select>` controls for dashboard UI.
+- Use the shared component defaults first. The default dropdown presentation should keep 2px trigger/panel borders, slightly darker neutral row dividers, and darker neutral option-body text.
+- Keep shared option-state styling as well: default rows on light neutral, hovered rows on slightly darker neutral, selected rows on primary with light primary text, and selected-hover rows on the slightly lighter primary state.
 - Default compact icon trigger:
   - `button-secondary-outlined p-1.5 cursor-pointer`
 - Default form-field trigger:
@@ -108,6 +110,7 @@ Common selection-card recipe:
 - Ground implementation against current hotspots:
   - `src/routes/dashboard/offerings/+page.svelte`
   - `src/routes/dashboard/account/+page.svelte`
+- Avoid page-local listbox border, divider, or text-color overrides unless the route has a documented layout exception.
 
 ## Helper Popover And Tooltip Standards
 

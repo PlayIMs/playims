@@ -376,17 +376,13 @@
 							searchPlaceholder="Search seasons"
 							searchAriaLabel="Search seasons"
 							buttonClass="button-neutral-outlined inline-flex h-12 w-12 shrink-0 items-center justify-center p-0 cursor-pointer"
-							listClass="mt-1 bg-white z-20 max-h-80 overflow-y-auto shadow-[0_12px_24px_rgba(20,33,61,0.22)]"
-							optionClass="block w-full px-3 py-1.5 text-left text-sm font-normal whitespace-nowrap text-neutral-950 cursor-pointer"
-							activeOptionClass="bg-neutral-100 text-neutral-950"
+							listClass="max-h-80 shadow-[0_12px_24px_rgba(20,33,61,0.22)]"
 							on:change={(event) => {
 								handleSeasonScopeChange(event.detail.value);
 							}}
 						>
-							{#snippet trigger(_, selectedOption)}
-								<IconHistory
-									class={`h-4 w-4 ${selectedOption ? 'text-neutral-950' : 'text-neutral-700'}`}
-								/>
+							{#snippet trigger()}
+								<IconHistory class="listbox-dropdown-icon h-4 w-4" />
 							{/snippet}
 						</ListboxDropdown>
 					</div>

@@ -2656,17 +2656,15 @@
 									options={seasonHistoryDropdownOptions}
 									value={selectedSeasonHistoryValue}
 									ariaLabel="Offering season history"
-									buttonClass="button-secondary-outlined p-1.5 cursor-pointer"
+									buttonClass="button-secondary-outlined dashboard-icon-button cursor-pointer"
 									emptyText="No other seasons available."
 									disabled={seasonHistoryDropdownOptions.length <= 1}
 									on:change={(event) => {
 										void handleSeasonHistoryChange(event.detail.value);
 									}}
 								>
-									{#snippet trigger(_, selectedOption)}
-										<IconHistory
-											class={`h-4 w-4 ${selectedOption ? 'text-neutral-950' : 'text-neutral-700'}`}
-										/>
+									{#snippet trigger()}
+										<IconHistory class="listbox-dropdown-icon h-4 w-4" />
 									{/snippet}
 								</ListboxDropdown>
 							</div>

@@ -11,6 +11,7 @@
 	} from '@tabler/icons-svelte';
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import DashboardMegaSearchLauncher from '$lib/components/dashboard/DashboardMegaSearchLauncher.svelte';
+	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
@@ -98,6 +99,29 @@
 		{ value: 'next30', label: 'Next 30 days' },
 		{ value: 'past7', label: 'Past 7 days' }
 	] as const;
+
+	const statusFilterOptions = $derived.by(() => [
+		{ value: 'all', label: 'All statuses' },
+		...statusOptions.map((option: OptionCount) => ({
+			value: option.value,
+			label: option.label,
+			rightLabel: String(option.count)
+		}))
+	]);
+
+	const offeringFilterOptions = $derived.by(() => [
+		{ value: 'all', label: 'All offerings' },
+		...offeringOptions.map((option: OptionCount) => ({
+			value: option.value,
+			label: option.label,
+			rightLabel: String(option.count)
+		}))
+	]);
+
+	const windowFilterOptions = windowOptions.map((option) => ({
+		value: option.value,
+		label: option.label
+	}));
 
 	const queryStatusLabel = $derived.by(() => {
 		const raw = $page.url.searchParams.get('status')?.trim().toLowerCase();
@@ -240,12 +264,12 @@
 	}
 
 	function statusBadgeClass(status: ScheduleEvent['status']): string {
-		if (status === 'in_progress') return 'bg-primary-500 text-white border-primary-500';
-		if (status === 'completed') return 'bg-secondary-500 text-secondary-25 border-secondary-500';
-		if (status === 'cancelled' || status === 'postponed')
-			return 'bg-secondary-100 text-secondary-800 border-secondary-500';
-		if (status === 'scheduled') return 'bg-neutral text-neutral-950 border-secondary-300';
-		return 'bg-neutral text-neutral-950 border-secondary-300';
+		if (status === 'in_progress') return 'badge-primary';
+		if (status === 'completed') return 'badge-secondary';
+		if (status === 'cancelled') return 'badge-error';
+		if (status === 'postponed') return 'badge-warning';
+		if (status === 'scheduled') return 'badge-neutral-outlined';
+		return 'badge-neutral-outlined';
 	}
 
 	const filteredEvents = $derived.by(() => {
@@ -369,12 +393,12 @@
 			</p>
 		</div>
 
-		<section class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
-			<div class="border-2 border-neutral-950 bg-neutral p-4">
+		<section class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+			<div class="metric-card">
 				<p class="text-xs uppercase tracking-wide text-neutral-950 font-sans">Visible Events</p>
 				<p class="text-3xl font-bold text-neutral-950 font-serif">{filteredSummary.total}</p>
 			</div>
-			<div class="border-2 border-primary-500 bg-neutral p-4">
+			<div class="metric-card border-primary-500 bg-primary-50">
 				<p class="text-xs uppercase tracking-wide text-primary-700 font-sans">Live</p>
 				<div class="flex items-center gap-2">
 					<p class="text-3xl font-bold text-primary-700 font-serif">{filteredSummary.live}</p>
@@ -383,15 +407,15 @@
 					{/if}
 				</div>
 			</div>
-			<div class="border-2 border-neutral-950 bg-neutral p-4">
+			<div class="metric-card">
 				<p class="text-xs uppercase tracking-wide text-neutral-950 font-sans">Scheduled</p>
 				<p class="text-3xl font-bold text-neutral-950 font-serif">{filteredSummary.scheduled}</p>
 			</div>
-			<div class="border-2 border-neutral-950 bg-neutral p-4">
+			<div class="metric-card">
 				<p class="text-xs uppercase tracking-wide text-neutral-950 font-sans">Completed</p>
 				<p class="text-3xl font-bold text-neutral-950 font-serif">{filteredSummary.completed}</p>
 			</div>
-			<div class="border-2 border-secondary-500 bg-secondary-100 p-4 col-span-2 md:col-span-1">
+			<div class="metric-card border-secondary-500 bg-secondary-100 col-span-2 md:col-span-1">
 				<p class="text-xs uppercase tracking-wide text-secondary-800 font-sans">Needs Attention</p>
 				<p class="text-3xl font-bold text-secondary-800 font-serif">
 					{filteredSummary.needsAttention}
@@ -399,7 +423,7 @@
 			</div>
 		</section>
 
-		<section class="border-2 border-neutral-950 bg-neutral p-4 space-y-4">
+		<section class="section-shell p-4 space-y-4">
 			<div class="flex flex-col gap-1">
 				<h2 class="text-xl font-bold font-serif text-neutral-950">Filters</h2>
 				<p class="text-xs text-neutral-950 font-sans">
@@ -420,76 +444,60 @@
 						label="Search schedule"
 						placeholder="Team, league, location, or note"
 						value={searchQuery}
-						inputClass="w-full input-secondary pl-10 pr-10 py-1 text-sm"
 						on:input={(event) => {
 							searchQuery = event.detail.value;
 						}}
 					/>
 				</div>
 				<div>
-					<label
-						class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1"
-						for="schedule-status"
-					>
+					<p class="mb-1 block text-xs font-bold uppercase tracking-wide text-neutral-950">
 						Status
-					</label>
-					<select
-						id="schedule-status"
-						class="select-primary custom-select"
-						bind:value={selectedStatus}
-					>
-						<option value="all">All statuses</option>
-						{#each statusOptions as option}
-							<option value={option.value}>
-								{option.label} ({option.count})
-							</option>
-						{/each}
-					</select>
+					</p>
+					<ListboxDropdown
+						options={statusFilterOptions}
+						value={selectedStatus}
+						ariaLabel="Filter schedule by status"
+						buttonClass="button-secondary-outlined min-h-10 w-full px-3 py-2 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2"
+						on:change={(event) => {
+							selectedStatus = event.detail.value;
+						}}
+					/>
 				</div>
 				<div>
-					<label
-						class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1"
-						for="schedule-offering"
-					>
+					<p class="mb-1 block text-xs font-bold uppercase tracking-wide text-neutral-950">
 						Offering
-					</label>
-					<select
-						id="schedule-offering"
-						class="select-primary custom-select"
-						bind:value={selectedOffering}
-					>
-						<option value="all">All offerings</option>
-						{#each offeringOptions as option}
-							<option value={option.value}>
-								{option.label} ({option.count})
-							</option>
-						{/each}
-					</select>
+					</p>
+					<ListboxDropdown
+						options={offeringFilterOptions}
+						value={selectedOffering}
+						ariaLabel="Filter schedule by offering"
+						buttonClass="button-secondary-outlined min-h-10 w-full px-3 py-2 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2"
+						on:change={(event) => {
+							selectedOffering = event.detail.value;
+						}}
+					/>
 				</div>
 			</div>
 
 			<div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
 				<div class="w-full lg:w-72">
-					<label
-						class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1"
-						for="schedule-window"
-					>
+					<p class="mb-1 block text-xs font-bold uppercase tracking-wide text-neutral-950">
 						Date Window
-					</label>
-					<select
-						id="schedule-window"
-						class="select-primary custom-select"
-						bind:value={selectedWindow}
-					>
-						{#each windowOptions as option}
-							<option value={option.value}>{option.label}</option>
-						{/each}
-					</select>
+					</p>
+					<ListboxDropdown
+						options={windowFilterOptions}
+						value={selectedWindow}
+						ariaLabel="Filter schedule by date window"
+						buttonClass="button-secondary-outlined min-h-10 w-full px-3 py-2 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2"
+						on:change={(event) => {
+							selectedWindow = event.detail.value as WindowFilter;
+						}}
+					/>
 				</div>
 
 				<button
 					type="button"
-					class="button-primary-outlined px-4 py-2 text-xs font-bold uppercase tracking-wide w-full lg:w-auto"
+					class="button-neutral-outlined px-4 py-2 text-xs font-bold uppercase tracking-wide w-full lg:w-auto cursor-pointer"
 					onclick={resetFilters}
 				>
 					Reset Filters
@@ -498,9 +506,9 @@
 		</section>
 
 		{#if groupedEvents.length === 0}
-			<section class="border-2 border-neutral-950 bg-neutral p-8 text-center">
-				<div class="bg-secondary p-3 inline-flex mb-4" aria-hidden="true">
-					<IconCalendar class="w-8 h-8 text-white" />
+			<section class="section-shell p-8 text-center">
+				<div class="inline-flex border border-neutral-950 bg-white p-3 mb-4" aria-hidden="true">
+					<IconCalendar class="w-8 h-8 text-secondary-900" />
 				</div>
 				<h2 class="text-2xl font-bold font-serif text-neutral-950 mb-1">No matching events</h2>
 				<p class="text-sm text-neutral-950 font-sans">
@@ -510,8 +518,10 @@
 		{:else}
 			<div class="space-y-4">
 				{#each groupedEvents as group}
-					<section class="border-2 border-neutral-950 bg-neutral">
-						<div class="p-4 border-b border-neutral-950 flex items-center justify-between gap-4">
+					<section class="section-shell">
+						<div
+							class="flex items-center justify-between gap-4 border-b border-neutral-950 bg-neutral-600/66 p-4"
+						>
 							<div>
 								<h2 class="text-xl font-bold font-serif text-neutral-950">
 									{#if group.key === 'unscheduled'}
@@ -526,7 +536,7 @@
 							</div>
 						</div>
 
-						<div class="divide-y divide-neutral-950">
+						<div class="divide-y divide-neutral-200 bg-white">
 							{#each group.events as event}
 								<article class="p-4">
 									<div class="grid grid-cols-1 xl:grid-cols-[190px_1fr_auto] gap-4 xl:items-center">
@@ -565,22 +575,14 @@
 
 										<div class="flex flex-wrap items-center gap-2 xl:justify-end">
 											{#if event.score}
-												<span
-													class="border border-secondary-300 bg-secondary-500 text-secondary-25 px-2 py-1 text-xs font-bold"
-												>
+												<span class="badge-secondary">
 													{event.score}
 												</span>
 											{/if}
 											{#if event.isPostseason}
-												<span
-													class="border border-primary-500 text-primary-700 px-2 py-1 text-xs font-bold"
-												>
-													POSTSEASON
-												</span>
+												<span class="badge-primary-outlined"> POSTSEASON </span>
 											{/if}
-											<span
-												class={`border px-2 py-1 text-xs font-bold ${statusBadgeClass(event.status)}`}
-											>
+											<span class={statusBadgeClass(event.status)}>
 												{event.statusLabel}
 											</span>
 										</div>

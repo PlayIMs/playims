@@ -42,15 +42,11 @@
 	}
 </script>
 
-<ModalShell
-	{open}
-	panelClass="flex max-h-[calc(100vh-2rem)] w-full max-w-3xl flex-col overflow-hidden border-4 border-secondary bg-neutral-400 lg:max-h-[calc(100vh-3rem)]"
-	on:requestClose={onClose}
->
-	<div class="border-b border-secondary px-4 py-3">
+<ModalShell {open} on:requestClose={onClose}>
+	<div class="border-b border-neutral-950 bg-neutral-600/66 px-4 py-3">
 		<h3 class="text-2xl font-bold font-serif text-neutral-950">Member Details</h3>
 	</div>
-	<div class="space-y-4 overflow-y-auto bg-neutral-400 p-4">
+	<div class="space-y-4 overflow-y-auto bg-neutral p-4">
 		{#if loading}
 			<p class="text-sm text-neutral-950">Loading member details...</p>
 		{:else if member}
@@ -89,4 +85,3 @@
 		{/if}
 	</div>
 </ModalShell>
-

@@ -7,7 +7,7 @@ description: Build or refactor PlayIMs dashboard pages and wizard UI with codeba
 
 ## Goal
 
-Build UI that is visually and behaviorally consistent with the current PlayIMs app, especially the module-page shell established in `src/routes/dashboard/offerings/+page.svelte`, the matching page-header pattern now used across dashboard module pages, and shared wizard primitives.
+Build UI that is visually and behaviorally consistent with the current PlayIMs app. The offerings page shell is the baseline, `src/app.css` is the single source of truth for shared primitives, and route-local one-offs should be avoided for standard dashboard surfaces.
 
 ## Trigger Conditions
 
@@ -19,6 +19,7 @@ Use this skill when the task includes any of these:
 - Replacing transient success/error banners with shared toast feedback.
 - Implementing delete/danger confirmation UX (typed slug, irreversible copy, action states).
 - Migrating inconsistent native controls or helper UI to shared components.
+- Refreshing existing dashboard pages so they match the shared offerings-based system without becoming a redesign.
 
 Use companion skills with this one:
 
@@ -84,9 +85,11 @@ Default class recipes to copy first:
 - Module page title: `text-5xl lg:text-6xl leading-[0.9] tracking-[0.01em] font-bold font-serif text-neutral-950`
 - Module body wrapper: `px-4 lg:px-6`
 - Module action/meta row: place page actions, timestamps, counts, and utility controls below the header inside the body wrapper, not inside the title strip
-- Compact icon dropdown trigger: `button-secondary-outlined p-1.5 cursor-pointer`
-- Neutralized header utility dropdown trigger: `button-neutral-outlined p-1.5 cursor-pointer`
+- Compact icon action helper: `dashboard-icon-button` paired with `button-secondary-outlined` or `button-neutral-outlined`
+- Compact icon dropdown trigger: `button-secondary-outlined dashboard-icon-button cursor-pointer`
+- Neutralized header utility dropdown trigger: `button-neutral-outlined dashboard-icon-button cursor-pointer`
 - Split add-menu dropdown trigger: `button-primary-outlined -ml-[2px] px-1 py-1 cursor-pointer`
+- Shared `ListboxDropdown` panels should keep the component defaults unless a route needs a documented exception. That means 2px trigger/panel borders, darker neutral row dividers, and darker neutral option-body text by default.
 - Label-inline helper popover row: `mb-1 flex min-h-6 items-center gap-1.5`
 - Slug revert tooltip button: `border-0 bg-transparent ... text-secondary-700 hover:text-secondary-900`
 
@@ -190,6 +193,8 @@ When legacy guidance and current implementation differ, prefer current implement
 - Do not place default module actions, subtitles, timestamps, or helper copy inside the module header strip.
 - Do not remove body gutters after moving to the full-width header pattern; preserve body spacing with `px-4 lg:px-6` or a route-specific equivalent derived from the offerings page.
 - Do not mix full-width header strips with page-wide outer padding that insets the header away from the sidebar or scrollbar.
+- Do not reintroduce page-local style systems for standard controls or cards; extend `app.css` and shared components instead.
+- Do not add one-off `ListboxDropdown` border, divider, or option text recipes on a page when the shared component defaults already match the design.
 - Do not ship new transient success/error banners; use the shared toast system.
 - Use the shared toast system for success, error, and warning confirmation because it avoids shifting the page layout the way banners do.
 - Do not replace input validation with toasts; validation should stay next to the relevant field.
@@ -202,6 +207,7 @@ When legacy guidance and current implementation differ, prefer current implement
 - Do not nest `<form>` elements.
 - Keep Svelte 5 runes patterns and snippet/render conventions consistent with current codebase.
 - Keep touch usability and mobile/iPad layouts first-class; avoid hover-only critical interactions.
+- Keep scrollbars unchanged unless the user explicitly asks for a scrollbar change.
 
 ## Required Validation
 

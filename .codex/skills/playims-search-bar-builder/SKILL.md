@@ -7,7 +7,7 @@ description: Build or refactor PlayIMs search bars using `src/lib/components/Sea
 
 ## Goal
 
-Use the shared `SearchInput` component as the source of truth for PlayIMs search UI. Keep the offerings page search bar as the default look: left magnifying-glass icon, placeholder text, square borders, and a trailing clear affordance that only appears when text exists.
+Use the shared `SearchInput` component as the source of truth for PlayIMs search UI. Keep the offerings page search bar as the default look: left magnifying-glass icon, placeholder text, square borders, and a trailing clear affordance that only appears when text exists. `SearchInput` should be treated as the shared search primitive, with `app.css` handling the shared control styling.
 
 ## Start Here
 
@@ -28,13 +28,14 @@ Read these files before editing search UI:
 2. Reuse `SearchInput` instead of rebuilding icon/input/clear markup inline.
 3. Match the offerings-page defaults unless the surrounding surface already uses a compact variant.
 4. Use props and class hooks on `SearchInput` to tune width, height, icon sizing, placeholder copy, clear button style, and extra input attributes.
-5. For searchable dropdown panels, route the internal search field through `SearchInput` too.
-6. Preserve current behavior:
+5. Prefer the component defaults first; only override classes when the surface truly needs a compact variant or a constrained width.
+6. For searchable dropdown panels, route the internal search field through `SearchInput` too.
+7. Preserve current behavior:
    - search scope and filtering rules
    - reset or pagination side effects
    - disabled/loading states
    - special attributes like `data-lpignore`
-7. Run validation after migration.
+8. Run validation after migration.
 
 ## Required Rules
 
@@ -44,6 +45,7 @@ Read these files before editing search UI:
 - Keep the clear affordance hidden until there is text to clear.
 - Prefer semantically specific labels and placeholders over generic `Search`.
 - Keep compact search bars visually related to the offerings pattern by shrinking the existing recipe instead of inventing a new one.
+- Do not hand-roll local search icon/clear-button wrappers in route files when `SearchInput` already fits the use case.
 - If a search field needs custom focus or keyboard behavior, extend `SearchInput` rather than bypassing it.
 
 ## Validation

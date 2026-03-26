@@ -3,6 +3,8 @@
 ## Goal
 
 Use shared wizard primitives for consistent modal behavior, step framing, and draft-list flows.
+Wizard shells should follow the offerings page as the baseline: neutral surfaces, full-width
+header strip, shared footer actions, and no broader redesign of the dashboard shell.
 
 ## Shared Components
 
@@ -14,6 +16,8 @@ Use shared wizard primitives for consistent modal behavior, step framing, and dr
 - `InfoPopover`: reusable info/help popover trigger for paragraph-heavy helper text.
 - `ToggleField`: reusable bordered toggle row for wizard checkbox/switch fields with label content.
 - `DayOfWeekButtonGroup`: reusable bordered weekday selector for one-or-more day scheduling fields.
+- Compact icon-only wizard actions should reuse shared helpers such as `dashboard-icon-button`
+  where they already fit the UI pattern.
 
 ## Default Modal Behavior
 
@@ -22,9 +26,14 @@ Use shared wizard primitives for consistent modal behavior, step framing, and dr
 - `WizardModal` auto-focuses the first enabled `input`, `select`, or `textarea` when opened and when step content changes.
 - To override initial focus for a specific field, add `data-wizard-autofocus` to that element.
 - `InfoPopover` helper panels close on `Escape`, outside click, and trigger re-click (toggle behavior).
+- `WizardModal` and `ModalShell` should stay neutral and offerings-style rather than page-specific
+  or heavily branded.
+- Wizard headers use a full-width strip style that matches the offerings page shell; keep the
+  header, progress area, and footer visually consistent across routes.
 - `WizardModal` is draggable by grabbing the header area; drag state is temporary for that open modal instance and resets on close.
 - Dragging is viewport-bounded so no part of the wizard panel can be moved off-screen.
 - `WizardModal` form content uses the thin scrollbar treatment by default when vertical scrolling is needed.
+- Do not change wizard scrollbar treatment as part of the UI consistency cleanup; keep the current thin treatment unchanged.
 - `WizardUnsavedConfirm` centers to the active wizard panel (not the viewport) and still uses a full-viewport scrim.
 - Save-only wizards and modal forms should enable the shared `Ctrl/Cmd+S` shortcut through `saveShortcutEnabled` on `WizardModal` or `ModalShell`.
 - Only enable that shortcut for save/edit flows; do not enable it for create, delete, archive, or other non-save actions.
@@ -43,13 +52,15 @@ Use shared wizard primitives for consistent modal behavior, step framing, and dr
 3. Use `WizardModal` + `WizardStepFooter` for shell consistency.
 4. Use `WizardDraftCollection` for add/edit/copy/reorder/remove list steps.
 5. Use `WizardUnsavedConfirm` for unsaved-close behavior.
-6. Capture wizard dirty baselines after any open-time prefill/defaulting so unchanged seeded data does not trigger an unsaved confirmation.
+6. Keep the shell neutral and offerings-aligned unless a route has a documented exception.
+7. Capture wizard dirty baselines after any open-time prefill/defaulting so unchanged seeded data does not trigger an unsaved confirmation.
 
 ## Step Layout Rule
 
 - Prevent wizard step content from exceeding modal height whenever possible.
 - Prefer adding another wizard step/panel over introducing more in-panel scrolling.
 - If a step becomes dense (multiple decision blocks), split it into sequential steps.
+- Keep the shell consistent with the offerings page instead of inventing a separate wizard visual system.
 
 ## Scannability and Action UX
 

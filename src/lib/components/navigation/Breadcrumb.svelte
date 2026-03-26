@@ -51,8 +51,7 @@
 				? {
 						...option,
 						value: resolvedHref(option.value),
-						statusLabel: seasonContextLabel,
-						disabled: true
+						statusLabel: seasonContextLabel
 					}
 				: {
 						...option,
@@ -107,10 +106,7 @@
 						searchAriaLabel={segment.menuAriaLabel}
 						emptyText={segment.emptyText ?? 'No options available.'}
 						buttonClass="inline-flex h-4 w-4 shrink-0 items-center justify-center bg-transparent p-0 text-secondary-900 cursor-pointer hover:text-neutral-950 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-						listClass="mt-1 bg-white z-20 max-h-80 overflow-y-auto shadow-[0_12px_24px_rgba(20,33,61,0.22)]"
-						optionClass="block w-full px-3 py-1.5 text-left text-sm font-normal whitespace-nowrap text-neutral-950 cursor-pointer"
-						activeOptionClass="bg-neutral-100 text-neutral-950"
-						separatorClass="border-secondary-200"
+						listClass="max-h-80 shadow-[0_12px_24px_rgba(20,33,61,0.22)]"
 						preserveDisabledSeparatorOpacity
 						on:action={(event) => {
 							void handleAction(event.detail.value, segment.currentValue);

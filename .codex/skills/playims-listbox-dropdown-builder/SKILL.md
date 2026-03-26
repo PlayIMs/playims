@@ -7,7 +7,7 @@ description: Build, migrate, or refactor PlayIMs dashboard dropdowns using src/l
 
 ## Goal
 
-Implement reusable, accessible dropdown selectors with `ListboxDropdown` while preserving route behavior, state flow, and PlayIMs styling conventions.
+Implement reusable, accessible dropdown selectors with `ListboxDropdown` while preserving route behavior, state flow, and PlayIMs styling conventions. `ListboxDropdown` is the dashboard select system, and its default styling should come from one shared source of truth instead of page-level recipes. Use the shared neutral/secondary defaults unless a route explicitly needs a neutralized utility cluster.
 
 ## Start Here
 
@@ -16,7 +16,7 @@ Read these files before editing:
 - `src/lib/components/ListboxDropdown.svelte`
 - `src/lib/components/HoverTooltip.svelte`
 - Current consumers (search `ListboxDropdown` in `src/routes/dashboard/**`)
-- `src/app.css` (`button-secondary-outlined`, `button-neutral-outlined`, and dropdown-related utility classes)
+- `src/app.css` (`button-secondary-outlined`, `button-neutral-outlined`, `dashboard-icon-button`, and the shared dropdown defaults)
 - `references/qa-matrix.md`
 
 ## Component Contract
@@ -80,7 +80,7 @@ Example icon trigger usage:
 	options={seasonHistoryDropdownOptions}
 	value={selectedSeasonId}
 	ariaLabel="Season history"
-	buttonClass="button-secondary-outlined p-1.5 cursor-pointer"
+	buttonClass="button-secondary-outlined dashboard-icon-button cursor-pointer"
 >
 	{#snippet trigger(_, selectedOption)}
 		<IconHistory class={`w-4 h-4 ${selectedOption ? 'text-secondary-900' : 'text-neutral-700'}`} />
@@ -129,13 +129,13 @@ Example neutralized utility dropdown usage (when the user wants the whole contro
 	options={seasonHistoryDropdownOptions}
 	value={selectedSeasonId}
 	ariaLabel="Season history"
-	buttonClass="button-neutral-outlined p-1.5 cursor-pointer"
-	listClass="mt-1 w-64 border-2 border-neutral-950 bg-white z-20 max-h-72 overflow-y-auto"
-	separatorClass="border-neutral-950"
+	buttonClass="button-neutral-outlined dashboard-icon-button cursor-pointer"
+	listClass="mt-1 w-64 border-2 border-neutral-950 bg-white z-20 max-h-72 overflow-y-auto scrollbar-thin"
+	separatorClass="border-neutral-400"
 	footerActionLabel="Add New Season"
 	footerActionClass="w-full button-neutral-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer justify-center"
 	footerSecondaryActionAriaLabel="Manage seasons"
-	footerSecondaryActionClass="button-neutral-outlined w-9 h-9 p-0 cursor-pointer inline-flex items-center justify-center"
+	footerSecondaryActionClass="button-neutral-outlined dashboard-icon-button cursor-pointer"
 	on:footerAction={openCreateSeasonWizard}
 	on:footerSecondaryAction={openManageSeasonWizard}
 >
@@ -162,10 +162,10 @@ Example action-menu usage (non-persistent):
 		mode="action"
 		ariaLabel="Open add menu"
 		align="right"
-		buttonClass="button-primary-outlined -ml-[2px] px-1 py-1 cursor-pointer"
-		listClass="mt-1 w-44 border-2 border-secondary-300 bg-white z-20"
-		optionClass="w-full text-left px-3 py-2 text-sm text-neutral-950 cursor-pointer"
-		activeOptionClass="bg-neutral-100 text-neutral-950"
+		buttonClass="button-primary-outlined dashboard-icon-button -ml-[2px] cursor-pointer"
+		listClass="mt-1 w-44 border-2 border-neutral-950 bg-white z-20 max-h-72 overflow-y-auto scrollbar-thin"
+		optionClass="w-full text-left px-3 py-2 text-sm text-neutral-900 cursor-pointer"
+		activeOptionClass="bg-neutral-100 text-neutral-900"
 		noteText={addEntryOptionCount === 0
 			? 'No matching offerings available for this view.'
 			: undefined}
@@ -195,9 +195,18 @@ Example action-menu usage (non-persistent):
 
 3. Standardize styling.
 
-- Start from default classes.
+- Start from the shared defaults first.
+- Keep the trigger, panel border, row dividers, option text, and footer actions on the same visual family unless the route intentionally opts into a neutralized cluster.
+- The default panel border thickness is `2px`; do not restyle individual dropdowns with thinner one-off borders.
+- Divider borders and the footer-top border should match. Do not let the footer introduce a different accent-colored rule.
+- Use darker neutral text in option bodies by default (`text-neutral-900` or equivalent shared styling), not pure black or page-specific accent tones.
+- Dropdown utility icons such as season-history triggers and compact footer pencil actions should use the shared dark-neutral icon recipe, not page-local colors.
+- Keep option-state styling on the shared recipe:
+  - default rows use a light neutral surface with dark neutral text
+  - hovered rows use a slightly darker neutral surface with dark neutral text
+  - selected rows use the primary surface with light primary text
+  - selected + hovered rows use a slightly lighter primary surface with the same light primary text
 - For compact icon triggers, pass `buttonClass="button-secondary-outlined p-1.5 cursor-pointer"`.
-- If the user asks for a neutral utility control cluster, switch the trigger, panel border, separators, and footer actions to neutral together instead of mixing neutral and secondary recipes.
 - Override `listClass` width/alignment only when required by layout constraints.
 
 4. Add optional footer actions when needed.
@@ -218,11 +227,14 @@ Example action-menu usage (non-persistent):
 
 7. Validate accessibility and interaction parity.
 
+8. Prefer `dashboard-icon-button` for compact icon-only triggers so route files do not invent their own sizing recipes.
+
 - Run keyboard/pointer QA from `references/qa-matrix.md`.
 - Confirm screen-reader labels and `aria-expanded` transitions.
 - Confirm closed-trigger typing selects matching options in `mode="select"` without opening.
 - Confirm `Space` still opens the menu from a closed trigger in `mode="select"`.
 - Confirm `mode="action"` dropdowns keep action-menu behavior (no closed persistent selection).
+
 8. Validate disabled-option helper tooltip behavior.
 
 - Ensure helper tooltip follows cursor and remains viewport-visible when hovering the info icon.
@@ -246,6 +258,7 @@ Example action-menu usage (non-persistent):
 - Preserve existing copy unless explicitly asked to rewrite UX text.
 - Do not add native `title` attributes for disabled-option explanations; use `HoverTooltip`.
 - Do not pass ad-hoc positioning props to `HoverTooltip` from dropdown consumers unless fixing a documented bug.
+- Do not add page-local listbox border, divider, or text-color recipes when the shared defaults already cover the layout.
 
 ## Delivery Checklist
 

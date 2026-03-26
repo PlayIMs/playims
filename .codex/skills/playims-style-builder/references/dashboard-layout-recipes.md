@@ -59,6 +59,7 @@ Split primary add button + dropdown trigger:
 - Wrapper: `relative inline-flex items-stretch`
 - Main CTA: `button-primary-outlined px-2 py-1 text-xs font-bold uppercase tracking-wide cursor-pointer`
 - Attached dropdown trigger: `button-primary-outlined -ml-[2px] px-1 py-1 cursor-pointer`
+- Keep the attached dropdown trigger and panel on the shared `ListboxDropdown` defaults instead of introducing a separate one-off recipe.
 
 Compact icon-only management trigger:
 

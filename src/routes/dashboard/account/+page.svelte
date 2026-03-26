@@ -812,10 +812,6 @@
 													searchAriaLabel="Search countries"
 													searchEmptyText="No countries match your search."
 													buttonClass="phone-country-trigger relative z-10 w-16 h-11 border-2 border-secondary-300 border-r-0 bg-white px-1.5 py-2 text-sm text-neutral-950 cursor-pointer inline-flex items-center justify-center gap-1 focus-visible:outline-none"
-													listClass="mt-1 border-2 border-neutral-950 bg-white z-20"
-													optionClass="w-full text-left px-3 py-2 text-sm text-neutral-950 cursor-pointer"
-													activeOptionClass="bg-neutral-300 text-neutral-950"
-													selectedOptionClass="bg-primary text-white font-semibold"
 													on:change={(event) => {
 														const nextIso2 = event.detail.value;
 														const nextCountry = phoneCountryByIso2.get(nextIso2);
