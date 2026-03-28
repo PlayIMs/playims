@@ -5,10 +5,14 @@ import {
 } from '$lib/server/client-context';
 import { getCentralDbOps } from '$lib/server/database/context';
 import { PERMISSIONS, requirePermission } from '$lib/server/auth/permissions';
+import { AUTH_ENV_KEYS } from '$lib/server/auth/constants';
+import { normalizeIterations, hashPassword } from '$lib/server/auth/password';
+import { resolvePasswordPepper } from '$lib/server/auth/service';
 import { createMemberSchema, memberListQuerySchema } from '$lib/server/members/validation';
-import { buildMemberInviteUrl, generateMemberInviteToken, getMemberInviteExpiryIso, hashMemberInviteToken } from '$lib/server/members/invites';
 import type { CreateMemberResponse, MemberListResponse } from '$lib/members/types.js';
 import type { RequestHandler } from './$types';
+
+const TEMP_PASSWORD_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*';
 
 const toFieldErrorMap = (
 	issues: Array<{
@@ -27,11 +31,59 @@ const toFieldErrorMap = (
 	return fieldErrors;
 };
 
+const buildEmptyMemberPayload = (input: {
+	query: string;
+	sort: string;
+	dir: string;
+	sexFilter: string | null;
+	roleFilter: string | null;
+}) => ({
+	rows: [],
+	page: 1,
+	pageSize: 50,
+	totalCount: 0,
+	hasNextPage: false,
+	hasPreviousPage: false,
+	sort: input.sort,
+	dir: input.dir,
+	query: input.query,
+	sexFilter: input.sexFilter,
+	roleFilter: input.roleFilter
+});
+
+const readAuthEnv = (event: { platform?: App.Platform }, key: string): string | undefined => {
+	const platformValue = (event.platform?.env as Record<string, unknown> | undefined)?.[key];
+	if (typeof platformValue === 'string' && platformValue.trim().length > 0) {
+		return platformValue.trim();
+	}
+
+	const nodeValue = process.env[key];
+	if (typeof nodeValue === 'string' && nodeValue.trim().length > 0) {
+		return nodeValue.trim();
+	}
+
+	return undefined;
+};
+
+const resolvePasswordIterations = (event: { platform?: App.Platform }): number =>
+	normalizeIterations(readAuthEnv(event, AUTH_ENV_KEYS.passwordIterations));
+
+const generateTemporaryPassword = (length = 16): string => {
+	const randomBytes = crypto.getRandomValues(new Uint8Array(length));
+	return Array.from(
+		randomBytes,
+		(byte) => TEMP_PASSWORD_ALPHABET[byte % TEMP_PASSWORD_ALPHABET.length]
+	).join('');
+};
+
 export const GET: RequestHandler = async (event) => {
 	if (!event.platform?.env?.DB) {
-		return json({ success: false, error: 'Database is unavailable.' } satisfies MemberListResponse, {
-			status: 500
-		});
+		return json(
+			{ success: false, error: 'Database is unavailable.' } satisfies MemberListResponse,
+			{
+				status: 500
+			}
+		);
 	}
 
 	const parsed = memberListQuerySchema.safeParse({
@@ -52,27 +104,36 @@ export const GET: RequestHandler = async (event) => {
 		);
 	}
 
+	const query = parsed.data.q.trim();
+	if (query.length < 2) {
+		event.locals.requestLogMeta = {
+			table: 'users,user_clients',
+			recordCount: 0
+		};
+
+		return json({
+			success: true,
+			data: buildEmptyMemberPayload({
+				query,
+				sort: parsed.data.sort,
+				dir: parsed.data.dir,
+				sexFilter: parsed.data.sex ?? null,
+				roleFilter: parsed.data.role ?? null
+			})
+		} satisfies MemberListResponse);
+	}
+
 	const clientId = requireAuthenticatedClientId(event.locals);
 	const dbOps = getCentralDbOps(event);
-	const shouldSearch = parsed.data.q.trim().length >= 2;
-	const result = shouldSearch
-		? await dbOps.members.searchByClient({
-				clientId,
-				query: parsed.data.q,
-				page: parsed.data.page,
-				sex: parsed.data.sex ?? null,
-				role: parsed.data.role ?? null,
-				sort: parsed.data.sort,
-				dir: parsed.data.dir
-			})
-		: await dbOps.members.listByClient({
-				clientId,
-				page: parsed.data.page,
-				sex: parsed.data.sex ?? null,
-				role: parsed.data.role ?? null,
-				sort: parsed.data.sort,
-				dir: parsed.data.dir
-			});
+	const result = await dbOps.members.searchByClient({
+		clientId,
+		query,
+		page: parsed.data.page,
+		sex: parsed.data.sex ?? null,
+		role: parsed.data.role ?? null,
+		sort: parsed.data.sort,
+		dir: parsed.data.dir
+	});
 
 	event.locals.requestLogMeta = {
 		table: 'users,user_clients',
@@ -90,7 +151,7 @@ export const GET: RequestHandler = async (event) => {
 			hasPreviousPage: result.hasPreviousPage,
 			sort: parsed.data.sort,
 			dir: parsed.data.dir,
-			query: parsed.data.q.trim(),
+			query,
 			sexFilter: parsed.data.sex ?? null,
 			roleFilter: parsed.data.role ?? null
 		}
@@ -167,7 +228,7 @@ export const POST: RequestHandler = async (event) => {
 		firstName: parsed.data.firstName,
 		lastName: parsed.data.lastName,
 		studentId: parsed.data.studentId,
-		sex: parsed.data.sex ?? null,
+		sex: parsed.data.sex,
 		updatedUser: userId
 	});
 
@@ -190,43 +251,80 @@ export const POST: RequestHandler = async (event) => {
 			data: {
 				member: addResult.member,
 				addedExistingUser: true,
+				createdNewUser: false,
 				reactivatedMembership: addResult.status === 'reactivated'
 			}
 		} satisfies CreateMemberResponse);
 	}
 
-	const existingPendingInvite = await dbOps.members.getPendingInviteByEmail(clientId, parsed.data.email);
-	if (existingPendingInvite) {
+	let passwordPepper: string;
+	try {
+		passwordPepper = resolvePasswordPepper(event);
+	} catch {
 		return json(
 			{
 				success: false,
-				error: 'A pending invite already exists for this email address.',
-				fieldErrors: {
-					email: ['A pending invite already exists for this email address.']
-				}
+				error: 'Temporary password generation is unavailable right now.'
 			} satisfies CreateMemberResponse,
-			{ status: 409 }
+			{ status: 500 }
 		);
 	}
 
-	const inviteToken = generateMemberInviteToken();
-	const invite = await dbOps.members.createInvite({
-		clientId,
-		email: parsed.data.email,
-		firstName: parsed.data.firstName,
-		lastName: parsed.data.lastName,
-		studentId: parsed.data.studentId,
-		sex: parsed.data.sex ?? null,
-		role: parsed.data.role,
-		mode: parsed.data.mode,
-		tokenHash: await hashMemberInviteToken(inviteToken),
-		expiresAt: getMemberInviteExpiryIso(),
-		createdUser: userId
+	const temporaryPassword = generateTemporaryPassword();
+	const passwordHash = await hashPassword({
+		password: temporaryPassword,
+		pepper: passwordPepper,
+		iterations: resolvePasswordIterations(event)
 	});
 
-	if (!invite) {
+	const createdUser = await dbOps.users.createAuthUser({
+		email: parsed.data.email,
+		passwordHash,
+		firstName: parsed.data.firstName,
+		lastName: parsed.data.lastName,
+		status: 'active',
+		mustChangePassword: true,
+		createdUser: userId,
+		updatedUser: userId
+	});
+	if (!createdUser?.id) {
 		return json(
-			{ success: false, error: 'Unable to create invite right now.' } satisfies CreateMemberResponse,
+			{
+				success: false,
+				error: 'Unable to create the member account right now.'
+			} satisfies CreateMemberResponse,
+			{ status: 500 }
+		);
+	}
+
+	const membership = await dbOps.userClients.ensureMembership({
+		userId: createdUser.id,
+		clientId,
+		role: parsed.data.role,
+		status: 'active',
+		studentId: parsed.data.studentId,
+		sex: parsed.data.sex,
+		isDefault: false,
+		createdUser: userId,
+		updatedUser: userId
+	});
+	if (!membership?.id) {
+		return json(
+			{
+				success: false,
+				error: 'Unable to create the member account right now.'
+			} satisfies CreateMemberResponse,
+			{ status: 500 }
+		);
+	}
+
+	const member = await dbOps.members.getByMembershipId(membership.id, clientId);
+	if (!member) {
+		return json(
+			{
+				success: false,
+				error: 'Unable to load the new member right now.'
+			} satisfies CreateMemberResponse,
 			{ status: 500 }
 		);
 	}
@@ -234,12 +332,11 @@ export const POST: RequestHandler = async (event) => {
 	return json({
 		success: true,
 		data: {
-			invite: {
-				...invite,
-				inviteUrl: buildMemberInviteUrl(event.url.origin, inviteToken)
-			},
+			member,
 			addedExistingUser: false,
-			reactivatedMembership: false
+			createdNewUser: true,
+			reactivatedMembership: false,
+			temporaryPassword
 		}
 	} satisfies CreateMemberResponse);
 };

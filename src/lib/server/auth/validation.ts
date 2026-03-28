@@ -198,6 +198,17 @@ export const accountPasswordChangeSchema = z
 		path: ['newPassword']
 	});
 
+export const passwordSetupSchema = z
+	.object({
+		newPassword: passwordSchema,
+		confirmPassword: z.string().min(1).max(128),
+		next: nextPathSchema
+	})
+	.refine((value) => value.newPassword === value.confirmPassword, {
+		message: 'Passwords do not match',
+		path: ['confirmPassword']
+	});
+
 export const accountArchiveSchema = z.object({
 	currentPassword: passwordSchema,
 	confirmation: z
@@ -232,6 +243,7 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export type AccountProfileInput = z.infer<typeof accountProfileSchema>;
 export type AccountPreferencesInput = z.infer<typeof accountPreferencesSchema>;
 export type AccountPasswordChangeInput = z.infer<typeof accountPasswordChangeSchema>;
+export type PasswordSetupInput = z.infer<typeof passwordSetupSchema>;
 export type AccountArchiveInput = z.infer<typeof accountArchiveSchema>;
 export type AccountCreateOrganizationInput = z.infer<typeof accountCreateOrganizationSchema>;
 export type SwitchClientInput = z.infer<typeof switchClientSchema>;

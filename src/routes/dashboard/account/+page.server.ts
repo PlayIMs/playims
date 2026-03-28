@@ -3,6 +3,7 @@ import {
 	requireAuthenticatedUserId
 } from '$lib/server/client-context';
 import { AUTH_ENV_KEYS } from '$lib/server/auth/constants';
+import { persistAuthenticatedPasswordChange } from '$lib/server/auth/password-update';
 import { hashPassword, normalizeIterations, verifyPassword } from '$lib/server/auth/password';
 import { normalizeRole } from '$lib/server/auth/rbac';
 import { clearSessionCookie, revokeCurrentSession } from '$lib/server/auth/session';
@@ -151,6 +152,7 @@ export const load: PageServerLoad = async (event) => {
 			firstLoginAt: user.firstLoginAt ?? null,
 			lastLoginAt: user.lastLoginAt ?? null,
 			lastActiveAt: user.lastActiveAt ?? null,
+			mustChangePassword: user.mustChangePassword === 1,
 			sessionCount: user.sessionCount ?? 0,
 			currentSessionExpiresAt: locals.session?.expiresAt ?? null,
 			activeSessionCount,
@@ -289,11 +291,13 @@ export const actions: Actions = {
 			iterations: resolvePasswordIterations(event)
 		});
 
-		const updated = await dbOps.users.updateSelfPasswordHash({
+		const updated = await persistAuthenticatedPasswordChange({
+			event,
+			dbOps,
 			userId,
 			clientId,
 			passwordHash: newPasswordHash,
-			updatedUser: userId
+			clearMustChangePassword: true
 		});
 
 		if (!updated) {
@@ -301,14 +305,6 @@ export const actions: Actions = {
 				action: 'changePassword',
 				error: 'Failed to update password.'
 			});
-		}
-
-		if (event.locals.session?.id) {
-			await dbOps.sessions.revokeAllForUserExceptSessionInClient(
-				userId,
-				clientId,
-				event.locals.session.id
-			);
 		}
 
 		return {

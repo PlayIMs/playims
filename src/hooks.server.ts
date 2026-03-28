@@ -1,5 +1,6 @@
 import { dev } from '$app/environment';
 import { canAccessDashboardRouteForPermissions } from '$lib/dashboard/navigation';
+import { buildPasswordSetupLocation, sanitizeAuthRedirectPath } from '$lib/server/auth/navigation';
 import { clearSessionCookie, resolveSessionFromRequest } from '$lib/server/auth/session';
 import type { AuthPermission } from '$lib/server/auth/permissions';
 import {
@@ -64,7 +65,6 @@ type ApiRoutePolicy = {
 const API_ROUTE_POLICIES: ApiRoutePolicy[] = [
 	{ pattern: /^\/api\/auth\/login$/, policy: { access: 'public' } },
 	{ pattern: /^\/api\/auth\/register$/, policy: { access: 'public' } },
-	{ pattern: /^\/api\/member-invites\/accept$/, policy: { access: 'public' } },
 	{ pattern: /^\/api\/auth\/logout$/, policy: { access: 'authenticated' } },
 	{ pattern: /^\/api\/auth\/session$/, policy: { access: 'authenticated' } },
 	{ pattern: /^\/api\/auth\/switch-client$/, policy: { access: 'authenticated' } },
@@ -137,14 +137,6 @@ const API_ROUTE_POLICIES: ApiRoutePolicy[] = [
 			}
 		}
 	},
-	{
-		pattern: /^\/api\/member-invites$/,
-		policy: { access: 'permission', permissions: [PERMISSIONS.VIEW_MEMBER_MANAGEMENT] }
-	},
-	{
-		pattern: /^\/api\/member-invites\/[^/]+$/,
-		policy: { access: 'permission', permissions: [PERMISSIONS.MANAGE_MEMBER_INVITES] }
-	}
 ];
 
 const LOGIN_RATE_LIMIT: RateLimitConfig = {
@@ -213,7 +205,7 @@ let lastGlobalRateLimitCleanupAt = 0;
 let hasWarnedGlobalRateLimitFallback = false;
 
 const PROTECTED_PAGE_PREFIXES = ['/dashboard'];
-const PROTECTED_PAGE_EXACT = new Set(['/schedule', '/colors']);
+const PROTECTED_PAGE_EXACT = new Set(['/schedule', '/colors', '/set-password']);
 const AUTH_PAGE_PATHS = new Set(['/log-in', '/register']);
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
@@ -268,9 +260,7 @@ const resolveRateLimitConfig = (pathname: string): RateLimitConfig | null => {
 
 	if (
 		pathname === '/api/members' ||
-		/^\/api\/members\/[^/]+$/.test(pathname) ||
-		pathname === '/api/member-invites' ||
-		/^\/api\/member-invites\/[^/]+$/.test(pathname)
+		/^\/api\/members\/[^/]+$/.test(pathname)
 	) {
 		return MEMBERS_RATE_LIMIT;
 	}
@@ -287,10 +277,6 @@ const resolveRateLimitConfig = (pathname: string): RateLimitConfig | null => {
 
 	if (pathname === '/api/auth/join-client') {
 		return JOIN_CLIENT_RATE_LIMIT;
-	}
-
-	if (pathname === '/api/member-invites/accept') {
-		return REGISTER_RATE_LIMIT;
 	}
 
 	return null;
@@ -468,27 +454,6 @@ const isProtectedPagePath = (pathname: string) => {
 };
 
 const isAuthPagePath = (pathname: string) => AUTH_PAGE_PATHS.has(pathname);
-
-const sanitizeNextPath = (nextPath: string | null | undefined) => {
-	if (!nextPath) {
-		return null;
-	}
-
-	const trimmed = nextPath.trim();
-	if (!trimmed.startsWith('/')) {
-		return null;
-	}
-
-	if (trimmed.startsWith('//')) {
-		return null;
-	}
-
-	if (trimmed.startsWith('/api/')) {
-		return null;
-	}
-
-	return trimmed;
-};
 
 const getSafeSearch = (url: URL): string => {
 	try {
@@ -1001,11 +966,36 @@ export const handle: Handle = async ({ event, resolve }) => {
 				});
 			}
 
+			const mustChangePassword = event.locals.user.mustChangePassword === true;
+			const passwordSetupRoute = pathname === '/set-password' || pathname.startsWith('/set-password/');
+			if (mustChangePassword && !passwordSetupRoute) {
+				const response = toRedirectResponse(
+					buildPasswordSetupLocation(`${pathname}${getSafeSearch(event.url)}`),
+					303
+				);
+				logRequestSummary({
+					scope: 'SSR',
+					method,
+					endpoint,
+					tablesField: resolveLogTableField(),
+					recordCount: 0,
+					status: 303,
+					durationMs: nowMs() - startedAt,
+					error: 'Redirected user to required password change flow'
+				});
+				return withSecurityHeaders(response, {
+					requestId: event.locals.requestId,
+					isApiRequest: false
+				});
+			}
+
 			const permissionSnapshot = buildPermissionSnapshot(
 				event.locals.user.role ?? event.locals.user.baseRole
 			);
 			const canAccessProtectedPage =
-				pathname === '/colors'
+				pathname === '/set-password'
+					? true
+					: pathname === '/colors'
 					? permissionSnapshot.ACCESS_DEV_TOOLS === true
 					: pathname === '/schedule'
 						? permissionSnapshot.VIEW_SCHEDULE === true
@@ -1039,8 +1029,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 				.VIEW_DASHBOARD_HOME
 		) {
 			// Logged-in users should not stay on login/register pages.
-			const nextParam = sanitizeNextPath(getSafeSearchParam(event.url, 'next'));
-			const response = toRedirectResponse(nextParam ?? '/dashboard', 303);
+			const nextParam = sanitizeAuthRedirectPath(getSafeSearchParam(event.url, 'next'));
+			const response = toRedirectResponse(
+				event.locals.user.mustChangePassword
+					? buildPasswordSetupLocation(nextParam)
+					: (nextParam ?? '/dashboard'),
+				303
+			);
 			logRequestSummary({
 				scope: 'SSR',
 				method,

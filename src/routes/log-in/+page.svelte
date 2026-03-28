@@ -63,7 +63,7 @@
 
 <PageTitle pageTitle="Login" />
 
-<div class="min-h-screen bg-secondary-500 flex items-center justify-center px-4">
+<div class="app-page-screen bg-secondary-500 flex items-center justify-center px-4">
 	<div class="w-full max-w-md bg-white border border-neutral-200 p-6">
 		<h1 class="text-2xl font-bold text-primary-950 mb-2">Sign in</h1>
 		<p class="text-sm text-secondary-900 mb-6">Use your PlayIMs account to continue.</p>

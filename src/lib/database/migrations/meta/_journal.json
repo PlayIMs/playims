@@ -211,6 +211,13 @@
       "when": 1774308937652,
       "tag": "0029_sour_bloodstrike",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1774656610951,
+      "tag": "0030_quiet_roland_deschain",
+      "breakpoints": true
     }
   ]
 }

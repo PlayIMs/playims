@@ -32,5 +32,10 @@ export function syncMembersUrlIfReady(input: {
 	if (input.state.currentPage > 1) url.searchParams.set('page', String(input.state.currentPage));
 	else url.searchParams.delete('page');
 
-	input.replace(`${url.pathname}${url.search}${url.hash}`);
+	const nextHref = `${url.pathname}${url.search}${url.hash}`;
+	const currentUrl = new URL(input.href);
+	const currentHref = `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`;
+	if (nextHref === currentHref) return;
+
+	input.replace(nextHref);
 }

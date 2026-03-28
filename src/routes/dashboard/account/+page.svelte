@@ -71,6 +71,7 @@
 		activeSessions: ActiveSessionData[];
 		profileCompletionPercent: number;
 		accountAgeDays: number | null;
+		mustChangePassword: boolean;
 	};
 
 	type FormState = {
@@ -675,6 +676,21 @@
 				<p class="text-neutral-950">Account details are unavailable right now.</p>
 			</section>
 		{:else}
+			{#if account.mustChangePassword}
+				<section class="border-2 border-secondary-700 bg-secondary-100 p-4">
+					<div class="flex items-start gap-3">
+						<IconAlertTriangle class="mt-0.5 h-6 w-6 shrink-0 text-secondary-950" />
+						<div class="space-y-2 text-sm text-secondary-950">
+							<p class="font-semibold">Password update required</p>
+							<p>
+								This account was created with a temporary password. Update it below before you
+								continue using the rest of the dashboard.
+							</p>
+						</div>
+					</div>
+				</section>
+			{/if}
+
 			<div class="grid grid-cols-1 2xl:grid-cols-[1.75fr_1fr] gap-6">
 				<div class="space-y-6">
 					<section class="border-2 border-neutral-950 bg-neutral">

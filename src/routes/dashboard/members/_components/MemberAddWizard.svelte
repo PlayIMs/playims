@@ -2,11 +2,10 @@
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import { WizardModal, WizardStepFooter } from '$lib/components/wizard';
-	import type { MemberAssignableRole, MemberInviteMode, MemberSex } from '$lib/members/types.js';
+	import type { MemberAssignableRole, MemberSex } from '$lib/members/types.js';
 	import { toast } from '$lib/toasts';
 
 	export interface MemberAddFormState {
-		mode: MemberInviteMode;
 		email: string;
 		role: MemberAssignableRole;
 		firstName: string;
@@ -17,7 +16,6 @@
 
 	interface Props {
 		open: boolean;
-		step: 1 | 2;
 		form: MemberAddFormState;
 		roleOptions: Array<{ value: MemberAssignableRole; label: string }>;
 		submitting?: boolean;
@@ -25,22 +23,17 @@
 		fieldErrors?: Record<string, string>;
 		onClose: () => void;
 		onSubmit: () => void;
-		onBack: () => void;
-		onNext: () => void;
 	}
 
 	let {
 		open,
-		step,
 		form,
 		roleOptions,
 		submitting = false,
 		error = '',
 		fieldErrors = {},
 		onClose,
-		onSubmit,
-		onBack,
-		onNext
+		onSubmit
 	}: Props = $props();
 
 	const sexOptions = [
@@ -48,9 +41,8 @@
 		{ value: 'F', label: 'F' }
 	];
 	const canSubmit = $derived.by(() => {
-		if (form.email.trim().length === 0) return false;
-		if (form.mode !== 'preprovision') return true;
 		return (
+			form.email.trim().length > 0 &&
 			form.firstName.trim().length > 0 &&
 			form.lastName.trim().length > 0 &&
 			form.studentId.trim().length > 0 &&
@@ -67,7 +59,7 @@
 			return;
 		}
 
-		const signature = `${open ? 'open' : 'closed'}:${step}:${message}`;
+		const signature = `${open ? 'open' : 'closed'}:${message}`;
 		if (signature === lastErrorToast) {
 			return;
 		}
@@ -83,45 +75,26 @@
 <WizardModal
 	{open}
 	title="Add Member"
-	{step}
-	stepCount={2}
-	stepTitle={step === 1 ? 'Choose Add Mode' : 'Member Details'}
-	progressPercent={step === 1 ? 50 : 100}
+	step={1}
+	stepCount={1}
+	stepTitle="Account details"
+	progressPercent={100}
 	closeAriaLabel="Close add member wizard"
 	maxWidthClass="max-w-3xl"
 	on:requestClose={onClose}
 	on:submit={onSubmit}
 >
-	{#if step === 1}
-		<div class="space-y-4">
-			<p class="text-sm text-neutral-950">
-				Choose whether you are sending a simple invite or pre-filling required member data before
-				the person finishes setup.
+	<div class="space-y-4">
+		<div class="border border-neutral-950 bg-white p-4 text-sm text-neutral-950">
+			<p class="font-semibold">Create the membership directly.</p>
+			<p class="mt-1">
+				If the email already belongs to a PlayIMs account, we will add or reactivate that
+				membership. If it is brand new, we will create the account now and give you a one-time
+				temporary password.
 			</p>
-			<div class="grid gap-3 lg:grid-cols-2">
-				<button
-					type="button"
-					class={`border-2 p-4 text-left cursor-pointer ${form.mode === 'invite' ? 'border-primary-500 bg-primary-100 text-primary-900' : 'border-secondary-300 bg-white text-neutral-950 hover:bg-secondary-50'}`}
-					onclick={() => (form.mode = 'invite')}
-				>
-					<p class="font-semibold">Invite Member</p>
-					<p class="mt-1 text-sm">Capture email and role, then share an invite link.</p>
-				</button>
-				<button
-					type="button"
-					class={`border-2 p-4 text-left cursor-pointer ${form.mode === 'preprovision' ? 'border-primary-500 bg-primary-100 text-primary-900' : 'border-secondary-300 bg-white text-neutral-950 hover:bg-secondary-50'}`}
-					onclick={() => (form.mode = 'preprovision')}
-				>
-					<p class="font-semibold">Pre-Provision Member</p>
-					<p class="mt-1 text-sm">
-						Capture the full required record now, then let the member finish account creation later.
-					</p>
-				</button>
-			</div>
 		</div>
-	{:else}
-		<div class="space-y-4">
-			<div class="space-y-1">
+		<div class="grid gap-4 lg:grid-cols-2">
+			<div class="space-y-1 lg:col-span-2">
 				<label class="block text-sm font-semibold text-neutral-950" for="add-member-email"
 					>Email</label
 				>
@@ -151,82 +124,82 @@
 					}}
 				/>
 			</div>
-			{#if form.mode === 'preprovision'}
-				<div class="grid gap-4 lg:grid-cols-2">
-					<div class="space-y-1">
-						<label class="block text-sm font-semibold text-neutral-950" for="add-member-first-name"
-							>First Name</label
-						>
-						<input
-							id="add-member-first-name"
-							class="input-secondary"
-							type="text"
-							bind:value={form.firstName}
-						/>
-						{#if fieldErrors.firstName}<p class="text-xs text-secondary-900">
-								{fieldErrors.firstName}
-							</p>{/if}
-					</div>
-					<div class="space-y-1">
-						<label class="block text-sm font-semibold text-neutral-950" for="add-member-last-name"
-							>Last Name</label
-						>
-						<input
-							id="add-member-last-name"
-							class="input-secondary"
-							type="text"
-							bind:value={form.lastName}
-						/>
-						{#if fieldErrors.lastName}<p class="text-xs text-secondary-900">
-								{fieldErrors.lastName}
-							</p>{/if}
-					</div>
-					<div class="space-y-1">
-						<label class="block text-sm font-semibold text-neutral-950" for="add-member-student-id"
-							>Student ID</label
-						>
-						<input
-							id="add-member-student-id"
-							class="input-secondary"
-							type="text"
-							bind:value={form.studentId}
-						/>
-						{#if fieldErrors.studentId}<p class="text-xs text-secondary-900">
-								{fieldErrors.studentId}
-							</p>{/if}
-					</div>
-					<div class="space-y-1">
-						<p class="block text-sm font-semibold text-neutral-950">Sex</p>
-						<ListboxDropdown
-							options={sexOptions}
-							value={form.sex}
-							placeholder="Select sex"
-							ariaLabel="Select member sex"
-							buttonClass="button-secondary-outlined min-h-10 w-full px-3 py-2 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2"
-							on:change={(event) => {
-								form.sex = event.detail.value as MemberSex;
-							}}
-						/>
-						{#if fieldErrors.sex}<p class="text-xs text-secondary-900">{fieldErrors.sex}</p>{/if}
-					</div>
-				</div>
-			{/if}
+			<div class="space-y-1">
+				<label class="block text-sm font-semibold text-neutral-950" for="add-member-first-name"
+					>First Name</label
+				>
+				<input
+					id="add-member-first-name"
+					class="input-secondary"
+					type="text"
+					bind:value={form.firstName}
+				/>
+				{#if fieldErrors.firstName}<p class="text-xs text-secondary-900">
+						{fieldErrors.firstName}
+					</p>{/if}
+			</div>
+			<div class="space-y-1">
+				<label class="block text-sm font-semibold text-neutral-950" for="add-member-last-name"
+					>Last Name</label
+				>
+				<input
+					id="add-member-last-name"
+					class="input-secondary"
+					type="text"
+					bind:value={form.lastName}
+				/>
+				{#if fieldErrors.lastName}<p class="text-xs text-secondary-900">
+						{fieldErrors.lastName}
+					</p>{/if}
+			</div>
+			<div class="space-y-1">
+				<label class="block text-sm font-semibold text-neutral-950" for="add-member-student-id"
+					>Student ID</label
+				>
+				<input
+					id="add-member-student-id"
+					class="input-secondary"
+					type="text"
+					bind:value={form.studentId}
+				/>
+				{#if fieldErrors.studentId}<p class="text-xs text-secondary-900">
+						{fieldErrors.studentId}
+					</p>{/if}
+			</div>
+			<div class="space-y-1">
+				<p class="block text-sm font-semibold text-neutral-950">Sex</p>
+				<ListboxDropdown
+					options={sexOptions}
+					value={form.sex}
+					placeholder="Select sex"
+					ariaLabel="Select member sex"
+					buttonClass="button-secondary-outlined min-h-10 w-full px-3 py-2 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2"
+					on:change={(event) => {
+						form.sex = event.detail.value as MemberSex;
+					}}
+				/>
+				{#if fieldErrors.sex}<p class="text-xs text-secondary-900">{fieldErrors.sex}</p>{/if}
+			</div>
+			<div
+				class="border border-neutral-950 bg-neutral p-3 text-xs leading-5 text-neutral-950 lg:col-span-2"
+			>
+				New accounts are created with an active login and a required password reset at first
+				sign-in. You will be shown the temporary password one time after creation.
+			</div>
 		</div>
-	{/if}
+	</div>
 
 	{#snippet footer()}
 		<WizardStepFooter
-			{step}
-			lastStep={2}
-			showBack={step > 1}
-			canGoNext={true}
+			step={1}
+			lastStep={1}
+			showBack={false}
+			canGoNext={false}
 			canSubmit={canSubmit && !submitting}
 			nextLabel="Next"
-			submitLabel="Create Invite"
+			submitLabel="Create Member"
 			submittingLabel="Saving..."
 			isSubmitting={submitting}
-			on:back={onBack}
-			on:next={onNext}
 		/>
 	{/snippet}
 </WizardModal>

@@ -205,6 +205,7 @@ const buildSafeUserWithContext = (
 		firstName: user.firstName ?? null,
 		lastName: user.lastName ?? null,
 		cellPhone: user.cellPhone ?? null,
+		mustChangePassword: user.mustChangePassword === 1,
 		role: roleContext.role,
 		baseRole: roleContext.baseRole,
 		canViewAsRole: roleContext.canViewAsRole,

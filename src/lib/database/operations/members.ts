@@ -1,18 +1,14 @@
 import { and, asc, desc, eq, ne, or, sql, type SQL } from 'drizzle-orm';
 import type { DrizzleClient } from '../drizzle.js';
-import { clients, memberInvites, userClients, users } from '../schema/index.js';
+import { userClients, users } from '../schema/index.js';
 import {
-	MEMBER_INVITE_PAGE_SIZE,
 	MEMBER_PAGE_SIZE,
-	type AcceptMemberInvitePreview,
 	type MemberAssignableRole,
 	type MemberDetail,
-	type MemberInviteMode,
 	type MemberListRow,
 	type MemberRole,
 	type MemberSex,
 	type MemberSortKey,
-	type PendingInviteRow,
 	type SortDirection
 } from '../../members/types.js';
 
@@ -66,50 +62,7 @@ type MemberRowSelection = {
 	updatedAt: string | null;
 	lastLoginAt?: string | null;
 	lastActiveAt?: string | null;
-	invitePendingCount?: number;
 };
-
-type PendingInviteSelection = {
-	inviteId: string;
-	email: string;
-	firstName: string | null;
-	lastName: string | null;
-	studentId: string | null;
-	sex: string | null;
-	role: string;
-	mode: string;
-	status: string;
-	expiresAt: string;
-	createdAt: string;
-};
-
-type AcceptInviteUser = typeof users.$inferSelect;
-
-type InviteAcceptanceContext = {
-	invite: AcceptMemberInvitePreview;
-	existingUserId: string | null;
-};
-
-type AcceptInviteResult =
-	| {
-			status: 'invalid-invite';
-	  }
-	| {
-			status: 'authentication-required';
-			email: string;
-	  }
-	| {
-			status: 'wrong-user';
-			email: string;
-	  }
-	| {
-			status: 'accepted';
-			user: AcceptInviteUser;
-			clientId: string;
-			role: MemberRole;
-			createdUser: boolean;
-			reactivatedMembership: boolean;
-	  };
 
 const toMemberSex = (value: string | null | undefined): MemberSex | null => {
 	return value === 'M' || value === 'F' ? value : null;
@@ -121,16 +74,6 @@ const toMemberRole = (value: string | null | undefined): MemberRole => {
 	}
 	return 'participant';
 };
-
-const toAssignableRole = (value: string | null | undefined): MemberAssignableRole => {
-	if (value === 'manager' || value === 'admin') {
-		return value;
-	}
-	return 'participant';
-};
-
-const toInviteMode = (value: string | null | undefined): MemberInviteMode =>
-	value === 'preprovision' ? 'preprovision' : 'invite';
 
 const buildFullName = (firstName: string | null, lastName: string | null): string => {
 	const joined = [firstName?.trim(), lastName?.trim()].filter(Boolean).join(' ').trim();
@@ -158,25 +101,7 @@ const mapMemberDetail = (row: MemberRowSelection): MemberDetail => ({
 	avatarUrl: row.avatarUrl ?? null,
 	cellPhone: row.cellPhone ?? null,
 	lastLoginAt: row.lastLoginAt ?? null,
-	lastActiveAt: row.lastActiveAt ?? null,
-	invitePending: Number(row.invitePendingCount ?? 0) > 0
-});
-
-const mapPendingInvite = (row: PendingInviteSelection): PendingInviteRow => ({
-	inviteId: row.inviteId,
-	email: row.email,
-	firstName: normalizeText(row.firstName),
-	lastName: normalizeText(row.lastName),
-	studentId: normalizeText(row.studentId),
-	sex: toMemberSex(row.sex),
-	role: toAssignableRole(row.role),
-	mode: toInviteMode(row.mode),
-	status:
-		row.status === 'accepted' || row.status === 'revoked' || row.status === 'expired'
-			? row.status
-			: 'pending',
-	expiresAt: row.expiresAt,
-	createdAt: row.createdAt
+	lastActiveAt: row.lastActiveAt ?? null
 });
 
 const buildSearchConditions = (query: string): SQL[] => {
@@ -405,15 +330,7 @@ export class MemberOperations {
 				createdAt: userClients.createdAt,
 				updatedAt: userClients.updatedAt,
 				lastLoginAt: users.lastLoginAt,
-				lastActiveAt: users.lastActiveAt,
-				invitePendingCount: sql<number>`(
-					select count(*)
-					from ${memberInvites}
-					where ${memberInvites.clientId} = ${userClients.clientId}
-						and lower(trim(${memberInvites.email})) = lower(trim(${users.email}))
-						and ${memberInvites.status} = 'pending'
-						and ${memberInvites.expiresAt} > ${new Date().toISOString()}
-				)`
+				lastActiveAt: users.lastActiveAt
 			})
 			.from(userClients)
 			.innerJoin(users, eq(userClients.userId, users.id))
@@ -456,7 +373,11 @@ export class MemberOperations {
 		};
 	}
 
-	async findActiveByStudentId(clientId: string, studentId: string, excludeMembershipId?: string): Promise<string | null> {
+	async findActiveByStudentId(
+		clientId: string,
+		studentId: string,
+		excludeMembershipId?: string
+	): Promise<string | null> {
 		const normalizedStudentId = normalizeText(studentId);
 		if (!normalizedStudentId) {
 			return null;
@@ -688,399 +609,6 @@ export class MemberOperations {
 		return {
 			status: 'added',
 			member
-		};
-	}
-
-	async createInvite(input: {
-		clientId: string;
-		email: string;
-		firstName?: string | null;
-		lastName?: string | null;
-		studentId?: string | null;
-		sex?: MemberSex | null;
-		role: MemberAssignableRole;
-		mode: MemberInviteMode;
-		tokenHash: string;
-		expiresAt: string;
-		createdUser: string | null;
-	}): Promise<PendingInviteRow | null> {
-		const now = new Date().toISOString();
-		const created = await this.db
-			.insert(memberInvites)
-			.values({
-				id: crypto.randomUUID(),
-				clientId: input.clientId,
-				email: normalizeEmail(input.email),
-				firstName: normalizeText(input.firstName),
-				lastName: normalizeText(input.lastName),
-				studentId: normalizeText(input.studentId),
-				sex: input.sex ?? null,
-				role: input.role,
-				mode: input.mode,
-				tokenHash: input.tokenHash,
-				status: 'pending',
-				expiresAt: input.expiresAt,
-				acceptedAt: null,
-				acceptedUserId: null,
-				createdAt: now,
-				updatedAt: now,
-				createdUser: input.createdUser,
-				updatedUser: input.createdUser
-			})
-			.returning({
-				inviteId: memberInvites.id,
-				email: memberInvites.email,
-				firstName: memberInvites.firstName,
-				lastName: memberInvites.lastName,
-				studentId: memberInvites.studentId,
-				sex: memberInvites.sex,
-				role: memberInvites.role,
-				mode: memberInvites.mode,
-				status: memberInvites.status,
-				expiresAt: memberInvites.expiresAt,
-				createdAt: memberInvites.createdAt
-			});
-
-		return created[0] ? mapPendingInvite(created[0]) : null;
-	}
-
-	async listPendingInvites(clientId: string, limit = MEMBER_INVITE_PAGE_SIZE): Promise<PendingInviteRow[]> {
-		const now = new Date().toISOString();
-		const result = await this.db
-			.select({
-				inviteId: memberInvites.id,
-				email: memberInvites.email,
-				firstName: memberInvites.firstName,
-				lastName: memberInvites.lastName,
-				studentId: memberInvites.studentId,
-				sex: memberInvites.sex,
-				role: memberInvites.role,
-				mode: memberInvites.mode,
-				status: memberInvites.status,
-				expiresAt: memberInvites.expiresAt,
-				createdAt: memberInvites.createdAt
-			})
-			.from(memberInvites)
-			.where(
-				and(
-					eq(memberInvites.clientId, clientId),
-					eq(memberInvites.status, 'pending'),
-					sql`${memberInvites.expiresAt} > ${now}`
-				)
-			)
-			.orderBy(desc(memberInvites.createdAt))
-			.limit(limit);
-
-		return result.map((row) => mapPendingInvite(row));
-	}
-
-	async getPendingInviteByEmail(clientId: string, email: string): Promise<PendingInviteRow | null> {
-		const now = new Date().toISOString();
-		const normalizedEmail = normalizeEmail(email);
-		const result = await this.db
-			.select({
-				inviteId: memberInvites.id,
-				email: memberInvites.email,
-				firstName: memberInvites.firstName,
-				lastName: memberInvites.lastName,
-				studentId: memberInvites.studentId,
-				sex: memberInvites.sex,
-				role: memberInvites.role,
-				mode: memberInvites.mode,
-				status: memberInvites.status,
-				expiresAt: memberInvites.expiresAt,
-				createdAt: memberInvites.createdAt
-			})
-			.from(memberInvites)
-			.where(
-				and(
-					eq(memberInvites.clientId, clientId),
-					eq(memberInvites.status, 'pending'),
-					sql`lower(trim(${memberInvites.email})) = ${normalizedEmail}`,
-					sql`${memberInvites.expiresAt} > ${now}`
-				)
-			)
-			.limit(1);
-
-		return result[0] ? mapPendingInvite(result[0]) : null;
-	}
-
-	async revokeInvite(input: {
-		inviteId: string;
-		clientId: string;
-		updatedUser: string | null;
-	}): Promise<boolean> {
-		const now = new Date().toISOString();
-		const updated = await this.db
-			.update(memberInvites)
-			.set({
-				status: 'revoked',
-				updatedAt: now,
-				updatedUser: input.updatedUser
-			})
-			.where(
-				and(
-					eq(memberInvites.id, input.inviteId),
-					eq(memberInvites.clientId, input.clientId),
-					eq(memberInvites.status, 'pending')
-				)
-			)
-			.returning({ inviteId: memberInvites.id });
-
-		return updated.length > 0;
-	}
-
-	async regenerateInvite(input: {
-		inviteId: string;
-		clientId: string;
-		tokenHash: string;
-		expiresAt: string;
-		updatedUser: string | null;
-	}): Promise<PendingInviteRow | null> {
-		const now = new Date().toISOString();
-		const updated = await this.db
-			.update(memberInvites)
-			.set({
-				tokenHash: input.tokenHash,
-				expiresAt: input.expiresAt,
-				updatedAt: now,
-				updatedUser: input.updatedUser
-			})
-			.where(
-				and(
-					eq(memberInvites.id, input.inviteId),
-					eq(memberInvites.clientId, input.clientId),
-					eq(memberInvites.status, 'pending')
-				)
-			)
-			.returning({
-				inviteId: memberInvites.id,
-				email: memberInvites.email,
-				firstName: memberInvites.firstName,
-				lastName: memberInvites.lastName,
-				studentId: memberInvites.studentId,
-				sex: memberInvites.sex,
-				role: memberInvites.role,
-				mode: memberInvites.mode,
-				status: memberInvites.status,
-				expiresAt: memberInvites.expiresAt,
-				createdAt: memberInvites.createdAt
-			});
-
-		return updated[0] ? mapPendingInvite(updated[0]) : null;
-	}
-
-	async getInviteAcceptanceContextByTokenHash(
-		tokenHash: string
-	): Promise<InviteAcceptanceContext | null> {
-		const now = new Date().toISOString();
-		const result = await this.db
-			.select({
-				clientName: clients.name,
-				clientSlug: clients.slug,
-				email: memberInvites.email,
-				firstName: memberInvites.firstName,
-				lastName: memberInvites.lastName,
-				studentId: memberInvites.studentId,
-				sex: memberInvites.sex,
-				role: memberInvites.role,
-				mode: memberInvites.mode,
-				expiresAt: memberInvites.expiresAt
-			})
-			.from(memberInvites)
-			.innerJoin(clients, eq(memberInvites.clientId, clients.id))
-			.where(
-				and(
-					eq(memberInvites.tokenHash, tokenHash),
-					eq(memberInvites.status, 'pending'),
-					sql`${memberInvites.expiresAt} > ${now}`
-				)
-			)
-			.limit(1);
-
-		const row = result[0];
-		if (!row) {
-			return null;
-		}
-
-		const normalizedEmail = normalizeEmail(row.email);
-		const existingUserResult = await this.db
-			.select({
-				id: users.id
-			})
-			.from(users)
-			.where(sql`lower(trim(${users.email})) = ${normalizedEmail}`)
-			.limit(1);
-		const existingUserId = existingUserResult[0]?.id ?? null;
-
-		return {
-			invite: {
-				clientName: normalizeText(row.clientName) ?? 'Organization',
-				clientSlug: normalizeText(row.clientSlug),
-				email: row.email,
-				firstName: normalizeText(row.firstName),
-				lastName: normalizeText(row.lastName),
-				studentId: normalizeText(row.studentId),
-				sex: toMemberSex(row.sex),
-				role: toAssignableRole(row.role),
-				mode: toInviteMode(row.mode),
-				expiresAt: row.expiresAt,
-				accountMode: existingUserId ? 'existing-account' : 'new-account'
-			},
-			existingUserId
-		};
-	}
-
-	async getInvitePreviewByTokenHash(tokenHash: string): Promise<AcceptMemberInvitePreview | null> {
-		const context = await this.getInviteAcceptanceContextByTokenHash(tokenHash);
-		return context?.invite ?? null;
-	}
-
-	async acceptInvite(input: {
-		tokenHash: string;
-		passwordHash?: string | null;
-		firstName?: string | null;
-		lastName?: string | null;
-		actorUserId?: string | null;
-		createdUser?: string | null;
-	}): Promise<AcceptInviteResult> {
-		const now = new Date().toISOString();
-		const inviteResult = await this.db
-			.select()
-			.from(memberInvites)
-			.where(
-				and(
-					eq(memberInvites.tokenHash, input.tokenHash),
-					eq(memberInvites.status, 'pending'),
-					sql`${memberInvites.expiresAt} > ${now}`
-				)
-			)
-			.limit(1);
-
-		const invite = inviteResult[0];
-		if (!invite) {
-			return { status: 'invalid-invite' };
-		}
-
-		const normalizedEmail = normalizeEmail(invite.email);
-		const existingUserResult = await this.db
-			.select()
-			.from(users)
-			.where(sql`lower(trim(${users.email})) = ${normalizedEmail}`)
-			.limit(1);
-
-		let user = existingUserResult[0] ?? null;
-		let createdUser = false;
-		if (!user) {
-			if (!input.passwordHash) {
-				throw new Error('MEMBER_INVITE_ACCEPT_PASSWORD_REQUIRED');
-			}
-
-			const created = await this.db
-				.insert(users)
-				.values({
-					id: crypto.randomUUID(),
-					email: normalizedEmail,
-					passwordHash: input.passwordHash,
-					firstName: normalizeText(input.firstName ?? invite.firstName),
-					lastName: normalizeText(input.lastName ?? invite.lastName),
-					status: 'active',
-					createdAt: now,
-					updatedAt: now,
-					createdUser: input.createdUser ?? null,
-					updatedUser: input.createdUser ?? null,
-					firstLoginAt: null,
-					lastLoginAt: null,
-					lastActiveAt: null,
-					sessionCount: 0,
-					cellPhone: null,
-					avatarUrl: null,
-					emailVerifiedAt: null,
-					ssoUserId: null,
-					timezone: null,
-					preferences: null,
-					notes: null
-				})
-				.returning();
-			user = created[0] ?? null;
-			createdUser = Boolean(user);
-		} else {
-			if (!input.actorUserId) {
-				return {
-					status: 'authentication-required',
-					email: normalizedEmail
-				};
-			}
-
-			if (input.actorUserId !== user.id) {
-				return {
-					status: 'wrong-user',
-					email: normalizedEmail
-				};
-			}
-		}
-
-		if (!user) {
-			throw new Error('MEMBER_INVITE_ACCEPT_CREATE_USER_FAILED');
-		}
-
-		const auditUserId = input.actorUserId ?? user.id ?? input.createdUser ?? null;
-
-		const existingMembership = await this.db
-			.select()
-			.from(userClients)
-			.where(and(eq(userClients.userId, user.id), eq(userClients.clientId, invite.clientId)))
-			.limit(1);
-
-		let reactivatedMembership = false;
-		if (existingMembership[0]) {
-			reactivatedMembership = existingMembership[0].status !== 'active';
-			await this.db
-				.update(userClients)
-				.set({
-					role: toAssignableRole(invite.role),
-					status: 'active',
-					studentId: normalizeText(invite.studentId),
-					sex: toMemberSex(invite.sex),
-					updatedAt: now,
-					updatedUser: auditUserId
-				})
-				.where(eq(userClients.id, existingMembership[0].id));
-		} else {
-			await this.db.insert(userClients).values({
-				id: crypto.randomUUID(),
-				userId: user.id,
-				clientId: invite.clientId,
-				role: toAssignableRole(invite.role),
-				status: 'active',
-				studentId: normalizeText(invite.studentId),
-				sex: toMemberSex(invite.sex),
-				isDefault: 0,
-				createdAt: now,
-				updatedAt: now,
-				createdUser: auditUserId,
-				updatedUser: auditUserId
-			});
-		}
-
-		await this.db
-			.update(memberInvites)
-			.set({
-				status: 'accepted',
-				acceptedAt: now,
-				acceptedUserId: user.id,
-				updatedAt: now,
-				updatedUser: auditUserId
-			})
-			.where(eq(memberInvites.id, invite.id));
-
-		return {
-			status: 'accepted',
-			user,
-			clientId: invite.clientId,
-			role: toMemberRole(invite.role),
-			createdUser,
-			reactivatedMembership
 		};
 	}
 }

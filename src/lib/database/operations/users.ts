@@ -80,6 +80,7 @@ export class UserOperations {
 		firstName?: string | null;
 		lastName?: string | null;
 		cellPhone?: string | null;
+		mustChangePassword?: boolean;
 		status?: string;
 		createdUser?: string | null;
 		updatedUser?: string | null;
@@ -95,6 +96,7 @@ export class UserOperations {
 				firstName: data.firstName ?? null,
 				lastName: data.lastName ?? null,
 				cellPhone: data.cellPhone ?? null,
+				mustChangePassword: data.mustChangePassword ? 1 : 0,
 				status: data.status ?? 'active',
 				createdAt: now,
 				updatedAt: now,
@@ -218,15 +220,20 @@ export class UserOperations {
 		clientId: string;
 		passwordHash: string;
 		updatedUser: string | null;
+		mustChangePassword?: boolean;
 	}): Promise<User | null> {
 		const now = new Date().toISOString();
+		const updateValues: Record<string, unknown> = {
+			passwordHash: input.passwordHash,
+			updatedAt: now,
+			updatedUser: input.updatedUser
+		};
+		if (typeof input.mustChangePassword === 'boolean') {
+			updateValues.mustChangePassword = input.mustChangePassword ? 1 : 0;
+		}
 		const result = await this.db
 			.update(users)
-			.set({
-				passwordHash: input.passwordHash,
-				updatedAt: now,
-				updatedUser: input.updatedUser
-			})
+			.set(updateValues)
 			.where(
 				and(
 					eq(users.id, input.userId),

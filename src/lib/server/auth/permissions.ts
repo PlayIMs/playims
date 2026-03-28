@@ -58,11 +58,10 @@ export const PERMISSIONS = {
 	MANAGE_OFFERINGS: 'MANAGE_OFFERINGS', // allows creating and updating offerings, leagues, divisions, and seasons
 	EDIT_LEAGUE_ROWS: 'EDIT_LEAGUE_ROWS', // allows elevated league row editing actions reserved above normal operations
 	DELETE_SEASONS: 'DELETE_SEASONS', // allows deleting seasons and other destructive season-lifecycle actions
-	ADD_MEMBER: 'ADD_MEMBER', // allows adding or inviting members to an organization
+	ADD_MEMBER: 'ADD_MEMBER', // allows adding members to an organization
 	EDIT_MEMBER_PROFILE: 'EDIT_MEMBER_PROFILE', // allows editing member profile fields
 	CHANGE_MEMBER_ROLE: 'CHANGE_MEMBER_ROLE', // allows changing another member's organization role
-	REMOVE_MEMBER: 'REMOVE_MEMBER', // allows removing another member from an organization
-	MANAGE_MEMBER_INVITES: 'MANAGE_MEMBER_INVITES' // allows regenerating or revoking member invites
+	REMOVE_MEMBER: 'REMOVE_MEMBER' // allows removing another member from an organization
 } as const;
 
 export type AuthPermission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -147,8 +146,7 @@ const DEFAULT_ROLE_DEFINITIONS = {
 			PERMISSIONS.ADD_MEMBER,
 			PERMISSIONS.EDIT_MEMBER_PROFILE,
 			PERMISSIONS.CHANGE_MEMBER_ROLE,
-			PERMISSIONS.REMOVE_MEMBER,
-			PERMISSIONS.MANAGE_MEMBER_INVITES
+			PERMISSIONS.REMOVE_MEMBER
 		]
 	},
 	dev: {

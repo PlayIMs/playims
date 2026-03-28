@@ -19,6 +19,7 @@ export const users = sqliteTable(
 		updatedUser: text('updated_user'),
 		firstLoginAt: text('first_login_at'),
 		lastLoginAt: text('last_login_at'),
+		mustChangePassword: integer('must_change_password'),
 		status: text(),
 		timezone: text(),
 		lastActiveAt: text('last_active_at'),

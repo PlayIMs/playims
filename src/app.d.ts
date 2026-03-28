@@ -22,6 +22,7 @@ declare global {
 				firstName?: string | null;
 				lastName?: string | null;
 				cellPhone?: string | null;
+				mustChangePassword?: boolean;
 				status?: string | null;
 			};
 			// Auth session metadata used for route/API authorization decisions.

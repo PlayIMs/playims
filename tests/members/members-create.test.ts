@@ -1,33 +1,40 @@
 /*
 Brief description:
-This file verifies the API route that adds or invites members into an organization.
+This file verifies the API route that adds members into an organization.
 
 Deeper explanation:
-Member creation can branch into immediate activation or invite generation depending on whether a user
-already exists. The route also enforces strong authorization and duplicate-student safeguards. These
-tests mock the invite helpers and database layer so each branch can be explained clearly.
+Member creation can now branch into immediate membership linking or direct account creation depending
+on whether the email already belongs to an existing user. The route also enforces strong
+authorization and duplicate-student safeguards. These tests mock the database and password helpers so
+each branch can be explained clearly.
 
 Summary of tests:
 1. It verifies that managers cannot add members.
 2. It verifies that duplicate student IDs are rejected within the same organization.
-3. It verifies that a new invite link is created when the email does not belong to an existing user.
+3. It verifies that an existing user can be linked immediately.
+4. It verifies that a brand-new account is created with a one-time temporary password.
 */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// these hoisted mocks keep the route connected to fake member and invite helpers during import.
+// these hoisted mocks keep the route connected to fake member, user, and password helpers during import.
 const mocks = vi.hoisted(() => {
 	return {
 		dbOps: {
 			members: {
 				findActiveByStudentId: vi.fn(),
 				addOrReactivateMember: vi.fn(),
-				getPendingInviteByEmail: vi.fn(),
-				createInvite: vi.fn()
+				getByMembershipId: vi.fn()
+			},
+			users: {
+				createAuthUser: vi.fn()
+			},
+			userClients: {
+				ensureMembership: vi.fn()
 			}
 		},
 		getCentralDbOps: vi.fn(),
-		hashMemberInviteToken: vi.fn()
+		hashPassword: vi.fn()
 	};
 });
 
@@ -39,20 +46,28 @@ vi.mock('$lib/server/database/context', () => {
 	};
 });
 
-vi.mock('$lib/server/members/invites', () => ({
-	generateMemberInviteToken: () => 'invite-token',
-	hashMemberInviteToken: mocks.hashMemberInviteToken,
-	getMemberInviteExpiryIso: () => '2030-01-01T00:00:00.000Z',
-	buildMemberInviteUrl: (origin: string, token: string) =>
-		`${origin}/accept-member-invite/${token}`
-}));
+vi.mock('$lib/server/auth/password', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/auth/password')>(
+		'$lib/server/auth/password'
+	);
+	return {
+		...actual,
+		hashPassword: mocks.hashPassword
+	};
+});
 
 import { POST } from '../../src/routes/api/members/+server';
 
 // this helper builds an authenticated request and lets each test focus on one member-creation payload.
 const buildEvent = (role: string, body: Record<string, unknown>) =>
 	({
-		platform: { env: { DB: {} } },
+		platform: {
+			env: {
+				DB: {},
+				AUTH_PASSWORD_PEPPER: 'pepper-secret',
+				AUTH_PASSWORD_PBKDF2_ITERATIONS: '210000'
+			}
+		},
 		url: new URL('https://playims.test/api/members'),
 		locals: {
 			user: {
@@ -77,22 +92,57 @@ const buildEvent = (role: string, body: Record<string, unknown>) =>
 
 describe('members create endpoint', () => {
 	beforeEach(() => {
-		// these defaults represent the standard invite path with no duplicates or existing user collisions.
+		// these defaults represent the standard happy path with no duplicates or existing user collisions.
 		vi.clearAllMocks();
-		mocks.hashMemberInviteToken.mockResolvedValue('invite-hash');
+		mocks.hashPassword.mockResolvedValue('temporary-password-hash');
 		mocks.dbOps.members.findActiveByStudentId.mockResolvedValue(null);
 		mocks.dbOps.members.addOrReactivateMember.mockResolvedValue({ status: 'user-not-found' });
-		mocks.dbOps.members.getPendingInviteByEmail.mockResolvedValue(null);
-		mocks.dbOps.members.createInvite.mockResolvedValue(null);
+		mocks.dbOps.members.getByMembershipId.mockResolvedValue({
+			membershipId: 'membership-1',
+			userId: 'user-2',
+			clientId: 'client-1',
+			studentId: '12345',
+			firstName: 'Jamie',
+			lastName: 'Member',
+			fullName: 'Jamie Member',
+			email: 'new@playims.test',
+			sex: 'F',
+			role: 'participant',
+			status: 'active',
+			createdAt: '2029-12-20T00:00:00.000Z',
+			updatedAt: '2029-12-20T00:00:00.000Z',
+			avatarUrl: null,
+			cellPhone: null,
+			lastLoginAt: null,
+			lastActiveAt: null
+		});
+		mocks.dbOps.users.createAuthUser.mockResolvedValue({
+			id: 'user-2',
+			email: 'new@playims.test',
+			passwordHash: 'temporary-password-hash',
+			firstName: 'Jamie',
+			lastName: 'Member',
+			status: 'active'
+		});
+		mocks.dbOps.userClients.ensureMembership.mockResolvedValue({
+			id: 'membership-1',
+			userId: 'user-2',
+			clientId: 'client-1',
+			role: 'participant',
+			status: 'active'
+		});
 	});
 
 	it('rejects add-member attempts from managers', async () => {
-		// manager users should be denied before the route attempts any member write or invite creation.
+		// manager users should be denied before the route attempts any member write.
 		const response = await POST(
 			buildEvent('manager', {
-				mode: 'invite',
 				email: 'new@playims.test',
-				role: 'participant'
+				role: 'participant',
+				firstName: 'Jamie',
+				lastName: 'Member',
+				studentId: '12345',
+				sex: 'F'
 			})
 		);
 		const payload = await response.json();
@@ -108,7 +158,6 @@ describe('members create endpoint', () => {
 
 		const response = await POST(
 			buildEvent('admin', {
-				mode: 'preprovision',
 				email: 'new@playims.test',
 				role: 'participant',
 				firstName: 'Jamie',
@@ -126,25 +175,56 @@ describe('members create endpoint', () => {
 		expect(mocks.dbOps.members.addOrReactivateMember).not.toHaveBeenCalled();
 	});
 
-	it('creates an invite link when the email does not belong to an existing user', async () => {
-		// this is the branch where the route creates a pending invite instead of attaching an existing account.
-		mocks.dbOps.members.createInvite.mockResolvedValue({
-			inviteId: 'invite-1',
-			email: 'new@playims.test',
-			firstName: 'Jamie',
-			lastName: 'Member',
-			studentId: '12345',
-			sex: 'F',
-			role: 'participant',
-			mode: 'preprovision',
-			status: 'pending',
-			expiresAt: '2030-01-01T00:00:00.000Z',
-			createdAt: '2029-12-20T00:00:00.000Z'
+	it('links an existing user immediately when the email already has an account', async () => {
+		// this is the fast path where member creation succeeds without generating any temporary credentials.
+		mocks.dbOps.members.addOrReactivateMember.mockResolvedValue({
+			status: 'added',
+			member: {
+				membershipId: 'membership-7',
+				userId: 'user-7',
+				clientId: 'client-1',
+				studentId: '12345',
+				firstName: 'Jamie',
+				lastName: 'Member',
+				fullName: 'Jamie Member',
+				email: 'existing@playims.test',
+				sex: 'F',
+				role: 'participant',
+				status: 'active',
+				createdAt: '2029-12-20T00:00:00.000Z',
+				updatedAt: '2029-12-20T00:00:00.000Z',
+				avatarUrl: null,
+				cellPhone: null,
+				lastLoginAt: null,
+				lastActiveAt: null
+			}
 		});
 
 		const response = await POST(
 			buildEvent('admin', {
-				mode: 'preprovision',
+				email: 'existing@playims.test',
+				role: 'participant',
+				firstName: 'Jamie',
+				lastName: 'Member',
+				studentId: '12345',
+				sex: 'F'
+			})
+		);
+		const payload = await response.json();
+
+		// existing-user linking should not generate a temporary password because the account already exists.
+		expect(response.status).toBe(200);
+		expect(payload.success).toBe(true);
+		expect(payload.data.addedExistingUser).toBe(true);
+		expect(payload.data.createdNewUser).toBe(false);
+		expect(payload.data.temporaryPassword).toBeUndefined();
+		expect(mocks.dbOps.users.createAuthUser).not.toHaveBeenCalled();
+	});
+
+	it('creates a brand-new account with a one-time temporary password when no user exists', async () => {
+		// this is the new direct-create branch that replaces the invite workflow for unknown emails.
+		const response = await POST(
+			buildEvent('admin', {
 				email: 'new@playims.test',
 				role: 'participant',
 				firstName: 'Jamie',
@@ -155,18 +235,32 @@ describe('members create endpoint', () => {
 		);
 		const payload = await response.json();
 
-		// the invite url is the key user-facing artifact, so the test checks it directly.
 		expect(response.status).toBe(200);
 		expect(payload.success).toBe(true);
 		expect(payload.data.addedExistingUser).toBe(false);
-		expect(payload.data.invite.inviteUrl).toBe(
-			'https://playims.test/accept-member-invite/invite-token'
-		);
-		expect(mocks.dbOps.members.createInvite).toHaveBeenCalledWith(
+		expect(payload.data.createdNewUser).toBe(true);
+		expect(typeof payload.data.temporaryPassword).toBe('string');
+		expect(payload.data.temporaryPassword.length).toBeGreaterThanOrEqual(12);
+		expect(mocks.hashPassword).toHaveBeenCalledWith(
 			expect.objectContaining({
-				clientId: 'client-1',
+				password: payload.data.temporaryPassword
+			})
+		);
+		expect(mocks.dbOps.users.createAuthUser).toHaveBeenCalledWith(
+			expect.objectContaining({
 				email: 'new@playims.test',
-				tokenHash: 'invite-hash',
+				passwordHash: 'temporary-password-hash',
+				firstName: 'Jamie',
+				lastName: 'Member'
+			})
+		);
+		expect(mocks.dbOps.userClients.ensureMembership).toHaveBeenCalledWith(
+			expect.objectContaining({
+				userId: 'user-2',
+				clientId: 'client-1',
+				role: 'participant',
+				studentId: '12345',
+				sex: 'F',
 				createdUser: 'user-1'
 			})
 		);

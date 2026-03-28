@@ -1,4 +1,4 @@
-import { buildPermissionSnapshot } from '$lib/server/auth/permissions';
+import { resolvePostAuthRedirect, sanitizeAuthRedirectPath } from '$lib/server/auth/navigation';
 import { isLocalDevCredentialPair, isLocalhostHostname } from '$lib/server/auth/local-dev';
 import {
 	AuthServiceError,
@@ -11,26 +11,6 @@ import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
 // Only allow internal app redirects to prevent open redirect abuse.
-const sanitizeNextPath = (value: string | null | undefined) => {
-	if (!value) {
-		return null;
-	}
-	const trimmed = value.trim();
-	if (!trimmed.startsWith('/') || trimmed.startsWith('//') || trimmed.startsWith('/api/')) {
-		return null;
-	}
-	return trimmed;
-};
-
-const resolvePostAuthRedirect = (nextPath: string | null | undefined, role: string | null | undefined) => {
-	const sanitizedNextPath = sanitizeNextPath(nextPath);
-	if (sanitizedNextPath) {
-		return sanitizedNextPath;
-	}
-
-	return buildPermissionSnapshot(role).VIEW_DASHBOARD_HOME ? '/dashboard' : '/';
-};
-
 const FIELD_LABELS: Record<string, string> = {
 	email: 'Email',
 	password: 'Password'
@@ -75,11 +55,18 @@ const mapLoginAuthError = (error: AuthServiceError) => {
 // If already authenticated with required role, skip login page.
 export const load: PageServerLoad = async ({ locals, url }) => {
 	if (locals.user && locals.session) {
-		throw redirect(303, resolvePostAuthRedirect(url.searchParams.get('next'), locals.user.role));
+		throw redirect(
+			303,
+			resolvePostAuthRedirect({
+				nextPath: url.searchParams.get('next'),
+				role: locals.user.role,
+				mustChangePassword: locals.user.mustChangePassword === true
+			})
+		);
 	}
 
 	return {
-		next: sanitizeNextPath(url.searchParams.get('next')) ?? '',
+		next: sanitizeAuthRedirectPath(url.searchParams.get('next')) ?? '',
 		allowLocalDevLogin: isLocalhostHostname(url.hostname)
 	};
 };
@@ -92,16 +79,17 @@ export const actions: Actions = {
 
 		const formData = await event.request.formData();
 		const submittedNextPath = formData.get('next')?.toString();
-		const nextPath = sanitizeNextPath(submittedNextPath) ?? '';
+		const nextPath = sanitizeAuthRedirectPath(submittedNextPath) ?? '';
 		const emailInput = formData.get('email')?.toString() ?? '';
 		const passwordInput = formData.get('password')?.toString() ?? '';
-		let authenticatedRole: string;
+		let authResult:
+			| Awaited<ReturnType<typeof loginWithLocalDevCredentials>>
+			| Awaited<ReturnType<typeof loginWithPassword>>;
 
 		if (isLocalDevCredentialPair(emailInput, passwordInput)) {
 			try {
 				const dbOps = getCentralDbOps(event);
-				const authResult = await loginWithLocalDevCredentials(event, dbOps);
-				authenticatedRole = authResult.session.role;
+				authResult = await loginWithLocalDevCredentials(event, dbOps);
 			} catch (error) {
 				if (error instanceof AuthServiceError) {
 					const publicAuthError = mapLoginAuthError(error);
@@ -123,7 +111,14 @@ export const actions: Actions = {
 				});
 			}
 
-			throw redirect(303, resolvePostAuthRedirect(submittedNextPath, authenticatedRole));
+			throw redirect(
+				303,
+				resolvePostAuthRedirect({
+					nextPath: submittedNextPath,
+					role: authResult.session.role,
+					mustChangePassword: authResult.user.mustChangePassword === true
+				})
+			);
 		}
 
 		const parsed = loginSchema.safeParse({
@@ -142,11 +137,10 @@ export const actions: Actions = {
 
 		try {
 			const dbOps = getCentralDbOps(event);
-			const authResult = await loginWithPassword(event, dbOps, {
+			authResult = await loginWithPassword(event, dbOps, {
 				email: parsed.data.email,
 				password: parsed.data.password
 			});
-			authenticatedRole = authResult.session.role;
 		} catch (error) {
 			if (error instanceof AuthServiceError) {
 				const publicAuthError = mapLoginAuthError(error);
@@ -168,6 +162,13 @@ export const actions: Actions = {
 			});
 		}
 
-		throw redirect(303, resolvePostAuthRedirect(submittedNextPath, authenticatedRole));
+		throw redirect(
+			303,
+			resolvePostAuthRedirect({
+				nextPath: submittedNextPath,
+				role: authResult.session.role,
+				mustChangePassword: authResult.user.mustChangePassword === true
+			})
+		);
 	}
 };

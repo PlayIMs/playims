@@ -10,20 +10,16 @@ export const memberSortKeySchema = z
 	.enum(['studentId', 'firstName', 'lastName', 'name', 'email', 'sex', 'role'])
 	.transform((value) => (value === 'name' ? 'lastName' : value));
 export const sortDirectionSchema = z.enum(['asc', 'desc']);
-export const memberInviteModeSchema = z.enum(['invite', 'preprovision']);
 
 const optionalTrimmedString = (maxLength: number) =>
-	z.preprocess(
-		(value) => {
-			if (typeof value !== 'string') {
-				return value;
-			}
+	z.preprocess((value) => {
+		if (typeof value !== 'string') {
+			return value;
+		}
 
-			const trimmed = value.trim();
-			return trimmed.length > 0 ? trimmed : undefined;
-		},
-		z.string().trim().max(maxLength).optional()
-	);
+		const trimmed = value.trim();
+		return trimmed.length > 0 ? trimmed : undefined;
+	}, z.string().trim().max(maxLength).optional());
 
 const nameSchema = z.preprocess(
 	(value) => {
@@ -59,10 +55,7 @@ export const memberListQuerySchema = z.object({
 			z.string().trim().max(120).optional()
 		)
 		.transform((value) => value ?? ''),
-	sex: z.preprocess(
-		(value) => (value === null ? undefined : value),
-		memberSexSchema.optional()
-	),
+	sex: z.preprocess((value) => (value === null ? undefined : value), memberSexSchema.optional()),
 	role: z.preprocess(
 		(value) => (value === null ? undefined : value),
 		memberRoleFilterSchema.optional()
@@ -74,45 +67,40 @@ export const memberListQuerySchema = z.object({
 
 export const createMemberSchema = z
 	.object({
-		mode: memberInviteModeSchema,
 		email: emailSchema,
 		role: memberAssignableRoleSchema,
 		firstName: nameSchema,
 		lastName: nameSchema,
 		studentId: studentIdSchema,
-		sex: memberSexSchema.optional()
+		sex: memberSexSchema
 	})
 	.superRefine((value, ctx) => {
-		if (value.mode !== 'preprovision') {
-			return;
-		}
-
 		if (!value.firstName) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
 				path: ['firstName'],
-				message: 'First name is required for pre-provisioning.'
+				message: 'First name is required when creating a member account.'
 			});
 		}
 		if (!value.lastName) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
 				path: ['lastName'],
-				message: 'Last name is required for pre-provisioning.'
+				message: 'Last name is required when creating a member account.'
 			});
 		}
 		if (!value.studentId) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
 				path: ['studentId'],
-				message: 'Student ID is required for pre-provisioning.'
+				message: 'Student ID is required when creating a member account.'
 			});
 		}
 		if (!value.sex) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
 				path: ['sex'],
-				message: 'Sex is required for pre-provisioning.'
+				message: 'Sex is required when creating a member account.'
 			});
 		}
 	});
@@ -136,34 +124,6 @@ export const updateMemberSchema = z.discriminatedUnion('action', [
 	updateMemberRoleSchema
 ]);
 
-export const inviteActionSchema = z.discriminatedUnion('action', [
-	z.object({ action: z.literal('revoke') }),
-	z.object({ action: z.literal('regenerate') })
-]);
-
-export const acceptMemberInviteSchema = z.object({
-	token: z.string().trim().min(1).max(512),
-	password: z.string().min(8).max(128).optional(),
-	confirmPassword: z.string().min(1).max(128).optional(),
-	firstName: nameSchema,
-	lastName: nameSchema
-});
-
-export const acceptMemberInviteNewAccountSchema = z
-	.object({
-		token: z.string().trim().min(1).max(512),
-		password: z.string().min(8).max(128),
-		confirmPassword: z.string().min(1).max(128),
-		firstName: nameSchema,
-		lastName: nameSchema
-	})
-	.refine((value) => value.password === value.confirmPassword, {
-		message: 'Passwords do not match.',
-		path: ['confirmPassword']
-	});
-
 export type MemberListQueryInput = z.infer<typeof memberListQuerySchema>;
 export type CreateMemberInput = z.infer<typeof createMemberSchema>;
 export type UpdateMemberInput = z.infer<typeof updateMemberSchema>;
-export type AcceptMemberInviteInput = z.infer<typeof acceptMemberInviteSchema>;
-export type AcceptMemberInviteNewAccountInput = z.infer<typeof acceptMemberInviteNewAccountSchema>;
