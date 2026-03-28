@@ -9,12 +9,13 @@ tests drive the real route through mocked database contexts so the search behavi
 
 Summary of tests:
 1. It verifies that public requests only return public page results.
-2. It verifies that authenticated requests return grouped page and record results while hiding inactive rows.
-3. It verifies that participant users do not receive restricted dashboard pages in results.
-4. It verifies that long team-name queries do not return loose one-word partial matches.
-5. It verifies that team-name results deep-link to the nested team page.
-6. It verifies that team results outrank divisions for equivalent team-name matches.
-7. It verifies that empty queries return recent items plus shortcuts.
+2. It verifies that authenticated requests hide unauthenticated pages like log-in and register.
+3. It verifies that authenticated requests return grouped page and record results while hiding inactive rows.
+4. It verifies that participant users do not receive restricted dashboard pages in results.
+5. It verifies that long team-name queries do not return loose one-word partial matches.
+6. It verifies that team-name results deep-link to the nested team page.
+7. It verifies that team results outrank divisions for equivalent team-name matches.
+8. It verifies that empty queries return recent items plus shortcuts.
 */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -147,18 +148,27 @@ describe('mega search GET route', () => {
 
 	it('returns only public pages for public requests', async () => {
 		// logged-out search should stay useful without leaking dashboard or record data.
-		const response = await GET(createEvent({ query: 'log' }));
+		const response = await GET(createEvent({ query: 'home' }));
 		const payload = await response.json();
 
 		expect(response.status).toBe(200);
 		expect(payload.success).toBe(true);
 		expect(payload.groups).toHaveLength(1);
 		expect(payload.groups[0].category).toBe('pages');
-		expect(payload.groups[0].items.some((item: { href: string }) => item.href === '/log-in')).toBe(
-			true
-		);
+		expect(payload.groups[0].items.map((item: { href: string }) => item.href)).toEqual(['/']);
 		expect(mocks.getTenantDbOps).not.toHaveBeenCalled();
 		expect(mocks.centralDbOps.members.searchByClient).not.toHaveBeenCalled();
+	});
+
+	it('hides unauthenticated routes from authenticated requests', async () => {
+		// once the palette is auth-only, public account-entry pages should disappear from search results.
+		const response = await GET(createEvent({ query: 'log', userId: 'user-1', role: 'admin' }));
+		const payload = await response.json();
+		const serialized = JSON.stringify(payload.groups);
+
+		expect(response.status).toBe(200);
+		expect(serialized).not.toContain('/log-in');
+		expect(serialized).not.toContain('/register');
 	});
 
 	it('supports multi-term league and division matches within the selected season', async () => {

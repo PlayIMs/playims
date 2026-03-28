@@ -31,8 +31,8 @@
 	);
 	const inputClass = $derived.by(() =>
 		variant === 'compact'
-			? 'input-secondary min-h-11 border-2 border-neutral-950 pl-10 pr-22 text-sm'
-			: 'input-secondary min-h-12 border-2 border-neutral-950 pl-10 pr-24 text-sm'
+			? 'input-neutral min-h-11 pl-10 pr-22 text-sm'
+			: 'input-neutral min-h-12 pl-10 pr-24 text-sm'
 	);
 	const badgeClass = $derived.by(() =>
 		variant === 'compact'
@@ -62,7 +62,7 @@
 			{placeholder}
 			{inputClass}
 			iconClass="pointer-events-none absolute left-3 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-neutral-950"
-			clearButtonClass="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-neutral-950 hover:text-secondary-900"
+			clearButtonClass="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-neutral-700 hover:text-neutral-950"
 			clearIconClass="h-4 w-4"
 			onfocus={() => {
 				openFromLauncher();

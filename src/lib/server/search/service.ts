@@ -34,22 +34,6 @@ const PUBLIC_PAGE_RESULTS = [
 		href: '/'
 	},
 	{
-		id: 'log-in',
-		resultKey: 'pages:/log-in',
-		category: 'pages' as const,
-		title: 'Log In',
-		subtitle: 'Access your account',
-		href: '/log-in'
-	},
-	{
-		id: 'register',
-		resultKey: 'pages:/register',
-		category: 'pages' as const,
-		title: 'Register',
-		subtitle: 'Create a new account',
-		href: '/register'
-	},
-	{
 		id: 'offline',
 		resultKey: 'pages:/offline',
 		category: 'pages' as const,
@@ -170,7 +154,7 @@ function offeringMatchesScopedSeason(
 }
 
 function searchablePageResults(event: SearchEvent): MegaSearchResult[] {
-	return [...PUBLIC_PAGE_RESULTS, ...buildDashboardPageResults(event)];
+	return isAuthenticatedSearch(event) ? buildDashboardPageResults(event) : [...PUBLIC_PAGE_RESULTS];
 }
 
 export async function getMegaSearchResponse(

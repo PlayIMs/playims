@@ -15,6 +15,7 @@ Summary of tests:
 
 import { describe, expect, it } from 'vitest';
 import {
+	clearMegaSearchHighlightedIndex,
 	closeMegaSearchPalette,
 	openMegaSearchPalette,
 	readMegaSearchControllerState,
@@ -68,6 +69,22 @@ describe('mega search controller', () => {
 			open: false,
 			query: '',
 			scopedSeasonId: '',
+			highlightedIndex: -1
+		});
+	});
+
+	it('can clear the highlighted result without closing the palette', () => {
+		// mouse-driven palettes need to drop the active row when the pointer leaves the modal.
+		resetMegaSearchControllerState();
+
+		openMegaSearchPalette('launcher', 'basketball');
+		setMegaSearchHighlightedIndex(2);
+
+		clearMegaSearchHighlightedIndex();
+
+		expect(readMegaSearchControllerState()).toMatchObject({
+			open: true,
+			query: 'basketball',
 			highlightedIndex: -1
 		});
 	});

@@ -124,6 +124,10 @@ export function setMegaSearchHighlightedIndex(value: number): void {
 	megaSearchHighlightedIndex.set(value);
 }
 
+export function clearMegaSearchHighlightedIndex(): void {
+	megaSearchHighlightedIndex.set(-1);
+}
+
 export function setMegaSearchScopedSeasonId(value: string): void {
 	megaSearchScopedSeasonId.set(value);
 }

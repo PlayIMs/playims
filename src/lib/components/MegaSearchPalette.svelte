@@ -6,6 +6,7 @@
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import type { MegaSearchResponse, MegaSearchResult } from '$lib/search/types.js';
 	import {
+		clearMegaSearchHighlightedIndex,
 		closeMegaSearchPalette,
 		focusMegaSearchPaletteInput,
 		megaSearchErrorMessage,
@@ -20,7 +21,6 @@
 		megaSearchTotalCount,
 		openMegaSearchPalette,
 		registerMegaSearchInput,
-		resolveMegaSearchShortcutHint,
 		setMegaSearchErrorMessage,
 		setMegaSearchGroups,
 		setMegaSearchHighlightedIndex,
@@ -58,7 +58,7 @@
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	let abortController: AbortController | null = null;
 	let requestSequence = 0;
-	let shortcutHint = $state('Ctrl + K');
+	let allowAutoHighlight = $state(true);
 
 	const flatResults = $derived.by(() =>
 		$megaSearchGroups.flatMap((group) =>
@@ -90,6 +90,7 @@
 		abortController?.abort();
 		abortController = null;
 		requestSequence += 1;
+		allowAutoHighlight = true;
 		closeMegaSearchPalette();
 	}
 
@@ -144,7 +145,7 @@
 			}
 			setMegaSearchGroups(payload.groups ?? []);
 			setMegaSearchTotalCount(payload.totalCount ?? 0);
-			setMegaSearchHighlightedIndex((payload.totalCount ?? 0) > 0 ? 0 : -1);
+			setMegaSearchHighlightedIndex(allowAutoHighlight && (payload.totalCount ?? 0) > 0 ? 0 : -1);
 		} catch (error) {
 			if ((error as Error).name !== 'AbortError') {
 				if (requestId !== requestSequence) return;
@@ -220,16 +221,19 @@
 	function handleInputKeydown(event: KeyboardEvent): void {
 		if (event.key === 'ArrowDown') {
 			event.preventDefault();
+			allowAutoHighlight = true;
 			moveHighlight(1);
 			return;
 		}
 		if (event.key === 'ArrowUp') {
 			event.preventDefault();
+			allowAutoHighlight = true;
 			moveHighlight(-1);
 			return;
 		}
 		if (event.key === 'Enter') {
 			event.preventDefault();
+			allowAutoHighlight = true;
 			void selectHighlightedResult();
 			return;
 		}
@@ -245,9 +249,6 @@
 
 	$effect(() => {
 		if (!browser) return;
-		const platformText = `${navigator.platform} ${navigator.userAgent}`.toLowerCase();
-		shortcutHint = resolveMegaSearchShortcutHint(platformText);
-
 		const handleWindowKeydown = (event: KeyboardEvent) => {
 			const isShortcut = (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey;
 			if (isShortcut && event.key.toLowerCase() === 'k') {
@@ -273,16 +274,19 @@
 			if (isEditableTarget(event.target)) return;
 			if (event.key === 'ArrowDown') {
 				event.preventDefault();
+				allowAutoHighlight = true;
 				moveHighlight(1);
 				return;
 			}
 			if (event.key === 'ArrowUp') {
 				event.preventDefault();
+				allowAutoHighlight = true;
 				moveHighlight(-1);
 				return;
 			}
 			if (event.key === 'Enter') {
 				event.preventDefault();
+				allowAutoHighlight = true;
 				void selectHighlightedResult();
 			}
 		};
@@ -309,6 +313,7 @@
 
 	$effect(() => {
 		if (!browser || !$megaSearchOpen) return;
+		allowAutoHighlight = true;
 		void loadSeasonScope();
 	});
 
@@ -344,6 +349,10 @@
 				aria-label="Mega search"
 				onclick={(event) => event.stopPropagation()}
 				onkeydown={(event) => event.stopPropagation()}
+				onmouseleave={() => {
+					allowAutoHighlight = false;
+					clearMegaSearchHighlightedIndex();
+				}}
 			>
 				<div class="border-b border-neutral-500 bg-neutral-25 px-4 py-4">
 					<div class="flex items-start gap-2">
@@ -354,12 +363,13 @@
 								value={$megaSearchQuery}
 								bind:inputElement
 								placeholder="Search pages, members, offerings, teams, facilities, and more"
-								inputClass="input-secondary min-h-12 border-2 border-neutral-950 pl-10 pr-10 text-base"
+								inputClass="input-neutral min-h-12 pl-10 pr-10 text-base"
 								iconClass="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-950"
-								clearButtonClass="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-neutral-950 hover:text-secondary-900"
+								clearButtonClass="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-neutral-700 hover:text-neutral-950"
 								clearIconClass="h-4 w-4"
 								onInputKeydown={handleInputKeydown}
 								on:input={(event) => {
+									allowAutoHighlight = true;
 									setMegaSearchQuery(event.detail.value);
 								}}
 							/>
@@ -387,9 +397,8 @@
 						</ListboxDropdown>
 					</div>
 					<div
-						class="mt-2 flex items-center justify-between gap-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-700"
+						class="mt-2 flex justify-end text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-700"
 					>
-						<span>{shortcutHint}</span>
 						<span
 							>{$megaSearchLoading
 								? 'Searching'
@@ -411,7 +420,7 @@
 						{#each $megaSearchGroups as group}
 							<section class="border-t border-neutral-700 first:border-t-0">
 								<div
-									class="bg-neutral-25 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-neutral-700"
+									class="bg-neutral-100 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-neutral-800"
 								>
 									{group.label}
 								</div>
@@ -428,6 +437,7 @@
 													: 'bg-white hover:bg-neutral-25'
 											}`}
 											onmouseenter={() => {
+												allowAutoHighlight = true;
 												setMegaSearchHighlightedIndex(flatIndex);
 											}}
 											onclick={() => {
