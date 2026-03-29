@@ -2,8 +2,14 @@
 	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { IconHistory } from '@tabler/icons-svelte';
+	import { tick } from 'svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
+	import {
+		getNextMegaSearchHighlightedIndex,
+		resolveMegaSearchMovementIntent,
+		type MegaSearchMovementFocusMode
+	} from '$lib/search/keyboard.js';
 	import type { MegaSearchResponse, MegaSearchResult } from '$lib/search/types.js';
 	import {
 		clearMegaSearchHighlightedIndex,
@@ -59,6 +65,8 @@
 	let abortController: AbortController | null = null;
 	let requestSequence = 0;
 	let allowAutoHighlight = $state(true);
+	let highlightedResultButtons = $state<Array<HTMLButtonElement | null>>([]);
+	let pendingHighlightFocusMode = $state<MegaSearchMovementFocusMode | null>(null);
 
 	const flatResults = $derived.by(() =>
 		$megaSearchGroups.flatMap((group) =>
@@ -82,6 +90,12 @@
 		if (target.isContentEditable) return true;
 		const tagName = target.tagName.toLowerCase();
 		return tagName === 'input' || tagName === 'textarea' || tagName === 'select';
+	}
+
+	function isResultTarget(target: EventTarget | null): boolean {
+		return (
+			target instanceof HTMLElement && target.closest('[data-mega-search-result="true"]') !== null
+		);
 	}
 
 	function closePalette(): void {
@@ -140,11 +154,13 @@
 				setMegaSearchErrorMessage(payload.error ?? 'Unable to load search results.');
 				setMegaSearchGroups([]);
 				setMegaSearchTotalCount(0);
+				pendingHighlightFocusMode = null;
 				setMegaSearchHighlightedIndex(-1);
 				return;
 			}
 			setMegaSearchGroups(payload.groups ?? []);
 			setMegaSearchTotalCount(payload.totalCount ?? 0);
+			pendingHighlightFocusMode = null;
 			setMegaSearchHighlightedIndex(allowAutoHighlight && (payload.totalCount ?? 0) > 0 ? 0 : -1);
 		} catch (error) {
 			if ((error as Error).name !== 'AbortError') {
@@ -152,6 +168,7 @@
 				setMegaSearchErrorMessage('Unable to load search results.');
 				setMegaSearchGroups([]);
 				setMegaSearchTotalCount(0);
+				pendingHighlightFocusMode = null;
 				setMegaSearchHighlightedIndex(-1);
 			}
 		} finally {
@@ -161,21 +178,14 @@
 		}
 	}
 
-	function moveHighlight(offset: -1 | 1): void {
+	function moveHighlight(offset: -1 | 1, focusMode: MegaSearchMovementFocusMode): void {
 		if (!hasResults) return;
-		if ($megaSearchHighlightedIndex < 0) {
-			setMegaSearchHighlightedIndex(0);
-			return;
-		}
-		const nextIndex = $megaSearchHighlightedIndex + offset;
-		if (nextIndex < 0) {
-			setMegaSearchHighlightedIndex(flatResults.length - 1);
-			return;
-		}
-		if (nextIndex >= flatResults.length) {
-			setMegaSearchHighlightedIndex(0);
-			return;
-		}
+		pendingHighlightFocusMode = focusMode;
+		const nextIndex = getNextMegaSearchHighlightedIndex(
+			$megaSearchHighlightedIndex,
+			flatResults.length,
+			offset
+		);
 		setMegaSearchHighlightedIndex(nextIndex);
 	}
 
@@ -219,16 +229,14 @@
 	}
 
 	function handleInputKeydown(event: KeyboardEvent): void {
-		if (event.key === 'ArrowDown') {
+		const movementIntent = resolveMegaSearchMovementIntent(event.key, {
+			shiftKey: event.shiftKey,
+			targetIsInput: true
+		});
+		if (movementIntent) {
 			event.preventDefault();
 			allowAutoHighlight = true;
-			moveHighlight(1);
-			return;
-		}
-		if (event.key === 'ArrowUp') {
-			event.preventDefault();
-			allowAutoHighlight = true;
-			moveHighlight(-1);
+			moveHighlight(movementIntent.offset, movementIntent.focusMode);
 			return;
 		}
 		if (event.key === 'Enter') {
@@ -271,20 +279,7 @@
 				closePalette();
 				return;
 			}
-			if (isEditableTarget(event.target)) return;
-			if (event.key === 'ArrowDown') {
-				event.preventDefault();
-				allowAutoHighlight = true;
-				moveHighlight(1);
-				return;
-			}
-			if (event.key === 'ArrowUp') {
-				event.preventDefault();
-				allowAutoHighlight = true;
-				moveHighlight(-1);
-				return;
-			}
-			if (event.key === 'Enter') {
+			if (event.key === 'Enter' && isResultTarget(event.target)) {
 				event.preventDefault();
 				allowAutoHighlight = true;
 				void selectHighlightedResult();
@@ -319,6 +314,42 @@
 
 	$effect(() => {
 		if (!browser || !$megaSearchOpen) return;
+		const highlightedIndex = $megaSearchHighlightedIndex;
+		const focusMode = pendingHighlightFocusMode;
+		if (highlightedIndex < 0) {
+			pendingHighlightFocusMode = null;
+			return;
+		}
+
+		void tick().then(() => {
+			if (!$megaSearchOpen || highlightedIndex !== $megaSearchHighlightedIndex) {
+				return;
+			}
+
+			const highlightedButton = highlightedResultButtons[highlightedIndex];
+			if (!highlightedButton) {
+				pendingHighlightFocusMode = null;
+				return;
+			}
+
+			highlightedButton.scrollIntoView({
+				block: 'nearest'
+			});
+
+			if (focusMode === 'focus-result') {
+				highlightedButton.focus();
+			} else if (focusMode === 'preserve-input' && document.activeElement !== inputElement) {
+				inputElement?.focus();
+			}
+
+			if (focusMode === pendingHighlightFocusMode) {
+				pendingHighlightFocusMode = null;
+			}
+		});
+	});
+
+	$effect(() => {
+		if (!browser || !$megaSearchOpen) return;
 		scopedSeasonSlug;
 		if (debounceTimer) clearTimeout(debounceTimer);
 		const delay = $megaSearchQuery.trim().length > 0 ? 150 : 0;
@@ -329,6 +360,31 @@
 			if (debounceTimer) clearTimeout(debounceTimer);
 		};
 	});
+
+	function handleResultKeydown(event: KeyboardEvent): void {
+		const movementIntent = resolveMegaSearchMovementIntent(event.key, {
+			shiftKey: event.shiftKey,
+			targetIsResult: true
+		});
+		if (movementIntent) {
+			event.preventDefault();
+			allowAutoHighlight = true;
+			moveHighlight(movementIntent.offset, movementIntent.focusMode);
+			return;
+		}
+
+		if (event.key === 'Enter') {
+			event.preventDefault();
+			allowAutoHighlight = true;
+			void selectHighlightedResult();
+			return;
+		}
+
+		if (event.key === 'Escape') {
+			event.preventDefault();
+			closePalette();
+		}
+	}
 </script>
 
 {#if $megaSearchOpen}
@@ -420,7 +476,7 @@
 						{#each $megaSearchGroups as group}
 							<section class="border-t border-neutral-700 first:border-t-0">
 								<div
-									class="bg-neutral-100 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-neutral-800"
+									class="bg-primary-500/30 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-primary-950"
 								>
 									{group.label}
 								</div>
@@ -430,7 +486,9 @@
 											(entry) => entry.item.resultKey === item.resultKey
 										)}
 										<button
+											bind:this={highlightedResultButtons[flatIndex]}
 											type="button"
+											data-mega-search-result="true"
 											class={`flex w-full items-start justify-between gap-3 px-4 py-3 text-left cursor-pointer ${
 												flatIndex === $megaSearchHighlightedIndex
 													? 'bg-primary-50'
@@ -438,8 +496,10 @@
 											}`}
 											onmouseenter={() => {
 												allowAutoHighlight = true;
+												pendingHighlightFocusMode = null;
 												setMegaSearchHighlightedIndex(flatIndex);
 											}}
+											onkeydown={handleResultKeydown}
 											onclick={() => {
 												void selectResult(item);
 											}}
