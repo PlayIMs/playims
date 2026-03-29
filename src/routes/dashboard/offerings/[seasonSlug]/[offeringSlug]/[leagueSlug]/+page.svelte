@@ -8,6 +8,7 @@
 	import Breadcrumb from '$lib/components/navigation/Breadcrumb.svelte';
 	import ModalShell from '$lib/components/modals/ModalShell.svelte';
 	import DataTable from '$lib/components/DataTable.svelte';
+	import DataTableRowActions from '$lib/components/data-table/DataTableRowActions.svelte';
 	import SmallStandingsTable from '$lib/components/SmallStandingsTable.svelte';
 	import DashboardSidebarPanel from '$lib/components/dashboard/DashboardSidebarPanel.svelte';
 	import DashboardMegaSearchLauncher from '$lib/components/dashboard/DashboardMegaSearchLauncher.svelte';
@@ -15,7 +16,7 @@
 	import SplitAddAction from '$lib/components/dashboard/SplitAddAction.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import type { BreadcrumbSegment } from '$lib/components/navigation/breadcrumb.js';
-	import type { DataTableColumn } from '$lib/components/data-table.js';
+	import { createDataTableRowActionColumn, type DataTableColumn } from '$lib/components/data-table.js';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import {
 		resolveAnchoredFloatingPosition,
@@ -186,8 +187,6 @@
 
 	const ROW_DROPDOWN_BUTTON_CLASS =
 		'w-full min-w-[10rem] border border-secondary-300 bg-white px-3 py-1.5 text-xs leading-5 font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2 hover:bg-neutral-50 focus:outline-none focus-visible:outline-none focus-visible:border-secondary-500 focus-visible:ring-0';
-	const ACTION_DROPDOWN_BUTTON_CLASS =
-		'inline-flex h-9 w-9 items-center justify-center border-0 bg-transparent p-0 text-secondary-700 cursor-pointer opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 hover:bg-neutral-100 hover:text-secondary-900 focus:outline-none focus-visible:bg-neutral-100 focus-visible:text-secondary-900';
 	const SECTION_ACTION_DROPDOWN_BUTTON_CLASS =
 		'inline-flex h-9 w-9 items-center justify-center rounded-full border border-neutral-950 bg-white p-0 text-neutral-950 cursor-pointer hover:bg-neutral-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500';
 	const ACTION_DROPDOWN_LIST_CLASS = 'w-52';
@@ -632,19 +631,7 @@
 
 	function divisionTableColumnsFor(canManage: boolean): DataTableColumn<ActiveTeamRow>[] {
 		const manageColumns: DataTableColumn<ActiveTeamRow>[] = canManage
-			? [
-					{
-						key: 'manage',
-						label: '',
-						width: '2.75rem',
-						headerPaddingX: 'none',
-						cellPaddingX: 'none',
-						cellPaddingLeft: '0.125rem',
-						cellPaddingRight: '0.125rem',
-						cellTextAlignment: 'right',
-						cellVerticalAlignment: 'middle'
-					}
-				]
+			? [createDataTableRowActionColumn()]
 			: [];
 
 		return [
@@ -699,14 +686,7 @@
 
 	function waitlistTableColumnsFor(canManage: boolean): DataTableColumn[] {
 		const manageColumns: DataTableColumn[] = canManage
-			? [
-					{
-						key: 'manage',
-						label: '',
-						width: '12%',
-						cellVerticalAlignment: 'top'
-					}
-				]
+			? [createDataTableRowActionColumn({ width: '12%', cellVerticalAlignment: 'top' })]
 			: [];
 
 		return [
@@ -2947,33 +2927,24 @@
 														</span>
 													</div>
 												{:else if column.key === 'manage' && canManageLeague}
-													<div class="flex justify-end">
-														<ListboxDropdown
-															options={teamActionOptions({
+													<DataTableRowActions
+														options={teamActionOptions({
+															id: activeTeam.id,
+															name: activeTeam.name,
+															currentDivisionId: division.id,
+															currentDivisionName: division.name,
+															currentPlacement: 'active'
+														})}
+														ariaLabel={`Actions for ${activeTeam.name}`}
+														on:action={(event) =>
+															handleTeamAction(event.detail.value as TeamActionValue, {
 																id: activeTeam.id,
 																name: activeTeam.name,
 																currentDivisionId: division.id,
 																currentDivisionName: division.name,
 																currentPlacement: 'active'
 															})}
-															value=""
-															mode="action"
-															align="right"
-															ariaLabel={`Actions for ${activeTeam.name}`}
-															buttonClass={ACTION_DROPDOWN_BUTTON_CLASS}
-															listClass={ACTION_DROPDOWN_LIST_CLASS}
-															on:action={(event) =>
-																handleTeamAction(event.detail.value as TeamActionValue, {
-																	id: activeTeam.id,
-																	name: activeTeam.name,
-																	currentDivisionId: division.id,
-																	currentDivisionName: division.name,
-																	currentPlacement: 'active'
-																})}
-														>
-															{#snippet trigger()}<IconDots class="h-4 w-4" />{/snippet}
-														</ListboxDropdown>
-													</div>
+													/>
 												{/if}
 											{/snippet}
 										</DataTable>
@@ -3097,33 +3068,24 @@
 													{approvalBadgeLabel(false)}
 												</span>
 											{:else if column.key === 'manage' && canManageLeague}
-												<div class="flex justify-end">
-													<ListboxDropdown
-														options={teamActionOptions({
+												<DataTableRowActions
+													options={teamActionOptions({
+														id: waitlistTeam.id,
+														name: waitlistTeam.name,
+														currentDivisionId: waitlistTeam.preferredDivisionId,
+														currentDivisionName: waitlistTeam.preferredDivisionName,
+														currentPlacement: 'waitlist'
+													})}
+													ariaLabel={`Actions for ${waitlistTeam.name}`}
+													on:action={(event) =>
+														handleTeamAction(event.detail.value as TeamActionValue, {
 															id: waitlistTeam.id,
 															name: waitlistTeam.name,
 															currentDivisionId: waitlistTeam.preferredDivisionId,
 															currentDivisionName: waitlistTeam.preferredDivisionName,
 															currentPlacement: 'waitlist'
 														})}
-														value=""
-														mode="action"
-														align="right"
-														ariaLabel={`Actions for ${waitlistTeam.name}`}
-														buttonClass={ACTION_DROPDOWN_BUTTON_CLASS}
-														listClass={ACTION_DROPDOWN_LIST_CLASS}
-														on:action={(event) =>
-															handleTeamAction(event.detail.value as TeamActionValue, {
-																id: waitlistTeam.id,
-																name: waitlistTeam.name,
-																currentDivisionId: waitlistTeam.preferredDivisionId,
-																currentDivisionName: waitlistTeam.preferredDivisionName,
-																currentPlacement: 'waitlist'
-															})}
-													>
-														{#snippet trigger()}<IconDots class="h-4 w-4" />{/snippet}
-													</ListboxDropdown>
-												</div>
+												/>
 											{/if}
 										{/snippet}
 									</DataTable>

@@ -35,7 +35,6 @@
 		IconCopy,
 		IconCrosshair,
 		IconDots,
-		IconDotsVertical,
 		IconHistory,
 		IconPencil,
 		IconPlus,
@@ -49,11 +48,13 @@
 	import InfoPopover from '$lib/components/InfoPopover.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import DataTable from '$lib/components/DataTable.svelte';
+	import DataTableLinkedLabel from '$lib/components/data-table/DataTableLinkedLabel.svelte';
+	import DataTableRowActions from '$lib/components/data-table/DataTableRowActions.svelte';
 	import SplitAddAction from '$lib/components/dashboard/SplitAddAction.svelte';
 	import DashboardMegaSearchLauncher from '$lib/components/dashboard/DashboardMegaSearchLauncher.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
-	import type { DataTableColumn } from '$lib/components/data-table.js';
+	import { createDataTableRowActionColumn, type DataTableColumn } from '$lib/components/data-table.js';
 	import { buildPreviousOfferingLinkChoices } from '$lib/utils/offering-linking.js';
 	import {
 		buildOfferingTimelineGroups,
@@ -316,13 +317,20 @@
 		4: 'Review & Create'
 	};
 	const COMPACT_DROPDOWN_BUTTON_CLASS =
-		'button-neutral-outlined w-auto min-w-36 px-3 py-1 text-sm font-semibold cursor-pointer inline-flex items-center justify-between gap-2';
-	const HISTORY_BUTTON_CLASS = 'button-neutral-outlined dashboard-icon-button cursor-pointer';
+		'button-neutral-outlined w-auto h-[2rem] min-w-36 px-3 py-1 text-sm font-semibold cursor-pointer inline-flex items-center justify-between gap-2';
+	const HISTORY_BUTTON_CLASS =
+		'button-neutral-outlined h-[2rem] w-[2rem] px-0 cursor-pointer inline-flex items-center justify-center text-neutral-950';
 	const HISTORY_DROPDOWN_LIST_CLASS = 'w-64';
 	const HISTORY_DROPDOWN_FOOTER_ACTION_CLASS =
 		'w-full button-neutral-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer justify-center';
 	const HISTORY_DROPDOWN_FOOTER_ICON_ACTION_CLASS =
-		'button-neutral-outlined dashboard-icon-button cursor-pointer';
+		'button-neutral-outlined dashboard-icon-button cursor-pointer text-neutral-950';
+	const HEADER_ICON_CLASS = 'h-4 w-4 shrink-0 text-neutral-950';
+	const HEADER_COUNT_BADGE_CLASS = 'badge-neutral-outlined h-[1.875rem] px-2.5 font-normal';
+	const HEADER_SPLIT_ADD_BUTTON_CLASS =
+		'button-primary-outlined h-[1.875rem] px-2 text-xs font-bold uppercase tracking-wide cursor-pointer';
+	const HEADER_SPLIT_ADD_MENU_BUTTON_CLASS =
+		'button-primary-outlined -ml-[2px] h-[1.875rem] px-1 cursor-pointer';
 	const FORM_DROPDOWN_BUTTON_CLASS =
 		'w-full border-2 border-secondary-400 bg-white px-4 py-2 text-base leading-6 font-normal text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2 hover:bg-white focus:outline-none focus-visible:outline-none focus-visible:border-secondary-500 focus-visible:ring-0 focus-visible:shadow-[0_0_0_1px_var(--color-secondary-500)] disabled:cursor-not-allowed disabled:opacity-60';
 	let { data } = $props<{ data: PageData }>();
@@ -342,7 +350,7 @@
 	}
 
 	const canManageOfferings = $derived.by(() => data.permissions?.MANAGE_OFFERINGS === true);
-	const canEditLeagueRows = $derived.by(() => data.permissions?.EDIT_LEAGUE_ROWS === true);
+	const canEditLeagueRows = $derived.by(() => canManageOfferings);
 	const canEditOfferingSettings = $derived.by(() => canManageOfferings);
 
 	let activities = $state<Activity[]>([]);
@@ -3826,7 +3834,8 @@
 		type: 'registration-deadline' | 'join-team-deadline' | 'season-start' | 'season-end',
 		isPast: boolean
 	): string {
-		if (type === 'registration-deadline') return isPast ? 'Registration Closed' : 'Registration Deadline';
+		if (type === 'registration-deadline')
+			return isPast ? 'Registration Closed' : 'Registration Deadline';
 		if (type === 'join-team-deadline') return isPast ? 'Join Team Closed' : 'Join Team Deadline';
 		if (type === 'season-start') return isPast ? 'Season Started' : 'Season Start';
 		return isPast ? 'Season Ended' : 'Season End';
@@ -3873,17 +3882,7 @@
 		];
 
 		if (canEditLeagueRows) {
-			columns.push({
-				key: 'settings',
-				label: '',
-				width: '4%',
-				headerPaddingX: 'none',
-				cellPaddingX: 'none',
-				cellPaddingLeft: '0.25rem',
-				cellPaddingRight: '0.5rem',
-				cellTextAlignment: 'right',
-				cellVerticalAlignment: 'middle'
-			});
+			columns.push(createDataTableRowActionColumn());
 		}
 
 		return columns;
@@ -3903,6 +3902,24 @@
 
 	function entryLabelFor(group: OfferingGroup): 'league' | 'group' {
 		return group.offeringType === 'tournament' ? 'group' : 'league';
+	}
+
+	function entryTitleFor(group: OfferingGroup): 'League' | 'Group' {
+		return group.offeringType === 'tournament' ? 'Group' : 'League';
+	}
+
+	function leagueRowActionOptions(group: OfferingGroup): DropdownOption[] {
+		return [
+			{
+				value: 'edit-entry',
+				label: `Edit ${entryTitleFor(group)}`
+			}
+		];
+	}
+
+	function handleLeagueRowAction(value: string, offering: OfferingGroup, league: LeagueOffering): void {
+		if (value !== 'edit-entry') return;
+		openEditLeagueWizard(offering, league);
 	}
 
 	function buildBoards(
@@ -4587,9 +4604,7 @@
 	const offeringTimelineGroups = $derived.by(() =>
 		buildOfferingTimelineGroups(offeringTimelineLeagueSources, new Date())
 	);
-	const initialTimelineGroup = $derived.by(() =>
-		findInitialTimelineGroup(offeringTimelineGroups)
-	);
+	const initialTimelineGroup = $derived.by(() => findInitialTimelineGroup(offeringTimelineGroups));
 	const offeringTimelineDisplayGroups = $derived.by<OfferingTimelineDisplayGroup[]>(() =>
 		offeringTimelineGroups.map((group) => {
 			const buckets = new Map<string, OfferingTimelineOfferingBucket>();
@@ -5071,10 +5086,10 @@
 											on:footerSecondaryAction={openManageSeasonWizard}
 										>
 											{#snippet trigger()}
-												<IconHistory class="listbox-dropdown-icon w-4 h-4" />
+												<IconHistory class={HEADER_ICON_CLASS} />
 											{/snippet}
 											{#snippet footerSecondaryAction()}
-												<IconPencil class="listbox-dropdown-icon w-4 h-4" />
+												<IconPencil class={HEADER_ICON_CLASS} />
 											{/snippet}
 										</ListboxDropdown>
 									{:else}
@@ -5090,18 +5105,18 @@
 											}}
 										>
 											{#snippet trigger()}
-												<IconHistory class="listbox-dropdown-icon w-4 h-4" />
+												<IconHistory class={HEADER_ICON_CLASS} />
 											{/snippet}
 										</ListboxDropdown>
 									{/if}
 								{/if}
 							</div>
 							<div class="flex items-center gap-2 text-xs text-neutral-950 font-sans">
-								<span class="badge-neutral-outlined px-2 py-1">
+								<span class={HEADER_COUNT_BADGE_CLASS}>
 									{badgeOfferingCount}
 									{pluralize(badgeOfferingCount, 'offering', 'offerings')}
 								</span>
-								<span class="badge-neutral-outlined px-2 py-1">
+								<span class={HEADER_COUNT_BADGE_CLASS}>
 									{badgeLeagueOrGroupCount}
 									{badgeLeagueOrGroupLabel}
 								</span>
@@ -5109,6 +5124,8 @@
 									{#if seasons.length > 0}
 										<SplitAddAction
 											options={addActionDropdownOptions}
+											buttonClass={HEADER_SPLIT_ADD_BUTTON_CLASS}
+											menuButtonClass={HEADER_SPLIT_ADD_MENU_BUTTON_CLASS}
 											on:click={openCreateWizard}
 											on:action={(event) => {
 												handleAddActionDropdown(event.detail.value);
@@ -5369,10 +5386,10 @@
 										on:footerSecondaryAction={openManageSeasonWizard}
 									>
 										{#snippet trigger()}
-											<IconHistory class="listbox-dropdown-icon w-4 h-4" />
+											<IconHistory class={HEADER_ICON_CLASS} />
 										{/snippet}
 										{#snippet footerSecondaryAction()}
-											<IconPencil class="listbox-dropdown-icon w-4 h-4" />
+											<IconPencil class={HEADER_ICON_CLASS} />
 										{/snippet}
 									</ListboxDropdown>
 								{:else}
@@ -5388,17 +5405,17 @@
 										}}
 									>
 										{#snippet trigger()}
-											<IconHistory class="listbox-dropdown-icon w-4 h-4" />
+											<IconHistory class={HEADER_ICON_CLASS} />
 										{/snippet}
 									</ListboxDropdown>
 								{/if}
 							</div>
 							<div class="flex items-center gap-2 text-xs text-neutral-950 font-sans">
-								<span class="badge-neutral-outlined px-2 py-1">
+								<span class={HEADER_COUNT_BADGE_CLASS}>
 									{badgeOfferingCount}
 									{pluralize(badgeOfferingCount, 'offering', 'offerings')}
 								</span>
-								<span class="badge-neutral-outlined px-2 py-1">
+								<span class={HEADER_COUNT_BADGE_CLASS}>
 									{badgeLeagueOrGroupCount}
 									{badgeLeagueOrGroupLabel}
 								</span>
@@ -5406,6 +5423,8 @@
 									{#if seasons.length > 0}
 										<SplitAddAction
 											options={addActionDropdownOptions}
+											buttonClass={HEADER_SPLIT_ADD_BUTTON_CLASS}
+											menuButtonClass={HEADER_SPLIT_ADD_MENU_BUTTON_CLASS}
 											on:click={openCreateWizard}
 											on:action={(event) => {
 												handleAddActionDropdown(event.detail.value);
@@ -5612,7 +5631,7 @@
 										rowClass={(league) =>
 											[
 												leagueRowHighlightClass(offering.offeringSlug, league.id),
-												canEditLeagueRows ? 'group' : ''
+												canEditLeagueRows ? 'group/row' : ''
 											]
 												.filter(Boolean)
 												.join(' ')}
@@ -5624,10 +5643,10 @@
 													class="px-4 py-10 text-center text-sm italic text-neutral-700"
 												>
 													{#if canManageOfferings}
-														No {entryLabelFor(offering) === 'group' ? 'groups' : 'leagues'} exist for this
-														offering yet. You need to add
-														{entryLabelFor(offering) === 'group' ? 'groups' : 'leagues'} before people can
-														join them.
+														No {entryLabelFor(offering) === 'group' ? 'groups' : 'leagues'} exist for
+														this offering yet. You need to add
+														{entryLabelFor(offering) === 'group' ? 'groups' : 'leagues'} before people
+														can join them.
 														{#if offering.offeringId}
 															<button
 																type="button"
@@ -5650,40 +5669,13 @@
 										{#snippet cell(league, column)}
 											{#if column.key === 'league'}
 												{@const OfferingIcon = offeringIconFor(offering.offeringName)}
-												{#if selectedSeason?.slug && offering.offeringSlug && league.leagueSlug}
-													<a
-														href={`/dashboard/offerings/${selectedSeason.slug}/${offering.offeringSlug}/${league.leagueSlug}`}
-														class="group inline-flex w-fit max-w-full items-center gap-2"
-													>
-														<div
-															class="flex h-9 w-9 shrink-0 items-center justify-center bg-primary text-white transition-colors group-hover:bg-primary-700 group-focus-visible:bg-primary-700"
-															aria-hidden="true"
-														>
-															<OfferingIcon class="h-6 w-6" />
-														</div>
-														<div class="min-w-0">
-															<span
-																class="font-sans text-sm font-bold text-neutral-950 group-hover:underline group-focus-visible:underline"
-															>
-																{league.categoryLabel}
-															</span>
-														</div>
-													</a>
-												{:else}
-													<div class="flex items-center gap-2">
-														<div
-															class="flex h-9 w-9 shrink-0 items-center justify-center bg-primary text-white"
-															aria-hidden="true"
-														>
-															<OfferingIcon class="h-6 w-6" />
-														</div>
-														<div class="min-w-0">
-															<p class="font-sans text-sm font-bold text-neutral-950">
-																{league.categoryLabel}
-															</p>
-														</div>
-													</div>
-												{/if}
+												<DataTableLinkedLabel
+													label={league.categoryLabel}
+													href={selectedSeason?.slug && offering.offeringSlug && league.leagueSlug
+														? `/dashboard/offerings/${selectedSeason.slug}/${offering.offeringSlug}/${league.leagueSlug}`
+														: null}
+													icon={OfferingIcon}
+												/>
 											{:else if column.key === 'status'}
 												<HoverTooltip
 													text={statusTooltipText(league.status, league.statusLabel)}
@@ -5735,30 +5727,24 @@
 												</p>
 												<p class="mt-1 text-xs leading-snug text-neutral-950 font-sans">
 													<DateHoverText
-														display={formatSeasonBoundaryText(league.seasonEndDate, 'Ends', 'Ended')}
+														display={formatSeasonBoundaryText(
+															league.seasonEndDate,
+															'Ends',
+															'Ended'
+														)}
 														value={league.seasonEndDate}
 														wrapperClass="inline"
 													/>
 												</p>
-											{:else if column.key === 'settings'}
+											{:else if column.key === 'manage'}
 												{#if canEditLeagueRows}
-													<div class="flex justify-end">
-														<HoverTooltip
-															text={`Edit ${entryLabelFor(offering)}`}
-															wrapperClass="inline-flex"
-														>
-															<button
-																type="button"
-																class="inline-flex h-7 w-7 items-center justify-center border-0 bg-transparent text-secondary-800 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 hover:text-secondary-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 cursor-pointer"
-																aria-label={`Edit ${league.categoryLabel}`}
-																onclick={() => {
-																	openEditLeagueWizard(offering, league);
-																}}
-															>
-																<IconDotsVertical class="h-4 w-4" />
-															</button>
-														</HoverTooltip>
-													</div>
+													<DataTableRowActions
+														options={leagueRowActionOptions(offering)}
+														ariaLabel={`Actions for ${league.categoryLabel}`}
+														on:action={(event) => {
+															handleLeagueRowAction(event.detail.value, offering, league);
+														}}
+													/>
 												{/if}
 											{/if}
 										{/snippet}
@@ -5813,79 +5799,90 @@
 								<p class="text-sm text-neutral-950 font-sans">No timeline events available.</p>
 							</div>
 						{:else}
-							<div bind:this={timelineContainerElement} class="h-[32rem] overflow-y-auto p-4 scrollbar-thin">
+							<div
+								bind:this={timelineContainerElement}
+								class="h-[32rem] overflow-y-auto p-4 scrollbar-thin"
+							>
 								<div class="relative">
 									<div
 										class="pointer-events-none absolute bottom-0 left-[calc(0.5rem+1px)] top-[0.125rem] z-0 w-px bg-neutral-950"
 									></div>
 									<div class="space-y-4">
-									{#each offeringTimelineDisplayGroups as group, groupIndex}
-										<div
-											id={group.id}
-											class="grid grid-cols-[1rem_minmax(0,1fr)] items-start gap-3"
-										>
-											<div class="relative min-h-4 pt-[0.125rem]">
-												<div
-													class={`absolute left-[calc(50%+2px)] top-[0.125rem] z-10 h-3 w-3 -translate-x-1/2 border border-primary-900 ${group.isPast ? 'bg-primary-100' : 'bg-primary-500'}`}
-												></div>
-											</div>
-											<div class={`space-y-1.5 ${group.isPast ? 'opacity-50' : ''}`}>
-												<p class="text-xs font-bold uppercase tracking-[0.16em] text-neutral-950 font-sans">
-													<DateHoverText
-														display={formatDeadlineDate(group.date)}
-														value={group.date}
-														includeTime
-														wrapperClass="inline"
-													/>
-												</p>
-												<div class="border border-neutral-950 bg-white divide-y divide-neutral-950">
-													{#each group.offeringBuckets as offeringBucket}
-														<div class="px-2.5 py-2">
-															<button
-																type="button"
-																class="text-[11px] font-bold uppercase tracking-[0.14em] text-secondary-700 hover:underline focus-visible:underline focus-visible:outline-none cursor-pointer"
-																onclick={() => {
-																	void scrollToOfferingArticle(offeringBucket.offeringSlug);
-																}}
-															>
-																{offeringBucket.offeringName}
-															</button>
-															<div class="mt-1 space-y-0.5">
-																{#each offeringBucket.events as event}
-																	{@const OfferingIcon = offeringIconFor(event.offeringName)}
-																	<button
-																		type="button"
-																		class="group flex w-full items-start justify-between gap-3 px-0.5 py-1 text-left transition-colors duration-150 hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 cursor-pointer"
-																		onclick={() => {
-																			void scrollToLeagueRow(event.offeringSlug, event.leagueId);
-																		}}
-																	>
-																		<span class="min-w-0 flex items-start gap-1.5">
+										{#each offeringTimelineDisplayGroups as group, groupIndex}
+											<div
+												id={group.id}
+												class="grid grid-cols-[1rem_minmax(0,1fr)] items-start gap-3"
+											>
+												<div class="relative min-h-4 pt-[0.125rem]">
+													<div
+														class={`absolute left-[calc(50%+2px)] top-[0.125rem] z-10 h-3 w-3 -translate-x-1/2 border border-primary-900 ${group.isPast ? 'bg-primary-100' : 'bg-primary-500'}`}
+													></div>
+												</div>
+												<div class={`space-y-1.5 ${group.isPast ? 'opacity-50' : ''}`}>
+													<p
+														class="text-xs font-bold uppercase tracking-[0.16em] text-neutral-950 font-sans"
+													>
+														<DateHoverText
+															display={formatDeadlineDate(group.date)}
+															value={group.date}
+															includeTime
+															wrapperClass="inline"
+														/>
+													</p>
+													<div
+														class="border border-neutral-950 bg-white divide-y divide-neutral-950"
+													>
+														{#each group.offeringBuckets as offeringBucket}
+															<div class="px-2.5 py-2">
+																<button
+																	type="button"
+																	class="text-[11px] font-bold uppercase tracking-[0.14em] text-secondary-700 hover:underline focus-visible:underline focus-visible:outline-none cursor-pointer"
+																	onclick={() => {
+																		void scrollToOfferingArticle(offeringBucket.offeringSlug);
+																	}}
+																>
+																	{offeringBucket.offeringName}
+																</button>
+																<div class="mt-1 space-y-0.5">
+																	{#each offeringBucket.events as event}
+																		{@const OfferingIcon = offeringIconFor(event.offeringName)}
+																		<button
+																			type="button"
+																			class="group flex w-full items-start justify-between gap-3 px-0.5 py-1 text-left transition-colors duration-150 hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 cursor-pointer"
+																			onclick={() => {
+																				void scrollToLeagueRow(event.offeringSlug, event.leagueId);
+																			}}
+																		>
+																			<span class="min-w-0 flex items-start gap-1.5">
+																				<span
+																					class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center bg-primary text-white"
+																					aria-hidden="true"
+																				>
+																					<OfferingIcon class="h-2.5 w-2.5" />
+																				</span>
+																				<span
+																					class="text-sm font-bold text-neutral-950 font-sans group-hover:underline group-focus-visible:underline"
+																				>
+																					{event.categoryLabel}
+																				</span>
+																			</span>
 																			<span
-																				class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center bg-primary text-white"
-																				aria-hidden="true"
+																				class="shrink-0 text-[11px] font-medium uppercase tracking-[0.08em] text-neutral-700 font-sans"
 																			>
-																				<OfferingIcon class="h-2.5 w-2.5" />
+																				{timelineEventCompactLabel(event.type, event.isPast)}
 																			</span>
-																			<span class="text-sm font-bold text-neutral-950 font-sans group-hover:underline group-focus-visible:underline">
-																				{event.categoryLabel}
-																			</span>
-																		</span>
-																		<span class="shrink-0 text-[11px] font-medium uppercase tracking-[0.08em] text-neutral-700 font-sans">
-																			{timelineEventCompactLabel(event.type, event.isPast)}
-																		</span>
-																	</button>
-																{/each}
+																		</button>
+																	{/each}
+																</div>
 															</div>
-														</div>
-													{/each}
+														{/each}
+													</div>
 												</div>
 											</div>
-										</div>
-									{/each}
+										{/each}
+									</div>
 								</div>
 							</div>
-						</div>
 						{/if}
 					</section>
 
