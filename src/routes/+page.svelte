@@ -78,7 +78,7 @@
 	</script>
 </svelte:head>
 
-<div class="min-h-screen bg-secondary-500">
+<div class="app-page-screen bg-secondary-500">
 	<!-- Hero Section -->
 	<section
 		class="bg-primary-500 text-white"

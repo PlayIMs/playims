@@ -80,7 +80,7 @@
 
 <PageTitle pageTitle="Organization Access" organizationName={data.client.name} />
 
-<div class="min-h-screen bg-neutral-500">
+<div class="app-page-screen bg-neutral-500">
 	<div class="max-w-3xl mx-auto px-6 py-16">
 		<div class="bg-white border border-primary-700 p-8 space-y-6">
 			<p class="text-xs font-semibold tracking-widest text-secondary-700 uppercase">

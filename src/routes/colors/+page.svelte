@@ -553,7 +553,7 @@
 	<meta name="description" content="Customize your color theme with dynamic HEX color generation" />
 </svelte:head>
 
-<div class="min-h-screen bg-neutral p-8">
+<div class="app-page-screen bg-neutral p-8">
 	<div class="max-w-7xl mx-auto">
 		<div class="mb-8">
 			<h1 class="text-4xl font-bold text-neutral-950 mb-2">Color Theme Editor</h1>
