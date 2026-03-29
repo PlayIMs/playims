@@ -65,7 +65,7 @@
 		open = false,
 		closeAriaLabel = 'Close modal',
 		backdropClass = 'bg-black/55',
-		panelClass = 'w-full max-w-5xl max-h-[calc(100vh-2rem)] lg:max-h-[calc(100vh-3rem)] border border-neutral-950 bg-neutral overflow-hidden flex flex-col',
+		panelClass = 'w-full max-w-5xl max-h-[calc(100vh-2rem)] lg:max-h-[calc(100vh-3rem)] border-[3px] border-neutral-950 bg-neutral overflow-hidden flex flex-col',
 		alignmentClass = 'items-center',
 		paddingClass = 'p-4 lg:p-6',
 		lockBodyScroll = true,

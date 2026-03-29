@@ -47,7 +47,7 @@
 
 	const panelClass = $derived.by(
 		() =>
-			`wizard-modal-panel w-full ${maxWidthClass} max-h-[calc(100vh-2rem)] lg:max-h-[calc(100vh-3rem)] border border-neutral-950 bg-neutral overflow-hidden flex flex-col`
+			`wizard-modal-panel w-full ${maxWidthClass} max-h-[calc(100vh-2rem)] lg:max-h-[calc(100vh-3rem)] border-[3px] border-neutral-950 bg-neutral overflow-hidden flex flex-col`
 	);
 	const showStepMeta = $derived.by(() => stepCount > 1);
 	let formElement = $state<HTMLFormElement | null>(null);
