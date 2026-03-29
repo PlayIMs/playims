@@ -56,6 +56,11 @@
 	import type { DataTableColumn } from '$lib/components/data-table.js';
 	import { buildPreviousOfferingLinkChoices } from '$lib/utils/offering-linking.js';
 	import {
+		buildOfferingTimelineGroups,
+		findInitialTimelineGroup,
+		type OfferingTimelineLeagueSource
+	} from '$lib/utils/offering-sidebar-timeline.js';
+	import {
 		getCreateOfferingVisibleSteps,
 		shouldShowOfferingLinkStep,
 		type OfferingWizardStep as WizardStep
@@ -121,16 +126,29 @@
 		closedCount: number;
 	}
 
-	interface DeadlineGroup {
-		id: string;
-		deadlineDate: string;
-		deadlineText: string;
-		leagues: Array<{
+	interface OfferingTimelineOfferingBucket {
+		key: string;
+		offeringName: string;
+		offeringSlug: string;
+		events: {
 			id: string;
-			offeringSlug: string;
-			offeringName: string;
+			type: 'registration-deadline' | 'join-team-deadline' | 'season-start' | 'season-end';
+			date: string;
+			label: string;
+			leagueId: string;
 			categoryLabel: string;
-		}>;
+			offeringName: string;
+			offeringSlug: string;
+			isPast: boolean;
+		}[];
+	}
+
+	interface OfferingTimelineDisplayGroup {
+		id: string;
+		date: string;
+		ms: number;
+		isPast: boolean;
+		offeringBuckets: OfferingTimelineOfferingBucket[];
 	}
 
 	type RegistrationWindowState = 'upcoming' | 'open' | 'closed';
@@ -339,7 +357,11 @@
 	let seasonSelectionHydrated = $state(false);
 	let createLeagueRequestHydrated = $state(false);
 	let highlightedLeagueRowId = $state<string | null>(null);
+	let highlightedOfferingArticleId = $state<string | null>(null);
+	let timelineContainerElement = $state<HTMLDivElement | null>(null);
 	let highlightTimeout: ReturnType<typeof setTimeout> | null = null;
+	let offeringHighlightTimeout: ReturnType<typeof setTimeout> | null = null;
+	let lastTimelineAutoScrollSignature = '';
 	let isCreateSeasonModalOpen = $state(false);
 	let isManageSeasonModalOpen = $state(false);
 	let createSeasonWizardUnsavedConfirmOpen = $state(false);
@@ -809,6 +831,41 @@
 		return `league-row-${offeringSlug}-${leagueId}`;
 	}
 
+	function getOfferingArticleId(offeringSlug: string): string {
+		return `offering-article-${offeringSlug}`;
+	}
+
+	async function scrollToOfferingArticle(offeringSlug: string): Promise<void> {
+		if (typeof window === 'undefined') return;
+		const articleId = getOfferingArticleId(offeringSlug);
+
+		let articleElement = document.getElementById(articleId);
+		if (!articleElement && searchQuery.trim().length > 0) {
+			searchQuery = '';
+			await tick();
+			articleElement = document.getElementById(articleId);
+		}
+
+		if (!articleElement) return;
+
+		articleElement.scrollIntoView({
+			behavior: 'smooth',
+			block: 'center',
+			inline: 'nearest'
+		});
+
+		if (offeringHighlightTimeout) clearTimeout(offeringHighlightTimeout);
+		if (highlightedOfferingArticleId === articleId) {
+			highlightedOfferingArticleId = null;
+			await tick();
+		}
+
+		highlightedOfferingArticleId = articleId;
+		offeringHighlightTimeout = setTimeout(() => {
+			if (highlightedOfferingArticleId === articleId) highlightedOfferingArticleId = null;
+		}, 3000);
+	}
+
 	async function scrollToLeagueRow(offeringSlug: string, leagueId: string): Promise<void> {
 		if (typeof window === 'undefined') return;
 		const rowId = getLeagueRowId(offeringSlug, leagueId);
@@ -854,6 +911,7 @@
 
 	onDestroy(() => {
 		if (highlightTimeout) clearTimeout(highlightTimeout);
+		if (offeringHighlightTimeout) clearTimeout(offeringHighlightTimeout);
 	});
 
 	$effect(() => {
@@ -3764,6 +3822,16 @@
 		return IconBallFootball;
 	}
 
+	function timelineEventCompactLabel(
+		type: 'registration-deadline' | 'join-team-deadline' | 'season-start' | 'season-end',
+		isPast: boolean
+	): string {
+		if (type === 'registration-deadline') return isPast ? 'Registration Closed' : 'Registration Deadline';
+		if (type === 'join-team-deadline') return isPast ? 'Join Team Closed' : 'Join Team Deadline';
+		if (type === 'season-start') return isPast ? 'Season Started' : 'Season Start';
+		return isPast ? 'Season Ended' : 'Season End';
+	}
+
 	function columnHeaderFor(group: OfferingGroup, column: 'league' | 'registration' | 'range') {
 		if (column === 'league') return group.offeringType === 'tournament' ? 'Group' : 'League';
 		if (column === 'registration')
@@ -3824,6 +3892,12 @@
 	function leagueRowHighlightClass(offeringSlug: string, leagueId: string): string {
 		return highlightedLeagueRowId === getLeagueRowId(offeringSlug, leagueId)
 			? 'league-row-highlight'
+			: '';
+	}
+
+	function offeringArticleHighlightClass(offeringSlug: string): string {
+		return highlightedOfferingArticleId === getOfferingArticleId(offeringSlug)
+			? 'offering-article-highlight'
 			: '';
 	}
 
@@ -4489,45 +4563,107 @@
 			.map(({ searchScore: _searchScore, ...offering }) => offering);
 	});
 
-	const activeDeadlines = $derived.by(() => {
-		if (!activeSeasonBoard) return [] as DeadlineGroup[];
-		const nowMs = new Date().getTime();
-		const grouped = new Map<string, DeadlineGroup>();
+	const offeringTimelineLeagueSources = $derived.by<OfferingTimelineLeagueSource[]>(() => {
+		if (!activeSeasonBoard) return [];
 
-		for (const offering of activeSeasonBoard.offerings) {
-			for (const league of offering.leagues) {
-				const deadlineDate = league.teamRegistrationCloseDate;
-				if (!deadlineDate) continue;
-				const deadlineMs = parseDate(deadlineDate)?.getTime();
-				if (deadlineMs === undefined || deadlineMs === null || deadlineMs < nowMs) continue;
+		return activeSeasonBoard.offerings.flatMap((offering) =>
+			offering.leagues.map((league) => ({
+				leagueId: league.id,
+				leagueName: league.leagueName,
+				categoryLabel: league.categoryLabel,
+				offeringName: offering.offeringName,
+				offeringSlug: offering.offeringSlug,
+				registrationDeadlineDate: league.teamRegistrationCloseDate,
+				registrationDeadlineLabel: league.teamRegistrationCloseText,
+				joinTeamDate: league.joinTeamDate,
+				joinTeamLabel: league.joinTeamText,
+				seasonStartDate: league.seasonStartDate,
+				seasonStartLabel: formatSeasonBoundaryText(league.seasonStartDate, 'Starts', 'Started'),
+				seasonEndDate: league.seasonEndDate,
+				seasonEndLabel: formatSeasonBoundaryText(league.seasonEndDate, 'Ends', 'Ended')
+			}))
+		);
+	});
+	const offeringTimelineGroups = $derived.by(() =>
+		buildOfferingTimelineGroups(offeringTimelineLeagueSources, new Date())
+	);
+	const initialTimelineGroup = $derived.by(() =>
+		findInitialTimelineGroup(offeringTimelineGroups)
+	);
+	const offeringTimelineDisplayGroups = $derived.by<OfferingTimelineDisplayGroup[]>(() =>
+		offeringTimelineGroups.map((group) => {
+			const buckets = new Map<string, OfferingTimelineOfferingBucket>();
 
-				if (!grouped.has(deadlineDate)) {
-					grouped.set(deadlineDate, {
-						id: `deadline-${deadlineDate}`,
-						deadlineDate,
-						deadlineText: formatDeadlineDate(deadlineDate),
-						leagues: []
+			for (const event of group.events) {
+				const key = `${event.offeringSlug}::${event.offeringName}`;
+				if (!buckets.has(key)) {
+					buckets.set(key, {
+						key,
+						offeringName: event.offeringName,
+						offeringSlug: event.offeringSlug,
+						events: []
 					});
 				}
 
-				const bucket = grouped.get(deadlineDate);
-				if (!bucket) continue;
-				bucket.leagues.push({
-					id: league.id,
-					offeringSlug: offering.offeringSlug,
-					offeringName: offering.offeringName,
-					categoryLabel: league.categoryLabel
+				buckets.get(key)?.events.push({
+					id: event.id,
+					type: event.type,
+					date: event.date,
+					label: event.label,
+					leagueId: event.leagueId,
+					categoryLabel: event.categoryLabel,
+					offeringName: event.offeringName,
+					offeringSlug: event.offeringSlug,
+					isPast: event.isPast
 				});
 			}
-		}
 
-		return Array.from(grouped.values())
-			.sort((a, b) => {
-				const aMs = parseDate(a.deadlineDate)?.getTime() ?? Number.POSITIVE_INFINITY;
-				const bMs = parseDate(b.deadlineDate)?.getTime() ?? Number.POSITIVE_INFINITY;
-				return aMs - bMs;
-			})
-			.slice(0, 8);
+			return {
+				id: group.id,
+				date: group.date,
+				ms: group.ms,
+				isPast: group.isPast,
+				offeringBuckets: Array.from(buckets.values())
+			};
+		})
+	);
+	const offeringTimelineSignature = $derived.by(() =>
+		offeringTimelineGroups
+			.map((group) => `${group.id}:${group.events.map((event) => event.id).join(',')}`)
+			.join('|')
+	);
+
+	$effect(() => {
+		const container = timelineContainerElement;
+		const signature = offeringTimelineSignature;
+		const initialGroupId = initialTimelineGroup?.id ?? '';
+
+		if (!container) return;
+		if (signature === lastTimelineAutoScrollSignature) return;
+
+		lastTimelineAutoScrollSignature = signature;
+
+		void tick().then(() => {
+			const activeContainer = timelineContainerElement;
+			if (!activeContainer) return;
+
+			if (!initialGroupId) {
+				activeContainer.scrollTo({ top: 0, behavior: 'auto' });
+				return;
+			}
+
+			const target = document.getElementById(initialGroupId);
+			if (!target) {
+				activeContainer.scrollTo({ top: 0, behavior: 'auto' });
+				return;
+			}
+
+			const targetTop =
+				target.getBoundingClientRect().top -
+				activeContainer.getBoundingClientRect().top +
+				activeContainer.scrollTop;
+			activeContainer.scrollTo({ top: targetTop, behavior: 'auto' });
+		});
 	});
 
 	const nonConcludedOfferings = $derived.by(() =>
@@ -5117,18 +5253,50 @@
 						<div
 							class="p-4 border-b border-neutral-950 bg-neutral-600/66 flex items-center justify-between"
 						>
-							<h2 class="text-xl font-bold font-serif text-neutral-950">Upcoming Deadlines</h2>
+							<h2 class="text-xl font-bold font-serif text-neutral-950">Season Timeline</h2>
 							<IconCalendar class="w-5 h-5 text-secondary-700" />
 						</div>
-						<div class="p-4 space-y-3 min-h-56" aria-hidden="true">
-							<div class="border border-neutral-950 bg-white p-3 space-y-2">
-								<div class="h-3 w-4/5 bg-neutral-100"></div>
-								<div class="h-3 w-3/5 bg-neutral-100"></div>
-								<div class="h-3 w-5/6 bg-neutral-100"></div>
-							</div>
-							<div class="border border-neutral-950 bg-white p-3 space-y-2">
-								<div class="h-3 w-3/4 bg-neutral-100"></div>
-								<div class="h-3 w-2/3 bg-neutral-100"></div>
+						<div class="h-[32rem] overflow-y-auto p-4" aria-hidden="true">
+							<div class="space-y-5">
+								{#each [0, 1, 2] as _, timelineIndex}
+									<div class="grid grid-cols-[1rem_minmax(0,1fr)] items-start gap-3">
+										<div class="relative min-h-4 pt-[0.125rem]">
+											<div
+												class="absolute bottom-0 left-[calc(50%+1px)] top-[0.125rem] z-0 w-px -translate-x-1/2 bg-neutral-950"
+											></div>
+											<div
+												class="absolute left-[calc(50%+2px)] top-[0.125rem] z-10 h-3 w-3 -translate-x-1/2 border border-primary-900 bg-primary-500"
+											></div>
+										</div>
+										<div class="space-y-2">
+											<div
+												class={`h-3 ${timelineIndex === 0 ? 'w-28' : timelineIndex === 1 ? 'w-32' : 'w-24'} bg-neutral-100`}
+											></div>
+											<div class="space-y-2">
+												<div class="border border-neutral-950 bg-white p-2.5">
+													<div class="flex items-center gap-2">
+														<div class="h-7 w-7 bg-neutral-100 border border-neutral-950"></div>
+														<div class="min-w-0 flex-1 space-y-1">
+															<div class="h-3 w-24 bg-neutral-100"></div>
+															<div class="h-3 w-40 bg-neutral-100"></div>
+														</div>
+													</div>
+												</div>
+												{#if timelineIndex !== 2}
+													<div class="border border-neutral-950 bg-white p-2.5">
+														<div class="flex items-center gap-2">
+															<div class="h-7 w-7 bg-neutral-100 border border-neutral-950"></div>
+															<div class="min-w-0 flex-1 space-y-1">
+																<div class="h-3 w-20 bg-neutral-100"></div>
+																<div class="h-3 w-36 bg-neutral-100"></div>
+															</div>
+														</div>
+													</div>
+												{/if}
+											</div>
+										</div>
+									</div>
+								{/each}
 							</div>
 						</div>
 					</section>
@@ -5374,7 +5542,10 @@
 						</div>
 					{:else}
 						{#snippet offeringArticle(offering: OfferingGroup, concluded: boolean)}
-							<article id={offering.offeringSlug} class="p-4 space-y-3">
+							<article
+								id={getOfferingArticleId(offering.offeringSlug)}
+								class={`p-4 space-y-3 ${offeringArticleHighlightClass(offering.offeringSlug)}`}
+							>
 								<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
 									<div>
 										<div class="flex items-center gap-2">
@@ -5432,165 +5603,167 @@
 									</div>
 								</div>
 
-								<DataTable
-									columns={offeringTableColumnsFor(offering)}
-									rows={offering.leagues}
-									caption={`${offering.offeringName} ${entryLabelFor(offering)} table`}
-									rowId={(league) => getLeagueRowId(offering.offeringSlug, league.id)}
-									rowClass={(league) =>
-										[
-											leagueRowHighlightClass(offering.offeringSlug, league.id),
-											canEditLeagueRows ? 'group' : ''
-										]
-											.filter(Boolean)
-											.join(' ')}
-								>
-									{#snippet emptyBody()}
-										<tr class="bg-neutral-25">
-											<td
-												colspan={offeringTableColumnsFor(offering).length}
-												class="px-4 py-10 text-center text-sm italic text-neutral-700"
-											>
-												{#if canManageOfferings}
-													No {entryLabelFor(offering) === 'group' ? 'groups' : 'leagues'} exist for this
-													offering yet. You need to add
-													{entryLabelFor(offering) === 'group' ? 'groups' : 'leagues'} before people can
-													join them.
-													{#if offering.offeringId}
-														<button
-															type="button"
-															class="ml-1 inline font-semibold not-italic text-secondary-900 underline underline-offset-2 cursor-pointer"
-															onclick={() => {
-																void openCreateLeagueWizardForOffering(offering.offeringId ?? '');
-															}}
-														>
-															Add {entryLabelFor(offering) === 'group' ? 'groups' : 'leagues'}
-														</button>
+								<div class="offering-table-highlight-surface">
+									<DataTable
+										columns={offeringTableColumnsFor(offering)}
+										rows={offering.leagues}
+										caption={`${offering.offeringName} ${entryLabelFor(offering)} table`}
+										rowId={(league) => getLeagueRowId(offering.offeringSlug, league.id)}
+										rowClass={(league) =>
+											[
+												leagueRowHighlightClass(offering.offeringSlug, league.id),
+												canEditLeagueRows ? 'group' : ''
+											]
+												.filter(Boolean)
+												.join(' ')}
+									>
+										{#snippet emptyBody()}
+											<tr class="bg-neutral-25">
+												<td
+													colspan={offeringTableColumnsFor(offering).length}
+													class="px-4 py-10 text-center text-sm italic text-neutral-700"
+												>
+													{#if canManageOfferings}
+														No {entryLabelFor(offering) === 'group' ? 'groups' : 'leagues'} exist for this
+														offering yet. You need to add
+														{entryLabelFor(offering) === 'group' ? 'groups' : 'leagues'} before people can
+														join them.
+														{#if offering.offeringId}
+															<button
+																type="button"
+																class="ml-1 inline font-semibold not-italic text-secondary-900 underline underline-offset-2 cursor-pointer"
+																onclick={() => {
+																	void openCreateLeagueWizardForOffering(offering.offeringId ?? '');
+																}}
+															>
+																Add {entryLabelFor(offering) === 'group' ? 'groups' : 'leagues'}
+															</button>
+														{/if}
+													{:else}
+														{entryLabelFor(offering) === 'group' ? 'Groups are' : 'Leagues are'} coming
+														soon for this offering.
 													{/if}
-												{:else}
-													{entryLabelFor(offering) === 'group' ? 'Groups are' : 'Leagues are'} coming
-													soon for this offering.
-												{/if}
-											</td>
-										</tr>
-									{/snippet}
+												</td>
+											</tr>
+										{/snippet}
 
-									{#snippet cell(league, column)}
-										{#if column.key === 'league'}
-											{@const OfferingIcon = offeringIconFor(offering.offeringName)}
-											{#if selectedSeason?.slug && offering.offeringSlug && league.leagueSlug}
-												<a
-													href={`/dashboard/offerings/${selectedSeason.slug}/${offering.offeringSlug}/${league.leagueSlug}`}
-													class="group inline-flex w-fit max-w-full items-center gap-2"
-												>
-													<div
-														class="flex h-9 w-9 shrink-0 items-center justify-center bg-primary text-white transition-colors group-hover:bg-primary-700 group-focus-visible:bg-primary-700"
-														aria-hidden="true"
+										{#snippet cell(league, column)}
+											{#if column.key === 'league'}
+												{@const OfferingIcon = offeringIconFor(offering.offeringName)}
+												{#if selectedSeason?.slug && offering.offeringSlug && league.leagueSlug}
+													<a
+														href={`/dashboard/offerings/${selectedSeason.slug}/${offering.offeringSlug}/${league.leagueSlug}`}
+														class="group inline-flex w-fit max-w-full items-center gap-2"
 													>
-														<OfferingIcon class="h-6 w-6" />
-													</div>
-													<div class="min-w-0">
-														<span
-															class="font-sans text-sm font-bold text-neutral-950 group-hover:underline group-focus-visible:underline"
+														<div
+															class="flex h-9 w-9 shrink-0 items-center justify-center bg-primary text-white transition-colors group-hover:bg-primary-700 group-focus-visible:bg-primary-700"
+															aria-hidden="true"
 														>
-															{league.categoryLabel}
-														</span>
-													</div>
-												</a>
-											{:else}
-												<div class="flex items-center gap-2">
-													<div
-														class="flex h-9 w-9 shrink-0 items-center justify-center bg-primary text-white"
-														aria-hidden="true"
-													>
-														<OfferingIcon class="h-6 w-6" />
-													</div>
-													<div class="min-w-0">
-														<p class="font-sans text-sm font-bold text-neutral-950">
-															{league.categoryLabel}
-														</p>
-													</div>
-												</div>
-											{/if}
-										{:else if column.key === 'status'}
-											<HoverTooltip
-												text={statusTooltipText(league.status, league.statusLabel)}
-												wrapperClass="inline-block"
-											>
-												<span
-													class={`${statusClass(league.status, league.statusLabel)} text-xs uppercase tracking-wide`}
-												>
-													{league.statusLabel}
-												</span>
-											</HoverTooltip>
-										{:else if column.key === 'registration'}
-											<p class="text-xs leading-snug text-neutral-950 font-sans">
-												<DateHoverText
-													display={league.teamRegistrationOpenText}
-													value={league.teamRegistrationOpenDate}
-													includeTime
-													wrapperClass="inline"
-												/>
-											</p>
-											<p class="mt-1 text-xs leading-snug text-neutral-950 font-sans">
-												<DateHoverText
-													display={league.teamRegistrationCloseText}
-													value={league.teamRegistrationCloseDate}
-													includeTime
-													wrapperClass="inline"
-												/>
-											</p>
-										{:else if column.key === 'join-team'}
-											<p class="text-xs leading-snug text-neutral-950 font-sans">
-												<DateHoverText
-													display={league.joinTeamText}
-													value={league.joinTeamDate}
-													includeTime
-													wrapperClass="inline"
-												/>
-											</p>
-										{:else if column.key === 'range'}
-											<p class="text-xs leading-snug text-neutral-950 font-sans">
-												<DateHoverText
-													display={formatSeasonBoundaryText(
-														league.seasonStartDate,
-														'Starts',
-														'Started'
-													)}
-													value={league.seasonStartDate}
-													wrapperClass="inline"
-												/>
-											</p>
-											<p class="mt-1 text-xs leading-snug text-neutral-950 font-sans">
-												<DateHoverText
-													display={formatSeasonBoundaryText(league.seasonEndDate, 'Ends', 'Ended')}
-													value={league.seasonEndDate}
-													wrapperClass="inline"
-												/>
-											</p>
-										{:else if column.key === 'settings'}
-											{#if canEditLeagueRows}
-												<div class="flex justify-end">
-													<HoverTooltip
-														text={`Edit ${entryLabelFor(offering)}`}
-														wrapperClass="inline-flex"
-													>
-														<button
-															type="button"
-															class="inline-flex h-7 w-7 items-center justify-center border-0 bg-transparent text-secondary-800 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 hover:text-secondary-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 cursor-pointer"
-															aria-label={`Edit ${league.categoryLabel}`}
-															onclick={() => {
-																openEditLeagueWizard(offering, league);
-															}}
+															<OfferingIcon class="h-6 w-6" />
+														</div>
+														<div class="min-w-0">
+															<span
+																class="font-sans text-sm font-bold text-neutral-950 group-hover:underline group-focus-visible:underline"
+															>
+																{league.categoryLabel}
+															</span>
+														</div>
+													</a>
+												{:else}
+													<div class="flex items-center gap-2">
+														<div
+															class="flex h-9 w-9 shrink-0 items-center justify-center bg-primary text-white"
+															aria-hidden="true"
 														>
-															<IconDotsVertical class="h-4 w-4" />
-														</button>
-													</HoverTooltip>
-												</div>
+															<OfferingIcon class="h-6 w-6" />
+														</div>
+														<div class="min-w-0">
+															<p class="font-sans text-sm font-bold text-neutral-950">
+																{league.categoryLabel}
+															</p>
+														</div>
+													</div>
+												{/if}
+											{:else if column.key === 'status'}
+												<HoverTooltip
+													text={statusTooltipText(league.status, league.statusLabel)}
+													wrapperClass="inline-block"
+												>
+													<span
+														class={`${statusClass(league.status, league.statusLabel)} text-xs uppercase tracking-wide`}
+													>
+														{league.statusLabel}
+													</span>
+												</HoverTooltip>
+											{:else if column.key === 'registration'}
+												<p class="text-xs leading-snug text-neutral-950 font-sans">
+													<DateHoverText
+														display={league.teamRegistrationOpenText}
+														value={league.teamRegistrationOpenDate}
+														includeTime
+														wrapperClass="inline"
+													/>
+												</p>
+												<p class="mt-1 text-xs leading-snug text-neutral-950 font-sans">
+													<DateHoverText
+														display={league.teamRegistrationCloseText}
+														value={league.teamRegistrationCloseDate}
+														includeTime
+														wrapperClass="inline"
+													/>
+												</p>
+											{:else if column.key === 'join-team'}
+												<p class="text-xs leading-snug text-neutral-950 font-sans">
+													<DateHoverText
+														display={league.joinTeamText}
+														value={league.joinTeamDate}
+														includeTime
+														wrapperClass="inline"
+													/>
+												</p>
+											{:else if column.key === 'range'}
+												<p class="text-xs leading-snug text-neutral-950 font-sans">
+													<DateHoverText
+														display={formatSeasonBoundaryText(
+															league.seasonStartDate,
+															'Starts',
+															'Started'
+														)}
+														value={league.seasonStartDate}
+														wrapperClass="inline"
+													/>
+												</p>
+												<p class="mt-1 text-xs leading-snug text-neutral-950 font-sans">
+													<DateHoverText
+														display={formatSeasonBoundaryText(league.seasonEndDate, 'Ends', 'Ended')}
+														value={league.seasonEndDate}
+														wrapperClass="inline"
+													/>
+												</p>
+											{:else if column.key === 'settings'}
+												{#if canEditLeagueRows}
+													<div class="flex justify-end">
+														<HoverTooltip
+															text={`Edit ${entryLabelFor(offering)}`}
+															wrapperClass="inline-flex"
+														>
+															<button
+																type="button"
+																class="inline-flex h-7 w-7 items-center justify-center border-0 bg-transparent text-secondary-800 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 hover:text-secondary-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 cursor-pointer"
+																aria-label={`Edit ${league.categoryLabel}`}
+																onclick={() => {
+																	openEditLeagueWizard(offering, league);
+																}}
+															>
+																<IconDotsVertical class="h-4 w-4" />
+															</button>
+														</HoverTooltip>
+													</div>
+												{/if}
 											{/if}
-										{/if}
-									{/snippet}
-								</DataTable>
+										{/snippet}
+									</DataTable>
+								</div>
 							</article>
 						{/snippet}
 
@@ -5632,42 +5805,87 @@
 						<div
 							class="p-4 border-b border-neutral-950 bg-neutral-600/66 flex items-center justify-between"
 						>
-							<h2 class="text-xl font-bold font-serif text-neutral-950">Upcoming Deadlines</h2>
+							<h2 class="text-xl font-bold font-serif text-neutral-950">Season Timeline</h2>
 							<IconCalendar class="w-5 h-5 text-secondary-700" />
 						</div>
-						{#if activeDeadlines.length === 0}
+						{#if offeringTimelineDisplayGroups.length === 0}
 							<div class="p-4">
-								<p class="text-sm text-neutral-950 font-sans">No deadlines available.</p>
+								<p class="text-sm text-neutral-950 font-sans">No timeline events available.</p>
 							</div>
 						{:else}
-							<div class="divide-y divide-neutral-950">
-								{#each activeDeadlines as deadline, deadlineIndex}
-									<div class={`p-3 ${deadlineIndex % 2 === 0 ? 'bg-neutral-25' : 'bg-neutral-05'}`}>
-										<p class="text-sm font-semibold text-neutral-950 font-sans">
-											Registration Deadline:
-											<DateHoverText
-												display={deadline.deadlineText}
-												value={deadline.deadlineDate}
-												includeTime
-												textClass="ml-1"
-											/>
-										</p>
-										<div class="mt-2 flex flex-wrap gap-1">
-											{#each deadline.leagues as league}
-												<button
-													type="button"
-													class="badge-secondary-outlined text-xs cursor-pointer transition-colors duration-150 hover:bg-secondary-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-500"
-													onclick={() => {
-														void scrollToLeagueRow(league.offeringSlug, league.id);
-													}}
-												>
-													{league.offeringName} - {league.categoryLabel}
-												</button>
-											{/each}
+							<div bind:this={timelineContainerElement} class="h-[32rem] overflow-y-auto p-4 scrollbar-thin">
+								<div class="relative">
+									<div
+										class="pointer-events-none absolute bottom-0 left-[calc(0.5rem+1px)] top-[0.125rem] z-0 w-px bg-neutral-950"
+									></div>
+									<div class="space-y-4">
+									{#each offeringTimelineDisplayGroups as group, groupIndex}
+										<div
+											id={group.id}
+											class="grid grid-cols-[1rem_minmax(0,1fr)] items-start gap-3"
+										>
+											<div class="relative min-h-4 pt-[0.125rem]">
+												<div
+													class={`absolute left-[calc(50%+2px)] top-[0.125rem] z-10 h-3 w-3 -translate-x-1/2 border border-primary-900 ${group.isPast ? 'bg-primary-100' : 'bg-primary-500'}`}
+												></div>
+											</div>
+											<div class={`space-y-1.5 ${group.isPast ? 'opacity-50' : ''}`}>
+												<p class="text-xs font-bold uppercase tracking-[0.16em] text-neutral-950 font-sans">
+													<DateHoverText
+														display={formatDeadlineDate(group.date)}
+														value={group.date}
+														includeTime
+														wrapperClass="inline"
+													/>
+												</p>
+												<div class="border border-neutral-950 bg-white divide-y divide-neutral-950">
+													{#each group.offeringBuckets as offeringBucket}
+														<div class="px-2.5 py-2">
+															<button
+																type="button"
+																class="text-[11px] font-bold uppercase tracking-[0.14em] text-secondary-700 hover:underline focus-visible:underline focus-visible:outline-none cursor-pointer"
+																onclick={() => {
+																	void scrollToOfferingArticle(offeringBucket.offeringSlug);
+																}}
+															>
+																{offeringBucket.offeringName}
+															</button>
+															<div class="mt-1 space-y-0.5">
+																{#each offeringBucket.events as event}
+																	{@const OfferingIcon = offeringIconFor(event.offeringName)}
+																	<button
+																		type="button"
+																		class="group flex w-full items-start justify-between gap-3 px-0.5 py-1 text-left transition-colors duration-150 hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 cursor-pointer"
+																		onclick={() => {
+																			void scrollToLeagueRow(event.offeringSlug, event.leagueId);
+																		}}
+																	>
+																		<span class="min-w-0 flex items-start gap-1.5">
+																			<span
+																				class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center bg-primary text-white"
+																				aria-hidden="true"
+																			>
+																				<OfferingIcon class="h-2.5 w-2.5" />
+																			</span>
+																			<span class="text-sm font-bold text-neutral-950 font-sans group-hover:underline group-focus-visible:underline">
+																				{event.categoryLabel}
+																			</span>
+																		</span>
+																		<span class="shrink-0 text-[11px] font-medium uppercase tracking-[0.08em] text-neutral-700 font-sans">
+																			{timelineEventCompactLabel(event.type, event.isPast)}
+																		</span>
+																	</button>
+																{/each}
+															</div>
+														</div>
+													{/each}
+												</div>
+											</div>
 										</div>
-									</div>
-								{/each}
+									{/each}
+								</div>
 							</div>
+						</div>
 						{/if}
 					</section>
 
@@ -8545,6 +8763,11 @@
 <style>
 	:global(tr.league-row-highlight > th),
 	:global(tr.league-row-highlight > td) {
+		animation: league-row-highlight-fade 3s linear;
+	}
+
+	:global(article.offering-article-highlight .offering-table-highlight-surface tbody tr > th),
+	:global(article.offering-article-highlight .offering-table-highlight-surface tbody tr > td) {
 		animation: league-row-highlight-fade 3s linear;
 	}
 
