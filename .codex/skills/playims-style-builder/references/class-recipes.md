@@ -21,7 +21,7 @@ Use this as a quick copy/paste matrix. Prefer these recipes before inventing new
 | Use Case         | Canonical Classes                                                          |
 | ---------------- | -------------------------------------------------------------------------- |
 | Page title       | `text-5xl lg:text-6xl leading-[0.9] font-bold font-serif text-neutral-950` |
-| Section title    | `text-xl font-bold font-serif text-neutral-950`                            |
+| Section title    | `dashboard-section-title text-neutral-950`                                 |
 | Subsection title | `text-lg font-bold font-serif text-neutral-950`                            |
 | Micro label      | `text-[11px] uppercase tracking-wide font-bold`                            |
 | Body             | `text-sm font-sans text-neutral-950`                                       |

@@ -639,7 +639,7 @@
 			class="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-950 bg-neutral-600/66 p-4"
 		>
 			<div>
-				<h3 class="text-xl font-bold font-serif text-neutral-950">Theme Colors</h3>
+				<h3 class="dashboard-section-title text-neutral-950">Theme Colors</h3>
 				<p class="mt-1 text-xs text-neutral-950">
 					Set your primary, secondary, and neutral colors.
 				</p>

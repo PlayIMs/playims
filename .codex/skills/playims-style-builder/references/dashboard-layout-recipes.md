@@ -49,6 +49,7 @@ Section title + selectors:
 - Row: `flex flex-col gap-2 md:flex-row md:items-center md:justify-between`
 - Left group: `flex items-center gap-2`
 - Right group: `flex items-center gap-2 text-xs text-neutral-950 font-sans`
+- Section title: `dashboard-section-title text-neutral-950`
 
 Badge-like counters:
 

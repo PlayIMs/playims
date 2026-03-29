@@ -317,16 +317,17 @@
 		4: 'Review & Create'
 	};
 	const COMPACT_DROPDOWN_BUTTON_CLASS =
-		'button-neutral-outlined w-auto h-[2rem] min-w-36 px-3 py-1 text-sm font-semibold cursor-pointer inline-flex items-center justify-between gap-2';
+		'button-neutral-outlined w-auto h-[1.875rem] min-w-36 px-3 py-1 text-sm font-semibold cursor-pointer inline-flex items-center justify-between gap-2';
 	const HISTORY_BUTTON_CLASS =
-		'button-neutral-outlined h-[2rem] w-[2rem] px-0 cursor-pointer inline-flex items-center justify-center text-neutral-950';
+		'button-neutral-outlined h-[1.875rem] w-[1.875rem] px-0 cursor-pointer inline-flex items-center justify-center text-neutral-950';
 	const HISTORY_DROPDOWN_LIST_CLASS = 'w-64';
 	const HISTORY_DROPDOWN_FOOTER_ACTION_CLASS =
 		'w-full button-neutral-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer justify-center';
 	const HISTORY_DROPDOWN_FOOTER_ICON_ACTION_CLASS =
 		'button-neutral-outlined dashboard-icon-button cursor-pointer text-neutral-950';
 	const HEADER_ICON_CLASS = 'h-4 w-4 shrink-0 text-neutral-950';
-	const HEADER_COUNT_BADGE_CLASS = 'badge-neutral-outlined h-[1.875rem] px-2.5 font-normal';
+	const HEADER_COUNT_BADGE_CLASS =
+		'badge-neutral-outlined h-[1.875rem] bg-transparent px-2.5 font-normal normal-case tracking-normal';
 	const HEADER_SPLIT_ADD_BUTTON_CLASS =
 		'button-primary-outlined h-[1.875rem] px-2 text-xs font-bold uppercase tracking-wide cursor-pointer';
 	const HEADER_SPLIT_ADD_MENU_BUTTON_CLASS =
@@ -5164,7 +5165,7 @@
 
 					<div class="p-4 space-y-4 min-h-136">
 						<div class="border border-neutral-950 bg-white p-4 space-y-2">
-							<h3 class="text-xl font-bold font-serif text-neutral-950">
+							<h3 class="dashboard-section-title text-neutral-950">
 								{#if seasons.length === 0}
 									No seasons yet
 								{:else}
@@ -5270,7 +5271,7 @@
 						<div
 							class="p-4 border-b border-neutral-950 bg-neutral-600/66 flex items-center justify-between"
 						>
-							<h2 class="text-xl font-bold font-serif text-neutral-950">Season Timeline</h2>
+							<h2 class="dashboard-section-title text-neutral-950">Season Timeline</h2>
 							<IconCalendar class="w-5 h-5 text-secondary-700" />
 						</div>
 						<div class="h-[32rem] overflow-y-auto p-4" aria-hidden="true">
@@ -5320,7 +5321,7 @@
 
 					<section class="border-2 border-neutral-950 bg-neutral">
 						<div class="p-4 border-b border-neutral-950 bg-neutral-600/66">
-							<h2 class="text-xl font-bold font-serif text-neutral-950">Advertising Spot</h2>
+							<h2 class="dashboard-section-title text-neutral-950">Advertising Spot</h2>
 						</div>
 						<div class="p-3" aria-hidden="true">
 							<div class="border-2 border-dashed border-secondary-400 bg-white px-4 py-5 space-y-4">
@@ -5791,7 +5792,7 @@
 						<div
 							class="p-4 border-b border-neutral-950 bg-neutral-600/66 flex items-center justify-between"
 						>
-							<h2 class="text-xl font-bold font-serif text-neutral-950">Season Timeline</h2>
+							<h2 class="dashboard-section-title text-neutral-950">Season Timeline</h2>
 							<IconCalendar class="w-5 h-5 text-secondary-700" />
 						</div>
 						{#if offeringTimelineDisplayGroups.length === 0}
@@ -5888,7 +5889,7 @@
 
 					<section class="border-2 border-neutral-950 bg-neutral">
 						<div class="p-4 border-b border-neutral-950 bg-neutral-600/66">
-							<h2 class="text-xl font-bold font-serif text-neutral-950">Advertising Spot</h2>
+							<h2 class="dashboard-section-title text-neutral-950">Advertising Spot</h2>
 						</div>
 						<div class="p-3">
 							<div class="border-2 border-dashed border-secondary-400 bg-white px-4 py-5 space-y-4">

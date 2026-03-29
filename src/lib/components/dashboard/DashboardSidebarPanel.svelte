@@ -16,7 +16,7 @@
 		icon,
 		panelClass = 'border-2 border-neutral-950 bg-neutral',
 		headerClass = 'flex items-center justify-between gap-3 border-b border-neutral-950 bg-neutral-600/66 p-4',
-		titleClass = 'text-xl font-bold font-serif text-neutral-950',
+		titleClass = 'dashboard-section-title text-neutral-950',
 		contentClass = 'p-4',
 		content
 	}: Props = $props();

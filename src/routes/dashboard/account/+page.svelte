@@ -702,7 +702,7 @@
 									<IconUser class="w-5 h-5" />
 								</div>
 								<div>
-									<h2 class="text-xl font-bold font-serif text-neutral-950">Profile Essentials</h2>
+									<h2 class="dashboard-section-title text-neutral-950">Profile Essentials</h2>
 									<p class="text-xs text-neutral-950">Update your core account identity fields.</p>
 								</div>
 							</div>
@@ -910,7 +910,7 @@
 							class="p-4 border-b border-neutral-950 bg-neutral-600/66 flex items-center justify-between gap-3"
 						>
 							<div>
-								<h2 class="text-xl font-bold font-serif text-neutral-950">Password and Access</h2>
+								<h2 class="dashboard-section-title text-neutral-950">Password and Access</h2>
 								<p class="text-xs text-neutral-950 mt-1">
 									Changing your password signs out your other active sessions for safety.
 								</p>
@@ -1082,7 +1082,7 @@
 							class="p-4 border-b border-secondary-500 bg-error-700 flex items-center justify-between gap-3"
 						>
 							<div>
-								<h2 class="text-xl font-bold font-serif text-error-950">Danger Zone</h2>
+								<h2 class="dashboard-section-title text-error-950">Danger Zone</h2>
 								<p class="text-xs text-error-950 mt-1">
 									Archive account keeps your row in the database and immediately revokes all
 									sessions.
@@ -1188,7 +1188,7 @@
 						<div
 							class="p-4 border-b border-neutral-950 bg-neutral-600/66 flex items-center justify-between gap-3"
 						>
-							<h2 class="text-xl font-bold font-serif text-neutral-950">Account Snapshot</h2>
+								<h2 class="dashboard-section-title text-neutral-950">Account Snapshot</h2>
 							<button
 								type="button"
 								class="inline-flex h-7 w-7 items-center justify-center text-secondary-900 hover:text-secondary-950 cursor-pointer"
@@ -1327,7 +1327,7 @@
 						<div
 							class="p-4 border-b border-neutral-950 bg-neutral-600/66 flex items-center justify-between gap-3"
 						>
-							<h2 class="text-xl font-bold font-serif text-neutral-950">Session Controls</h2>
+								<h2 class="dashboard-section-title text-neutral-950">Session Controls</h2>
 							<button
 								type="button"
 								class="inline-flex h-7 w-7 items-center justify-center text-secondary-900 hover:text-secondary-950 cursor-pointer"
@@ -1450,7 +1450,7 @@
 						<div
 							class="p-4 border-b border-neutral-950 bg-neutral-600/66 flex items-center justify-between gap-3"
 						>
-							<h2 class="text-xl font-bold font-serif text-neutral-950">Activity Highlights</h2>
+								<h2 class="dashboard-section-title text-neutral-950">Activity Highlights</h2>
 							<button
 								type="button"
 								class="inline-flex h-7 w-7 items-center justify-center text-secondary-900 hover:text-secondary-950 cursor-pointer"

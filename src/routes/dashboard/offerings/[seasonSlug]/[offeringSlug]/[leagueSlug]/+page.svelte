@@ -2722,7 +2722,7 @@
 								<div
 									class={`space-y-2 border p-4 ${hasSearchQuery ? 'border-warning-300 bg-warning-50' : 'border-neutral-950 bg-white'}`}
 								>
-									<h3 class="text-xl font-bold font-serif text-neutral-950">
+									<h3 class="dashboard-section-title text-neutral-950">
 										{#if hasSearchQuery}
 											No matches found
 										{:else}

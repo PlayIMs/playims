@@ -1050,6 +1050,10 @@
 		background-color: var(--color-neutral-50);
 	}
 
+	.dashboard-section-title {
+		@apply text-2xl leading-tight font-bold font-serif;
+	}
+
 	.metric-card {
 		border: 1px solid var(--color-neutral-950);
 		background-color: white;

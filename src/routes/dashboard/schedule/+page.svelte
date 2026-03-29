@@ -670,7 +670,7 @@
 					<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
 						<div class="flex flex-wrap items-center justify-between gap-3">
 							<div>
-								<h2 class="text-xl font-bold font-serif text-neutral-950">Unscheduled Events</h2>
+								<h2 class="dashboard-section-title text-neutral-950">Unscheduled Events</h2>
 								<p class="text-sm font-sans text-neutral-950">
 									These events match the current filters but do not have a scheduled date yet.
 								</p>

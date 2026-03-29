@@ -50,7 +50,7 @@
 - Sans (`font-sans`) is used for body copy, labels, helper text, and controls.
 - Common heading scale in dashboard/wizards:
   - Page hero: `text-5xl` / `text-6xl` + `font-serif` + tight leading.
-  - Section heading: `text-xl` or `text-2xl` + `font-bold` + `font-serif`.
+  - Section heading: `dashboard-section-title` (24px / `text-2xl`) + `font-serif`.
   - Labels/body/meta: `text-sm` / `text-xs` with readable contrast.
 - Uppercase micro-labels use tight tracking:
   - `text-[11px] uppercase tracking-wide font-bold`.
