@@ -101,7 +101,7 @@
 			</div>
 			<button
 				type="button"
-				class="inline-flex h-9 w-9 items-center justify-center border border-neutral-950 bg-white text-neutral-950 hover:bg-neutral-100 cursor-pointer"
+				class="modal-close-button"
 				aria-label={closeAriaLabel}
 				data-modal-drag-ignore
 				onclick={() => dispatch('requestClose')}

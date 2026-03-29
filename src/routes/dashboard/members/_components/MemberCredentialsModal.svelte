@@ -71,9 +71,5 @@
 				</button>
 			</div>
 		</div>
-
-		<div class="flex justify-end border-t border-neutral-950 pt-3">
-			<button type="button" class="button-primary cursor-pointer" onclick={onClose}>Done</button>
-		</div>
 	</div>
 </ModalShell>

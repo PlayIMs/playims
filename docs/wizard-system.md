@@ -37,6 +37,7 @@ header strip, shared footer actions, and no broader redesign of the dashboard sh
 - `WizardUnsavedConfirm` centers to the active wizard panel (not the viewport) and still uses a full-viewport scrim.
 - Save-only wizards and modal forms should enable the shared `Ctrl/Cmd+S` shortcut through `saveShortcutEnabled` on `WizardModal` or `ModalShell`.
 - Only enable that shortcut for save/edit flows; do not enable it for create, delete, archive, or other non-save actions.
+- If the only footer action would be a pure dismiss control such as `Close` or `Done`, omit that footer action and rely on the top-right `X` as the single close affordance.
 
 ## Shared Utilities
 

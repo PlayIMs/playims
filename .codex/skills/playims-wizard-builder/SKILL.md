@@ -90,6 +90,7 @@ For single-step switchers such as `Switch View Role`, `Switch Organization`, or 
 - When one switcher in a route is updated, compare nearby switchers and keep parity unless the user explicitly requests divergence.
 - Default wizard/body scroll regions should inherit the thin scrollbar treatment from `WizardModal`; do not leave wizard scroll shells on the thicker browser-default scrollbar unless the user explicitly asks for that.
 - Save-only wizards should enable the shared `Ctrl/Cmd+S` shortcut via `saveShortcutEnabled`; do not wire ad-hoc window listeners per wizard.
+- If the only footer action would be a pure dismiss action such as `Close` or `Done`, omit that footer action and rely on the top-right `X` instead.
 
 ## Workflow
 
@@ -180,6 +181,7 @@ For single-step switchers such as `Switch View Role`, `Switch Organization`, or 
 - Do not let compact switcher modals drift into separate visual systems; keep role/org/context switchers matched in width, structure, and interaction model by default.
 - For destructive wizard actions, do not rely on single-click confirmations; require typed confirmation when data loss scope is broad.
 - For save-only wizards, use the shared `saveShortcutEnabled` path instead of custom `keydown` handlers.
+- Do not ship wizards or modal shells with both a top-right `X` and a footer row whose only action is `Close`, `Done`, or another dismiss-only control.
 - Do not allow step advancement when current-step validation fails; Next handlers must run explicit current-step validation before incrementing the step.
 - Do not ship wizards that rely on submit-only validation for required fields, duplicates, or format errors.
 - Do not show untouched step-level field errors on first render.

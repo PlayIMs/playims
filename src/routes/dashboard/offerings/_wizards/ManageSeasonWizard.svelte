@@ -656,18 +656,6 @@
 		{/if}
 	</div>
 
-	{#snippet footer()}
-		<div class="pt-2 border-t border-neutral-950 flex justify-end">
-			<button
-				type="button"
-				class="button-secondary-outlined cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
-				disabled={isSubmitting}
-				onclick={close}
-			>
-				Close
-			</button>
-		</div>
-	{/snippet}
 </WizardModal>
 
 <ModalShell
@@ -682,7 +670,7 @@
 		</div>
 		<button
 			type="button"
-			class="p-1 text-error-700 hover:text-error-900 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error-700"
+			class="modal-close-button text-error-700 hover:text-error-900 focus-visible:text-error-900"
 			aria-label="Close delete season dialog"
 			onclick={closeDeleteModal}
 		>
