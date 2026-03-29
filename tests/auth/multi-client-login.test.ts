@@ -9,6 +9,7 @@ so a future auth refactor does not drop the default-membership preference.
 
 Summary of tests:
 1. It verifies that password login uses the default active membership for session client context.
+2. It verifies that temporary-password accounts can still create a session before the forced-change guard redirects them.
 */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -100,6 +101,94 @@ describe('multi-client login behavior', () => {
 			{
 				activeClientId: '33333333-3333-4333-8333-333333333333',
 				activeRole: 'manager'
+			}
+		);
+	});
+
+	it('allows login for accounts that still must change their password', async () => {
+		// temporary-password accounts still need a valid session so the follow-up redirect can send them
+		// to the account password form instead of failing login entirely.
+		const pepper = 'pepper-secret';
+		const sessionSecret = 'session-secret';
+		const password = 'TempPass123!';
+		const storedHash = await hashPassword({
+			password,
+			pepper,
+			iterations: 210_000
+		});
+
+		const createSessionSpy = vi.spyOn(sessionModule, 'createSessionForUser').mockResolvedValue({
+			session: {
+				id: 'session-2',
+				userId: 'user-2',
+				clientId: '44444444-4444-4444-8444-444444444444',
+				activeClientId: '44444444-4444-4444-8444-444444444444',
+				role: 'participant',
+				authProvider: 'password',
+				expiresAt: new Date().toISOString()
+			},
+			user: {
+				id: 'user-2',
+				clientId: '44444444-4444-4444-8444-444444444444',
+				role: 'participant',
+				mustChangePassword: true
+			}
+		} as any);
+
+		const dbOps = {
+			users: {
+				getAuthByEmail: vi.fn().mockResolvedValue({
+					id: 'user-2',
+					email: 'temp@playims.com',
+					passwordHash: storedHash,
+					status: 'active',
+					mustChangePassword: 1
+				}),
+				markLoginSuccess: vi.fn().mockResolvedValue({
+					id: 'user-2',
+					email: 'temp@playims.com',
+					passwordHash: storedHash,
+					status: 'active',
+					mustChangePassword: 1
+				})
+			},
+			userClients: {
+				getDefaultActiveForUser: vi.fn().mockResolvedValue({
+					userId: 'user-2',
+					clientId: '44444444-4444-4444-8444-444444444444',
+					role: 'participant',
+					status: 'active'
+				}),
+				getFirstActiveForUser: vi.fn().mockResolvedValue(null)
+			}
+		} as any;
+
+		const event = {
+			platform: {
+				env: {
+					AUTH_SESSION_SECRET: sessionSecret,
+					AUTH_PASSWORD_PEPPER: pepper
+				}
+			}
+		} as any;
+
+		await loginWithPassword(event, dbOps, {
+			email: 'temp@playims.com',
+			password
+		});
+
+		// the login should succeed normally; the forced-change behavior happens on the next guarded request.
+		expect(createSessionSpy).toHaveBeenCalledWith(
+			event,
+			dbOps,
+			expect.objectContaining({
+				id: 'user-2',
+				mustChangePassword: 1
+			}),
+			sessionSecret,
+			{
+				activeClientId: '44444444-4444-4444-8444-444444444444',
+				activeRole: 'participant'
 			}
 		);
 	});

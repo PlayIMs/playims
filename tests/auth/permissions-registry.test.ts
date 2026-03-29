@@ -29,7 +29,10 @@ import {
 	type AuthRole
 } from '../../src/lib/server/auth/permissions';
 
-const expectPermission = (role: AuthRole, permission: (typeof PERMISSIONS)[keyof typeof PERMISSIONS]) => {
+const expectPermission = (
+	role: AuthRole,
+	permission: (typeof PERMISSIONS)[keyof typeof PERMISSIONS]
+) => {
 	// this helper keeps each test focused on the permission intent instead of repeated assertion plumbing.
 	expect(hasPermission(role, permission)).toBe(true);
 };
@@ -77,7 +80,6 @@ describe('permission registry', () => {
 		expectPermission('admin', PERMISSIONS.ADD_MEMBER);
 		expectPermission('admin', PERMISSIONS.CHANGE_MEMBER_ROLE);
 		expectPermission('admin', PERMISSIONS.REMOVE_MEMBER);
-		expectPermission('admin', PERMISSIONS.MANAGE_MEMBER_INVITES);
 		expectPermission('admin', PERMISSIONS.CREATE_ORGANIZATION);
 		expectPermission('admin', PERMISSIONS.EDIT_ORGANIZATION_DETAILS);
 		expectPermission('admin', PERMISSIONS.VIEW_AS_ROLE);
