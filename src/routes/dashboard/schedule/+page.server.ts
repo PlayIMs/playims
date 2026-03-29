@@ -6,54 +6,16 @@ import type { FacilityArea } from '$lib/database/schema/facility-areas';
 import type { League } from '$lib/database/schema/leagues';
 import type { Division } from '$lib/database/schema/divisions';
 import type { Offering } from '$lib/database/schema/offerings';
+import type { Season } from '$lib/database/schema/seasons';
 import type { Team } from '$lib/database/schema/teams';
 import type { PageServerLoad } from './$types';
-
-type ScheduleStatus =
-	| 'scheduled'
-	| 'in_progress'
-	| 'completed'
-	| 'cancelled'
-	| 'postponed'
-	| 'other';
-
-interface ScheduleEvent {
-	id: string;
-	type: string;
-	status: ScheduleStatus;
-	rawStatus: string | null;
-	statusLabel: string;
-	scheduledStartAt: string | null;
-	scheduledEndAt: string | null;
-	offeringId: string | null;
-	offeringName: string;
-	leagueId: string | null;
-	leagueName: string;
-	divisionId: string | null;
-	divisionName: string;
-	homeTeamId: string | null;
-	homeTeamName: string;
-	awayTeamId: string | null;
-	awayTeamName: string;
-	matchup: string;
-	facilityId: string | null;
-	facilityName: string;
-	facilityAreaId: string | null;
-	facilityAreaName: string;
-	location: string;
-	weekNumber: number | null;
-	roundLabel: string | null;
-	notes: string | null;
-	isPostseason: boolean;
-	score: string | null;
-	scoreSortValue: number;
-}
-
-interface OptionCount {
-	value: string;
-	label: string;
-	count: number;
-}
+import {
+	buildScheduleOptionCollections,
+	summarizeScheduleEvents,
+	type ScheduleEventRecord,
+	type ScheduleOptionCount,
+	type ScheduleStatus
+} from '$lib/utils/schedule-page.js';
 
 const STATUS_LABELS: Record<ScheduleStatus, string> = {
 	scheduled: 'Scheduled',
@@ -79,28 +41,6 @@ function normalizeStatus(value: string | null): ScheduleStatus {
 	return 'other';
 }
 
-function toTimestamp(value: string | null): number {
-	if (!value) return Number.POSITIVE_INFINITY;
-	const timestamp = Date.parse(value);
-	return Number.isFinite(timestamp) ? timestamp : Number.POSITIVE_INFINITY;
-}
-
-function toOptionCounts(values: string[]): OptionCount[] {
-	const counter = new Map<string, number>();
-
-	for (const value of values) {
-		if (!value) continue;
-		counter.set(value, (counter.get(value) ?? 0) + 1);
-	}
-
-	return Array.from(counter.entries())
-		.map(([value, count]) => ({ value, label: value, count }))
-		.sort((a, b) => {
-			if (b.count !== a.count) return b.count - a.count;
-			return a.label.localeCompare(b.label);
-		});
-}
-
 function mapById<T extends { id: string }>(items: T[]) {
 	return new Map(items.map((item) => [item.id, item]));
 }
@@ -109,15 +49,17 @@ function buildScheduleEvent(
 	event: Event,
 	teamsById: Map<string, Team>,
 	offeringsById: Map<string, Offering>,
+	seasonsById: Map<string, Season>,
 	leaguesById: Map<string, League>,
 	divisionsById: Map<string, Division>,
 	facilitiesById: Map<string, Facility>,
 	facilityAreasById: Map<string, FacilityArea>
-): ScheduleEvent {
+): ScheduleEventRecord {
 	const status = normalizeStatus(event.status ?? null);
 	const homeTeam = event.homeTeamId ? teamsById.get(event.homeTeamId) : undefined;
 	const awayTeam = event.awayTeamId ? teamsById.get(event.awayTeamId) : undefined;
 	const offering = event.offeringId ? offeringsById.get(event.offeringId) : undefined;
+	const season = offering?.seasonId ? seasonsById.get(offering.seasonId) : undefined;
 	const league = event.leagueId ? leaguesById.get(event.leagueId) : undefined;
 	const division = event.divisionId ? divisionsById.get(event.divisionId) : undefined;
 	const facility = event.facilityId ? facilitiesById.get(event.facilityId) : undefined;
@@ -128,6 +70,7 @@ function buildScheduleEvent(
 	const homeTeamName = homeTeam?.name?.trim() || 'TBD';
 	const awayTeamName = awayTeam?.name?.trim() || 'TBD';
 	const offeringName = offering?.name?.trim() || 'General';
+	const seasonName = season?.name?.trim() || 'Unassigned season';
 	const leagueName = league?.name?.trim() || 'Unassigned league';
 	const divisionName = division?.name?.trim() || 'Unassigned division';
 	const facilityName = facility?.name?.trim() || 'TBD location';
@@ -144,6 +87,8 @@ function buildScheduleEvent(
 		statusLabel: STATUS_LABELS[status],
 		scheduledStartAt: event.scheduledStartAt ?? null,
 		scheduledEndAt: event.scheduledEndAt ?? null,
+		seasonId: offering?.seasonId ?? null,
+		seasonName,
 		offeringId: event.offeringId ?? null,
 		offeringName,
 		leagueId: event.leagueId ?? null,
@@ -182,9 +127,13 @@ export const load: PageServerLoad = async (event) => {
 				completed: 0,
 				needsAttention: 0
 			},
-			events: [] as ScheduleEvent[],
-			offeringOptions: [] as OptionCount[],
-			statusOptions: [] as OptionCount[],
+			events: [] as ScheduleEventRecord[],
+			seasonOptions: [] as ScheduleOptionCount[],
+			offeringOptions: [] as ScheduleOptionCount[],
+			leagueOptions: [] as ScheduleOptionCount[],
+			divisionOptions: [] as ScheduleOptionCount[],
+			teamOptions: [] as ScheduleOptionCount[],
+			statusOptions: [] as ScheduleOptionCount[],
 			error: 'Database not configured'
 		};
 	}
@@ -193,14 +142,16 @@ export const load: PageServerLoad = async (event) => {
 	const db = await getTenantDbOps(event, clientId);
 
 	try {
-		const [events, teams, offerings, leagues, facilities, facilityAreas] = await Promise.all([
-			db.events.getByClientId(clientId),
-			db.teams.getByClientId(clientId),
-			db.offerings.getByClientId(clientId),
-			db.leagues.getByClientId(clientId),
-			db.facilities.getAll(clientId),
-			db.facilityAreas.getAll(clientId)
-		]);
+		const [events, teams, offerings, leagues, facilities, facilityAreas, seasons] =
+			await Promise.all([
+				db.events.getByClientId(clientId),
+				db.teams.getByClientId(clientId),
+				db.offerings.getByClientId(clientId),
+				db.leagues.getByClientId(clientId),
+				db.facilities.getAll(clientId),
+				db.facilityAreas.getAll(clientId),
+				db.seasons.getByClientId(clientId)
+			]);
 
 		const leagueIds = leagues
 			.map((league) => league.id)
@@ -210,6 +161,9 @@ export const load: PageServerLoad = async (event) => {
 		const teamsById = mapById(teams);
 		const offeringsById = mapById(
 			offerings.filter((offering): offering is Offering & { id: string } => Boolean(offering.id))
+		);
+		const seasonsById = mapById(
+			seasons.filter((season): season is Season & { id: string } => Boolean(season.id))
 		);
 		const leaguesById = mapById(
 			leagues.filter((league): league is League & { id: string } => Boolean(league.id))
@@ -231,6 +185,7 @@ export const load: PageServerLoad = async (event) => {
 					event,
 					teamsById,
 					offeringsById,
+					seasonsById,
 					leaguesById,
 					divisionsById,
 					facilitiesById,
@@ -238,33 +193,30 @@ export const load: PageServerLoad = async (event) => {
 				)
 			)
 			.sort((a, b) => {
-				const startDiff = toTimestamp(a.scheduledStartAt) - toTimestamp(b.scheduledStartAt);
-				if (startDiff !== 0) return startDiff;
+				const aStart = Date.parse(a.scheduledStartAt ?? '');
+				const bStart = Date.parse(b.scheduledStartAt ?? '');
+				const aValue = Number.isFinite(aStart) ? aStart : Number.POSITIVE_INFINITY;
+				const bValue = Number.isFinite(bStart) ? bStart : Number.POSITIVE_INFINITY;
+				if (aValue !== bValue) return aValue - bValue;
 				const scoreDiff = b.scoreSortValue - a.scoreSortValue;
 				if (scoreDiff !== 0) return scoreDiff;
 				return a.matchup.localeCompare(b.matchup);
 			});
 
-		const summary = {
-			total: scheduleEvents.length,
-			live: scheduleEvents.filter((event) => event.status === 'in_progress').length,
-			scheduled: scheduleEvents.filter((event) => event.status === 'scheduled').length,
-			completed: scheduleEvents.filter((event) => event.status === 'completed').length,
-			needsAttention: scheduleEvents.filter(
-				(event) => event.status === 'cancelled' || event.status === 'postponed'
-			).length
-		};
-
-		const offeringOptions = toOptionCounts(scheduleEvents.map((event) => event.offeringName));
-		const statusOptions = toOptionCounts(scheduleEvents.map((event) => event.statusLabel));
+		const summary = summarizeScheduleEvents(scheduleEvents);
+		const optionCollections = buildScheduleOptionCollections(scheduleEvents);
 
 		return {
 			clientId,
 			generatedAt: new Date().toISOString(),
 			summary,
 			events: scheduleEvents,
-			offeringOptions,
-			statusOptions
+			seasonOptions: optionCollections.seasonOptions,
+			offeringOptions: optionCollections.offeringOptions,
+			leagueOptions: optionCollections.leagueOptions,
+			divisionOptions: optionCollections.divisionOptions,
+			teamOptions: optionCollections.teamOptions,
+			statusOptions: optionCollections.statusOptions
 		};
 	} catch (err) {
 		console.error('Failed to load schedule page:', err);
@@ -278,9 +230,13 @@ export const load: PageServerLoad = async (event) => {
 				completed: 0,
 				needsAttention: 0
 			},
-			events: [] as ScheduleEvent[],
-			offeringOptions: [] as OptionCount[],
-			statusOptions: [] as OptionCount[],
+			events: [] as ScheduleEventRecord[],
+			seasonOptions: [] as ScheduleOptionCount[],
+			offeringOptions: [] as ScheduleOptionCount[],
+			leagueOptions: [] as ScheduleOptionCount[],
+			divisionOptions: [] as ScheduleOptionCount[],
+			teamOptions: [] as ScheduleOptionCount[],
+			statusOptions: [] as ScheduleOptionCount[],
 			error: 'Unable to load schedule right now'
 		};
 	}

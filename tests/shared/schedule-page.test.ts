@@ -1,0 +1,190 @@
+/*
+Brief description:
+This file verifies the shared helper logic that powers the dashboard schedule page.
+
+Deeper explanation:
+The schedule page now depends on shared filtering and calendar helpers instead of embedding all of
+its date math and option pruning directly in the route. These tests protect the behavior that keeps
+the cascading filters valid, places events into the correct calendar buckets, and preserves the
+expected day, week, and month ranges.
+
+Summary of tests:
+1. It verifies invalid lower-level schedule filters are cleared when a higher-level filter changes.
+2. It verifies team filtering matches events where the selected team is either home or away.
+3. It verifies week range and month grid generation keep events in the expected visible dates.
+4. It verifies unscheduled events stay out of the dated grid while remaining available separately.
+*/
+
+import { describe, expect, it } from 'vitest';
+
+import {
+	bucketScheduleEventsByTiming,
+	buildScheduleDateIndex,
+	buildMonthScheduleCells,
+	filterScheduleEvents,
+	getScheduleRangeForView,
+	sanitizeScheduleFilters,
+	type ScheduleEventRecord,
+	type ScheduleFilters,
+	type ScheduleView
+} from '../../src/lib/utils/schedule-page';
+
+function createFilters(overrides?: Partial<ScheduleFilters>): ScheduleFilters {
+	return {
+		seasonId: 'all',
+		offeringId: 'all',
+		leagueId: 'all',
+		divisionId: 'all',
+		teamId: 'all',
+		status: 'all',
+		searchQuery: '',
+		...(overrides ?? {})
+	};
+}
+
+function createEvent(overrides?: Partial<ScheduleEventRecord>): ScheduleEventRecord {
+	return {
+		id: 'event-1',
+		type: 'game',
+		status: 'scheduled',
+		statusLabel: 'Scheduled',
+		rawStatus: 'scheduled',
+		scheduledStartAt: '2026-03-18T18:00:00',
+		scheduledEndAt: '2026-03-18T19:00:00',
+		seasonId: 'season-spring',
+		seasonName: 'Spring 2026',
+		offeringId: 'offering-basketball',
+		offeringName: 'Basketball',
+		leagueId: 'league-mens',
+		leagueName: "Men's Competitive",
+		divisionId: 'division-monday',
+		divisionName: 'Monday 6 PM',
+		homeTeamId: 'team-wildcats',
+		homeTeamName: 'Wildcats',
+		awayTeamId: 'team-falcons',
+		awayTeamName: 'Falcons',
+		matchup: 'Wildcats vs Falcons',
+		facilityId: 'facility-main',
+		facilityName: 'Main Gym',
+		facilityAreaId: 'area-court-a',
+		facilityAreaName: 'Court A',
+		location: 'Main Gym - Court A',
+		weekNumber: 2,
+		roundLabel: 'Regular Season',
+		notes: null,
+		isPostseason: false,
+		score: null,
+		scoreSortValue: 0,
+		...(overrides ?? {})
+	};
+}
+
+describe('schedule page helpers', () => {
+	const events = [
+		createEvent(),
+		createEvent({
+			id: 'event-2',
+			scheduledStartAt: '2026-03-20T20:00:00',
+			scheduledEndAt: '2026-03-20T21:00:00',
+			divisionId: 'division-wednesday',
+			divisionName: 'Wednesday 8 PM',
+			homeTeamId: 'team-falcons',
+			homeTeamName: 'Falcons',
+			awayTeamId: 'team-bears',
+			awayTeamName: 'Bears',
+			matchup: 'Falcons vs Bears'
+		}),
+		createEvent({
+			id: 'event-3',
+			status: 'completed',
+			statusLabel: 'Completed',
+			rawStatus: 'completed',
+			seasonId: 'season-fall',
+			seasonName: 'Fall 2026',
+			offeringId: 'offering-volleyball',
+			offeringName: 'Volleyball',
+			leagueId: 'league-coed',
+			leagueName: 'Coed Rec',
+			divisionId: 'division-thursday',
+			divisionName: 'Thursday 7 PM',
+			homeTeamId: 'team-spikes',
+			homeTeamName: 'Spikes',
+			awayTeamId: 'team-aces',
+			awayTeamName: 'Aces',
+			matchup: 'Spikes vs Aces',
+			scheduledStartAt: '2026-04-03T19:00:00',
+			scheduledEndAt: '2026-04-03T20:00:00'
+		}),
+		createEvent({
+			id: 'event-4',
+			scheduledStartAt: null,
+			scheduledEndAt: null,
+			homeTeamId: 'team-wildcats',
+			homeTeamName: 'Wildcats',
+			awayTeamId: 'team-bears',
+			awayTeamName: 'Bears',
+			matchup: 'Wildcats vs Bears'
+		})
+	];
+
+	it('clears invalid lower-level selections when higher-level filters change', () => {
+		// this keeps the sidebar from staying stuck on impossible combinations after a parent filter changes.
+		expect(
+			sanitizeScheduleFilters(
+				events,
+				createFilters({
+					seasonId: 'season-spring',
+					offeringId: 'offering-volleyball',
+					leagueId: 'league-coed',
+					divisionId: 'division-thursday',
+					teamId: 'team-spikes'
+				})
+			)
+		).toEqual(
+			createFilters({
+				seasonId: 'season-spring'
+			})
+		);
+	});
+
+	it('matches team filters against both home and away teams', () => {
+		// schedule filtering should feel natural even when the chosen team appears on either side of the matchup.
+		expect(
+			filterScheduleEvents(
+				events,
+				createFilters({
+					teamId: 'team-falcons'
+				})
+			).map((event) => event.id)
+		).toEqual(['event-1', 'event-2']);
+	});
+
+	it('builds week ranges and month cells that place events on the expected dates', () => {
+		// this protects the view switcher so week and month surfaces stay aligned around the same anchor date.
+		const dateIndex = buildScheduleDateIndex(events);
+		const weekRange = getScheduleRangeForView('2026-03-18', 'week' satisfies ScheduleView);
+		const monthCells = buildMonthScheduleCells(events, '2026-03-18');
+		const marchEighteenthCell = monthCells.find((cell) => cell.dateKey === '2026-03-18');
+
+		expect(weekRange).toEqual({
+			startDate: '2026-03-15',
+			endDate: '2026-03-21'
+		});
+		expect(dateIndex.scheduledByDate.get('2026-03-18')?.map((event) => event.id)).toEqual([
+			'event-1'
+		]);
+		expect(monthCells).toHaveLength(42);
+		expect(marchEighteenthCell?.events.map((event) => event.id)).toEqual(['event-1']);
+	});
+
+	it('keeps unscheduled events out of the date grid while returning them separately', () => {
+		// unscheduled rows still need to be visible to users, but they cannot occupy a dated calendar cell.
+		const buckets = bucketScheduleEventsByTiming(events);
+		const monthCells = buildMonthScheduleCells(events, '2026-03-18');
+
+		expect(buckets.unscheduled.map((event) => event.id)).toEqual(['event-4']);
+		expect(monthCells.some((cell) => cell.events.some((event) => event.id === 'event-4'))).toBe(
+			false
+		);
+	});
+});

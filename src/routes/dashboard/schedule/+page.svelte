@@ -6,212 +6,112 @@
 		IconAlertTriangle,
 		IconCalendar,
 		IconCalendarWeek,
-		IconClock,
+		IconChevronLeft,
+		IconChevronRight,
 		IconLivePhoto
 	} from '@tabler/icons-svelte';
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
-	import DashboardMegaSearchLauncher from '$lib/components/dashboard/DashboardMegaSearchLauncher.svelte';
+	import SearchInput from '$lib/components/SearchInput.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
-	import SearchInput from '$lib/components/SearchInput.svelte';
+	import DashboardMegaSearchLauncher from '$lib/components/dashboard/DashboardMegaSearchLauncher.svelte';
+	import ScheduleDayView from '$lib/components/dashboard/schedule/ScheduleDayView.svelte';
+	import ScheduleWeekView from '$lib/components/dashboard/schedule/ScheduleWeekView.svelte';
+	import ScheduleMonthView from '$lib/components/dashboard/schedule/ScheduleMonthView.svelte';
+	import ScheduleEventCard from '$lib/components/dashboard/schedule/ScheduleEventCard.svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
+	import {
+		buildScheduleOptionCollections,
+		bucketScheduleEventsByTiming,
+		filterScheduleEvents,
+		getScheduleEventDateKey,
+		getScheduleRangeForView,
+		sanitizeScheduleFilters,
+		shiftScheduleAnchorDate,
+		summarizeScheduleEvents,
+		type ScheduleFilters,
+		type ScheduleOptionCount,
+		type ScheduleView
+	} from '$lib/utils/schedule-page.js';
+	import type { PageData } from './$types';
 	import { toast } from '$lib/toasts';
 
-	type ScheduleEvent = {
-		id: string;
-		type: string;
-		status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled' | 'postponed' | 'other';
-		statusLabel: string;
-		scheduledStartAt: string | null;
-		scheduledEndAt: string | null;
-		offeringName: string;
-		leagueName: string;
-		divisionName: string;
-		matchup: string;
-		location: string;
-		weekNumber: number | null;
-		roundLabel: string | null;
-		notes: string | null;
-		isPostseason: boolean;
-		score: string | null;
-	};
+	const FILTER_DROPDOWN_BUTTON_CLASS =
+		'button-secondary-outlined min-h-10 w-full px-3 py-2 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2';
+	const VIEW_BUTTON_CLASS =
+		'px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer inline-flex items-center justify-center';
+	const DATE_KEY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+	const DEFAULT_VIEW: ScheduleView = 'week';
 
-	type OptionCount = {
-		value: string;
-		label: string;
-		count: number;
-	};
-
-	type ScheduleSummary = {
-		total: number;
-		live: number;
-		scheduled: number;
-		completed: number;
-		needsAttention: number;
-	};
-
-	type SchedulePageData = {
-		generatedAt: string;
-		events: ScheduleEvent[];
-		offeringOptions: OptionCount[];
-		statusOptions: OptionCount[];
-		summary: ScheduleSummary;
-		navigationLabels?: Partial<Record<DashboardNavKey, string>>;
-		error?: string;
-	};
-
-	type WindowFilter = 'all' | 'today' | 'next7' | 'next30' | 'past7';
-
-	const STATUS_QUERY_TO_LABEL: Record<string, string> = {
-		scheduled: 'Scheduled',
-		in_progress: 'Live',
-		live: 'Live',
-		completed: 'Completed'
-	};
-
-	const STATUS_LABEL_TO_QUERY: Record<string, string> = {
-		Scheduled: 'scheduled',
-		Live: 'in_progress',
-		Completed: 'completed'
-	};
-
-	let { data } = $props<{ data: SchedulePageData }>();
+	let { data } = $props<{ data: PageData }>();
 	const pageLabel = $derived.by(
-		() => mergeDashboardNavigationLabels(data?.navigationLabels).schedule
+		() =>
+			mergeDashboardNavigationLabels(
+				(data?.navigationLabels ?? {}) as Partial<Record<DashboardNavKey, string>>
+			).schedule
 	);
 
 	let searchQuery = $state('');
+	let selectedSeasonId = $state('all');
+	let selectedOfferingId = $state('all');
+	let selectedLeagueId = $state('all');
+	let selectedDivisionId = $state('all');
+	let selectedTeamId = $state('all');
 	let selectedStatus = $state('all');
-	let selectedOffering = $state('all');
-	let selectedWindow = $state<WindowFilter>('all');
+	let selectedView = $state<ScheduleView>(DEFAULT_VIEW);
+	let anchorDate = $state(todayDateKey());
+	let selectedMonthDate = $state(todayDateKey());
+	let stateHydrated = $state(false);
+	let lastPageError = $state('');
 
 	const events = $derived(data.events ?? []);
-	const offeringOptions = $derived(data.offeringOptions ?? []);
-	const statusOptions = $derived(data.statusOptions ?? []);
-	const summary = $derived(
-		data.summary ?? { total: 0, live: 0, scheduled: 0, completed: 0, needsAttention: 0 }
-	);
 
-	const windowOptions = [
-		{ value: 'all', label: 'All dates' },
-		{ value: 'today', label: 'Today' },
-		{ value: 'next7', label: 'Next 7 days' },
-		{ value: 'next30', label: 'Next 30 days' },
-		{ value: 'past7', label: 'Past 7 days' }
-	] as const;
-
-	const statusFilterOptions = $derived.by(() => [
-		{ value: 'all', label: 'All statuses' },
-		...statusOptions.map((option: OptionCount) => ({
-			value: option.value,
-			label: option.label,
-			rightLabel: String(option.count)
-		}))
-	]);
-
-	const offeringFilterOptions = $derived.by(() => [
-		{ value: 'all', label: 'All offerings' },
-		...offeringOptions.map((option: OptionCount) => ({
-			value: option.value,
-			label: option.label,
-			rightLabel: String(option.count)
-		}))
-	]);
-
-	const windowFilterOptions = windowOptions.map((option) => ({
-		value: option.value,
-		label: option.label
-	}));
-
-	const queryStatusLabel = $derived.by(() => {
-		const raw = $page.url.searchParams.get('status')?.trim().toLowerCase();
-		if (!raw) return null;
-		return STATUS_QUERY_TO_LABEL[raw] ?? null;
-	});
-
-	$effect(() => {
-		if (queryStatusLabel) {
-			selectedStatus = queryStatusLabel;
-		}
-	});
-
-	$effect(() => {
-		if (!browser) return;
-
-		const currentUrl = new URL($page.url);
-		const queryValue =
-			selectedStatus === 'all'
-				? null
-				: (STATUS_LABEL_TO_QUERY[selectedStatus] ?? selectedStatus.toLowerCase());
-		const currentStatus = currentUrl.searchParams.get('status');
-
-		if (queryValue) {
-			if (currentStatus === queryValue) return;
-			currentUrl.searchParams.set('status', queryValue);
-		} else {
-			if (!currentStatus) return;
-			currentUrl.searchParams.delete('status');
-		}
-
-		replaceState(`${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`, $page.state);
-	});
-
-	function parseDate(value: string | null): Date | null {
-		if (!value) return null;
-		const parsed = new Date(value);
-		if (Number.isNaN(parsed.getTime())) return null;
-		return parsed;
-	}
-
-	function formatTimeRange(start: string | null, end: string | null): string {
-		const startDate = parseDate(start);
-		if (!startDate) return 'Time not set';
-
-		const startText = startDate.toLocaleTimeString('en-US', {
-			hour: 'numeric',
-			minute: '2-digit'
-		});
-
-		const endDate = parseDate(end);
-		if (!endDate) return startText;
-
-		const endText = endDate.toLocaleTimeString('en-US', {
-			hour: 'numeric',
-			minute: '2-digit'
-		});
-
-		return `${startText} - ${endText}`;
-	}
-
-	function getDateKey(value: string | null): string {
-		const date = parseDate(value);
-		if (!date) return 'unscheduled';
-		const year = date.getFullYear();
-		const month = String(date.getMonth() + 1).padStart(2, '0');
-		const day = String(date.getDate()).padStart(2, '0');
-		return `${year}-${month}-${day}`;
-	}
-
-	function formatGroupLabel(key: string): string {
-		if (key === 'unscheduled') return 'Unscheduled';
-
-		const date = new Date(`${key}T00:00:00`);
-		if (Number.isNaN(date.getTime())) return key;
-
+	function todayDateKey(): string {
 		const today = new Date();
-		const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
-		const tomorrowStart = todayStart + 24 * 60 * 60 * 1000;
-		const dayStart = date.getTime();
+		return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(
+			today.getDate()
+		).padStart(2, '0')}`;
+	}
 
-		if (dayStart === todayStart) {
-			return `Today - ${date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`;
+	function isDateKey(value: string | null | undefined): value is string {
+		return DATE_KEY_REGEX.test(value ?? '');
+	}
+
+	function normalizeScheduleView(value: string | null | undefined): ScheduleView {
+		if (value === 'day' || value === 'month') return value;
+		return DEFAULT_VIEW;
+	}
+
+	function parseQueryValue(value: string | null | undefined): string {
+		const normalized = value?.trim();
+		return normalized && normalized.length > 0 ? normalized : 'all';
+	}
+
+	function toDropdownOptions(allLabel: string, options: ScheduleOptionCount[]) {
+		return [
+			{ value: 'all', label: allLabel },
+			...options.map((option) => ({
+				value: option.value,
+				label: option.label,
+				rightLabel: String(option.count)
+			}))
+		];
+	}
+
+	function setQueryParam(url: URL, key: string, value: string | null): void {
+		if (value && value.trim().length > 0) {
+			url.searchParams.set(key, value);
+			return;
 		}
 
-		if (dayStart === tomorrowStart) {
-			return `Tomorrow - ${date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`;
-		}
+		url.searchParams.delete(key);
+	}
 
-		return date.toLocaleDateString('en-US', {
+	function formatLongDate(dateKey: string): string {
+		const parsed = new Date(`${dateKey}T00:00:00`);
+		if (Number.isNaN(parsed.getTime())) return dateKey;
+
+		return parsed.toLocaleDateString('en-US', {
 			weekday: 'long',
 			month: 'long',
 			day: 'numeric',
@@ -219,116 +119,214 @@
 		});
 	}
 
-	function isInWindow(dateValue: string | null, window: WindowFilter): boolean {
-		if (window === 'all') return true;
+	function formatMonthLabel(dateKey: string): string {
+		const parsed = new Date(`${dateKey}T00:00:00`);
+		if (Number.isNaN(parsed.getTime())) return dateKey;
 
-		const parsedDate = parseDate(dateValue);
-		if (!parsedDate) return false;
-
-		const now = new Date();
-		const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-		const nextDay = todayStart + 24 * 60 * 60 * 1000;
-		const dateMs = parsedDate.getTime();
-
-		if (window === 'today') {
-			return dateMs >= todayStart && dateMs < nextDay;
-		}
-
-		if (window === 'next7') {
-			return dateMs >= todayStart && dateMs < todayStart + 7 * 24 * 60 * 60 * 1000;
-		}
-
-		if (window === 'next30') {
-			return dateMs >= todayStart && dateMs < todayStart + 30 * 24 * 60 * 60 * 1000;
-		}
-
-		return dateMs >= todayStart - 7 * 24 * 60 * 60 * 1000 && dateMs < todayStart;
-	}
-
-	function matchesQuery(event: ScheduleEvent, query: string): boolean {
-		if (!query) return true;
-		const lowerQuery = query.toLowerCase();
-		const searchable = [
-			event.matchup,
-			event.offeringName,
-			event.leagueName,
-			event.divisionName,
-			event.location,
-			event.roundLabel || '',
-			event.notes || ''
-		]
-			.join(' ')
-			.toLowerCase();
-
-		return searchable.includes(lowerQuery);
-	}
-
-	function statusBadgeClass(status: ScheduleEvent['status']): string {
-		if (status === 'in_progress') return 'badge-primary';
-		if (status === 'completed') return 'badge-secondary';
-		if (status === 'cancelled') return 'badge-error';
-		if (status === 'postponed') return 'badge-warning';
-		if (status === 'scheduled') return 'badge-neutral-outlined';
-		return 'badge-neutral-outlined';
-	}
-
-	const filteredEvents = $derived.by(() => {
-		const query = searchQuery.trim();
-
-		return events.filter((event: ScheduleEvent) => {
-			if (selectedStatus !== 'all' && event.statusLabel !== selectedStatus) return false;
-			if (selectedOffering !== 'all' && event.offeringName !== selectedOffering) return false;
-			if (!isInWindow(event.scheduledStartAt, selectedWindow)) return false;
-			if (!matchesQuery(event, query)) return false;
-			return true;
+		return parsed.toLocaleDateString('en-US', {
+			month: 'long',
+			year: 'numeric'
 		});
-	});
+	}
 
-	const groupedEvents = $derived.by(() => {
-		const groups = new Map<string, ScheduleEvent[]>();
+	function formatRangeLabel(
+		range: { startDate: string; endDate: string },
+		view: ScheduleView
+	): string {
+		if (view === 'day') return formatLongDate(range.startDate);
+		if (view === 'month') return formatMonthLabel(range.startDate);
 
-		for (const event of filteredEvents) {
-			const key = getDateKey(event.scheduledStartAt);
-			const existing = groups.get(key);
-			if (existing) {
-				existing.push(event);
-			} else {
-				groups.set(key, [event]);
-			}
+		const start = new Date(`${range.startDate}T00:00:00`);
+		const end = new Date(`${range.endDate}T00:00:00`);
+		if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+			return `${range.startDate} - ${range.endDate}`;
 		}
 
-		return Array.from(groups.entries())
-			.sort(([a], [b]) => {
-				if (a === b) return 0;
-				if (a === 'unscheduled') return 1;
-				if (b === 'unscheduled') return -1;
-				return a.localeCompare(b);
-			})
-			.map(([key, value]) => ({
-				key,
-				label: formatGroupLabel(key),
-				events: value
-			}));
+		if (start.getFullYear() === end.getFullYear() && start.getMonth() === end.getMonth()) {
+			return `${start.toLocaleDateString('en-US', {
+				month: 'long',
+				day: 'numeric'
+			})} - ${end.toLocaleDateString('en-US', {
+				day: 'numeric',
+				year: 'numeric'
+			})}`;
+		}
+
+		return `${start.toLocaleDateString('en-US', {
+			month: 'short',
+			day: 'numeric'
+		})} - ${end.toLocaleDateString('en-US', {
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric'
+		})}`;
+	}
+
+	function isDateWithinRange(dateKey: string | null, startDate: string, endDate: string): boolean {
+		return Boolean(dateKey && dateKey >= startDate && dateKey <= endDate);
+	}
+
+	function changeView(nextView: ScheduleView): void {
+		selectedView = nextView;
+		selectedMonthDate = anchorDate;
+	}
+
+	function moveAnchor(direction: -1 | 1): void {
+		const nextAnchorDate = shiftScheduleAnchorDate(anchorDate, selectedView, direction);
+		anchorDate = nextAnchorDate;
+		selectedMonthDate = nextAnchorDate;
+	}
+
+	function jumpToToday(): void {
+		const today = todayDateKey();
+		anchorDate = today;
+		selectedMonthDate = today;
+	}
+
+	function resetFilters(): void {
+		searchQuery = '';
+		selectedSeasonId = 'all';
+		selectedOfferingId = 'all';
+		selectedLeagueId = 'all';
+		selectedDivisionId = 'all';
+		selectedTeamId = 'all';
+		selectedStatus = 'all';
+	}
+
+	function handleMonthDateSelect(dateKey: string): void {
+		selectedMonthDate = dateKey;
+		if (dateKey.slice(0, 7) !== anchorDate.slice(0, 7)) {
+			anchorDate = dateKey;
+		}
+	}
+
+	$effect(() => {
+		if (stateHydrated) return;
+
+		const params = $page.url.searchParams;
+		searchQuery = params.get('q')?.trim() ?? '';
+		selectedSeasonId = parseQueryValue(params.get('season'));
+		selectedOfferingId = parseQueryValue(params.get('offering'));
+		selectedLeagueId = parseQueryValue(params.get('league'));
+		selectedDivisionId = parseQueryValue(params.get('division'));
+		selectedTeamId = parseQueryValue(params.get('team'));
+		selectedStatus = parseQueryValue(params.get('status'));
+		selectedView = normalizeScheduleView(params.get('view'));
+		anchorDate = isDateKey(params.get('date')) ? (params.get('date') as string) : todayDateKey();
+		selectedMonthDate = isDateKey(params.get('selectedDay'))
+			? (params.get('selectedDay') as string)
+			: anchorDate;
+		stateHydrated = true;
 	});
 
-	const filteredSummary = $derived.by(() => ({
-		total: filteredEvents.length,
-		live: filteredEvents.filter((event: ScheduleEvent) => event.status === 'in_progress').length,
-		scheduled: filteredEvents.filter((event: ScheduleEvent) => event.status === 'scheduled').length,
-		completed: filteredEvents.filter((event: ScheduleEvent) => event.status === 'completed').length,
-		needsAttention: filteredEvents.filter(
-			(event: ScheduleEvent) => event.status === 'cancelled' || event.status === 'postponed'
-		).length
+	const rawFilters = $derived.by<ScheduleFilters>(() => ({
+		seasonId: selectedSeasonId,
+		offeringId: selectedOfferingId,
+		leagueId: selectedLeagueId,
+		divisionId: selectedDivisionId,
+		teamId: selectedTeamId,
+		status: selectedStatus,
+		searchQuery
 	}));
 
-	function resetFilters() {
-		searchQuery = '';
-		selectedStatus = 'all';
-		selectedOffering = 'all';
-		selectedWindow = 'all';
-	}
+	const normalizedFilters = $derived.by(() => sanitizeScheduleFilters(events, rawFilters));
+	const filterOptions = $derived.by(() =>
+		buildScheduleOptionCollections(events, normalizedFilters)
+	);
+	const filteredEvents = $derived.by(() => filterScheduleEvents(events, normalizedFilters));
+	const filteredSummary = $derived.by(() => summarizeScheduleEvents(filteredEvents));
+	const eventBuckets = $derived.by(() => bucketScheduleEventsByTiming(filteredEvents));
+	const visibleRange = $derived.by(() => getScheduleRangeForView(anchorDate, selectedView));
+	const visibleRangeLabel = $derived.by(() => formatRangeLabel(visibleRange, selectedView));
+	const visibleScheduledCount = $derived.by(
+		() =>
+			eventBuckets.scheduled.filter((event) =>
+				isDateWithinRange(
+					getScheduleEventDateKey(event.scheduledStartAt),
+					visibleRange.startDate,
+					visibleRange.endDate
+				)
+			).length
+	);
 
-	let lastPageError = $state('');
+	const seasonFilterOptions = $derived.by(() =>
+		toDropdownOptions('All seasons', filterOptions.seasonOptions)
+	);
+	const offeringFilterOptions = $derived.by(() =>
+		toDropdownOptions('All offerings', filterOptions.offeringOptions)
+	);
+	const leagueFilterOptions = $derived.by(() =>
+		toDropdownOptions('All leagues', filterOptions.leagueOptions)
+	);
+	const divisionFilterOptions = $derived.by(() =>
+		toDropdownOptions('All divisions', filterOptions.divisionOptions)
+	);
+	const teamFilterOptions = $derived.by(() =>
+		toDropdownOptions('All teams', filterOptions.teamOptions)
+	);
+	const statusFilterOptions = $derived.by(() =>
+		toDropdownOptions('All statuses', filterOptions.statusOptions)
+	);
+
+	const hasActiveFilters = $derived.by(
+		() =>
+			searchQuery.trim().length > 0 ||
+			selectedSeasonId !== 'all' ||
+			selectedOfferingId !== 'all' ||
+			selectedLeagueId !== 'all' ||
+			selectedDivisionId !== 'all' ||
+			selectedTeamId !== 'all' ||
+			selectedStatus !== 'all'
+	);
+
+	const workspaceHeading = $derived.by(() => {
+		if (selectedView === 'day') return 'Day Agenda';
+		if (selectedView === 'month') return 'Month Calendar';
+		return 'Week Board';
+	});
+
+	$effect(() => {
+		if (!stateHydrated) return;
+
+		if (selectedSeasonId !== normalizedFilters.seasonId)
+			selectedSeasonId = normalizedFilters.seasonId;
+		if (selectedOfferingId !== normalizedFilters.offeringId)
+			selectedOfferingId = normalizedFilters.offeringId;
+		if (selectedLeagueId !== normalizedFilters.leagueId)
+			selectedLeagueId = normalizedFilters.leagueId;
+		if (selectedDivisionId !== normalizedFilters.divisionId)
+			selectedDivisionId = normalizedFilters.divisionId;
+		if (selectedTeamId !== normalizedFilters.teamId) selectedTeamId = normalizedFilters.teamId;
+		if (selectedStatus !== normalizedFilters.status) selectedStatus = normalizedFilters.status;
+	});
+
+	$effect(() => {
+		if (!browser || !stateHydrated) return;
+
+		const nextUrl = new URL($page.url);
+		const today = todayDateKey();
+
+		setQueryParam(nextUrl, 'q', searchQuery.trim() || null);
+		setQueryParam(nextUrl, 'season', selectedSeasonId !== 'all' ? selectedSeasonId : null);
+		setQueryParam(nextUrl, 'offering', selectedOfferingId !== 'all' ? selectedOfferingId : null);
+		setQueryParam(nextUrl, 'league', selectedLeagueId !== 'all' ? selectedLeagueId : null);
+		setQueryParam(nextUrl, 'division', selectedDivisionId !== 'all' ? selectedDivisionId : null);
+		setQueryParam(nextUrl, 'team', selectedTeamId !== 'all' ? selectedTeamId : null);
+		setQueryParam(nextUrl, 'status', selectedStatus !== 'all' ? selectedStatus : null);
+		setQueryParam(nextUrl, 'view', selectedView !== DEFAULT_VIEW ? selectedView : null);
+		setQueryParam(nextUrl, 'date', anchorDate !== today ? anchorDate : null);
+		setQueryParam(
+			nextUrl,
+			'selectedDay',
+			selectedView === 'month' && selectedMonthDate !== anchorDate ? selectedMonthDate : null
+		);
+
+		const currentPath = `${$page.url.pathname}${$page.url.search}${$page.url.hash}`;
+		const nextPath = `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`;
+		if (currentPath !== nextPath) {
+			replaceState(nextPath, $page.state);
+		}
+	});
 
 	$effect(() => {
 		const message = (data?.error ?? '').trim();
@@ -337,9 +335,7 @@
 			return;
 		}
 
-		if (message === lastPageError) {
-			return;
-		}
+		if (message === lastPageError) return;
 
 		lastPageError = message;
 		toast.error(message, {
@@ -356,7 +352,7 @@
 <svelte:head>
 	<meta
 		name="description"
-		content="View upcoming and completed intramural events, with offering and status filters."
+		content="Browse intramural events with hierarchical filters and day, week, or month schedule views."
 	/>
 </svelte:head>
 
@@ -381,218 +377,325 @@
 	</header>
 
 	<div class="px-4 lg:px-6 space-y-6">
-		<div class="flex justify-end">
-			<p class="text-xs text-neutral-950 font-sans">
-				Last refreshed:
-				<DateHoverText
-					display={new Date(data.generatedAt).toLocaleString('en-US')}
-					value={data.generatedAt}
-					includeTime
-					textClass="ml-1"
-				/>
-			</p>
-		</div>
-
-		<section class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
-			<div class="metric-card">
-				<p class="text-xs uppercase tracking-wide text-neutral-950 font-sans">Visible Events</p>
-				<p class="text-3xl font-bold text-neutral-950 font-serif">{filteredSummary.total}</p>
-			</div>
-			<div class="metric-card border-primary-500 bg-primary-50">
-				<p class="text-xs uppercase tracking-wide text-primary-700 font-sans">Live</p>
-				<div class="flex items-center gap-2">
-					<p class="text-3xl font-bold text-primary-700 font-serif">{filteredSummary.live}</p>
-					{#if filteredSummary.live > 0}
-						<IconLivePhoto class="w-5 h-5 text-primary-700 animate-pulse" />
-					{/if}
-				</div>
-			</div>
-			<div class="metric-card">
-				<p class="text-xs uppercase tracking-wide text-neutral-950 font-sans">Scheduled</p>
-				<p class="text-3xl font-bold text-neutral-950 font-serif">{filteredSummary.scheduled}</p>
-			</div>
-			<div class="metric-card">
-				<p class="text-xs uppercase tracking-wide text-neutral-950 font-sans">Completed</p>
-				<p class="text-3xl font-bold text-neutral-950 font-serif">{filteredSummary.completed}</p>
-			</div>
-			<div class="metric-card border-secondary-500 bg-secondary-100 col-span-2 md:col-span-1">
-				<p class="text-xs uppercase tracking-wide text-secondary-800 font-sans">Needs Attention</p>
-				<p class="text-3xl font-bold text-secondary-800 font-serif">
-					{filteredSummary.needsAttention}
-				</p>
-			</div>
-		</section>
-
-		<section class="section-shell p-4 space-y-4">
-			<div class="flex flex-col gap-1">
-				<h2 class="text-xl font-bold font-serif text-neutral-950">Filters</h2>
-				<p class="text-xs text-neutral-950 font-sans">
-					Filter by text, offering, status, and date range.
-				</p>
-			</div>
-
-			<div class="grid grid-cols-1 lg:grid-cols-4 gap-3">
-				<div class="lg:col-span-2">
-					<label
-						class="block text-xs uppercase tracking-wide text-neutral-950 font-bold mb-1"
-						for="schedule-search"
-					>
-						Search
-					</label>
-					<SearchInput
-						id="schedule-search"
-						label="Search schedule"
-						placeholder="Team, league, location, or note"
-						value={searchQuery}
-						on:input={(event) => {
-							searchQuery = event.detail.value;
-						}}
-					/>
-				</div>
-				<div>
-					<p class="mb-1 block text-xs font-bold uppercase tracking-wide text-neutral-950">
-						Status
+		<div class="grid gap-4 xl:grid-cols-[19rem_minmax(0,1fr)]">
+			<aside class="section-shell self-start space-y-4 p-4 xl:sticky xl:top-4">
+				<div class="space-y-1">
+					<p class="text-[11px] font-bold uppercase tracking-[0.18em] text-neutral-950">Filters</p>
+					<p class="text-sm text-neutral-950">
+						Narrow the schedule from season down to team, then add status when needed.
 					</p>
-					<ListboxDropdown
-						options={statusFilterOptions}
-						value={selectedStatus}
-						ariaLabel="Filter schedule by status"
-						buttonClass="button-secondary-outlined min-h-10 w-full px-3 py-2 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2"
-						on:change={(event) => {
-							selectedStatus = event.detail.value;
-						}}
-					/>
 				</div>
-				<div>
-					<p class="mb-1 block text-xs font-bold uppercase tracking-wide text-neutral-950">
-						Offering
-					</p>
-					<ListboxDropdown
-						options={offeringFilterOptions}
-						value={selectedOffering}
-						ariaLabel="Filter schedule by offering"
-						buttonClass="button-secondary-outlined min-h-10 w-full px-3 py-2 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2"
-						on:change={(event) => {
-							selectedOffering = event.detail.value;
-						}}
-					/>
-				</div>
-			</div>
 
-			<div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-				<div class="w-full lg:w-72">
-					<p class="mb-1 block text-xs font-bold uppercase tracking-wide text-neutral-950">
-						Date Window
-					</p>
-					<ListboxDropdown
-						options={windowFilterOptions}
-						value={selectedWindow}
-						ariaLabel="Filter schedule by date window"
-						buttonClass="button-secondary-outlined min-h-10 w-full px-3 py-2 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2"
-						on:change={(event) => {
-							selectedWindow = event.detail.value as WindowFilter;
-						}}
-					/>
+				<div class="space-y-3">
+					<div class="space-y-1">
+						<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Season</p>
+						<ListboxDropdown
+							options={seasonFilterOptions}
+							value={selectedSeasonId}
+							ariaLabel="Filter schedule by season"
+							buttonClass={FILTER_DROPDOWN_BUTTON_CLASS}
+							disabled={seasonFilterOptions.length <= 1}
+							on:change={(event) => {
+								selectedSeasonId = event.detail.value;
+							}}
+						/>
+					</div>
+
+					<div class="space-y-1">
+						<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Offering</p>
+						<ListboxDropdown
+							options={offeringFilterOptions}
+							value={selectedOfferingId}
+							ariaLabel="Filter schedule by offering"
+							buttonClass={FILTER_DROPDOWN_BUTTON_CLASS}
+							disabled={offeringFilterOptions.length <= 1}
+							on:change={(event) => {
+								selectedOfferingId = event.detail.value;
+							}}
+						/>
+					</div>
+
+					<div class="space-y-1">
+						<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">League</p>
+						<ListboxDropdown
+							options={leagueFilterOptions}
+							value={selectedLeagueId}
+							ariaLabel="Filter schedule by league"
+							buttonClass={FILTER_DROPDOWN_BUTTON_CLASS}
+							disabled={leagueFilterOptions.length <= 1}
+							on:change={(event) => {
+								selectedLeagueId = event.detail.value;
+							}}
+						/>
+					</div>
+
+					<div class="space-y-1">
+						<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Division</p>
+						<ListboxDropdown
+							options={divisionFilterOptions}
+							value={selectedDivisionId}
+							ariaLabel="Filter schedule by division"
+							buttonClass={FILTER_DROPDOWN_BUTTON_CLASS}
+							disabled={divisionFilterOptions.length <= 1}
+							on:change={(event) => {
+								selectedDivisionId = event.detail.value;
+							}}
+						/>
+					</div>
+
+					<div class="space-y-1">
+						<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Team</p>
+						<ListboxDropdown
+							options={teamFilterOptions}
+							value={selectedTeamId}
+							ariaLabel="Filter schedule by team"
+							buttonClass={FILTER_DROPDOWN_BUTTON_CLASS}
+							disabled={teamFilterOptions.length <= 1}
+							on:change={(event) => {
+								selectedTeamId = event.detail.value;
+							}}
+						/>
+					</div>
+
+					<div class="space-y-1">
+						<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Status</p>
+						<ListboxDropdown
+							options={statusFilterOptions}
+							value={selectedStatus}
+							ariaLabel="Filter schedule by status"
+							buttonClass={FILTER_DROPDOWN_BUTTON_CLASS}
+							disabled={statusFilterOptions.length <= 1}
+							on:change={(event) => {
+								selectedStatus = event.detail.value;
+							}}
+						/>
+					</div>
 				</div>
 
 				<button
 					type="button"
-					class="button-neutral-outlined px-4 py-2 text-xs font-bold uppercase tracking-wide w-full lg:w-auto cursor-pointer"
+					class="button-secondary-outlined inline-flex w-full items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+					disabled={!hasActiveFilters}
 					onclick={resetFilters}
 				>
 					Reset Filters
 				</button>
-			</div>
-		</section>
 
-		{#if groupedEvents.length === 0}
-			<section class="section-shell p-8 text-center">
-				<div class="inline-flex border border-neutral-950 bg-white p-3 mb-4" aria-hidden="true">
-					<IconCalendar class="w-8 h-8 text-secondary-900" />
+				<div class="border border-neutral-950 bg-white p-3 space-y-2">
+					<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+						Last refreshed
+					</p>
+					<p class="text-sm text-neutral-950 font-sans">
+						<DateHoverText
+							display={new Date(data.generatedAt).toLocaleString('en-US')}
+							value={data.generatedAt}
+							includeTime
+						/>
+					</p>
 				</div>
-				<h2 class="text-2xl font-bold font-serif text-neutral-950 mb-1">No matching events</h2>
-				<p class="text-sm text-neutral-950 font-sans">
-					Try widening your filters or clearing the search.
-				</p>
-			</section>
-		{:else}
-			<div class="space-y-4">
-				{#each groupedEvents as group}
-					<section class="section-shell">
-						<div
-							class="flex items-center justify-between gap-4 border-b border-neutral-950 bg-neutral-600/66 p-4"
-						>
-							<div>
-								<h2 class="text-xl font-bold font-serif text-neutral-950">
-									{#if group.key === 'unscheduled'}
-										{group.label}
-									{:else}
-										<DateHoverText display={group.label} value={group.key} />
+			</aside>
+
+			<div class="min-w-0 space-y-4">
+				<section class="section-shell">
+					<div class="border-b border-neutral-950 bg-neutral-600/66 p-4 space-y-4">
+						<div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+							<div class="space-y-2">
+								<div class="flex flex-wrap items-center gap-2">
+									<h2 class="text-2xl font-bold font-serif text-neutral-950">{workspaceHeading}</h2>
+									<span
+										class="badge-neutral-outlined px-2 py-1 text-[11px] uppercase tracking-wide"
+									>
+										<DateHoverText
+											display={visibleRangeLabel}
+											value={visibleRange.startDate}
+											endValue={visibleRange.endDate}
+										/>
+									</span>
+									<span
+										class="badge-neutral-outlined px-2 py-1 text-[11px] uppercase tracking-wide"
+									>
+										{filteredSummary.total} filtered
+									</span>
+									<span
+										class="badge-neutral-outlined px-2 py-1 text-[11px] uppercase tracking-wide"
+									>
+										{visibleScheduledCount} visible
+									</span>
+									{#if filteredSummary.live > 0}
+										<span class="badge-primary px-2 py-1 text-[11px] uppercase tracking-wide">
+											{filteredSummary.live} live
+											<IconLivePhoto class="ml-1 h-3.5 w-3.5 animate-pulse" />
+										</span>
 									{/if}
-								</h2>
-								<p class="text-xs text-neutral-950 font-sans">
-									{group.events.length} event{group.events.length === 1 ? '' : 's'}
+									{#if filteredSummary.needsAttention > 0}
+										<span class="badge-warning px-2 py-1 text-[11px] uppercase tracking-wide">
+											{filteredSummary.needsAttention} attention
+										</span>
+									{/if}
+								</div>
+								<p class="text-sm text-neutral-950 font-sans">
+									Use the toolbar to move through time, then switch between day, week, and month
+									layouts without losing your filters.
 								</p>
+							</div>
+
+							<div class="flex flex-wrap items-center gap-2">
+								<button
+									type="button"
+									class="button-secondary-outlined dashboard-icon-button cursor-pointer"
+									aria-label="Previous schedule range"
+									onclick={() => {
+										moveAnchor(-1);
+									}}
+								>
+									<IconChevronLeft class="h-4 w-4" />
+								</button>
+								<button
+									type="button"
+									class="button-neutral-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer"
+									onclick={jumpToToday}
+								>
+									Today
+								</button>
+								<button
+									type="button"
+									class="button-secondary-outlined dashboard-icon-button cursor-pointer"
+									aria-label="Next schedule range"
+									onclick={() => {
+										moveAnchor(1);
+									}}
+								>
+									<IconChevronRight class="h-4 w-4" />
+								</button>
+								<div class="flex items-stretch gap-2">
+									<button
+										type="button"
+										class={`${selectedView === 'day' ? 'button-primary' : 'button-secondary-outlined'} ${VIEW_BUTTON_CLASS}`}
+										onclick={() => {
+											changeView('day');
+										}}
+									>
+										Day
+									</button>
+									<button
+										type="button"
+										class={`${selectedView === 'week' ? 'button-primary' : 'button-secondary-outlined'} ${VIEW_BUTTON_CLASS}`}
+										onclick={() => {
+											changeView('week');
+										}}
+									>
+										Week
+									</button>
+									<button
+										type="button"
+										class={`${selectedView === 'month' ? 'button-primary' : 'button-secondary-outlined'} ${VIEW_BUTTON_CLASS}`}
+										onclick={() => {
+											changeView('month');
+										}}
+									>
+										Month
+									</button>
+								</div>
 							</div>
 						</div>
 
-						<div class="divide-y divide-neutral-200 bg-white">
-							{#each group.events as event}
-								<article class="p-4">
-									<div class="grid grid-cols-1 xl:grid-cols-[190px_1fr_auto] gap-4 xl:items-center">
-										<div class="space-y-2">
-											<div class="flex items-center gap-2 text-neutral-950">
-												<IconClock class="w-4 h-4" />
-												<p class="text-sm font-bold font-sans">
-													{formatTimeRange(event.scheduledStartAt, event.scheduledEndAt)}
-												</p>
-											</div>
-											{#if event.roundLabel || event.weekNumber !== null}
-												<p class="text-xs text-neutral-950 font-sans">
-													{#if event.roundLabel}
-														{event.roundLabel}
-													{/if}
-													{#if event.roundLabel && event.weekNumber !== null}
-														<span> - </span>
-													{/if}
-													{#if event.weekNumber !== null}
-														Week {event.weekNumber}
-													{/if}
-												</p>
-											{/if}
-										</div>
+						<div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+							<SearchInput
+								id="schedule-search"
+								label="Search schedule"
+								value={searchQuery}
+								placeholder="Search matchup, league, division, location, or note"
+								on:input={(event) => {
+									searchQuery = event.detail.value;
+								}}
+							/>
 
-										<div class="space-y-1">
-											<p class="text-base font-bold text-neutral-950 font-serif">{event.matchup}</p>
-											<p class="text-sm text-neutral-950 font-sans">
-												{event.offeringName} - {event.leagueName} - {event.divisionName}
-											</p>
-											<p class="text-sm text-neutral-950 font-sans">{event.location}</p>
-											{#if event.notes}
-												<p class="text-xs text-neutral-950 font-sans">{event.notes}</p>
-											{/if}
-										</div>
-
-										<div class="flex flex-wrap items-center gap-2 xl:justify-end">
-											{#if event.score}
-												<span class="badge-secondary">
-													{event.score}
-												</span>
-											{/if}
-											{#if event.isPostseason}
-												<span class="badge-primary-outlined"> POSTSEASON </span>
-											{/if}
-											<span class={statusBadgeClass(event.status)}>
-												{event.statusLabel}
-											</span>
-										</div>
-									</div>
-								</article>
-							{/each}
+							<div class="flex flex-wrap items-center gap-2 text-xs text-neutral-950 font-sans">
+								<span
+									class="badge-secondary-outlined px-2 py-1 text-[11px] uppercase tracking-wide"
+								>
+									{filteredSummary.scheduled} scheduled
+								</span>
+								<span class="badge-secondary px-2 py-1 text-[11px] uppercase tracking-wide">
+									{filteredSummary.completed} completed
+								</span>
+							</div>
 						</div>
-					</section>
-				{/each}
+					</div>
+
+					<div class="p-4">
+						{#if filteredEvents.length === 0}
+							<div class="border border-neutral-950 bg-white p-8 text-center space-y-3">
+								<div
+									class="mx-auto inline-flex h-14 w-14 items-center justify-center border border-neutral-950 bg-neutral-50"
+									aria-hidden="true"
+								>
+									<IconCalendar class="h-8 w-8 text-secondary-900" />
+								</div>
+								<div class="space-y-1">
+									<h3 class="text-2xl font-bold font-serif text-neutral-950">No matching events</h3>
+									<p class="text-sm font-sans text-neutral-950">
+										Try widening your filters or clearing the search to bring schedule items back
+										into view.
+									</p>
+								</div>
+							</div>
+						{:else if eventBuckets.scheduled.length === 0}
+							<div class="border border-warning-300 bg-warning-50 p-4 space-y-2">
+								<div class="flex items-center gap-2">
+									<IconAlertTriangle class="h-5 w-5 text-warning-700" />
+									<h3 class="text-lg font-bold font-serif text-neutral-950">No dated events yet</h3>
+								</div>
+								<p class="text-sm font-sans text-neutral-950">
+									The current filters only match unscheduled events. You can still review those
+									below.
+								</p>
+							</div>
+						{:else if selectedView === 'day'}
+							<ScheduleDayView events={filteredEvents} dateKey={anchorDate} />
+						{:else if selectedView === 'week'}
+							<ScheduleWeekView events={filteredEvents} {anchorDate} />
+						{:else}
+							<ScheduleMonthView
+								events={filteredEvents}
+								{anchorDate}
+								selectedDate={selectedMonthDate}
+								onSelectDate={handleMonthDateSelect}
+							/>
+						{/if}
+					</div>
+				</section>
+
+				<section class="section-shell">
+					<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
+						<div class="flex flex-wrap items-center justify-between gap-3">
+							<div>
+								<h2 class="text-xl font-bold font-serif text-neutral-950">Unscheduled Events</h2>
+								<p class="text-sm font-sans text-neutral-950">
+									These events match the current filters but do not have a scheduled date yet.
+								</p>
+							</div>
+							<span class="badge-neutral-outlined px-2 py-1 text-[11px] uppercase tracking-wide">
+								{eventBuckets.unscheduled.length} unscheduled
+							</span>
+						</div>
+					</div>
+
+					<div class="p-4 space-y-3">
+						{#if eventBuckets.unscheduled.length === 0}
+							<div class="border border-neutral-950 bg-white p-4">
+								<p class="text-sm font-sans text-neutral-950">
+									All currently filtered events already have dates on the schedule.
+								</p>
+							</div>
+						{:else}
+							{#each eventBuckets.unscheduled as event (event.id)}
+								<ScheduleEventCard {event} showDate showTime={false} />
+							{/each}
+						{/if}
+					</div>
+				</section>
 			</div>
-		{/if}
+		</div>
 	</div>
 </div>
