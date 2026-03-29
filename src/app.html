@@ -4,6 +4,7 @@
 		<meta charset="utf-8" />
 		<link rel="icon" href="%sveltekit.assets%/favicon.png" />
 		<link rel="manifest" href="/manifest.json" />
+		<meta name="theme-color" content="#27272A" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -25,6 +26,58 @@
 				animation: none !important;
 			}
 		</style>
+		<script nonce="%sveltekit.nonce%">
+			(() => {
+				const cookieName = 'playims-current-theme=';
+				const fallbackColor = '#27272A';
+				const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+				const manifestLink = document.querySelector('link[rel="manifest"]');
+				if (!themeColorMeta) {
+					return;
+				}
+
+				const cookieValue = document.cookie
+					.split('; ')
+					.find((entry) => entry.startsWith(cookieName))
+					?.slice(cookieName.length);
+
+				if (!cookieValue) {
+					themeColorMeta.setAttribute('content', fallbackColor);
+					if (manifestLink) {
+						manifestLink.setAttribute('href', `/manifest.json?theme=${fallbackColor.slice(1)}`);
+					}
+					return;
+				}
+
+				try {
+					const parsed = JSON.parse(decodeURIComponent(cookieValue));
+					const primary =
+						typeof parsed?.primary === 'string'
+							? parsed.primary.replace('#', '').toUpperCase()
+							: '';
+					if (!/^[0-9A-F]{6}$/.test(primary)) {
+						themeColorMeta.setAttribute('content', fallbackColor);
+						if (manifestLink) {
+							manifestLink.setAttribute(
+								'href',
+								`/manifest.json?theme=${fallbackColor.slice(1)}`
+							);
+						}
+						return;
+					}
+
+					themeColorMeta.setAttribute('content', `#${primary}`);
+					if (manifestLink) {
+						manifestLink.setAttribute('href', `/manifest.json?theme=${primary}`);
+					}
+				} catch {
+					themeColorMeta.setAttribute('content', fallbackColor);
+					if (manifestLink) {
+						manifestLink.setAttribute('href', `/manifest.json?theme=${fallbackColor.slice(1)}`);
+					}
+				}
+			})();
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

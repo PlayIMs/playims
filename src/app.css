@@ -86,6 +86,82 @@
 	}
 }
 
+@media (display-mode: standalone) {
+	html,
+	body {
+		overflow: hidden;
+		scrollbar-gutter: auto;
+	}
+}
+
+@layer components {
+	.app {
+		min-height: 100vh;
+		min-height: 100dvh;
+	}
+
+	.app-main {
+		min-height: inherit;
+	}
+
+	/* In installed PWA mode, keep the page scrollbar inside the shared content shell
+	   so it starts below the custom URL/title bar instead of underneath it. */
+	.app--standalone-pwa {
+		height: 100dvh;
+		min-height: 100dvh;
+		overflow: hidden;
+	}
+
+	.app--standalone-pwa > .app-main {
+		height: calc(100dvh - var(--pwa-top-bar-offset, 0px));
+		min-height: calc(100dvh - var(--pwa-top-bar-offset, 0px));
+		margin-top: var(--pwa-top-bar-offset, 0px);
+		overflow-y: auto;
+		overscroll-behavior: contain;
+		-webkit-overflow-scrolling: touch;
+		scrollbar-gutter: stable;
+	}
+
+	/* Use this for full-height public pages so they size to the available app shell,
+	   not the raw viewport height hidden behind the standalone URL/title bar. */
+	.app-page-screen {
+		min-height: 100vh;
+		min-height: 100dvh;
+	}
+
+	.app--standalone-pwa .app-page-screen {
+		min-height: calc(100dvh - var(--pwa-top-bar-offset, 0px));
+	}
+
+	.pwa-chrome-surface {
+		background-color: var(--pwa-chrome-500, var(--color-primary-500));
+		color: var(--pwa-chrome-foreground, #fff);
+	}
+
+	.pwa-chrome-action {
+		color: var(--pwa-chrome-foreground, #fff);
+	}
+
+	.pwa-chrome-action:hover,
+	.pwa-chrome-action:focus-visible,
+	.pwa-chrome-action-active {
+		background-color: var(--pwa-chrome-600, var(--color-primary-600));
+		color: var(--pwa-chrome-foreground, #fff);
+	}
+
+	.pwa-chrome-input-shell {
+		background-color: var(--pwa-chrome-500, var(--color-primary-500));
+	}
+
+	.pwa-chrome-input {
+		color: var(--pwa-chrome-foreground, #fff);
+	}
+
+	.pwa-chrome-input::placeholder {
+		color: var(--pwa-chrome-placeholder, rgb(255 255 255 / 0.72));
+	}
+}
+
 /* Disable Tailwind Forms plugin default blue focus ring */
 @layer base {
 	[type='text']:focus:not(.input-primary):not(.input-secondary):not(.input-neutral),

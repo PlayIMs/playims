@@ -17,6 +17,8 @@ export const ZINC_PALETTE: Record<string, string> = {
 	'950': '09090B'
 };
 
+export const STANDALONE_PWA_FALLBACK_PRIMARY = ZINC_PALETTE['800'];
+
 // default hex values (without #)
 export const DEFAULT_THEME = {
 	primary: 'CE1126',
@@ -71,6 +73,7 @@ type Rgb = {
 const MAX_SAVED_THEMES = 15;
 const API_BASE = '/api/themes';
 export const CURRENT_THEME_STORAGE_KEY = 'playims:current-theme';
+export const CURRENT_THEME_COOKIE_KEY = 'playims-current-theme';
 const HEX_COLOR_PATTERN = /^[0-9A-F]{6}$/;
 let currentThemeETag: string | null = null;
 const THEME_API_PROTECTED_PREFIXES = ['/dashboard', '/schedule', '/colors'];
@@ -136,6 +139,30 @@ export function parseStoredThemeColors(value: string | null | undefined): ThemeC
 			secondary,
 			neutral
 		};
+	} catch {
+		return null;
+	}
+}
+
+/** reads the most recently persisted theme from browser storage. */
+export function readPersistedThemeColors(): ThemeColors | null {
+	if (typeof window === 'undefined') {
+		return null;
+	}
+
+	try {
+		const localTheme = parseStoredThemeColors(
+			window.localStorage.getItem(CURRENT_THEME_STORAGE_KEY)
+		);
+		if (localTheme) {
+			return localTheme;
+		}
+	} catch {
+		// ignore local storage failures and fall through to session storage
+	}
+
+	try {
+		return parseStoredThemeColors(window.sessionStorage.getItem(CURRENT_THEME_STORAGE_KEY));
 	} catch {
 		return null;
 	}
@@ -336,7 +363,7 @@ export function validateNeutral(neutralHex: string): { isValid: boolean; warning
 	};
 }
 
-function persistThemeColorsToSession(colors: ThemeColors) {
+function persistThemeColorsToBrowserStorage(colors: ThemeColors) {
 	if (typeof window === 'undefined') {
 		return;
 	}
@@ -345,6 +372,18 @@ function persistThemeColorsToSession(colors: ThemeColors) {
 		window.sessionStorage.setItem(CURRENT_THEME_STORAGE_KEY, serializeThemeColors(colors));
 	} catch {
 		// ignore storage failures; the theme can still apply for the current document
+	}
+
+	try {
+		window.localStorage.setItem(CURRENT_THEME_STORAGE_KEY, serializeThemeColors(colors));
+	} catch {
+		// ignore storage failures; session storage is still enough for the current document
+	}
+
+	try {
+		document.cookie = `${CURRENT_THEME_COOKIE_KEY}=${encodeURIComponent(serializeThemeColors(colors))}; path=/; max-age=31536000; samesite=lax`;
+	} catch {
+		// ignore cookie failures; storage fallback still covers the current browser
 	}
 }
 
@@ -391,7 +430,7 @@ function applyThemeToDOM(colors: ThemeColors, options?: { persist?: boolean }) {
 	themeColorMeta.setAttribute('content', primary500WithHash);
 
 	if (options?.persist !== false) {
-		persistThemeColorsToSession(colors);
+		persistThemeColorsToBrowserStorage(colors);
 	}
 }
 
@@ -719,9 +758,11 @@ export async function init(
 		}
 	}
 
-	const fallbackTheme = initialTheme ?? DEFAULT_THEME;
 	const canUseThemeApi = canUseThemeApiFromCurrentPath();
 	const shouldFetchCurrent = options?.fetchCurrent ?? !initialTheme;
+	const persistedTheme = readPersistedThemeColors();
+	const fallbackTheme =
+		shouldFetchCurrent && persistedTheme ? persistedTheme : (initialTheme ?? DEFAULT_THEME);
 	// keep the store in sync with the first paint
 	themeColors.set(fallbackTheme);
 	applyThemeToDOM(fallbackTheme, {

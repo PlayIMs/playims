@@ -2,6 +2,7 @@
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
 	import { afterNavigate, goto, invalidateAll } from '$app/navigation';
+	import { get } from 'svelte/store';
 	import 'virtual:pwa-assets/head';
 	// import { injectSpeedInsights } from '@vercel/speed-insights/sveltekit';
 
@@ -37,6 +38,13 @@
 	let initialThemeJson = $derived(JSON.stringify(initialTheme ?? theme.DEFAULT_THEME));
 	let zincPaletteJson = $derived(JSON.stringify(theme.ZINC_PALETTE));
 	let themeStorageKeyJson = $derived(JSON.stringify(theme.CURRENT_THEME_STORAGE_KEY));
+	let pwaChromePrimaryJson = $derived(
+		JSON.stringify(
+			((data?.pwaChromePrimary as string | undefined) ?? theme.STANDALONE_PWA_FALLBACK_PRIMARY)
+				.replace('#', '')
+				.toUpperCase()
+		)
+	);
 	let isStandalonePwa = $state(false);
 	let pwaHistorySessionStart = $state<number | null>(null);
 	let pwaHistoryCurrentIndex = $state<number | null>(null);
@@ -62,8 +70,13 @@
 		return `:root{${toCssVars('primary', primary)}${toCssVars('secondary', secondary)}${toCssVars('neutral', neutral)}}`;
 	};
 	let initialThemeVarsCss = $derived(buildThemeVarsCss(initialTheme));
-	let initialThemeColor = $derived(theme.buildThemeColorHex(initialTheme));
-
+	let initialPwaChromePrimary = $derived.by(
+		() =>
+			((data?.pwaChromePrimary as string | undefined) ?? theme.STANDALONE_PWA_FALLBACK_PRIMARY)
+				.replace('#', '')
+				.toUpperCase()
+	);
+	let appShellStyle = $derived.by(() => `--pwa-top-bar-offset:${pwaTopBarOffset};`);
 	/** applies the select arrow action to themed select elements. */
 	const applySelectArrowToAll = () => {
 		const selects = document.querySelectorAll<HTMLSelectElement>(
@@ -109,6 +122,7 @@
 	const PWA_HISTORY_SESSION_START_KEY = 'playims:pwa-history-session-start';
 	const PWA_HISTORY_MAX_KEY = 'playims:pwa-history-max';
 	const PWA_HISTORY_ENTRIES_KEY = 'playims:pwa-history-entries';
+	const PWA_CHROME_COOKIE_SYNC_KEY = 'playims:pwa-chrome-cookie-sync';
 	const pwaTopBarOffset = $derived.by(() =>
 		isStandalonePwa ? 'calc(env(safe-area-inset-top, 0px) + 2.75rem)' : '0px'
 	);
@@ -243,6 +257,36 @@
 		});
 	};
 
+	const readStoredThemeForPwaChrome = (): theme.ThemeColors | null => {
+		if (!browser) {
+			return null;
+		}
+
+		return theme.readPersistedThemeColors();
+	};
+
+	const syncStandalonePwaChrome = () => {
+		if (!browser) {
+			return;
+		}
+
+		const root = document.documentElement;
+		const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+		const chromePrimary = activeClientId
+			? ((get(theme.themeColors)?.primary ?? initialTheme.primary).replace('#', '').toUpperCase())
+			: ((readStoredThemeForPwaChrome()?.primary ?? initialPwaChromePrimary).replace('#', '')
+					.toUpperCase());
+		const chromePalette = theme.generatePalette(chromePrimary);
+
+		root.style.setProperty('--pwa-chrome-500', theme.formatHex(chromePrimary));
+		root.style.setProperty('--pwa-chrome-600', theme.formatHex(chromePalette['600']));
+		root.style.setProperty('--pwa-chrome-foreground', '#FFFFFF');
+		root.style.setProperty('--pwa-chrome-placeholder', 'rgb(255 255 255 / 0.72)');
+		if (themeColorMeta) {
+			themeColorMeta.setAttribute('content', theme.formatHex(chromePrimary));
+		}
+	};
+
 	const navigateBack = () => {
 		if (!browser || !canGoBack) {
 			return;
@@ -293,6 +337,7 @@
 		// critical: reveal is handled inside theme.init/markThemeReady only
 		// do not add body.theme-ready toggles in this file or head script
 		theme.init(initialTheme, { fetchCurrent: shouldFetchCurrent });
+		syncStandalonePwaChrome();
 
 		// apply select arrow once on mount
 		applySelectArrowToAll();
@@ -395,10 +440,79 @@
 		syncStandalonePwaState();
 		syncPwaHistoryState((navigation.type as NavigationKind) ?? null);
 	});
+
+	$effect(() => {
+		if (!browser) {
+			return;
+		}
+
+		syncStandalonePwaChrome();
+	});
+
+	$effect(() => {
+		if (!browser) {
+			return;
+		}
+
+		const storedTheme = readStoredThemeForPwaChrome();
+		const storedPrimary = storedTheme?.primary?.replace('#', '').toUpperCase() ?? null;
+		const serverPrimary = initialPwaChromePrimary.replace('#', '').toUpperCase();
+
+		if (!storedPrimary || storedPrimary === serverPrimary) {
+			try {
+				window.sessionStorage.removeItem(PWA_CHROME_COOKIE_SYNC_KEY);
+			} catch {
+				// ignore storage failures
+			}
+			return;
+		}
+
+		try {
+			if (window.sessionStorage.getItem(PWA_CHROME_COOKIE_SYNC_KEY) === storedPrimary) {
+				return;
+			}
+
+			document.cookie = `${theme.CURRENT_THEME_COOKIE_KEY}=${encodeURIComponent(
+				theme.serializeThemeColors(storedTheme)
+			)}; path=/; max-age=31536000; samesite=lax`;
+			window.sessionStorage.setItem(PWA_CHROME_COOKIE_SYNC_KEY, storedPrimary);
+			window.location.reload();
+		} catch {
+			// ignore sync failures; runtime chrome sync still improves the current window
+		}
+	});
+
+	$effect(() => {
+		if (!browser || !isStandalonePwa) {
+			return;
+		}
+
+		const html = document.documentElement;
+		const body = document.body;
+		const previousHtmlOverflow = html.style.overflow;
+		const previousHtmlScrollbarGutter = html.style.scrollbarGutter;
+		const previousBodyOverflow = body.style.overflow;
+		const previousBodyScrollbarGutter = body.style.scrollbarGutter;
+
+		html.style.overflow = 'hidden';
+		html.style.scrollbarGutter = 'auto';
+		body.style.overflow = 'hidden';
+		body.style.scrollbarGutter = 'auto';
+
+		return () => {
+			html.style.overflow = previousHtmlOverflow;
+			html.style.scrollbarGutter = previousHtmlScrollbarGutter;
+			body.style.overflow = previousBodyOverflow;
+			body.style.scrollbarGutter = previousBodyScrollbarGutter;
+		};
+	});
 </script>
 
 <svelte:head>
-	<meta name="theme-color" content={initialThemeColor} />
+	<meta
+		name="theme-color"
+		content={theme.formatHex(initialPwaChromePrimary)}
+	/>
 	<!-- critical: keep server-side theme vars in head so first visible frame is themed -->
 	<style id="initial-theme-vars">
 {initialThemeVarsCss}
@@ -409,105 +523,111 @@
 	<script id="zinc-palette-data" type="application/json">
 		{zincPaletteJson}
 	</script>
+	<script id="theme-storage-key-data" type="application/json">
+		{themeStorageKeyJson}
+	</script>
+	<script id="pwa-chrome-primary-data" type="application/json">
+		{pwaChromePrimaryJson}
+	</script>
 	<script>
 		(() => {
 			// critical: this head script may set variables/meta only
 			// do not reveal body visibility from here
+			const hexToRgb = (hex) => {
+				const cleanHex = hex.replace('#', '');
+				return {
+					r: parseInt(cleanHex.substring(0, 2), 16),
+					g: parseInt(cleanHex.substring(2, 4), 16),
+					b: parseInt(cleanHex.substring(4, 6), 16)
+				};
+			};
+
+			const rgbToHex = (r, g, b) => {
+				const toHex = (c) => {
+					const hex = Math.round(c).toString(16);
+					return hex.length === 1 ? '0' + hex : hex;
+				};
+				return (toHex(r) + toHex(g) + toHex(b)).toUpperCase();
+			};
+
+			const mix = (color, mixColor, weight) => ({
+				r: color.r + (mixColor.r - color.r) * weight,
+				g: color.g + (mixColor.g - color.g) * weight,
+				b: color.b + (mixColor.b - color.b) * weight
+			});
+
+			const generatePalette = (baseHex) => {
+				const base = hexToRgb(baseHex);
+				const white = { r: 255, g: 255, b: 255 };
+				const black = { r: 0, g: 0, b: 0 };
+				const cleanBaseHex = baseHex.replace('#', '').toUpperCase();
+
+				return {
+					'05': rgbToHex(
+						mix(base, white, 0.975).r,
+						mix(base, white, 0.975).g,
+						mix(base, white, 0.975).b
+					),
+					25: rgbToHex(
+						mix(base, white, 0.8625).r,
+						mix(base, white, 0.8625).g,
+						mix(base, white, 0.8625).b
+					),
+					50: rgbToHex(
+						mix(base, white, 0.75).r,
+						mix(base, white, 0.75).g,
+						mix(base, white, 0.75).b
+					),
+					100: rgbToHex(
+						mix(base, white, 0.6).r,
+						mix(base, white, 0.6).g,
+						mix(base, white, 0.6).b
+					),
+					200: rgbToHex(
+						mix(base, white, 0.4).r,
+						mix(base, white, 0.4).g,
+						mix(base, white, 0.4).b
+					),
+					300: rgbToHex(
+						mix(base, white, 0.25).r,
+						mix(base, white, 0.25).g,
+						mix(base, white, 0.25).b
+					),
+					400: rgbToHex(
+						mix(base, white, 0.1).r,
+						mix(base, white, 0.1).g,
+						mix(base, white, 0.1).b
+					),
+					500: cleanBaseHex,
+					600: rgbToHex(
+						mix(base, black, 0.1).r,
+						mix(base, black, 0.1).g,
+						mix(base, black, 0.1).b
+					),
+					700: rgbToHex(
+						mix(base, black, 0.2625).r,
+						mix(base, black, 0.2625).g,
+						mix(base, black, 0.2625).b
+					),
+					800: rgbToHex(
+						mix(base, black, 0.425).r,
+						mix(base, black, 0.425).g,
+						mix(base, black, 0.425).b
+					),
+					900: rgbToHex(
+						mix(base, black, 0.5875).r,
+						mix(base, black, 0.5875).g,
+						mix(base, black, 0.5875).b
+					),
+					950: rgbToHex(
+						mix(base, black, 0.75).r,
+						mix(base, black, 0.75).g,
+						mix(base, black, 0.75).b
+					)
+				};
+			};
+
 			function buildInlineThemeScript(themeInput, zincPaletteInput) {
-				const hexToRgb = (hex) => {
-					const cleanHex = hex.replace('#', '');
-					return {
-						r: parseInt(cleanHex.substring(0, 2), 16),
-						g: parseInt(cleanHex.substring(2, 4), 16),
-						b: parseInt(cleanHex.substring(4, 6), 16)
-					};
-				};
-
-				const rgbToHex = (r, g, b) => {
-					const toHex = (c) => {
-						const hex = Math.round(c).toString(16);
-						return hex.length === 1 ? '0' + hex : hex;
-					};
-					return (toHex(r) + toHex(g) + toHex(b)).toUpperCase();
-				};
-
-				const mix = (color, mixColor, weight) => ({
-					r: color.r + (mixColor.r - color.r) * weight,
-					g: color.g + (mixColor.g - color.g) * weight,
-					b: color.b + (mixColor.b - color.b) * weight
-				});
-
-				const generatePalette = (baseHex) => {
-					const base = hexToRgb(baseHex);
-					const white = { r: 255, g: 255, b: 255 };
-					const black = { r: 0, g: 0, b: 0 };
-					const cleanBaseHex = baseHex.replace('#', '').toUpperCase();
-
-					return {
-						'05': rgbToHex(
-							mix(base, white, 0.975).r,
-							mix(base, white, 0.975).g,
-							mix(base, white, 0.975).b
-						),
-						25: rgbToHex(
-							mix(base, white, 0.8625).r,
-							mix(base, white, 0.8625).g,
-							mix(base, white, 0.8625).b
-						),
-						50: rgbToHex(
-							mix(base, white, 0.75).r,
-							mix(base, white, 0.75).g,
-							mix(base, white, 0.75).b
-						),
-						100: rgbToHex(
-							mix(base, white, 0.6).r,
-							mix(base, white, 0.6).g,
-							mix(base, white, 0.6).b
-						),
-						200: rgbToHex(
-							mix(base, white, 0.4).r,
-							mix(base, white, 0.4).g,
-							mix(base, white, 0.4).b
-						),
-						300: rgbToHex(
-							mix(base, white, 0.25).r,
-							mix(base, white, 0.25).g,
-							mix(base, white, 0.25).b
-						),
-						400: rgbToHex(
-							mix(base, white, 0.1).r,
-							mix(base, white, 0.1).g,
-							mix(base, white, 0.1).b
-						),
-						500: cleanBaseHex,
-						600: rgbToHex(
-							mix(base, black, 0.1).r,
-							mix(base, black, 0.1).g,
-							mix(base, black, 0.1).b
-						),
-						700: rgbToHex(
-							mix(base, black, 0.2625).r,
-							mix(base, black, 0.2625).g,
-							mix(base, black, 0.2625).b
-						),
-						800: rgbToHex(
-							mix(base, black, 0.425).r,
-							mix(base, black, 0.425).g,
-							mix(base, black, 0.425).b
-						),
-						900: rgbToHex(
-							mix(base, black, 0.5875).r,
-							mix(base, black, 0.5875).g,
-							mix(base, black, 0.5875).b
-						),
-						950: rgbToHex(
-							mix(base, black, 0.75).r,
-							mix(base, black, 0.75).g,
-							mix(base, black, 0.75).b
-						)
-					};
-				};
-
 				const root = document.documentElement;
 				const primary = generatePalette(themeInput.primary);
 				const secondary = generatePalette(themeInput.secondary);
@@ -524,13 +644,6 @@
 				}
 				for (const [shade, value] of Object.entries(neutral)) {
 					root.style.setProperty('--color-neutral-' + shade, '#' + value);
-				}
-
-				const primary500 = primary[500] || themeInput.primary;
-				const metaColor = primary500.startsWith('#') ? primary500 : '#' + primary500;
-				const themeColorMeta = document.querySelector('meta[name="theme-color"]');
-				if (themeColorMeta) {
-					themeColorMeta.setAttribute('content', metaColor);
 				}
 			}
 
@@ -557,15 +670,20 @@
 
 			let safeTheme = defaultTheme;
 			let safeZinc = defaultZinc;
-			const themeStorageKey = { themeStorageKeyJson };
+			let themeStorageKey = 'current-theme';
+			let initialPwaChromePrimary = defaultZinc['800'];
 
 			const themeElement = document.getElementById('initial-theme-data');
 			const zincElement = document.getElementById('zinc-palette-data');
+			const themeStorageKeyElement = document.getElementById('theme-storage-key-data');
+			const pwaChromePrimaryElement = document.getElementById('pwa-chrome-primary-data');
 			const themeEtagMeta = document.querySelector('meta[name="theme-etag"]');
 
 			const readStoredTheme = () => {
 				try {
-					const stored = window.sessionStorage.getItem(themeStorageKey);
+					const stored =
+						window.localStorage.getItem(themeStorageKey) ??
+						window.sessionStorage.getItem(themeStorageKey);
 					if (!stored) {
 						return null;
 					}
@@ -599,6 +717,18 @@
 			} catch {}
 
 			try {
+				if (themeStorageKeyElement?.textContent) {
+					themeStorageKey = JSON.parse(themeStorageKeyElement.textContent);
+				}
+			} catch {}
+
+			try {
+				if (pwaChromePrimaryElement?.textContent) {
+					initialPwaChromePrimary = JSON.parse(pwaChromePrimaryElement.textContent);
+				}
+			} catch {}
+
+			try {
 				if (zincElement?.textContent) {
 					safeZinc = JSON.parse(zincElement.textContent);
 				}
@@ -610,12 +740,29 @@
 			}
 
 			buildInlineThemeScript(safeTheme, safeZinc);
+
+			const root = document.documentElement;
+			const chromePrimary = initialPwaChromePrimary;
+			const chromePalette = generatePalette(chromePrimary);
+			root.style.setProperty('--pwa-chrome-500', '#' + chromePrimary);
+			root.style.setProperty('--pwa-chrome-600', '#' + chromePalette['600']);
+			root.style.setProperty('--pwa-chrome-foreground', '#FFFFFF');
+			root.style.setProperty('--pwa-chrome-placeholder', 'rgb(255 255 255 / 0.72)');
+
+			const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+			if (themeColorMeta) {
+				themeColorMeta.setAttribute('content', '#' + chromePrimary);
+			}
 		})();
 	</script>
 	<meta name="theme-etag" content={themeEtag} />
 </svelte:head>
 
-<div class="app" style={`--pwa-top-bar-offset:${pwaTopBarOffset};`}>
+<div
+	class:app--standalone-pwa={isStandalonePwa}
+	class="app"
+	style={appShellStyle}
+>
 	{#if isStandalonePwa}
 		<UrlBar
 			{canGoBack}
@@ -629,7 +776,7 @@
 			onHome={navigateHome}
 		/>
 	{/if}
-	<main style="padding-top: var(--pwa-top-bar-offset, 0px);">
+	<main class="app-main">
 		{@render children()}
 	</main>
 	<Toaster />

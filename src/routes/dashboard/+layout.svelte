@@ -236,7 +236,7 @@
 		'flex h-10 w-10 items-center justify-center border border-primary-300 text-primary-50 transition-colors duration-150';
 	const utilityButtonDisabledClass = 'cursor-not-allowed opacity-70';
 	const topBarUtilityButtonClass =
-		'flex h-8 w-8 items-center justify-center text-primary-25 transition-colors duration-150';
+		'pwa-chrome-action flex h-8 w-8 items-center justify-center transition-colors duration-150';
 	const isViewRoleButtonDisabled = $derived.by(
 		() => !canViewAsCurrentRole || roleWizardSubmitting || organizationSwitching
 	);
@@ -909,7 +909,7 @@
 	{#if showStandaloneTopUtilities}
 		<div
 			bind:this={standaloneToolbarElement}
-			class="pwa-window-no-drag fixed right-2 z-[72] flex h-11 items-center gap-1 bg-primary px-2 text-primary-25"
+			class="pwa-chrome-surface pwa-window-no-drag fixed right-2 z-[72] flex h-11 items-center gap-1 px-2"
 			style="top: env(safe-area-inset-top, 0px);"
 		>
 			<HoverTooltip text="Help">
@@ -936,8 +936,8 @@
 				<a
 					href={notificationsHref}
 					class="{topBarUtilityButtonClass} relative cursor-pointer {isNotificationsRoute
-						? 'bg-primary-600 text-white'
-						: 'hover:bg-primary-600 hover:text-white'}"
+						? 'pwa-chrome-action-active'
+						: ''}"
 					aria-current={isNotificationsRoute ? 'page' : undefined}
 				>
 					<IconBell class="h-4.5 w-4.5" />
@@ -956,7 +956,7 @@
 						type="button"
 						class="{topBarUtilityButtonClass} {isViewRoleButtonDisabled
 							? utilityButtonDisabledClass
-							: 'cursor-pointer hover:bg-primary-600 hover:text-white'}"
+							: 'cursor-pointer'}"
 						aria-label="View as role"
 						disabled={isViewRoleButtonDisabled}
 						onclick={openRoleWizard}
@@ -970,7 +970,7 @@
 					type="button"
 					class="{topBarUtilityButtonClass} {isOrganizationButtonDisabled
 						? utilityButtonDisabledClass
-						: 'cursor-pointer hover:bg-primary-600 hover:text-white'}"
+						: 'cursor-pointer'}"
 					aria-label="Switch organization"
 					disabled={isOrganizationButtonDisabled}
 					onclick={openOrganizationWizard}
@@ -981,9 +981,9 @@
 			<HoverTooltip text="My account" wrapperClass="block min-w-0">
 				<a
 					href={accountHref}
-					class="flex h-8 min-w-0 max-w-52 items-center gap-2 px-2 text-primary-25 select-none transition-colors duration-150 cursor-pointer {isAccountRoute
-						? 'bg-primary-600 text-white'
-						: 'hover:bg-primary-600 hover:text-white'}"
+					class="pwa-chrome-action flex h-8 min-w-0 max-w-52 items-center gap-2 px-2 select-none transition-colors duration-150 cursor-pointer {isAccountRoute
+						? 'pwa-chrome-action-active'
+						: ''}"
 					aria-current={isAccountRoute ? 'page' : undefined}
 				>
 					<IconUser class="h-4.5 w-4.5 shrink-0" />

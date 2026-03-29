@@ -313,7 +313,7 @@
 		<button
 			id={buttonId}
 			type="button"
-			class="pwa-window-no-drag flex h-8 w-8 cursor-pointer items-center justify-center text-primary-25 transition-colors duration-150 hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-45"
+			class="pwa-chrome-action pwa-window-no-drag flex h-8 w-8 cursor-pointer items-center justify-center transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-45"
 			aria-label={ariaLabel}
 			aria-haspopup={canOpenMenu ? 'menu' : undefined}
 			aria-expanded={canOpenMenu ? open : undefined}

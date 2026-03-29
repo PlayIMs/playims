@@ -155,7 +155,7 @@
 </script>
 
 <div
-	class="fixed inset-x-0 top-0 z-[70] bg-primary text-primary-25 shadow-[0_1px_0_rgba(255,255,255,0.18)] pwa-window-drag-region"
+	class="pwa-chrome-surface fixed inset-x-0 top-0 z-[70] shadow-[0_1px_0_rgba(255,255,255,0.18)] pwa-window-drag-region"
 	style="padding-top: env(safe-area-inset-top, 0px); padding-right: env(titlebar-area-width, 0px);"
 >
 	<div
@@ -185,7 +185,7 @@
 		<HoverTooltip text="Reload page">
 			<button
 				type="button"
-				class="pwa-window-no-drag flex h-8 w-8 cursor-pointer items-center justify-center text-primary-25 transition-colors duration-150 hover:bg-primary-600"
+				class="pwa-chrome-action pwa-window-no-drag flex h-8 w-8 cursor-pointer items-center justify-center transition-colors duration-150"
 				aria-label="Reload page"
 				onclick={onReload}
 			>
@@ -195,19 +195,19 @@
 		<HoverTooltip text="Open dashboard">
 			<button
 				type="button"
-				class="pwa-window-no-drag flex h-8 w-8 cursor-pointer items-center justify-center text-primary-25 transition-colors duration-150 hover:bg-primary-600"
+				class="pwa-chrome-action pwa-window-no-drag flex h-8 w-8 cursor-pointer items-center justify-center transition-colors duration-150"
 				aria-label="Open dashboard"
 				onclick={() => void onHome()}
 			>
 				<IconLayoutDashboard class="h-4.5 w-4.5" />
 			</button>
 		</HoverTooltip>
-		<div class="pwa-window-no-drag flex min-w-0 flex-1 bg-primary-600/80 focus-within:bg-primary-600">
+		<div class="pwa-chrome-input-shell pwa-window-no-drag flex min-w-0 flex-1">
 			<input
 				bind:this={inputElement}
 				type="text"
 				bind:value={inputValue}
-				class="url-bar-input pwa-window-no-drag px-3 h-8 flex-1 appearance-none border-0 bg-transparent p-0 text-sm text-primary-25 focus:text-primary-05 placeholder:text-primary-100 focus:outline-none focus:ring-0"
+				class="url-bar-input pwa-chrome-input pwa-window-no-drag px-3 h-8 flex-1 appearance-none border-0 bg-transparent p-0 text-sm focus:outline-none focus:ring-0"
 				aria-label="Page address"
 				autocapitalize="none"
 				autocomplete="off"
