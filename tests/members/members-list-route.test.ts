@@ -71,6 +71,7 @@ describe('members list route', () => {
 					lastName: 'Member',
 					fullName: 'Jamie Member',
 					email: 'jamie@playims.test',
+					cellPhone: '555-222-1010',
 					lastLoginAt: '2029-12-21T14:30:00.000Z',
 					sex: 'F',
 					role: 'participant',
@@ -108,6 +109,7 @@ describe('members list route', () => {
 
 		expect(response.status).toBe(200);
 		expect(payload.data.rows).toHaveLength(1);
+		expect(payload.data.rows[0].cellPhone).toBe('555-222-1010');
 		expect(payload.data.rows[0].lastLoginAt).toBe('2029-12-21T14:30:00.000Z');
 		expect(mocks.dbOps.members.searchByClient).toHaveBeenCalledWith({
 			clientId: 'client-1',

@@ -23,6 +23,7 @@ export interface MemberListRow {
 	lastName: string | null;
 	fullName: string;
 	email: string | null;
+	cellPhone: string | null;
 	lastLoginAt: string | null;
 	sex: MemberSex | null;
 	role: MemberRole;

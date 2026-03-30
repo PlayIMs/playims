@@ -216,34 +216,41 @@
 		{
 			key: 'member',
 			label: 'Member',
-			width: '21%',
+			width: '18%',
 			rowHeader: true,
 			sortValue: (row) => row.fullName
 		},
 		{
 			key: 'studentId',
 			label: 'Student ID',
-			width: '15%',
+			width: '13%',
 			copyText: (row) => row.studentId,
 			sortValue: (row) => row.studentId ?? ''
 		},
 		{
 			key: 'email',
 			label: 'Email',
-			width: '24%',
+			width: '20%',
 			copyText: (row) => row.email,
 			sortValue: (row) => row.email ?? ''
 		},
 		{
+			key: 'cellPhone',
+			label: 'Phone',
+			width: '14%',
+			copyText: (row) => row.cellPhone,
+			sortValue: (row) => row.cellPhone ?? ''
+		},
+		{
 			key: 'lastLoginAt',
 			label: 'Last Login',
-			width: '18%',
+			width: '16%',
 			sortValue: (row) => row.lastLoginAt ?? ''
 		},
 		{
 			key: 'sex',
 			label: 'Sex',
-			width: '8%',
+			width: '7%',
 			headerTextAlignment: 'center',
 			cellTextAlignment: 'center',
 			sortValue: (row) => row.sex ?? ''
@@ -251,7 +258,7 @@
 		{
 			key: 'role',
 			label: 'Role',
-			width: '11%',
+			width: '10%',
 			sortValue: (row) => ROLE_LABELS[row.role]
 		},
 		{
@@ -921,6 +928,8 @@
 										</span>
 								{:else if column.key === 'email'}
 									<span class="break-all py-1 text-sm text-neutral-950">{row.email ?? '--'}</span>
+								{:else if column.key === 'cellPhone'}
+									<span class="py-1 text-sm text-neutral-950">{row.cellPhone ?? '--'}</span>
 								{:else if column.key === 'lastLoginAt'}
 									{@const lastLoginDisplay = formatMemberLastLogin(row.lastLoginAt)}
 									{#if lastLoginDisplay}

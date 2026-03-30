@@ -71,6 +71,7 @@ describe('dashboard members page load', () => {
 					lastName: 'Member',
 					fullName: 'Jamie Member',
 					email: 'jamie@playims.test',
+					cellPhone: '555-222-1010',
 					lastLoginAt: '2029-12-21T14:30:00.000Z',
 					sex: 'F',
 					role: 'participant',
@@ -105,6 +106,7 @@ describe('dashboard members page load', () => {
 
 		expect(result.members.rows).toHaveLength(1);
 		expect(result.members.totalCount).toBe(1);
+		expect(result.members.rows[0].cellPhone).toBe('555-222-1010');
 		expect(result.members.rows[0].lastLoginAt).toBe('2029-12-21T14:30:00.000Z');
 		expect(mocks.dbOps.members.searchByClient).toHaveBeenCalledWith({
 			clientId: 'client-1',
