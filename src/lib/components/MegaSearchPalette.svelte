@@ -76,6 +76,16 @@
 			}))
 		)
 	);
+	const indexedGroups = $derived.by(() => {
+		let nextFlatIndex = 0;
+		return $megaSearchGroups.map((group) => ({
+			...group,
+			items: group.items.map((item) => ({
+				item,
+				flatIndex: nextFlatIndex++
+			}))
+		}));
+	});
 	const hasResults = $derived.by(() => flatResults.length > 0);
 	const todayIsoDate = $derived.by(() => new Date().toISOString().slice(0, 10));
 	const seasonDropdownOptions = $derived.by(() =>
@@ -385,14 +395,20 @@
 			closePalette();
 		}
 	}
+
+	function handleResultPointerMove(flatIndex: number): void {
+		if (flatIndex === $megaSearchHighlightedIndex) {
+			return;
+		}
+
+		allowAutoHighlight = true;
+		pendingHighlightFocusMode = null;
+		setMegaSearchHighlightedIndex(flatIndex);
+	}
 </script>
 
 {#if $megaSearchOpen}
-	<div
-		class="fixed inset-0 z-80 bg-secondary-950/30 backdrop-blur-[1px]"
-		role="presentation"
-		onclick={closePalette}
-	>
+	<div class="fixed inset-0 z-80 bg-secondary-950/36" role="presentation" onclick={closePalette}>
 		<div
 			class="pointer-events-none flex w-full justify-center px-4"
 			style="padding-top: calc(var(--pwa-top-bar-offset, 0px) + 1rem);"
@@ -475,7 +491,7 @@
 					{:else if !hasResults}
 						<p class="px-4 py-6 text-sm text-neutral-950">No matches found.</p>
 					{:else}
-						{#each $megaSearchGroups as group}
+						{#each indexedGroups as group}
 							<section class="border-t border-neutral-700 first:border-t-0">
 								<div
 									class="bg-primary-500/30 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-primary-950"
@@ -483,43 +499,38 @@
 									{group.label}
 								</div>
 								<div class="divide-y divide-neutral-700">
-									{#each group.items as item}
-										{@const flatIndex = flatResults.findIndex(
-											(entry) => entry.item.resultKey === item.resultKey
-										)}
+									{#each group.items as entry}
 										<button
-											bind:this={highlightedResultButtons[flatIndex]}
+											bind:this={highlightedResultButtons[entry.flatIndex]}
 											type="button"
 											data-mega-search-result="true"
 											class={`flex w-full items-start justify-between gap-3 px-4 py-3 text-left cursor-pointer ${
-												flatIndex === $megaSearchHighlightedIndex
+												entry.flatIndex === $megaSearchHighlightedIndex
 													? 'bg-primary-50'
 													: 'bg-white hover:bg-neutral-25'
 											}`}
-											onmouseenter={() => {
-												allowAutoHighlight = true;
-												pendingHighlightFocusMode = null;
-												setMegaSearchHighlightedIndex(flatIndex);
-											}}
+											onmousemove={() => handleResultPointerMove(entry.flatIndex)}
 											onkeydown={handleResultKeydown}
 											onclick={() => {
-												void selectResult(item);
+												void selectResult(entry.item);
 											}}
 										>
 											<div class="min-w-0">
-												<p class="truncate text-sm font-semibold text-neutral-950">{item.title}</p>
-												{#if item.subtitle}
+												<p class="truncate text-sm font-semibold text-neutral-950">
+													{entry.item.title}
+												</p>
+												{#if entry.item.subtitle}
 													<p class="mt-0.5 truncate text-xs leading-5 text-neutral-700">
-														{item.subtitle}
+														{entry.item.subtitle}
 													</p>
 												{/if}
 											</div>
 											<div class="shrink-0 text-right">
-												{#if item.badge}
+												{#if entry.item.badge}
 													<span
 														class="inline-flex border border-neutral-500 bg-neutral-100 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-neutral-950"
 													>
-														{item.badge}
+														{entry.item.badge}
 													</span>
 												{/if}
 											</div>
