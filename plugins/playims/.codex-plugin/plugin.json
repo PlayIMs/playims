@@ -1,0 +1,39 @@
+{
+  "name": "playims",
+  "version": "0.1.0",
+  "description": "Project plugin that bundles the PlayIMs dashboard and workflow skills for Codex.",
+  "author": {
+    "name": "Jake Harvanchik",
+    "url": "https://github.com/PlayIMs"
+  },
+  "homepage": "https://github.com/PlayIMs/playims",
+  "repository": "https://github.com/PlayIMs/playims",
+  "keywords": [
+    "playims",
+    "codex-plugin",
+    "skills",
+    "sveltekit",
+    "dashboard"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "PlayIMs",
+    "shortDescription": "PlayIMs project skills for dashboard UI and workflow work",
+    "longDescription": "Bundles the PlayIMs project skills used to build and refine dashboard UI, tables, wizards, dropdowns, tooltips, popovers, search flows, and toast-driven feedback with repo-specific conventions.",
+    "developerName": "Jake Harvanchik",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/PlayIMs/playims",
+    "defaultPrompt": [
+      "Use the PlayIMs plugin to build a dashboard page that matches repo conventions.",
+      "Refactor this wizard flow with the shared PlayIMs wizard and toast patterns.",
+      "Update this table to match the offerings board and shared DataTable system."
+    ],
+    "brandColor": "#CE1126",
+    "composerIcon": "./assets/playims-plugin-icon.svg",
+    "logo": "./assets/playims-plugin-logo.svg"
+  }
+}

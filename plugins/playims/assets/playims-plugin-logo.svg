@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 220" role="img" aria-labelledby="title desc">
+  <title id="title">PlayIMs plugin logo</title>
+  <desc id="desc">PlayIMs plugin wordmark with a dashboard-inspired icon.</desc>
+  <rect width="720" height="220" rx="28" fill="#F7F2EC"/>
+  <rect x="24" y="24" width="172" height="172" rx="30" fill="#14213D"/>
+  <rect x="40" y="40" width="140" height="32" rx="10" fill="#CE1126"/>
+  <rect x="40" y="86" width="88" height="94" rx="12" fill="#EEDBCE"/>
+  <rect x="140" y="86" width="40" height="16" rx="5" fill="#EEDBCE"/>
+  <rect x="140" y="112" width="40" height="16" rx="5" fill="#CE1126"/>
+  <rect x="140" y="138" width="40" height="16" rx="5" fill="#EEDBCE"/>
+  <path d="M68 160v-50h25c17 0 29 10 29 24 0 16-12 26-30 26H68zm21-18c8 0 13-3 13-9 0-5-5-8-13-8h-1v17h1z" fill="#14213D"/>
+  <text x="230" y="92" fill="#14213D" font-size="54" font-weight="700" font-family="Bitter, Georgia, serif">PlayIMs</text>
+  <text x="230" y="138" fill="#CE1126" font-size="28" font-weight="700" font-family="Inter, Arial, sans-serif">Codex Plugin</text>
+  <text x="230" y="172" fill="#14213D" font-size="20" font-weight="400" font-family="Inter, Arial, sans-serif">Project skills for dashboard UI, tables, wizards, and shared workflow patterns</text>
+</svg>

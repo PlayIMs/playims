@@ -7,25 +7,25 @@ All gates in this file are required for changes using `playims-style-builder`.
 Run from repo root:
 
 ```powershell
-python "C:\Users\Jake\.codex\skills\.system\skill-creator\scripts\quick_validate.py" ".codex/skills/playims-style-builder"
+python "C:\Users\Jake\.codex\skills\.system\skill-creator\scripts\quick_validate.py" "plugins/playims/skills/playims-style-builder"
 ```
 
 If `agents/openai.yaml` was changed manually, regenerate deterministically:
 
 ```powershell
-python "C:\Users\Jake\.codex\skills\.system\skill-creator\scripts\generate_openai_yaml.py" ".codex/skills/playims-style-builder" --interface "display_name=PlayIMs Style Builder" --interface "short_description=Build PlayIMs UI that matches dashboard and wizard patterns" --interface "default_prompt=Use $playims-style-builder to build this dashboard UI so it matches PlayIMs style, wizard, and form conventions."
+python "C:\Users\Jake\.codex\skills\.system\skill-creator\scripts\generate_openai_yaml.py" "plugins/playims/skills/playims-style-builder" --interface "display_name=PlayIMs Style Builder" --interface "short_description=Build PlayIMs UI that matches dashboard and wizard patterns" --interface "default_prompt=Use $playims-style-builder to build this dashboard UI so it matches PlayIMs style, wizard, and form conventions."
 ```
 
 Verify reference files exist:
 
 ```powershell
-Get-ChildItem ".codex/skills/playims-style-builder/references/*.md" | Select-Object -ExpandProperty Name
+Get-ChildItem "plugins/playims/skills/playims-style-builder/references/*.md" | Select-Object -ExpandProperty Name
 ```
 
 Verify `SKILL.md` links all required references:
 
 ```powershell
-Select-String -Path ".codex/skills/playims-style-builder/SKILL.md" -Pattern "style-foundation.md|dashboard-layout-recipes.md|wizard-recipes.md|forms-and-controls.md|toast-patterns.md|feedback-and-danger-patterns.md|class-recipes.md|migration-map.md|qa-gates.md"
+Select-String -Path "plugins/playims/skills/playims-style-builder/SKILL.md" -Pattern "style-foundation.md|dashboard-layout-recipes.md|wizard-recipes.md|forms-and-controls.md|toast-patterns.md|feedback-and-danger-patterns.md|class-recipes.md|migration-map.md|qa-gates.md"
 ```
 
 Confirm no accidental changes to legacy cursor skill:

@@ -1,0 +1,20 @@
+{
+  "name": "playims-local",
+  "interface": {
+    "displayName": "PlayIMs Local Plugins"
+  },
+  "plugins": [
+    {
+      "name": "playims",
+      "source": {
+        "source": "local",
+        "path": "./plugins/playims"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

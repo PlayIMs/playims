@@ -90,4 +90,4 @@ Run these checks after changes:
 
 1. `pnpm check`
 2. `pnpm build` for shared component or cross-route changes
-3. `python "C:\Users\Jake\.codex\skills\.system\skill-creator\scripts\quick_validate.py" ".codex/skills/playims-toast-builder"`
+3. `python "C:\Users\Jake\.codex\skills\.system\skill-creator\scripts\quick_validate.py" "plugins/playims/skills/playims-toast-builder"`

@@ -1,0 +1,5 @@
+version: 1
+interface:
+  display_name: PlayIMs Offerings Table Builder
+  short_description: Build offerings-board UI from the canonical route
+  default_prompt: Use $playims-offerings-table-builder to build or refactor offerings-board UI so it matches the canonical PlayIMs offerings route.
