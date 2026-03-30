@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { goto, invalidateAll, replaceState } from '$app/navigation';
 	import { onDestroy, onMount } from 'svelte';
-	import { IconDotsVertical, IconPlus, IconUsers } from '@tabler/icons-svelte';
+	import { IconPlus, IconUsers } from '@tabler/icons-svelte';
 	import DashboardMegaSearchLauncher from '$lib/components/dashboard/DashboardMegaSearchLauncher.svelte';
 	import DataTable from '$lib/components/DataTable.svelte';
+	import DataTableRowActions from '$lib/components/data-table/DataTableRowActions.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
-	import type { DataTableColumn } from '$lib/components/data-table.js';
+	import { createDataTableRowActionColumn, type DataTableColumn } from '$lib/components/data-table.js';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import {
 		buildMemberRoleFilterOptions,
@@ -234,11 +235,11 @@
 			sortValue: (row) => ROLE_LABELS[row.role]
 		},
 		{
-			key: 'actions',
-			label: 'Actions',
-			width: '16%',
-			headerTextAlignment: 'right',
-			cellTextAlignment: 'right'
+			...createDataTableRowActionColumn({
+				key: 'actions',
+				label: 'Actions',
+				width: '16%'
+			})
 		}
 	]);
 
@@ -885,20 +886,13 @@
 										{ROLE_LABELS[row.role]}
 									</span>
 								{:else if column.key === 'actions'}
-									<div class="flex justify-end">
-										<ListboxDropdown
-											options={actionOptions(row)}
-											value=""
-											mode="action"
-											align="right"
-											ariaLabel={`Actions for ${row.fullName}`}
-											buttonClass="button-secondary-outlined dashboard-icon-button inline-flex cursor-pointer items-center justify-center opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 focus-visible:opacity-100"
-											listClass="w-44"
-											on:action={(event) => void openModal(event.detail.value as MemberAction, row)}
-										>
-											{#snippet trigger()}<IconDotsVertical class="h-4 w-4" />{/snippet}
-										</ListboxDropdown>
-									</div>
+									<DataTableRowActions
+										options={actionOptions(row)}
+										ariaLabel={`Actions for ${row.fullName}`}
+										buttonClass="button-secondary-outlined dashboard-icon-button inline-flex cursor-pointer items-center justify-center opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 focus-visible:opacity-100"
+										listClass="w-44"
+										on:action={(event) => void openModal(event.detail.value as MemberAction, row)}
+									/>
 								{/if}
 							{/snippet}
 						</DataTable>

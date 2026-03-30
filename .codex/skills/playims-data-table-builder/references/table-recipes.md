@@ -4,6 +4,8 @@
 
 - `src/lib/components/DataTable.svelte`
 - `src/lib/components/data-table.ts`
+- `src/lib/components/data-table/DataTableRowActions.svelte`
+- `src/lib/components/data-table/DataTableLinkedLabel.svelte`
 - `src/routes/dashboard/offerings/+page.svelte`
 - `src/app.css` when badge/button classes or theme tokens matter
 
@@ -46,6 +48,8 @@ Use these widths when the table mirrors the offerings board:
 - Mark the identifying column with `rowHeader: true`
 - Keep the row title in `text-sm font-bold text-neutral-950 font-sans`
 - Use the red primary square icon tile when the table is tied to an offering/sport row
+- Prefer `DataTableLinkedLabel.svelte` when the cell includes both an icon tile and a clickable name
+- Keep the hover underline and icon color shift scoped to the link itself, not the whole row
 
 ### Status column
 
@@ -63,6 +67,13 @@ Use these widths when the table mirrors the offerings board:
 - Use `text-xs leading-snug text-neutral-950 font-sans`
 - Prefer `DateHoverText` for dashboard date/time displays so hover detail behavior stays consistent
 - Use `align-top` on date-heavy columns
+
+### Row action column
+
+- Prefer `createDataTableRowActionColumn()` for the standard narrow right-side settings column
+- Render the trigger with `DataTableRowActions.svelte`
+- Let the trigger appear on row hover, but keep first-column link hover behavior scoped to the link
+- If there is exactly one row action, the shared trigger should run it directly instead of opening a one-item dropdown
 
 ## Workflow
 

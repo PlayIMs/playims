@@ -19,6 +19,8 @@ Read these files before editing:
 
 - `src/lib/components/DataTable.svelte`
 - `src/lib/components/data-table.ts`
+- `src/lib/components/data-table/DataTableRowActions.svelte` when the table needs a settings column
+- `src/lib/components/data-table/DataTableLinkedLabel.svelte` when the identifying cell needs the shared icon/name hover behavior
 - `src/lib/components/ListboxDropdown.svelte` when the table needs row actions
 - `src/routes/dashboard/offerings/+page.svelte`
 - `src/app.css` when badge classes or theme tokens matter
@@ -53,14 +55,21 @@ Read these files before editing:
 6. Standardize row actions when the table needs per-row management.
 
 - Do not render bulky inline controls inside the row by default.
-- Prefer a narrow rightmost action column with a horizontal 3-dot trigger.
-- Hide the trigger until row hover or keyboard focus by using row-level `group` styling and focus-visible fallbacks.
-- Build the menu with `ListboxDropdown` in action mode, aligned right.
+- Prefer `createDataTableRowActionColumn()` for the narrow rightmost settings column.
+- Render the trigger with `DataTableRowActions.svelte` instead of hand-rolling a dropdown in each route.
+- Hide the trigger until row hover or keyboard focus by using row-level `group/row` or `group` styling and focus-visible fallbacks.
+- The shared row-action component must auto-run the action when there is only one option instead of opening a one-item dropdown.
 - Keep placeholder actions visible but disabled when the product wants to signal upcoming capability.
 - Use modal flows for destructive or multi-field actions:
   - Use a confirm modal for delete/remove actions.
   - Use a shared wizard modal for move/reassignment flows.
 - Keep row actions in the parent route so `DataTable` remains a presentation shell.
+
+7. Standardize first-column linked name/icon cells when the row needs a hoverable destination.
+
+- Prefer `DataTableLinkedLabel.svelte` for the shared icon tile plus name treatment.
+- Keep the underline and icon hover state scoped to the link itself, not the full row.
+- When row actions are also present, let the settings trigger respond to row hover while the label hover remains link-only.
 
 ## Progressive Disclosure Map
 
