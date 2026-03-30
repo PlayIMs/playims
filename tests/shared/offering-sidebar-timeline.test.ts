@@ -16,14 +16,18 @@ Summary of tests:
 5. It verifies that the helper returns the first upcoming group for auto-scroll targeting.
 6. It verifies that the initial-scroll helper falls back to the most recent past group when needed.
 7. It verifies that no upcoming group is returned when every event is already in the past.
+8. It verifies that the compact timeline event labels use the correct past and future wording.
+9. It verifies that the shared relative-day helper returns human-readable day labels.
 */
 
 import { describe, expect, it } from 'vitest';
 
 import {
 	buildOfferingTimelineGroups,
+	formatTimelineRelativeDayLabel,
 	findInitialTimelineGroup,
 	findFirstUpcomingTimelineGroup,
+	getTimelineEventCompactLabel,
 	type OfferingTimelineLeagueSource
 } from '../../src/lib/utils/offering-sidebar-timeline';
 
@@ -150,5 +154,24 @@ describe('offerings sidebar timeline helpers', () => {
 		const groups = buildOfferingTimelineGroups([createLeagueSource()], new Date('2026-04-01T12:00:00'));
 
 		expect(findFirstUpcomingTimelineGroup(groups)).toBeNull();
+	});
+
+	it('uses the expected compact labels for past and future season events', () => {
+		// this keeps the sidebar wording aligned with the product language instead of drifting during refactors.
+		expect(getTimelineEventCompactLabel('season-start', false)).toBe('Season Starts');
+		expect(getTimelineEventCompactLabel('season-end', false)).toBe('Season Ends');
+		expect(getTimelineEventCompactLabel('season-start', true)).toBe('Season Started');
+		expect(getTimelineEventCompactLabel('season-end', true)).toBe('Season Ended');
+	});
+
+	it('formats relative day labels with friendly calendar phrasing', () => {
+		// this locks in the human-readable day copy that appears beside each timeline date header.
+		const now = new Date('2026-04-02T09:00:00');
+
+		expect(formatTimelineRelativeDayLabel('2026-04-02T19:00:00', now)).toBe('today');
+		expect(formatTimelineRelativeDayLabel('2026-04-03T19:00:00', now)).toBe('tomorrow');
+		expect(formatTimelineRelativeDayLabel('2026-04-01T19:00:00', now)).toBe('yesterday');
+		expect(formatTimelineRelativeDayLabel('2026-04-04T19:00:00', now)).toBe('in 2 days');
+		expect(formatTimelineRelativeDayLabel('2026-03-31T19:00:00', now)).toBe('2 days ago');
 	});
 });

@@ -58,7 +58,9 @@
 	import { buildPreviousOfferingLinkChoices } from '$lib/utils/offering-linking.js';
 	import {
 		buildOfferingTimelineGroups,
+		formatTimelineRelativeDayLabel,
 		findInitialTimelineGroup,
+		getTimelineEventCompactLabel,
 		type OfferingTimelineLeagueSource
 	} from '$lib/utils/offering-sidebar-timeline.js';
 	import {
@@ -3831,17 +3833,6 @@
 		return IconBallFootball;
 	}
 
-	function timelineEventCompactLabel(
-		type: 'registration-deadline' | 'join-team-deadline' | 'season-start' | 'season-end',
-		isPast: boolean
-	): string {
-		if (type === 'registration-deadline')
-			return isPast ? 'Registration Closed' : 'Registration Deadline';
-		if (type === 'join-team-deadline') return isPast ? 'Join Team Closed' : 'Join Team Deadline';
-		if (type === 'season-start') return isPast ? 'Season Started' : 'Season Start';
-		return isPast ? 'Season Ended' : 'Season End';
-	}
-
 	function columnHeaderFor(group: OfferingGroup, column: 'league' | 'registration' | 'range') {
 		if (column === 'league') return group.offeringType === 'tournament' ? 'Group' : 'League';
 		if (column === 'registration')
@@ -5829,6 +5820,9 @@
 															includeTime
 															wrapperClass="inline"
 														/>
+														<span class="ml-1 normal-case font-medium tracking-normal text-neutral-700">
+															{formatTimelineRelativeDayLabel(group.date)}
+														</span>
 													</p>
 													<div
 														class="border border-neutral-950 bg-white divide-y divide-neutral-950"
@@ -5870,7 +5864,7 @@
 																			<span
 																				class="shrink-0 text-[11px] font-medium uppercase tracking-[0.08em] text-neutral-700 font-sans"
 																			>
-																				{timelineEventCompactLabel(event.type, event.isPast)}
+																				{getTimelineEventCompactLabel(event.type, event.isPast)}
 																			</span>
 																		</button>
 																	{/each}

@@ -1,3 +1,5 @@
+import { intlFormatDistance } from 'date-fns';
+
 export type OfferingTimelineEventType =
 	| 'registration-deadline'
 	| 'join-team-deadline'
@@ -175,4 +177,25 @@ export function findInitialTimelineGroup(
 	groups: OfferingTimelineGroup[]
 ): OfferingTimelineGroup | null {
 	return findFirstUpcomingTimelineGroup(groups) ?? groups[groups.length - 1] ?? null;
+}
+
+export function getTimelineEventCompactLabel(
+	type: OfferingTimelineEventType,
+	isPast: boolean
+): string {
+	if (type === 'registration-deadline')
+		return isPast ? 'Registration Closed' : 'Registration Deadline';
+	if (type === 'join-team-deadline') return isPast ? 'Join Team Closed' : 'Join Team Deadline';
+	if (type === 'season-start') return isPast ? 'Season Started' : 'Season Starts';
+	return isPast ? 'Season Ended' : 'Season Ends';
+}
+
+export function formatTimelineRelativeDayLabel(date: string, now: Date = new Date()): string {
+	const parsed = parseTimelineDate(date);
+	if (!parsed) return '';
+
+	return intlFormatDistance(parsed, now, {
+		unit: 'day',
+		numeric: 'auto'
+	});
 }
