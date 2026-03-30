@@ -3,7 +3,7 @@
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import Breadcrumb from '$lib/components/navigation/Breadcrumb.svelte';
 	import DashboardSidebarPanel from '$lib/components/dashboard/DashboardSidebarPanel.svelte';
-	import DashboardMegaSearchLauncher from '$lib/components/dashboard/DashboardMegaSearchLauncher.svelte';
+	import DashboardSearchLauncher from '$lib/components/dashboard/DashboardSearchLauncher.svelte';
 	import DataTable from '$lib/components/DataTable.svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
 	import SmallStandingsTable from '$lib/components/SmallStandingsTable.svelte';
@@ -289,7 +289,7 @@
 						{/if}
 					</div>
 				</div>
-				<DashboardMegaSearchLauncher wrapperClass="lg:pt-1" />
+				<DashboardSearchLauncher wrapperClass="lg:pt-1" />
 			</div>
 		</div>
 	</header>

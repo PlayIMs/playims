@@ -1,6 +1,6 @@
-import type { MegaSearchCategory, MegaSearchGroup, MegaSearchResult } from './types.js';
+import type { SearchCategory, SearchGroup, SearchResult } from './types.js';
 
-const CATEGORY_LABELS: Record<MegaSearchCategory, string> = {
+const CATEGORY_LABELS: Record<SearchCategory, string> = {
 	pages: 'Pages',
 	members: 'Members',
 	seasons: 'Seasons',
@@ -14,7 +14,7 @@ const CATEGORY_LABELS: Record<MegaSearchCategory, string> = {
 	recent: 'Recent'
 };
 
-export function normalizeMegaSearchValue(value: string | null | undefined): string {
+export function normalizeSearchValue(value: string | null | undefined): string {
 	return (
 		value
 			?.toLowerCase()
@@ -24,25 +24,25 @@ export function normalizeMegaSearchValue(value: string | null | undefined): stri
 	);
 }
 
-function compactMegaSearchValue(value: string): string {
+function compactSearchValue(value: string): string {
 	return value.replace(/\s+/g, '');
 }
 
-function tokenizeMegaSearchValue(value: string): string[] {
+function tokenizeSearchValue(value: string): string[] {
 	if (!value) return [];
 	return value.split(' ').filter(Boolean);
 }
 
-function isSignificantMegaSearchToken(token: string): boolean {
+function isSignificantSearchToken(token: string): boolean {
 	return token.length >= 3;
 }
 
 function scorePhraseValue(query: string, candidate: string): number {
-	const normalizedCandidate = normalizeMegaSearchValue(candidate);
+	const normalizedCandidate = normalizeSearchValue(candidate);
 	if (!normalizedCandidate) return 0;
 
-	const compactQuery = compactMegaSearchValue(query);
-	const compactCandidate = compactMegaSearchValue(normalizedCandidate);
+	const compactQuery = compactSearchValue(query);
+	const compactCandidate = compactSearchValue(normalizedCandidate);
 
 	if (normalizedCandidate === query || compactCandidate === compactQuery) return 400;
 	if (normalizedCandidate.startsWith(query) || compactCandidate.startsWith(compactQuery))
@@ -52,12 +52,12 @@ function scorePhraseValue(query: string, candidate: string): number {
 }
 
 function scoreTokenValue(token: string, candidate: string): number {
-	const normalizedCandidate = normalizeMegaSearchValue(candidate);
+	const normalizedCandidate = normalizeSearchValue(candidate);
 	if (!normalizedCandidate) return 0;
 
-	const compactToken = compactMegaSearchValue(token);
-	const compactCandidate = compactMegaSearchValue(normalizedCandidate);
-	const candidateTokens = tokenizeMegaSearchValue(normalizedCandidate);
+	const compactToken = compactSearchValue(token);
+	const compactCandidate = compactSearchValue(normalizedCandidate);
+	const candidateTokens = tokenizeSearchValue(normalizedCandidate);
 	const isShortToken = compactToken.length <= 1;
 
 	if (normalizedCandidate === token || compactCandidate === compactToken) {
@@ -84,18 +84,18 @@ function scoreTokenValue(token: string, candidate: string): number {
 	return 0;
 }
 
-export function scoreMegaSearchCandidate(
+export function scoreSearchCandidate(
 	query: string,
 	candidates: Array<string | null | undefined>
 ): number {
-	const normalizedQuery = normalizeMegaSearchValue(query);
+	const normalizedQuery = normalizeSearchValue(query);
 	if (!normalizedQuery) return 0;
 	const normalizedCandidates = candidates
-		.map((candidate) => normalizeMegaSearchValue(candidate ?? ''))
+		.map((candidate) => normalizeSearchValue(candidate ?? ''))
 		.filter(Boolean);
 	if (normalizedCandidates.length === 0) return 0;
 
-	const queryTokens = tokenizeMegaSearchValue(normalizedQuery);
+	const queryTokens = tokenizeSearchValue(normalizedQuery);
 	const phraseBonus = normalizedCandidates.reduce(
 		(best, candidate) => Math.max(best, scorePhraseValue(normalizedQuery, candidate)),
 		0
@@ -112,14 +112,14 @@ export function scoreMegaSearchCandidate(
 		if (bestForToken > 0) {
 			total += bestForToken;
 			matchedTokens += 1;
-			if (isSignificantMegaSearchToken(token)) {
+			if (isSignificantSearchToken(token)) {
 				matchedSignificantTokens += 1;
 			}
 		}
 	}
 
 	if (matchedTokens === 0) return 0;
-	const significantQueryTokens = queryTokens.filter(isSignificantMegaSearchToken);
+	const significantQueryTokens = queryTokens.filter(isSignificantSearchToken);
 	if (
 		significantQueryTokens.length >= 2 &&
 		matchedSignificantTokens < Math.max(2, Math.ceil(significantQueryTokens.length * 0.6))
@@ -134,14 +134,14 @@ export function scoreMegaSearchCandidate(
 	);
 }
 
-export function groupMegaSearchResults(
-	results: Array<MegaSearchResult & { score: number }>,
+export function groupSearchResults(
+	results: Array<SearchResult & { score: number }>,
 	options?: {
 		perCategoryLimit?: number;
 		totalLimit?: number;
 	}
 ): {
-	groups: MegaSearchGroup[];
+	groups: SearchGroup[];
 	totalCount: number;
 } {
 	const perCategoryLimit = options?.perCategoryLimit ?? 5;
@@ -151,7 +151,7 @@ export function groupMegaSearchResults(
 		return left.title.localeCompare(right.title, 'en', { sensitivity: 'base' });
 	});
 
-	const grouped = new Map<MegaSearchCategory, MegaSearchResult[]>();
+	const grouped = new Map<SearchCategory, SearchResult[]>();
 	let totalCount = 0;
 	for (const result of sorted) {
 		if (totalCount >= totalLimit) break;

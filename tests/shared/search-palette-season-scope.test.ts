@@ -1,9 +1,9 @@
 /*
 Brief description:
-This file verifies the pure helpers that power mega search season scoping.
+This file verifies the pure helpers that power search palette season scoping.
 
 Deeper explanation:
-Mega search now exposes a season-history scope button and must reset to the org current season every
+Search palette now exposes a season-history scope button and must reset to the org current season every
 time the palette opens. These tests protect the default-season choice, the dropdown labels, and the
 season-slug lookup that turns a user selection into the API query param.
 
@@ -15,9 +15,9 @@ Summary of tests:
 
 import { describe, expect, it } from 'vitest';
 import {
-	buildMegaSearchSeasonDropdownOptions,
-	resolveMegaSearchDefaultSeasonId,
-	resolveMegaSearchScopedSeasonSlug
+	buildSearchPaletteSeasonDropdownOptions,
+	resolveSearchPaletteDefaultSeasonId,
+	resolveSearchPaletteScopedSeasonSlug
 } from '../../src/lib/search/season-scope';
 
 const seasons = [
@@ -50,15 +50,15 @@ const seasons = [
 	}
 ] as const;
 
-describe('mega search season scope helpers', () => {
-	it('defaults mega search to the org current season', () => {
+describe('search palette season scope helpers', () => {
+	it('defaults search palette to the org current season', () => {
 		// reopening the palette should always start from the org current season, not the last viewed page.
-		expect(resolveMegaSearchDefaultSeasonId(seasons)).toBe('season-2');
+		expect(resolveSearchPaletteDefaultSeasonId(seasons)).toBe('season-2');
 	});
 
 	it('builds current, past, and future labels for the season scope dropdown', () => {
 		// the scope picker should clearly explain which season is current versus historical or upcoming.
-		expect(buildMegaSearchSeasonDropdownOptions(seasons, '2026-10-01')).toEqual([
+		expect(buildSearchPaletteSeasonDropdownOptions(seasons, '2026-10-01')).toEqual([
 			{
 				value: 'season-3',
 				label: 'Winter 2027',
@@ -79,7 +79,7 @@ describe('mega search season scope helpers', () => {
 
 	it('resolves the selected season slug for search requests', () => {
 		// the client stores ids, but the search route should receive the stable season slug.
-		expect(resolveMegaSearchScopedSeasonSlug(seasons, 'season-1')).toBe('spring-2026');
-		expect(resolveMegaSearchScopedSeasonSlug(seasons, 'missing-season')).toBeNull();
+		expect(resolveSearchPaletteScopedSeasonSlug(seasons, 'season-1')).toBe('spring-2026');
+		expect(resolveSearchPaletteScopedSeasonSlug(seasons, 'missing-season')).toBeNull();
 	});
 });

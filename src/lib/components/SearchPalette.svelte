@@ -6,44 +6,44 @@
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import {
-		getNextMegaSearchHighlightedIndex,
-		resolveMegaSearchMovementIntent,
-		type MegaSearchMovementFocusMode
+		getNextSearchPaletteHighlightedIndex,
+		resolveSearchPaletteMovementIntent,
+		type SearchPaletteMovementFocusMode
 	} from '$lib/search/keyboard.js';
-	import type { MegaSearchResponse, MegaSearchResult } from '$lib/search/types.js';
+	import type { SearchResponse, SearchResult } from '$lib/search/types.js';
 	import {
-		clearMegaSearchHighlightedIndex,
-		closeMegaSearchPalette,
-		focusMegaSearchPaletteInput,
-		megaSearchErrorMessage,
-		megaSearchGroups,
-		megaSearchHighlightedIndex,
-		megaSearchLoading,
-		megaSearchLoadingSeasonScope,
-		megaSearchOpen,
-		megaSearchQuery,
-		megaSearchScopedSeasonId,
-		megaSearchSeasons,
-		megaSearchTotalCount,
-		openMegaSearchPalette,
-		registerMegaSearchInput,
-		setMegaSearchErrorMessage,
-		setMegaSearchGroups,
-		setMegaSearchHighlightedIndex,
-		setMegaSearchLoading,
-		setMegaSearchLoadingSeasonScope,
-		setMegaSearchQuery,
-		setMegaSearchScopedSeasonId,
-		setMegaSearchSeasons,
-		setMegaSearchTotalCount
+		clearSearchPaletteHighlightedIndex,
+		closeSearchPalette,
+		focusSearchPaletteInput,
+		searchPaletteErrorMessage,
+		searchPaletteGroups,
+		searchPaletteHighlightedIndex,
+		searchPaletteLoading,
+		searchPaletteLoadingSeasonScope,
+		searchPaletteOpen,
+		searchPaletteQuery,
+		searchPaletteScopedSeasonId,
+		searchPaletteSeasons,
+		searchPaletteTotalCount,
+		openSearchPalette,
+		registerSearchPaletteInput,
+		setSearchPaletteErrorMessage,
+		setSearchPaletteGroups,
+		setSearchPaletteHighlightedIndex,
+		setSearchPaletteLoading,
+		setSearchPaletteLoadingSeasonScope,
+		setSearchPaletteQuery,
+		setSearchPaletteScopedSeasonId,
+		setSearchPaletteSeasons,
+		setSearchPaletteTotalCount
 	} from '$lib/search/controller.js';
 	import {
-		buildMegaSearchSeasonDropdownOptions,
-		resolveMegaSearchDefaultSeasonId,
-		resolveMegaSearchScopedSeasonSlug
+		buildSearchPaletteSeasonDropdownOptions,
+		resolveSearchPaletteDefaultSeasonId,
+		resolveSearchPaletteScopedSeasonSlug
 	} from '$lib/search/season-scope.js';
 
-	interface MegaSearchSeasonResponse {
+	interface SearchPaletteSeasonResponse {
 		success: boolean;
 		data?: {
 			currentSeasonId: string | null;
@@ -66,10 +66,10 @@
 	let requestSequence = 0;
 	let allowAutoHighlight = $state(true);
 	let highlightedResultButtons = $state<Array<HTMLButtonElement | null>>([]);
-	let pendingHighlightFocusMode = $state<MegaSearchMovementFocusMode | null>(null);
+	let pendingHighlightFocusMode = $state<SearchPaletteMovementFocusMode | null>(null);
 
 	const flatResults = $derived.by(() =>
-		$megaSearchGroups.flatMap((group) =>
+		$searchPaletteGroups.flatMap((group) =>
 			group.items.map((item) => ({
 				group,
 				item
@@ -78,7 +78,7 @@
 	);
 	const indexedGroups = $derived.by(() => {
 		let nextFlatIndex = 0;
-		return $megaSearchGroups.map((group) => ({
+		return $searchPaletteGroups.map((group) => ({
 			...group,
 			items: group.items.map((item) => ({
 				item,
@@ -89,10 +89,10 @@
 	const hasResults = $derived.by(() => flatResults.length > 0);
 	const todayIsoDate = $derived.by(() => new Date().toISOString().slice(0, 10));
 	const seasonDropdownOptions = $derived.by(() =>
-		buildMegaSearchSeasonDropdownOptions($megaSearchSeasons, todayIsoDate)
+		buildSearchPaletteSeasonDropdownOptions($searchPaletteSeasons, todayIsoDate)
 	);
 	const scopedSeasonSlug = $derived.by(() =>
-		resolveMegaSearchScopedSeasonSlug($megaSearchSeasons, $megaSearchScopedSeasonId)
+		resolveSearchPaletteScopedSeasonSlug($searchPaletteSeasons, $searchPaletteScopedSeasonId)
 	);
 
 	function isEditableTarget(target: EventTarget | null): boolean {
@@ -104,7 +104,8 @@
 
 	function isResultTarget(target: EventTarget | null): boolean {
 		return (
-			target instanceof HTMLElement && target.closest('[data-mega-search-result="true"]') !== null
+			target instanceof HTMLElement &&
+			target.closest('[data-search-palette-result="true"]') !== null
 		);
 	}
 
@@ -115,39 +116,39 @@
 		abortController = null;
 		requestSequence += 1;
 		allowAutoHighlight = true;
-		closeMegaSearchPalette();
+		closeSearchPalette();
 	}
 
 	async function loadSeasonScope(): Promise<void> {
-		if (!browser || !$megaSearchOpen) return;
-		setMegaSearchLoadingSeasonScope(true);
+		if (!browser || !$searchPaletteOpen) return;
+		setSearchPaletteLoadingSeasonScope(true);
 		try {
 			const response = await fetch('/api/intramural-sports/seasons');
-			const payload = (await response.json()) as MegaSearchSeasonResponse;
+			const payload = (await response.json()) as SearchPaletteSeasonResponse;
 			if (!response.ok || !payload.success || !payload.data) {
-				setMegaSearchSeasons([]);
-				setMegaSearchScopedSeasonId('');
+				setSearchPaletteSeasons([]);
+				setSearchPaletteScopedSeasonId('');
 				return;
 			}
 
 			const nextSeasons = payload.data.seasons ?? [];
-			setMegaSearchSeasons(nextSeasons);
-			setMegaSearchScopedSeasonId(resolveMegaSearchDefaultSeasonId(nextSeasons));
+			setSearchPaletteSeasons(nextSeasons);
+			setSearchPaletteScopedSeasonId(resolveSearchPaletteDefaultSeasonId(nextSeasons));
 		} catch {
-			setMegaSearchSeasons([]);
-			setMegaSearchScopedSeasonId('');
+			setSearchPaletteSeasons([]);
+			setSearchPaletteScopedSeasonId('');
 		} finally {
-			setMegaSearchLoadingSeasonScope(false);
+			setSearchPaletteLoadingSeasonScope(false);
 		}
 	}
 
 	async function loadResults(nextQuery: string): Promise<void> {
-		if (!browser || !$megaSearchOpen) return;
+		if (!browser || !$searchPaletteOpen) return;
 		abortController?.abort();
 		abortController = new AbortController();
 		const requestId = ++requestSequence;
-		setMegaSearchLoading(true);
-		setMegaSearchErrorMessage('');
+		setSearchPaletteLoading(true);
+		setSearchPaletteErrorMessage('');
 		try {
 			const url = new URL('/api/search', window.location.origin);
 			const trimmedQuery = nextQuery.trim();
@@ -158,48 +159,50 @@
 				url.searchParams.set('season', scopedSeasonSlug);
 			}
 			const response = await fetch(url, { signal: abortController.signal });
-			const payload = (await response.json()) as MegaSearchResponse;
+			const payload = (await response.json()) as SearchResponse;
 			if (requestId !== requestSequence) return;
 			if (!response.ok || !payload.success) {
-				setMegaSearchErrorMessage(payload.error ?? 'Unable to load search results.');
-				setMegaSearchGroups([]);
-				setMegaSearchTotalCount(0);
+				setSearchPaletteErrorMessage(payload.error ?? 'Unable to load search results.');
+				setSearchPaletteGroups([]);
+				setSearchPaletteTotalCount(0);
 				pendingHighlightFocusMode = null;
-				setMegaSearchHighlightedIndex(-1);
+				setSearchPaletteHighlightedIndex(-1);
 				return;
 			}
-			setMegaSearchGroups(payload.groups ?? []);
-			setMegaSearchTotalCount(payload.totalCount ?? 0);
+			setSearchPaletteGroups(payload.groups ?? []);
+			setSearchPaletteTotalCount(payload.totalCount ?? 0);
 			pendingHighlightFocusMode = null;
-			setMegaSearchHighlightedIndex(allowAutoHighlight && (payload.totalCount ?? 0) > 0 ? 0 : -1);
+			setSearchPaletteHighlightedIndex(
+				allowAutoHighlight && (payload.totalCount ?? 0) > 0 ? 0 : -1
+			);
 		} catch (error) {
 			if ((error as Error).name !== 'AbortError') {
 				if (requestId !== requestSequence) return;
-				setMegaSearchErrorMessage('Unable to load search results.');
-				setMegaSearchGroups([]);
-				setMegaSearchTotalCount(0);
+				setSearchPaletteErrorMessage('Unable to load search results.');
+				setSearchPaletteGroups([]);
+				setSearchPaletteTotalCount(0);
 				pendingHighlightFocusMode = null;
-				setMegaSearchHighlightedIndex(-1);
+				setSearchPaletteHighlightedIndex(-1);
 			}
 		} finally {
 			if (requestId === requestSequence) {
-				setMegaSearchLoading(false);
+				setSearchPaletteLoading(false);
 			}
 		}
 	}
 
-	function moveHighlight(offset: -1 | 1, focusMode: MegaSearchMovementFocusMode): void {
+	function moveHighlight(offset: -1 | 1, focusMode: SearchPaletteMovementFocusMode): void {
 		if (!hasResults) return;
 		pendingHighlightFocusMode = focusMode;
-		const nextIndex = getNextMegaSearchHighlightedIndex(
-			$megaSearchHighlightedIndex,
+		const nextIndex = getNextSearchPaletteHighlightedIndex(
+			$searchPaletteHighlightedIndex,
 			flatResults.length,
 			offset
 		);
-		setMegaSearchHighlightedIndex(nextIndex);
+		setSearchPaletteHighlightedIndex(nextIndex);
 	}
 
-	async function rememberSelection(result: MegaSearchResult): Promise<void> {
+	async function rememberSelection(result: SearchResult): Promise<void> {
 		try {
 			await fetch('/api/search/recent', {
 				method: 'POST',
@@ -221,25 +224,25 @@
 		}
 	}
 
-	async function selectResult(result: MegaSearchResult): Promise<void> {
+	async function selectResult(result: SearchResult): Promise<void> {
 		await rememberSelection(result);
 		closePalette();
 		await goto(result.href);
 	}
 
 	async function selectHighlightedResult(): Promise<void> {
-		if ($megaSearchHighlightedIndex < 0 || $megaSearchHighlightedIndex >= flatResults.length)
+		if ($searchPaletteHighlightedIndex < 0 || $searchPaletteHighlightedIndex >= flatResults.length)
 			return;
-		await selectResult(flatResults[$megaSearchHighlightedIndex]!.item);
+		await selectResult(flatResults[$searchPaletteHighlightedIndex]!.item);
 	}
 
 	function handleSeasonScopeChange(value: string): void {
-		if (!value || value === $megaSearchScopedSeasonId) return;
-		setMegaSearchScopedSeasonId(value);
+		if (!value || value === $searchPaletteScopedSeasonId) return;
+		setSearchPaletteScopedSeasonId(value);
 	}
 
 	function handleInputKeydown(event: KeyboardEvent): void {
-		const movementIntent = resolveMegaSearchMovementIntent(event.key, {
+		const movementIntent = resolveSearchPaletteMovementIntent(event.key, {
 			shiftKey: event.shiftKey,
 			targetIsInput: true
 		});
@@ -262,7 +265,7 @@
 	}
 
 	$effect(() => {
-		registerMegaSearchInput(inputElement);
+		registerSearchPaletteInput(inputElement);
 	});
 
 	$effect(() => {
@@ -270,20 +273,20 @@
 		const handleWindowKeydown = (event: KeyboardEvent) => {
 			const isShortcut = (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey;
 			if (isShortcut && event.key.toLowerCase() === 'k') {
-				if (!$megaSearchOpen && isEditableTarget(event.target)) {
+				if (!$searchPaletteOpen && isEditableTarget(event.target)) {
 					return;
 				}
 				event.preventDefault();
 				event.stopPropagation();
-				if (!$megaSearchOpen) {
-					openMegaSearchPalette('keyboard', '');
+				if (!$searchPaletteOpen) {
+					openSearchPalette('keyboard', '');
 					return;
 				}
-				focusMegaSearchPaletteInput();
+				focusSearchPaletteInput();
 				return;
 			}
 
-			if (!$megaSearchOpen) return;
+			if (!$searchPaletteOpen) return;
 			if (event.key === 'Escape') {
 				event.preventDefault();
 				closePalette();
@@ -303,7 +306,7 @@
 	});
 
 	$effect(() => {
-		if (!browser || !$megaSearchOpen) return;
+		if (!browser || !$searchPaletteOpen) return;
 		const html = document.documentElement;
 		const body = document.body;
 		const previousHtmlOverflow = html.style.overflow;
@@ -317,14 +320,14 @@
 	});
 
 	$effect(() => {
-		if (!browser || !$megaSearchOpen) return;
+		if (!browser || !$searchPaletteOpen) return;
 		allowAutoHighlight = true;
 		void loadSeasonScope();
 	});
 
 	$effect(() => {
-		if (!browser || !$megaSearchOpen) return;
-		const highlightedIndex = $megaSearchHighlightedIndex;
+		if (!browser || !$searchPaletteOpen) return;
+		const highlightedIndex = $searchPaletteHighlightedIndex;
 		const focusMode = pendingHighlightFocusMode;
 		if (highlightedIndex < 0) {
 			pendingHighlightFocusMode = null;
@@ -332,7 +335,7 @@
 		}
 
 		void tick().then(() => {
-			if (!$megaSearchOpen || highlightedIndex !== $megaSearchHighlightedIndex) {
+			if (!$searchPaletteOpen || highlightedIndex !== $searchPaletteHighlightedIndex) {
 				return;
 			}
 
@@ -359,12 +362,12 @@
 	});
 
 	$effect(() => {
-		if (!browser || !$megaSearchOpen) return;
+		if (!browser || !$searchPaletteOpen) return;
 		scopedSeasonSlug;
 		if (debounceTimer) clearTimeout(debounceTimer);
-		const delay = $megaSearchQuery.trim().length > 0 ? 150 : 0;
+		const delay = $searchPaletteQuery.trim().length > 0 ? 150 : 0;
 		debounceTimer = setTimeout(() => {
-			void loadResults($megaSearchQuery);
+			void loadResults($searchPaletteQuery);
 		}, delay);
 		return () => {
 			if (debounceTimer) clearTimeout(debounceTimer);
@@ -372,7 +375,7 @@
 	});
 
 	function handleResultKeydown(event: KeyboardEvent): void {
-		const movementIntent = resolveMegaSearchMovementIntent(event.key, {
+		const movementIntent = resolveSearchPaletteMovementIntent(event.key, {
 			shiftKey: event.shiftKey,
 			targetIsResult: true
 		});
@@ -397,17 +400,17 @@
 	}
 
 	function handleResultPointerMove(flatIndex: number): void {
-		if (flatIndex === $megaSearchHighlightedIndex) {
+		if (flatIndex === $searchPaletteHighlightedIndex) {
 			return;
 		}
 
 		allowAutoHighlight = true;
 		pendingHighlightFocusMode = null;
-		setMegaSearchHighlightedIndex(flatIndex);
+		setSearchPaletteHighlightedIndex(flatIndex);
 	}
 </script>
 
-{#if $megaSearchOpen}
+{#if $searchPaletteOpen}
 	<div class="fixed inset-0 z-80 bg-secondary-950/36" role="presentation" onclick={closePalette}>
 		<div
 			class="pointer-events-none flex w-full justify-center px-4"
@@ -418,21 +421,21 @@
 				role="dialog"
 				tabindex="-1"
 				aria-modal="true"
-				aria-label="Mega search"
+				aria-label="Search palette"
 				onclick={(event) => event.stopPropagation()}
 				onkeydown={(event) => event.stopPropagation()}
 				onmouseleave={() => {
 					allowAutoHighlight = false;
-					clearMegaSearchHighlightedIndex();
+					clearSearchPaletteHighlightedIndex();
 				}}
 			>
 				<div class="border-b border-neutral-500 bg-neutral-25 px-4 py-4">
 					<div class="flex items-start gap-2">
 						<div class="min-w-0 flex-1">
 							<SearchInput
-								id="mega-search-input"
+								id="search-palette-input"
 								label="Search anything"
-								value={$megaSearchQuery}
+								value={$searchPaletteQuery}
 								bind:inputElement
 								placeholder="Search pages, members, offerings, teams, facilities, and more"
 								inputClass="input-neutral min-h-12 pl-10 pr-10 text-base"
@@ -442,18 +445,18 @@
 								onInputKeydown={handleInputKeydown}
 								on:input={(event) => {
 									allowAutoHighlight = true;
-									setMegaSearchQuery(event.detail.value);
+									setSearchPaletteQuery(event.detail.value);
 								}}
 							/>
 						</div>
 						<ListboxDropdown
 							options={seasonDropdownOptions}
-							value={$megaSearchScopedSeasonId}
+							value={$searchPaletteScopedSeasonId}
 							ariaLabel="Search season scope"
-							emptyText={$megaSearchLoadingSeasonScope
+							emptyText={$searchPaletteLoadingSeasonScope
 								? 'Loading seasons...'
 								: 'No seasons configured.'}
-							disabled={$megaSearchLoadingSeasonScope || seasonDropdownOptions.length === 0}
+							disabled={$searchPaletteLoadingSeasonScope || seasonDropdownOptions.length === 0}
 							searchEnabled={seasonDropdownOptions.length > 8}
 							searchPlaceholder="Search seasons"
 							searchAriaLabel="Search seasons"
@@ -472,10 +475,10 @@
 						class="mt-2 flex justify-end text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-700"
 					>
 						<span
-							>{$megaSearchLoading
+							>{$searchPaletteLoading
 								? 'Searching'
-								: $megaSearchTotalCount > 0
-									? `${$megaSearchTotalCount} Results`
+								: $searchPaletteTotalCount > 0
+									? `${$searchPaletteTotalCount} Results`
 									: 'Ready'}</span
 						>
 					</div>
@@ -484,9 +487,9 @@
 				<div
 					class="max-h-[min(70vh,36rem)] overflow-y-auto bg-white scrollbar-thin scrollbar-thumb-secondary-500 scrollbar-track-secondary-300 scrollbar-corner-secondary-300 hover:scrollbar-thumb-secondary-500 active:scrollbar-thumb-secondary-500 scrollbar-hover:scrollbar-thumb-secondary-400 scrollbar-active:scrollbar-thumb-secondary-600"
 				>
-					{#if $megaSearchErrorMessage}
-						<p class="px-4 py-6 text-sm text-primary-800">{$megaSearchErrorMessage}</p>
-					{:else if $megaSearchLoading && !hasResults}
+					{#if $searchPaletteErrorMessage}
+						<p class="px-4 py-6 text-sm text-primary-800">{$searchPaletteErrorMessage}</p>
+					{:else if $searchPaletteLoading && !hasResults}
 						<p class="px-4 py-6 text-sm text-neutral-950">Loading results...</p>
 					{:else if !hasResults}
 						<p class="px-4 py-6 text-sm text-neutral-950">No matches found.</p>
@@ -503,9 +506,9 @@
 										<button
 											bind:this={highlightedResultButtons[entry.flatIndex]}
 											type="button"
-											data-mega-search-result="true"
+											data-search-palette-result="true"
 											class={`flex w-full items-start justify-between gap-3 px-4 py-3 text-left cursor-pointer ${
-												entry.flatIndex === $megaSearchHighlightedIndex
+												entry.flatIndex === $searchPaletteHighlightedIndex
 													? 'bg-primary-50'
 													: 'bg-white hover:bg-neutral-25'
 											}`}

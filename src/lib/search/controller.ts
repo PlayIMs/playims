@@ -1,19 +1,19 @@
 import { browser } from '$app/environment';
 import { get, writable } from 'svelte/store';
-import type { MegaSearchGroup } from './types.js';
+import type { SearchGroup } from './types.js';
 
-export type MegaSearchPaletteSource = 'keyboard' | 'launcher';
+export type SearchPaletteSource = 'keyboard' | 'launcher';
 
-export const megaSearchOpen = writable(false);
-export const megaSearchQuery = writable('');
-export const megaSearchGroups = writable<MegaSearchGroup[]>([]);
-export const megaSearchTotalCount = writable(0);
-export const megaSearchLoading = writable(false);
-export const megaSearchErrorMessage = writable('');
-export const megaSearchHighlightedIndex = writable(-1);
-export const megaSearchScopedSeasonId = writable('');
-export const megaSearchLoadingSeasonScope = writable(false);
-export const megaSearchSeasons = writable<
+export const searchPaletteOpen = writable(false);
+export const searchPaletteQuery = writable('');
+export const searchPaletteGroups = writable<SearchGroup[]>([]);
+export const searchPaletteTotalCount = writable(0);
+export const searchPaletteLoading = writable(false);
+export const searchPaletteErrorMessage = writable('');
+export const searchPaletteHighlightedIndex = writable(-1);
+export const searchPaletteScopedSeasonId = writable('');
+export const searchPaletteLoadingSeasonScope = writable(false);
+export const searchPaletteSeasons = writable<
 	Array<{
 		id: string;
 		name: string;
@@ -24,119 +24,116 @@ export const megaSearchSeasons = writable<
 		isActive: boolean;
 	}>
 >([]);
-export const megaSearchSource = writable<MegaSearchPaletteSource>('keyboard');
+export const searchPaletteSource = writable<SearchPaletteSource>('keyboard');
 
-let megaSearchInputElement: HTMLInputElement | null = null;
-let pendingMegaSearchInputFocus = false;
+let searchPaletteInputElement: HTMLInputElement | null = null;
+let pendingSearchPaletteInputFocus = false;
 let lastFocusedElement: HTMLElement | null = null;
 
 function focusRegisteredInput(): void {
-	if (!browser || !megaSearchInputElement) return;
+	if (!browser || !searchPaletteInputElement) return;
 
-	megaSearchInputElement.focus();
-	const valueLength = megaSearchInputElement.value.length;
-	megaSearchInputElement.setSelectionRange(valueLength, valueLength);
-	pendingMegaSearchInputFocus = false;
+	searchPaletteInputElement.focus();
+	const valueLength = searchPaletteInputElement.value.length;
+	searchPaletteInputElement.setSelectionRange(valueLength, valueLength);
+	pendingSearchPaletteInputFocus = false;
 }
 
-function resetMegaSearchSessionState(): void {
-	megaSearchGroups.set([]);
-	megaSearchTotalCount.set(0);
-	megaSearchLoading.set(false);
-	megaSearchErrorMessage.set('');
-	megaSearchHighlightedIndex.set(-1);
-	megaSearchSeasons.set([]);
-	megaSearchScopedSeasonId.set('');
-	megaSearchLoadingSeasonScope.set(false);
+function resetSearchPaletteSessionState(): void {
+	searchPaletteGroups.set([]);
+	searchPaletteTotalCount.set(0);
+	searchPaletteLoading.set(false);
+	searchPaletteErrorMessage.set('');
+	searchPaletteHighlightedIndex.set(-1);
+	searchPaletteSeasons.set([]);
+	searchPaletteScopedSeasonId.set('');
+	searchPaletteLoadingSeasonScope.set(false);
 }
 
-export function resolveMegaSearchShortcutHint(platformText: string): 'Cmd + K' | 'Ctrl + K' {
+export function resolveSearchPaletteShortcutHint(platformText: string): 'Cmd + K' | 'Ctrl + K' {
 	return /(mac|iphone|ipad|ipod)/.test(platformText.toLowerCase()) ? 'Cmd + K' : 'Ctrl + K';
 }
 
-export function registerMegaSearchInput(element: HTMLInputElement | null): void {
-	megaSearchInputElement = element;
-	if (pendingMegaSearchInputFocus && megaSearchInputElement) {
+export function registerSearchPaletteInput(element: HTMLInputElement | null): void {
+	searchPaletteInputElement = element;
+	if (pendingSearchPaletteInputFocus && searchPaletteInputElement) {
 		queueMicrotask(() => {
 			focusRegisteredInput();
 		});
 	}
 }
 
-export function focusMegaSearchPaletteInput(): void {
-	pendingMegaSearchInputFocus = true;
+export function focusSearchPaletteInput(): void {
+	pendingSearchPaletteInputFocus = true;
 	queueMicrotask(() => {
 		focusRegisteredInput();
 	});
 }
 
-export function openMegaSearchPalette(
-	source: MegaSearchPaletteSource,
-	initialQuery?: string
-): void {
-	const wasOpen = get(megaSearchOpen);
+export function openSearchPalette(source: SearchPaletteSource, initialQuery?: string): void {
+	const wasOpen = get(searchPaletteOpen);
 	if (!wasOpen) {
 		lastFocusedElement =
 			browser && document.activeElement instanceof HTMLElement ? document.activeElement : null;
-		resetMegaSearchSessionState();
-		megaSearchOpen.set(true);
+		resetSearchPaletteSessionState();
+		searchPaletteOpen.set(true);
 	}
 
-	megaSearchSource.set(source);
+	searchPaletteSource.set(source);
 	if (typeof initialQuery === 'string') {
-		megaSearchQuery.set(initialQuery);
+		searchPaletteQuery.set(initialQuery);
 	}
 
-	focusMegaSearchPaletteInput();
+	focusSearchPaletteInput();
 }
 
-export function closeMegaSearchPalette(): void {
-	megaSearchOpen.set(false);
-	megaSearchQuery.set('');
-	resetMegaSearchSessionState();
-	pendingMegaSearchInputFocus = false;
+export function closeSearchPalette(): void {
+	searchPaletteOpen.set(false);
+	searchPaletteQuery.set('');
+	resetSearchPaletteSessionState();
+	pendingSearchPaletteInputFocus = false;
 	if (browser) {
 		lastFocusedElement?.focus();
 	}
 }
 
-export function setMegaSearchQuery(value: string): void {
-	megaSearchQuery.set(value);
+export function setSearchPaletteQuery(value: string): void {
+	searchPaletteQuery.set(value);
 }
 
-export function setMegaSearchGroups(value: MegaSearchGroup[]): void {
-	megaSearchGroups.set(value);
+export function setSearchPaletteGroups(value: SearchGroup[]): void {
+	searchPaletteGroups.set(value);
 }
 
-export function setMegaSearchTotalCount(value: number): void {
-	megaSearchTotalCount.set(value);
+export function setSearchPaletteTotalCount(value: number): void {
+	searchPaletteTotalCount.set(value);
 }
 
-export function setMegaSearchLoading(value: boolean): void {
-	megaSearchLoading.set(value);
+export function setSearchPaletteLoading(value: boolean): void {
+	searchPaletteLoading.set(value);
 }
 
-export function setMegaSearchErrorMessage(value: string): void {
-	megaSearchErrorMessage.set(value);
+export function setSearchPaletteErrorMessage(value: string): void {
+	searchPaletteErrorMessage.set(value);
 }
 
-export function setMegaSearchHighlightedIndex(value: number): void {
-	megaSearchHighlightedIndex.set(value);
+export function setSearchPaletteHighlightedIndex(value: number): void {
+	searchPaletteHighlightedIndex.set(value);
 }
 
-export function clearMegaSearchHighlightedIndex(): void {
-	megaSearchHighlightedIndex.set(-1);
+export function clearSearchPaletteHighlightedIndex(): void {
+	searchPaletteHighlightedIndex.set(-1);
 }
 
-export function setMegaSearchScopedSeasonId(value: string): void {
-	megaSearchScopedSeasonId.set(value);
+export function setSearchPaletteScopedSeasonId(value: string): void {
+	searchPaletteScopedSeasonId.set(value);
 }
 
-export function setMegaSearchLoadingSeasonScope(value: boolean): void {
-	megaSearchLoadingSeasonScope.set(value);
+export function setSearchPaletteLoadingSeasonScope(value: boolean): void {
+	searchPaletteLoadingSeasonScope.set(value);
 }
 
-export function setMegaSearchSeasons(
+export function setSearchPaletteSeasons(
 	value: Array<{
 		id: string;
 		name: string;
@@ -147,31 +144,31 @@ export function setMegaSearchSeasons(
 		isActive: boolean;
 	}>
 ): void {
-	megaSearchSeasons.set(value);
+	searchPaletteSeasons.set(value);
 }
 
-export function readMegaSearchControllerState(): {
+export function readSearchPaletteControllerState(): {
 	open: boolean;
 	query: string;
 	highlightedIndex: number;
 	scopedSeasonId: string;
-	source: MegaSearchPaletteSource;
+	source: SearchPaletteSource;
 } {
 	return {
-		open: get(megaSearchOpen),
-		query: get(megaSearchQuery),
-		highlightedIndex: get(megaSearchHighlightedIndex),
-		scopedSeasonId: get(megaSearchScopedSeasonId),
-		source: get(megaSearchSource)
+		open: get(searchPaletteOpen),
+		query: get(searchPaletteQuery),
+		highlightedIndex: get(searchPaletteHighlightedIndex),
+		scopedSeasonId: get(searchPaletteScopedSeasonId),
+		source: get(searchPaletteSource)
 	};
 }
 
-export function resetMegaSearchControllerState(): void {
-	megaSearchOpen.set(false);
-	megaSearchQuery.set('');
-	megaSearchSource.set('keyboard');
-	resetMegaSearchSessionState();
-	megaSearchInputElement = null;
-	pendingMegaSearchInputFocus = false;
+export function resetSearchPaletteControllerState(): void {
+	searchPaletteOpen.set(false);
+	searchPaletteQuery.set('');
+	searchPaletteSource.set('keyboard');
+	resetSearchPaletteSessionState();
+	searchPaletteInputElement = null;
+	pendingSearchPaletteInputFocus = false;
 	lastFocusedElement = null;
 }

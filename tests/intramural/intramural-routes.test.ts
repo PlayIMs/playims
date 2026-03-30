@@ -134,12 +134,10 @@ const createRouteEvent = (input?: {
 // this is the shared valid create-offering payload.
 // the helper keeps one known-good baseline so each test can override only the business rule it is
 // targeting instead of rebuilding the entire nested request body from scratch.
-const createOfferingPayload = (
-	overrides?: {
-		offering?: Record<string, unknown>;
-		leagues?: Array<Record<string, unknown>>;
-	}
-) => ({
+const createOfferingPayload = (overrides?: {
+	offering?: Record<string, unknown>;
+	leagues?: Array<Record<string, unknown>>;
+}) => ({
 	offering: {
 		seasonId: 'season-1',
 		name: 'Basketball',
@@ -155,32 +153,30 @@ const createOfferingPayload = (
 		description: null,
 		...(overrides?.offering ?? {})
 	},
-	leagues:
-		overrides?.leagues ??
-		[
-			{
-				name: 'Open League',
-				slug: 'open-league',
-				stackOrder: 1,
-				description: null,
-				seasonId: 'season-1',
-				gender: 'mixed',
-				skillLevel: 'all',
-				regStartDate: '2026-03-01T09:00',
-				regEndDate: '2026-03-10T09:00',
-				seasonStartDate: '2026-03-20',
-				seasonEndDate: '2026-04-20',
-				hasPostseason: false,
-				postseasonStartDate: null,
-				postseasonEndDate: null,
-				hasPreseason: false,
-				preseasonStartDate: null,
-				preseasonEndDate: null,
-				isActive: true,
-				isLocked: false,
-				imageUrl: null
-			}
-		]
+	leagues: overrides?.leagues ?? [
+		{
+			name: 'Open League',
+			slug: 'open-league',
+			stackOrder: 1,
+			description: null,
+			seasonId: 'season-1',
+			gender: 'mixed',
+			skillLevel: 'all',
+			regStartDate: '2026-03-01T09:00',
+			regEndDate: '2026-03-10T09:00',
+			seasonStartDate: '2026-03-20',
+			seasonEndDate: '2026-04-20',
+			hasPostseason: false,
+			postseasonStartDate: null,
+			postseasonEndDate: null,
+			hasPreseason: false,
+			preseasonStartDate: null,
+			preseasonEndDate: null,
+			isActive: true,
+			isLocked: false,
+			imageUrl: null
+		}
+	]
 });
 
 // this payload mirrors adding leagues or tournament groups to an existing offering.
@@ -216,13 +212,11 @@ const createLeaguePayload = (overrides?: Partial<Record<string, unknown>>) => ({
 
 // this payload is for updating a single league.
 // it separates route-event setup from domain-data setup, which makes the test intent easier to read.
-const createLeagueUpdatePayload = (
-	overrides?: {
-		league?: Record<string, unknown>;
-		leagueId?: string;
-		offeringId?: string;
-	}
-) => ({
+const createLeagueUpdatePayload = (overrides?: {
+	league?: Record<string, unknown>;
+	leagueId?: string;
+	offeringId?: string;
+}) => ({
 	leagueId: overrides?.leagueId ?? 'league-1',
 	offeringId: overrides?.offeringId ?? 'offering-1',
 	league: {
@@ -250,12 +244,10 @@ const createLeagueUpdatePayload = (
 	}
 });
 
-const createOfferingUpdatePayload = (
-	overrides?: {
-		offering?: Record<string, unknown>;
-		offeringId?: string;
-	}
-) => ({
+const createOfferingUpdatePayload = (overrides?: {
+	offering?: Record<string, unknown>;
+	offeringId?: string;
+}) => ({
 	offeringId: overrides?.offeringId ?? 'offering-1',
 	offering: {
 		name: 'Basketball',
@@ -274,13 +266,11 @@ const createOfferingUpdatePayload = (
 // this helper builds valid season payloads and only includes optional nested objects when needed.
 // that matters because undefined optional objects and present optional objects can trigger different
 // route behavior, so the helper preserves that distinction.
-const createSeasonPayload = (
-	overrides?: {
-		season?: Record<string, unknown>;
-		currentSeasonTransition?: Record<string, unknown>;
-		copyOptions?: Record<string, unknown>;
-	}
-) => ({
+const createSeasonPayload = (overrides?: {
+	season?: Record<string, unknown>;
+	currentSeasonTransition?: Record<string, unknown>;
+	copyOptions?: Record<string, unknown>;
+}) => ({
 	season: {
 		name: 'Spring 2026',
 		slug: 'spring-2026',
@@ -795,7 +785,7 @@ describe('intramural routes', () => {
 	});
 
 	it('lists season history with the current season id for season-scoped clients', async () => {
-		// mega search needs a lightweight season list so it can reset its scope to the org current season.
+		// search palette needs a lightweight season list so it can reset its scope to the org current season.
 		mocks.dbOps.seasons.getByClientId.mockResolvedValue([
 			{
 				id: 'season-1',

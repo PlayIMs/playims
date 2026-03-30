@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import DashboardMegaSearchLauncher from '$lib/components/dashboard/DashboardMegaSearchLauncher.svelte';
+	import DashboardSearchLauncher from '$lib/components/dashboard/DashboardSearchLauncher.svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
 	import {
 		IconBell,
@@ -87,7 +87,7 @@
 						{settingsTitle}
 					</h1>
 				</div>
-				<DashboardMegaSearchLauncher />
+				<DashboardSearchLauncher />
 			</div>
 		</div>
 	</header>

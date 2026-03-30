@@ -1,6 +1,6 @@
 /*
 Brief description:
-This file verifies the mega search GET route for public and authenticated requests.
+This file verifies the search palette GET route for public and authenticated requests.
 
 Deeper explanation:
 The route is the user-facing contract for live search. It needs to return grouped results, enforce
@@ -126,7 +126,7 @@ const createEvent = (input: {
 		}
 	}) as any;
 
-describe('mega search GET route', () => {
+describe('search palette GET route', () => {
 	beforeEach(() => {
 		// each test starts from a neutral empty-search baseline and overrides only what matters.
 		vi.clearAllMocks();
@@ -573,7 +573,7 @@ describe('mega search GET route', () => {
 		expect(teamGroup?.items[0]?.href).toBe(
 			'/dashboard/offerings/fall-2026/soccer/co-rec/division-a/soccer-stars'
 		);
-		expect(teamGroup?.items[0]?.subtitle).toBe('Soccer • Co-Rec • Division A');
+		expect(teamGroup?.items[0]?.subtitle).toBe('Soccer â€¢ Co-Rec â€¢ Division A');
 	});
 
 	it('prioritizes team results over division results for exact team-name matches', async () => {

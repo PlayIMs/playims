@@ -5,8 +5,8 @@ import {
 	requireAuthenticatedClientId,
 	requireAuthenticatedUserId
 } from '$lib/server/client-context';
-import { storeMegaSearchRecentSelection } from '$lib/server/search/recent.js';
-import type { MegaSearchRecentPayload } from '$lib/search/types.js';
+import { storeSearchRecentSelection } from '$lib/server/search/recent.js';
+import type { SearchRecentPayload } from '$lib/search/types.js';
 import type { RequestHandler } from './$types';
 
 const recentPayloadSchema = z.object({
@@ -37,10 +37,10 @@ export const POST: RequestHandler = async (event) => {
 	}
 
 	const dbOps = getCentralDbOps(event);
-	await storeMegaSearchRecentSelection(dbOps, {
+	await storeSearchRecentSelection(dbOps, {
 		userId: requireAuthenticatedUserId(event.locals),
 		clientId: requireAuthenticatedClientId(event.locals),
-		payload: parsed.data as MegaSearchRecentPayload
+		payload: parsed.data as SearchRecentPayload
 	});
 
 	return json({ success: true });

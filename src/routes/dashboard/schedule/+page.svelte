@@ -14,7 +14,7 @@
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
-	import DashboardMegaSearchLauncher from '$lib/components/dashboard/DashboardMegaSearchLauncher.svelte';
+	import DashboardSearchLauncher from '$lib/components/dashboard/DashboardSearchLauncher.svelte';
 	import ScheduleDayView from '$lib/components/dashboard/schedule/ScheduleDayView.svelte';
 	import ScheduleWeekView from '$lib/components/dashboard/schedule/ScheduleWeekView.svelte';
 	import ScheduleMonthView from '$lib/components/dashboard/schedule/ScheduleMonthView.svelte';
@@ -371,7 +371,7 @@
 						{pageLabel}
 					</h1>
 				</div>
-				<DashboardMegaSearchLauncher />
+				<DashboardSearchLauncher />
 			</div>
 		</div>
 	</header>

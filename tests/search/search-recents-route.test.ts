@@ -1,6 +1,6 @@
 /*
 Brief description:
-This file verifies the mega search recent-selection POST route.
+This file verifies the search palette recent-selection POST route.
 
 Deeper explanation:
 Recent selections are server-synced so users can see familiar results across devices. These tests
@@ -83,7 +83,7 @@ const createEvent = (input?: {
 		}
 	}) as any;
 
-describe('mega search recent POST route', () => {
+describe('search palette recent POST route', () => {
 	beforeEach(() => {
 		// these defaults represent the common new-selection path.
 		vi.clearAllMocks();

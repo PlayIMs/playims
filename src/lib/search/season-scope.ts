@@ -12,7 +12,7 @@ function sortSeasonsDescending<T extends SearchSeasonLike>(a: T, b: T): number {
 	return b.startDate.localeCompare(a.startDate);
 }
 
-export function resolveMegaSearchDefaultSeasonId<T extends SearchSeasonLike>(
+export function resolveSearchPaletteDefaultSeasonId<T extends SearchSeasonLike>(
 	seasons: readonly T[]
 ): string {
 	const sortedSeasons = [...seasons].sort(sortSeasonsDescending);
@@ -22,7 +22,7 @@ export function resolveMegaSearchDefaultSeasonId<T extends SearchSeasonLike>(
 	return activeSeason?.id ?? sortedSeasons[0]?.id ?? '';
 }
 
-export function resolveMegaSearchSeasonStatusLabel(
+export function resolveSearchPaletteSeasonStatusLabel(
 	season: SearchSeasonLike,
 	todayIsoDate: string
 ): 'CURRENT' | 'PAST' | 'FUTURE' {
@@ -30,7 +30,7 @@ export function resolveMegaSearchSeasonStatusLabel(
 	return season.startDate > todayIsoDate ? 'FUTURE' : 'PAST';
 }
 
-export function buildMegaSearchSeasonDropdownOptions<T extends SearchSeasonLike>(
+export function buildSearchPaletteSeasonDropdownOptions<T extends SearchSeasonLike>(
 	seasons: readonly T[],
 	todayIsoDate: string
 ): Array<{ value: string; label: string; statusLabel: 'CURRENT' | 'PAST' | 'FUTURE' }> {
@@ -40,11 +40,11 @@ export function buildMegaSearchSeasonDropdownOptions<T extends SearchSeasonLike>
 		.map((season) => ({
 			value: season.id,
 			label: season.name,
-			statusLabel: resolveMegaSearchSeasonStatusLabel(season, todayIsoDate)
+			statusLabel: resolveSearchPaletteSeasonStatusLabel(season, todayIsoDate)
 		}));
 }
 
-export function resolveMegaSearchScopedSeasonSlug<T extends SearchSeasonLike>(
+export function resolveSearchPaletteScopedSeasonSlug<T extends SearchSeasonLike>(
 	seasons: readonly T[],
 	seasonId: string | null | undefined
 ): string | null {

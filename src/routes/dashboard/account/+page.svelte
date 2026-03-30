@@ -23,7 +23,7 @@
 		IconUser
 	} from '@tabler/icons-svelte';
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
-	import DashboardMegaSearchLauncher from '$lib/components/dashboard/DashboardMegaSearchLauncher.svelte';
+	import DashboardSearchLauncher from '$lib/components/dashboard/DashboardSearchLauncher.svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
@@ -658,7 +658,7 @@
 						Account
 					</h1>
 				</div>
-				<DashboardMegaSearchLauncher />
+				<DashboardSearchLauncher />
 			</div>
 		</div>
 	</header>
@@ -1184,7 +1184,7 @@
 						<div
 							class="p-4 border-b border-neutral-950 bg-neutral-600/66 flex items-center justify-between gap-3"
 						>
-								<h2 class="dashboard-section-title text-neutral-950">Account Snapshot</h2>
+							<h2 class="dashboard-section-title text-neutral-950">Account Snapshot</h2>
 							<button
 								type="button"
 								class="inline-flex h-7 w-7 items-center justify-center text-secondary-900 hover:text-secondary-950 cursor-pointer"
@@ -1323,7 +1323,7 @@
 						<div
 							class="p-4 border-b border-neutral-950 bg-neutral-600/66 flex items-center justify-between gap-3"
 						>
-								<h2 class="dashboard-section-title text-neutral-950">Session Controls</h2>
+							<h2 class="dashboard-section-title text-neutral-950">Session Controls</h2>
 							<button
 								type="button"
 								class="inline-flex h-7 w-7 items-center justify-center text-secondary-900 hover:text-secondary-950 cursor-pointer"
@@ -1446,7 +1446,7 @@
 						<div
 							class="p-4 border-b border-neutral-950 bg-neutral-600/66 flex items-center justify-between gap-3"
 						>
-								<h2 class="dashboard-section-title text-neutral-950">Activity Highlights</h2>
+							<h2 class="dashboard-section-title text-neutral-950">Activity Highlights</h2>
 							<button
 								type="button"
 								class="inline-flex h-7 w-7 items-center justify-center text-secondary-900 hover:text-secondary-950 cursor-pointer"

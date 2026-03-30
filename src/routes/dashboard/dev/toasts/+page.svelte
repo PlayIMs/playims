@@ -28,7 +28,7 @@
 		type ToastRecord,
 		type ToastVariant
 	} from '$lib/toasts';
-	import DashboardMegaSearchLauncher from '$lib/components/dashboard/DashboardMegaSearchLauncher.svelte';
+	import DashboardSearchLauncher from '$lib/components/dashboard/DashboardSearchLauncher.svelte';
 
 	type DurationMode = 'default' | 'custom' | 'persistent';
 	type PreviewViewport = 'desktop' | 'mobile';
@@ -579,7 +579,7 @@
 						</p>
 					</div>
 				</div>
-				<DashboardMegaSearchLauncher variant="compact" />
+				<DashboardSearchLauncher variant="compact" />
 			</div>
 		</div>
 

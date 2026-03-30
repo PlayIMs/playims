@@ -1,4 +1,4 @@
-export type MegaSearchCategory =
+export type SearchCategory =
 	| 'pages'
 	| 'members'
 	| 'seasons'
@@ -11,10 +11,10 @@ export type MegaSearchCategory =
 	| 'shortcuts'
 	| 'recent';
 
-export interface MegaSearchResult {
+export interface SearchResult {
 	id: string;
 	resultKey: string;
-	category: MegaSearchCategory;
+	category: SearchCategory;
 	title: string;
 	subtitle: string | null;
 	href: string;
@@ -23,23 +23,23 @@ export interface MegaSearchResult {
 	icon?: string | null;
 }
 
-export interface MegaSearchGroup {
-	category: MegaSearchCategory;
+export interface SearchGroup {
+	category: SearchCategory;
 	label: string;
-	items: MegaSearchResult[];
+	items: SearchResult[];
 }
 
-export interface MegaSearchResponse {
+export interface SearchResponse {
 	success: boolean;
 	query: string;
-	groups: MegaSearchGroup[];
+	groups: SearchGroup[];
 	totalCount: number;
 	error?: string;
 }
 
-export interface MegaSearchRecentPayload {
+export interface SearchRecentPayload {
 	resultKey: string;
-	category: Exclude<MegaSearchCategory, 'recent'> | 'recent';
+	category: Exclude<SearchCategory, 'recent'> | 'recent';
 	title: string;
 	subtitle?: string | null;
 	href: string;

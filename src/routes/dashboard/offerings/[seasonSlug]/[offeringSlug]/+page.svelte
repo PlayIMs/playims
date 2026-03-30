@@ -30,7 +30,7 @@
 		toFixedStyle
 	} from '$lib/components/floating-position.js';
 	import DashboardSidebarPanel from '$lib/components/dashboard/DashboardSidebarPanel.svelte';
-	import DashboardMegaSearchLauncher from '$lib/components/dashboard/DashboardMegaSearchLauncher.svelte';
+	import DashboardSearchLauncher from '$lib/components/dashboard/DashboardSearchLauncher.svelte';
 	import SplitAddAction from '$lib/components/dashboard/SplitAddAction.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
@@ -2631,7 +2631,7 @@
 						{/if}
 					</div>
 				</div>
-				<DashboardMegaSearchLauncher wrapperClass="lg:pt-1" />
+				<DashboardSearchLauncher wrapperClass="lg:pt-1" />
 			</div>
 		</div>
 	</header>
@@ -3744,7 +3744,7 @@
 				<button
 					type="button"
 					class="inline-flex h-7 items-center justify-center gap-1 border border-primary-600 bg-primary-500 px-2.5 text-[11px] font-semibold leading-none cursor-pointer hover:bg-primary-600 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
-												style:color="var(--color-primary-foreground)"
+					style:color="var(--color-primary-foreground)"
 					disabled={divisionLockSubmittingId === activeDivisionLockTarget.division.id}
 					onclick={() => {
 						void toggleDivisionLock(activeDivisionLockTarget);

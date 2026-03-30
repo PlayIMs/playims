@@ -1,9 +1,9 @@
 /*
 Brief description:
-This file verifies the pure helper logic that powers mega search ranking, grouping, and deep links.
+This file verifies the pure helper logic that powers search palette ranking, grouping, and deep links.
 
 Deeper explanation:
-Mega search needs stable, predictable behavior before any UI is layered on top. These tests lock in
+Search palette needs stable, predictable behavior before any UI is layered on top. These tests lock in
 the query normalization rules, the relevance ordering strategy, the group caps, and the href builders
 that convert search matches into navigable destinations across the app.
 
@@ -20,17 +20,17 @@ import {
 	buildFacilityAreaSearchHref,
 	buildMemberSearchHref,
 	buildTeamSearchHref,
-	groupMegaSearchResults,
-	scoreMegaSearchCandidate
+	groupSearchResults,
+	scoreSearchCandidate
 } from '../../src/lib/search/utils';
-import type { MegaSearchResult } from '../../src/lib/search/types';
+import type { SearchResult } from '../../src/lib/search/types';
 
-describe('mega search helpers', () => {
+describe('search palette helpers', () => {
 	it('ranks exact matches above prefix and substring matches', () => {
 		// the ranking helper should strongly prefer the cleanest user-intent match.
-		const exact = scoreMegaSearchCandidate('fall', ['Fall']);
-		const prefix = scoreMegaSearchCandidate('fall', ['Fall League']);
-		const substring = scoreMegaSearchCandidate('fall', ['Late Fall League']);
+		const exact = scoreSearchCandidate('fall', ['Fall']);
+		const prefix = scoreSearchCandidate('fall', ['Fall League']);
+		const substring = scoreSearchCandidate('fall', ['Late Fall League']);
 
 		expect(exact).toBeGreaterThan(prefix);
 		expect(prefix).toBeGreaterThan(substring);
@@ -39,12 +39,12 @@ describe('mega search helpers', () => {
 	it('matches multi-term queries across punctuation and secondary context fields', () => {
 		// users naturally type a few loose words, so the scorer needs to combine them across title,
 		// subtitle, and meta values while ranking fuller matches above partial context.
-		const combinedMatch = scoreMegaSearchCandidate('corec softball division a', [
+		const combinedMatch = scoreSearchCandidate('corec softball division a', [
 			'Division A',
 			'Co-Rec',
 			'Softball Fall 2026'
 		]);
-		const missingContext = scoreMegaSearchCandidate('corec softball division a', [
+		const missingContext = scoreSearchCandidate('corec softball division a', [
 			'Division A',
 			'Co-Rec',
 			'Indoor Soccer Fall 2026'
@@ -56,8 +56,8 @@ describe('mega search helpers', () => {
 
 	it('filters out results that only match one significant word from a long query', () => {
 		// long exact-name searches should not keep loose partials that share only one meaningful word.
-		const exact = scoreMegaSearchCandidate('ballers to wallers', ['Ballers to Wallers']);
-		const partial = scoreMegaSearchCandidate('ballers to wallers', ['Wallers United']);
+		const exact = scoreSearchCandidate('ballers to wallers', ['Ballers to Wallers']);
+		const partial = scoreSearchCandidate('ballers to wallers', ['Wallers United']);
 
 		expect(exact).toBeGreaterThan(0);
 		expect(partial).toBe(0);
@@ -129,9 +129,9 @@ describe('mega search helpers', () => {
 				href: '/dashboard/members?memberId=3',
 				score: 205
 			}
-		] satisfies Array<MegaSearchResult & { score: number }>;
+		] satisfies Array<SearchResult & { score: number }>;
 
-		const grouped = groupMegaSearchResults(results, {
+		const grouped = groupSearchResults(results, {
 			perCategoryLimit: 2,
 			totalLimit: 3
 		});

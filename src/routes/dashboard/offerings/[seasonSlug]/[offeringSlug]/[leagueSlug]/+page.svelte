@@ -11,12 +11,15 @@
 	import DataTableRowActions from '$lib/components/data-table/DataTableRowActions.svelte';
 	import SmallStandingsTable from '$lib/components/SmallStandingsTable.svelte';
 	import DashboardSidebarPanel from '$lib/components/dashboard/DashboardSidebarPanel.svelte';
-	import DashboardMegaSearchLauncher from '$lib/components/dashboard/DashboardMegaSearchLauncher.svelte';
+	import DashboardSearchLauncher from '$lib/components/dashboard/DashboardSearchLauncher.svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
 	import SplitAddAction from '$lib/components/dashboard/SplitAddAction.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import type { BreadcrumbSegment } from '$lib/components/navigation/breadcrumb.js';
-	import { createDataTableRowActionColumn, type DataTableColumn } from '$lib/components/data-table.js';
+	import {
+		createDataTableRowActionColumn,
+		type DataTableColumn
+	} from '$lib/components/data-table.js';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import {
 		resolveAnchoredFloatingPosition,
@@ -2644,7 +2647,7 @@
 						{/if}
 					</div>
 				</div>
-				<DashboardMegaSearchLauncher wrapperClass="lg:pt-1" />
+				<DashboardSearchLauncher wrapperClass="lg:pt-1" />
 			</div>
 		</div>
 	</header>
@@ -3368,7 +3371,7 @@
 				<button
 					type="button"
 					class="inline-flex h-7 items-center justify-center gap-1 border border-primary-600 bg-primary-500 px-2.5 text-[11px] font-semibold leading-none cursor-pointer hover:bg-primary-600 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
-												style:color="var(--color-primary-foreground)"
+					style:color="var(--color-primary-foreground)"
 					disabled={divisionLockSubmittingId === activeDivisionLockTarget.id}
 					onclick={() => {
 						void toggleDivisionLock(activeDivisionLockTarget);

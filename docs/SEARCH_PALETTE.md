@@ -1,6 +1,6 @@
-# Mega Search Palette: Behavior, Priorities, and Ranking
+# Search Palette: Behavior, Priorities, and Ranking
 
-This document explains exactly how PlayIMs mega search works today, including:
+This document explains exactly how PlayIMs search works today, including:
 
 - Where it is mounted and how it opens
 - Which data sources are searched
@@ -13,7 +13,7 @@ This document explains exactly how PlayIMs mega search works today, including:
 
 The implementation lives primarily in:
 
-- `src/lib/components/MegaSearchPalette.svelte`
+- `src/lib/components/SearchPalette.svelte`
 - `src/lib/server/search/service.ts`
 - `src/lib/search/utils.ts`
 - `src/lib/server/search/recent.ts`
@@ -22,19 +22,22 @@ The implementation lives primarily in:
 
 ## 1) High-level architecture
 
-Mega search is a global modal palette rendered in root layout (`src/routes/+layout.svelte` via `<MegaSearchPalette />`), so it is available everywhere in the app shell.
+Search palette is a global modal palette rendered in root layout (`src/routes/+layout.svelte` via `<SearchPalette />`), so it is available everywhere in the app shell.
 
 The architecture is split into two layers:
 
-1. **Client/UI layer** (`MegaSearchPalette.svelte`)
-  - Handles keyboard shortcut, modal open/close, debounce, highlighting, and navigation.
-  - Calls `GET /api/search?q=...` (and optionally `season=...`) for search results.
-  - Calls `POST /api/search/recent` when a result is selected.
+1. **Client/UI layer** (`SearchPalette.svelte`)
+
+- Handles keyboard shortcut, modal open/close, debounce, highlighting, and navigation.
+- Calls `GET /api/search?q=...` (and optionally `season=...`) for search results.
+- Calls `POST /api/search/recent` when a result is selected.
+
 2. **Server/search layer** (`service.ts` + `utils.ts`)
-  - Builds candidate results from pages + data records.
-  - Computes relevance score per result.
-  - Sorts, groups, and caps output.
-  - Returns grouped payload consumed directly by the palette.
+
+- Builds candidate results from pages + data records.
+- Computes relevance score per result.
+- Sorts, groups, and caps output.
+- Returns grouped payload consumed directly by the palette.
 
 ---
 
@@ -77,7 +80,7 @@ The architecture is split into two layers:
 - Query params:
   - `q` (search text; optional)
   - `season` (optional season slug/id context)
-- Handler delegates to `getMegaSearchResponse(event, query)`.
+- Handler delegates to `getSearchResponse(event, query)`.
 
 ### Recent-selection endpoint
 
@@ -91,26 +94,31 @@ The architecture is split into two layers:
 
 ## 4) Candidate sources searched
 
-When query is non-empty, `getMegaSearchResponse(...)` builds candidates from:
+When query is non-empty, `getSearchResponse(...)` builds candidates from:
 
 1. **Public pages** (always)
-  - `/`
-  - `/log-in`
-  - `/register`
-  - `/offline`
+
+- `/`
+- `/log-in`
+- `/register`
+- `/offline`
+
 2. **Dashboard pages** (authenticated only, permission-filtered)
-  - Derived from `DASHBOARD_NAV_ITEMS`
-  - Filtered with `filterDashboardNavigationItemsForPermissions(...)`
-  - `href === '#'` entries are excluded
+
+- Derived from `DASHBOARD_NAV_ITEMS`
+- Filtered with `filterDashboardNavigationItemsForPermissions(...)`
+- `href === '#'` entries are excluded
+
 3. **Database entities** (authenticated + DB available)
-  - Members
-  - Scoped season (single season result only)
-  - Offerings
-  - Leagues
-  - Divisions
-  - Teams
-  - Facilities
-  - Facility areas
+
+- Members
+- Scoped season (single season result only)
+- Offerings
+- Leagues
+- Divisions
+- Teams
+- Facilities
+- Facility areas
 
 Inactive records are filtered out by category-specific `isActive` checks.
 
@@ -125,12 +133,15 @@ Season scoping affects which offerings/leagues/divisions/teams are included.
 `resolveScopedSeason(...)` in order:
 
 1. If `season` query param exists:
-  - Match by season `id` or `slug` (case-insensitive trimmed normalization)
+
+- Match by season `id` or `slug` (case-insensitive trimmed normalization)
+
 2. Otherwise fallback to:
-  - Current season (`isCurrent === 1`)
-  - Else active season (`isActive === 1`)
-  - Else first available season
-  - Else `null`
+
+- Current season (`isCurrent === 1`)
+- Else active season (`isActive === 1`)
+- Else first available season
+- Else `null`
 
 ### How scoping is applied
 
@@ -149,7 +160,7 @@ If there is no scoped season (`null`), these filters become permissive.
 
 ## 6) Relevance scoring model (core priorities)
 
-All scoring logic is in `src/lib/search/utils.ts` via `scoreMegaSearchCandidate(query, candidates)`.
+All scoring logic is in `src/lib/search/utils.ts` via `scoreSearchCandidate(query, candidates)`.
 
 For each result, the server passes these candidate fields:
 
@@ -226,11 +237,14 @@ After scoring:
 
 1. Drop any `score <= 0`
 2. Sort globally by:
-  - Higher score first
-  - Then title ascending (`localeCompare`, case-insensitive)
-3. Group and cap using `groupMegaSearchResults(...)`:
-  - `perCategoryLimit = 5`
-  - `totalLimit = 25`
+
+- Higher score first
+- Then title ascending (`localeCompare`, case-insensitive)
+
+3. Group and cap using `groupSearchResults(...)`:
+
+- `perCategoryLimit = 5`
+- `totalLimit = 25`
 
 Important detail: groups are emitted in first-seen order from the sorted list.  
 So category order in the UI is emergent from top-ranked hits, not a fixed category sequence.
@@ -239,7 +253,7 @@ So category order in the UI is emergent from top-ranked hits, not a fixed catego
 
 ## 8) Empty query behavior (zero-text state)
 
-If `q` is empty/whitespace, server returns `getMegaSearchEmptyState(...)` instead of running ranked search.
+If `q` is empty/whitespace, server returns `getSearchEmptyState(...)` instead of running ranked search.
 
 Empty state contains:
 
@@ -269,17 +283,22 @@ For unauthenticated users:
 
 When user selects a result, client posts payload to `/api/search/recent`.
 
-Server-side `storeMegaSearchRecentSelection(...)` behavior:
+Server-side `storeSearchRecentSelection(...)` behavior:
 
 1. Find existing recent by `(userId, clientId, resultKey)`
 2. If found:
-  - `touch(...)` existing row (updates fields and recency timestamp)
+
+- `touch(...)` existing row (updates fields and recency timestamp)
+
 3. If not found:
-  - `create(...)` new row
+
+- `create(...)` new row
+
 4. Enforce max count:
-  - `MAX_RECENT_COUNT = 10`
-  - Fetch `MAX + 1`
-  - Delete overflow rows beyond newest 10
+
+- `MAX_RECENT_COUNT = 10`
+- Fetch `MAX + 1`
+- Delete overflow rows beyond newest 10
 
 Net effect:
 
@@ -365,7 +384,7 @@ If behavior needs tuning, these are the safest first levers before changing stru
 
 Key test files:
 
-- `tests/shared/mega-search.test.ts`
+- `tests/shared/search-palette.test.ts`
   - exact vs prefix vs substring ordering
   - multi-field/token matching behavior
   - grouping caps
@@ -381,7 +400,7 @@ Key test files:
   - auth requirement
   - create vs touch dedupe behavior
   - max-recents trimming
-- `tests/shared/mega-search-page-state.test.ts`
+- `tests/shared/search-palette-page-state.test.ts`
   - destination query-state parsing
 
 These tests are the best source of truth for expected user-visible behavior.
@@ -393,20 +412,26 @@ These tests are the best source of truth for expected user-visible behavior.
 If something appears wrong, check in this order:
 
 1. **Result not appearing**
-  - Is query non-empty?
-  - Does candidate score > 0?
-  - Is record active?
-  - Is season scope excluding it?
-  - Is it cut by per-category/total cap?
-2. **Unexpected ordering**
-  - Compare phrase score + token scores + coverage bonuses
-  - Confirm team boost effects for team records
-  - Check alphabetical tie-break
-3. **Wrong destination state**
-  - Verify href builder output
-  - Verify destination page reads query params via `page-state.ts`
-4. **Recents missing**
-  - Must be authenticated with active client and DB
-  - POST payload must pass route validation
-  - Ensure selection is actually triggering `rememberSelection(...)`
 
+- Is query non-empty?
+- Does candidate score > 0?
+- Is record active?
+- Is season scope excluding it?
+- Is it cut by per-category/total cap?
+
+2. **Unexpected ordering**
+
+- Compare phrase score + token scores + coverage bonuses
+- Confirm team boost effects for team records
+- Check alphabetical tie-break
+
+3. **Wrong destination state**
+
+- Verify href builder output
+- Verify destination page reads query params via `page-state.ts`
+
+4. **Recents missing**
+
+- Must be authenticated with active client and DB
+- POST payload must pass route validation
+- Ensure selection is actually triggering `rememberSelection(...)`

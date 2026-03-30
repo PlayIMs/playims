@@ -1,4 +1,4 @@
-export type MegaSearchMovementFocusMode = 'focus-result' | 'preserve-input';
+export type SearchPaletteMovementFocusMode = 'focus-result' | 'preserve-input';
 
 interface ResolveMovementIntentOptions {
 	shiftKey?: boolean;
@@ -6,15 +6,15 @@ interface ResolveMovementIntentOptions {
 	targetIsResult?: boolean;
 }
 
-interface MegaSearchMovementIntent {
+interface SearchPaletteMovementIntent {
 	offset: -1 | 1;
-	focusMode: MegaSearchMovementFocusMode;
+	focusMode: SearchPaletteMovementFocusMode;
 }
 
-export function resolveMegaSearchMovementIntent(
+export function resolveSearchPaletteMovementIntent(
 	key: string,
 	options: ResolveMovementIntentOptions
-): MegaSearchMovementIntent | null {
+): SearchPaletteMovementIntent | null {
 	if (key === 'ArrowDown') {
 		return {
 			offset: 1,
@@ -50,7 +50,7 @@ export function resolveMegaSearchMovementIntent(
 	return null;
 }
 
-export function getNextMegaSearchHighlightedIndex(
+export function getNextSearchPaletteHighlightedIndex(
 	currentIndex: number,
 	totalCount: number,
 	offset: -1 | 1

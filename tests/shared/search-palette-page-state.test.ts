@@ -1,6 +1,6 @@
 /*
 Brief description:
-This file verifies the URL-state helpers that let mega search land users inside existing pages.
+This file verifies the URL-state helpers that let search palette land users inside existing pages.
 
 Deeper explanation:
 Not every search result has its own standalone detail route. These helpers define how query-string
@@ -20,7 +20,7 @@ import {
 	readMemberSearchSelection
 } from '../../src/lib/search/page-state';
 
-describe('mega search page-state helpers', () => {
+describe('search palette page-state helpers', () => {
 	it('reads the member ID from the url', () => {
 		// member detail opening is driven by the query string rather than a dedicated page.
 		const url = new URL('https://playims.test/dashboard/members?memberId=member-1&q=Jamie');

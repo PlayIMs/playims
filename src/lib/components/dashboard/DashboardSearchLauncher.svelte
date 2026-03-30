@@ -2,10 +2,10 @@
 	import { browser } from '$app/environment';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import {
-		megaSearchQuery,
-		openMegaSearchPalette,
-		resolveMegaSearchShortcutHint,
-		setMegaSearchQuery
+		searchPaletteQuery,
+		openSearchPalette,
+		resolveSearchPaletteShortcutHint,
+		setSearchPaletteQuery
 	} from '$lib/search/controller.js';
 
 	interface Props {
@@ -19,9 +19,9 @@
 	let {
 		variant = 'hero',
 		placeholder = 'Search anything',
-		label = 'Open mega search',
+		label = 'Open search palette',
 		wrapperClass = '',
-		inputId = 'dashboard-mega-search-launcher'
+		inputId = 'dashboard-search-launcher'
 	}: Props = $props();
 
 	let shortcutHint = $state('Ctrl + K');
@@ -41,12 +41,12 @@
 	);
 
 	function openFromLauncher(initialQuery?: string): void {
-		openMegaSearchPalette('launcher', initialQuery ?? $megaSearchQuery);
+		openSearchPalette('launcher', initialQuery ?? $searchPaletteQuery);
 	}
 
 	$effect(() => {
 		if (!browser) return;
-		shortcutHint = resolveMegaSearchShortcutHint(
+		shortcutHint = resolveSearchPaletteShortcutHint(
 			`${navigator.platform} ${navigator.userAgent}`.toLowerCase()
 		);
 	});
@@ -57,7 +57,7 @@
 		<SearchInput
 			id={inputId}
 			{label}
-			value={$megaSearchQuery}
+			value={$searchPaletteQuery}
 			type="search"
 			{placeholder}
 			{inputClass}
@@ -68,17 +68,17 @@
 				openFromLauncher();
 			}}
 			onmousedown={() => {
-				if (!$megaSearchQuery.trim()) {
+				if (!$searchPaletteQuery.trim()) {
 					openFromLauncher();
 				}
 			}}
 			on:input={(event) => {
 				const nextValue = event.detail.value;
-				setMegaSearchQuery(nextValue);
+				setSearchPaletteQuery(nextValue);
 				openFromLauncher(nextValue);
 			}}
 		/>
-		{#if !$megaSearchQuery.trim()}
+		{#if !$searchPaletteQuery.trim()}
 			<span class={badgeClass}>{shortcutHint}</span>
 		{/if}
 	</div>

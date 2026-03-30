@@ -1,14 +1,14 @@
 import type { DatabaseOperations } from '$lib/database';
-import type { MegaSearchRecentPayload } from '$lib/search/types.js';
+import type { SearchRecentPayload } from '$lib/search/types.js';
 
 const MAX_RECENT_COUNT = 10;
 
-export async function storeMegaSearchRecentSelection(
+export async function storeSearchRecentSelection(
 	dbOps: DatabaseOperations,
 	input: {
 		userId: string;
 		clientId: string;
-		payload: MegaSearchRecentPayload;
+		payload: SearchRecentPayload;
 	}
 ): Promise<void> {
 	const existing = await dbOps.searchRecents.getByUserClientAndResultKey(

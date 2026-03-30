@@ -8,24 +8,24 @@
 		IconChevronsRight,
 		IconUsers
 	} from '@tabler/icons-svelte';
-	import DashboardMegaSearchLauncher from '$lib/components/dashboard/DashboardMegaSearchLauncher.svelte';
+	import DashboardSearchLauncher from '$lib/components/dashboard/DashboardSearchLauncher.svelte';
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import DataTable from '$lib/components/DataTable.svelte';
 	import DataTableRowActions from '$lib/components/data-table/DataTableRowActions.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
-	import { createDataTableRowActionColumn, type DataTableColumn } from '$lib/components/data-table.js';
+	import {
+		createDataTableRowActionColumn,
+		type DataTableColumn
+	} from '$lib/components/data-table.js';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import {
 		buildMemberRoleFilterOptions,
 		getResetMemberFilterState
 	} from '$lib/members/filter-controls.js';
 	import { parseMemberPageInput, resolveClosestMemberPage } from '$lib/members/pagination.js';
-	import {
-		clearMemberSelectionFromHref,
-		syncMembersUrlIfReady
-	} from '$lib/members/url-state.js';
+	import { clearMemberSelectionFromHref, syncMembersUrlIfReady } from '$lib/members/url-state.js';
 	import { formatPhoneForDisplay } from '$lib/utils/phone-format.js';
 	import type {
 		CreateMemberResponse,
@@ -844,7 +844,7 @@
 						{pageLabel}
 					</h1>
 				</div>
-				<DashboardMegaSearchLauncher />
+				<DashboardSearchLauncher />
 			</div>
 		</div>
 	</header>
@@ -886,7 +886,10 @@
 											class="px-4 py-10 text-center text-sm text-neutral-950"
 										>
 											{#if membersLoading || !searchReady}
-												<div class="mx-auto flex max-w-sm flex-col items-center gap-3" aria-hidden="true">
+												<div
+													class="mx-auto flex max-w-sm flex-col items-center gap-3"
+													aria-hidden="true"
+												>
 													<div class="h-6 w-44 bg-neutral-100"></div>
 													<div class="h-3 w-28 bg-neutral-100"></div>
 													<div class="flex flex-wrap items-center justify-center gap-1">
@@ -923,37 +926,39 @@
 												{row.fullName}
 											</span>
 										</button>
-								{:else if column.key === 'studentId'}
-									<span class="py-1 text-sm text-neutral-950">
-										{row.studentId ?? '--'}
-									</span>
-								{:else if column.key === 'email'}
-									<span class="break-all py-1 text-sm text-neutral-950">{row.email ?? '--'}</span>
-								{:else if column.key === 'cellPhone'}
-									<span class="py-1 text-sm text-neutral-950">
-										{formatPhoneForDisplay(row.cellPhone) || '--'}
-									</span>
-								{:else if column.key === 'lastLoginAt'}
-									{@const lastLoginDisplay = formatMemberLastLogin(row.lastLoginAt)}
-									{#if lastLoginDisplay}
-										<DateHoverText
-											display={lastLoginDisplay}
-											value={row.lastLoginAt}
-											includeTime
-											wrapperClass="inline"
-											textClass="py-1 text-sm text-neutral-950"
-										/>
-									{:else}
-										<span class="py-1 text-sm text-neutral-700">Never</span>
-									{/if}
-								{:else if column.key === 'sex'}
-									<span class="py-1 text-xs uppercase tracking-[0.08em] text-neutral-950">
-										{row.sex ?? '--'}
-									</span>
-								{:else if column.key === 'role'}
-									<span class={`${roleToneClass(row.role)} px-2 py-0.5 text-xs uppercase tracking-wide`}>
-										{ROLE_LABELS[row.role]}
-									</span>
+									{:else if column.key === 'studentId'}
+										<span class="py-1 text-sm text-neutral-950">
+											{row.studentId ?? '--'}
+										</span>
+									{:else if column.key === 'email'}
+										<span class="break-all py-1 text-sm text-neutral-950">{row.email ?? '--'}</span>
+									{:else if column.key === 'cellPhone'}
+										<span class="py-1 text-sm text-neutral-950">
+											{formatPhoneForDisplay(row.cellPhone) || '--'}
+										</span>
+									{:else if column.key === 'lastLoginAt'}
+										{@const lastLoginDisplay = formatMemberLastLogin(row.lastLoginAt)}
+										{#if lastLoginDisplay}
+											<DateHoverText
+												display={lastLoginDisplay}
+												value={row.lastLoginAt}
+												includeTime
+												wrapperClass="inline"
+												textClass="py-1 text-sm text-neutral-950"
+											/>
+										{:else}
+											<span class="py-1 text-sm text-neutral-700">Never</span>
+										{/if}
+									{:else if column.key === 'sex'}
+										<span class="py-1 text-xs uppercase tracking-[0.08em] text-neutral-950">
+											{row.sex ?? '--'}
+										</span>
+									{:else if column.key === 'role'}
+										<span
+											class={`${roleToneClass(row.role)} px-2 py-0.5 text-xs uppercase tracking-wide`}
+										>
+											{ROLE_LABELS[row.role]}
+										</span>
 									{:else if column.key === 'actions'}
 										<DataTableRowActions
 											options={actionOptions(row)}
@@ -967,15 +972,17 @@
 						</div>
 					</div>
 
-					<div
-						class="flex flex-col gap-3 pt-1 lg:flex-row lg:items-center lg:justify-between"
-					>
+					<div class="flex flex-col gap-3 pt-1 lg:flex-row lg:items-center lg:justify-between">
 						<div class="flex flex-wrap items-center gap-2 text-sm text-neutral-950">
 							<button
 								type="button"
 								class="pagination-button h-8 min-w-8 px-1.5"
 								aria-label="Go to first page"
-								disabled={!searchReady || totalCount === 0 || !hasPreviousPage || membersLoading || currentPage <= 1}
+								disabled={!searchReady ||
+									totalCount === 0 ||
+									!hasPreviousPage ||
+									membersLoading ||
+									currentPage <= 1}
 								onclick={() => changePage(1)}
 							>
 								<IconChevronsLeft class="h-4 w-4" />
@@ -984,7 +991,11 @@
 								type="button"
 								class="pagination-button h-8 min-w-8 px-1.5"
 								aria-label="Go to previous page"
-								disabled={!searchReady || totalCount === 0 || !hasPreviousPage || membersLoading || currentPage <= 1}
+								disabled={!searchReady ||
+									totalCount === 0 ||
+									!hasPreviousPage ||
+									membersLoading ||
+									currentPage <= 1}
 								onclick={() => changePage(currentPage - 1)}
 							>
 								<IconChevronLeft class="h-4 w-4" />
@@ -1009,7 +1020,11 @@
 								type="button"
 								class="pagination-button h-8 min-w-8 px-1.5"
 								aria-label="Go to next page"
-								disabled={!searchReady || totalCount === 0 || !hasNextPage || membersLoading || currentPage >= totalPages}
+								disabled={!searchReady ||
+									totalCount === 0 ||
+									!hasNextPage ||
+									membersLoading ||
+									currentPage >= totalPages}
 								onclick={() => changePage(currentPage + 1)}
 							>
 								<IconChevronRight class="h-4 w-4" />
@@ -1018,7 +1033,11 @@
 								type="button"
 								class="pagination-button h-8 min-w-8 px-1.5"
 								aria-label="Go to last page"
-								disabled={!searchReady || totalCount === 0 || !hasNextPage || membersLoading || currentPage >= totalPages}
+								disabled={!searchReady ||
+									totalCount === 0 ||
+									!hasNextPage ||
+									membersLoading ||
+									currentPage >= totalPages}
 								onclick={() => changePage(totalPages)}
 							>
 								<IconChevronsRight class="h-4 w-4" />

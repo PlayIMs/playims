@@ -7,7 +7,7 @@
 		IconDatabase,
 		IconRocket
 	} from '@tabler/icons-svelte';
-	import DashboardMegaSearchLauncher from '$lib/components/dashboard/DashboardMegaSearchLauncher.svelte';
+	import DashboardSearchLauncher from '$lib/components/dashboard/DashboardSearchLauncher.svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
 	import OrganizationAdminPanel from './_components/OrganizationAdminPanel.svelte';
 
@@ -113,7 +113,7 @@
 						</p>
 					</div>
 				</div>
-				<DashboardMegaSearchLauncher variant="compact" />
+				<DashboardSearchLauncher variant="compact" />
 			</div>
 		</div>
 

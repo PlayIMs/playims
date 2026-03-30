@@ -1,6 +1,6 @@
 /*
 Brief description:
-This file verifies the shared mega search controller that coordinates the header launcher and palette.
+This file verifies the shared search palette controller that coordinates the header launcher and palette.
 
 Deeper explanation:
 The new dashboard header input and the existing palette now share one controller instead of each owning
@@ -15,33 +15,33 @@ Summary of tests:
 
 import { describe, expect, it } from 'vitest';
 import {
-	clearMegaSearchHighlightedIndex,
-	closeMegaSearchPalette,
-	openMegaSearchPalette,
-	readMegaSearchControllerState,
-	resetMegaSearchControllerState,
-	resolveMegaSearchShortcutHint,
-	setMegaSearchHighlightedIndex,
-	setMegaSearchQuery,
-	setMegaSearchScopedSeasonId
+	clearSearchPaletteHighlightedIndex,
+	closeSearchPalette,
+	openSearchPalette,
+	readSearchPaletteControllerState,
+	resetSearchPaletteControllerState,
+	resolveSearchPaletteShortcutHint,
+	setSearchPaletteHighlightedIndex,
+	setSearchPaletteQuery,
+	setSearchPaletteScopedSeasonId
 } from '../../src/lib/search/controller';
 
-describe('mega search controller', () => {
+describe('search palette controller', () => {
 	it('shares state between keyboard and launcher openings', () => {
 		// both entry points should manipulate one controller so the launcher never drifts from the palette.
-		resetMegaSearchControllerState();
+		resetSearchPaletteControllerState();
 
-		openMegaSearchPalette('keyboard', '');
-		expect(readMegaSearchControllerState()).toMatchObject({
+		openSearchPalette('keyboard', '');
+		expect(readSearchPaletteControllerState()).toMatchObject({
 			open: true,
 			query: '',
 			source: 'keyboard'
 		});
 
-		setMegaSearchQuery('corec');
-		openMegaSearchPalette('launcher', 'corec softball');
+		setSearchPaletteQuery('corec');
+		openSearchPalette('launcher', 'corec softball');
 
-		expect(readMegaSearchControllerState()).toMatchObject({
+		expect(readSearchPaletteControllerState()).toMatchObject({
 			open: true,
 			query: 'corec softball',
 			source: 'launcher'
@@ -50,22 +50,22 @@ describe('mega search controller', () => {
 
 	it('resets launcher-visible state when the palette closes', () => {
 		// closing the palette should clear the shared query and selection state so the header field resets too.
-		resetMegaSearchControllerState();
+		resetSearchPaletteControllerState();
 
-		openMegaSearchPalette('launcher', 'division a');
-		setMegaSearchScopedSeasonId('season-1');
-		setMegaSearchHighlightedIndex(4);
+		openSearchPalette('launcher', 'division a');
+		setSearchPaletteScopedSeasonId('season-1');
+		setSearchPaletteHighlightedIndex(4);
 
-		expect(readMegaSearchControllerState()).toMatchObject({
+		expect(readSearchPaletteControllerState()).toMatchObject({
 			open: true,
 			query: 'division a',
 			scopedSeasonId: 'season-1',
 			highlightedIndex: 4
 		});
 
-		closeMegaSearchPalette();
+		closeSearchPalette();
 
-		expect(readMegaSearchControllerState()).toMatchObject({
+		expect(readSearchPaletteControllerState()).toMatchObject({
 			open: false,
 			query: '',
 			scopedSeasonId: '',
@@ -75,14 +75,14 @@ describe('mega search controller', () => {
 
 	it('can clear the highlighted result without closing the palette', () => {
 		// mouse-driven palettes need to drop the active row when the pointer leaves the modal.
-		resetMegaSearchControllerState();
+		resetSearchPaletteControllerState();
 
-		openMegaSearchPalette('launcher', 'basketball');
-		setMegaSearchHighlightedIndex(2);
+		openSearchPalette('launcher', 'basketball');
+		setSearchPaletteHighlightedIndex(2);
 
-		clearMegaSearchHighlightedIndex();
+		clearSearchPaletteHighlightedIndex();
 
-		expect(readMegaSearchControllerState()).toMatchObject({
+		expect(readSearchPaletteControllerState()).toMatchObject({
 			open: true,
 			query: 'basketball',
 			highlightedIndex: -1
@@ -91,7 +91,7 @@ describe('mega search controller', () => {
 
 	it('resolves the platform shortcut hint', () => {
 		// the launcher should only advertise the shortcut key that matches the current operating system.
-		expect(resolveMegaSearchShortcutHint('macintosh safari')).toBe('Cmd + K');
-		expect(resolveMegaSearchShortcutHint('windows chrome')).toBe('Ctrl + K');
+		expect(resolveSearchPaletteShortcutHint('macintosh safari')).toBe('Cmd + K');
+		expect(resolveSearchPaletteShortcutHint('windows chrome')).toBe('Ctrl + K');
 	});
 });

@@ -5,7 +5,7 @@
 	import SmallStandingsTable from '$lib/components/SmallStandingsTable.svelte';
 	import TeamPlacementTable from '$lib/components/TeamPlacementTable.svelte';
 	import DashboardSidebarPanel from '$lib/components/dashboard/DashboardSidebarPanel.svelte';
-	import DashboardMegaSearchLauncher from '$lib/components/dashboard/DashboardMegaSearchLauncher.svelte';
+	import DashboardSearchLauncher from '$lib/components/dashboard/DashboardSearchLauncher.svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
@@ -411,7 +411,7 @@
 						{/if}
 					</div>
 				</div>
-				<DashboardMegaSearchLauncher wrapperClass="lg:pt-1" />
+				<DashboardSearchLauncher wrapperClass="lg:pt-1" />
 			</div>
 		</div>
 	</header>

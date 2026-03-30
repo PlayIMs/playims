@@ -6,7 +6,7 @@
 	import ModalShell from '$lib/components/modals/ModalShell.svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
-	import DashboardMegaSearchLauncher from '$lib/components/dashboard/DashboardMegaSearchLauncher.svelte';
+	import DashboardSearchLauncher from '$lib/components/dashboard/DashboardSearchLauncher.svelte';
 	import CreateFacilityWizard from './_wizards/CreateFacilityWizard.svelte';
 	import {
 		adjustEditingIndexOnReorder,
@@ -1093,7 +1093,7 @@
 						{pageLabel}
 					</h1>
 				</div>
-				<DashboardMegaSearchLauncher />
+				<DashboardSearchLauncher />
 			</div>
 		</div>
 	</header>
@@ -2070,7 +2070,7 @@
 				<input
 					class="w-full input-secondary bg-white"
 					type="text"
-					placeholder="Type slug to confirm…"
+					placeholder="Type slug to confirmâ€¦"
 					bind:value={confirmSlugInput}
 					autocomplete="off"
 				/>

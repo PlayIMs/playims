@@ -15,7 +15,7 @@
 		IconArrowRight
 	} from '@tabler/icons-svelte';
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
-	import DashboardMegaSearchLauncher from '$lib/components/dashboard/DashboardMegaSearchLauncher.svelte';
+	import DashboardSearchLauncher from '$lib/components/dashboard/DashboardSearchLauncher.svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import { toast } from '$lib/toasts';
@@ -95,7 +95,7 @@
 						{pageLabel}
 					</h1>
 				</div>
-				<DashboardMegaSearchLauncher />
+				<DashboardSearchLauncher />
 			</div>
 		</div>
 	</header>
@@ -383,7 +383,7 @@
 								{#if currentSeason.startLabel}
 									<span>
 										{currentSeason.startLabel}{currentSeason.endLabel
-											? ` – ${currentSeason.endLabel}`
+											? ` â€“ ${currentSeason.endLabel}`
 											: ''}
 									</span>
 								{/if}

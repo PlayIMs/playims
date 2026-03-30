@@ -43,7 +43,7 @@
 		type DashboardNavigationLabels
 	} from '$lib/dashboard/navigation';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
-	import MegaSearchPalette from '$lib/components/MegaSearchPalette.svelte';
+	import SearchPalette from '$lib/components/SearchPalette.svelte';
 	import {
 		STANDALONE_DISPLAY_MODE_QUERY,
 		isStandaloneDisplayMode
@@ -1019,10 +1019,7 @@
 							<span class="truncate">Navigation Bar</span>
 						</h1>
 					{/if}
-					<HoverTooltip
-						text={sidebarToggleTooltipText}
-						shortcutKeys={sidebarToggleShortcutKeys}
-					>
+					<HoverTooltip text={sidebarToggleTooltipText} shortcutKeys={sidebarToggleShortcutKeys}>
 						<button
 							onclick={toggleSidebar}
 							class="p-2 hover:bg-primary-600 transition-colors duration-150 cursor-pointer"
@@ -1073,10 +1070,10 @@
 				</nav>
 
 				{#if showSidebarFooter}
-				<div
-					class="absolute bottom-0 left-0 right-0 overflow-hidden border-t border-primary-600 bg-primary-500 p-2"
-				>
-					{#if isSidebarOpen}
+					<div
+						class="absolute bottom-0 left-0 right-0 overflow-hidden border-t border-primary-600 bg-primary-500 p-2"
+					>
+						{#if isSidebarOpen}
 							<div class="space-y-2">
 								<div class="flex w-full items-center justify-around gap-2 overflow-hidden">
 									<HoverTooltip text="Help">
@@ -1245,5 +1242,5 @@
 		onSelectOrganization={switchOrganization}
 		onLeaveOrganization={leaveOrganizationMembership}
 	/>
-	<MegaSearchPalette />
+	<SearchPalette />
 </div>

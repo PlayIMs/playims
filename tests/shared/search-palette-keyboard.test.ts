@@ -1,6 +1,6 @@
 /*
 Brief description:
-This file verifies the keyboard-navigation rules that drive mega search result highlighting.
+This file verifies the keyboard-navigation rules that drive search palette result highlighting.
 
 Deeper explanation:
 The palette has two related but different concepts: the highlighted result row and the browser's
@@ -17,18 +17,18 @@ Summary of tests:
 
 import { describe, expect, it } from 'vitest';
 import {
-	getNextMegaSearchHighlightedIndex,
-	resolveMegaSearchMovementIntent
+	getNextSearchPaletteHighlightedIndex,
+	resolveSearchPaletteMovementIntent
 } from '../../src/lib/search/keyboard';
 
-describe('mega search keyboard helpers', () => {
+describe('search palette keyboard helpers', () => {
 	it('uses result focus for arrow-key navigation', () => {
 		// arrow movement should behave like a command palette and move focus with the active row.
-		expect(resolveMegaSearchMovementIntent('ArrowDown', { targetIsInput: true })).toEqual({
+		expect(resolveSearchPaletteMovementIntent('ArrowDown', { targetIsInput: true })).toEqual({
 			offset: 1,
 			focusMode: 'focus-result'
 		});
-		expect(resolveMegaSearchMovementIntent('ArrowUp', { targetIsResult: true })).toEqual({
+		expect(resolveSearchPaletteMovementIntent('ArrowUp', { targetIsResult: true })).toEqual({
 			offset: -1,
 			focusMode: 'focus-result'
 		});
@@ -37,29 +37,29 @@ describe('mega search keyboard helpers', () => {
 	it('keeps input focus when tabbing from the search field', () => {
 		// tabbing inside the input should still advance the active result without interrupting typing.
 		expect(
-			resolveMegaSearchMovementIntent('Tab', { targetIsInput: true, shiftKey: false })
+			resolveSearchPaletteMovementIntent('Tab', { targetIsInput: true, shiftKey: false })
 		).toEqual({
 			offset: 1,
 			focusMode: 'preserve-input'
 		});
-		expect(resolveMegaSearchMovementIntent('Tab', { targetIsInput: true, shiftKey: true })).toEqual(
-			{
-				offset: -1,
-				focusMode: 'preserve-input'
-			}
-		);
+		expect(
+			resolveSearchPaletteMovementIntent('Tab', { targetIsInput: true, shiftKey: true })
+		).toEqual({
+			offset: -1,
+			focusMode: 'preserve-input'
+		});
 	});
 
 	it('moves result focus when tabbing from a result row', () => {
 		// once a row has focus, tabbing should continue stepping through the result list.
 		expect(
-			resolveMegaSearchMovementIntent('Tab', { targetIsResult: true, shiftKey: false })
+			resolveSearchPaletteMovementIntent('Tab', { targetIsResult: true, shiftKey: false })
 		).toEqual({
 			offset: 1,
 			focusMode: 'focus-result'
 		});
 		expect(
-			resolveMegaSearchMovementIntent('Tab', { targetIsResult: true, shiftKey: true })
+			resolveSearchPaletteMovementIntent('Tab', { targetIsResult: true, shiftKey: true })
 		).toEqual({
 			offset: -1,
 			focusMode: 'focus-result'
@@ -68,9 +68,9 @@ describe('mega search keyboard helpers', () => {
 
 	it('wraps highlight movement across the result list bounds', () => {
 		// wrapping prevents keyboard users from getting stuck at either end of the list.
-		expect(getNextMegaSearchHighlightedIndex(-1, 4, 1)).toBe(0);
-		expect(getNextMegaSearchHighlightedIndex(0, 4, -1)).toBe(3);
-		expect(getNextMegaSearchHighlightedIndex(3, 4, 1)).toBe(0);
-		expect(getNextMegaSearchHighlightedIndex(1, 4, 1)).toBe(2);
+		expect(getNextSearchPaletteHighlightedIndex(-1, 4, 1)).toBe(0);
+		expect(getNextSearchPaletteHighlightedIndex(0, 4, -1)).toBe(3);
+		expect(getNextSearchPaletteHighlightedIndex(3, 4, 1)).toBe(0);
+		expect(getNextSearchPaletteHighlightedIndex(1, 4, 1)).toBe(2);
 	});
 });

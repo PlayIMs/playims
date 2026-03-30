@@ -51,10 +51,13 @@
 	import DataTableLinkedLabel from '$lib/components/data-table/DataTableLinkedLabel.svelte';
 	import DataTableRowActions from '$lib/components/data-table/DataTableRowActions.svelte';
 	import SplitAddAction from '$lib/components/dashboard/SplitAddAction.svelte';
-	import DashboardMegaSearchLauncher from '$lib/components/dashboard/DashboardMegaSearchLauncher.svelte';
+	import DashboardSearchLauncher from '$lib/components/dashboard/DashboardSearchLauncher.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
-	import { createDataTableRowActionColumn, type DataTableColumn } from '$lib/components/data-table.js';
+	import {
+		createDataTableRowActionColumn,
+		type DataTableColumn
+	} from '$lib/components/data-table.js';
 	import { buildPreviousOfferingLinkChoices } from '$lib/utils/offering-linking.js';
 	import {
 		buildOfferingTimelineGroups,
@@ -3909,7 +3912,11 @@
 		];
 	}
 
-	function handleLeagueRowAction(value: string, offering: OfferingGroup, league: LeagueOffering): void {
+	function handleLeagueRowAction(
+		value: string,
+		offering: OfferingGroup,
+		league: LeagueOffering
+	): void {
 		if (value !== 'edit-entry') return;
 		openEditLeagueWizard(offering, league);
 	}
@@ -5033,7 +5040,7 @@
 						{pageLabel}
 					</h1>
 				</div>
-				<DashboardMegaSearchLauncher />
+				<DashboardSearchLauncher />
 			</div>
 		</div>
 	</header>
@@ -5820,7 +5827,9 @@
 															includeTime
 															wrapperClass="inline"
 														/>
-														<span class="ml-1 normal-case font-medium tracking-normal text-neutral-700">
+														<span
+															class="ml-1 normal-case font-medium tracking-normal text-neutral-700"
+														>
 															{formatTimelineRelativeDayLabel(group.date)}
 														</span>
 													</p>

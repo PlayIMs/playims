@@ -12,14 +12,10 @@ import {
 	buildFacilityAreaSearchHref,
 	buildMemberSearchHref,
 	buildTeamSearchHref,
-	groupMegaSearchResults,
-	scoreMegaSearchCandidate
+	groupSearchResults,
+	scoreSearchCandidate
 } from '$lib/search/utils.js';
-import type {
-	MegaSearchCategory,
-	MegaSearchResponse,
-	MegaSearchResult
-} from '$lib/search/types.js';
+import type { SearchCategory, SearchResponse, SearchResult } from '$lib/search/types.js';
 
 type SearchEvent = Pick<RequestEvent, 'locals' | 'platform' | 'url'>;
 type SearchSeasonRecord = Season;
@@ -43,7 +39,7 @@ const PUBLIC_PAGE_RESULTS = [
 		subtitle: 'Offline support page',
 		href: '/offline'
 	}
-] satisfies MegaSearchResult[];
+] satisfies SearchResult[];
 
 const DASHBOARD_SETTINGS_PAGE_RESULTS = [
 	{
@@ -100,7 +96,7 @@ const DASHBOARD_SETTINGS_PAGE_RESULTS = [
 		meta: 'Registration settings and defaults',
 		href: '/dashboard/settings/registrations'
 	}
-] satisfies MegaSearchResult[];
+] satisfies SearchResult[];
 
 function isAuthenticatedSearch(event: SearchEvent): boolean {
 	return Boolean(event.locals.user?.id && event.locals.session?.activeClientId);
@@ -110,7 +106,7 @@ function isActiveFlag(value: unknown): boolean {
 	return value !== 0;
 }
 
-function buildDashboardPageResults(event: SearchEvent): MegaSearchResult[] {
+function buildDashboardPageResults(event: SearchEvent): SearchResult[] {
 	if (!isAuthenticatedSearch(event)) return [];
 	const effectiveRole = event.locals.user?.role ?? 'participant';
 	const permissions = buildPermissionSnapshot(effectiveRole);
@@ -137,8 +133,8 @@ function buildDashboardPageResults(event: SearchEvent): MegaSearchResult[] {
 	return [...navigationResults, ...settingsPageResults];
 }
 
-function scoreResult(query: string, result: MegaSearchResult): number {
-	return scoreMegaSearchCandidate(query, [result.title, result.subtitle ?? '', result.meta ?? '']);
+function scoreResult(query: string, result: SearchResult): number {
+	return scoreSearchCandidate(query, [result.title, result.subtitle ?? '', result.meta ?? '']);
 }
 
 function normalizeRawSearchKey(value: string | null | undefined): string {
@@ -181,20 +177,20 @@ function matchesScopedSeasonRecord(
 	return normalizeRawSearchKey(record.seasonName) === normalizeRawSearchKey(scopedSeason.name);
 }
 
-function searchablePageResults(event: SearchEvent): MegaSearchResult[] {
+function searchablePageResults(event: SearchEvent): SearchResult[] {
 	return isAuthenticatedSearch(event) ? buildDashboardPageResults(event) : [...PUBLIC_PAGE_RESULTS];
 }
 
-export async function getMegaSearchResponse(
+export async function getSearchResponse(
 	event: SearchEvent,
 	query: string
-): Promise<MegaSearchResponse> {
+): Promise<SearchResponse> {
 	const trimmedQuery = query.trim();
 	if (!trimmedQuery) {
-		return await getMegaSearchEmptyState(event);
+		return await getSearchEmptyState(event);
 	}
 
-	const scored: Array<MegaSearchResult & { score: number }> = searchablePageResults(event)
+	const scored: Array<SearchResult & { score: number }> = searchablePageResults(event)
 		.map((result) => ({ ...result, score: scoreResult(trimmedQuery, result) }))
 		.filter((result) => result.score > 0);
 
@@ -254,7 +250,7 @@ export async function getMegaSearchResponse(
 		]);
 
 		for (const member of members.rows) {
-			const result: MegaSearchResult = {
+			const result: SearchResult = {
 				id: member.membershipId,
 				resultKey: `members:${member.membershipId}`,
 				category: 'members',
@@ -272,7 +268,7 @@ export async function getMegaSearchResponse(
 		for (const season of seasons) {
 			const seasonSlug = season.slug?.trim();
 			if (!season.id || !seasonSlug || season.id !== scopedSeason?.id) continue;
-			const result: MegaSearchResult = {
+			const result: SearchResult = {
 				id: season.id,
 				resultKey: `seasons:${season.id}`,
 				category: 'seasons',
@@ -291,7 +287,7 @@ export async function getMegaSearchResponse(
 			const seasonSlug = offering.seasonSlug?.trim();
 			const offeringSlug = offering.slug?.trim();
 			if (!offering.id || !seasonSlug || !offeringSlug) continue;
-			const result: MegaSearchResult = {
+			const result: SearchResult = {
 				id: offering.id,
 				resultKey: `offerings:${offering.id}`,
 				category: 'offerings',
@@ -313,7 +309,7 @@ export async function getMegaSearchResponse(
 			const offeringSlug = league.offeringSlug?.trim();
 			const leagueSlug = league.slug?.trim();
 			if (!league.id || !seasonSlug || !offeringSlug || !leagueSlug) continue;
-			const result: MegaSearchResult = {
+			const result: SearchResult = {
 				id: league.id,
 				resultKey: `leagues:${league.id}`,
 				category: 'leagues',
@@ -335,7 +331,7 @@ export async function getMegaSearchResponse(
 			const leagueSlug = division.leagueSlug?.trim();
 			const divisionSlug = division.slug?.trim() || division.id?.trim();
 			if (!division.id || !seasonSlug || !offeringSlug || !leagueSlug || !divisionSlug) continue;
-			const result: MegaSearchResult = {
+			const result: SearchResult = {
 				id: division.id,
 				resultKey: `divisions:${division.id}`,
 				category: 'divisions',
@@ -360,7 +356,7 @@ export async function getMegaSearchResponse(
 			const teamSlug = team.slug?.trim() || team.id?.trim();
 			if (!team.id || !seasonSlug || !offeringSlug || !leagueSlug || !divisionSlug || !teamSlug)
 				continue;
-			const result: MegaSearchResult = {
+			const result: SearchResult = {
 				id: team.id,
 				resultKey: `teams:${team.id}`,
 				category: 'teams',
@@ -368,7 +364,7 @@ export async function getMegaSearchResponse(
 				subtitle:
 					[team.offeringName?.trim(), team.leagueName?.trim(), team.divisionName?.trim()]
 						.filter(Boolean)
-						.join(' • ') || null,
+						.join(' â€¢ ') || null,
 				meta:
 					[team.offeringName?.trim(), team.seasonName?.trim()].filter(Boolean).join(' ') || null,
 				href: buildTeamSearchHref({
@@ -386,7 +382,7 @@ export async function getMegaSearchResponse(
 		}
 
 		for (const facility of facilities.filter((facility) => isActiveFlag(facility.isActive))) {
-			const result: MegaSearchResult = {
+			const result: SearchResult = {
 				id: facility.id,
 				resultKey: `facilities:${facility.id}`,
 				category: 'facilities',
@@ -402,7 +398,7 @@ export async function getMegaSearchResponse(
 			isActiveFlag(facilityArea.isActive)
 		)) {
 			if (!area.id || !area.facilityId) continue;
-			const result: MegaSearchResult = {
+			const result: SearchResult = {
 				id: area.id,
 				resultKey: `facilityAreas:${area.id}`,
 				category: 'facilityAreas',
@@ -418,7 +414,7 @@ export async function getMegaSearchResponse(
 		}
 	}
 
-	const grouped = groupMegaSearchResults(scored, {
+	const grouped = groupSearchResults(scored, {
 		perCategoryLimit: 5,
 		totalLimit: 25
 	});
@@ -431,8 +427,8 @@ export async function getMegaSearchResponse(
 	};
 }
 
-export async function getMegaSearchEmptyState(event: SearchEvent): Promise<MegaSearchResponse> {
-	const groups: { category: MegaSearchCategory; label: string; items: MegaSearchResult[] }[] = [];
+export async function getSearchEmptyState(event: SearchEvent): Promise<SearchResponse> {
+	const groups: { category: SearchCategory; label: string; items: SearchResult[] }[] = [];
 
 	if (event.platform?.env?.DB && isAuthenticatedSearch(event)) {
 		const centralDbOps = getCentralDbOps(event);
