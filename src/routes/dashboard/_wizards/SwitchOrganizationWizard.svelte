@@ -518,6 +518,7 @@
 <ModalShell
 	open={open && manageOrganizationsOpen && leaveConfirmOpen}
 	closeAriaLabel="Close leave organization dialog"
+	showCloseButton={false}
 	panelClass="w-full max-w-2xl max-h-[calc(100vh-3rem)] border-4 border-error-700 bg-error-25 overflow-hidden flex flex-col"
 	on:requestClose={closeLeaveConfirm}
 >
@@ -527,7 +528,7 @@
 		</div>
 		<button
 			type="button"
-			class="p-1 text-error-700 hover:text-error-900 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error-700"
+			class="modal-close-button text-error-700 hover:text-error-900 focus-visible:text-error-900"
 			aria-label="Close leave organization dialog"
 			onclick={closeLeaveConfirm}
 		>

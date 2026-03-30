@@ -27,7 +27,7 @@
 	}
 </script>
 
-<ModalShell {open} on:requestClose={onClose}>
+<ModalShell {open} closeAriaLabel="Close temporary credentials modal" on:requestClose={onClose}>
 	<div class="border-b border-neutral-950 bg-neutral-600/66 px-4 py-3">
 		<h3 class="text-2xl font-bold font-serif text-neutral-950">Temporary Credentials</h3>
 	</div>

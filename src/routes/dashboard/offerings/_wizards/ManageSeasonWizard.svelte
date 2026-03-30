@@ -661,6 +661,7 @@
 <ModalShell
 	open={open && isDeleteModalOpen}
 	closeAriaLabel="Close delete season dialog"
+	showCloseButton={false}
 	panelClass="w-full max-w-2xl max-h-[calc(100vh-3rem)] border-4 border-error-700 bg-error-25 overflow-hidden flex flex-col"
 	on:requestClose={closeDeleteModal}
 >

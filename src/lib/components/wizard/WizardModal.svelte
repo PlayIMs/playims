@@ -83,6 +83,7 @@
 	{closeAriaLabel}
 	{panelClass}
 	{saveShortcutEnabled}
+	showCloseButton={false}
 	draggable
 	dragHandleSelector="[data-wizard-modal-drag-handle]"
 	on:requestClose={() => dispatch('requestClose')}

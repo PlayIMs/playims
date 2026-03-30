@@ -44,12 +44,15 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 	import type { Snippet } from 'svelte';
+	import { IconX } from '@tabler/icons-svelte';
 	import { clampModalTranslate } from './modal-drag.js';
 	import { isSaveShortcutEvent } from './save-shortcut.js';
 
 	interface Props {
 		open?: boolean;
 		closeAriaLabel?: string;
+		showCloseButton?: boolean;
+		closeButtonClass?: string;
 		backdropClass?: string;
 		panelClass?: string;
 		alignmentClass?: string;
@@ -64,6 +67,8 @@
 	let {
 		open = false,
 		closeAriaLabel = 'Close modal',
+		showCloseButton = true,
+		closeButtonClass = 'modal-close-button absolute right-4 top-4 z-10',
 		backdropClass = 'bg-black/55',
 		panelClass = 'w-full max-w-5xl max-h-[calc(100vh-2rem)] lg:max-h-[calc(100vh-3rem)] border-[3px] border-neutral-950 bg-neutral overflow-hidden flex flex-col',
 		alignmentClass = 'items-center',
@@ -76,6 +81,7 @@
 	}: Props = $props();
 
 	const dispatch = createEventDispatcher<{ requestClose: void; saveShortcut: void }>();
+	const resolvedPanelClass = $derived.by(() => `${panelClass} relative`);
 	const modalId = Symbol('modal-shell');
 	let pointerDownStartedInside = $state(false);
 	let hasBodyScrollLock = $state(false);
@@ -326,12 +332,23 @@
 		></div>
 		<div
 			bind:this={panelElement}
-			class={panelClass}
+			class={resolvedPanelClass}
 			style={panelStyle}
 			onpointerdown={handlePanelPointerDown}
 			onclick={(event) => event.stopPropagation()}
 			role="presentation"
 		>
+			{#if showCloseButton}
+				<button
+					type="button"
+					class={closeButtonClass}
+					aria-label={closeAriaLabel}
+					data-modal-drag-ignore
+					onclick={() => dispatch('requestClose')}
+				>
+					<IconX class="h-6 w-6" />
+				</button>
+			{/if}
 			{@render children?.()}
 		</div>
 	</div>

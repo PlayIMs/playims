@@ -23,6 +23,8 @@ header strip, shared footer actions, and no broader redesign of the dashboard sh
 
 - `Escape` closes the topmost open modal via shared `ModalShell` behavior, even before any field is focused.
 - Wizard close behavior still routes through each wizard's existing `requestClose` handler, so unsaved-change confirmation remains intact.
+- `ModalShell` renders the top-right `X` by default for direct modal consumers; use that shared close affordance instead of hand-rolling a second header close button.
+- `WizardModal` keeps its own header-integrated `X` and disables the `ModalShell` default internally, so wizard callers do not need to manage close-button duplication.
 - `WizardModal` auto-focuses the first enabled `input`, `select`, or `textarea` when opened and when step content changes.
 - To override initial focus for a specific field, add `data-wizard-autofocus` to that element.
 - `InfoPopover` helper panels close on `Escape`, outside click, and trigger re-click (toggle behavior).
