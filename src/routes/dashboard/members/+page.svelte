@@ -26,6 +26,7 @@
 		clearMemberSelectionFromHref,
 		syncMembersUrlIfReady
 	} from '$lib/members/url-state.js';
+	import { formatPhoneForDisplay } from '$lib/utils/phone-format.js';
 	import type {
 		CreateMemberResponse,
 		MemberAssignableRole,
@@ -238,7 +239,7 @@
 			key: 'cellPhone',
 			label: 'Phone',
 			width: '14%',
-			copyText: (row) => row.cellPhone,
+			copyText: (row) => formatPhoneForDisplay(row.cellPhone),
 			sortValue: (row) => row.cellPhone ?? ''
 		},
 		{
@@ -922,14 +923,16 @@
 												{row.fullName}
 											</span>
 										</button>
-									{:else if column.key === 'studentId'}
-										<span class="py-1 text-sm font-semibold uppercase tracking-[0.08em] text-neutral-700">
-											{row.studentId ?? '--'}
-										</span>
+								{:else if column.key === 'studentId'}
+									<span class="py-1 text-sm text-neutral-950">
+										{row.studentId ?? '--'}
+									</span>
 								{:else if column.key === 'email'}
 									<span class="break-all py-1 text-sm text-neutral-950">{row.email ?? '--'}</span>
 								{:else if column.key === 'cellPhone'}
-									<span class="py-1 text-sm text-neutral-950">{row.cellPhone ?? '--'}</span>
+									<span class="py-1 text-sm text-neutral-950">
+										{formatPhoneForDisplay(row.cellPhone) || '--'}
+									</span>
 								{:else if column.key === 'lastLoginAt'}
 									{@const lastLoginDisplay = formatMemberLastLogin(row.lastLoginAt)}
 									{#if lastLoginDisplay}
@@ -938,13 +941,13 @@
 											value={row.lastLoginAt}
 											includeTime
 											wrapperClass="inline"
-											textClass="py-1 text-sm font-semibold text-neutral-950"
+											textClass="py-1 text-sm text-neutral-950"
 										/>
 									{:else}
 										<span class="py-1 text-sm text-neutral-700">Never</span>
 									{/if}
 								{:else if column.key === 'sex'}
-									<span class="py-1 text-xs font-semibold uppercase tracking-[0.08em] text-neutral-950">
+									<span class="py-1 text-xs uppercase tracking-[0.08em] text-neutral-950">
 										{row.sex ?? '--'}
 									</span>
 								{:else if column.key === 'role'}

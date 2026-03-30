@@ -33,6 +33,7 @@
 		phoneCountryByIso2,
 		phoneCountryDialValues
 	} from '$lib/utils/phone-country-codes';
+	import { formatPhoneNationalFromDigits } from '$lib/utils/phone-format';
 	import { onDestroy, onMount, tick } from 'svelte';
 	import { toast } from '$lib/toasts';
 
@@ -146,14 +147,6 @@
 	const ACCOUNT_SECTION_COLLAPSE_STORAGE_KEY = 'playims:account-section-collapsed';
 	const ACCOUNT_SNAPSHOT_COLLAPSED_STORAGE_KEY = 'playims:account-snapshot-collapsed';
 
-	const formatCellPhoneMaskFromDigits = (value: string) => {
-		const digits = value.replace(/\D/g, '').slice(0, 10);
-		if (digits.length === 0) return '';
-		if (digits.length <= 3) return `(${digits}`;
-		if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
-		return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
-	};
-
 	const splitStoredCellPhone = (value: string | null | undefined) => {
 		if (!value) {
 			return {
@@ -207,7 +200,7 @@
 		lastName = account.lastName ?? '';
 		cellPhoneCountryIso2 = parsedCellPhone.countryIso2;
 		cellPhoneCountryCode = parsedCellPhone.countryCode;
-		cellPhone = formatCellPhoneMaskFromDigits(parsedCellPhone.nationalDigits);
+		cellPhone = formatPhoneNationalFromDigits(parsedCellPhone.nationalDigits);
 
 		currentPassword = '';
 		newPassword = '';
@@ -571,7 +564,7 @@
 			return;
 		}
 
-		cellPhone = formatCellPhoneMaskFromDigits(target.value);
+		cellPhone = formatPhoneNationalFromDigits(target.value);
 	}
 
 	const enhanceNoJump = () => {
@@ -827,7 +820,7 @@
 													searchPlaceholder="Search country"
 													searchAriaLabel="Search countries"
 													searchEmptyText="No countries match your search."
-													buttonClass="phone-country-trigger relative z-10 w-16 h-11 border-2 border-secondary-300 border-r-0 bg-white px-1.5 py-2 text-sm text-neutral-950 cursor-pointer inline-flex items-center justify-center gap-1 focus-visible:outline-none"
+													buttonClass="phone-country-trigger relative z-10 h-11 min-w-[5.5rem] border-2 border-secondary-300 border-r-0 bg-white px-1.5 py-2 text-sm text-neutral-950 cursor-pointer inline-flex items-center justify-center gap-1 focus-visible:outline-none"
 													on:change={(event) => {
 														const nextIso2 = event.detail.value;
 														const nextCountry = phoneCountryByIso2.get(nextIso2);
@@ -847,6 +840,9 @@
 																	{selectedCellPhoneCountry?.iso2?.toUpperCase() ?? 'US'}
 																</span>
 															{/if}
+															<span class="text-xs font-semibold leading-none text-neutral-950">
+																{cellPhoneCountryCode}
+															</span>
 															{#if open}
 																<IconChevronUp class="h-3.5 w-3.5 shrink-0 text-neutral-900" />
 															{:else}
