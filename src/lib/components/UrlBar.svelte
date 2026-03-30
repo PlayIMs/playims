@@ -22,6 +22,7 @@
 		canGoForward: boolean;
 		backHistoryEntries: PwaHistoryEntry[];
 		forwardHistoryEntries: PwaHistoryEntry[];
+		isReloading: boolean;
 		onBack: () => void;
 		onForward: () => void;
 		onJumpToHistory: (targetIndex: number) => void;
@@ -38,6 +39,7 @@
 		canGoForward,
 		backHistoryEntries,
 		forwardHistoryEntries,
+		isReloading,
 		onBack,
 		onForward,
 		onJumpToHistory,
@@ -185,8 +187,9 @@
 		<HoverTooltip text="Reload page">
 			<button
 				type="button"
-				class="pwa-chrome-action pwa-window-no-drag flex h-8 w-8 cursor-pointer items-center justify-center transition-colors duration-150"
+				class="pwa-chrome-action pwa-window-no-drag flex h-8 w-8 cursor-pointer items-center justify-center transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-45"
 				aria-label="Reload page"
+				disabled={isReloading}
 				onclick={onReload}
 			>
 				<IconRefresh class="h-4.5 w-4.5" />

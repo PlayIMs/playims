@@ -1,5 +1,6 @@
 export const STANDALONE_DISPLAY_MODE_QUERY = '(display-mode: standalone)';
 export const SVELTEKIT_HISTORY_INDEX_KEY = 'sveltekit:history';
+export const PWA_RELOAD_IN_FLIGHT_KEY = 'playims:pwa-reload-in-flight';
 const MAX_STORED_PWA_HISTORY_ENTRIES = 100;
 
 export type StandaloneDisplayModeProbe = {
@@ -239,4 +240,18 @@ export function resolvePwaAddressNavigationTarget(
 				? `${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`
 				: null
 	};
+}
+
+type PwaReloadStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+
+export function readPwaReloadInFlight(storage: PwaReloadStorage): boolean {
+	return storage.getItem(PWA_RELOAD_IN_FLIGHT_KEY) === 'true';
+}
+
+export function markPwaReloadInFlight(storage: PwaReloadStorage): void {
+	storage.setItem(PWA_RELOAD_IN_FLIGHT_KEY, 'true');
+}
+
+export function clearPwaReloadInFlight(storage: PwaReloadStorage): void {
+	storage.removeItem(PWA_RELOAD_IN_FLIGHT_KEY);
 }

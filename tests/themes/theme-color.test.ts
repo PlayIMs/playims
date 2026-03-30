@@ -12,12 +12,17 @@ Summary of tests:
 2. It verifies that missing theme input falls back to the default PlayIMs primary color.
 3. It verifies that theme cache payloads are normalized when they are serialized.
 4. It verifies that malformed cached theme payloads are ignored safely.
+5. It verifies that persisted browser theme-color values are normalized independently of the full theme payload.
+6. It verifies that the standalone PWA chrome prefers the live org theme while the current org theme is active.
+7. It verifies that the standalone PWA chrome falls back to persisted colors during startup fallback paths.
 */
 
 import { describe, expect, it } from 'vitest';
 import {
 	buildThemeColorHex,
 	parseStoredThemeColors,
+	parseStoredThemeColorHex,
+	resolveStandalonePwaChromePrimary,
 	serializeThemeColors
 } from '../../src/lib/theme';
 
@@ -58,5 +63,43 @@ describe('theme color helper', () => {
 			secondary: '112233',
 			neutral: ''
 		});
+	});
+
+	it('normalizes persisted browser theme-color values without requiring a full theme object', () => {
+		// this protects the blocking app.html script, which reads one dedicated color value before
+		// svelte hydration has loaded the complete theme store.
+		expect(parseStoredThemeColorHex('#4a90e2')).toBe('4A90E2');
+		expect(parseStoredThemeColorHex('4A90E2')).toBe('4A90E2');
+		expect(parseStoredThemeColorHex('not-a-color')).toBeNull();
+	});
+
+	it('prefers the live org theme for standalone chrome when the current org theme is active', () => {
+		// this protects the installed url bar from getting stuck on its old color after branding
+		// changes, because the live theme store should win once the current org theme is loaded.
+		expect(
+			resolveStandalonePwaChromePrimary({
+				themeSource: 'db',
+				liveThemePrimary: '4A90E2',
+				initialThemePrimary: 'CE1126',
+				persistedBrowserThemeColor: '123456',
+				persistedThemePrimary: '654321',
+				initialPwaChromePrimary: 'CE1126'
+			})
+		).toBe('4A90E2');
+	});
+
+	it('falls back to persisted browser chrome color during startup fallback paths', () => {
+		// this keeps refresh and client-switch startup stable before the app has confirmed the
+		// current org theme from the database again.
+		expect(
+			resolveStandalonePwaChromePrimary({
+				themeSource: 'fallback',
+				liveThemePrimary: '4A90E2',
+				initialThemePrimary: 'CE1126',
+				persistedBrowserThemeColor: '#123456',
+				persistedThemePrimary: '654321',
+				initialPwaChromePrimary: 'CE1126'
+			})
+		).toBe('123456');
 	});
 });

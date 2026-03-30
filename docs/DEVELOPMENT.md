@@ -292,6 +292,7 @@ surfaces.
 - `src/routes/+layout.server.ts`
 - `src/routes/+layout.svelte`
 - `src/lib/theme.ts`
+- `src/routes/manifest.webmanifest/+server.ts`
 - `src/routes/dashboard/+layout.svelte`
 
 ### Required Behavior
@@ -311,19 +312,66 @@ surfaces.
   - Keeps `body { visibility: hidden; }`.
   - Reveals only with `body.theme-ready`.
   - Disables transitions/animations while `theme-ready` is absent.
+  - Owns the single base `<meta name="theme-color" id="theme-meta">`.
+  - Runs a blocking inline script immediately after that meta tag so the browser can restore the
+    saved PWA/browser chrome color before hydration or body parsing continues.
 
 - `src/routes/+layout.svelte`
   - Injects server-computed theme CSS variables in `<svelte:head>` (`#initial-theme-vars`).
-  - Runs a blocking head script to set theme variables and `meta[name="theme-color"]`.
+  - Runs a blocking head script to set theme variables and the PWA chrome CSS variables.
+  - Must not inject a second `theme-color` meta tag; it should only update `#theme-meta`.
   - Does not reveal the body directly from head script.
 
 - `src/lib/theme.ts`
   - `init(...)` is the single reveal path.
   - `markThemeReady()` waits for stylesheet readiness and two RAF ticks, then adds `theme-ready`.
+  - Persists both the full current theme (`playims:current-theme`) and the dedicated browser chrome
+    color (`playims:theme-color`) so refreshes can restore the correct title-bar color before
+    Svelte initializes.
+
+- `src/routes/manifest.webmanifest/+server.ts`
+  - Supplies the installed-PWA fallback `theme_color`.
+  - Prefers the current organization theme from the database.
+  - Falls back to the persisted theme cookie only when the current org theme is unavailable.
 
 - `src/routes/dashboard/+layout.svelte`
   - Sidebar uses explicit inline `background-color: var(--color-primary-500)`.
   - Avoids `transition-all` on sidebar container and nav rows during startup-sensitive render.
+
+### Installed PWA Title-Bar Color Contract
+
+This app has a separate contract for the installed PWA window title bar because the browser can paint
+that chrome before Svelte stores and components have initialized.
+
+Required behavior:
+
+1. The installed PWA must keep using the active organization's primary color across refreshes.
+2. Refresh and client-side navigation must not temporarily revert the title bar to a default gray or
+   fallback brand color once a real org color has already been persisted.
+3. The title bar color should change only when the current org theme primary changes.
+
+How it works:
+
+1. `src/app.html` defines the one true `theme-color` meta tag as `#theme-meta`.
+2. A blocking inline script runs immediately after that tag and reads the saved color from:
+   - `localStorage['playims:theme-color']`
+   - or `sessionStorage['playims:theme-color']`
+   - then falls back to the serialized full theme
+   - then falls back to the theme cookie
+   - then finally falls back to the PlayIMs default primary
+3. `src/lib/theme.ts` updates that same `#theme-meta` tag live and persists the exact browser chrome
+   color whenever the active theme changes.
+4. `src/routes/manifest.webmanifest/+server.ts` provides the installed-app `theme_color` fallback for
+   cold launches before page code runs.
+
+Why this must stay this way:
+
+- The manifest `theme_color` is only a fallback/default.
+- The page `<meta name="theme-color">` overrides the manifest at runtime.
+- If the app injects multiple `theme-color` tags or waits until hydration to choose the color, the
+  browser can briefly paint the installed window with the wrong color during refresh.
+- The dedicated `playims:theme-color` key exists specifically so the blocking `app.html` script can
+  restore the exact chrome color without needing the full Svelte theme boot sequence first.
 
 ### Do Not Change (Without Re-Testing Flicker)
 
@@ -331,6 +379,11 @@ surfaces.
   `src/lib/theme.ts`.
 - Do not remove the hidden-body gate in `src/app.html`.
 - Do not move theme variable bootstrap out of root layout head.
+- Do not move the blocking `#theme-meta` restore script below `%sveltekit.head%` or below the
+  manifest link in `src/app.html`.
+- Do not create an additional `<meta name="theme-color">` in route/layout head content.
+- Do not remove or rename the dedicated `playims:theme-color` storage key without updating the
+  blocking restore script and runtime sync together.
 - Do not reintroduce `transition-all` on the dashboard sidebar container/nav items.
 
 ### Regression Test Checklist
@@ -341,6 +394,8 @@ After any theme/layout/bootstrap change, verify:
 2. Hard refresh `/colors` with cache disabled.
 3. Confirm no frame where sidebar/button backgrounds go transparent or default.
 4. Confirm theme persists correctly across refresh and route navigation.
+5. In the installed PWA, confirm the window title bar keeps the org primary color across repeated
+   refreshes and normal in-app navigation.
 
 ## Date Tooltip Contract
 

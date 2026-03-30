@@ -3,8 +3,66 @@
 	<head>
 		<meta charset="utf-8" />
 		<link rel="icon" href="%sveltekit.assets%/favicon.png" />
+		<meta name="theme-color" id="theme-meta" content="#CE1126" />
+		<script nonce="%sveltekit.nonce%">
+			(() => {
+				const themeColorMeta = document.getElementById('theme-meta');
+				if (!themeColorMeta) {
+					return;
+				}
+
+				const browserThemeColorStorageKey = 'playims:theme-color';
+				const currentThemeStorageKey = 'playims:current-theme';
+				const currentThemeCookieName = 'playims-current-theme=';
+				const fallbackColor = '#CE1126';
+
+				const parseColor = (value) => {
+					if (!value) {
+						return null;
+					}
+
+					const normalized = value.replace('#', '').toUpperCase();
+					return /^[0-9A-F]{6}$/.test(normalized) ? `#${normalized}` : null;
+				};
+
+				const parseThemePayload = (value) => {
+					if (!value) {
+						return null;
+					}
+
+					try {
+						const parsed = JSON.parse(decodeURIComponent(value));
+						return parseColor(typeof parsed?.primary === 'string' ? parsed.primary : null);
+					} catch {
+						return null;
+					}
+				};
+
+				const readFromStorage = (key) => {
+					try {
+						return window.localStorage.getItem(key) ?? window.sessionStorage.getItem(key);
+					} catch {
+						return null;
+					}
+				};
+
+				const cookieValue = document.cookie
+					.split('; ')
+					.find((entry) => entry.startsWith(currentThemeCookieName))
+					?.slice(currentThemeCookieName.length);
+
+				const resolvedThemeColor =
+					parseColor(readFromStorage(browserThemeColorStorageKey)) ??
+					parseThemePayload(readFromStorage(currentThemeStorageKey)) ??
+					parseThemePayload(cookieValue) ??
+					fallbackColor;
+
+				if (themeColorMeta.getAttribute('content') !== resolvedThemeColor) {
+					themeColorMeta.setAttribute('content', resolvedThemeColor);
+				}
+			})();
+		</script>
 		<link rel="manifest" href="/manifest.json" />
-		<meta name="theme-color" content="#27272A" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -26,58 +84,6 @@
 				animation: none !important;
 			}
 		</style>
-		<script nonce="%sveltekit.nonce%">
-			(() => {
-				const cookieName = 'playims-current-theme=';
-				const fallbackColor = '#27272A';
-				const themeColorMeta = document.querySelector('meta[name="theme-color"]');
-				const manifestLink = document.querySelector('link[rel="manifest"]');
-				if (!themeColorMeta) {
-					return;
-				}
-
-				const cookieValue = document.cookie
-					.split('; ')
-					.find((entry) => entry.startsWith(cookieName))
-					?.slice(cookieName.length);
-
-				if (!cookieValue) {
-					themeColorMeta.setAttribute('content', fallbackColor);
-					if (manifestLink) {
-						manifestLink.setAttribute('href', `/manifest.json?theme=${fallbackColor.slice(1)}`);
-					}
-					return;
-				}
-
-				try {
-					const parsed = JSON.parse(decodeURIComponent(cookieValue));
-					const primary =
-						typeof parsed?.primary === 'string'
-							? parsed.primary.replace('#', '').toUpperCase()
-							: '';
-					if (!/^[0-9A-F]{6}$/.test(primary)) {
-						themeColorMeta.setAttribute('content', fallbackColor);
-						if (manifestLink) {
-							manifestLink.setAttribute(
-								'href',
-								`/manifest.json?theme=${fallbackColor.slice(1)}`
-							);
-						}
-						return;
-					}
-
-					themeColorMeta.setAttribute('content', `#${primary}`);
-					if (manifestLink) {
-						manifestLink.setAttribute('href', `/manifest.json?theme=${primary}`);
-					}
-				} catch {
-					themeColorMeta.setAttribute('content', fallbackColor);
-					if (manifestLink) {
-						manifestLink.setAttribute('href', `/manifest.json?theme=${fallbackColor.slice(1)}`);
-					}
-				}
-			})();
-		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

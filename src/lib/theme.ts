@@ -17,14 +17,14 @@ export const ZINC_PALETTE: Record<string, string> = {
 	'950': '09090B'
 };
 
-export const STANDALONE_PWA_FALLBACK_PRIMARY = ZINC_PALETTE['800'];
-
 // default hex values (without #)
 export const DEFAULT_THEME = {
 	primary: 'CE1126',
 	secondary: '14213D',
 	neutral: 'F5ECE5'
 } as const;
+
+export const STANDALONE_PWA_FALLBACK_PRIMARY = DEFAULT_THEME.primary;
 
 export type ThemeColors = {
 	primary: string;
@@ -73,6 +73,7 @@ type Rgb = {
 const MAX_SAVED_THEMES = 15;
 const API_BASE = '/api/themes';
 export const CURRENT_THEME_STORAGE_KEY = 'playims:current-theme';
+export const BROWSER_THEME_COLOR_STORAGE_KEY = 'playims:theme-color';
 export const CURRENT_THEME_COOKIE_KEY = 'playims-current-theme';
 const HEX_COLOR_PATTERN = /^[0-9A-F]{6}$/;
 let currentThemeETag: string | null = null;
@@ -96,6 +97,43 @@ export function formatHex(hex: string): string {
 /** returns the browser chrome color that should match the active primary theme color. */
 export function buildThemeColorHex(colors: Pick<ThemeColors, 'primary'> | null | undefined): string {
 	return formatHex(colors?.primary || DEFAULT_THEME.primary);
+}
+
+type StandalonePwaChromePrimaryInput = {
+	themeSource: 'db' | 'fallback' | undefined;
+	liveThemePrimary?: string | null;
+	initialThemePrimary?: string | null;
+	persistedBrowserThemeColor?: string | null;
+	persistedThemePrimary?: string | null;
+	initialPwaChromePrimary?: string | null;
+};
+
+/** resolves the custom installed-pwa chrome color from the best available source. */
+export function resolveStandalonePwaChromePrimary(
+	input: StandalonePwaChromePrimaryInput
+): string {
+	if (input.themeSource === 'db') {
+		return normalizeHex(
+			input.liveThemePrimary ?? input.initialThemePrimary ?? input.initialPwaChromePrimary ?? DEFAULT_THEME.primary
+		);
+	}
+
+	return (
+		parseStoredThemeColorHex(input.persistedBrowserThemeColor) ??
+		parseStoredThemeColorHex(input.persistedThemePrimary) ??
+		parseStoredThemeColorHex(input.initialPwaChromePrimary) ??
+		DEFAULT_THEME.primary
+	);
+}
+
+/** parses a persisted browser theme-color value without throwing on malformed input. */
+export function parseStoredThemeColorHex(value: string | null | undefined): string | null {
+	if (!value) {
+		return null;
+	}
+
+	const normalized = normalizeHex(value);
+	return HEX_COLOR_PATTERN.test(normalized) ? normalized : null;
 }
 
 /** serializes theme colors so the active theme can survive a same-window refresh. */
@@ -163,6 +201,32 @@ export function readPersistedThemeColors(): ThemeColors | null {
 
 	try {
 		return parseStoredThemeColors(window.sessionStorage.getItem(CURRENT_THEME_STORAGE_KEY));
+	} catch {
+		return null;
+	}
+}
+
+/** reads the dedicated browser chrome theme-color from storage. */
+export function readPersistedBrowserThemeColor(): string | null {
+	if (typeof window === 'undefined') {
+		return null;
+	}
+
+	try {
+		const localColor = parseStoredThemeColorHex(
+			window.localStorage.getItem(BROWSER_THEME_COLOR_STORAGE_KEY)
+		);
+		if (localColor) {
+			return localColor;
+		}
+	} catch {
+		// ignore local storage failures and fall through to session storage
+	}
+
+	try {
+		return parseStoredThemeColorHex(
+			window.sessionStorage.getItem(BROWSER_THEME_COLOR_STORAGE_KEY)
+		);
 	} catch {
 		return null;
 	}
@@ -385,6 +449,60 @@ function persistThemeColorsToBrowserStorage(colors: ThemeColors) {
 	} catch {
 		// ignore cookie failures; storage fallback still covers the current browser
 	}
+
+	persistBrowserThemeColor(colors.primary);
+}
+
+/** stores the exact browser chrome color so app.html can restore it before hydration. */
+export function persistBrowserThemeColor(primaryHex: string): void {
+	if (typeof window === 'undefined') {
+		return;
+	}
+
+	const normalizedPrimary = parseStoredThemeColorHex(primaryHex);
+	if (!normalizedPrimary) {
+		return;
+	}
+
+	try {
+		if (window.sessionStorage.getItem(BROWSER_THEME_COLOR_STORAGE_KEY) !== normalizedPrimary) {
+			window.sessionStorage.setItem(BROWSER_THEME_COLOR_STORAGE_KEY, normalizedPrimary);
+		}
+	} catch {
+		// ignore storage failures; local storage may still succeed
+	}
+
+	try {
+		if (window.localStorage.getItem(BROWSER_THEME_COLOR_STORAGE_KEY) !== normalizedPrimary) {
+			window.localStorage.setItem(BROWSER_THEME_COLOR_STORAGE_KEY, normalizedPrimary);
+		}
+	} catch {
+		// ignore storage failures; session storage may still succeed
+	}
+}
+
+/** updates the shared theme-color meta tag only when the value truly changed. */
+export function syncThemeColorMeta(primaryHex: string): void {
+	if (typeof document === 'undefined') {
+		return;
+	}
+
+	const primary500WithHash = formatHex(primaryHex);
+	let themeColorMeta =
+		document.querySelector<HTMLMetaElement>('#theme-meta') ??
+		document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+	if (!themeColorMeta) {
+		themeColorMeta = document.createElement('meta');
+		themeColorMeta.setAttribute('name', 'theme-color');
+		themeColorMeta.setAttribute('id', 'theme-meta');
+		document.head.appendChild(themeColorMeta);
+	}
+
+	if (themeColorMeta.getAttribute('content') !== primary500WithHash) {
+		themeColorMeta.setAttribute('content', primary500WithHash);
+	}
+
+	persistBrowserThemeColor(primaryHex);
 }
 
 /** applies the theme to css variables on the document root. */
@@ -420,14 +538,7 @@ function applyThemeToDOM(colors: ThemeColors, options?: { persist?: boolean }) {
 	}
 
 	// sync theme-color meta tag with primary-500
-	const primary500WithHash = buildThemeColorHex(colors);
-	let themeColorMeta = document.querySelector('meta[name="theme-color"]');
-	if (!themeColorMeta) {
-		themeColorMeta = document.createElement('meta');
-		themeColorMeta.setAttribute('name', 'theme-color');
-		document.head.appendChild(themeColorMeta);
-	}
-	themeColorMeta.setAttribute('content', primary500WithHash);
+	syncThemeColorMeta(colors.primary);
 
 	if (options?.persist !== false) {
 		persistThemeColorsToBrowserStorage(colors);

@@ -1,6 +1,9 @@
 import { json } from '@sveltejs/kit';
+import { ensureDefaultClient, resolveClientId } from '$lib/server/client-context';
+import { getCentralDbOps, getTenantDbOps } from '$lib/server/database/context';
 import {
 	CURRENT_THEME_COOKIE_KEY,
+	DEFAULT_THEME,
 	parseStoredThemeColors,
 	STANDALONE_PWA_FALLBACK_PRIMARY
 } from '$lib/theme';
@@ -11,12 +14,7 @@ const normalizeHex = (value: string | null | undefined): string | null => {
 	return /^[0-9A-F]{6}$/.test(normalized) ? normalized : null;
 };
 
-const resolveThemeColor = (urlTheme: string | null, cookieTheme: string | undefined): string => {
-	const queryTheme = normalizeHex(urlTheme);
-	if (queryTheme) {
-		return queryTheme;
-	}
-
+const resolveCookieThemeColor = (cookieTheme: string | undefined): string | null => {
 	if (cookieTheme) {
 		try {
 			const parsed = parseStoredThemeColors(decodeURIComponent(cookieTheme));
@@ -29,16 +27,32 @@ const resolveThemeColor = (urlTheme: string | null, cookieTheme: string | undefi
 		}
 	}
 
-	return STANDALONE_PWA_FALLBACK_PRIMARY;
+	return null;
 };
 
-export const GET: RequestHandler = async ({ url, cookies, setHeaders }) => {
-	const themeColor = resolveThemeColor(
-		url.searchParams.get('theme'),
-		cookies.get(CURRENT_THEME_COOKIE_KEY)
-	);
+const resolveDatabaseThemeColor = async (
+	event: Parameters<RequestHandler>[0]
+): Promise<string | null> => {
+	try {
+		const centralDbOps = getCentralDbOps(event);
+		await ensureDefaultClient(centralDbOps);
+		const clientId = resolveClientId(event.locals);
+		const tenantDbOps = await getTenantDbOps(event, clientId);
+		const currentTheme = await tenantDbOps.themes.getBySlug(clientId, 'current');
+		return normalizeHex(currentTheme?.primary);
+	} catch {
+		return null;
+	}
+};
 
-	setHeaders({
+export const GET: RequestHandler = async (event) => {
+	const themeColor =
+		(await resolveDatabaseThemeColor(event)) ??
+		resolveCookieThemeColor(event.cookies.get(CURRENT_THEME_COOKIE_KEY)) ??
+		normalizeHex(STANDALONE_PWA_FALLBACK_PRIMARY) ??
+		DEFAULT_THEME.primary;
+
+	event.setHeaders({
 		'cache-control': 'no-store, max-age=0',
 		'content-type': 'application/manifest+json; charset=utf-8'
 	});
@@ -49,7 +63,7 @@ export const GET: RequestHandler = async ({ url, cookies, setHeaders }) => {
 		description:
 			'Modern intramural sports league management platform with intuitive team management, automated scheduling, and real-time standings.',
 		id: '/',
-		start_url: '/',
+		start_url: '/dashboard',
 		display: 'standalone',
 		display_override: ['window-controls-overlay'],
 		background_color: '#EEDBCE',

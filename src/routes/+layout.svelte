@@ -2,7 +2,6 @@
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
 	import { afterNavigate, goto, invalidateAll } from '$app/navigation';
-	import { get } from 'svelte/store';
 	import 'virtual:pwa-assets/head';
 	// import { injectSpeedInsights } from '@vercel/speed-insights/sveltekit';
 
@@ -10,10 +9,14 @@
 	import Toaster from '$lib/components/toast/Toaster.svelte';
 	import UrlBar from '$lib/components/UrlBar.svelte';
 	import * as theme from '$lib/theme';
+	import { themeColors as liveThemeColorsStore } from '$lib/theme';
 	import { forceRadioTabStop, selectArrow, skipDatePickerTabStop } from '$lib/actions';
 	import {
 		type PwaHistoryEntry,
+		clearPwaReloadInFlight,
+		markPwaReloadInFlight,
 		parseStoredPwaHistoryEntries,
+		readPwaReloadInFlight,
 		readSvelteKitHistoryIndex,
 		selectPwaHistoryMenuEntries,
 		serializePwaHistoryEntries,
@@ -46,6 +49,7 @@
 		)
 	);
 	let isStandalonePwa = $state(false);
+	let isReloadingStandalonePwa = $state(false);
 	let pwaHistorySessionStart = $state<number | null>(null);
 	let pwaHistoryCurrentIndex = $state<number | null>(null);
 	let pwaHistoryMaxIndex = $state<number | null>(null);
@@ -76,6 +80,7 @@
 				.replace('#', '')
 				.toUpperCase()
 	);
+	let liveThemeColors = $derived($liveThemeColorsStore);
 	let appShellStyle = $derived.by(() => `--pwa-top-bar-offset:${pwaTopBarOffset};`);
 	/** applies the select arrow action to themed select elements. */
 	const applySelectArrowToAll = () => {
@@ -122,7 +127,6 @@
 	const PWA_HISTORY_SESSION_START_KEY = 'playims:pwa-history-session-start';
 	const PWA_HISTORY_MAX_KEY = 'playims:pwa-history-max';
 	const PWA_HISTORY_ENTRIES_KEY = 'playims:pwa-history-entries';
-	const PWA_CHROME_COOKIE_SYNC_KEY = 'playims:pwa-chrome-cookie-sync';
 	const pwaTopBarOffset = $derived.by(() =>
 		isStandalonePwa ? 'calc(env(safe-area-inset-top, 0px) + 2.75rem)' : '0px'
 	);
@@ -257,34 +261,30 @@
 		});
 	};
 
-	const readStoredThemeForPwaChrome = (): theme.ThemeColors | null => {
-		if (!browser) {
-			return null;
-		}
-
-		return theme.readPersistedThemeColors();
-	};
-
 	const syncStandalonePwaChrome = () => {
 		if (!browser) {
 			return;
 		}
 
 		const root = document.documentElement;
-		const themeColorMeta = document.querySelector('meta[name="theme-color"]');
-		const chromePrimary = activeClientId
-			? ((get(theme.themeColors)?.primary ?? initialTheme.primary).replace('#', '').toUpperCase())
-			: ((readStoredThemeForPwaChrome()?.primary ?? initialPwaChromePrimary).replace('#', '')
-					.toUpperCase());
+		const persistedBrowserThemeColor = theme.readPersistedBrowserThemeColor();
+		const persistedThemePrimary = theme.readPersistedThemeColors()?.primary ?? null;
+		const chromePrimary = theme.resolveStandalonePwaChromePrimary({
+			themeSource: data?.themeSource as 'db' | 'fallback' | undefined,
+			liveThemePrimary: liveThemeColors?.primary ?? null,
+			initialThemePrimary: initialTheme.primary,
+			persistedBrowserThemeColor,
+			persistedThemePrimary,
+			initialPwaChromePrimary
+		});
 		const chromePalette = theme.generatePalette(chromePrimary);
+		const chromePrimaryHex = theme.formatHex(chromePrimary);
 
-		root.style.setProperty('--pwa-chrome-500', theme.formatHex(chromePrimary));
+		root.style.setProperty('--pwa-chrome-500', chromePrimaryHex);
 		root.style.setProperty('--pwa-chrome-600', theme.formatHex(chromePalette['600']));
 		root.style.setProperty('--pwa-chrome-foreground', '#FFFFFF');
 		root.style.setProperty('--pwa-chrome-placeholder', 'rgb(255 255 255 / 0.72)');
-		if (themeColorMeta) {
-			themeColorMeta.setAttribute('content', theme.formatHex(chromePrimary));
-		}
+		theme.syncThemeColorMeta(chromePrimary);
 	};
 
 	const navigateBack = () => {
@@ -319,6 +319,13 @@
 	const reloadCurrentPage = () => {
 		if (!browser) {
 			return;
+		}
+
+		isReloadingStandalonePwa = true;
+		try {
+			markPwaReloadInFlight(window.sessionStorage);
+		} catch {
+			// ignore storage failures; the current document state still disables the button immediately
 		}
 
 		window.location.reload();
@@ -357,6 +364,11 @@
 		});
 
 		syncStandalonePwaState();
+		try {
+			isReloadingStandalonePwa = readPwaReloadInFlight(window.sessionStorage);
+		} catch {
+			isReloadingStandalonePwa = false;
+		}
 		syncPwaHistoryState();
 		const standaloneMediaQuery = window.matchMedia(STANDALONE_DISPLAY_MODE_QUERY);
 		const legacyStandaloneMediaQuery = standaloneMediaQuery as MediaQueryList & {
@@ -375,6 +387,21 @@
 
 		window.addEventListener('pageshow', handleStandaloneModeChange);
 
+		const clearReloadInFlight = () => {
+			try {
+				clearPwaReloadInFlight(window.sessionStorage);
+			} catch {
+				// ignore storage failures; clearing local state still restores the button
+			}
+			isReloadingStandalonePwa = false;
+		};
+
+		if (document.readyState === 'complete') {
+			clearReloadInFlight();
+		} else {
+			window.addEventListener('load', clearReloadInFlight, { once: true });
+		}
+
 		return () => {
 			if ('removeEventListener' in standaloneMediaQuery) {
 				standaloneMediaQuery.removeEventListener('change', handleStandaloneModeChange);
@@ -382,6 +409,7 @@
 				legacyStandaloneMediaQuery.removeListener(handleStandaloneModeChange);
 			}
 			window.removeEventListener('pageshow', handleStandaloneModeChange);
+			window.removeEventListener('load', clearReloadInFlight);
 			observer.disconnect();
 		};
 	};
@@ -450,39 +478,6 @@
 	});
 
 	$effect(() => {
-		if (!browser) {
-			return;
-		}
-
-		const storedTheme = readStoredThemeForPwaChrome();
-		const storedPrimary = storedTheme?.primary?.replace('#', '').toUpperCase() ?? null;
-		const serverPrimary = initialPwaChromePrimary.replace('#', '').toUpperCase();
-
-		if (!storedPrimary || storedPrimary === serverPrimary) {
-			try {
-				window.sessionStorage.removeItem(PWA_CHROME_COOKIE_SYNC_KEY);
-			} catch {
-				// ignore storage failures
-			}
-			return;
-		}
-
-		try {
-			if (window.sessionStorage.getItem(PWA_CHROME_COOKIE_SYNC_KEY) === storedPrimary) {
-				return;
-			}
-
-			document.cookie = `${theme.CURRENT_THEME_COOKIE_KEY}=${encodeURIComponent(
-				theme.serializeThemeColors(storedTheme)
-			)}; path=/; max-age=31536000; samesite=lax`;
-			window.sessionStorage.setItem(PWA_CHROME_COOKIE_SYNC_KEY, storedPrimary);
-			window.location.reload();
-		} catch {
-			// ignore sync failures; runtime chrome sync still improves the current window
-		}
-	});
-
-	$effect(() => {
 		if (!browser || !isStandalonePwa) {
 			return;
 		}
@@ -509,10 +504,6 @@
 </script>
 
 <svelte:head>
-	<meta
-		name="theme-color"
-		content={theme.formatHex(initialPwaChromePrimary)}
-	/>
 	<!-- critical: keep server-side theme vars in head so first visible frame is themed -->
 	<style id="initial-theme-vars">
 {initialThemeVarsCss}
@@ -671,7 +662,8 @@
 			let safeTheme = defaultTheme;
 			let safeZinc = defaultZinc;
 			let themeStorageKey = 'current-theme';
-			let initialPwaChromePrimary = defaultZinc['800'];
+			let browserThemeColorStorageKey = 'playims:theme-color';
+			let initialPwaChromePrimary = defaultTheme.primary;
 
 			const themeElement = document.getElementById('initial-theme-data');
 			const zincElement = document.getElementById('zinc-palette-data');
@@ -710,6 +702,22 @@
 				}
 			};
 
+			const readStoredBrowserThemeColor = () => {
+				try {
+					const stored =
+						window.localStorage.getItem(browserThemeColorStorageKey) ??
+						window.sessionStorage.getItem(browserThemeColorStorageKey);
+					if (!stored) {
+						return null;
+					}
+
+					const normalized = stored.replace('#', '').toUpperCase();
+					return /^[0-9A-F]{6}$/.test(normalized) ? normalized : null;
+				} catch {
+					return null;
+				}
+			};
+
 			try {
 				if (themeElement?.textContent) {
 					safeTheme = JSON.parse(themeElement.textContent);
@@ -735,24 +743,25 @@
 			} catch {}
 
 			const storedTheme = readStoredTheme();
-			if (themeEtagMeta?.getAttribute('content') === 'W/"theme-empty"' && storedTheme) {
+			const storedBrowserThemeColor = readStoredBrowserThemeColor();
+			const shouldPreferStoredTheme =
+				themeEtagMeta?.getAttribute('content') === 'W/"theme-empty"' && storedTheme;
+			if (shouldPreferStoredTheme) {
 				safeTheme = storedTheme;
 			}
 
 			buildInlineThemeScript(safeTheme, safeZinc);
 
 			const root = document.documentElement;
-			const chromePrimary = initialPwaChromePrimary;
+			const chromePrimary =
+				themeEtagMeta?.getAttribute('content') === 'W/"theme-empty"'
+					? storedBrowserThemeColor ?? (shouldPreferStoredTheme ? storedTheme.primary : initialPwaChromePrimary)
+					: initialPwaChromePrimary;
 			const chromePalette = generatePalette(chromePrimary);
 			root.style.setProperty('--pwa-chrome-500', '#' + chromePrimary);
 			root.style.setProperty('--pwa-chrome-600', '#' + chromePalette['600']);
 			root.style.setProperty('--pwa-chrome-foreground', '#FFFFFF');
 			root.style.setProperty('--pwa-chrome-placeholder', 'rgb(255 255 255 / 0.72)');
-
-			const themeColorMeta = document.querySelector('meta[name="theme-color"]');
-			if (themeColorMeta) {
-				themeColorMeta.setAttribute('content', '#' + chromePrimary);
-			}
 		})();
 	</script>
 	<meta name="theme-etag" content={themeEtag} />
@@ -769,6 +778,7 @@
 			{canGoForward}
 			{backHistoryEntries}
 			{forwardHistoryEntries}
+			isReloading={isReloadingStandalonePwa}
 			onBack={navigateBack}
 			onForward={navigateForward}
 			onJumpToHistory={jumpToHistoryIndex}

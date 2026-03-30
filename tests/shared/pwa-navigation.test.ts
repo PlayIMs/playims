@@ -19,13 +19,17 @@ Summary of tests:
 8. It verifies that the URL bar displays a browser-like host and path string.
 9. It verifies that URL bar submissions resolve full URLs, app paths, and simple hostnames.
 10. It verifies that same-origin addresses produce SvelteKit goto targets while external ones stay full URLs.
+11. It verifies that the shared reload flag survives a refresh and clears cleanly afterward.
 */
 
 import { describe, expect, it } from 'vitest';
 import {
 	buildPwaAddressValue,
+	clearPwaReloadInFlight,
+	markPwaReloadInFlight,
 	selectPwaHistoryMenuEntries,
 	readSvelteKitHistoryIndex,
+	readPwaReloadInFlight,
 	resolvePwaAddressNavigationTarget,
 	resolvePwaAddressInput,
 	syncPwaHistoryEntries,
@@ -274,5 +278,28 @@ describe('pwa navigation helper', () => {
 			href: 'https://example.com/docs',
 			route: null
 		});
+	});
+
+	it('persists a reload-in-flight flag across refresh boundaries until the new page finishes loading', () => {
+		// this gives the installed-pwa refresh button a tiny shared contract so the shell can disable
+		// the control immediately, keep it disabled on the next page, and then clear it once loading finishes.
+		const storage = new Map<string, string>();
+		const fakeStorage = {
+			getItem: (key: string) => storage.get(key) ?? null,
+			setItem: (key: string, value: string) => {
+				storage.set(key, value);
+			},
+			removeItem: (key: string) => {
+				storage.delete(key);
+			}
+		};
+
+		expect(readPwaReloadInFlight(fakeStorage)).toBe(false);
+
+		markPwaReloadInFlight(fakeStorage);
+		expect(readPwaReloadInFlight(fakeStorage)).toBe(true);
+
+		clearPwaReloadInFlight(fakeStorage);
+		expect(readPwaReloadInFlight(fakeStorage)).toBe(false);
 	});
 });
