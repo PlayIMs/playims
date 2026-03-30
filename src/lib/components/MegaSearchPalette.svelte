@@ -465,7 +465,9 @@
 					</div>
 				</div>
 
-				<div class="max-h-[min(70vh,36rem)] overflow-y-auto bg-white">
+				<div
+					class="max-h-[min(70vh,36rem)] overflow-y-auto bg-white scrollbar-thin scrollbar-thumb-secondary-500 scrollbar-track-secondary-300 scrollbar-corner-secondary-300 hover:scrollbar-thumb-secondary-500 active:scrollbar-thumb-secondary-500 scrollbar-hover:scrollbar-thumb-secondary-400 scrollbar-active:scrollbar-thumb-secondary-600"
+				>
 					{#if $megaSearchErrorMessage}
 						<p class="px-4 py-6 text-sm text-primary-800">{$megaSearchErrorMessage}</p>
 					{:else if $megaSearchLoading && !hasResults}
