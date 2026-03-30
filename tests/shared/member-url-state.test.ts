@@ -10,9 +10,10 @@ list state.
 
 Summary of tests:
 1. It verifies that URL sync is skipped until the page is ready to update router state.
-2. It verifies that active member filters and pagination are serialized into query params.
-3. It verifies that default member list state removes optional query params from the URL.
-4. It verifies that closing a deep-linked member details modal removes only the member selection param.
+2. It verifies that active member filters, including last active season, and pagination are serialized into query params.
+3. It verifies that short search text still stays in the URL so refresh and sharing preserve the typed search.
+4. It verifies that default member list state removes optional query params from the URL.
+5. It verifies that closing a deep-linked member details modal removes only the member selection param.
 */
 
 import { describe, expect, it, vi } from 'vitest';
@@ -34,6 +35,7 @@ describe('member url state helper', () => {
 				searchQuery: 'jamie',
 				sexFilter: '',
 				roleFilter: '',
+				lastActiveSeasonId: '',
 				sortKey: 'lastName',
 				sortDir: 'asc',
 				currentPage: 1
@@ -55,13 +57,38 @@ describe('member url state helper', () => {
 				searchQuery: 'jamie',
 				sexFilter: 'F',
 				roleFilter: 'manager',
+				lastActiveSeasonId: 'season-2026-spring',
 				sortKey: 'email',
 				sortDir: 'desc',
 				currentPage: 3
 			}
 		});
 
-		expect(replace).toHaveBeenCalledWith('/dashboard/members?q=jamie&sex=F&role=manager&sort=email&dir=desc&page=3');
+		expect(replace).toHaveBeenCalledWith(
+			'/dashboard/members?q=jamie&sex=F&role=manager&lastActiveSeason=season-2026-spring&sort=email&dir=desc&page=3'
+		);
+	});
+
+	it('keeps short search text in the URL for refresh-safe search-first behavior', () => {
+		// even before the server search threshold is reached, the typed query should remain shareable in the url.
+		const replace = vi.fn();
+
+		syncMembersUrlIfReady({
+			href: 'https://playims.test/dashboard/members',
+			ready: true,
+			replace,
+			state: {
+				searchQuery: 'h',
+				sexFilter: '',
+				roleFilter: '',
+				lastActiveSeasonId: '',
+				sortKey: 'lastName',
+				sortDir: 'asc',
+				currentPage: 1
+			}
+		});
+
+		expect(replace).toHaveBeenCalledWith('/dashboard/members?q=h');
 	});
 
 	it('removes optional params when the member list is back at defaults', () => {
@@ -76,6 +103,7 @@ describe('member url state helper', () => {
 				searchQuery: '',
 				sexFilter: '',
 				roleFilter: '',
+				lastActiveSeasonId: '',
 				sortKey: 'lastName',
 				sortDir: 'asc',
 				currentPage: 1

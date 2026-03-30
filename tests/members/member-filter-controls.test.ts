@@ -47,6 +47,7 @@ describe('member filter controls', () => {
 			searchQuery: 'jamie',
 			sexFilter: '',
 			roleFilter: '',
+			lastActiveSeasonId: '',
 			sortKey: 'lastName',
 			sortDir: 'asc',
 			currentPage: 1

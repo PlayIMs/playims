@@ -37,6 +37,7 @@ const buildEmptyMemberPayload = (input: {
 	dir: string;
 	sexFilter: string | null;
 	roleFilter: string | null;
+	lastActiveSeasonId: string | null;
 }) => ({
 	rows: [],
 	page: 1,
@@ -48,7 +49,8 @@ const buildEmptyMemberPayload = (input: {
 	dir: input.dir,
 	query: input.query,
 	sexFilter: input.sexFilter,
-	roleFilter: input.roleFilter
+	roleFilter: input.roleFilter,
+	lastActiveSeasonId: input.lastActiveSeasonId
 });
 
 const readAuthEnv = (event: { platform?: App.Platform }, key: string): string | undefined => {
@@ -90,6 +92,7 @@ export const GET: RequestHandler = async (event) => {
 		q: event.url.searchParams.get('q'),
 		sex: event.url.searchParams.get('sex'),
 		role: event.url.searchParams.get('role'),
+		lastActiveSeason: event.url.searchParams.get('lastActiveSeason'),
 		sort: event.url.searchParams.get('sort') ?? undefined,
 		dir: event.url.searchParams.get('dir') ?? undefined,
 		page: event.url.searchParams.get('page') ?? undefined
@@ -118,7 +121,8 @@ export const GET: RequestHandler = async (event) => {
 				sort: parsed.data.sort,
 				dir: parsed.data.dir,
 				sexFilter: parsed.data.sex ?? null,
-				roleFilter: parsed.data.role ?? null
+				roleFilter: parsed.data.role ?? null,
+				lastActiveSeasonId: parsed.data.lastActiveSeason ?? null
 			})
 		} satisfies MemberListResponse);
 	}
@@ -131,6 +135,7 @@ export const GET: RequestHandler = async (event) => {
 		page: parsed.data.page,
 		sex: parsed.data.sex ?? null,
 		role: parsed.data.role ?? null,
+		lastActiveSeasonId: parsed.data.lastActiveSeason ?? null,
 		sort: parsed.data.sort,
 		dir: parsed.data.dir
 	});
@@ -153,7 +158,8 @@ export const GET: RequestHandler = async (event) => {
 			dir: parsed.data.dir,
 			query,
 			sexFilter: parsed.data.sex ?? null,
-			roleFilter: parsed.data.role ?? null
+			roleFilter: parsed.data.role ?? null,
+			lastActiveSeasonId: parsed.data.lastActiveSeason ?? null
 		}
 	} satisfies MemberListResponse);
 };
@@ -170,7 +176,7 @@ export const POST: RequestHandler = async (event) => {
 		return json(
 			{
 				success: false,
-				error: 'Only administrators and developers can add members.'
+				error: 'You do not have permission to add members.'
 			} satisfies CreateMemberResponse,
 			{ status: 403 }
 		);

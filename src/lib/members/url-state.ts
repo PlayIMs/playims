@@ -4,6 +4,7 @@ interface MembersUrlStateInput {
 	searchQuery: string;
 	sexFilter: MemberSex | '';
 	roleFilter: MemberRole | '';
+	lastActiveSeasonId: string;
 	sortKey: MemberSortKey;
 	sortDir: SortDirection;
 	currentPage: number;
@@ -25,6 +26,9 @@ export function syncMembersUrlIfReady(input: {
 	else url.searchParams.delete('sex');
 	if (input.state.roleFilter) url.searchParams.set('role', input.state.roleFilter);
 	else url.searchParams.delete('role');
+	if (input.state.lastActiveSeasonId) {
+		url.searchParams.set('lastActiveSeason', input.state.lastActiveSeasonId);
+	} else url.searchParams.delete('lastActiveSeason');
 	if (input.state.sortKey !== 'lastName') url.searchParams.set('sort', input.state.sortKey);
 	else url.searchParams.delete('sort');
 	if (input.state.sortDir !== 'asc') url.searchParams.set('dir', input.state.sortDir);

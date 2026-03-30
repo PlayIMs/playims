@@ -15,6 +15,11 @@ export type MemberSortKey =
 	| 'role';
 export type SortDirection = 'asc' | 'desc';
 
+export interface MemberSeasonFilterOption {
+	value: string;
+	label: string;
+}
+
 export interface MemberListRow {
 	membershipId: string;
 	userId: string;
@@ -54,6 +59,7 @@ export interface MemberListResponse {
 		query: string;
 		sexFilter: MemberSex | null;
 		roleFilter: MemberRole | null;
+		lastActiveSeasonId: string | null;
 	};
 	error?: string;
 }

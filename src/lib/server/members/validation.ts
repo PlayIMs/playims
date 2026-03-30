@@ -47,6 +47,7 @@ const emailSchema = z
 	.transform((value) => value.toLowerCase());
 
 const studentIdSchema = optionalTrimmedString(64);
+const seasonIdSchema = optionalTrimmedString(120);
 
 export const memberListQuerySchema = z.object({
 	q: z
@@ -59,6 +60,10 @@ export const memberListQuerySchema = z.object({
 	role: z.preprocess(
 		(value) => (value === null ? undefined : value),
 		memberRoleFilterSchema.optional()
+	),
+	lastActiveSeason: z.preprocess(
+		(value) => (value === null ? undefined : value),
+		seasonIdSchema
 	),
 	sort: memberSortKeySchema.optional().default('lastName'),
 	dir: sortDirectionSchema.optional().default('asc'),

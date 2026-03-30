@@ -6,6 +6,14 @@ export function formatPhoneNationalFromDigits(value: string): string {
 	return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
 }
 
+export function normalizePhoneDigitsForSearch(value: string | null | undefined): string {
+	const digits = value?.replace(/\D/g, '') ?? '';
+	if (digits.length === 11 && digits.startsWith('1')) {
+		return digits.slice(1);
+	}
+	return digits;
+}
+
 export function parseStoredPhoneNumber(value: string | null | undefined): {
 	countryCode: string;
 	nationalDigits: string;
@@ -43,5 +51,8 @@ export function formatPhoneForDisplay(value: string | null | undefined): string 
 	const parsed = parseStoredPhoneNumber(value);
 	const nationalPhone = formatPhoneNationalFromDigits(parsed.nationalDigits);
 	if (!nationalPhone) return '';
+	if (parsed.countryCode === '+1') {
+		return nationalPhone;
+	}
 	return `${parsed.countryCode} ${nationalPhone}`;
 }

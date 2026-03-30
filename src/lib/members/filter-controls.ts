@@ -9,6 +9,7 @@ type ResetMemberFilterState = {
 	searchQuery: string;
 	sexFilter: MemberSex | '';
 	roleFilter: MemberRole | '';
+	lastActiveSeasonId: string;
 	sortKey: MemberSortKey;
 	sortDir: SortDirection;
 	currentPage: number;
@@ -32,6 +33,7 @@ export function getResetMemberFilterState(searchQuery: string): ResetMemberFilte
 		searchQuery,
 		sexFilter: '',
 		roleFilter: '',
+		lastActiveSeasonId: '',
 		sortKey: 'lastName',
 		sortDir: 'asc',
 		currentPage: 1

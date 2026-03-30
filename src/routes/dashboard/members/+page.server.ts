@@ -1,3 +1,4 @@
+import type { MemberSeasonFilterOption } from '$lib/members/types.js';
 import { requireAuthenticatedClientId } from '$lib/server/client-context';
 import { getCentralDbOps } from '$lib/server/database/context';
 import { memberListQuerySchema } from '$lib/server/members/validation';
@@ -15,6 +16,7 @@ const buildEmptyMemberPayload = (input: {
 	dir: string;
 	sexFilter: string | null;
 	roleFilter: string | null;
+	lastActiveSeasonId: string | null;
 }) => ({
 	rows: [],
 	page: 1,
@@ -26,8 +28,19 @@ const buildEmptyMemberPayload = (input: {
 	dir: input.dir,
 	query: input.query,
 	sexFilter: input.sexFilter,
-	roleFilter: input.roleFilter
+	roleFilter: input.roleFilter,
+	lastActiveSeasonId: input.lastActiveSeasonId
 });
+
+const toActiveSeasonOptions = (
+	seasons: Array<{ id: string | null; name: string | null; isActive: number | null }>
+): MemberSeasonFilterOption[] =>
+	seasons
+		.filter((season) => season.isActive === 1 && season.id?.trim() && season.name?.trim())
+		.map((season) => ({
+			value: season.id!.trim(),
+			label: season.name!.trim()
+		}));
 
 export const load: PageServerLoad = async (event) => {
 	const { platform, locals, url } = event;
@@ -36,6 +49,7 @@ export const load: PageServerLoad = async (event) => {
 		q: url.searchParams.get('q'),
 		sex: url.searchParams.get('sex'),
 		role: url.searchParams.get('role'),
+		lastActiveSeason: url.searchParams.get('lastActiveSeason'),
 		sort: url.searchParams.get('sort') ?? undefined,
 		dir: url.searchParams.get('dir') ?? undefined,
 		page: url.searchParams.get('page') ?? undefined
@@ -48,13 +62,15 @@ export const load: PageServerLoad = async (event) => {
 				sort: parsedQuery.sort,
 				dir: parsedQuery.dir,
 				sexFilter: parsedQuery.sex ?? null,
-				roleFilter: parsedQuery.role ?? null
+				roleFilter: parsedQuery.role ?? null,
+				lastActiveSeasonId: parsedQuery.lastActiveSeason ?? null
 			}),
 			capabilities: {
 				canAddMembers: false,
 				canManageRoles: false,
 				canRemoveMembers: false
 			},
+			activeSeasons: [],
 			memberAssignableRoleOptions: getMemberAssignableRoleOptions(),
 			memberId,
 			error: 'Database is unavailable.'
@@ -63,6 +79,7 @@ export const load: PageServerLoad = async (event) => {
 
 	const clientId = requireAuthenticatedClientId(locals);
 	const dbOps = getCentralDbOps(event);
+	const activeSeasons = toActiveSeasonOptions(await dbOps.seasons.getByClientId(clientId));
 	const shouldSearch = parsedQuery.q.trim().length >= 2;
 	const memberResult = shouldSearch
 		? await dbOps.members.searchByClient({
@@ -71,6 +88,7 @@ export const load: PageServerLoad = async (event) => {
 				page: parsedQuery.page,
 				sex: parsedQuery.sex ?? null,
 				role: parsedQuery.role ?? null,
+				lastActiveSeasonId: parsedQuery.lastActiveSeason ?? null,
 				sort: parsedQuery.sort,
 				dir: parsedQuery.dir
 			})
@@ -79,7 +97,8 @@ export const load: PageServerLoad = async (event) => {
 				sort: parsedQuery.sort,
 				dir: parsedQuery.dir,
 				sexFilter: parsedQuery.sex ?? null,
-				roleFilter: parsedQuery.role ?? null
+				roleFilter: parsedQuery.role ?? null,
+				lastActiveSeasonId: parsedQuery.lastActiveSeason ?? null
 			});
 
 	locals.requestLogMeta = {
@@ -103,13 +122,15 @@ export const load: PageServerLoad = async (event) => {
 			dir: parsedQuery.dir,
 			query: parsedQuery.q.trim(),
 			sexFilter: parsedQuery.sex ?? null,
-			roleFilter: parsedQuery.role ?? null
+			roleFilter: parsedQuery.role ?? null,
+			lastActiveSeasonId: parsedQuery.lastActiveSeason ?? null
 		},
 		capabilities: {
 			canAddMembers,
 			canManageRoles,
 			canRemoveMembers
 		},
+		activeSeasons,
 		memberAssignableRoleOptions: getMemberAssignableRoleOptions(),
 		memberId
 	};

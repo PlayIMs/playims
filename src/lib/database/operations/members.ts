@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, ne, or, sql, type SQL } from 'drizzle-orm';
 import type { DrizzleClient } from '../drizzle.js';
-import { userClients, users } from '../schema/index.js';
+import { seasons, userClients, users } from '../schema/index.js';
 import {
 	MEMBER_PAGE_SIZE,
 	type MemberAssignableRole,
@@ -11,6 +11,7 @@ import {
 	type MemberSortKey,
 	type SortDirection
 } from '../../members/types.js';
+import { normalizePhoneDigitsForSearch } from '../../utils/phone-format.js';
 
 const ADMIN_LIKE_ROLES = ['admin', 'dev'] as const;
 
@@ -33,6 +34,11 @@ const splitSearchTokens = (value: string): string[] =>
 
 const fullNameExpression = sql<string>`trim(coalesce(${users.firstName}, '') || ' ' || coalesce(${users.lastName}, ''))`;
 const reverseFullNameExpression = sql<string>`trim(coalesce(${users.lastName}, '') || ' ' || coalesce(${users.firstName}, ''))`;
+const rawPhoneDigitsExpression = sql<string>`replace(replace(replace(replace(replace(replace(replace(trim(coalesce(${users.cellPhone}, '')), ' ', ''), '(', ''), ')', ''), '-', ''), '+', ''), '.', ''), '/', '')`;
+const normalizedPhoneDigitsExpression = sql<string>`case
+	when length(${rawPhoneDigitsExpression}) = 11 and ${rawPhoneDigitsExpression} like '1%' then substr(${rawPhoneDigitsExpression}, 2)
+	else ${rawPhoneDigitsExpression}
+end`;
 const studentIdBlankSortExpression = sql<number>`case
 	when ${userClients.studentId} is null or trim(${userClients.studentId}) = '' then 1
 	else 0
@@ -114,14 +120,21 @@ const buildSearchConditions = (query: string): SQL[] => {
 
 	return tokens.map((token) => {
 		const pattern = `%${escapeLike(token)}%`;
-		return or(
+		const conditions: SQL[] = [
 			sql`lower(trim(coalesce(${users.firstName}, ''))) like ${pattern} escape '\\'`,
 			sql`lower(trim(coalesce(${users.lastName}, ''))) like ${pattern} escape '\\'`,
 			sql`lower(${fullNameExpression}) like ${pattern} escape '\\'`,
 			sql`lower(${reverseFullNameExpression}) like ${pattern} escape '\\'`,
 			sql`lower(trim(coalesce(${users.email}, ''))) like ${pattern} escape '\\'`,
 			sql`lower(trim(coalesce(${userClients.studentId}, ''))) like ${pattern} escape '\\'`
-		) as SQL;
+		];
+		const normalizedPhoneDigits = normalizePhoneDigitsForSearch(token);
+		if (normalizedPhoneDigits.length > 0) {
+			conditions.push(
+				sql`${normalizedPhoneDigitsExpression} like ${`%${escapeLike(normalizedPhoneDigits)}%`} escape '\\'`
+			);
+		}
+		return or(...conditions) as SQL;
 	});
 };
 
@@ -252,6 +265,7 @@ export class MemberOperations {
 		page?: number;
 		sex?: MemberSex | null;
 		role?: MemberRole | null;
+		lastActiveSeasonId?: string | null;
 		sort?: MemberSortKey;
 		dir?: SortDirection;
 	}): Promise<{
@@ -267,6 +281,41 @@ export class MemberOperations {
 		const query = input.query.trim();
 		const sexFilter = input.sex ?? null;
 		const roleFilter = input.role ?? null;
+		const lastActiveSeasonId = input.lastActiveSeasonId ?? null;
+		let selectedSeason:
+			| {
+					startDate: string | null;
+					endDate: string | null;
+			  }
+			| null = null;
+
+		if (lastActiveSeasonId) {
+			const seasonResult = await this.db
+				.select({
+					startDate: seasons.startDate,
+					endDate: seasons.endDate
+				})
+				.from(seasons)
+				.where(
+					and(
+						eq(seasons.clientId, input.clientId),
+						eq(seasons.id, lastActiveSeasonId),
+						eq(seasons.isActive, 1)
+					)
+				)
+				.limit(1);
+			selectedSeason = seasonResult[0] ?? null;
+
+			if (!selectedSeason?.startDate?.trim()) {
+				return {
+					rows: [],
+					totalCount: 0,
+					hasNextPage: false,
+					hasPreviousPage: false,
+					page: 1
+				};
+			}
+		}
 		const whereClauses: SQL[] = [
 			eq(userClients.clientId, input.clientId),
 			eq(userClients.status, 'active'),
@@ -277,6 +326,12 @@ export class MemberOperations {
 		}
 		if (roleFilter) {
 			whereClauses.push(eq(userClients.role, roleFilter));
+		}
+		if (selectedSeason?.startDate?.trim()) {
+			whereClauses.push(sql`date(${users.lastLoginAt}) >= date(${selectedSeason.startDate.trim()})`);
+			if (selectedSeason.endDate?.trim()) {
+				whereClauses.push(sql`date(${users.lastLoginAt}) <= date(${selectedSeason.endDate.trim()})`);
+			}
 		}
 
 		const countResult = await this.db

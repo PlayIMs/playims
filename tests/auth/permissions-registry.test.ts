@@ -10,7 +10,7 @@ matrix and the defensive validation behavior in one place.
 
 Summary of tests:
 1. It verifies that participant permissions stay limited to safe read-only dashboard areas.
-2. It verifies that manager inherits participant permissions and gains operational write access.
+2. It verifies that manager inherits participant permissions, including add-member access, and gains operational write access.
 3. It verifies that admin inherits manager permissions and gains elevated organization and member control.
 4. It verifies that dev inherits admin permissions and keeps developer-only access.
 5. It verifies that permission snapshots expose booleans for each known permission.
@@ -60,13 +60,14 @@ describe('permission registry', () => {
 	});
 
 	it('lets manager inherit participant access and gain operational writes', () => {
-		// manager should keep day-to-day operations without receiving elevated admin-only account control.
+		// manager should keep day-to-day operations, including adding members, without receiving elevated admin-only account control.
 		expectPermission('manager', PERMISSIONS.VIEW_DASHBOARD_HOME);
 		expectPermission('manager', PERMISSIONS.VIEW_SETTINGS);
 		expectPermission('manager', PERMISSIONS.MANAGE_FACILITIES);
 		expectPermission('manager', PERMISSIONS.MANAGE_OFFERINGS);
 		expectPermission('manager', PERMISSIONS.EDIT_NAVIGATION_SETTINGS);
 		expectPermission('manager', PERMISSIONS.MANAGE_THEMES);
+		expectPermission('manager', PERMISSIONS.ADD_MEMBER);
 		expectNoPermission('manager', PERMISSIONS.CHANGE_MEMBER_ROLE);
 		expectNoPermission('manager', PERMISSIONS.REMOVE_MEMBER);
 		expectNoPermission('manager', PERMISSIONS.EDIT_ORGANIZATION_DETAILS);

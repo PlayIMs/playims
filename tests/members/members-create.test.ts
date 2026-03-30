@@ -9,10 +9,11 @@ authorization and duplicate-student safeguards. These tests mock the database an
 each branch can be explained clearly.
 
 Summary of tests:
-1. It verifies that managers cannot add members.
-2. It verifies that duplicate student IDs are rejected within the same organization.
-3. It verifies that an existing user can be linked immediately.
-4. It verifies that a brand-new account is created with a one-time temporary password.
+1. It verifies that participants cannot add members.
+2. It verifies that managers can add members through the same endpoint.
+3. It verifies that duplicate student IDs are rejected within the same organization.
+4. It verifies that an existing user can be linked immediately.
+5. It verifies that a brand-new account is created with a one-time temporary password.
 */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -133,10 +134,10 @@ describe('members create endpoint', () => {
 		});
 	});
 
-	it('rejects add-member attempts from managers', async () => {
-		// manager users should be denied before the route attempts any member write.
+	it('rejects add-member attempts from participants', async () => {
+		// participant users should be denied before the route attempts any member write.
 		const response = await POST(
-			buildEvent('manager', {
+			buildEvent('participant', {
 				email: 'new@playims.test',
 				role: 'participant',
 				firstName: 'Jamie',
@@ -148,8 +149,27 @@ describe('members create endpoint', () => {
 		const payload = await response.json();
 
 		expect(response.status).toBe(403);
-		expect(payload.error).toBe('Only administrators and developers can add members.');
+		expect(payload.error).toBe('You do not have permission to add members.');
 		expect(mocks.dbOps.members.addOrReactivateMember).not.toHaveBeenCalled();
+	});
+
+	it('lets managers add members through the direct-create endpoint', async () => {
+		// manager access matters here because the page button and the api should agree on who can add members.
+		const response = await POST(
+			buildEvent('manager', {
+				email: 'existing@playims.test',
+				role: 'participant',
+				firstName: 'Jamie',
+				lastName: 'Member',
+				studentId: '12345',
+				sex: 'F'
+			})
+		);
+		const payload = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(payload.success).toBe(true);
+		expect(mocks.dbOps.members.addOrReactivateMember).toHaveBeenCalled();
 	});
 
 	it('rejects duplicate student IDs inside the same organization', async () => {

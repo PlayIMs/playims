@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { goto, invalidateAll, replaceState } from '$app/navigation';
-	import { onDestroy, onMount } from 'svelte';
+	import { onDestroy, onMount, tick } from 'svelte';
 	import {
 		IconChevronLeft,
 		IconChevronRight,
 		IconChevronsLeft,
 		IconChevronsRight,
+		IconPlus,
 		IconUsers
 	} from '@tabler/icons-svelte';
 	import DashboardSearchLauncher from '$lib/components/dashboard/DashboardSearchLauncher.svelte';
@@ -24,6 +25,10 @@
 		buildMemberRoleFilterOptions,
 		getResetMemberFilterState
 	} from '$lib/members/filter-controls.js';
+	import {
+		formatMemberLastLoginForDisplay,
+		formatMemberRowForClipboard
+	} from '$lib/members/clipboard.js';
 	import { parseMemberPageInput, resolveClosestMemberPage } from '$lib/members/pagination.js';
 	import { clearMemberSelectionFromHref, syncMembersUrlIfReady } from '$lib/members/url-state.js';
 	import { formatPhoneForDisplay } from '$lib/utils/phone-format.js';
@@ -34,6 +39,7 @@
 		MemberListResponse,
 		MemberListRow,
 		MemberRole,
+		MemberSeasonFilterOption,
 		MemberSex,
 		MemberSortKey,
 		SortDirection
@@ -47,8 +53,8 @@
 	import MemberRemoveModal from './_components/MemberRemoveModal.svelte';
 	import MemberRoleModal from './_components/MemberRoleModal.svelte';
 
-	type MemberAction = 'view' | 'edit' | 'permissions' | 'remove';
-	type FilterSectionId = 'sex' | 'role';
+	type MemberAction = 'view' | 'copy' | 'edit' | 'permissions' | 'remove';
+	type FilterSectionId = 'sex' | 'role' | 'lastActiveSeason';
 
 	interface FilterSectionConfig {
 		id: FilterSectionId;
@@ -75,7 +81,8 @@
 		dir: 'asc' as SortDirection,
 		query: '',
 		sexFilter: null as MemberSex | null,
-		roleFilter: null as MemberRole | null
+		roleFilter: null as MemberRole | null,
+		lastActiveSeasonId: null as string | null
 	});
 
 	let { data } = $props<{ data: PageData }>();
@@ -94,6 +101,12 @@
 	);
 	const canRemoveMembers = $derived.by(
 		() => data.capabilities?.canRemoveMembers ?? data.permissions?.REMOVE_MEMBER === true
+	);
+	const canAddMembers = $derived.by(
+		() => data.capabilities?.canAddMembers ?? data.permissions?.ADD_MEMBER === true
+	);
+	const activeSeasonOptions = $derived.by<MemberSeasonFilterOption[]>(
+		() => data.activeSeasons ?? []
 	);
 	const memberAssignableRoleOptions = $derived.by(() => data.memberAssignableRoleOptions ?? []);
 
@@ -120,10 +133,15 @@
 	const roleFilterOptions = $derived.by(() =>
 		buildMemberRoleFilterOptions(includeDeveloperRoleFilter)
 	);
+	const lastActiveSeasonFilterOptions = $derived.by(() => [
+		{ value: '', label: 'Any Season' },
+		...activeSeasonOptions
+	]);
 	let members = $state<MemberListRow[]>([]);
 	let searchQuery = $state('');
 	let sexFilter = $state<MemberSex | ''>('');
 	let roleFilter = $state<MemberRole | ''>('');
+	let lastActiveSeasonId = $state('');
 	let sortKey = $state<MemberSortKey>('lastName');
 	let sortDir = $state<SortDirection>('asc');
 	let currentPage = $state(1);
@@ -179,6 +197,7 @@
 	let handledDeepLinkedMemberId = $state<string | null>(null);
 	let hydratedServerSignature = $state('');
 	let pageInputValue = $state('1');
+	let memberSearchInput = $state<HTMLInputElement | null>(null);
 	const detailCache = new Map<string, MemberDetail>();
 
 	const activeSearch = $derived.by(() => searchQuery.trim());
@@ -190,7 +209,6 @@
 	const visibleRangeEnd = $derived.by(() =>
 		totalCount === 0 ? 0 : visibleRangeStart + members.length - 1
 	);
-	const activeFilterCount = $derived.by(() => (sexFilter ? 1 : 0) + (roleFilter ? 1 : 0));
 	const filterSections = $derived.by<FilterSectionConfig[]>(() => [
 		{
 			id: 'sex',
@@ -205,14 +223,15 @@
 			value: roleFilter,
 			ariaLabel: 'Filter members by role',
 			options: roleFilterOptions
+		},
+		{
+			id: 'lastActiveSeason',
+			title: 'Last Active Season',
+			value: lastActiveSeasonId,
+			ariaLabel: 'Filter members by the season of their last login',
+			options: lastActiveSeasonFilterOptions
 		}
 	]);
-	const activeFilterBadges = $derived.by(() => {
-		const badges: string[] = [];
-		if (sexFilter) badges.push(`Sex: ${SEX_LABELS[sexFilter]}`);
-		if (roleFilter) badges.push(`Role: ${ROLE_LABELS[roleFilter]}`);
-		return badges;
-	});
 	const memberTableColumns = $derived.by<DataTableColumn<MemberListRow>[]>(() => [
 		{
 			key: 'member',
@@ -280,24 +299,6 @@
 		return 'badge-neutral-outlined';
 	}
 
-	function formatMemberLastLogin(value: string | null): string {
-		if (!value) return '';
-		const parsed = new Date(value);
-		if (Number.isNaN(parsed.getTime())) return '';
-		const date = new Intl.DateTimeFormat('en-US', {
-			month: 'short',
-			day: 'numeric',
-			year: 'numeric'
-		}).format(parsed);
-		const time = new Intl.DateTimeFormat('en-US', {
-			hour: 'numeric',
-			minute: '2-digit'
-		})
-			.format(parsed)
-			.replace(/\s([AP]M)$/i, '$1');
-		return `${date}, ${time}`;
-	}
-
 	function applyMemberPayload(payload: NonNullable<MemberListResponse['data']>): void {
 		members = payload.rows;
 		pageSize = payload.pageSize;
@@ -318,8 +319,18 @@
 
 	function handleFilterChange(filterId: FilterSectionId, value: string): void {
 		if (filterId === 'sex') sexFilter = value as MemberSex | '';
-		else roleFilter = value as MemberRole | '';
+		else if (filterId === 'role') roleFilter = value as MemberRole | '';
+		else lastActiveSeasonId = value;
 		currentPage = 1;
+	}
+
+	function handleSearchInput(value: string): void {
+		searchQuery = value;
+		currentPage = 1;
+		syncUrl({
+			searchQuery: value,
+			currentPage: 1
+		});
 	}
 
 	function resolveAssignableRoleValue(role: MemberRole): MemberAssignableRole {
@@ -374,13 +385,24 @@
 		searchQuery = resetState.searchQuery;
 		sexFilter = resetState.sexFilter;
 		roleFilter = resetState.roleFilter;
+		lastActiveSeasonId = resetState.lastActiveSeasonId;
 		sortKey = resetState.sortKey;
 		sortDir = resetState.sortDir;
 		currentPage = resetState.currentPage;
 		resetMemberResults();
 	}
 
-	function syncUrl(): void {
+	function syncUrl(
+		stateOverride: Partial<{
+			searchQuery: string;
+			sexFilter: MemberSex | '';
+			roleFilter: MemberRole | '';
+			lastActiveSeasonId: string;
+			sortKey: MemberSortKey;
+			sortDir: SortDirection;
+			currentPage: number;
+		}> = {}
+	): void {
 		if (typeof window === 'undefined') return;
 		syncMembersUrlIfReady({
 			href: window.location.href,
@@ -388,7 +410,15 @@
 			replace: (href) => {
 				replaceState(href, {});
 			},
-			state: { searchQuery, sexFilter, roleFilter, sortKey, sortDir, currentPage }
+			state: {
+				searchQuery: stateOverride.searchQuery ?? searchQuery,
+				sexFilter: stateOverride.sexFilter ?? sexFilter,
+				roleFilter: stateOverride.roleFilter ?? roleFilter,
+				lastActiveSeasonId: stateOverride.lastActiveSeasonId ?? lastActiveSeasonId,
+				sortKey: stateOverride.sortKey ?? sortKey,
+				sortDir: stateOverride.sortDir ?? sortDir,
+				currentPage: stateOverride.currentPage ?? currentPage
+			}
 		});
 	}
 
@@ -412,6 +442,7 @@
 		url.searchParams.set('page', String(currentPage));
 		if (sexFilter) url.searchParams.set('sex', sexFilter);
 		if (roleFilter) url.searchParams.set('role', roleFilter);
+		if (lastActiveSeasonId) url.searchParams.set('lastActiveSeason', lastActiveSeasonId);
 
 		membersLoading = true;
 		pageError = '';
@@ -479,6 +510,7 @@
 		searchQuery = serverMembers.query;
 		sexFilter = serverMembers.sexFilter ?? '';
 		roleFilter = serverMembers.roleFilter ?? '';
+		lastActiveSeasonId = serverMembers.lastActiveSeasonId ?? '';
 		sortKey = serverMembers.sort;
 		sortDir = serverMembers.dir;
 		pageError = serverError;
@@ -488,6 +520,7 @@
 	function actionOptions(row: MemberListRow) {
 		return [
 			{ value: 'view', label: 'View' },
+			{ value: 'copy', label: 'Copy Row' },
 			{ value: 'edit', label: 'Edit' },
 			{
 				value: 'permissions',
@@ -524,6 +557,11 @@
 		resetAddWizard();
 	}
 
+	function openAddMember(): void {
+		resetAddWizard();
+		addOpen = true;
+	}
+
 	function closeCredentialsModal(): void {
 		createdCredentials = null;
 		credentialsModalOpen = false;
@@ -536,7 +574,36 @@
 		replaceState(nextHref, {});
 	}
 
-	async function openModal(kind: MemberAction, row: MemberListRow): Promise<void> {
+	async function copyMemberRow(row: MemberListRow): Promise<void> {
+		if (typeof navigator === 'undefined' || !navigator.clipboard) {
+			toast.error('Unable to copy that row right now.', {
+				title: 'Clipboard'
+			});
+			return;
+		}
+
+		try {
+			await navigator.clipboard.writeText(formatMemberRowForClipboard(row));
+			toast.success('Member row copied.', {
+				title: 'Clipboard'
+			});
+		} catch {
+			toast.error('Unable to copy that row right now.', {
+				title: 'Clipboard'
+			});
+		}
+	}
+
+	async function handleRowAction(kind: MemberAction, row: MemberListRow): Promise<void> {
+		if (kind === 'copy') {
+			await copyMemberRow(row);
+			return;
+		}
+
+		await openModal(kind, row);
+	}
+
+	async function openModal(kind: Exclude<MemberAction, 'copy'>, row: MemberListRow): Promise<void> {
 		selectedMemberId = row.membershipId;
 		const detail = await loadMember(row.membershipId);
 		if (!detail) return;
@@ -737,6 +804,13 @@
 	});
 
 	$effect(() => {
+		if (!lastActiveSeasonId) return;
+		if (activeSeasonOptions.some((season) => season.value === lastActiveSeasonId)) return;
+		lastActiveSeasonId = '';
+		currentPage = 1;
+	});
+
+	$effect(() => {
 		const nextSignature = JSON.stringify({
 			rows: serverMembers.rows.map((row) => row.membershipId),
 			page: serverMembers.page,
@@ -749,6 +823,7 @@
 			query: serverMembers.query,
 			sexFilter: serverMembers.sexFilter,
 			roleFilter: serverMembers.roleFilter,
+			lastActiveSeasonId: serverMembers.lastActiveSeasonId,
 			error: serverError,
 			memberId: serverMemberId
 		});
@@ -808,8 +883,10 @@
 		pageInputValue = String(currentPage);
 	});
 
-	onMount(() => {
+	onMount(async () => {
 		urlSyncReady = true;
+		await tick();
+		memberSearchInput?.focus();
 	});
 
 	onDestroy(() => {
@@ -852,68 +929,64 @@
 	<div class="px-4 lg:px-6">
 		<div class="grid grid-cols-1 gap-6 2xl:grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)]">
 			<section class="min-w-0 space-y-2">
-				{#if activeFilterCount > 0}
-					<div class="flex flex-wrap items-center gap-2">
-						{#each activeFilterBadges as badge (badge)}
-							<span class="badge-neutral-outlined text-xs uppercase tracking-wide">
-								{badge}
-							</span>
-						{/each}
-					</div>
-				{/if}
-
 				<div class="space-y-2">
 					<div class="section-shell overflow-hidden p-0">
-						<div class="overflow-x-auto">
-							<DataTable
-								columns={memberTableColumns}
-								rows={members}
-								caption="Members table"
-								defaultSort={{ columnKey: 'member', direction: 'asc' }}
-								rowId={(row) => `member-row-${row.membershipId}`}
-								rowClass={(row) =>
-									[
-										'group group/row',
-										row.membershipId === selectedMemberId ? 'bg-primary-100/60' : ''
-									]
-										.filter(Boolean)
-										.join(' ')}
-							>
-								{#snippet emptyBody()}
+						<DataTable
+							columns={memberTableColumns}
+							rows={members}
+							caption="Members table"
+							defaultSort={{ columnKey: 'member', direction: 'asc' }}
+							rowId={(row) => `member-row-${row.membershipId}`}
+							rowClass={(row) =>
+								[
+									'group group/row',
+									row.membershipId === selectedMemberId ? 'bg-primary-100/60' : ''
+								]
+									.filter(Boolean)
+									.join(' ')}
+						>
+							{#snippet emptyBody()}
+								{#if !searchReady || membersLoading}
 									<tr class="bg-neutral-25">
 										<td
 											colspan={memberTableColumns.length}
 											class="px-4 py-10 text-center text-sm text-neutral-950"
 										>
-											{#if membersLoading || !searchReady}
-												<div
-													class="mx-auto flex max-w-sm flex-col items-center gap-3"
-													aria-hidden="true"
-												>
-													<div class="h-6 w-44 bg-neutral-100"></div>
-													<div class="h-3 w-28 bg-neutral-100"></div>
-													<div class="flex flex-wrap items-center justify-center gap-1">
-														<div class="h-5 w-16 bg-neutral-100"></div>
-														<div class="h-5 w-16 bg-neutral-100"></div>
-														<div class="h-5 w-16 bg-neutral-100"></div>
-													</div>
-												</div>
+											{#if !searchReady}
+												<p class="font-medium">Search to see results.</p>
+											{:else if membersLoading}
+												<p class="font-semibold">Loading members...</p>
 											{:else if pageError}
 												<div class="space-y-2">
 													<p class="font-semibold">Unable to load members.</p>
 													<p>{pageError}</p>
 												</div>
-											{:else}
-												<div class="space-y-2">
-													<p class="font-semibold">No members matched this search.</p>
-													<p>Try a different name, email, student ID, or adjust the filters.</p>
-												</div>
 											{/if}
 										</td>
 									</tr>
-								{/snippet}
+								{:else}
+									<tr class="bg-neutral-25">
+										<td
+											colspan={memberTableColumns.length}
+											class="px-4 py-10 text-center text-sm text-neutral-950"
+										>
+											{#if pageError}
+											<div class="space-y-2">
+												<p class="font-semibold">Unable to load members.</p>
+												<p>{pageError}</p>
+											</div>
+											{:else}
+											<div class="space-y-2">
+												<p class="font-semibold">No members matched this search.</p>
+												<p>Try a different name, email, student ID, or adjust the filters.</p>
+											</div>
+											{/if}
+										</td>
+									</tr>
+								{/if}
+							{/snippet}
 
-								{#snippet cell(row, column)}
+							{#snippet cell(row, column)}
 									{#if column.key === 'member'}
 										<button
 											type="button"
@@ -937,7 +1010,7 @@
 											{formatPhoneForDisplay(row.cellPhone) || '--'}
 										</span>
 									{:else if column.key === 'lastLoginAt'}
-										{@const lastLoginDisplay = formatMemberLastLogin(row.lastLoginAt)}
+										{@const lastLoginDisplay = formatMemberLastLoginForDisplay(row.lastLoginAt)}
 										{#if lastLoginDisplay}
 											<DateHoverText
 												display={lastLoginDisplay}
@@ -964,12 +1037,12 @@
 											options={actionOptions(row)}
 											ariaLabel={`Actions for ${row.fullName}`}
 											listClass="w-44"
-											on:action={(event) => void openModal(event.detail.value as MemberAction, row)}
+											on:action={(event) =>
+												void handleRowAction(event.detail.value as MemberAction, row)}
 										/>
 									{/if}
-								{/snippet}
-							</DataTable>
-						</div>
+							{/snippet}
+						</DataTable>
 					</div>
 
 					<div class="flex flex-col gap-3 pt-1 lg:flex-row lg:items-center lg:justify-between">
@@ -1056,7 +1129,18 @@
 				</div>
 			</section>
 
-			<aside class="w-full min-w-0 2xl:sticky 2xl:top-4">
+			<aside class="w-full min-w-0 space-y-3 2xl:sticky 2xl:top-4">
+				{#if canAddMembers}
+					<button
+						type="button"
+						class="button-primary inline-flex w-full cursor-pointer items-center justify-center gap-2"
+						onclick={openAddMember}
+					>
+						<IconPlus class="h-4 w-4" />
+						<span>Add Member</span>
+					</button>
+				{/if}
+
 				<section class="border-2 border-neutral-950 bg-neutral">
 					<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
 						<h2 class="dashboard-section-title text-neutral-950">Filters</h2>
@@ -1069,19 +1153,17 @@
 								id="member-search"
 								label="Search members"
 								value={searchQuery}
+								bind:inputElement={memberSearchInput}
 								type="search"
-								placeholder="Search by name, email, or student ID"
+								placeholder="Search by name, email, phone, or student ID"
 								inputClass="input-neutral min-h-10 pl-10 pr-10 py-2 text-sm disabled:cursor-not-allowed"
 								clearButtonClass="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-700 hover:text-neutral-950 cursor-pointer"
-								on:input={(event) => {
-									searchQuery = event.detail.value;
-									currentPage = 1;
-								}}
+								on:input={(event) => handleSearchInput(event.detail.value)}
 							/>
 						</div>
 
-						<div class="space-y-4">
-							{#each filterSections as section (section.id)}
+						<div class="grid grid-cols-2 gap-4">
+							{#each filterSections.slice(0, 2) as section (section.id)}
 								<section class="space-y-2">
 									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
 										{section.title}
@@ -1096,6 +1178,22 @@
 								</section>
 							{/each}
 						</div>
+
+						{#if filterSections[2]}
+							<section class="space-y-2">
+								<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+									{filterSections[2].title}
+								</p>
+								<ListboxDropdown
+									options={filterSections[2].options}
+									value={filterSections[2].value}
+									ariaLabel={filterSections[2].ariaLabel}
+									buttonClass="button-neutral-outlined min-h-10 w-full px-3 py-2 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2"
+									on:change={(event) =>
+										handleFilterChange(filterSections[2].id, event.detail.value)}
+								/>
+							</section>
+						{/if}
 
 						<button
 							type="button"
