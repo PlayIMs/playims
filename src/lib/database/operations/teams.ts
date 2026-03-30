@@ -1,9 +1,36 @@
 // Team operations - Drizzle ORM
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, or, sql, type SQL } from 'drizzle-orm';
 import type { DrizzleClient } from '../drizzle.js';
-import { teams, type Team } from '../schema/index.js';
+import { divisions, leagues, offerings, seasons, teams, type Team } from '../schema/index.js';
+import {
+	buildSearchRelevanceExpression,
+	buildSearchTokenClauses,
+	normalizeSearchText
+} from './search-helpers.js';
 
 const IN_ARRAY_CHUNK_SIZE = 90;
+
+export interface TeamSearchRow extends Team {
+	divisionName: string | null;
+	divisionSlug: string | null;
+	leagueName: string | null;
+	leagueSlug: string | null;
+	offeringName: string | null;
+	offeringSlug: string | null;
+	seasonName: string | null;
+	seasonSlug: string | null;
+}
+
+const buildLegacySeasonLabelExpression = (): SQL =>
+	sql`trim(
+		coalesce(${leagues.season}, '') ||
+		case
+			when ${leagues.season} is not null and trim(${leagues.season}) <> '' and ${leagues.year} is not null
+				then ' '
+			else ''
+		end ||
+		coalesce(cast(${leagues.year} as text), '')
+	)`;
 
 export class TeamOperations {
 	constructor(private db: DrizzleClient) {}
@@ -14,6 +41,84 @@ export class TeamOperations {
 			.from(teams)
 			.where(eq(teams.clientId, clientId))
 			.orderBy(desc(teams.createdAt));
+	}
+
+	async searchByClient(input: {
+		clientId: string;
+		query: string;
+		seasonId?: string | null;
+		seasonName?: string | null;
+		limit?: number;
+	}): Promise<TeamSearchRow[]> {
+		const limit = Math.max(1, Math.min(input.limit ?? 40, 100));
+		const searchExpressions = [
+			teams.name,
+			teams.slug,
+			divisions.name,
+			divisions.dayOfWeek,
+			divisions.gameTime,
+			leagues.name,
+			offerings.name
+		];
+		const whereClauses: SQL[] = [
+			eq(teams.clientId, input.clientId),
+			eq(teams.isActive, 1),
+			eq(divisions.isActive, 1),
+			eq(sql`coalesce(${leagues.isActive}, 1)`, 1),
+			...buildSearchTokenClauses(input.query, searchExpressions)
+		];
+
+		if (input.seasonId && input.seasonName) {
+			whereClauses.push(
+				or(
+					eq(leagues.seasonId, input.seasonId),
+					and(
+						sql`${leagues.seasonId} is null or trim(${leagues.seasonId}) = ''`,
+						sql`lower(${buildLegacySeasonLabelExpression()}) = ${normalizeSearchText(input.seasonName)}`
+					)
+				) as SQL
+			);
+		}
+
+		const relevance = buildSearchRelevanceExpression(input.query, searchExpressions);
+		return await this.db
+			.select({
+				id: teams.id,
+				clientId: teams.clientId,
+				divisionId: teams.divisionId,
+				name: teams.name,
+				slug: teams.slug,
+				description: teams.description,
+				imageUrl: teams.imageUrl,
+				teamStatus: teams.teamStatus,
+				doesAcceptFreeAgents: teams.doesAcceptFreeAgents,
+				isAutoAcceptMembers: teams.isAutoAcceptMembers,
+				currentRosterSize: teams.currentRosterSize,
+				teamColor: teams.teamColor,
+				dateRegistered: teams.dateRegistered,
+				dateJoinedDivision: teams.dateJoinedDivision,
+				isActive: teams.isActive,
+				createdAt: teams.createdAt,
+				updatedAt: teams.updatedAt,
+				createdUser: teams.createdUser,
+				updatedUser: teams.updatedUser,
+				divisionName: divisions.name,
+				divisionSlug: divisions.slug,
+				leagueName: leagues.name,
+				leagueSlug: leagues.slug,
+				offeringName: offerings.name,
+				offeringSlug: offerings.slug,
+				seasonName: seasons.name,
+				seasonSlug: seasons.slug
+			})
+			.from(teams)
+			.innerJoin(divisions, eq(teams.divisionId, divisions.id))
+			.innerJoin(leagues, eq(divisions.leagueId, leagues.id))
+			.leftJoin(offerings, eq(leagues.offeringId, offerings.id))
+			.leftJoin(seasons, eq(leagues.seasonId, seasons.id))
+			.where(and(...whereClauses))
+			.orderBy(desc(relevance), asc(teams.name))
+			.limit(limit);
 	}
 
 	async getByClientIdAndDivisionIds(clientId: string, divisionIds: string[]): Promise<Team[]> {

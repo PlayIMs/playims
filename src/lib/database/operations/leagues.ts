@@ -1,7 +1,30 @@
 // League operations - Drizzle ORM
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, or, sql, type SQL } from 'drizzle-orm';
 import type { DrizzleClient } from '../drizzle.js';
-import { leagues, type League } from '../schema/index.js';
+import { leagues, offerings, seasons, type League } from '../schema/index.js';
+import {
+	buildSearchRelevanceExpression,
+	buildSearchTokenClauses,
+	normalizeSearchText
+} from './search-helpers.js';
+
+export interface LeagueSearchRow extends League {
+	offeringName: string | null;
+	offeringSlug: string | null;
+	seasonName: string | null;
+	seasonSlug: string | null;
+}
+
+const buildLegacySeasonLabelExpression = (): SQL =>
+	sql`trim(
+		coalesce(${leagues.season}, '') ||
+		case
+			when ${leagues.season} is not null and trim(${leagues.season}) <> '' and ${leagues.year} is not null
+				then ' '
+			else ''
+		end ||
+		coalesce(cast(${leagues.year} as text), '')
+	)`;
 
 export class LeagueOperations {
 	constructor(private db: DrizzleClient) {}
@@ -12,6 +35,86 @@ export class LeagueOperations {
 			.from(leagues)
 			.where(eq(leagues.clientId, clientId))
 			.orderBy(desc(leagues.year), asc(leagues.stackOrder), desc(leagues.createdAt));
+	}
+
+	async searchByClient(input: {
+		clientId: string;
+		query: string;
+		seasonId?: string | null;
+		seasonName?: string | null;
+		limit?: number;
+	}): Promise<LeagueSearchRow[]> {
+		const limit = Math.max(1, Math.min(input.limit ?? 40, 100));
+		const searchExpressions = [
+			leagues.name,
+			leagues.slug,
+			leagues.season,
+			sql`cast(${leagues.year} as text)`,
+			offerings.name,
+			offerings.slug,
+			offerings.sport
+		];
+		const whereClauses: SQL[] = [
+			eq(leagues.clientId, input.clientId),
+			eq(sql`coalesce(${leagues.isActive}, 1)`, 1),
+			...buildSearchTokenClauses(input.query, searchExpressions)
+		];
+
+		if (input.seasonId && input.seasonName) {
+			whereClauses.push(
+				or(
+					eq(leagues.seasonId, input.seasonId),
+					and(
+						sql`${leagues.seasonId} is null or trim(${leagues.seasonId}) = ''`,
+						sql`lower(${buildLegacySeasonLabelExpression()}) = ${normalizeSearchText(input.seasonName)}`
+					)
+				) as SQL
+			);
+		}
+
+		const relevance = buildSearchRelevanceExpression(input.query, searchExpressions);
+		return await this.db
+			.select({
+				id: leagues.id,
+				clientId: leagues.clientId,
+				offeringId: leagues.offeringId,
+				seasonId: leagues.seasonId,
+				name: leagues.name,
+				slug: leagues.slug,
+				stackOrder: leagues.stackOrder,
+				description: leagues.description,
+				year: leagues.year,
+				season: leagues.season,
+				gender: leagues.gender,
+				skillLevel: leagues.skillLevel,
+				regStartDate: leagues.regStartDate,
+				regEndDate: leagues.regEndDate,
+				seasonStartDate: leagues.seasonStartDate,
+				seasonEndDate: leagues.seasonEndDate,
+				hasPostseason: leagues.hasPostseason,
+				postseasonStartDate: leagues.postseasonStartDate,
+				postseasonEndDate: leagues.postseasonEndDate,
+				hasPreseason: leagues.hasPreseason,
+				preseasonStartDate: leagues.preseasonStartDate,
+				preseasonEndDate: leagues.preseasonEndDate,
+				isActive: leagues.isActive,
+				isLocked: leagues.isLocked,
+				imageUrl: leagues.imageUrl,
+				createdAt: leagues.createdAt,
+				updatedAt: leagues.updatedAt,
+				createdUser: leagues.createdUser,
+				updatedUser: leagues.updatedUser,
+				offeringName: offerings.name,
+				offeringSlug: offerings.slug,
+				seasonName: seasons.name,
+				seasonSlug: seasons.slug
+			})
+			.from(leagues)
+			.leftJoin(offerings, eq(leagues.offeringId, offerings.id))
+			.leftJoin(seasons, eq(leagues.seasonId, seasons.id))
+			.where(and(...whereClauses))
+			.orderBy(desc(relevance), asc(leagues.name))
+			.limit(limit);
 	}
 
 	async getByClientIdAndSlug(clientId: string, slug: string): Promise<League | null> {

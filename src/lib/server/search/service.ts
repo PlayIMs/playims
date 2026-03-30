@@ -1,13 +1,13 @@
 import type { RequestEvent } from '@sveltejs/kit';
-import type { League, Offering, Season } from '$lib/database';
+import type { Season } from '$lib/database';
 import {
 	DASHBOARD_NAV_ITEMS,
+	canAccessDashboardRouteForPermissions,
 	filterDashboardNavigationItemsForPermissions
 } from '$lib/dashboard/navigation';
 import { buildPermissionSnapshot } from '$lib/server/auth/permissions';
 import { requireAuthenticatedClientId } from '$lib/server/client-context';
 import { getCentralDbOps, getTenantDbOps } from '$lib/server/database/context';
-import { leagueMatchesSeason } from '$lib/server/intramural-offering-scope';
 import {
 	buildFacilityAreaSearchHref,
 	buildMemberSearchHref,
@@ -23,6 +23,8 @@ import type {
 
 type SearchEvent = Pick<RequestEvent, 'locals' | 'platform' | 'url'>;
 type SearchSeasonRecord = Season;
+
+const SEARCH_CATEGORY_LIMIT = 40;
 
 const PUBLIC_PAGE_RESULTS = [
 	{
@@ -43,42 +45,60 @@ const PUBLIC_PAGE_RESULTS = [
 	}
 ] satisfies MegaSearchResult[];
 
-const SHORTCUT_RESULTS = [
+const DASHBOARD_SETTINGS_PAGE_RESULTS = [
 	{
-		id: 'shortcut-dashboard',
-		resultKey: 'shortcuts:/dashboard',
-		category: 'shortcuts' as const,
-		title: 'Dashboard',
-		subtitle: 'Open the dashboard home',
-		href: '/dashboard',
-		badge: 'Shortcut'
+		id: 'settings-modules',
+		resultKey: 'pages:/dashboard/settings/modules',
+		category: 'pages' as const,
+		title: 'Modules',
+		subtitle: 'Settings page',
+		meta: 'Dashboard settings navigation and modules',
+		href: '/dashboard/settings/modules'
 	},
 	{
-		id: 'shortcut-offerings',
-		resultKey: 'shortcuts:/dashboard/offerings',
-		category: 'shortcuts' as const,
-		title: 'Offerings',
-		subtitle: 'Manage seasons, offerings, leagues, and divisions',
-		href: '/dashboard/offerings',
-		badge: 'Shortcut'
+		id: 'settings-branding',
+		resultKey: 'pages:/dashboard/settings/branding',
+		category: 'pages' as const,
+		title: 'Branding',
+		subtitle: 'Settings page',
+		meta: 'Organization branding and appearance settings',
+		href: '/dashboard/settings/branding'
 	},
 	{
-		id: 'shortcut-members',
-		resultKey: 'shortcuts:/dashboard/members',
-		category: 'shortcuts' as const,
-		title: 'Members',
-		subtitle: 'Search and manage members',
-		href: '/dashboard/members',
-		badge: 'Shortcut'
+		id: 'settings-billing',
+		resultKey: 'pages:/dashboard/settings/billing',
+		category: 'pages' as const,
+		title: 'Billing',
+		subtitle: 'Settings page',
+		meta: 'Billing and plan settings',
+		href: '/dashboard/settings/billing'
 	},
 	{
-		id: 'shortcut-facilities',
-		resultKey: 'shortcuts:/dashboard/facilities',
-		category: 'shortcuts' as const,
-		title: 'Facilities',
-		subtitle: 'Manage facilities and areas',
-		href: '/dashboard/facilities',
-		badge: 'Shortcut'
+		id: 'settings-notifications',
+		resultKey: 'pages:/dashboard/settings/notifications',
+		category: 'pages' as const,
+		title: 'Notifications',
+		subtitle: 'Settings page',
+		meta: 'Notification preferences and alerts',
+		href: '/dashboard/settings/notifications'
+	},
+	{
+		id: 'settings-organization',
+		resultKey: 'pages:/dashboard/settings/organization',
+		category: 'pages' as const,
+		title: 'Organization',
+		subtitle: 'Settings page',
+		meta: 'Organization profile and details settings',
+		href: '/dashboard/settings/organization'
+	},
+	{
+		id: 'settings-registrations',
+		resultKey: 'pages:/dashboard/settings/registrations',
+		category: 'pages' as const,
+		title: 'Registrations',
+		subtitle: 'Settings page',
+		meta: 'Registration settings and defaults',
+		href: '/dashboard/settings/registrations'
 	}
 ] satisfies MegaSearchResult[];
 
@@ -94,7 +114,7 @@ function buildDashboardPageResults(event: SearchEvent): MegaSearchResult[] {
 	if (!isAuthenticatedSearch(event)) return [];
 	const effectiveRole = event.locals.user?.role ?? 'participant';
 	const permissions = buildPermissionSnapshot(effectiveRole);
-	return filterDashboardNavigationItemsForPermissions({
+	const navigationResults = filterDashboardNavigationItemsForPermissions({
 		items: DASHBOARD_NAV_ITEMS,
 		permissions
 	})
@@ -107,6 +127,14 @@ function buildDashboardPageResults(event: SearchEvent): MegaSearchResult[] {
 			subtitle: 'Dashboard page',
 			href: item.href
 		}));
+	const settingsPageResults = DASHBOARD_SETTINGS_PAGE_RESULTS.filter((page) =>
+		canAccessDashboardRouteForPermissions({
+			pathname: page.href,
+			permissions
+		})
+	);
+
+	return [...navigationResults, ...settingsPageResults];
 }
 
 function scoreResult(query: string, result: MegaSearchResult): number {
@@ -140,17 +168,17 @@ function resolveScopedSeason(seasons: SearchSeasonRecord[], url: URL): SearchSea
 	);
 }
 
-function offeringMatchesScopedSeason(
-	offering: Offering,
-	scopedSeason: SearchSeasonRecord | null,
-	leagues: League[]
+function matchesScopedSeasonRecord(
+	record: {
+		seasonId?: string | null;
+		seasonName?: string | null;
+	},
+	scopedSeason: SearchSeasonRecord | null
 ): boolean {
 	if (!scopedSeason) return true;
-	if (offering.seasonId === scopedSeason.id) return true;
-	if (!offering.id) return false;
-	return leagues.some(
-		(league) => league.offeringId === offering.id && leagueMatchesSeason(league, scopedSeason)
-	);
+	if (normalizeRawSearchKey(record.seasonId) === normalizeRawSearchKey(scopedSeason.id))
+		return true;
+	return normalizeRawSearchKey(record.seasonName) === normalizeRawSearchKey(scopedSeason.name);
 }
 
 function searchablePageResults(event: SearchEvent): MegaSearchResult[] {
@@ -174,44 +202,56 @@ export async function getMegaSearchResponse(
 		const clientId = requireAuthenticatedClientId(event.locals as App.Locals);
 		const centralDbOps = getCentralDbOps(event);
 		const tenantDbOps = await getTenantDbOps(event, clientId);
-		const [members, seasons, offerings, leagues, facilities, facilityAreas, teams] =
-			await Promise.all([
-				centralDbOps.members.searchByClient({
-					clientId,
-					query: trimmedQuery,
-					page: 1,
-					sort: 'lastName',
-					dir: 'asc'
-				}),
-				tenantDbOps.seasons.getByClientId(clientId),
-				tenantDbOps.offerings.getByClientId(clientId),
-				tenantDbOps.leagues.getByClientId(clientId),
-				tenantDbOps.facilities.getAll(clientId),
-				tenantDbOps.facilityAreas.getAll(clientId),
-				tenantDbOps.teams.getByClientId(clientId)
-			]);
-		const leagueIds = leagues
-			.map((league) => league.id)
-			.filter((leagueId): leagueId is string => Boolean(leagueId));
-		const divisions = await tenantDbOps.divisions.getByLeagueIds(leagueIds);
+		const [members, seasons] = await Promise.all([
+			centralDbOps.members.searchByClient({
+				clientId,
+				query: trimmedQuery,
+				page: 1,
+				sort: 'lastName',
+				dir: 'asc'
+			}),
+			tenantDbOps.seasons.getByClientId(clientId)
+		]);
 		const scopedSeason = resolveScopedSeason(seasons, event.url);
-		const scopedSeasonId = scopedSeason?.id ?? null;
-		const seasonById = new Map(
-			seasons.filter((season) => Boolean(season.id)).map((season) => [season.id as string, season])
-		);
-		const offeringById = new Map(
-			offerings
-				.filter((offering) => Boolean(offering.id))
-				.map((offering) => [offering.id as string, offering])
-		);
-		const leagueById = new Map(
-			leagues.filter((league) => Boolean(league.id)).map((league) => [league.id as string, league])
-		);
-		const divisionById = new Map(
-			divisions
-				.filter((division) => Boolean(division.id))
-				.map((division) => [division.id as string, division])
-		);
+		const [offerings, leagues, divisions, teams, facilities, facilityAreas] = await Promise.all([
+			tenantDbOps.offerings.searchByClient({
+				clientId,
+				query: trimmedQuery,
+				seasonId: scopedSeason?.id ?? null,
+				limit: SEARCH_CATEGORY_LIMIT
+			}),
+			tenantDbOps.leagues.searchByClient({
+				clientId,
+				query: trimmedQuery,
+				seasonId: scopedSeason?.id ?? null,
+				seasonName: scopedSeason?.name ?? null,
+				limit: SEARCH_CATEGORY_LIMIT
+			}),
+			tenantDbOps.divisions.searchByClient({
+				clientId,
+				query: trimmedQuery,
+				seasonId: scopedSeason?.id ?? null,
+				seasonName: scopedSeason?.name ?? null,
+				limit: SEARCH_CATEGORY_LIMIT
+			}),
+			tenantDbOps.teams.searchByClient({
+				clientId,
+				query: trimmedQuery,
+				seasonId: scopedSeason?.id ?? null,
+				seasonName: scopedSeason?.name ?? null,
+				limit: SEARCH_CATEGORY_LIMIT
+			}),
+			tenantDbOps.facilities.searchByClient({
+				clientId,
+				query: trimmedQuery,
+				limit: SEARCH_CATEGORY_LIMIT
+			}),
+			tenantDbOps.facilityAreas.searchByClient({
+				clientId,
+				query: trimmedQuery,
+				limit: SEARCH_CATEGORY_LIMIT
+			})
+		]);
 
 		for (const member of members.rows) {
 			const result: MegaSearchResult = {
@@ -231,7 +271,7 @@ export async function getMegaSearchResponse(
 
 		for (const season of seasons) {
 			const seasonSlug = season.slug?.trim();
-			if (!season.id || !seasonSlug || season.id !== scopedSeasonId) continue;
+			if (!season.id || !seasonSlug || season.id !== scopedSeason?.id) continue;
 			const result: MegaSearchResult = {
 				id: season.id,
 				resultKey: `seasons:${season.id}`,
@@ -246,13 +286,9 @@ export async function getMegaSearchResponse(
 
 		for (const offering of offerings.filter(
 			(offering) =>
-				isActiveFlag(offering.isActive) &&
-				offeringMatchesScopedSeason(offering, scopedSeason, leagues)
+				isActiveFlag(offering.isActive) && matchesScopedSeasonRecord(offering, scopedSeason)
 		)) {
-			const season = offering.seasonId
-				? (seasonById.get(offering.seasonId) ?? scopedSeason)
-				: scopedSeason;
-			const seasonSlug = season?.slug?.trim();
+			const seasonSlug = offering.seasonSlug?.trim();
 			const offeringSlug = offering.slug?.trim();
 			if (!offering.id || !seasonSlug || !offeringSlug) continue;
 			const result: MegaSearchResult = {
@@ -261,7 +297,7 @@ export async function getMegaSearchResponse(
 				category: 'offerings',
 				title: offering.name?.trim() || 'Offering',
 				subtitle: 'Offering',
-				meta: season?.name?.trim() || null,
+				meta: offering.seasonName?.trim() || null,
 				href: `/dashboard/offerings/${seasonSlug}/${offeringSlug}`
 			};
 			const score = scoreResult(trimmedQuery, result);
@@ -271,14 +307,10 @@ export async function getMegaSearchResponse(
 		for (const league of leagues.filter(
 			(league) =>
 				isActiveFlag((league as { isActive?: number }).isActive ?? 1) &&
-				(!scopedSeason || leagueMatchesSeason(league, scopedSeason))
+				matchesScopedSeasonRecord(league, scopedSeason)
 		)) {
-			const offering = league.offeringId ? offeringById.get(league.offeringId) : null;
-			const season = league.seasonId
-				? (seasonById.get(league.seasonId) ?? scopedSeason)
-				: scopedSeason;
-			const seasonSlug = season?.slug?.trim();
-			const offeringSlug = offering?.slug?.trim();
+			const seasonSlug = league.seasonSlug?.trim();
+			const offeringSlug = league.offeringSlug?.trim();
 			const leagueSlug = league.slug?.trim();
 			if (!league.id || !seasonSlug || !offeringSlug || !leagueSlug) continue;
 			const result: MegaSearchResult = {
@@ -286,27 +318,21 @@ export async function getMegaSearchResponse(
 				resultKey: `leagues:${league.id}`,
 				category: 'leagues',
 				title: league.name?.trim() || 'League',
-				subtitle: offering?.name?.trim() || null,
-				meta: season?.name?.trim() || null,
+				subtitle: league.offeringName?.trim() || null,
+				meta: league.seasonName?.trim() || null,
 				href: `/dashboard/offerings/${seasonSlug}/${offeringSlug}/${leagueSlug}`
 			};
 			const score = scoreResult(trimmedQuery, result);
 			if (score > 0) scored.push({ ...result, score });
 		}
 
-		for (const division of divisions.filter((division) => {
-			if (!isActiveFlag(division.isActive)) return false;
-			const league = division.leagueId ? leagueById.get(division.leagueId) : null;
-			return !scopedSeason || Boolean(league && leagueMatchesSeason(league, scopedSeason));
-		})) {
-			const league = division.leagueId ? leagueById.get(division.leagueId) : null;
-			const offering = league?.offeringId ? offeringById.get(league.offeringId) : null;
-			const season = league?.seasonId
-				? (seasonById.get(league.seasonId) ?? scopedSeason)
-				: scopedSeason;
-			const seasonSlug = season?.slug?.trim();
-			const offeringSlug = offering?.slug?.trim();
-			const leagueSlug = league?.slug?.trim();
+		for (const division of divisions.filter(
+			(division) =>
+				isActiveFlag(division.isActive) && matchesScopedSeasonRecord(division, scopedSeason)
+		)) {
+			const seasonSlug = division.seasonSlug?.trim();
+			const offeringSlug = division.offeringSlug?.trim();
+			const leagueSlug = division.leagueSlug?.trim();
 			const divisionSlug = division.slug?.trim() || division.id?.trim();
 			if (!division.id || !seasonSlug || !offeringSlug || !leagueSlug || !divisionSlug) continue;
 			const result: MegaSearchResult = {
@@ -314,30 +340,23 @@ export async function getMegaSearchResponse(
 				resultKey: `divisions:${division.id}`,
 				category: 'divisions',
 				title: division.name?.trim() || 'Division',
-				subtitle: league?.name?.trim() || null,
-				meta: [offering?.name?.trim(), season?.name?.trim()].filter(Boolean).join(' ') || null,
+				subtitle: division.leagueName?.trim() || null,
+				meta:
+					[division.offeringName?.trim(), division.seasonName?.trim()].filter(Boolean).join(' ') ||
+					null,
 				href: `/dashboard/offerings/${seasonSlug}/${offeringSlug}/${leagueSlug}/${divisionSlug}`
 			};
 			const score = scoreResult(trimmedQuery, result);
 			if (score > 0) scored.push({ ...result, score });
 		}
 
-		for (const team of teams.filter((team) => {
-			if (!isActiveFlag(team.isActive)) return false;
-			const division = team.divisionId ? divisionById.get(team.divisionId) : null;
-			const league = division?.leagueId ? leagueById.get(division.leagueId) : null;
-			return !scopedSeason || Boolean(league && leagueMatchesSeason(league, scopedSeason));
-		})) {
-			const division = team.divisionId ? divisionById.get(team.divisionId) : null;
-			const league = division?.leagueId ? leagueById.get(division.leagueId) : null;
-			const offering = league?.offeringId ? offeringById.get(league.offeringId) : null;
-			const season = league?.seasonId
-				? (seasonById.get(league.seasonId) ?? scopedSeason)
-				: scopedSeason;
-			const seasonSlug = season?.slug?.trim();
-			const offeringSlug = offering?.slug?.trim();
-			const leagueSlug = league?.slug?.trim();
-			const divisionSlug = division?.slug?.trim() || division?.id?.trim();
+		for (const team of teams.filter(
+			(team) => isActiveFlag(team.isActive) && matchesScopedSeasonRecord(team, scopedSeason)
+		)) {
+			const seasonSlug = team.seasonSlug?.trim();
+			const offeringSlug = team.offeringSlug?.trim();
+			const leagueSlug = team.leagueSlug?.trim();
+			const divisionSlug = team.divisionSlug?.trim() || team.divisionId?.trim();
 			const teamSlug = team.slug?.trim() || team.id?.trim();
 			if (!team.id || !seasonSlug || !offeringSlug || !leagueSlug || !divisionSlug || !teamSlug)
 				continue;
@@ -347,10 +366,11 @@ export async function getMegaSearchResponse(
 				category: 'teams',
 				title: team.name?.trim() || 'Team',
 				subtitle:
-					[offering?.name?.trim(), league?.name?.trim(), division?.name?.trim()]
+					[team.offeringName?.trim(), team.leagueName?.trim(), team.divisionName?.trim()]
 						.filter(Boolean)
 						.join(' • ') || null,
-				meta: [offering?.name?.trim(), season?.name?.trim()].filter(Boolean).join(' ') || null,
+				meta:
+					[team.offeringName?.trim(), team.seasonName?.trim()].filter(Boolean).join(' ') || null,
 				href: buildTeamSearchHref({
 					seasonSlug,
 					offeringSlug,
@@ -382,13 +402,12 @@ export async function getMegaSearchResponse(
 			isActiveFlag(facilityArea.isActive)
 		)) {
 			if (!area.id || !area.facilityId) continue;
-			const facility = facilities.find((entry) => entry.id === area.facilityId);
 			const result: MegaSearchResult = {
 				id: area.id,
 				resultKey: `facilityAreas:${area.id}`,
 				category: 'facilityAreas',
 				title: area.name?.trim() || 'Facility Area',
-				subtitle: facility?.name?.trim() || null,
+				subtitle: area.facilityName?.trim() || null,
 				href: buildFacilityAreaSearchHref({
 					facilityId: area.facilityId,
 					facilityAreaId: area.id
@@ -426,7 +445,7 @@ export async function getMegaSearchEmptyState(event: SearchEvent): Promise<MegaS
 			groups.push({
 				category: 'recent',
 				label: 'Recent',
-				items: recents.map((entry) => ({
+				items: recents.slice(0, 8).map((entry) => ({
 					id: entry.id,
 					resultKey: entry.resultKey,
 					category: 'recent',
@@ -439,23 +458,6 @@ export async function getMegaSearchEmptyState(event: SearchEvent): Promise<MegaS
 			});
 		}
 	}
-
-	const shortcuts = isAuthenticatedSearch(event)
-		? SHORTCUT_RESULTS.filter((shortcut) =>
-				shortcut.href === '/dashboard'
-					? true
-					: buildDashboardPageResults(event).some((page) => page.href === shortcut.href)
-			)
-		: SHORTCUT_RESULTS.filter((shortcut) => shortcut.href === '/dashboard').map((shortcut) => ({
-				...shortcut,
-				href: '/log-in'
-			}));
-
-	groups.push({
-		category: 'shortcuts',
-		label: 'Shortcuts',
-		items: shortcuts
-	});
 
 	return {
 		success: true,

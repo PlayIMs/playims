@@ -1,7 +1,8 @@
 // Facility operations - Drizzle ORM
-import { eq, desc } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import type { DrizzleClient } from '../drizzle.js';
 import { facilities, type Facility } from '../schema/index.js';
+import { buildSearchRelevanceExpression, buildSearchTokenClauses } from './search-helpers.js';
 
 export class FacilityOperations {
 	constructor(private db: DrizzleClient) {}
@@ -12,6 +13,28 @@ export class FacilityOperations {
 			.from(facilities)
 			.where(eq(facilities.clientId, clientId))
 			.orderBy(desc(facilities.createdAt));
+	}
+
+	async searchByClient(input: {
+		clientId: string;
+		query: string;
+		limit?: number;
+	}): Promise<Facility[]> {
+		const limit = Math.max(1, Math.min(input.limit ?? 40, 100));
+		const searchExpressions = [facilities.name, facilities.slug, facilities.description];
+		const relevance = buildSearchRelevanceExpression(input.query, searchExpressions);
+		return await this.db
+			.select()
+			.from(facilities)
+			.where(
+				and(
+					eq(facilities.clientId, input.clientId),
+					eq(facilities.isActive, 1),
+					...buildSearchTokenClauses(input.query, searchExpressions)
+				)
+			)
+			.orderBy(desc(relevance), asc(facilities.name))
+			.limit(limit);
 	}
 
 	async getById(id: string): Promise<Facility | null> {

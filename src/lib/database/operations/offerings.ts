@@ -1,8 +1,14 @@
 // Offering operations - Drizzle ORM
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import type { DrizzleClient } from '../drizzle.js';
-import { offerings, type Offering } from '../schema/index.js';
+import { offerings, seasons, type Offering } from '../schema/index.js';
 import { buildOfferingSeriesBackfillPlan } from '$lib/utils/offering-linking.js';
+import { buildSearchRelevanceExpression, buildSearchTokenClauses } from './search-helpers.js';
+
+export interface OfferingSearchRow extends Offering {
+	seasonName: string | null;
+	seasonSlug: string | null;
+}
 
 export class OfferingOperations {
 	constructor(private db: DrizzleClient) {}
@@ -13,6 +19,60 @@ export class OfferingOperations {
 			.from(offerings)
 			.where(eq(offerings.clientId, clientId))
 			.orderBy(asc(offerings.name));
+	}
+
+	async searchByClient(input: {
+		clientId: string;
+		query: string;
+		seasonId?: string | null;
+		limit?: number;
+	}): Promise<OfferingSearchRow[]> {
+		const limit = Math.max(1, Math.min(input.limit ?? 40, 100));
+		const searchExpressions = [
+			offerings.name,
+			offerings.slug,
+			offerings.sport,
+			offerings.description
+		];
+		const whereClauses = [
+			eq(offerings.clientId, input.clientId),
+			eq(offerings.isActive, 1),
+			...buildSearchTokenClauses(input.query, searchExpressions)
+		];
+
+		if (input.seasonId) {
+			whereClauses.push(eq(offerings.seasonId, input.seasonId));
+		}
+
+		const relevance = buildSearchRelevanceExpression(input.query, searchExpressions);
+		return await this.db
+			.select({
+				id: offerings.id,
+				name: offerings.name,
+				slug: offerings.slug,
+				isActive: offerings.isActive,
+				imageUrl: offerings.imageUrl,
+				minPlayers: offerings.minPlayers,
+				maxPlayers: offerings.maxPlayers,
+				rulebookUrl: offerings.rulebookUrl,
+				sport: offerings.sport,
+				type: offerings.type,
+				description: offerings.description,
+				clientId: offerings.clientId,
+				seasonId: offerings.seasonId,
+				seriesId: offerings.seriesId,
+				createdAt: offerings.createdAt,
+				updatedAt: offerings.updatedAt,
+				createdUser: offerings.createdUser,
+				updatedUser: offerings.updatedUser,
+				seasonName: seasons.name,
+				seasonSlug: seasons.slug
+			})
+			.from(offerings)
+			.leftJoin(seasons, eq(offerings.seasonId, seasons.id))
+			.where(and(...whereClauses))
+			.orderBy(desc(relevance), asc(offerings.name))
+			.limit(limit);
 	}
 
 	async getByClientIdAndSlug(
