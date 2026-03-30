@@ -1,6 +1,7 @@
 <script lang="ts" generics="TRow">
 	import type { Snippet } from 'svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
+	import { toast } from '$lib/toasts';
 	import type {
 		DataTableColumn,
 		DataTableHeaderTextTransform,
@@ -16,6 +17,11 @@
 		isDataTableColumnSortable,
 		sortDataTableRows
 	} from '$lib/components/data-table-sort.js';
+	import {
+		formatDataTableClipboardSuccessMessage,
+		getDataTableColumnCopyText,
+		isDataTableColumnCopyEnabled
+	} from '$lib/components/data-table.js';
 
 	interface Props {
 		columns: DataTableColumn<TRow>[];
@@ -160,7 +166,61 @@
 		if (direction === 'desc') return '\u25BE';
 		return '';
 	}
+
+	function copyCellAriaLabel(column: DataTableColumn<TRow>, row: TRow): string {
+		const copyText = getDataTableColumnCopyText(column, row);
+		return copyText ? `Copy ${column.label}: ${copyText}` : `Copy ${column.label}`;
+	}
+
+	async function copyCellValue(column: DataTableColumn<TRow>, row: TRow): Promise<void> {
+		const copyText = getDataTableColumnCopyText(column, row);
+		if (!copyText) return;
+		if (typeof navigator === 'undefined' || !navigator.clipboard) {
+			toast.error('Unable to copy that value right now.', {
+				title: 'Clipboard'
+			});
+			return;
+		}
+
+		try {
+			await navigator.clipboard.writeText(copyText);
+			toast.success(formatDataTableClipboardSuccessMessage(copyText), {
+				title: 'Clipboard'
+			});
+		} catch {
+			toast.error('Unable to copy that value right now.', {
+				title: 'Clipboard'
+			});
+		}
+	}
+
+	function handleCopyCellKeydown(
+		event: KeyboardEvent,
+		column: DataTableColumn<TRow>,
+		row: TRow
+	): void {
+		if (event.key !== 'Enter' && event.key !== ' ') return;
+		event.preventDefault();
+		void copyCellValue(column, row);
+	}
 </script>
+
+{#snippet bodyCellContent(row: TRow, column: DataTableColumn<TRow>)}
+	{#if isDataTableColumnCopyEnabled(column) && getDataTableColumnCopyText(column, row)}
+		<div
+			role="button"
+			tabindex="0"
+			class="inline-block max-w-full cursor-default rounded-[2px] underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-700 focus-visible:ring-offset-1 hover:underline focus-visible:underline"
+			aria-label={copyCellAriaLabel(column, row)}
+			onclick={() => void copyCellValue(column, row)}
+			onkeydown={(event) => handleCopyCellKeydown(event, column, row)}
+		>
+			{@render cell(row, column)}
+		</div>
+	{:else}
+		{@render cell(row, column)}
+	{/if}
+{/snippet}
 
 <div class={wrapperClass}>
 	<table class={tableClass}>
@@ -248,7 +308,7 @@
 									style:padding-left={column.cellPaddingLeft}
 									style:padding-right={column.cellPaddingRight}
 								>
-									{@render cell(row, column)}
+									{@render bodyCellContent(row, column)}
 								</th>
 							{:else}
 								<td
@@ -256,7 +316,7 @@
 									style:padding-left={column.cellPaddingLeft}
 									style:padding-right={column.cellPaddingRight}
 								>
-									{@render cell(row, column)}
+									{@render bodyCellContent(row, column)}
 								</td>
 							{/if}
 						{/each}

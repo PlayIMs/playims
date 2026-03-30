@@ -17,6 +17,11 @@ export interface DataTableColumn<TRow = unknown> {
 	 */
 	label: string;
 	/**
+	 * Optional raw text copied when the user clicks this column's non-interactive cell content.
+	 * Omit this to keep clipboard behavior disabled for the column.
+	 */
+	copyText?: (row: TRow) => string | null | undefined;
+	/**
 	 * Recommended header hover tooltip copy shown when the user hovers the column title.
 	 */
 	headerHoverTooltipText?: string;
@@ -88,4 +93,23 @@ export function getSingleDataTableRowActionOption(
 	options: DataTableRowActionOption[]
 ): DataTableRowActionOption | null {
 	return getDataTableRowActionMode(options) === 'single' ? (options[0] ?? null) : null;
+}
+
+export function isDataTableColumnCopyEnabled<TRow>(
+	column: DataTableColumn<TRow>
+): boolean {
+	return typeof column.copyText === 'function';
+}
+
+export function getDataTableColumnCopyText<TRow>(
+	column: DataTableColumn<TRow>,
+	row: TRow
+): string | null {
+	if (!column.copyText) return null;
+	const value = column.copyText(row)?.trim();
+	return value ? value : null;
+}
+
+export function formatDataTableClipboardSuccessMessage(value: string): string {
+	return `Copied "${value}" to clipboard.`;
 }

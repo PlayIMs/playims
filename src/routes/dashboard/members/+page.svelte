@@ -210,20 +210,28 @@
 		{
 			key: 'member',
 			label: 'Member',
-			width: '32%',
+			width: '24%',
 			rowHeader: true,
 			sortValue: (row) => row.fullName
 		},
 		{
+			key: 'studentId',
+			label: 'Student ID',
+			width: '18%',
+			copyText: (row) => row.studentId,
+			sortValue: (row) => row.studentId ?? ''
+		},
+		{
 			key: 'email',
 			label: 'Email',
-			width: '28%',
+			width: '30%',
+			copyText: (row) => row.email,
 			sortValue: (row) => row.email ?? ''
 		},
 		{
 			key: 'sex',
 			label: 'Sex',
-			width: '10%',
+			width: '12%',
 			headerTextAlignment: 'center',
 			cellTextAlignment: 'center',
 			sortValue: (row) => row.sex ?? ''
@@ -231,14 +239,12 @@
 		{
 			key: 'role',
 			label: 'Role',
-			width: '14%',
+			width: '12%',
 			sortValue: (row) => ROLE_LABELS[row.role]
 		},
 		{
 			...createDataTableRowActionColumn({
-				key: 'actions',
-				label: 'Actions',
-				width: '16%'
+				key: 'actions'
 			})
 		}
 	]);
@@ -869,14 +875,19 @@
 
 							{#snippet cell(row, column)}
 								{#if column.key === 'member'}
-									<div class="space-y-1 py-1">
-										<p class="text-sm font-bold text-neutral-950">{row.fullName}</p>
-										<p class="text-xs uppercase tracking-wide text-neutral-700">
-											Student ID: {row.studentId ?? '--'}
-										</p>
-									</div>
+									<button
+										type="button"
+										class="min-w-0 py-1 text-left cursor-pointer focus-visible:outline-none"
+										onclick={() => void openModal('view', row)}
+									>
+										<span class="text-sm font-bold text-neutral-950">{row.fullName}</span>
+									</button>
+								{:else if column.key === 'studentId'}
+									<span class="py-1 text-sm font-semibold uppercase tracking-[0.08em] text-neutral-700">
+										{row.studentId ?? '--'}
+									</span>
 								{:else if column.key === 'email'}
-									<p class="break-all text-sm text-neutral-950">{row.email ?? '--'}</p>
+									<span class="break-all py-1 text-sm text-neutral-950">{row.email ?? '--'}</span>
 								{:else if column.key === 'sex'}
 									<span class="badge-neutral-outlined text-xs uppercase tracking-wide">
 										{row.sex ? SEX_LABELS[row.sex] : '--'}
