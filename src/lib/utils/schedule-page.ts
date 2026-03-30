@@ -87,6 +87,14 @@ export interface ScheduleDayBucket {
 	events: ScheduleEventRecord[];
 }
 
+export interface ScheduleNavigatorDay {
+	dateKey: string;
+	dayNumber: string;
+	monthLabel: string;
+	weekdayLabel: string;
+	isToday: boolean;
+}
+
 export interface ScheduleSummary {
 	total: number;
 	live: number;
@@ -99,6 +107,20 @@ export interface ScheduleDateIndex {
 	scheduled: ScheduleEventRecord[];
 	unscheduled: ScheduleEventRecord[];
 	scheduledByDate: Map<string, ScheduleEventRecord[]>;
+}
+
+export interface ScheduleUrlSyncState {
+	searchQuery: string;
+	selectedSeasonId: string;
+	defaultSeasonId: string;
+	selectedOfferingId: string;
+	selectedLeagueId: string;
+	selectedDivisionId: string;
+	selectedView: string;
+	defaultView: string;
+	anchorDate: string;
+	selectedMonthDate: string;
+	today: string;
 }
 
 const DATE_KEY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
@@ -191,6 +213,15 @@ function startOfLocalDay(date: Date): Date {
 
 function dateKeyFromDate(date: Date): string {
 	return `${date.getFullYear()}-${padTwo(date.getMonth() + 1)}-${padTwo(date.getDate())}`;
+}
+
+function setUrlSearchParam(url: URL, key: string, value: string | null): void {
+	if (value && value.trim().length > 0) {
+		url.searchParams.set(key, value);
+		return;
+	}
+
+	url.searchParams.delete(key);
 }
 
 function todayDateKey(): string {
@@ -535,6 +566,62 @@ export function buildWeekScheduleDays(
 	});
 }
 
+export function buildCenteredScheduleDays(anchorDate: string, radius = 3): ScheduleNavigatorDay[] {
+	const center = getNormalizedAnchorDate(anchorDate);
+	const totalDays = Math.max(1, radius * 2 + 1);
+	const todayKey = todayDateKey();
+
+	return Array.from({ length: totalDays }, (_, index) => {
+		const current = new Date(center);
+		current.setDate(center.getDate() + index - radius);
+		const key = dateKeyFromDate(current);
+
+		return {
+			dateKey: key,
+			dayNumber: String(current.getDate()),
+			monthLabel: current.toLocaleDateString('en-US', {
+				month: 'short'
+			}),
+			weekdayLabel: current.toLocaleDateString('en-US', {
+				weekday: 'short'
+			}),
+			isToday: key === todayKey
+		};
+	});
+}
+
+export function buildScheduleAgendaBuckets(
+	events: ScheduleEventRecord[],
+	range?: Partial<ScheduleRange>
+): ScheduleDayBucket[] {
+	const dateIndex = buildScheduleDateIndex(events);
+	const entries = Array.from(dateIndex.scheduledByDate.entries())
+		.filter(([dateKey]) => {
+			if (range?.startDate && dateKey < range.startDate) return false;
+			if (range?.endDate && dateKey > range.endDate) return false;
+			return true;
+		})
+		.sort(([a], [b]) => a.localeCompare(b));
+
+	return entries.map(([dateKey, dayEvents]) => {
+		const parsed = parseDateKey(dateKey);
+		const label = parsed
+			? parsed.toLocaleDateString('en-US', {
+					weekday: 'long',
+					month: 'long',
+					day: 'numeric',
+					year: 'numeric'
+				})
+			: dateKey;
+
+		return {
+			dateKey,
+			label,
+			events: dayEvents
+		};
+	});
+}
+
 export function buildMonthScheduleCells(
 	events: ScheduleEventRecord[],
 	anchorDate: string
@@ -583,4 +670,53 @@ export function summarizeScheduleEvents(events: ScheduleEventRecord[]): Schedule
 			(event) => event.status === 'cancelled' || event.status === 'postponed'
 		).length
 	};
+}
+
+export function buildNextScheduleHref(
+	currentHref: string,
+	state: ScheduleUrlSyncState
+): string | null {
+	const nextUrl = new URL(currentHref);
+
+	setUrlSearchParam(nextUrl, 'q', state.searchQuery.trim() || null);
+	setUrlSearchParam(
+		nextUrl,
+		'season',
+		state.selectedSeasonId !== state.defaultSeasonId ? state.selectedSeasonId : null
+	);
+	setUrlSearchParam(
+		nextUrl,
+		'offering',
+		state.selectedOfferingId !== 'all' ? state.selectedOfferingId : null
+	);
+	setUrlSearchParam(
+		nextUrl,
+		'league',
+		state.selectedLeagueId !== 'all' ? state.selectedLeagueId : null
+	);
+	setUrlSearchParam(
+		nextUrl,
+		'division',
+		state.selectedDivisionId !== 'all' ? state.selectedDivisionId : null
+	);
+	setUrlSearchParam(nextUrl, 'team', null);
+	setUrlSearchParam(nextUrl, 'status', null);
+	setUrlSearchParam(
+		nextUrl,
+		'view',
+		state.selectedView !== state.defaultView ? state.selectedView : null
+	);
+	setUrlSearchParam(nextUrl, 'date', state.anchorDate !== state.today ? state.anchorDate : null);
+	setUrlSearchParam(
+		nextUrl,
+		'selectedDay',
+		state.selectedView === 'month' && state.selectedMonthDate !== state.anchorDate
+			? state.selectedMonthDate
+			: null
+	);
+
+	const currentUrl = new URL(currentHref);
+	const currentPath = `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`;
+	const nextPath = `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`;
+	return currentPath === nextPath ? null : nextPath;
 }

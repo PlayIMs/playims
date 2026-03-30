@@ -5,21 +5,26 @@ This file verifies the shared helper logic that powers the dashboard schedule pa
 Deeper explanation:
 The schedule page now depends on shared filtering and calendar helpers instead of embedding all of
 its date math and option pruning directly in the route. These tests protect the behavior that keeps
-the cascading filters valid, places events into the correct calendar buckets, and preserves the
-expected day, week, and month ranges.
+the cascading filters valid, places events into the correct calendar buckets, preserves the
+expected day, week, and month ranges, and keeps the top date navigator aligned around the selected
+day.
 
 Summary of tests:
 1. It verifies invalid lower-level schedule filters are cleared when a higher-level filter changes.
 2. It verifies team filtering matches events where the selected team is either home or away.
-3. It verifies week range and month grid generation keep events in the expected visible dates.
-4. It verifies unscheduled events stay out of the dated grid while remaining available separately.
+3. It verifies centered day-strip, range, and month helpers stay aligned around the selected date.
+4. It verifies the URL-sync helper removes default schedule params and no-ops once the URL matches.
+5. It verifies unscheduled events stay out of dated agenda buckets and month cells.
 */
 
 import { describe, expect, it } from 'vitest';
 
 import {
 	bucketScheduleEventsByTiming,
+	buildNextScheduleHref,
+	buildCenteredScheduleDays,
 	buildScheduleDateIndex,
+	buildScheduleAgendaBuckets,
 	buildMonthScheduleCells,
 	filterScheduleEvents,
 	getScheduleRangeForView,
@@ -159,13 +164,28 @@ describe('schedule page helpers', () => {
 		).toEqual(['event-1', 'event-2']);
 	});
 
-	it('builds week ranges and month cells that place events on the expected dates', () => {
-		// this protects the view switcher so week and month surfaces stay aligned around the same anchor date.
+	it('builds centered day strips, week ranges, and month cells around the selected date', () => {
+		// this protects the navigator so the highlighted day stays centered while the related views stay in sync.
 		const dateIndex = buildScheduleDateIndex(events);
+		const centeredDays = buildCenteredScheduleDays('2026-03-18', 3);
 		const weekRange = getScheduleRangeForView('2026-03-18', 'week' satisfies ScheduleView);
 		const monthCells = buildMonthScheduleCells(events, '2026-03-18');
 		const marchEighteenthCell = monthCells.find((cell) => cell.dateKey === '2026-03-18');
 
+		expect(centeredDays.map((day) => day.dateKey)).toEqual([
+			'2026-03-15',
+			'2026-03-16',
+			'2026-03-17',
+			'2026-03-18',
+			'2026-03-19',
+			'2026-03-20',
+			'2026-03-21'
+		]);
+		expect(centeredDays[3]).toMatchObject({
+			dateKey: '2026-03-18',
+			dayNumber: '18',
+			monthLabel: 'Mar'
+		});
 		expect(weekRange).toEqual({
 			startDate: '2026-03-15',
 			endDate: '2026-03-21'
@@ -177,12 +197,55 @@ describe('schedule page helpers', () => {
 		expect(marchEighteenthCell?.events.map((event) => event.id)).toEqual(['event-1']);
 	});
 
-	it('keeps unscheduled events out of the date grid while returning them separately', () => {
-		// unscheduled rows still need to be visible to users, but they cannot occupy a dated calendar cell.
+	it('builds stable schedule urls so the page does not keep rewriting identical history state', () => {
+		// this protects the client page from reactive url loops by proving defaults disappear and repeated syncs become a no-op.
+		const nextHref = buildNextScheduleHref('https://example.com/dashboard/schedule?view=day', {
+			searchQuery: '',
+			selectedSeasonId: 'season-spring',
+			defaultSeasonId: 'season-spring',
+			selectedOfferingId: 'all',
+			selectedLeagueId: 'all',
+			selectedDivisionId: 'all',
+			selectedView: 'day',
+			defaultView: 'day',
+			anchorDate: '2026-03-18',
+			selectedMonthDate: '2026-03-18',
+			today: '2026-03-18'
+		});
+
+		expect(nextHref).toBe('/dashboard/schedule');
+		expect(
+			buildNextScheduleHref(`https://example.com${nextHref}`, {
+				searchQuery: '',
+				selectedSeasonId: 'season-spring',
+				defaultSeasonId: 'season-spring',
+				selectedOfferingId: 'all',
+				selectedLeagueId: 'all',
+				selectedDivisionId: 'all',
+				selectedView: 'day',
+				defaultView: 'day',
+				anchorDate: '2026-03-18',
+				selectedMonthDate: '2026-03-18',
+				today: '2026-03-18'
+			})
+		).toBeNull();
+	});
+
+	it('keeps unscheduled events out of agenda buckets and month cells while returning them separately', () => {
+		// unscheduled rows should never appear in date-based views even though the helper still tracks them separately.
 		const buckets = bucketScheduleEventsByTiming(events);
+		const agendaBuckets = buildScheduleAgendaBuckets(events, {
+			startDate: '2026-03-17',
+			endDate: '2026-03-20'
+		});
 		const monthCells = buildMonthScheduleCells(events, '2026-03-18');
 
 		expect(buckets.unscheduled.map((event) => event.id)).toEqual(['event-4']);
+		expect(agendaBuckets.map((bucket) => bucket.dateKey)).toEqual(['2026-03-18', '2026-03-20']);
+		expect(agendaBuckets.flatMap((bucket) => bucket.events.map((event) => event.id))).toEqual([
+			'event-1',
+			'event-2'
+		]);
 		expect(monthCells.some((cell) => cell.events.some((event) => event.id === 'event-4'))).toBe(
 			false
 		);

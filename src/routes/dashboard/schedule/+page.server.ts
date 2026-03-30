@@ -45,6 +45,43 @@ function mapById<T extends { id: string }>(items: T[]) {
 	return new Map(items.map((item) => [item.id, item]));
 }
 
+function sortSeasonsDescending(
+	a: Pick<Season, 'startDate' | 'name'>,
+	b: Pick<Season, 'startDate' | 'name'>
+) {
+	return (
+		(b.startDate ?? '').localeCompare(a.startDate ?? '') ||
+		(b.name ?? '').localeCompare(a.name ?? '')
+	);
+}
+
+function resolveDefaultSeasonId(seasons: Season[]): string | null {
+	const eligibleSeasons = seasons.filter(
+		(season): season is Season & { id: string; startDate: string } =>
+			Boolean(season.id) && Boolean(season.startDate)
+	);
+	if (eligibleSeasons.length === 0) return null;
+
+	const explicitCurrent = eligibleSeasons.find((season) => season.isCurrent === 1);
+	if (explicitCurrent) return explicitCurrent.id;
+
+	const today = new Date().toISOString().slice(0, 10);
+	const inRange = eligibleSeasons.find(
+		(season) => season.startDate <= today && (!season.endDate || season.endDate >= today)
+	);
+	if (inRange) return inRange.id;
+
+	const started = eligibleSeasons
+		.filter((season) => season.startDate <= today)
+		.sort(sortSeasonsDescending);
+	if (started[0]) return started[0].id;
+
+	return (
+		[...eligibleSeasons].sort((a, b) => (a.startDate ?? '').localeCompare(b.startDate ?? ''))[0]
+			?.id ?? null
+	);
+}
+
 function buildScheduleEvent(
 	event: Event,
 	teamsById: Map<string, Team>,
@@ -119,6 +156,8 @@ export const load: PageServerLoad = async (event) => {
 	if (!platform?.env?.DB) {
 		return {
 			clientId: null,
+			currentSeasonId: null as string | null,
+			currentSeasonName: null as string | null,
 			generatedAt: new Date().toISOString(),
 			summary: {
 				total: 0,
@@ -179,6 +218,9 @@ export const load: PageServerLoad = async (event) => {
 		);
 
 		const activeEvents = events.filter((event) => event.isActive !== 0);
+		const currentSeasonId = resolveDefaultSeasonId(seasons);
+		const currentSeasonName =
+			(currentSeasonId ? seasonsById.get(currentSeasonId)?.name?.trim() : '') || null;
 		const scheduleEvents = activeEvents
 			.map((event) =>
 				buildScheduleEvent(
@@ -208,6 +250,8 @@ export const load: PageServerLoad = async (event) => {
 
 		return {
 			clientId,
+			currentSeasonId,
+			currentSeasonName,
 			generatedAt: new Date().toISOString(),
 			summary,
 			events: scheduleEvents,
@@ -222,6 +266,8 @@ export const load: PageServerLoad = async (event) => {
 		console.error('Failed to load schedule page:', err);
 		return {
 			clientId,
+			currentSeasonId: null as string | null,
+			currentSeasonName: null as string | null,
 			generatedAt: new Date().toISOString(),
 			summary: {
 				total: 0,

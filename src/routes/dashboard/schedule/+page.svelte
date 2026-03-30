@@ -1,47 +1,56 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { replaceState } from '$app/navigation';
+	import { afterNavigate, replaceState } from '$app/navigation';
 	import { page } from '$app/stores';
+	import { onMount, tick } from 'svelte';
 	import {
-		IconAlertTriangle,
 		IconCalendar,
 		IconCalendarWeek,
 		IconChevronLeft,
 		IconChevronRight,
-		IconLivePhoto
+		IconLivePhoto,
+		IconPlus
 	} from '@tabler/icons-svelte';
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
 	import DashboardSearchLauncher from '$lib/components/dashboard/DashboardSearchLauncher.svelte';
+	import ScheduleAgendaView from '$lib/components/dashboard/schedule/ScheduleAgendaView.svelte';
 	import ScheduleDayView from '$lib/components/dashboard/schedule/ScheduleDayView.svelte';
 	import ScheduleWeekView from '$lib/components/dashboard/schedule/ScheduleWeekView.svelte';
 	import ScheduleMonthView from '$lib/components/dashboard/schedule/ScheduleMonthView.svelte';
-	import ScheduleEventCard from '$lib/components/dashboard/schedule/ScheduleEventCard.svelte';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import {
+		buildNextScheduleHref,
+		buildCenteredScheduleDays,
 		buildScheduleOptionCollections,
-		bucketScheduleEventsByTiming,
 		filterScheduleEvents,
 		getScheduleEventDateKey,
 		getScheduleRangeForView,
 		sanitizeScheduleFilters,
-		shiftScheduleAnchorDate,
 		summarizeScheduleEvents,
 		type ScheduleFilters,
 		type ScheduleOptionCount,
-		type ScheduleView
+		type ScheduleRange
 	} from '$lib/utils/schedule-page.js';
 	import type { PageData } from './$types';
 	import { toast } from '$lib/toasts';
 
 	const FILTER_DROPDOWN_BUTTON_CLASS =
-		'button-secondary-outlined min-h-10 w-full px-3 py-2 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2';
-	const VIEW_BUTTON_CLASS =
-		'px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer inline-flex items-center justify-center';
+		'button-neutral-outlined min-h-10 w-full px-3 py-2 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2';
+	const NAVIGATION_VIEW_BUTTON_CLASS =
+		'h-[3.375rem] min-w-[10.5rem] border-0 bg-white px-4 py-3 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-3';
 	const DATE_KEY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
-	const DEFAULT_VIEW: ScheduleView = 'week';
+	type ScheduleDisplayMode = 'day' | 'week' | 'month' | 'date-range' | 'entire-season';
+	const DEFAULT_VIEW: ScheduleDisplayMode = 'day';
+	const VIEW_DROPDOWN_OPTIONS = [
+		{ value: 'day', label: 'Day' },
+		{ value: 'week', label: 'Week' },
+		{ value: 'month', label: 'Month' },
+		{ value: 'date-range', label: 'Date Range' },
+		{ value: 'entire-season', label: 'Entire Season' }
+	] satisfies Array<{ value: ScheduleDisplayMode; label: string }>;
 
 	let { data } = $props<{ data: PageData }>();
 	const pageLabel = $derived.by(
@@ -52,15 +61,14 @@
 	);
 
 	let searchQuery = $state('');
-	let selectedSeasonId = $state('all');
+	let selectedSeasonId = $state(data.currentSeasonId?.trim() || 'all');
 	let selectedOfferingId = $state('all');
 	let selectedLeagueId = $state('all');
 	let selectedDivisionId = $state('all');
-	let selectedTeamId = $state('all');
-	let selectedStatus = $state('all');
-	let selectedView = $state<ScheduleView>(DEFAULT_VIEW);
+	let selectedView = $state<ScheduleDisplayMode>(DEFAULT_VIEW);
 	let anchorDate = $state(todayDateKey());
 	let selectedMonthDate = $state(todayDateKey());
+	let scheduleSearchInput = $state<HTMLInputElement | null>(null);
 	let stateHydrated = $state(false);
 	let lastPageError = $state('');
 
@@ -77,14 +85,23 @@
 		return DATE_KEY_REGEX.test(value ?? '');
 	}
 
-	function normalizeScheduleView(value: string | null | undefined): ScheduleView {
-		if (value === 'day' || value === 'month') return value;
+	function normalizeScheduleView(value: string | null | undefined): ScheduleDisplayMode {
+		if (
+			value === 'day' ||
+			value === 'week' ||
+			value === 'month' ||
+			value === 'date-range' ||
+			value === 'entire-season'
+		) {
+			return value;
+		}
+
 		return DEFAULT_VIEW;
 	}
 
-	function parseQueryValue(value: string | null | undefined): string {
+	function parseQueryValue(value: string | null | undefined, fallback = 'all'): string {
 		const normalized = value?.trim();
-		return normalized && normalized.length > 0 ? normalized : 'all';
+		return normalized && normalized.length > 0 ? normalized : fallback;
 	}
 
 	function toDropdownOptions(allLabel: string, options: ScheduleOptionCount[]) {
@@ -98,13 +115,21 @@
 		];
 	}
 
-	function setQueryParam(url: URL, key: string, value: string | null): void {
-		if (value && value.trim().length > 0) {
-			url.searchParams.set(key, value);
-			return;
-		}
+	function appendOptionIfMissing(
+		options: ScheduleOptionCount[],
+		option: { value: string; label: string } | null
+	): ScheduleOptionCount[] {
+		if (!option?.value || !option.label) return options;
+		if (options.some((existing) => existing.value === option.value)) return options;
 
-		url.searchParams.delete(key);
+		return [
+			{
+				value: option.value,
+				label: option.label,
+				count: 0
+			},
+			...options
+		];
 	}
 
 	function formatLongDate(dateKey: string): string {
@@ -131,7 +156,7 @@
 
 	function formatRangeLabel(
 		range: { startDate: string; endDate: string },
-		view: ScheduleView
+		view: 'day' | 'week' | 'month'
 	): string {
 		if (view === 'day') return formatLongDate(range.startDate);
 		if (view === 'month') return formatMonthLabel(range.startDate);
@@ -166,51 +191,79 @@
 		return Boolean(dateKey && dateKey >= startDate && dateKey <= endDate);
 	}
 
-	function changeView(nextView: ScheduleView): void {
+	function shiftDateKeyByDays(dateKey: string, amount: number): string {
+		const parsed = new Date(`${dateKey}T00:00:00`);
+		if (Number.isNaN(parsed.getTime())) return todayDateKey();
+
+		parsed.setDate(parsed.getDate() + amount);
+		return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(
+			parsed.getDate()
+		).padStart(2, '0')}`;
+	}
+
+	function setSelectedDate(dateKey: string): void {
+		anchorDate = dateKey;
+		selectedMonthDate = dateKey;
+	}
+
+	function changeView(nextView: ScheduleDisplayMode): void {
 		selectedView = nextView;
 		selectedMonthDate = anchorDate;
 	}
 
 	function moveAnchor(direction: -1 | 1): void {
-		const nextAnchorDate = shiftScheduleAnchorDate(anchorDate, selectedView, direction);
-		anchorDate = nextAnchorDate;
-		selectedMonthDate = nextAnchorDate;
-	}
-
-	function jumpToToday(): void {
-		const today = todayDateKey();
-		anchorDate = today;
-		selectedMonthDate = today;
+		setSelectedDate(shiftDateKeyByDays(anchorDate, direction));
 	}
 
 	function resetFilters(): void {
 		searchQuery = '';
-		selectedSeasonId = 'all';
+		selectedSeasonId = defaultSeasonId;
 		selectedOfferingId = 'all';
 		selectedLeagueId = 'all';
 		selectedDivisionId = 'all';
-		selectedTeamId = 'all';
-		selectedStatus = 'all';
 	}
 
 	function handleMonthDateSelect(dateKey: string): void {
-		selectedMonthDate = dateKey;
-		if (dateKey.slice(0, 7) !== anchorDate.slice(0, 7)) {
-			anchorDate = dateKey;
+		setSelectedDate(dateKey);
+	}
+
+	function handleDateInputChange(event: Event): void {
+		const value = (event.currentTarget as HTMLInputElement).value;
+		if (isDateKey(value)) {
+			setSelectedDate(value);
 		}
 	}
+
+	function handleAddEvent(): void {
+		toast.info('Event creation is not connected on the schedule page yet.', {
+			id: 'schedule-add-event-coming-soon',
+			title: pageLabel
+		});
+	}
+
+	async function focusScheduleSearch(): Promise<void> {
+		if (!browser) return;
+		await tick();
+		scheduleSearchInput?.focus();
+	}
+
+	onMount(() => {
+		void focusScheduleSearch();
+	});
+
+	afterNavigate(() => {
+		void focusScheduleSearch();
+	});
 
 	$effect(() => {
 		if (stateHydrated) return;
 
 		const params = $page.url.searchParams;
 		searchQuery = params.get('q')?.trim() ?? '';
-		selectedSeasonId = parseQueryValue(params.get('season'));
+		selectedSeasonId = parseQueryValue(params.get('season'), defaultSeasonId);
 		selectedOfferingId = parseQueryValue(params.get('offering'));
 		selectedLeagueId = parseQueryValue(params.get('league'));
 		selectedDivisionId = parseQueryValue(params.get('division'));
-		selectedTeamId = parseQueryValue(params.get('team'));
-		selectedStatus = parseQueryValue(params.get('status'));
 		selectedView = normalizeScheduleView(params.get('view'));
 		anchorDate = isDateKey(params.get('date')) ? (params.get('date') as string) : todayDateKey();
 		selectedMonthDate = isDateKey(params.get('selectedDay'))
@@ -224,34 +277,115 @@
 		offeringId: selectedOfferingId,
 		leagueId: selectedLeagueId,
 		divisionId: selectedDivisionId,
-		teamId: selectedTeamId,
-		status: selectedStatus,
+		teamId: 'all',
+		status: 'all',
 		searchQuery
 	}));
+	const defaultSeasonId = $derived.by(() => {
+		return data.currentSeasonId?.trim() || 'all';
+	});
+	const navigatorDays = $derived.by(() => buildCenteredScheduleDays(anchorDate, 3));
+	const centeredRange = $derived.by<ScheduleRange>(() => ({
+		startDate: navigatorDays[0]?.dateKey ?? anchorDate,
+		endDate: navigatorDays[navigatorDays.length - 1]?.dateKey ?? anchorDate
+	}));
 
-	const normalizedFilters = $derived.by(() => sanitizeScheduleFilters(events, rawFilters));
+	const normalizedFilters = $derived.by(() => {
+		const sanitized = sanitizeScheduleFilters(events, rawFilters);
+		const canPreserveDefaultSeason =
+			selectedSeasonId === defaultSeasonId &&
+			defaultSeasonId !== 'all' &&
+			(data.currentSeasonName?.trim()?.length ?? 0) > 0;
+
+		return {
+			...sanitized,
+			seasonId: canPreserveDefaultSeason ? selectedSeasonId : sanitized.seasonId
+		};
+	});
 	const filterOptions = $derived.by(() =>
 		buildScheduleOptionCollections(events, normalizedFilters)
 	);
-	const filteredEvents = $derived.by(() => filterScheduleEvents(events, normalizedFilters));
+	const filteredEvents = $derived.by(() =>
+		filterScheduleEvents(events, normalizedFilters).filter(
+			(event) => getScheduleEventDateKey(event.scheduledStartAt) !== null
+		)
+	);
 	const filteredSummary = $derived.by(() => summarizeScheduleEvents(filteredEvents));
-	const eventBuckets = $derived.by(() => bucketScheduleEventsByTiming(filteredEvents));
-	const visibleRange = $derived.by(() => getScheduleRangeForView(anchorDate, selectedView));
-	const visibleRangeLabel = $derived.by(() => formatRangeLabel(visibleRange, selectedView));
-	const visibleScheduledCount = $derived.by(
-		() =>
-			eventBuckets.scheduled.filter((event) =>
-				isDateWithinRange(
-					getScheduleEventDateKey(event.scheduledStartAt),
-					visibleRange.startDate,
-					visibleRange.endDate
-				)
-			).length
+	const visibleRange = $derived.by<ScheduleRange>(() => {
+		if (selectedView === 'week') return getScheduleRangeForView(anchorDate, 'week');
+		if (selectedView === 'month') return getScheduleRangeForView(anchorDate, 'month');
+		if (selectedView === 'date-range') return centeredRange;
+
+		if (selectedView === 'entire-season') {
+			const firstDateKey = filteredEvents[0]
+				? getScheduleEventDateKey(filteredEvents[0].scheduledStartAt)
+				: anchorDate;
+			const lastDateKey = filteredEvents[filteredEvents.length - 1]
+				? getScheduleEventDateKey(filteredEvents[filteredEvents.length - 1].scheduledStartAt)
+				: anchorDate;
+
+			return {
+				startDate: firstDateKey ?? anchorDate,
+				endDate: lastDateKey ?? anchorDate
+			};
+		}
+
+		return {
+			startDate: anchorDate,
+			endDate: anchorDate
+		};
+	});
+	const visibleRangeLabel = $derived.by(() => {
+		if (selectedView === 'entire-season') {
+			if (selectedSeasonId !== 'all') {
+				const explicitSeasonLabel =
+					selectedSeasonId === defaultSeasonId && data.currentSeasonName?.trim()
+						? data.currentSeasonName.trim()
+						: filterOptions.seasonOptions.find((option) => option.value === selectedSeasonId)
+								?.label;
+
+				return explicitSeasonLabel ? `${explicitSeasonLabel} season` : 'Entire season';
+			}
+
+			return 'Entire filtered schedule';
+		}
+
+		if (selectedView === 'date-range') {
+			return formatRangeLabel(visibleRange, 'week');
+		}
+
+		if (selectedView === 'month') {
+			return formatRangeLabel(visibleRange, 'month');
+		}
+
+		return formatRangeLabel(visibleRange, selectedView === 'week' ? 'week' : 'day');
+	});
+	const visibleScheduledCount = $derived.by(() =>
+		selectedView === 'entire-season'
+			? filteredEvents.length
+			: filteredEvents.filter((event) =>
+					isDateWithinRange(
+						getScheduleEventDateKey(event.scheduledStartAt),
+						visibleRange.startDate,
+						visibleRange.endDate
+					)
+				).length
 	);
 
-	const seasonFilterOptions = $derived.by(() =>
-		toDropdownOptions('All seasons', filterOptions.seasonOptions)
-	);
+	const seasonFilterOptions = $derived.by(() => {
+		const currentSeasonOption =
+			defaultSeasonId !== 'all' && data.currentSeasonName?.trim()
+				? {
+						value: defaultSeasonId,
+						label: data.currentSeasonName.trim()
+					}
+				: null;
+
+		return toDropdownOptions(
+			'All seasons',
+			appendOptionIfMissing(filterOptions.seasonOptions, currentSeasonOption)
+		);
+	});
 	const offeringFilterOptions = $derived.by(() =>
 		toDropdownOptions('All offerings', filterOptions.offeringOptions)
 	);
@@ -261,27 +395,21 @@
 	const divisionFilterOptions = $derived.by(() =>
 		toDropdownOptions('All divisions', filterOptions.divisionOptions)
 	);
-	const teamFilterOptions = $derived.by(() =>
-		toDropdownOptions('All teams', filterOptions.teamOptions)
-	);
-	const statusFilterOptions = $derived.by(() =>
-		toDropdownOptions('All statuses', filterOptions.statusOptions)
-	);
-
 	const hasActiveFilters = $derived.by(
 		() =>
 			searchQuery.trim().length > 0 ||
-			selectedSeasonId !== 'all' ||
+			selectedSeasonId !== defaultSeasonId ||
 			selectedOfferingId !== 'all' ||
 			selectedLeagueId !== 'all' ||
-			selectedDivisionId !== 'all' ||
-			selectedTeamId !== 'all' ||
-			selectedStatus !== 'all'
+			selectedDivisionId !== 'all'
 	);
 
 	const workspaceHeading = $derived.by(() => {
 		if (selectedView === 'day') return 'Day Agenda';
+		if (selectedView === 'week') return 'Week Board';
 		if (selectedView === 'month') return 'Month Calendar';
+		if (selectedView === 'date-range') return 'Date Range Agenda';
+		if (selectedView === 'entire-season') return 'Entire Season Agenda';
 		return 'Week Board';
 	});
 
@@ -296,35 +424,27 @@
 			selectedLeagueId = normalizedFilters.leagueId;
 		if (selectedDivisionId !== normalizedFilters.divisionId)
 			selectedDivisionId = normalizedFilters.divisionId;
-		if (selectedTeamId !== normalizedFilters.teamId) selectedTeamId = normalizedFilters.teamId;
-		if (selectedStatus !== normalizedFilters.status) selectedStatus = normalizedFilters.status;
 	});
 
 	$effect(() => {
 		if (!browser || !stateHydrated) return;
 
-		const nextUrl = new URL($page.url);
-		const today = todayDateKey();
+		const nextHref = buildNextScheduleHref(window.location.href, {
+			searchQuery,
+			selectedSeasonId,
+			defaultSeasonId,
+			selectedOfferingId,
+			selectedLeagueId,
+			selectedDivisionId,
+			selectedView,
+			defaultView: DEFAULT_VIEW,
+			anchorDate,
+			selectedMonthDate,
+			today: todayDateKey()
+		});
 
-		setQueryParam(nextUrl, 'q', searchQuery.trim() || null);
-		setQueryParam(nextUrl, 'season', selectedSeasonId !== 'all' ? selectedSeasonId : null);
-		setQueryParam(nextUrl, 'offering', selectedOfferingId !== 'all' ? selectedOfferingId : null);
-		setQueryParam(nextUrl, 'league', selectedLeagueId !== 'all' ? selectedLeagueId : null);
-		setQueryParam(nextUrl, 'division', selectedDivisionId !== 'all' ? selectedDivisionId : null);
-		setQueryParam(nextUrl, 'team', selectedTeamId !== 'all' ? selectedTeamId : null);
-		setQueryParam(nextUrl, 'status', selectedStatus !== 'all' ? selectedStatus : null);
-		setQueryParam(nextUrl, 'view', selectedView !== DEFAULT_VIEW ? selectedView : null);
-		setQueryParam(nextUrl, 'date', anchorDate !== today ? anchorDate : null);
-		setQueryParam(
-			nextUrl,
-			'selectedDay',
-			selectedView === 'month' && selectedMonthDate !== anchorDate ? selectedMonthDate : null
-		);
-
-		const currentPath = `${$page.url.pathname}${$page.url.search}${$page.url.hash}`;
-		const nextPath = `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`;
-		if (currentPath !== nextPath) {
-			replaceState(nextPath, $page.state);
+		if (nextHref) {
+			replaceState(nextHref, {});
 		}
 	});
 
@@ -377,150 +497,14 @@
 	</header>
 
 	<div class="px-4 lg:px-6 space-y-6">
-		<div class="grid gap-4 xl:grid-cols-[19rem_minmax(0,1fr)]">
-			<aside class="section-shell self-start space-y-4 p-4 xl:sticky xl:top-4">
-				<div class="space-y-1">
-					<p class="text-[11px] font-bold uppercase tracking-[0.18em] text-neutral-950">Filters</p>
-					<p class="text-sm text-neutral-950">
-						Narrow the schedule from season down to team, then add status when needed.
-					</p>
-				</div>
-
-				<div class="space-y-3">
-					<div class="space-y-1">
-						<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Season</p>
-						<ListboxDropdown
-							options={seasonFilterOptions}
-							value={selectedSeasonId}
-							ariaLabel="Filter schedule by season"
-							buttonClass={FILTER_DROPDOWN_BUTTON_CLASS}
-							disabled={seasonFilterOptions.length <= 1}
-							on:change={(event) => {
-								selectedSeasonId = event.detail.value;
-							}}
-						/>
-					</div>
-
-					<div class="space-y-1">
-						<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Offering</p>
-						<ListboxDropdown
-							options={offeringFilterOptions}
-							value={selectedOfferingId}
-							ariaLabel="Filter schedule by offering"
-							buttonClass={FILTER_DROPDOWN_BUTTON_CLASS}
-							disabled={offeringFilterOptions.length <= 1}
-							on:change={(event) => {
-								selectedOfferingId = event.detail.value;
-							}}
-						/>
-					</div>
-
-					<div class="space-y-1">
-						<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">League</p>
-						<ListboxDropdown
-							options={leagueFilterOptions}
-							value={selectedLeagueId}
-							ariaLabel="Filter schedule by league"
-							buttonClass={FILTER_DROPDOWN_BUTTON_CLASS}
-							disabled={leagueFilterOptions.length <= 1}
-							on:change={(event) => {
-								selectedLeagueId = event.detail.value;
-							}}
-						/>
-					</div>
-
-					<div class="space-y-1">
-						<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Division</p>
-						<ListboxDropdown
-							options={divisionFilterOptions}
-							value={selectedDivisionId}
-							ariaLabel="Filter schedule by division"
-							buttonClass={FILTER_DROPDOWN_BUTTON_CLASS}
-							disabled={divisionFilterOptions.length <= 1}
-							on:change={(event) => {
-								selectedDivisionId = event.detail.value;
-							}}
-						/>
-					</div>
-
-					<div class="space-y-1">
-						<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Team</p>
-						<ListboxDropdown
-							options={teamFilterOptions}
-							value={selectedTeamId}
-							ariaLabel="Filter schedule by team"
-							buttonClass={FILTER_DROPDOWN_BUTTON_CLASS}
-							disabled={teamFilterOptions.length <= 1}
-							on:change={(event) => {
-								selectedTeamId = event.detail.value;
-							}}
-						/>
-					</div>
-
-					<div class="space-y-1">
-						<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Status</p>
-						<ListboxDropdown
-							options={statusFilterOptions}
-							value={selectedStatus}
-							ariaLabel="Filter schedule by status"
-							buttonClass={FILTER_DROPDOWN_BUTTON_CLASS}
-							disabled={statusFilterOptions.length <= 1}
-							on:change={(event) => {
-								selectedStatus = event.detail.value;
-							}}
-						/>
-					</div>
-				</div>
-
-				<button
-					type="button"
-					class="button-secondary-outlined inline-flex w-full items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
-					disabled={!hasActiveFilters}
-					onclick={resetFilters}
-				>
-					Reset Filters
-				</button>
-
-				<div class="border border-neutral-950 bg-white p-3 space-y-2">
-					<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
-						Last refreshed
-					</p>
-					<p class="text-sm text-neutral-950 font-sans">
-						<DateHoverText
-							display={new Date(data.generatedAt).toLocaleString('en-US')}
-							value={data.generatedAt}
-							includeTime
-						/>
-					</p>
-				</div>
-			</aside>
-
+		<div class="grid grid-cols-1 gap-6 2xl:grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)]">
 			<div class="min-w-0 space-y-4">
 				<section class="section-shell">
 					<div class="border-b border-neutral-950 bg-neutral-600/66 p-4 space-y-4">
-						<div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+						<div class="flex flex-col gap-4">
 							<div class="space-y-2">
 								<div class="flex flex-wrap items-center gap-2">
 									<h2 class="text-2xl font-bold font-serif text-neutral-950">{workspaceHeading}</h2>
-									<span
-										class="badge-neutral-outlined px-2 py-1 text-[11px] uppercase tracking-wide"
-									>
-										<DateHoverText
-											display={visibleRangeLabel}
-											value={visibleRange.startDate}
-											endValue={visibleRange.endDate}
-										/>
-									</span>
-									<span
-										class="badge-neutral-outlined px-2 py-1 text-[11px] uppercase tracking-wide"
-									>
-										{filteredSummary.total} filtered
-									</span>
-									<span
-										class="badge-neutral-outlined px-2 py-1 text-[11px] uppercase tracking-wide"
-									>
-										{visibleScheduledCount} visible
-									</span>
 									{#if filteredSummary.live > 0}
 										<span class="badge-primary px-2 py-1 text-[11px] uppercase tracking-wide">
 											{filteredSummary.live} live
@@ -533,83 +517,10 @@
 										</span>
 									{/if}
 								</div>
-								<p class="text-sm text-neutral-950 font-sans">
-									Use the toolbar to move through time, then switch between day, week, and month
-									layouts without losing your filters.
-								</p>
-							</div>
-
-							<div class="flex flex-wrap items-center gap-2">
-								<button
-									type="button"
-									class="button-secondary-outlined dashboard-icon-button cursor-pointer"
-									aria-label="Previous schedule range"
-									onclick={() => {
-										moveAnchor(-1);
-									}}
-								>
-									<IconChevronLeft class="h-4 w-4" />
-								</button>
-								<button
-									type="button"
-									class="button-neutral-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer"
-									onclick={jumpToToday}
-								>
-									Today
-								</button>
-								<button
-									type="button"
-									class="button-secondary-outlined dashboard-icon-button cursor-pointer"
-									aria-label="Next schedule range"
-									onclick={() => {
-										moveAnchor(1);
-									}}
-								>
-									<IconChevronRight class="h-4 w-4" />
-								</button>
-								<div class="flex items-stretch gap-2">
-									<button
-										type="button"
-										class={`${selectedView === 'day' ? 'button-primary' : 'button-secondary-outlined'} ${VIEW_BUTTON_CLASS}`}
-										onclick={() => {
-											changeView('day');
-										}}
-									>
-										Day
-									</button>
-									<button
-										type="button"
-										class={`${selectedView === 'week' ? 'button-primary' : 'button-secondary-outlined'} ${VIEW_BUTTON_CLASS}`}
-										onclick={() => {
-											changeView('week');
-										}}
-									>
-										Week
-									</button>
-									<button
-										type="button"
-										class={`${selectedView === 'month' ? 'button-primary' : 'button-secondary-outlined'} ${VIEW_BUTTON_CLASS}`}
-										onclick={() => {
-											changeView('month');
-										}}
-									>
-										Month
-									</button>
-								</div>
 							</div>
 						</div>
 
-						<div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-							<SearchInput
-								id="schedule-search"
-								label="Search schedule"
-								value={searchQuery}
-								placeholder="Search matchup, league, division, location, or note"
-								on:input={(event) => {
-									searchQuery = event.detail.value;
-								}}
-							/>
-
+						<div class="flex flex-wrap items-center justify-end gap-2">
 							<div class="flex flex-wrap items-center gap-2 text-xs text-neutral-950 font-sans">
 								<span
 									class="badge-secondary-outlined px-2 py-1 text-[11px] uppercase tracking-wide"
@@ -619,6 +530,108 @@
 								<span class="badge-secondary px-2 py-1 text-[11px] uppercase tracking-wide">
 									{filteredSummary.completed} completed
 								</span>
+							</div>
+						</div>
+
+						<div class="overflow-hidden border border-neutral-950 bg-white">
+							<div class="flex flex-col xl:flex-row xl:items-stretch">
+								<label
+									class="flex h-[3.375rem] items-center gap-3 border-b border-neutral-950 bg-white px-4 xl:min-w-[12rem] xl:border-b-0 xl:border-r"
+								>
+									<IconCalendar class="h-5 w-5 shrink-0 text-neutral-950" />
+									<span class="sr-only">Choose schedule date</span>
+									<input
+										type="date"
+										class="w-full border-0 bg-transparent p-0 text-sm font-semibold text-neutral-950 focus:outline-none"
+										value={anchorDate}
+										aria-label="Choose schedule date"
+										onchange={handleDateInputChange}
+									/>
+								</label>
+
+								<div
+									class="flex min-w-0 flex-1 items-stretch border-b border-neutral-950 xl:border-b-0"
+								>
+									<button
+										type="button"
+										class="inline-flex h-[3.375rem] w-14 shrink-0 items-center justify-center border-r border-neutral-950 bg-white text-neutral-900 transition-colors hover:bg-neutral-50 hover:text-neutral-950 cursor-pointer"
+										aria-label="View previous day"
+										onclick={() => {
+											moveAnchor(-1);
+										}}
+									>
+										<IconChevronLeft class="h-5 w-5" />
+									</button>
+
+									<div class="grid min-w-0 flex-1 grid-cols-7">
+										{#each navigatorDays as day, index (day.dateKey)}
+											<button
+												type="button"
+												class={`group flex min-w-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center transition-colors cursor-pointer ${
+													index === navigatorDays.length - 1 ? '' : 'border-r border-neutral-300'
+												} ${
+													day.dateKey === anchorDate
+														? 'bg-neutral-50 text-neutral-950'
+														: 'bg-white text-neutral-700 hover:bg-neutral-50 hover:text-neutral-950'
+												}`}
+												aria-current={day.dateKey === anchorDate ? 'date' : undefined}
+												aria-label={`View schedule for ${formatLongDate(day.dateKey)}`}
+												onclick={() => {
+													setSelectedDate(day.dateKey);
+												}}
+											>
+												<span
+													class={`text-lg font-semibold tabular-nums leading-none ${
+														day.dateKey === anchorDate
+															? 'text-primary-700'
+															: day.isToday
+																? 'text-primary-600'
+																: 'text-neutral-950'
+													}`}
+												>
+													{day.dayNumber}
+												</span>
+												<span class="text-[11px] font-semibold uppercase tracking-wide">
+													{day.monthLabel}
+												</span>
+												<span
+													class={`mt-1 h-0.5 w-8 ${
+														day.dateKey === anchorDate
+															? 'bg-primary-700'
+															: 'bg-transparent group-hover:bg-neutral-300'
+													}`}
+												></span>
+											</button>
+										{/each}
+									</div>
+
+									<button
+										type="button"
+										class="inline-flex h-[3.375rem] w-14 shrink-0 items-center justify-center border-l border-neutral-950 bg-white text-neutral-900 transition-colors hover:bg-neutral-50 hover:text-neutral-950 cursor-pointer"
+										aria-label="View next day"
+										onclick={() => {
+											moveAnchor(1);
+										}}
+									>
+										<IconChevronRight class="h-5 w-5" />
+									</button>
+								</div>
+
+								<div
+									class="border-t border-neutral-950 xl:min-w-[10.5rem] xl:border-l xl:border-t-0"
+								>
+									<ListboxDropdown
+										options={VIEW_DROPDOWN_OPTIONS}
+										value={selectedView}
+										ariaLabel="Choose schedule view"
+										align="right"
+										buttonClass={NAVIGATION_VIEW_BUTTON_CLASS}
+										listClass="w-56"
+										on:change={(event) => {
+											changeView(event.detail.value as ScheduleDisplayMode);
+										}}
+									/>
+								</div>
 							</div>
 						</div>
 					</div>
@@ -640,21 +653,22 @@
 									</p>
 								</div>
 							</div>
-						{:else if eventBuckets.scheduled.length === 0}
-							<div class="border border-warning-300 bg-warning-50 p-4 space-y-2">
-								<div class="flex items-center gap-2">
-									<IconAlertTriangle class="h-5 w-5 text-warning-700" />
-									<h3 class="text-lg font-bold font-serif text-neutral-950">No dated events yet</h3>
-								</div>
-								<p class="text-sm font-sans text-neutral-950">
-									The current filters only match unscheduled events. You can still review those
-									below.
-								</p>
-							</div>
 						{:else if selectedView === 'day'}
 							<ScheduleDayView events={filteredEvents} dateKey={anchorDate} />
 						{:else if selectedView === 'week'}
 							<ScheduleWeekView events={filteredEvents} {anchorDate} />
+						{:else if selectedView === 'date-range'}
+							<ScheduleAgendaView
+								events={filteredEvents}
+								startDate={centeredRange.startDate}
+								endDate={centeredRange.endDate}
+								emptyMessage="No scheduled events fall within the centered date range."
+							/>
+						{:else if selectedView === 'entire-season'}
+							<ScheduleAgendaView
+								events={filteredEvents}
+								emptyMessage="No scheduled events are available for the filtered season."
+							/>
 						{:else}
 							<ScheduleMonthView
 								events={filteredEvents}
@@ -665,37 +679,118 @@
 						{/if}
 					</div>
 				</section>
+			</div>
 
-				<section class="section-shell">
+			<aside class="w-full min-w-0 space-y-3 2xl:sticky 2xl:top-4">
+				<button
+					type="button"
+					class="button-primary inline-flex w-full cursor-pointer items-center justify-center gap-2"
+					onclick={handleAddEvent}
+				>
+					<IconPlus class="h-4 w-4" />
+					<span>Add Event</span>
+				</button>
+
+				<section class="border-2 border-neutral-950 bg-neutral">
 					<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
-						<div class="flex flex-wrap items-center justify-between gap-3">
-							<div>
-								<h2 class="dashboard-section-title text-neutral-950">Unscheduled Events</h2>
-								<p class="text-sm font-sans text-neutral-950">
-									These events match the current filters but do not have a scheduled date yet.
-								</p>
-							</div>
-							<span class="badge-neutral-outlined px-2 py-1 text-[11px] uppercase tracking-wide">
-								{eventBuckets.unscheduled.length} unscheduled
-							</span>
-						</div>
+						<h2 class="dashboard-section-title text-neutral-950">Filters</h2>
 					</div>
 
-					<div class="p-4 space-y-3">
-						{#if eventBuckets.unscheduled.length === 0}
-							<div class="border border-neutral-950 bg-white p-4">
-								<p class="text-sm font-sans text-neutral-950">
-									All currently filtered events already have dates on the schedule.
+					<div class="space-y-4 p-4">
+						<p class="text-sm text-neutral-950">
+							Narrow the schedule by season, offering, league, and division.
+						</p>
+
+						<div class="space-y-2">
+							<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Search</p>
+							<SearchInput
+								id="schedule-search"
+								label="Search schedule"
+								value={searchQuery}
+								bind:inputElement={scheduleSearchInput}
+								type="search"
+								placeholder="Search matchup, league, division, location, or note"
+								inputClass="input-neutral min-h-10 pl-10 pr-10 py-2 text-sm disabled:cursor-not-allowed"
+								clearButtonClass="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-700 hover:text-neutral-950 cursor-pointer"
+								on:input={(event) => {
+									searchQuery = event.detail.value;
+								}}
+							/>
+						</div>
+
+						<div class="space-y-4">
+							<section class="space-y-2">
+								<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Season</p>
+								<ListboxDropdown
+									options={seasonFilterOptions}
+									value={selectedSeasonId}
+									ariaLabel="Filter schedule by season"
+									buttonClass={FILTER_DROPDOWN_BUTTON_CLASS}
+									disabled={seasonFilterOptions.length <= 1}
+									on:change={(event) => {
+										selectedSeasonId = event.detail.value;
+									}}
+								/>
+							</section>
+
+							<section class="space-y-2">
+								<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+									Offering
 								</p>
-							</div>
-						{:else}
-							{#each eventBuckets.unscheduled as event (event.id)}
-								<ScheduleEventCard {event} showDate showTime={false} />
-							{/each}
-						{/if}
+								<ListboxDropdown
+									options={offeringFilterOptions}
+									value={selectedOfferingId}
+									ariaLabel="Filter schedule by offering"
+									buttonClass={FILTER_DROPDOWN_BUTTON_CLASS}
+									disabled={offeringFilterOptions.length <= 1}
+									on:change={(event) => {
+										selectedOfferingId = event.detail.value;
+									}}
+								/>
+							</section>
+
+							<section class="space-y-2">
+								<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">League</p>
+								<ListboxDropdown
+									options={leagueFilterOptions}
+									value={selectedLeagueId}
+									ariaLabel="Filter schedule by league"
+									buttonClass={FILTER_DROPDOWN_BUTTON_CLASS}
+									disabled={leagueFilterOptions.length <= 1}
+									on:change={(event) => {
+										selectedLeagueId = event.detail.value;
+									}}
+								/>
+							</section>
+
+							<section class="space-y-2">
+								<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+									Division
+								</p>
+								<ListboxDropdown
+									options={divisionFilterOptions}
+									value={selectedDivisionId}
+									ariaLabel="Filter schedule by division"
+									buttonClass={FILTER_DROPDOWN_BUTTON_CLASS}
+									disabled={divisionFilterOptions.length <= 1}
+									on:change={(event) => {
+										selectedDivisionId = event.detail.value;
+									}}
+								/>
+							</section>
+						</div>
+
+						<button
+							type="button"
+							class="button-neutral-outlined inline-flex w-full items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+							disabled={!hasActiveFilters}
+							onclick={resetFilters}
+						>
+							Reset Filters
+						</button>
 					</div>
 				</section>
-			</div>
+			</aside>
 		</div>
 	</div>
 </div>

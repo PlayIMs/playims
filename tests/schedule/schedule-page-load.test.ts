@@ -144,15 +144,20 @@ describe('schedule page load', () => {
 		mocks.dbOps.seasons.getByClientId.mockResolvedValue([
 			{
 				id: 'season-1',
-				name: 'Spring 2026'
+				name: 'Spring 2026',
+				startDate: '2026-01-15',
+				endDate: '2026-05-15',
+				isCurrent: 1
 			}
 		]);
 	});
 
-	it('enriches schedule events with season data and exposes filter option groups', async () => {
+	it('enriches schedule events with season data, filter options, and the default season metadata', async () => {
 		// this proves the route gives the page enough structured data to drive the new cascading sidebar.
 		const result = (await load(createEvent())) as any;
 
+		expect(result.currentSeasonId).toBe('season-1');
+		expect(result.currentSeasonName).toBe('Spring 2026');
 		expect(result.events[0]).toMatchObject({
 			id: 'event-1',
 			seasonId: 'season-1',
@@ -212,6 +217,8 @@ describe('schedule page load', () => {
 		const result = (await load(createEvent({ withDb: false }))) as any;
 
 		expect(result).toMatchObject({
+			currentSeasonId: null,
+			currentSeasonName: null,
 			events: [],
 			seasonOptions: [],
 			offeringOptions: [],
@@ -230,6 +237,8 @@ describe('schedule page load', () => {
 		const result = (await load(createEvent())) as any;
 
 		expect(result).toMatchObject({
+			currentSeasonId: null,
+			currentSeasonName: null,
 			events: [],
 			seasonOptions: [],
 			offeringOptions: [],
