@@ -1066,6 +1066,10 @@
 		background-color: var(--color-neutral-50);
 	}
 
+	.dashboard-page-shell {
+		@apply w-full space-y-4 pb-16;
+	}
+
 	.dashboard-section-title {
 		@apply text-2xl leading-tight font-bold font-serif;
 	}

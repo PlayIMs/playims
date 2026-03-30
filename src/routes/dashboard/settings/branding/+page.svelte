@@ -9,7 +9,6 @@
 		IconTrash
 	} from '@tabler/icons-svelte';
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
-	import DashboardMegaSearchLauncher from '$lib/components/dashboard/DashboardMegaSearchLauncher.svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import {
 		themeColors,
@@ -623,14 +622,11 @@
 	/>
 </svelte:head>
 
-<div class="w-full space-y-4">
+<div class="dashboard-page-shell">
 	<header class="border-2 border-neutral-950 bg-neutral p-4 lg:p-5">
-		<div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-			<div>
-				<h2 class="text-2xl lg:text-3xl font-bold font-serif text-neutral-950">Branding</h2>
-				<p class="mt-2 text-sm text-neutral-950">Update your core colors in real time.</p>
-			</div>
-			<DashboardMegaSearchLauncher variant="compact" />
+		<div>
+			<h2 class="text-2xl lg:text-3xl font-bold font-serif text-neutral-950">Branding</h2>
+			<p class="mt-2 text-sm text-neutral-950">Update your core colors in real time.</p>
 		</div>
 	</header>
 

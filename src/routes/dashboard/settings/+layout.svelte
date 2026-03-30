@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import DashboardMegaSearchLauncher from '$lib/components/dashboard/DashboardMegaSearchLauncher.svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
 	import {
 		IconBell,
@@ -71,19 +72,22 @@
 	<meta name="description" content="Organization settings and configuration center." />
 </svelte:head>
 
-<div class="w-full space-y-4">
+<div class="dashboard-page-shell">
 	<header class="bg-neutral">
 		<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
-			<div class="flex items-center gap-3 py-2 lg:py-3">
-				<div
-					class="bg-primary text-white border-2 border-primary-700 w-[2.75rem] h-[2.75rem] lg:w-[3.4rem] lg:h-[3.4rem] flex items-center justify-center"
-					aria-hidden="true"
-				>
-					<IconSettings class="w-7 h-7 lg:w-8 lg:h-8" />
+			<div class="flex flex-col gap-4 py-2 lg:flex-row lg:items-center lg:justify-between">
+				<div class="flex items-center gap-3">
+					<div
+						class="bg-primary text-white border-2 border-primary-700 w-[2.75rem] h-[2.75rem] lg:w-[3.4rem] lg:h-[3.4rem] flex items-center justify-center"
+						aria-hidden="true"
+					>
+						<IconSettings class="w-7 h-7 lg:w-8 lg:h-8" />
+					</div>
+					<h1 class="text-5xl lg:text-6xl leading-[0.9] font-bold font-serif text-neutral-950">
+						{settingsTitle}
+					</h1>
 				</div>
-				<h1 class="text-5xl lg:text-6xl leading-[0.9] font-bold font-serif text-neutral-950">
-					{settingsTitle}
-				</h1>
+				<DashboardMegaSearchLauncher />
 			</div>
 		</div>
 	</header>
@@ -128,4 +132,3 @@
 		</div>
 	</div>
 </div>
-

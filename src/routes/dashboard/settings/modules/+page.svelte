@@ -33,7 +33,6 @@
 		type DashboardNavigationOrder,
 		type DashboardNavigationLabels
 	} from '$lib/dashboard/navigation';
-	import DashboardMegaSearchLauncher from '$lib/components/dashboard/DashboardMegaSearchLauncher.svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import { toast } from '$lib/toasts';
 	import type { PageProps } from './$types';
@@ -384,24 +383,21 @@
 	/>
 </svelte:head>
 
-<div class="w-full space-y-4">
+<div class="dashboard-page-shell">
 	<section class="border-2 border-neutral-950 bg-neutral p-3 lg:p-4 space-y-3">
-		<div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+		<div>
 			<div>
 				<h2 class="text-2xl font-bold font-serif text-neutral-950">Modules</h2>
 				<p class="text-xs text-neutral-950 mt-1">
 					Rename tabs and adjust order for this organization.
 				</p>
 			</div>
-			<div class="flex flex-col items-start gap-2 lg:items-end">
-				<DashboardMegaSearchLauncher variant="compact" />
-				{#if orderSaveSubmitting}
-					<span class="text-[10px] uppercase tracking-wide text-primary-800 font-bold"
-						>Saving order...</span
-					>
-				{/if}
-			</div>
 		</div>
+		{#if orderSaveSubmitting}
+			<span class="block text-[10px] font-bold uppercase tracking-wide text-primary-800"
+				>Saving order...</span
+			>
+		{/if}
 
 		<div class="space-y-2.5">
 			{#each orderedNavItems as item, index (item.key)}
