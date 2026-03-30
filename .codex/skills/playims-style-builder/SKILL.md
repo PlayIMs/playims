@@ -78,7 +78,7 @@ Ground in existing app usage before implementing:
 
 Default class recipes to copy first:
 
-- Module page shell: outer `w-full space-y-4` root with a full-width header strip followed by a body wrapper
+- Module page shell: outer `dashboard-page-shell` root with a full-width header strip followed by a body wrapper
 - Module header strip: `<header class="bg-neutral">` with inner `border-b border-neutral-950 bg-neutral-600/66 p-4`
 - Module header row: `flex items-center gap-3 py-2 lg:py-3`
 - Module header icon tile: `bg-primary text-primary-foreground border-2 border-primary-700 w-[2.75rem] h-[2.75rem] lg:w-[3.4rem] lg:h-[3.4rem] flex items-center justify-center`
@@ -116,7 +116,7 @@ Use `src/routes/dashboard/offerings/+page.svelte` as the source of truth for das
 
 Required structure:
 
-1. Root page wrapper uses `w-full space-y-4`.
+1. Root page wrapper uses `dashboard-page-shell`.
 2. Header stays full-width and uses only the thin bottom divider.
 3. Header contains only the icon tile and page title unless the user explicitly asks for another header element.
 4. Body content lives in a separate wrapper using `px-4 lg:px-6`.

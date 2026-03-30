@@ -6,7 +6,8 @@ Use this as a quick copy/paste matrix. Prefer these recipes before inventing new
 
 | Use Case                  | Canonical Classes                                                  |
 | ------------------------- | ------------------------------------------------------------------ |
-| Page wrapper              | `p-6 lg:p-8 space-y-6`                                             |
+| Dashboard page wrapper    | `dashboard-page-shell`                                             |
+| Legacy boxed page wrapper | `p-6 lg:p-8 space-y-6`                                             |
 | Page hero/header          | `border-2 border-neutral-950 bg-neutral p-5 space-y-4`             |
 | Main board shell          | `min-w-0 border-2 border-neutral-950 bg-neutral`                   |
 | Section strip/header      | `p-4 border-b border-neutral-950 bg-neutral-600/66`                |

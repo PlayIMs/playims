@@ -643,7 +643,7 @@
 	<meta name="robots" content="noindex, follow" />
 </svelte:head>
 
-<div class="w-full space-y-4">
+<div class="dashboard-page-shell">
 	<header class="bg-neutral">
 		<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
 			<div class="flex flex-col gap-4 py-2 lg:flex-row lg:items-center lg:justify-between">
