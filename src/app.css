@@ -208,6 +208,18 @@
 		-webkit-appearance: none;
 		display: none;
 	}
+
+	/* Opt-in: keep number inputs functional while hiding native spinner chrome. */
+	input.no-native-number-spinner {
+		-moz-appearance: textfield;
+	}
+
+	input.no-native-number-spinner::-webkit-inner-spin-button,
+	input.no-native-number-spinner::-webkit-outer-spin-button {
+		-webkit-appearance: none;
+		display: none;
+		margin: 0;
+	}
 }
 
 @theme {

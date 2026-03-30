@@ -7,7 +7,7 @@ export const memberAssignableRoleSchema = z.enum(MEMBER_ASSIGNABLE_ROLE_VALUES);
 export const memberSexSchema = z.enum(['M', 'F']);
 export const memberRoleFilterSchema = z.enum(ROLE_VALUES);
 export const memberSortKeySchema = z
-	.enum(['studentId', 'firstName', 'lastName', 'name', 'email', 'sex', 'role'])
+	.enum(['studentId', 'firstName', 'lastName', 'name', 'email', 'lastLoginAt', 'sex', 'role'])
 	.transform((value) => (value === 'name' ? 'lastName' : value));
 export const sortDirectionSchema = z.enum(['asc', 'desc']);
 

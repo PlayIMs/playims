@@ -10,6 +10,7 @@ render a guided empty state instead of a surprise full-table load.
 Summary of tests:
 1. It verifies that the page returns an empty starter payload when there is no search query.
 2. It verifies that a valid search query calls the member search operation and returns its results.
+3. It verifies that the page load preserves last-login data for the members table.
 */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -70,6 +71,7 @@ describe('dashboard members page load', () => {
 					lastName: 'Member',
 					fullName: 'Jamie Member',
 					email: 'jamie@playims.test',
+					lastLoginAt: '2029-12-21T14:30:00.000Z',
 					sex: 'F',
 					role: 'participant',
 					status: 'active',
@@ -97,17 +99,20 @@ describe('dashboard members page load', () => {
 
 	it('loads matching members once the search query is at least two characters', async () => {
 		// valid searches should still hydrate the page from the server so the first render is useful.
-		const result = await load(buildEvent('/dashboard/members?q=jamie&sort=email&dir=desc&page=2'));
+		const result = await load(
+			buildEvent('/dashboard/members?q=jamie&sort=lastLoginAt&dir=desc&page=2')
+		);
 
 		expect(result.members.rows).toHaveLength(1);
 		expect(result.members.totalCount).toBe(1);
+		expect(result.members.rows[0].lastLoginAt).toBe('2029-12-21T14:30:00.000Z');
 		expect(mocks.dbOps.members.searchByClient).toHaveBeenCalledWith({
 			clientId: 'client-1',
 			query: 'jamie',
 			page: 2,
 			sex: null,
 			role: null,
-			sort: 'email',
+			sort: 'lastLoginAt',
 			dir: 'desc'
 		});
 	});

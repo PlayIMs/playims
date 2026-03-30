@@ -10,6 +10,7 @@ without accidentally querying the full roster.
 Summary of tests:
 1. It verifies that missing or short queries return an empty result set without hitting the database.
 2. It verifies that valid queries still call the member search operation and return the paged data.
+3. It verifies that the route allows last-login sorting and returns last-login data for table rows.
 */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -70,6 +71,7 @@ describe('members list route', () => {
 					lastName: 'Member',
 					fullName: 'Jamie Member',
 					email: 'jamie@playims.test',
+					lastLoginAt: '2029-12-21T14:30:00.000Z',
 					sex: 'F',
 					role: 'participant',
 					status: 'active',
@@ -99,18 +101,21 @@ describe('members list route', () => {
 
 	it('searches members when the query is at least two characters long', async () => {
 		// once the query is long enough, the route should pass filters and sorting into the search layer.
-		const response = await GET(buildEvent('/api/members?q=jamie&sex=F&role=manager&sort=email&dir=desc&page=2'));
+		const response = await GET(
+			buildEvent('/api/members?q=jamie&sex=F&role=manager&sort=lastLoginAt&dir=desc&page=2')
+		);
 		const payload = await response.json();
 
 		expect(response.status).toBe(200);
 		expect(payload.data.rows).toHaveLength(1);
+		expect(payload.data.rows[0].lastLoginAt).toBe('2029-12-21T14:30:00.000Z');
 		expect(mocks.dbOps.members.searchByClient).toHaveBeenCalledWith({
 			clientId: 'client-1',
 			query: 'jamie',
 			page: 2,
 			sex: 'F',
 			role: 'manager',
-			sort: 'email',
+			sort: 'lastLoginAt',
 			dir: 'desc'
 		});
 	});

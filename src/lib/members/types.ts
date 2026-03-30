@@ -5,7 +5,14 @@ export const MEMBER_PAGE_SIZE = 50;
 export type MemberSex = 'M' | 'F';
 export type MemberRole = AuthRole;
 export type { MemberAssignableRole };
-export type MemberSortKey = 'studentId' | 'firstName' | 'lastName' | 'email' | 'sex' | 'role';
+export type MemberSortKey =
+	| 'studentId'
+	| 'firstName'
+	| 'lastName'
+	| 'email'
+	| 'lastLoginAt'
+	| 'sex'
+	| 'role';
 export type SortDirection = 'asc' | 'desc';
 
 export interface MemberListRow {
@@ -16,6 +23,7 @@ export interface MemberListRow {
 	lastName: string | null;
 	fullName: string;
 	email: string | null;
+	lastLoginAt: string | null;
 	sex: MemberSex | null;
 	role: MemberRole;
 	status: string;

@@ -88,6 +88,7 @@ const mapMemberRow = (row: MemberRowSelection): MemberListRow => ({
 	lastName: normalizeText(row.lastName),
 	fullName: buildFullName(row.firstName, row.lastName),
 	email: normalizeText(row.email),
+	lastLoginAt: row.lastLoginAt ?? null,
 	sex: toMemberSex(row.sex),
 	role: toMemberRole(row.role),
 	status: row.status,
@@ -176,6 +177,19 @@ const buildMemberOrderBy = (sort: MemberSortKey, dir: SortDirection): SQL[] => {
 			return [
 				asc(sql<number>`case when ${users.email} is null or trim(${users.email}) = '' then 1 else 0 end`),
 				orderValue(sql`lower(trim(coalesce(${users.email}, '')))`),
+				asc(userClients.id)
+			];
+		case 'lastLoginAt':
+			return [
+				asc(
+					sql<number>`case
+						when ${users.lastLoginAt} is null or trim(${users.lastLoginAt}) = '' then 1
+						else 0
+					end`
+				),
+				orderValue(sql`coalesce(${users.lastLoginAt}, '')`),
+				orderValue(sql`lower(trim(coalesce(${users.lastName}, '')))`),
+				orderValue(sql`lower(trim(coalesce(${users.firstName}, '')))`),
 				asc(userClients.id)
 			];
 		case 'sex':
@@ -286,6 +300,7 @@ export class MemberOperations {
 						firstName: users.firstName,
 						lastName: users.lastName,
 						email: users.email,
+						lastLoginAt: users.lastLoginAt,
 						sex: userClients.sex,
 						role: userClients.role,
 						status: userClients.status,

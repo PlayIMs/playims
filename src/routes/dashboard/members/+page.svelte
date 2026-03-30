@@ -1,8 +1,15 @@
 <script lang="ts">
 	import { goto, invalidateAll, replaceState } from '$app/navigation';
 	import { onDestroy, onMount } from 'svelte';
-	import { IconPlus, IconUsers } from '@tabler/icons-svelte';
+	import {
+		IconChevronLeft,
+		IconChevronRight,
+		IconChevronsLeft,
+		IconChevronsRight,
+		IconUsers
+	} from '@tabler/icons-svelte';
 	import DashboardMegaSearchLauncher from '$lib/components/dashboard/DashboardMegaSearchLauncher.svelte';
+	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import DataTable from '$lib/components/DataTable.svelte';
 	import DataTableRowActions from '$lib/components/data-table/DataTableRowActions.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
@@ -14,7 +21,11 @@
 		buildMemberRoleFilterOptions,
 		getResetMemberFilterState
 	} from '$lib/members/filter-controls.js';
-	import { syncMembersUrlIfReady } from '$lib/members/url-state.js';
+	import { parseMemberPageInput, resolveClosestMemberPage } from '$lib/members/pagination.js';
+	import {
+		clearMemberSelectionFromHref,
+		syncMembersUrlIfReady
+	} from '$lib/members/url-state.js';
 	import type {
 		CreateMemberResponse,
 		MemberAssignableRole,
@@ -41,7 +52,6 @@
 	interface FilterSectionConfig {
 		id: FilterSectionId;
 		title: string;
-		description: string;
 		value: string;
 		ariaLabel: string;
 		options: Array<{ value: string; label: string }>;
@@ -77,9 +87,6 @@
 			mergeDashboardNavigationLabels(
 				(data?.navigationLabels ?? {}) as Partial<Record<DashboardNavKey, string>>
 			).memberManagement
-	);
-	const canAddMembers = $derived.by(
-		() => data.capabilities?.canAddMembers ?? data.permissions?.ADD_MEMBER === true
 	);
 	const canManageRoles = $derived.by(
 		() => data.capabilities?.canManageRoles ?? data.permissions?.CHANGE_MEMBER_ROLE === true
@@ -170,6 +177,7 @@
 	let lastPageFeedbackToast = $state('');
 	let handledDeepLinkedMemberId = $state<string | null>(null);
 	let hydratedServerSignature = $state('');
+	let pageInputValue = $state('1');
 	const detailCache = new Map<string, MemberDetail>();
 
 	const activeSearch = $derived.by(() => searchQuery.trim());
@@ -186,7 +194,6 @@
 		{
 			id: 'sex',
 			title: 'Sex',
-			description: 'Limit the roster to male or female members.',
 			value: sexFilter,
 			ariaLabel: 'Filter members by sex',
 			options: sexFilterOptions
@@ -194,7 +201,6 @@
 		{
 			id: 'role',
 			title: 'Role',
-			description: 'Filter by organization access level.',
 			value: roleFilter,
 			ariaLabel: 'Filter members by role',
 			options: roleFilterOptions
@@ -210,28 +216,34 @@
 		{
 			key: 'member',
 			label: 'Member',
-			width: '24%',
+			width: '21%',
 			rowHeader: true,
 			sortValue: (row) => row.fullName
 		},
 		{
 			key: 'studentId',
 			label: 'Student ID',
-			width: '18%',
+			width: '15%',
 			copyText: (row) => row.studentId,
 			sortValue: (row) => row.studentId ?? ''
 		},
 		{
 			key: 'email',
 			label: 'Email',
-			width: '30%',
+			width: '24%',
 			copyText: (row) => row.email,
 			sortValue: (row) => row.email ?? ''
 		},
 		{
+			key: 'lastLoginAt',
+			label: 'Last Login',
+			width: '18%',
+			sortValue: (row) => row.lastLoginAt ?? ''
+		},
+		{
 			key: 'sex',
 			label: 'Sex',
-			width: '12%',
+			width: '8%',
 			headerTextAlignment: 'center',
 			cellTextAlignment: 'center',
 			sortValue: (row) => row.sex ?? ''
@@ -239,7 +251,7 @@
 		{
 			key: 'role',
 			label: 'Role',
-			width: '12%',
+			width: '11%',
 			sortValue: (row) => ROLE_LABELS[row.role]
 		},
 		{
@@ -258,6 +270,24 @@
 		if (role === 'manager') return 'badge-secondary-outlined';
 		if (role === 'dev') return 'badge-secondary';
 		return 'badge-neutral-outlined';
+	}
+
+	function formatMemberLastLogin(value: string | null): string {
+		if (!value) return '';
+		const parsed = new Date(value);
+		if (Number.isNaN(parsed.getTime())) return '';
+		const date = new Intl.DateTimeFormat('en-US', {
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric'
+		}).format(parsed);
+		const time = new Intl.DateTimeFormat('en-US', {
+			hour: 'numeric',
+			minute: '2-digit'
+		})
+			.format(parsed)
+			.replace(/\s([AP]M)$/i, '$1');
+		return `${date}, ${time}`;
 	}
 
 	function applyMemberPayload(payload: NonNullable<MemberListResponse['data']>): void {
@@ -290,19 +320,45 @@
 			: 'participant';
 	}
 
-	function buildPaginationItems(page: number, pageCount: number): Array<number | 'ellipsis'> {
-		if (pageCount <= 7) return Array.from({ length: pageCount }, (_, index) => index + 1);
-		if (page <= 4) return [1, 2, 3, 4, 5, 'ellipsis', pageCount];
-		if (page >= pageCount - 3) {
-			return [1, 'ellipsis', pageCount - 4, pageCount - 3, pageCount - 2, pageCount - 1, pageCount];
-		}
-		return [1, 'ellipsis', page - 1, page, page + 1, 'ellipsis', pageCount];
-	}
-
 	function changePage(nextPage: number): void {
-		const boundedPage = Math.max(1, Math.min(nextPage, totalPages));
+		const boundedPage = resolveClosestMemberPage(nextPage, totalPages);
 		if (boundedPage === currentPage || membersLoading || !searchReady) return;
 		currentPage = boundedPage;
+	}
+
+	function commitPageInput(): void {
+		const resolvedPage = parseMemberPageInput(pageInputValue, currentPage, totalPages);
+		pageInputValue = String(resolvedPage);
+		changePage(resolvedPage);
+	}
+
+	function handlePageInput(event: Event): void {
+		const input = event.currentTarget as HTMLInputElement;
+		const digitsOnly = input.value.replace(/\D/g, '');
+		if (!digitsOnly) {
+			pageInputValue = '';
+			return;
+		}
+		pageInputValue = String(Math.max(1, Number.parseInt(digitsOnly, 10)));
+	}
+
+	function handlePageInputKeydown(event: KeyboardEvent): void {
+		const input = event.currentTarget as HTMLInputElement;
+		if (event.key === 'Enter') {
+			event.preventDefault();
+			commitPageInput();
+			return;
+		}
+		if (['e', 'E', '+', '-', '.'].includes(event.key)) {
+			event.preventDefault();
+			return;
+		}
+		if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+			setTimeout(() => {
+				pageInputValue = input.value;
+				commitPageInput();
+			}, 0);
+		}
 	}
 
 	function resetFilters(): void {
@@ -455,11 +511,6 @@
 		};
 	}
 
-	function openAddMember(): void {
-		resetAddWizard();
-		addOpen = true;
-	}
-
 	function closeAddMember(): void {
 		addOpen = false;
 		resetAddWizard();
@@ -468,6 +519,13 @@
 	function closeCredentialsModal(): void {
 		createdCredentials = null;
 		credentialsModalOpen = false;
+	}
+
+	function closeViewMemberDetails(): void {
+		viewOpen = false;
+		if (typeof window === 'undefined') return;
+		const nextHref = clearMemberSelectionFromHref(window.location.href);
+		replaceState(nextHref, {});
 	}
 
 	async function openModal(kind: MemberAction, row: MemberListRow): Promise<void> {
@@ -738,6 +796,10 @@
 		};
 	});
 
+	$effect(() => {
+		pageInputValue = String(currentPage);
+	});
+
 	onMount(() => {
 		urlSyncReady = true;
 	});
@@ -779,242 +841,240 @@
 		</div>
 	</header>
 
-	<div class="space-y-6 px-4 lg:px-6">
-		<div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:gap-6">
-			<section class="min-w-0 flex-1 space-y-4">
-				<div class="section-shell space-y-4 p-4">
-					<div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-						<div class="min-w-0 flex-1 space-y-3">
-							<div class="flex flex-wrap items-center gap-2">
-								{#if searchReady}
-									<span class="badge-primary text-xs uppercase tracking-wide">
-										{totalCount}
-										{totalCount === 1 ? 'Result' : 'Results'}
-									</span>
-									<span class="badge-neutral-outlined text-xs uppercase tracking-wide">
-										Page {currentPage} of {totalPages}
-									</span>
-								{/if}
-
-								{#if activeFilterCount > 0}
-									{#each activeFilterBadges as badge (badge)}
-										<span class="badge-neutral-outlined text-xs uppercase tracking-wide">
-											{badge}
-										</span>
-									{/each}
-								{/if}
-							</div>
-
-							<p class="text-sm text-neutral-950">
-								Search for a member, then refine the results with filters and header-based table
-								sorting.
-							</p>
-						</div>
-
-						{#if canAddMembers}
-							<button
-								type="button"
-								class="button-primary inline-flex cursor-pointer items-center justify-center gap-2"
-								onclick={openAddMember}
-							>
-								<IconPlus class="h-5 w-5" />
-								<span>Add Member</span>
-							</button>
-						{/if}
-					</div>
-				</div>
-
-				<div class="section-shell overflow-hidden p-0">
-					<div class="overflow-x-auto">
-						<DataTable
-							columns={memberTableColumns}
-							rows={members}
-							caption="Members table"
-							defaultSort={{ columnKey: 'member', direction: 'asc' }}
-							rowId={(row) => `member-row-${row.membershipId}`}
-							rowClass={(row) =>
-								['group', row.membershipId === selectedMemberId ? 'bg-primary-100/60' : '']
-									.filter(Boolean)
-									.join(' ')}
-						>
-							{#snippet emptyBody()}
-								<tr class="bg-neutral-25">
-									<td
-										colspan={memberTableColumns.length}
-										class="px-4 py-12 text-center text-sm text-neutral-950"
-									>
-										{#if membersLoading}
-											<div class="space-y-3">
-												<div class="mx-auto h-3 w-48 animate-pulse bg-neutral-200"></div>
-												<div class="mx-auto h-3 w-36 animate-pulse bg-neutral-200"></div>
-												<p>Loading matching members...</p>
-											</div>
-										{:else if pageError}
-											<div class="space-y-2">
-												<p class="font-semibold">Unable to load members.</p>
-												<p>{pageError}</p>
-											</div>
-										{:else if !searchReady}
-											<div class="space-y-3">
-												<div class="mx-auto h-3 w-48 animate-pulse bg-neutral-200"></div>
-												<div class="mx-auto h-3 w-40 animate-pulse bg-neutral-200"></div>
-												<p class="font-semibold">Start with a member search.</p>
-												<p>
-													Enter at least 2 characters in the search field to load matching members.
-												</p>
-											</div>
-										{:else}
-											<div class="space-y-2">
-												<p class="font-semibold">No members matched this search.</p>
-												<p>Try a different name, email, student ID, or adjust the filters.</p>
-											</div>
-										{/if}
-									</td>
-								</tr>
-							{/snippet}
-
-							{#snippet cell(row, column)}
-								{#if column.key === 'member'}
-									<button
-										type="button"
-										class="min-w-0 py-1 text-left cursor-pointer focus-visible:outline-none"
-										onclick={() => void openModal('view', row)}
-									>
-										<span class="text-sm font-bold text-neutral-950">{row.fullName}</span>
-									</button>
-								{:else if column.key === 'studentId'}
-									<span class="py-1 text-sm font-semibold uppercase tracking-[0.08em] text-neutral-700">
-										{row.studentId ?? '--'}
-									</span>
-								{:else if column.key === 'email'}
-									<span class="break-all py-1 text-sm text-neutral-950">{row.email ?? '--'}</span>
-								{:else if column.key === 'sex'}
-									<span class="badge-neutral-outlined text-xs uppercase tracking-wide">
-										{row.sex ? SEX_LABELS[row.sex] : '--'}
-									</span>
-								{:else if column.key === 'role'}
-									<span class={`${roleToneClass(row.role)} text-xs uppercase tracking-wide`}>
-										{ROLE_LABELS[row.role]}
-									</span>
-								{:else if column.key === 'actions'}
-									<DataTableRowActions
-										options={actionOptions(row)}
-										ariaLabel={`Actions for ${row.fullName}`}
-										buttonClass="button-secondary-outlined dashboard-icon-button inline-flex cursor-pointer items-center justify-center opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 focus-visible:opacity-100"
-										listClass="w-44"
-										on:action={(event) => void openModal(event.detail.value as MemberAction, row)}
-									/>
-								{/if}
-							{/snippet}
-						</DataTable>
-					</div>
-				</div>
-
-				{#if searchReady}
-					<div
-						class="flex flex-col gap-3 border-t border-neutral-950 pt-3 lg:flex-row lg:items-center lg:justify-between"
-					>
-						<p class="text-sm text-neutral-950">
-							{#if membersLoading}
-								Refreshing members...
-							{:else}
-								Showing {visibleRangeStart} to {visibleRangeEnd} of {totalCount} members
-							{/if}
-						</p>
-						<div class="flex flex-wrap items-center justify-end gap-1.5">
-							<button
-								type="button"
-								class="pagination-button"
-								disabled={!hasPreviousPage || membersLoading || currentPage <= 1}
-								onclick={() => changePage(currentPage - 1)}
-							>
-								Previous
-							</button>
-							{#each buildPaginationItems(currentPage, totalPages) as pageItem, index (`${pageItem}-${index}`)}
-								{#if pageItem === 'ellipsis'}
-									<span
-										class="inline-flex h-9 min-w-9 items-center justify-center px-2 text-sm text-neutral-950"
-									>
-										...
-									</span>
-								{:else}
-									<button
-										type="button"
-										class={`pagination-button ${pageItem === currentPage ? 'pagination-button-active' : ''}`}
-										disabled={membersLoading}
-										onclick={() => changePage(pageItem)}
-									>
-										{pageItem}
-									</button>
-								{/if}
-							{/each}
-							<button
-								type="button"
-								class="pagination-button"
-								disabled={!hasNextPage || membersLoading || currentPage >= totalPages}
-								onclick={() => changePage(currentPage + 1)}
-							>
-								Next
-							</button>
-						</div>
+	<div class="px-4 lg:px-6">
+		<div class="grid grid-cols-1 gap-6 2xl:grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)]">
+			<section class="min-w-0 space-y-2">
+				{#if activeFilterCount > 0}
+					<div class="flex flex-wrap items-center gap-2">
+						{#each activeFilterBadges as badge (badge)}
+							<span class="badge-neutral-outlined text-xs uppercase tracking-wide">
+								{badge}
+							</span>
+						{/each}
 					</div>
 				{/if}
-			</section>
-
-			<aside class="section-shell space-y-5 p-4 xl:sticky xl:top-4 xl:w-[21rem] xl:shrink-0">
-				<div class="space-y-1">
-					<p class="text-[11px] font-bold uppercase tracking-[0.18em] text-neutral-950">Filters</p>
-					<h2 class="text-2xl font-bold font-serif text-neutral-950">Refine the roster</h2>
-					<p class="text-sm text-neutral-950">
-						Search and filters work together here, so you can narrow the roster from one place.
-					</p>
-				</div>
 
 				<div class="space-y-2">
-					<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Search</p>
-					<SearchInput
-						id="member-search"
-						label="Search members"
-						value={searchQuery}
-						type="search"
-						placeholder="Search by name, email, or student ID"
-						on:input={(event) => {
-							searchQuery = event.detail.value;
-							currentPage = 1;
-						}}
-					/>
-					<p class="text-sm text-neutral-950">
-						Enter at least 2 characters to load matching members.
-					</p>
-				</div>
+					<div class="section-shell overflow-hidden p-0">
+						<div class="overflow-x-auto">
+							<DataTable
+								columns={memberTableColumns}
+								rows={members}
+								caption="Members table"
+								defaultSort={{ columnKey: 'member', direction: 'asc' }}
+								rowId={(row) => `member-row-${row.membershipId}`}
+								rowClass={(row) =>
+									[
+										'group group/row',
+										row.membershipId === selectedMemberId ? 'bg-primary-100/60' : ''
+									]
+										.filter(Boolean)
+										.join(' ')}
+							>
+								{#snippet emptyBody()}
+									<tr class="bg-neutral-25">
+										<td
+											colspan={memberTableColumns.length}
+											class="px-4 py-10 text-center text-sm text-neutral-950"
+										>
+											{#if membersLoading || !searchReady}
+												<div class="mx-auto flex max-w-sm flex-col items-center gap-3" aria-hidden="true">
+													<div class="h-6 w-44 bg-neutral-100"></div>
+													<div class="h-3 w-28 bg-neutral-100"></div>
+													<div class="flex flex-wrap items-center justify-center gap-1">
+														<div class="h-5 w-16 bg-neutral-100"></div>
+														<div class="h-5 w-16 bg-neutral-100"></div>
+														<div class="h-5 w-16 bg-neutral-100"></div>
+													</div>
+												</div>
+											{:else if pageError}
+												<div class="space-y-2">
+													<p class="font-semibold">Unable to load members.</p>
+													<p>{pageError}</p>
+												</div>
+											{:else}
+												<div class="space-y-2">
+													<p class="font-semibold">No members matched this search.</p>
+													<p>Try a different name, email, student ID, or adjust the filters.</p>
+												</div>
+											{/if}
+										</td>
+									</tr>
+								{/snippet}
 
-				<div class="space-y-4">
-					{#each filterSections as section (section.id)}
-						<section class="space-y-2">
-							<div class="space-y-1">
-								<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
-									{section.title}
-								</p>
-								<p class="text-sm text-neutral-950">{section.description}</p>
-							</div>
-							<ListboxDropdown
-								options={section.options}
-								value={section.value}
-								ariaLabel={section.ariaLabel}
-								buttonClass="button-secondary-outlined min-h-10 w-full px-3 py-2 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2"
-								on:change={(event) => handleFilterChange(section.id, event.detail.value)}
+								{#snippet cell(row, column)}
+									{#if column.key === 'member'}
+										<button
+											type="button"
+											class="min-w-0 py-1 text-left cursor-pointer focus-visible:outline-none"
+											onclick={() => void openModal('view', row)}
+										>
+											<span
+												class="text-sm font-bold text-neutral-950 group-hover:underline group-focus-within:underline"
+											>
+												{row.fullName}
+											</span>
+										</button>
+									{:else if column.key === 'studentId'}
+										<span class="py-1 text-sm font-semibold uppercase tracking-[0.08em] text-neutral-700">
+											{row.studentId ?? '--'}
+										</span>
+								{:else if column.key === 'email'}
+									<span class="break-all py-1 text-sm text-neutral-950">{row.email ?? '--'}</span>
+								{:else if column.key === 'lastLoginAt'}
+									{@const lastLoginDisplay = formatMemberLastLogin(row.lastLoginAt)}
+									{#if lastLoginDisplay}
+										<DateHoverText
+											display={lastLoginDisplay}
+											value={row.lastLoginAt}
+											includeTime
+											wrapperClass="inline"
+											textClass="py-1 text-sm font-semibold text-neutral-950"
+										/>
+									{:else}
+										<span class="py-1 text-sm text-neutral-700">Never</span>
+									{/if}
+								{:else if column.key === 'sex'}
+									<span class="py-1 text-xs font-semibold uppercase tracking-[0.08em] text-neutral-950">
+										{row.sex ?? '--'}
+									</span>
+								{:else if column.key === 'role'}
+									<span class={`${roleToneClass(row.role)} px-2 py-0.5 text-xs uppercase tracking-wide`}>
+										{ROLE_LABELS[row.role]}
+									</span>
+									{:else if column.key === 'actions'}
+										<DataTableRowActions
+											options={actionOptions(row)}
+											ariaLabel={`Actions for ${row.fullName}`}
+											listClass="w-44"
+											on:action={(event) => void openModal(event.detail.value as MemberAction, row)}
+										/>
+									{/if}
+								{/snippet}
+							</DataTable>
+						</div>
+					</div>
+
+					<div
+						class="flex flex-col gap-3 pt-1 lg:flex-row lg:items-center lg:justify-between"
+					>
+						<div class="flex flex-wrap items-center gap-2 text-sm text-neutral-950">
+							<button
+								type="button"
+								class="pagination-button h-8 min-w-8 px-1.5"
+								aria-label="Go to first page"
+								disabled={!searchReady || totalCount === 0 || !hasPreviousPage || membersLoading || currentPage <= 1}
+								onclick={() => changePage(1)}
+							>
+								<IconChevronsLeft class="h-4 w-4" />
+							</button>
+							<button
+								type="button"
+								class="pagination-button h-8 min-w-8 px-1.5"
+								aria-label="Go to previous page"
+								disabled={!searchReady || totalCount === 0 || !hasPreviousPage || membersLoading || currentPage <= 1}
+								onclick={() => changePage(currentPage - 1)}
+							>
+								<IconChevronLeft class="h-4 w-4" />
+							</button>
+							<label class="font-semibold text-neutral-700" for="members-page-input">Page</label>
+							<input
+								id="members-page-input"
+								type="number"
+								min="1"
+								step="1"
+								class="input-neutral no-native-number-spinner h-8 w-10 px-2 py-0 text-center font-semibold tabular-nums"
+								value={pageInputValue}
+								disabled={!searchReady || totalCount === 0 || membersLoading}
+								aria-label="Current page number"
+								onfocus={(event) => event.currentTarget.select()}
+								oninput={handlePageInput}
+								onblur={commitPageInput}
+								onkeydown={handlePageInputKeydown}
 							/>
-						</section>
-					{/each}
+							<span class="font-semibold text-neutral-700">of {totalPages}</span>
+							<button
+								type="button"
+								class="pagination-button h-8 min-w-8 px-1.5"
+								aria-label="Go to next page"
+								disabled={!searchReady || totalCount === 0 || !hasNextPage || membersLoading || currentPage >= totalPages}
+								onclick={() => changePage(currentPage + 1)}
+							>
+								<IconChevronRight class="h-4 w-4" />
+							</button>
+							<button
+								type="button"
+								class="pagination-button h-8 min-w-8 px-1.5"
+								aria-label="Go to last page"
+								disabled={!searchReady || totalCount === 0 || !hasNextPage || membersLoading || currentPage >= totalPages}
+								onclick={() => changePage(totalPages)}
+							>
+								<IconChevronsRight class="h-4 w-4" />
+							</button>
+						</div>
+						<p class="text-sm font-semibold text-neutral-950 lg:text-right">
+							{#if membersLoading}
+								Refreshing rows...
+							{:else if totalCount === 0}
+								No results
+							{:else}
+								Rows {visibleRangeStart} - {visibleRangeEnd} of {totalCount}
+							{/if}
+						</p>
+					</div>
 				</div>
+			</section>
 
-				<button
-					type="button"
-					class="button-secondary-outlined inline-flex w-full cursor-pointer items-center justify-center gap-2"
-					onclick={resetFilters}
-				>
-					Reset Filters
-				</button>
+			<aside class="w-full min-w-0 2xl:sticky 2xl:top-4">
+				<section class="border-2 border-neutral-950 bg-neutral">
+					<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
+						<h2 class="dashboard-section-title text-neutral-950">Filters</h2>
+					</div>
+
+					<div class="space-y-4 p-4">
+						<div class="space-y-2">
+							<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Search</p>
+							<SearchInput
+								id="member-search"
+								label="Search members"
+								value={searchQuery}
+								type="search"
+								placeholder="Search by name, email, or student ID"
+								inputClass="input-neutral min-h-10 pl-10 pr-10 py-2 text-sm disabled:cursor-not-allowed"
+								clearButtonClass="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-700 hover:text-neutral-950 cursor-pointer"
+								on:input={(event) => {
+									searchQuery = event.detail.value;
+									currentPage = 1;
+								}}
+							/>
+						</div>
+
+						<div class="space-y-4">
+							{#each filterSections as section (section.id)}
+								<section class="space-y-2">
+									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+										{section.title}
+									</p>
+									<ListboxDropdown
+										options={section.options}
+										value={section.value}
+										ariaLabel={section.ariaLabel}
+										buttonClass="button-neutral-outlined min-h-10 w-full px-3 py-2 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2"
+										on:change={(event) => handleFilterChange(section.id, event.detail.value)}
+									/>
+								</section>
+							{/each}
+						</div>
+
+						<button
+							type="button"
+							class="button-neutral-outlined inline-flex w-full cursor-pointer items-center justify-center gap-2"
+							onclick={resetFilters}
+						>
+							Reset Filters
+						</button>
+					</div>
+				</section>
 			</aside>
 		</div>
 	</div>
@@ -1042,7 +1102,7 @@
 	member={selectedMember}
 	loading={memberDetailLoading}
 	error={memberDetailError}
-	onClose={() => (viewOpen = false)}
+	onClose={closeViewMemberDetails}
 />
 <MemberEditModal
 	open={editOpen}
