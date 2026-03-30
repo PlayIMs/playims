@@ -39,3 +39,9 @@ export function syncMembersUrlIfReady(input: {
 
 	input.replace(nextHref);
 }
+
+export function clearMemberSelectionFromHref(href: string): string {
+	const url = new URL(href);
+	url.searchParams.delete('memberId');
+	return `${url.pathname}${url.search}${url.hash}`;
+}

@@ -9,13 +9,17 @@ real theme. These tests keep the manifest tied to the current org first, then fa
 persisted browser theme only if the database theme is unavailable.
 
 Summary of tests:
-1. It verifies that the manifest uses the current organization's primary color when the theme exists.
-2. It verifies that the manifest falls back to the persisted theme cookie if the database theme is unavailable.
-3. It verifies that the final fallback stays on the PlayIMs default primary color instead of charcoal gray.
+1. It verifies that the manifest uses the current organization's primary `600` color when the theme exists.
+2. It verifies that the manifest falls back to the persisted theme cookie's `600` color if the database theme is unavailable.
+3. It verifies that the final fallback stays on the PlayIMs default primary `600` color instead of charcoal gray.
 */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CURRENT_THEME_COOKIE_KEY, serializeThemeColors } from '../../src/lib/theme';
+import {
+	buildThemeColorHex,
+	CURRENT_THEME_COOKIE_KEY,
+	serializeThemeColors
+} from '../../src/lib/theme';
 
 const mocks = vi.hoisted(() => {
 	return {
@@ -89,7 +93,7 @@ describe('pwa manifest theme color', () => {
 		const response = await GET(createEvent());
 		const payload = await response.json();
 
-		expect(payload.theme_color).toBe('#4A90E2');
+		expect(payload.theme_color).toBe(buildThemeColorHex({ primary: '4A90E2' }));
 		expect(mocks.ensureDefaultClient).toHaveBeenCalled();
 		expect(mocks.getTenantDbOps).toHaveBeenCalledWith(expect.anything(), 'client-1');
 		expect(mocks.tenantDbOps.themes.getBySlug).toHaveBeenCalledWith('client-1', 'current');
@@ -113,7 +117,7 @@ describe('pwa manifest theme color', () => {
 		);
 		const payload = await response.json();
 
-		expect(payload.theme_color).toBe('#55AA33');
+		expect(payload.theme_color).toBe(buildThemeColorHex({ primary: '55AA33' }));
 	});
 
 	it('uses the PlayIMs default primary as the final fallback', async () => {
@@ -124,6 +128,6 @@ describe('pwa manifest theme color', () => {
 		const response = await GET(createEvent());
 		const payload = await response.json();
 
-		expect(payload.theme_color).toBe('#CE1126');
+		expect(payload.theme_color).toBe(buildThemeColorHex({ primary: 'CE1126' }));
 	});
 });

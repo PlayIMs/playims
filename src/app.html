@@ -3,7 +3,7 @@
 	<head>
 		<meta charset="utf-8" />
 		<link rel="icon" href="%sveltekit.assets%/favicon.png" />
-		<meta name="theme-color" id="theme-meta" content="#CE1126" />
+		<meta name="theme-color" id="theme-meta" content="#B90F22" />
 		<script nonce="%sveltekit.nonce%">
 			(() => {
 				const themeColorMeta = document.getElementById('theme-meta');
@@ -14,7 +14,7 @@
 				const browserThemeColorStorageKey = 'playims:theme-color';
 				const currentThemeStorageKey = 'playims:current-theme';
 				const currentThemeCookieName = 'playims-current-theme=';
-				const fallbackColor = '#CE1126';
+				const fallbackColor = '#B90F22';
 
 				const parseColor = (value) => {
 					if (!value) {
@@ -25,6 +25,27 @@
 					return /^[0-9A-F]{6}$/.test(normalized) ? `#${normalized}` : null;
 				};
 
+				const deriveBrowserThemeColor = (value) => {
+					const parsed = parseColor(value);
+					if (!parsed) {
+						return null;
+					}
+
+					const cleanHex = parsed.slice(1);
+					const mixChannelWithBlack = (start, end) => {
+						const channel = parseInt(cleanHex.slice(start, end), 16);
+						return Math.round(channel * 0.9)
+							.toString(16)
+							.padStart(2, '0');
+					};
+
+					return `#${(
+						mixChannelWithBlack(0, 2) +
+						mixChannelWithBlack(2, 4) +
+						mixChannelWithBlack(4, 6)
+					).toUpperCase()}`;
+				};
+
 				const parseThemePayload = (value) => {
 					if (!value) {
 						return null;
@@ -32,7 +53,9 @@
 
 					try {
 						const parsed = JSON.parse(decodeURIComponent(value));
-						return parseColor(typeof parsed?.primary === 'string' ? parsed.primary : null);
+						return deriveBrowserThemeColor(
+							typeof parsed?.primary === 'string' ? parsed.primary : null
+						);
 					} catch {
 						return null;
 					}

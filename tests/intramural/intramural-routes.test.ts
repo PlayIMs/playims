@@ -13,11 +13,12 @@ Summary of tests:
 1. It verifies that the route suggests the next available offering slug when the requested one is taken.
 2. It verifies that linked offerings join an existing cross-season series.
 3. It verifies that copied seasons automatically keep copied offerings linked to their source history.
-4. It verifies that tournament offerings use group wording in duplicate errors.
-5. It verifies that league updates reject seasons outside the selected offering.
-6. It verifies that duplicate season creation is blocked before any writes happen.
-7. It verifies that the current season cannot be archived without a fallback active season.
-8. It verifies that season deletion is restricted to administrator-like roles.
+4. It verifies that created league responses include the slugs needed for stable offering-page regrouping.
+5. It verifies that tournament offerings use group wording in duplicate errors.
+6. It verifies that league updates reject seasons outside the selected offering.
+7. It verifies that duplicate season creation is blocked before any writes happen.
+8. It verifies that the current season cannot be archived without a fallback active season.
+9. It verifies that season deletion is restricted to administrator-like roles.
 */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -565,6 +566,79 @@ describe('intramural routes', () => {
 				seriesId: expect.any(String)
 			})
 		);
+	});
+
+	it('returns offering and league slugs for newly created league activities', async () => {
+		// the offerings page locally merges the create response before a full refresh.
+		// these slug fields keep that regrouping stable so a new league stays inside its existing offering card.
+		mocks.dbOps.offerings.getByClientId.mockResolvedValue([
+			{
+				id: 'offering-1',
+				name: 'Softball',
+				slug: 'softball',
+				seasonId: 'season-1',
+				type: 'league',
+				isActive: 1
+			}
+		]);
+		mocks.dbOps.leagues.getByOfferingId.mockResolvedValue([]);
+		mocks.dbOps.leagues.create.mockResolvedValue({
+			id: 'league-2',
+			name: "Women's",
+			slug: 'womens',
+			stackOrder: 3,
+			gender: 'female',
+			skillLevel: null,
+			regStartDate: '2026-03-08T00:00',
+			regEndDate: '2026-03-31T23:59',
+			seasonStartDate: '2026-04-04',
+			seasonEndDate: '2026-04-22',
+			isLocked: 0,
+			isActive: 1
+		});
+
+		const response = await createLeague(
+			createRouteEvent({
+				path: '/api/intramural-sports/leagues',
+				body: createLeaguePayload({
+					leagues: [
+						{
+							name: "Women's",
+							slug: 'womens',
+							stackOrder: 3,
+							description: null,
+							seasonId: 'season-1',
+							gender: 'female',
+							skillLevel: null,
+							regStartDate: '2026-03-08T00:00',
+							regEndDate: '2026-03-31T23:59',
+							seasonStartDate: '2026-04-04',
+							seasonEndDate: '2026-04-22',
+							hasPostseason: false,
+							postseasonStartDate: null,
+							postseasonEndDate: null,
+							hasPreseason: false,
+							preseasonStartDate: null,
+							preseasonEndDate: null,
+							isActive: true,
+							isLocked: false,
+							imageUrl: null
+						}
+					]
+				})
+			})
+		);
+		const payload = await response.json();
+
+		expect(response.status).toBe(201);
+		expect(payload.data.activities).toEqual([
+			expect.objectContaining({
+				offeringName: 'Softball',
+				offeringSlug: 'softball',
+				leagueName: "Women's",
+				leagueSlug: 'womens'
+			})
+		]);
 	});
 
 	it('uses tournament wording when duplicate group slugs are found', async () => {

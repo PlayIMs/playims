@@ -12,10 +12,14 @@ Summary of tests:
 1. It verifies that URL sync is skipped until the page is ready to update router state.
 2. It verifies that active member filters and pagination are serialized into query params.
 3. It verifies that default member list state removes optional query params from the URL.
+4. It verifies that closing a deep-linked member details modal removes only the member selection param.
 */
 
 import { describe, expect, it, vi } from 'vitest';
-import { syncMembersUrlIfReady } from '../../src/lib/members/url-state';
+import {
+	clearMemberSelectionFromHref,
+	syncMembersUrlIfReady
+} from '../../src/lib/members/url-state';
 
 describe('member url state helper', () => {
 	it('skips replaceState work until router-backed url sync is ready', () => {
@@ -79,5 +83,14 @@ describe('member url state helper', () => {
 		});
 
 		expect(replace).toHaveBeenCalledWith('/dashboard/members#table');
+	});
+
+	it('removes only the deep-linked member selection from the url', () => {
+		// closing the details modal should stop refreshes from reopening it without wiping the current search state.
+		expect(
+			clearMemberSelectionFromHref(
+				'https://playims.test/dashboard/members?memberId=member-1&q=jamie&role=manager#table'
+			)
+		).toBe('/dashboard/members?q=jamie&role=manager#table');
 	});
 });

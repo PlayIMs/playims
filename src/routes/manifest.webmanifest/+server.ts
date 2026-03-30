@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import { ensureDefaultClient, resolveClientId } from '$lib/server/client-context';
 import { getCentralDbOps, getTenantDbOps } from '$lib/server/database/context';
 import {
+	buildThemeColorHex,
 	CURRENT_THEME_COOKIE_KEY,
 	DEFAULT_THEME,
 	parseStoredThemeColors,
@@ -46,7 +47,7 @@ const resolveDatabaseThemeColor = async (
 };
 
 export const GET: RequestHandler = async (event) => {
-	const themeColor =
+	const themePrimary =
 		(await resolveDatabaseThemeColor(event)) ??
 		resolveCookieThemeColor(event.cookies.get(CURRENT_THEME_COOKIE_KEY)) ??
 		normalizeHex(STANDALONE_PWA_FALLBACK_PRIMARY) ??
@@ -67,7 +68,7 @@ export const GET: RequestHandler = async (event) => {
 		display: 'standalone',
 		display_override: ['window-controls-overlay'],
 		background_color: '#EEDBCE',
-		theme_color: `#${themeColor}`,
+		theme_color: buildThemeColorHex({ primary: themePrimary }),
 		orientation: 'portrait-primary',
 		scope: '/',
 		lang: 'en-US',

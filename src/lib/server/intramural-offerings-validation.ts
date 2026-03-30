@@ -674,7 +674,9 @@ export type RemoveIntramuralTeamInput = z.infer<typeof removeIntramuralTeamSchem
 export type CreatedIntramuralActivity = {
 	id: string;
 	offeringId: string | null;
+	offeringSlug?: string | null;
 	leagueId: string | null;
+	leagueSlug?: string | null;
 	seasonId: string | null;
 	stackOrder: number | null;
 	offeringType: 'league' | 'tournament';
