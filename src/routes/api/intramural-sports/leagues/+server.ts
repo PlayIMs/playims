@@ -40,7 +40,9 @@ const parseSeasonAndYear = (seasonName: string): { season: string | null; year: 
 
 const mapActivity = (input: {
 	offeringId: string;
+	offeringSlug: string | null;
 	leagueId: string;
+	leagueSlug: string | null;
 	seasonId: string;
 	stackOrder: number | null;
 	offeringName: string;
@@ -61,7 +63,9 @@ const mapActivity = (input: {
 }): CreatedIntramuralActivity => ({
 	id: input.leagueId,
 	offeringId: input.offeringId,
+	offeringSlug: input.offeringSlug,
 	leagueId: input.leagueId,
+	leagueSlug: input.leagueSlug,
 	seasonId: input.seasonId,
 	stackOrder: input.stackOrder,
 	offeringType: toActivityType(input.offeringType),
@@ -301,7 +305,9 @@ export const POST: RequestHandler = async (event) => {
 			createdActivities.push(
 				mapActivity({
 					offeringId: selectedOffering.id,
+					offeringSlug: selectedOffering.slug?.trim() || null,
 					leagueId: createdLeague.id,
+					leagueSlug: createdLeague.slug?.trim() || leagueInput.slug,
 					seasonId: selectedSeason.id,
 					stackOrder: createdLeague.stackOrder ?? nextStackOrderStart + index,
 					offeringName: selectedOffering.name?.trim() || 'General Recreation',

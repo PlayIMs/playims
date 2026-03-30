@@ -25,7 +25,7 @@ export default defineConfig({
 				display: 'standalone',
 				display_override: ['window-controls-overlay'],
 				scope: '/',
-				start_url: '/',
+				start_url: '/dashboard',
 				lang: 'en-US'
 			},
 			pwaAssets: {
