@@ -1045,7 +1045,7 @@
 											{#if option.labelIcon}
 												{@const LabelIcon = option.labelIcon}
 												<LabelIcon
-													class={`h-4 w-4 shrink-0 ${isSelectedOption ? 'text-primary-05' : 'text-neutral-800'} ${option.labelIconClass ?? ''}`}
+													class={`h-4 w-4 shrink-0 ${isSelectedOption ? 'text-primary-foreground' : 'text-neutral-800'} ${option.labelIconClass ?? ''}`}
 													stroke={1.8}
 												/>
 												{#if option.labelIconAriaLabel}
@@ -1054,7 +1054,7 @@
 											{/if}
 											{#if option.statusLabel}
 												<span
-													class={`text-[10px] uppercase tracking-wide shrink-0 ${isSelectedOption ? 'text-primary-50' : 'text-neutral-700'}`}
+													class={`text-[10px] uppercase tracking-wide shrink-0 ${isSelectedOption ? 'text-primary-foreground-muted' : 'text-neutral-700'}`}
 												>
 													{option.statusLabel}
 												</span>
@@ -1062,7 +1062,7 @@
 										</span>
 										{#if option.description}
 											<span
-												class={`mt-0.5 block text-[11px] font-normal normal-case tracking-normal ${isSelectedOption ? 'text-primary-50' : 'text-neutral-800'}`}
+												class={`mt-0.5 block text-[11px] font-normal normal-case tracking-normal ${isSelectedOption ? 'text-primary-foreground-muted' : 'text-neutral-800'}`}
 											>
 												{option.description}
 											</span>
@@ -1072,7 +1072,7 @@
 										<span class="shrink-0 text-right leading-tight">
 											{#if option.rightLabel}
 												<span
-													class={`block text-[10px] uppercase tracking-wide ${isSelectedOption ? 'text-primary-50' : 'text-neutral-800'}`}
+													class={`block text-[10px] uppercase tracking-wide ${isSelectedOption ? 'text-primary-foreground-muted' : 'text-neutral-800'}`}
 												>
 													{option.rightLabel}
 												</span>
@@ -1081,7 +1081,7 @@
 											{/if}
 											{#if option.rightDescription}
 												<span
-													class={`mt-0.5 block text-[11px] ${isSelectedOption ? 'text-primary-50' : 'text-neutral-800'}`}
+													class={`mt-0.5 block text-[11px] ${isSelectedOption ? 'text-primary-foreground-muted' : 'text-neutral-800'}`}
 												>
 													{option.rightDescription}
 												</span>

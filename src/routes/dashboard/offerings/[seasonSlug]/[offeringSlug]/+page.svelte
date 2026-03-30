@@ -3744,7 +3744,7 @@
 				<button
 					type="button"
 					class="inline-flex h-7 items-center justify-center gap-1 border border-primary-600 bg-primary-500 px-2.5 text-[11px] font-semibold leading-none cursor-pointer hover:bg-primary-600 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
-					style:color="var(--color-primary-05)"
+												style:color="var(--color-primary-foreground)"
 					disabled={divisionLockSubmittingId === activeDivisionLockTarget.division.id}
 					onclick={() => {
 						void toggleDivisionLock(activeDivisionLockTarget);

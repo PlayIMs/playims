@@ -87,6 +87,7 @@ Hybrid exceptions (explicitly allowed):
 ## Accessibility And Contrast Rules
 
 - On neutral backgrounds, use dark text (`text-neutral-950` / `text-neutral-900`).
+- On filled primary or secondary surfaces, use the shared contrast-aware foreground tokens (`text-primary-foreground`, `text-primary-foreground-muted`, `text-secondary-foreground`, `text-secondary-foreground-muted`) instead of assuming white text.
 - Avoid low-contrast neutral text for critical instructions.
 - Keep target sizes touch-usable, especially icon buttons and compact controls.
 - Keep iPad and mobile widths functional:

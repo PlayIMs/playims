@@ -275,6 +275,15 @@ Colors are applied as CSS custom properties:
 
 `src/app.css` is the single source of truth for shared UI primitives. Route files should rely on it and shared components instead of introducing page-local control or card systems for standard dashboard elements.
 
+Filled primary and secondary surfaces must use the shared contrast-aware foreground tokens instead of assuming light text:
+
+- `--color-primary-foreground`
+- `--color-primary-foreground-muted`
+- `--color-secondary-foreground`
+- `--color-secondary-foreground-muted`
+
+These tokens are derived from WCAG contrast checks, so bright theme colors like neon yellow automatically switch to dark text.
+
 ### Component Classes
 
 Form controls use theme-aware classes:
@@ -287,6 +296,15 @@ Form controls use theme-aware classes:
 - `textarea-primary`, `textarea-secondary`
 
 Use `secondary` as the default control family unless a specific control needs `primary` branding or a `neutral` exception.
+
+For filled primary or secondary surfaces, prefer the shared foreground utilities:
+
+- `text-primary-foreground`
+- `text-primary-foreground-muted`
+- `text-secondary-foreground`
+- `text-secondary-foreground-muted`
+
+Do not hardcode `text-primary-05`, `text-secondary-05`, or `text-white` on theme-colored surfaces unless a deliberate exception is documented.
 
 ## Authentication Context
 

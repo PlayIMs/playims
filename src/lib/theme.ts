@@ -70,12 +70,21 @@ type Rgb = {
 	b: number;
 };
 
+export type ThemeSurfaceTextTokens = {
+	foreground: string;
+	foregroundShade: '05' | '950';
+	muted: string;
+	mutedShade: '05' | '50' | '900' | '950';
+};
+
 const MAX_SAVED_THEMES = 15;
 const API_BASE = '/api/themes';
 export const CURRENT_THEME_STORAGE_KEY = 'playims:current-theme';
 export const BROWSER_THEME_COLOR_STORAGE_KEY = 'playims:theme-color';
 export const CURRENT_THEME_COOKIE_KEY = 'playims-current-theme';
 const HEX_COLOR_PATTERN = /^[0-9A-F]{6}$/;
+const WCAG_AA_NORMAL_TEXT_CONTRAST = 4.5;
+const CORE_FILLED_SURFACE_SHADES = ['400', '500', '600'] as const;
 let currentThemeETag: string | null = null;
 const THEME_API_PROTECTED_PREFIXES = ['/dashboard', '/schedule', '/colors'];
 let themeStoreSubscriptionInitialized = false;
@@ -96,7 +105,7 @@ export function formatHex(hex: string): string {
 
 /** returns the browser chrome color that should match the active primary theme color. */
 export function buildThemeColorHex(colors: Pick<ThemeColors, 'primary'> | null | undefined): string {
-	return formatHex(colors?.primary || DEFAULT_THEME.primary);
+	return formatHex(generatePalette(colors?.primary || DEFAULT_THEME.primary)['600']);
 }
 
 type StandalonePwaChromePrimaryInput = {
@@ -304,11 +313,16 @@ function getLuminance(r: number, g: number, b: number): number {
 	return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
 }
 
-/** determines if a color is light or dark based on luminance. */
-function isLightColor(hex: string): boolean {
-	const rgb = hexToRgb(hex);
-	const luminance = getLuminance(rgb.r, rgb.g, rgb.b);
-	return luminance > 0.5;
+/** calculates the wcag contrast ratio between two hex colors. */
+export function getContrastRatio(foregroundHex: string, backgroundHex: string): number {
+	const foreground = hexToRgb(foregroundHex);
+	const background = hexToRgb(backgroundHex);
+	const foregroundLuminance = getLuminance(foreground.r, foreground.g, foreground.b);
+	const backgroundLuminance = getLuminance(background.r, background.g, background.b);
+	const lighter = Math.max(foregroundLuminance, backgroundLuminance);
+	const darker = Math.min(foregroundLuminance, backgroundLuminance);
+
+	return (lighter + 0.05) / (darker + 0.05);
 }
 
 /** generates a full 05-950 palette for a base color (no '#'). */
@@ -339,20 +353,134 @@ export function generatePalette(baseHex: string): Record<string, string> {
 	};
 }
 
+function getMinimumShadeContrast(
+	themeColorPalette: Record<string, string>,
+	textShade: string,
+	backgroundShades: readonly string[]
+): number {
+	const textHex = themeColorPalette[textShade];
+	if (!textHex) {
+		return 0;
+	}
+
+	return backgroundShades.reduce((lowestContrast, backgroundShade) => {
+		const backgroundHex = themeColorPalette[backgroundShade];
+		if (!backgroundHex) {
+			return lowestContrast;
+		}
+
+		return Math.min(lowestContrast, getContrastRatio(textHex, backgroundHex));
+	}, Number.POSITIVE_INFINITY);
+}
+
+function pickBestContrastShade(
+	themeColorPalette: Record<string, string>,
+	candidateShades: readonly string[],
+	backgroundShades: readonly string[],
+	minimumContrast = WCAG_AA_NORMAL_TEXT_CONTRAST
+): string {
+	const scoredCandidates = candidateShades
+		.map((shade) => ({
+			shade,
+			minimumContrast: getMinimumShadeContrast(themeColorPalette, shade, backgroundShades)
+		}))
+		.sort((left, right) => {
+			const leftPasses = left.minimumContrast >= minimumContrast ? 1 : 0;
+			const rightPasses = right.minimumContrast >= minimumContrast ? 1 : 0;
+
+			if (leftPasses !== rightPasses) {
+				return rightPasses - leftPasses;
+			}
+
+			return right.minimumContrast - left.minimumContrast;
+		});
+
+	return scoredCandidates[0]?.shade ?? candidateShades[0] ?? '950';
+}
+
+/** resolves the semantic foreground tokens for filled theme surfaces using wcag contrast rules. */
+export function resolveThemeSurfaceTextTokens(
+	themeColorPalette: Record<string, string>,
+	options?: {
+		backgroundShades?: readonly string[];
+		minimumContrast?: number;
+	}
+): ThemeSurfaceTextTokens {
+	const backgroundShades = options?.backgroundShades ?? CORE_FILLED_SURFACE_SHADES;
+	const minimumContrast = options?.minimumContrast ?? WCAG_AA_NORMAL_TEXT_CONTRAST;
+	const foregroundShade = pickBestContrastShade(
+		themeColorPalette,
+		['05', '950'],
+		backgroundShades,
+		minimumContrast
+	) as ThemeSurfaceTextTokens['foregroundShade'];
+	const mutedShadeCandidates =
+		foregroundShade === '950' ? (['900', '950'] as const) : (['50', '05'] as const);
+	const mutedShade = pickBestContrastShade(
+		themeColorPalette,
+		mutedShadeCandidates,
+		backgroundShades,
+		minimumContrast
+	) as ThemeSurfaceTextTokens['mutedShade'];
+
+	return {
+		foregroundShade,
+		foreground: formatHex(themeColorPalette[foregroundShade] ?? themeColorPalette['950']),
+		mutedShade,
+		muted: formatHex(themeColorPalette[mutedShade] ?? themeColorPalette[foregroundShade])
+	};
+}
+
 /** gets a readable text color from a palette based on background color. */
 export function getReadableTextColor(
 	backgroundColorHex: string,
 	themeColorPalette: Record<string, string>
 ): string {
-	const hexWithHash = backgroundColorHex.startsWith('#')
-		? backgroundColorHex
-		: `#${backgroundColorHex}`;
-
-	const isLight = isLightColor(hexWithHash);
-	const shade = isLight ? '950' : '50';
+	const normalizedBackgroundHex = normalizeHex(backgroundColorHex);
+	const shade =
+		['05', '950']
+			.map((candidateShade) => ({
+				shade: candidateShade,
+				contrast: getContrastRatio(themeColorPalette[candidateShade], normalizedBackgroundHex)
+			}))
+			.sort((left, right) => right.contrast - left.contrast)[0]?.shade ?? '950';
 	const hexValue = themeColorPalette[shade] || themeColorPalette['500'];
 
-	return hexValue.startsWith('#') ? hexValue : `#${hexValue}`;
+	return formatHex(hexValue);
+}
+
+/** builds an rgb alpha string from a hex color for placeholders and overlays. */
+export function buildHexAlphaColor(hex: string, alpha: number): string {
+	const rgb = hexToRgb(hex);
+	return `rgb(${rgb.r} ${rgb.g} ${rgb.b} / ${alpha})`;
+}
+
+/** builds the full shared theme css variable map for server and client paint paths. */
+export function buildThemeCssVariables(colors: ThemeColors): Record<string, string> {
+	const primaryPalette = generatePalette(colors.primary);
+	const secondaryPalette = generatePalette(colors.secondary);
+	const neutralPalette =
+		colors.neutral && colors.neutral.trim() !== '' ? generatePalette(colors.neutral) : ZINC_PALETTE;
+	const primaryTextTokens = resolveThemeSurfaceTextTokens(primaryPalette);
+	const secondaryTextTokens = resolveThemeSurfaceTextTokens(secondaryPalette);
+	const cssVariables: Record<string, string> = {};
+
+	for (const [shade, value] of Object.entries(primaryPalette)) {
+		cssVariables[`--color-primary-${shade}`] = formatHex(value);
+	}
+	for (const [shade, value] of Object.entries(secondaryPalette)) {
+		cssVariables[`--color-secondary-${shade}`] = formatHex(value);
+	}
+	for (const [shade, value] of Object.entries(neutralPalette)) {
+		cssVariables[`--color-neutral-${shade}`] = formatHex(value);
+	}
+
+	cssVariables['--color-primary-foreground'] = primaryTextTokens.foreground;
+	cssVariables['--color-primary-foreground-muted'] = primaryTextTokens.muted;
+	cssVariables['--color-secondary-foreground'] = secondaryTextTokens.foreground;
+	cssVariables['--color-secondary-foreground-muted'] = secondaryTextTokens.muted;
+
+	return cssVariables;
 }
 
 /** validates that a color is not white, black, or grayscale. */
@@ -450,7 +578,7 @@ function persistThemeColorsToBrowserStorage(colors: ThemeColors) {
 		// ignore cookie failures; storage fallback still covers the current browser
 	}
 
-	persistBrowserThemeColor(colors.primary);
+	persistBrowserThemeColor(buildThemeColorHex(colors));
 }
 
 /** stores the exact browser chrome color so app.html can restore it before hydration. */
@@ -487,7 +615,7 @@ export function syncThemeColorMeta(primaryHex: string): void {
 		return;
 	}
 
-	const primary500WithHash = formatHex(primaryHex);
+	const primary500WithHash = buildThemeColorHex({ primary: primaryHex });
 	let themeColorMeta =
 		document.querySelector<HTMLMetaElement>('#theme-meta') ??
 		document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
@@ -502,42 +630,17 @@ export function syncThemeColorMeta(primaryHex: string): void {
 		themeColorMeta.setAttribute('content', primary500WithHash);
 	}
 
-	persistBrowserThemeColor(primaryHex);
+	persistBrowserThemeColor(primary500WithHash);
 }
 
 /** applies the theme to css variables on the document root. */
 function applyThemeToDOM(colors: ThemeColors, options?: { persist?: boolean }) {
 	const root = document.documentElement;
-
-	// generate and apply palettes for primary and secondary
-	const colorNames: ('primary' | 'secondary')[] = ['primary', 'secondary'];
-
-	for (const colorName of colorNames) {
-		const baseHex = colors[colorName];
-		const palette = generatePalette(baseHex);
-
-		// apply each shade to css variable
-		for (const [shade, hexValue] of Object.entries(palette)) {
-			const hexWithHash = hexValue.startsWith('#') ? hexValue : `#${hexValue}`;
-			root.style.setProperty(`--color-${colorName}-${shade}`, hexWithHash);
-		}
+	for (const [variableName, variableValue] of Object.entries(buildThemeCssVariables(colors))) {
+		root.style.setProperty(variableName, variableValue);
 	}
 
-	// apply neutral color (use zinc default if empty)
-	if (colors.neutral && colors.neutral.trim() !== '') {
-		const neutralPalette = generatePalette(colors.neutral);
-		for (const [shade, hexValue] of Object.entries(neutralPalette)) {
-			const hexWithHash = hexValue.startsWith('#') ? hexValue : `#${hexValue}`;
-			root.style.setProperty(`--color-neutral-${shade}`, hexWithHash);
-		}
-	} else {
-		for (const [shade, hexValue] of Object.entries(ZINC_PALETTE)) {
-			const hexWithHash = hexValue.startsWith('#') ? hexValue : `#${hexValue}`;
-			root.style.setProperty(`--color-neutral-${shade}`, hexWithHash);
-		}
-	}
-
-	// sync theme-color meta tag with primary-500
+	// sync theme-color meta tag with primary-600 for browser/pwa chrome
 	syncThemeColorMeta(colors.primary);
 
 	if (options?.persist !== false) {

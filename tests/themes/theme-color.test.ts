@@ -8,8 +8,8 @@ the server-rendered value must already match the active primary color, or the ti
 wrong brand color on refresh. These tests protect that small formatting rule directly.
 
 Summary of tests:
-1. It verifies that the active primary color becomes the theme-color hex value.
-2. It verifies that missing theme input falls back to the default PlayIMs primary color.
+1. It verifies that the active primary color becomes the theme-color `600` hex value.
+2. It verifies that missing theme input falls back to the default PlayIMs primary `600` color.
 3. It verifies that theme cache payloads are normalized when they are serialized.
 4. It verifies that malformed cached theme payloads are ignored safely.
 5. It verifies that persisted browser theme-color values are normalized independently of the full theme payload.
@@ -28,17 +28,17 @@ import {
 
 describe('theme color helper', () => {
 	it('formats the active primary color as a browser theme-color value', () => {
-		// this locks in the exact color string used for browser chrome and installed pwa title bars.
+		// this locks in the exact darker shade used for browser chrome and installed pwa title bars.
 		expect(
 			buildThemeColorHex({
 				primary: '4A90E2'
 			})
-		).toBe('#4A90E2');
+		).toBe('#4382CB');
 	});
 
 	it('falls back to the default primary color when no theme is available', () => {
 		// this keeps server rendering resilient if a page loads before tenant theme data is available.
-		expect(buildThemeColorHex(null)).toBe('#CE1126');
+		expect(buildThemeColorHex(null)).toBe('#B90F22');
 	});
 
 	it('serializes the active theme into normalized cache data', () => {
@@ -102,4 +102,5 @@ describe('theme color helper', () => {
 			})
 		).toBe('123456');
 	});
+
 });

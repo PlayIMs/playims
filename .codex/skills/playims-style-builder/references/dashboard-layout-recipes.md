@@ -26,7 +26,7 @@ Primary recipe:
 
 - Header wrapper: `border-2 border-neutral-950 bg-neutral p-5 space-y-4`
 - Top row: `flex items-start gap-4`
-- Icon tile: `bg-primary text-white w-11 h-11 flex items-center justify-center`
+- Icon tile: `bg-primary text-primary-foreground w-11 h-11 flex items-center justify-center`
 - Page title: `text-5xl lg:text-6xl leading-[0.9] font-bold font-serif text-neutral-950`
 
 When no icon tile is needed, keep the same heading rhythm and border shell.

@@ -210,7 +210,7 @@
 				bind:this={inputElement}
 				type="text"
 				bind:value={inputValue}
-				class="url-bar-input pwa-chrome-input pwa-window-no-drag px-3 h-8 flex-1 appearance-none border-0 bg-transparent p-0 text-sm focus:outline-none focus:ring-0"
+				class="url-bar-input pwa-chrome-input pwa-window-no-drag px-3 h-8 flex-1 appearance-none border-0 bg-black/5 transition-colors duration-300 focus:bg-black/10 p-0 text-sm focus:outline-none focus:ring-0"
 				aria-label="Page address"
 				autocapitalize="none"
 				autocomplete="off"
@@ -229,11 +229,11 @@
 <style>
 	.url-bar-input::selection {
 		background: var(--color-secondary-500);
-		color: var(--color-secondary-05);
+		color: var(--color-secondary-foreground);
 	}
 
 	.url-bar-input::-moz-selection {
 		background: var(--color-secondary-500);
-		color: var(--color-secondary-05);
+		color: var(--color-secondary-foreground);
 	}
 </style>

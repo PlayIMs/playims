@@ -231,6 +231,8 @@
 	--color-primary-800: var(--color-primary-800);
 	--color-primary-900: var(--color-primary-900);
 	--color-primary-950: var(--color-primary-950);
+	--color-primary-foreground: var(--color-primary-foreground);
+	--color-primary-foreground-muted: var(--color-primary-foreground-muted);
 
 	/* Dynamic Secondary Color */
 	--color-secondary-05: var(--color-secondary-05);
@@ -246,6 +248,8 @@
 	--color-secondary-800: var(--color-secondary-800);
 	--color-secondary-900: var(--color-secondary-900);
 	--color-secondary-950: var(--color-secondary-950);
+	--color-secondary-foreground: var(--color-secondary-foreground);
+	--color-secondary-foreground-muted: var(--color-secondary-foreground-muted);
 
 	/* Dynamic Neutral Color */
 	--color-neutral-05: var(--color-neutral-05);
@@ -768,7 +772,7 @@
 	:is(button, a).button-primary {
 		border-color: var(--color-primary-500);
 		background-color: var(--color-primary-500);
-		color: var(--color-primary-05);
+		color: var(--color-primary-foreground);
 	}
 
 	:is(button, a).button-primary:hover:not(:disabled) {
@@ -798,7 +802,7 @@
 	:is(button, a).button-secondary {
 		border-color: var(--color-secondary-500);
 		background-color: var(--color-secondary-500);
-		color: var(--color-secondary-05);
+		color: var(--color-secondary-foreground);
 	}
 
 	:is(button, a).button-secondary:hover:not(:disabled) {
@@ -967,13 +971,13 @@
 
 	.listbox-dropdown-option-selected {
 		background-color: var(--color-primary-500);
-		color: var(--color-primary-05);
+		color: var(--color-primary-foreground);
 		font-weight: 700;
 	}
 
 	.listbox-dropdown-option-selected-active {
 		background-color: var(--color-primary-400);
-		color: var(--color-primary-05);
+		color: var(--color-primary-foreground);
 		font-weight: 700;
 	}
 
@@ -1037,7 +1041,7 @@
 	.pagination-button-active {
 		border-color: var(--color-primary-600);
 		background-color: var(--color-primary-500);
-		color: white;
+		color: var(--color-primary-foreground);
 	}
 
 	.section-card {
@@ -1087,7 +1091,7 @@
 	.badge-primary {
 		border-color: var(--color-primary-500);
 		background-color: var(--color-primary-500);
-		color: var(--color-primary-05);
+		color: var(--color-primary-foreground);
 	}
 
 	.badge-primary-outlined {
@@ -1099,7 +1103,7 @@
 	.badge-secondary {
 		border-color: var(--color-secondary-500);
 		background-color: var(--color-secondary-500);
-		color: var(--color-secondary-05);
+		color: var(--color-secondary-foreground);
 	}
 
 	.badge-secondary-outlined {
@@ -1221,14 +1225,12 @@
 	/* Background color utilities that default to 500 */
 	.bg-primary {
 		background-color: var(--color-primary-500);
+		color: var(--color-primary-foreground);
 	}
 
 	.bg-secondary {
 		background-color: var(--color-secondary-500);
-	}
-
-	.bg-secondary {
-		background-color: var(--color-secondary-500);
+		color: var(--color-secondary-foreground);
 	}
 
 	.bg-neutral {
@@ -1252,6 +1254,22 @@
 		color: var(--color-neutral-500);
 	}
 
+	.text-primary-foreground {
+		color: var(--color-primary-foreground);
+	}
+
+	.text-primary-foreground-muted {
+		color: var(--color-primary-foreground-muted);
+	}
+
+	.text-secondary-foreground {
+		color: var(--color-secondary-foreground);
+	}
+
+	.text-secondary-foreground-muted {
+		color: var(--color-secondary-foreground-muted);
+	}
+
 	/* Border color utilities that default to 500 */
 	.border-primary {
 		border-color: var(--color-primary-500);
@@ -1267,6 +1285,54 @@
 
 	.border-neutral {
 		border-color: var(--color-neutral-500);
+	}
+
+	:where(
+		.bg-primary,
+		.bg-primary-400,
+		.bg-primary-500,
+		.bg-primary-600,
+		.bg-primary-700,
+		.bg-primary-800,
+		.bg-primary-900,
+		.bg-primary-950
+	):is(.text-white, .text-primary-05, .text-primary-25, .text-primary-50, .text-primary-100),
+	:where(
+		.bg-primary,
+		.bg-primary-400,
+		.bg-primary-500,
+		.bg-primary-600,
+		.bg-primary-700,
+		.bg-primary-800,
+		.bg-primary-900,
+		.bg-primary-950
+	)
+		:is(.text-white, .text-primary-05, .text-primary-25, .text-primary-50, .text-primary-100) {
+		color: var(--color-primary-foreground) !important;
+	}
+
+	:where(
+		.bg-secondary,
+		.bg-secondary-400,
+		.bg-secondary-500,
+		.bg-secondary-600,
+		.bg-secondary-700,
+		.bg-secondary-800,
+		.bg-secondary-900,
+		.bg-secondary-950
+	):is(.text-white, .text-secondary-05, .text-secondary-25, .text-secondary-50, .text-secondary-100),
+	:where(
+		.bg-secondary,
+		.bg-secondary-400,
+		.bg-secondary-500,
+		.bg-secondary-600,
+		.bg-secondary-700,
+		.bg-secondary-800,
+		.bg-secondary-900,
+		.bg-secondary-950
+	)
+		:is(.text-white, .text-secondary-05, .text-secondary-25, .text-secondary-50, .text-secondary-100) {
+		color: var(--color-secondary-foreground) !important;
 	}
 }
 
@@ -1284,7 +1350,9 @@
 			input[type='month'],
 			input[type='week'],
 			input[type='time']
-		):not(.input-primary):not(.input-secondary):not(.input-neutral):not(.input-error),
+		):not(.input-primary):not(.input-secondary):not(.input-neutral):not(.input-error):not(
+			.pwa-chrome-input
+		),
 	textarea:not(.textarea-primary):not(.textarea-secondary),
 	select:not(.select-primary):not(.select-secondary) {
 		width: 100%;
@@ -1324,7 +1392,9 @@
 			input[type='month'],
 			input[type='week'],
 			input[type='time']
-		):not(.input-primary):not(.input-secondary):not(.input-neutral):not(.input-error):focus,
+		):not(.input-primary):not(.input-secondary):not(.input-neutral):not(.input-error):not(
+			.pwa-chrome-input
+		):focus,
 	textarea:not(.textarea-primary):not(.textarea-secondary):focus,
 	select:not(.select-primary):not(.select-secondary):focus {
 		outline: 1px solid var(--color-primary-500) !important;
@@ -1338,6 +1408,16 @@
 	select:not(.select-primary):not(.select-secondary) option {
 		background-color: white;
 		color: var(--color-primary-950);
+	}
+
+	.pwa-chrome-input,
+	.pwa-chrome-input:focus,
+	.pwa-chrome-input:focus-visible {
+		outline: none !important;
+		border-color: transparent !important;
+		box-shadow: none !important;
+		--tw-ring-color: transparent !important;
+		--tw-ring-shadow: 0 0 #0000 !important;
 	}
 }
 
@@ -1376,6 +1456,14 @@
 		.bg-primary-800,
 		.bg-primary-900,
 		.bg-primary-950,
+		.button-primary,
+		.toast-primary,
+		.alert-primary
+	) {
+		--playims-focus-color: var(--color-primary-foreground);
+	}
+
+	:is(
 		.bg-secondary,
 		.bg-secondary-05,
 		.bg-secondary-25,
@@ -1390,16 +1478,11 @@
 		.bg-secondary-800,
 		.bg-secondary-900,
 		.bg-secondary-950,
-		.button-primary,
 		.button-secondary,
-		.button-error,
-		.button-warning,
-		.toast-primary,
 		.toast-secondary,
-		.alert-primary,
 		.alert-secondary
 	) {
-		--playims-focus-color: var(--color-neutral-05);
+		--playims-focus-color: var(--color-secondary-foreground);
 	}
 
 	:where(button, a[href], summary, [role='button'], [tabindex]:not([tabindex='-1'])):focus-visible {

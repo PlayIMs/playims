@@ -77,8 +77,8 @@ Use this as a quick copy/paste matrix. Prefer these recipes before inventing new
 | Compact action list panel           | `mt-1 w-44 border-2 border-neutral-950 bg-white z-20`                                                                          |
 | Compact option row                  | `w-full text-left px-3 py-2 text-sm text-neutral-900 cursor-pointer`                                                           |
 | Active compact option               | `bg-neutral-100 text-neutral-900`                                                                                              |
-| Selected compact option             | `bg-primary text-primary-05 font-semibold`                                                                                     |
-| Selected hovered option             | `bg-primary-400 text-primary-05 font-semibold`                                                                                 |
+| Selected compact option             | `bg-primary text-primary-foreground font-semibold`                                                                             |
+| Selected hovered option             | `bg-primary-400 text-primary-foreground font-semibold`                                                                         |
 | Footer primary action               | `w-full button-primary-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer justify-center`             |
 | Footer secondary action             | `button-secondary-outlined px-2 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer justify-center`                  |
 

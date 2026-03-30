@@ -87,12 +87,12 @@
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 sm:py-32">
 			<div class="text-center">
 				<h1 class="text-5xl sm:text-6xl lg:text-7xl font-bold mb-6">
-					Play<span class="text-primary-50">IMs</span>
+					Play<span class="text-primary-foreground">IMs</span>
 				</h1>
 				<p class="text-xl sm:text-2xl mb-4 text-primary-25 font-medium">
 					The next-generation platform for managing intramural sports leagues
 				</p>
-				<p class="text-lg sm:text-xl mb-8 text-primary-50 max-w-3xl mx-auto">
+				<p class="text-lg sm:text-xl mb-8 text-primary-foreground-muted max-w-3xl mx-auto">
 					Built from the ground up to be more intuitive, easier to use, and more powerful than
 					existing solutions. Designed for both administrators and players who deserve better.
 				</p>
@@ -280,7 +280,7 @@
 			<h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-primary-25 mb-4">
 				Ready for Something Better?
 			</h2>
-			<p class="text-lg sm:text-xl text-primary-50 mb-8 max-w-2xl mx-auto">
+			<p class="text-lg sm:text-xl text-primary-foreground-muted mb-8 max-w-2xl mx-auto">
 				We're building the intramural sports management platform you've been waiting for. One that's
 				actually intuitive, genuinely easy to use, and designed for real people—not just feature
 				checklists.

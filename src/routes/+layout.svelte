@@ -56,22 +56,9 @@
 	let pwaHistoryEntries = $state<PwaHistoryEntry[]>([]);
 	// render css vars on the server so first paint already uses the active theme
 	const buildThemeVarsCss = (colors: theme.ThemeColors) => {
-		const primary = theme.generatePalette(colors.primary);
-		const secondary = theme.generatePalette(colors.secondary);
-		const neutral =
-			colors.neutral && colors.neutral.trim() !== ''
-				? theme.generatePalette(colors.neutral)
-				: theme.ZINC_PALETTE;
-
-		const toCssVars = (
-			name: 'primary' | 'secondary' | 'neutral',
-			palette: Record<string, string>
-		) =>
-			Object.entries(palette)
-				.map(([shade, value]) => `--color-${name}-${shade}:#${value};`)
-				.join('');
-
-		return `:root{${toCssVars('primary', primary)}${toCssVars('secondary', secondary)}${toCssVars('neutral', neutral)}}`;
+		return `:root{${Object.entries(theme.buildThemeCssVariables(colors))
+			.map(([variableName, value]) => `${variableName}:${value};`)
+			.join('')}}`;
 	};
 	let initialThemeVarsCss = $derived(buildThemeVarsCss(initialTheme));
 	let initialPwaChromePrimary = $derived.by(
@@ -278,12 +265,16 @@
 			initialPwaChromePrimary
 		});
 		const chromePalette = theme.generatePalette(chromePrimary);
+		const chromeTextTokens = theme.resolveThemeSurfaceTextTokens(chromePalette);
 		const chromePrimaryHex = theme.formatHex(chromePrimary);
 
 		root.style.setProperty('--pwa-chrome-500', chromePrimaryHex);
 		root.style.setProperty('--pwa-chrome-600', theme.formatHex(chromePalette['600']));
-		root.style.setProperty('--pwa-chrome-foreground', '#FFFFFF');
-		root.style.setProperty('--pwa-chrome-placeholder', 'rgb(255 255 255 / 0.72)');
+		root.style.setProperty('--pwa-chrome-foreground', chromeTextTokens.foreground);
+		root.style.setProperty(
+			'--pwa-chrome-placeholder',
+			theme.buildHexAlphaColor(chromeTextTokens.foreground, 0.72)
+		);
 		theme.syncThemeColorMeta(chromePrimary);
 	};
 
@@ -618,6 +609,82 @@
 				};
 			};
 
+			const getLuminance = (hex) => {
+				const color = hexToRgb(hex);
+				const channels = [color.r, color.g, color.b].map((value) => {
+					const normalized = value / 255;
+					return normalized <= 0.03928
+						? normalized / 12.92
+						: Math.pow((normalized + 0.055) / 1.055, 2.4);
+				});
+
+				return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+			};
+
+			const getContrastRatio = (foregroundHex, backgroundHex) => {
+				const foreground = getLuminance(foregroundHex);
+				const background = getLuminance(backgroundHex);
+				const lighter = Math.max(foreground, background);
+				const darker = Math.min(foreground, background);
+
+				return (lighter + 0.05) / (darker + 0.05);
+			};
+
+			const getMinimumShadeContrast = (palette, textShade, backgroundShades) => {
+				const textHex = palette[textShade];
+				if (!textHex) {
+					return 0;
+				}
+
+				return backgroundShades.reduce((lowestContrast, backgroundShade) => {
+					const backgroundHex = palette[backgroundShade];
+					if (!backgroundHex) {
+						return lowestContrast;
+					}
+
+					return Math.min(lowestContrast, getContrastRatio(textHex, backgroundHex));
+				}, Number.POSITIVE_INFINITY);
+			};
+
+			const pickBestContrastShade = (palette, candidateShades, backgroundShades, minimumContrast = 4.5) => {
+				return (
+					candidateShades
+						.map((shade) => ({
+							shade,
+							minimumContrast: getMinimumShadeContrast(palette, shade, backgroundShades)
+						}))
+						.sort((left, right) => {
+							const leftPasses = left.minimumContrast >= minimumContrast ? 1 : 0;
+							const rightPasses = right.minimumContrast >= minimumContrast ? 1 : 0;
+
+							if (leftPasses !== rightPasses) {
+								return rightPasses - leftPasses;
+							}
+
+							return right.minimumContrast - left.minimumContrast;
+						})[0]?.shade ?? candidateShades[0]
+				);
+			};
+
+			const resolveSurfaceTextTokens = (palette) => {
+				const backgroundShades = ['400', '500', '600'];
+				const foregroundShade = pickBestContrastShade(palette, ['05', '950'], backgroundShades);
+				const mutedShade =
+					foregroundShade === '950'
+						? pickBestContrastShade(palette, ['900', '950'], backgroundShades)
+						: pickBestContrastShade(palette, ['50', '05'], backgroundShades);
+
+				return {
+					foreground: '#' + palette[foregroundShade],
+					muted: '#' + palette[mutedShade]
+				};
+			};
+
+			const buildHexAlphaColor = (hex, alpha) => {
+				const color = hexToRgb(hex);
+				return `rgb(${color.r} ${color.g} ${color.b} / ${alpha})`;
+			};
+
 			function buildInlineThemeScript(themeInput, zincPaletteInput) {
 				const root = document.documentElement;
 				const primary = generatePalette(themeInput.primary);
@@ -626,6 +693,8 @@
 					themeInput.neutral && themeInput.neutral.trim() !== ''
 						? generatePalette(themeInput.neutral)
 						: zincPaletteInput;
+				const primaryTextTokens = resolveSurfaceTextTokens(primary);
+				const secondaryTextTokens = resolveSurfaceTextTokens(secondary);
 
 				for (const [shade, value] of Object.entries(primary)) {
 					root.style.setProperty('--color-primary-' + shade, '#' + value);
@@ -636,6 +705,10 @@
 				for (const [shade, value] of Object.entries(neutral)) {
 					root.style.setProperty('--color-neutral-' + shade, '#' + value);
 				}
+				root.style.setProperty('--color-primary-foreground', primaryTextTokens.foreground);
+				root.style.setProperty('--color-primary-foreground-muted', primaryTextTokens.muted);
+				root.style.setProperty('--color-secondary-foreground', secondaryTextTokens.foreground);
+				root.style.setProperty('--color-secondary-foreground-muted', secondaryTextTokens.muted);
 			}
 
 			const defaultTheme = {
@@ -758,10 +831,14 @@
 					? storedBrowserThemeColor ?? (shouldPreferStoredTheme ? storedTheme.primary : initialPwaChromePrimary)
 					: initialPwaChromePrimary;
 			const chromePalette = generatePalette(chromePrimary);
+			const chromeTextTokens = resolveSurfaceTextTokens(chromePalette);
 			root.style.setProperty('--pwa-chrome-500', '#' + chromePrimary);
 			root.style.setProperty('--pwa-chrome-600', '#' + chromePalette['600']);
-			root.style.setProperty('--pwa-chrome-foreground', '#FFFFFF');
-			root.style.setProperty('--pwa-chrome-placeholder', 'rgb(255 255 255 / 0.72)');
+			root.style.setProperty('--pwa-chrome-foreground', chromeTextTokens.foreground);
+			root.style.setProperty(
+				'--pwa-chrome-placeholder',
+				buildHexAlphaColor(chromeTextTokens.foreground, 0.72)
+			);
 		})();
 	</script>
 	<meta name="theme-etag" content={themeEtag} />

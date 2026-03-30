@@ -233,7 +233,7 @@
 		return Array.isArray(alerts) ? alerts.length : 0;
 	});
 	const utilityButtonClass =
-		'flex h-10 w-10 items-center justify-center border border-primary-300 text-primary-50 transition-colors duration-150';
+		'flex h-10 w-10 items-center justify-center border border-primary-300 text-primary-foreground transition-colors duration-150';
 	const utilityButtonDisabledClass = 'cursor-not-allowed opacity-70';
 	const topBarUtilityButtonClass =
 		'pwa-chrome-action flex h-8 w-8 items-center justify-center transition-colors duration-150';
@@ -1055,7 +1055,7 @@
 											item.href
 										)
 											? 'bg-primary-600 border-l-4 border-neutral-500 text-white'
-											: 'text-primary-100 hover:bg-primary-600 hover:text-white border-l-4 border-transparent'} {item.href ===
+											: 'text-primary-100 hover:bg-primary-600 hover:text-primary-foreground border-l-4 border-transparent'} {item.href ===
 										'#'
 											? 'opacity-70 pointer-events-none'
 											: ''}"
@@ -1104,7 +1104,7 @@
 											href={notificationsHref}
 											class="{utilityButtonClass} relative cursor-pointer {isNotificationsRoute
 												? 'bg-primary-600 text-white'
-												: 'hover:bg-primary-600 hover:text-white'}"
+												: 'hover:bg-primary-600 hover:text-primary-foreground'}"
 											aria-current={isNotificationsRoute ? 'page' : undefined}
 										>
 											<IconBell class="w-5 h-5" />
@@ -1123,7 +1123,7 @@
 												type="button"
 												class="{utilityButtonClass} {isViewRoleButtonDisabled
 													? utilityButtonDisabledClass
-													: 'cursor-pointer hover:bg-primary-600 hover:text-white'}"
+													: 'cursor-pointer hover:bg-primary-600 hover:text-primary-foreground'}"
 												aria-label="View as role"
 												disabled={isViewRoleButtonDisabled}
 												onclick={openRoleWizard}
@@ -1140,7 +1140,7 @@
 											type="button"
 											class="{utilityButtonClass} {isOrganizationButtonDisabled
 												? utilityButtonDisabledClass
-												: 'cursor-pointer hover:bg-primary-600 hover:text-white'}"
+												: 'cursor-pointer hover:bg-primary-600 hover:text-primary-foreground'}"
 											aria-label="Switch organization"
 											disabled={isOrganizationButtonDisabled}
 											onclick={openOrganizationWizard}
@@ -1153,7 +1153,7 @@
 									href={accountHref}
 									class="w-full min-w-0 px-3 py-3 flex items-center gap-3 border-l-4 transition-colors duration-150 cursor-pointer {isAccountRoute
 										? 'bg-primary-600 border-neutral-500 text-white'
-										: 'border-transparent text-primary-100 hover:bg-primary-600 hover:text-white'}"
+										: 'border-transparent text-primary-100 hover:bg-primary-600 hover:text-primary-foreground'}"
 									aria-current={isAccountRoute ? 'page' : undefined}
 								>
 									<IconUser class="w-5 h-5 shrink-0" />
@@ -1190,7 +1190,7 @@
 										href={notificationsHref}
 										class="{utilityButtonClass} relative cursor-pointer {isNotificationsRoute
 											? 'bg-primary-600 text-white'
-											: 'hover:bg-primary-600 hover:text-white'}"
+											: 'hover:bg-primary-600 hover:text-primary-foreground'}"
 										aria-current={isNotificationsRoute ? 'page' : undefined}
 									>
 										<IconBell class="w-5 h-5" />
@@ -1208,7 +1208,7 @@
 										href={accountHref}
 										class="flex h-10 w-10 items-center justify-center border transition-colors duration-150 cursor-pointer {isAccountRoute
 											? 'border-primary-100 bg-primary-600 text-white'
-											: 'border-primary-300 text-primary-50 hover:bg-primary-600 hover:text-white'}"
+											: 'border-primary-300 text-primary-foreground hover:bg-primary-600 hover:text-primary-foreground'}"
 										aria-current={isAccountRoute ? 'page' : undefined}
 									>
 										<IconUser class="w-5 h-5" />
