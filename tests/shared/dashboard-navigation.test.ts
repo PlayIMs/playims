@@ -12,8 +12,9 @@ Summary of tests:
 1. It verifies that normal navigation ordering still returns every default dashboard item.
 2. It verifies that participant permission snapshots hide management-oriented sidebar links.
 3. It verifies that manager permission snapshots keep the full sidebar list.
-4. It verifies that participant permission snapshots lose access to management routes while keeping club sports available.
-5. It verifies that developer-only routes reject non-developer snapshots.
+4. It verifies that the communication center navigation entry points at the real dashboard route.
+5. It verifies that participant permission snapshots lose access to management routes and keep safe pages.
+6. It verifies that developer-only routes reject non-developer snapshots.
 */
 
 import { describe, expect, it } from 'vitest';
@@ -73,6 +74,14 @@ describe('dashboard navigation helper', () => {
 		expect(items.map((item) => item.key)).toContain('memberManagement');
 		expect(items.map((item) => item.key)).toContain('settings');
 		expect(items).toHaveLength(12);
+	});
+
+	it('points the communication center navigation entry at the real route', () => {
+		// the sidebar item should now route into the new page instead of a placeholder hash.
+		const items = orderDashboardNavigationItems();
+		const communicationItem = items.find((item) => item.key === 'communicationCenter');
+
+		expect(communicationItem?.href).toBe('/dashboard/communications');
 	});
 
 	it('denies participant access to restricted dashboard routes while keeping safe routes available', () => {

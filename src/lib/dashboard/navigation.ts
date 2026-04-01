@@ -11,7 +11,7 @@ export const DASHBOARD_NAV_ITEMS = [
 	{
 		key: 'communicationCenter',
 		defaultLabel: 'Communication Center',
-		href: '#'
+		href: '/dashboard/communications'
 	},
 	{ key: 'facilities', defaultLabel: 'Facilities', href: '/dashboard/facilities' },
 	{ key: 'equipmentCheckout', defaultLabel: 'Equipment Checkout', href: '#' },
@@ -53,6 +53,7 @@ const NAV_ITEM_PERMISSION: Record<DashboardNavKey, string> = {
 const DASHBOARD_ROUTE_PERMISSIONS: Array<{ prefix: string; permission: string }> = [
 	{ prefix: '/dashboard/members', permission: 'VIEW_MEMBER_MANAGEMENT' },
 	{ prefix: '/dashboard/facilities', permission: 'VIEW_FACILITIES' },
+	{ prefix: '/dashboard/communications', permission: 'VIEW_COMMUNICATION_CENTER' },
 	{ prefix: '/dashboard/payments', permission: 'VIEW_PAYMENTS' },
 	{ prefix: '/dashboard/forms', permission: 'VIEW_FORMS' },
 	{ prefix: '/dashboard/reports', permission: 'VIEW_REPORTS' },

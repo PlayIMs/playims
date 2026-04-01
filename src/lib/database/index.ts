@@ -74,7 +74,13 @@ export type {
 	AuthRateLimit,
 	NewAuthRateLimit,
 	SearchRecent,
-	NewSearchRecent
+	NewSearchRecent,
+	CommunicationMessage,
+	NewCommunicationMessage,
+	CommunicationMessageBatch,
+	NewCommunicationMessageBatch,
+	CommunicationMessageRecipient,
+	NewCommunicationMessageRecipient
 } from './schema/index.js';
 
 /**

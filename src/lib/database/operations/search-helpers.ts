@@ -33,7 +33,7 @@ export const buildSearchRelevanceExpression = (
 ): SQL<number> => {
 	const normalizedQuery = normalizeSearchText(query);
 	if (!normalizedQuery) {
-		return sql<number>`0`;
+		return sql<number>`case when 1 = 1 then 0 end`;
 	}
 
 	const exactQuery = normalizedQuery;

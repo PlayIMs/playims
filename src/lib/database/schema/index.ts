@@ -33,3 +33,6 @@ export * from './user-clients';
 export * from './signup-invite-keys';
 export * from './auth-rate-limits';
 export * from './search-recents';
+export * from './communication-messages';
+export * from './communication-message-batches';
+export * from './communication-message-recipients';

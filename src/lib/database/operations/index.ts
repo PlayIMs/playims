@@ -33,6 +33,7 @@ import { ClientNavigationLabelOperations } from './client-navigation-labels.js';
 import { SignupInviteKeyOperations } from './signup-invite-keys.js';
 import { AuthRateLimitOperations } from './auth-rate-limits.js';
 import { SearchRecentOperations } from './search-recents.js';
+import { CommunicationOperations } from './communications.js';
 
 const isD1Database = (value: unknown): value is D1Database =>
 	typeof value === 'object' &&
@@ -75,6 +76,7 @@ export class DatabaseOperations {
 	public signupInviteKeys: SignupInviteKeyOperations;
 	public authRateLimits: AuthRateLimitOperations;
 	public searchRecents: SearchRecentOperations;
+	public communications: CommunicationOperations;
 
 	constructor(platformOrDb: { env: { DB: D1Database } } | D1Database, drizzleOptions?: CreateDrizzleClientOptions) {
 		let db: D1Database;
@@ -103,7 +105,6 @@ export class DatabaseOperations {
 		this.users = new UserOperations(drizzleDb);
 		this.offerings = new OfferingOperations(drizzleDb);
 		this.seasons = new SeasonOperations(drizzleDb);
-		this.leagues = new LeagueOperations(drizzleDb);
 		this.clubSportsSeasons = new ClubSeasonOperations(drizzleDb);
 		this.clubSportsClubs = new ClubOperations(drizzleDb);
 		this.clubSportsLeagues = new ClubLeagueOperations(drizzleDb);
@@ -112,6 +113,7 @@ export class DatabaseOperations {
 		this.clubSportsOfficerTitles = new ClubOfficerTitleOperations(drizzleDb);
 		this.clubSportsOfficerAssignments = new ClubOfficerAssignmentOperations(drizzleDb);
 		this.clubSportsEvents = new ClubEventOperations(drizzleDb);
+		this.leagues = new LeagueOperations(drizzleDb);
 		this.divisions = new DivisionOperations(drizzleDb);
 		this.divisionStandings = new DivisionStandingsOperations(drizzleDb);
 		this.teams = new TeamOperations(drizzleDb);
@@ -129,6 +131,7 @@ export class DatabaseOperations {
 		this.signupInviteKeys = new SignupInviteKeyOperations(drizzleDb);
 		this.authRateLimits = new AuthRateLimitOperations(drizzleDb);
 		this.searchRecents = new SearchRecentOperations(drizzleDb);
+		this.communications = new CommunicationOperations(drizzleDb);
 	}
 }
 
@@ -137,8 +140,6 @@ export { ClientOperations } from './clients.js';
 export { UserOperations } from './users.js';
 export { OfferingOperations } from './offerings.js';
 export { SeasonOperations } from './seasons.js';
-export { LeagueOperations } from './leagues.js';
-export { DivisionOperations } from './divisions.js';
 export { ClubSeasonOperations } from './club-seasons.js';
 export { ClubOperations } from './clubs.js';
 export { ClubLeagueOperations } from './club-leagues.js';
@@ -147,6 +148,8 @@ export { ClubTeamRosterOperations } from './club-team-rosters.js';
 export { ClubOfficerTitleOperations } from './club-officer-titles.js';
 export { ClubOfficerAssignmentOperations } from './club-officer-assignments.js';
 export { ClubEventOperations } from './club-events.js';
+export { LeagueOperations } from './leagues.js';
+export { DivisionOperations } from './divisions.js';
 export { DivisionStandingsOperations } from './division-standings.js';
 export { TeamOperations } from './teams.js';
 export { RosterOperations } from './rosters.js';
@@ -163,3 +166,4 @@ export { ClientNavigationLabelOperations } from './client-navigation-labels.js';
 export { SignupInviteKeyOperations } from './signup-invite-keys.js';
 export { AuthRateLimitOperations } from './auth-rate-limits.js';
 export { SearchRecentOperations } from './search-recents.js';
+export { CommunicationOperations } from './communications.js';
