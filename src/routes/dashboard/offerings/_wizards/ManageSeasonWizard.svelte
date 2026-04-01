@@ -28,6 +28,8 @@
 		isActive: boolean;
 	}
 
+	type SeasonHistorySeason = SeasonOption;
+
 	interface ManageSeasonResponse {
 		success: boolean;
 		data?: {
@@ -77,9 +79,7 @@
 	let nameInput = $state<HTMLInputElement | null>(null);
 	let lastToastSignature = $state('');
 
-	const sortedSeasons = $derived.by(() =>
-		[...seasons].sort((a, b) => b.startDate.localeCompare(a.startDate))
-	);
+	const sortedSeasons = $derived.by(() => [...seasons].sort(compareSeasonHistoryOrder));
 	const filteredSeasons = $derived.by(() => {
 		const term = seasonSearchTerm.trim().toLowerCase();
 		if (!term) return sortedSeasons;
@@ -243,6 +243,21 @@
 		const seasonStart = (season.startDate || '').trim();
 		if (!seasonStart) return 'Past';
 		return seasonStart > getTodayIsoDate() ? 'Future' : 'Past';
+	}
+
+	function seasonHistoryRank(season: SeasonHistorySeason): number {
+		if (season.isCurrent) return 1;
+		return season.startDate > getTodayIsoDate() ? 0 : 2;
+	}
+
+	function compareSeasonHistoryOrder(a: SeasonHistorySeason, b: SeasonHistorySeason): number {
+		const rankDiff = seasonHistoryRank(a) - seasonHistoryRank(b);
+		if (rankDiff !== 0) return rankDiff;
+
+		const startDateDiff = b.startDate.localeCompare(a.startDate);
+		if (startDateDiff !== 0) return startDateDiff;
+
+		return a.name.localeCompare(b.name);
 	}
 
 	function formatDateForDisplay(value: string | null | undefined): string {

@@ -132,6 +132,8 @@
 		closedCount: number;
 	}
 
+	type SeasonHistorySeason = PageData['seasons'][number];
+
 	interface OfferingTimelineOfferingBucket {
 		key: string;
 		offeringName: string;
@@ -520,12 +522,26 @@
 		return parsed;
 	}
 
-	function seasonStatusLabelForHistory(
-		season: PageData['seasons'][number]
-	): 'CURRENT' | 'PAST' | 'FUTURE' {
+	function seasonStatusLabelForHistory(season: SeasonHistorySeason): 'CURRENT' | 'PAST' | 'FUTURE' {
 		if (season.isCurrent) return 'CURRENT';
 		const today = todayDateString();
 		return season.startDate > today ? 'FUTURE' : 'PAST';
+	}
+
+	function seasonHistoryRank(season: SeasonHistorySeason): number {
+		if (season.isCurrent) return 1;
+		const today = todayDateString();
+		return season.startDate > today ? 0 : 2;
+	}
+
+	function compareSeasonHistoryOrder(a: SeasonHistorySeason, b: SeasonHistorySeason): number {
+		const rankDiff = seasonHistoryRank(a) - seasonHistoryRank(b);
+		if (rankDiff !== 0) return rankDiff;
+
+		const startDateDiff = b.startDate.localeCompare(a.startDate);
+		if (startDateDiff !== 0) return startDateDiff;
+
+		return a.name.localeCompare(b.name);
 	}
 
 	function seasonEndDateFromStart(startDate: string): string {
@@ -933,7 +949,7 @@
 	});
 
 	$effect(() => {
-		seasons = [...(data.seasons ?? [])].sort((a, b) => b.startDate.localeCompare(a.startDate));
+		seasons = [...(data.seasons ?? [])].sort(compareSeasonHistoryOrder);
 	});
 
 	$effect(() => {
@@ -2561,7 +2577,7 @@
 				isCurrent: createdSeason.isCurrent,
 				isActive: createdSeason.isActive
 			});
-			seasons = mergedSeasons.sort((a, b) => b.startDate.localeCompare(a.startDate));
+			seasons = mergedSeasons.sort(compareSeasonHistoryOrder);
 
 			selectedSeasonId = createdSeason.id;
 
@@ -4209,9 +4225,7 @@
 			divisionCount
 		};
 	});
-	const seasonHistory = $derived.by(() =>
-		[...seasons].sort((a, b) => b.startDate.localeCompare(a.startDate))
-	);
+	const seasonHistory = $derived.by(() => [...seasons].sort(compareSeasonHistoryOrder));
 	const activeSeasonHistory = $derived.by(() => seasonHistory.filter((season) => season.isActive));
 	const offeringViewDropdownOptions = $derived.by<DropdownOption[]>(() => [
 		{ value: 'leagues', label: 'Leagues' },
@@ -4235,7 +4249,7 @@
 	]);
 	const seasonDropdownOptions = $derived.by<DropdownOption[]>(() => [
 		{ value: '', label: 'Select season...' },
-		...seasons.map((season) => ({
+		...seasonHistory.map((season) => ({
 			value: season.id,
 			label: season.name,
 			statusLabel: seasonStatusLabelForHistory(season)
