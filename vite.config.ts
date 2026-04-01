@@ -42,7 +42,7 @@ export default defineConfig({
 		})
 	],
 	optimizeDeps: {
-		include: ['@tabler/icons-svelte']
+		include: ['@tabler/icons-svelte', 'date-fns']
 	},
 	ssr: {
 		noExternal: ['@tabler/icons-svelte']
