@@ -6,7 +6,7 @@ export const DASHBOARD_NAV_ITEMS = [
 		defaultLabel: 'Intramural Offerings',
 		href: '/dashboard/offerings'
 	},
-	{ key: 'clubSports', defaultLabel: 'Club Sports', href: '#' },
+	{ key: 'clubSports', defaultLabel: 'Club Sports', href: '/dashboard/clubs' },
 	{ key: 'memberManagement', defaultLabel: 'Member Management', href: '/dashboard/members' },
 	{
 		key: 'communicationCenter',
@@ -58,6 +58,7 @@ const DASHBOARD_ROUTE_PERMISSIONS: Array<{ prefix: string; permission: string }>
 	{ prefix: '/dashboard/reports', permission: 'VIEW_REPORTS' },
 	{ prefix: '/dashboard/settings', permission: 'VIEW_SETTINGS' },
 	{ prefix: '/dashboard/offerings', permission: 'VIEW_OFFERINGS' },
+	{ prefix: '/dashboard/clubs', permission: 'VIEW_CLUB_SPORTS' },
 	{ prefix: '/dashboard/schedule', permission: 'VIEW_SCHEDULE' }
 ];
 

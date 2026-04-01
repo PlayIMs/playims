@@ -2,6 +2,7 @@ export type SearchCategory =
 	| 'pages'
 	| 'members'
 	| 'seasons'
+	| 'clubs'
 	| 'offerings'
 	| 'leagues'
 	| 'divisions'

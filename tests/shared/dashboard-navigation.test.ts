@@ -12,7 +12,7 @@ Summary of tests:
 1. It verifies that normal navigation ordering still returns every default dashboard item.
 2. It verifies that participant permission snapshots hide management-oriented sidebar links.
 3. It verifies that manager permission snapshots keep the full sidebar list.
-4. It verifies that participant permission snapshots lose access to management routes and keep safe pages.
+4. It verifies that participant permission snapshots lose access to management routes while keeping club sports available.
 5. It verifies that developer-only routes reject non-developer snapshots.
 */
 
@@ -100,6 +100,12 @@ describe('dashboard navigation helper', () => {
 		expect(
 			canAccessDashboardRouteForPermissions({
 				pathname: '/dashboard/offerings',
+				permissions: participantPermissions
+			})
+		).toBe(true);
+		expect(
+			canAccessDashboardRouteForPermissions({
+				pathname: '/dashboard/clubs',
 				permissions: participantPermissions
 			})
 		).toBe(true);

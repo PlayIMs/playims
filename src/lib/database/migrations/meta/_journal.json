@@ -218,6 +218,13 @@
       "when": 1774656610951,
       "tag": "0030_quiet_roland_deschain",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "6",
+      "when": 1775077797273,
+      "tag": "0031_daily_lily_hollister",
+      "breakpoints": true
     }
   ]
 }

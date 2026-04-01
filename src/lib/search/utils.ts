@@ -4,6 +4,7 @@ const CATEGORY_LABELS: Record<SearchCategory, string> = {
 	pages: 'Pages',
 	members: 'Members',
 	seasons: 'Seasons',
+	clubs: 'Clubs',
 	offerings: 'Offerings',
 	leagues: 'Leagues',
 	divisions: 'Divisions',
@@ -207,4 +208,13 @@ export function buildTeamSearchHref(input: {
 	teamSlug: string;
 }): string {
 	return `/dashboard/offerings/${input.seasonSlug}/${input.offeringSlug}/${input.leagueSlug}/${input.divisionSlug}/${input.teamSlug}`;
+}
+
+export function buildClubTeamSearchHref(input: {
+	seasonSlug: string;
+	clubSlug: string;
+	leagueSlug: string;
+	teamSlug: string;
+}): string {
+	return `/dashboard/clubs/${input.seasonSlug}/${input.clubSlug}/${input.leagueSlug}/${input.teamSlug}`;
 }

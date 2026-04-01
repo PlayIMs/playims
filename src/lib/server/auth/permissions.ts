@@ -56,6 +56,7 @@ export const PERMISSIONS = {
 	USE_ADDRESS_SUGGEST: 'USE_ADDRESS_SUGGEST', // allows using the protected address suggestion endpoint
 	MANAGE_FACILITIES: 'MANAGE_FACILITIES', // allows creating, updating, archiving, restoring, and deleting facilities
 	MANAGE_OFFERINGS: 'MANAGE_OFFERINGS', // allows creating and updating offerings, leagues, divisions, and seasons
+	MANAGE_CLUB_SPORTS: 'MANAGE_CLUB_SPORTS', // allows creating and updating club seasons, clubs, leagues, teams, and officers
 	EDIT_LEAGUE_ROWS: 'EDIT_LEAGUE_ROWS', // allows elevated league row editing actions reserved above normal operations
 	DELETE_SEASONS: 'DELETE_SEASONS', // allows deleting seasons and other destructive season-lifecycle actions
 	ADD_MEMBER: 'ADD_MEMBER', // allows adding members to an organization
@@ -132,6 +133,7 @@ const DEFAULT_ROLE_DEFINITIONS = {
 			PERMISSIONS.USE_ADDRESS_SUGGEST,
 			PERMISSIONS.MANAGE_FACILITIES,
 			PERMISSIONS.MANAGE_OFFERINGS,
+			PERMISSIONS.MANAGE_CLUB_SPORTS,
 			PERMISSIONS.ADD_MEMBER
 		]
 	},

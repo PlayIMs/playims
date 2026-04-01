@@ -10,6 +10,7 @@ import { requireAuthenticatedClientId } from '$lib/server/client-context';
 import { getCentralDbOps, getTenantDbOps } from '$lib/server/database/context';
 import {
 	buildFacilityAreaSearchHref,
+	buildClubTeamSearchHref,
 	buildMemberSearchHref,
 	buildTeamSearchHref,
 	groupSearchResults,
@@ -18,7 +19,7 @@ import {
 import type { SearchCategory, SearchResponse, SearchResult } from '$lib/search/types.js';
 
 type SearchEvent = Pick<RequestEvent, 'locals' | 'platform' | 'url'>;
-type SearchSeasonRecord = Season;
+type SearchSeasonRecord = Pick<Season, 'id' | 'name' | 'slug' | 'isCurrent' | 'isActive'>;
 
 const SEARCH_CATEGORY_LIMIT = 40;
 
@@ -141,8 +142,12 @@ function normalizeRawSearchKey(value: string | null | undefined): string {
 	return value?.trim().toLowerCase() ?? '';
 }
 
-function resolveScopedSeason(seasons: SearchSeasonRecord[], url: URL): SearchSeasonRecord | null {
-	const requestedSeason = normalizeRawSearchKey(url.searchParams.get('season'));
+function resolveScopedSeason(
+	seasons: SearchSeasonRecord[],
+	url: URL,
+	queryParam = 'season'
+): SearchSeasonRecord | null {
+	const requestedSeason = normalizeRawSearchKey(url.searchParams.get(queryParam));
 	const searchableSeasons = seasons.filter(
 		(season): season is SearchSeasonRecord & { id: string } => Boolean(season.id)
 	);
@@ -209,7 +214,18 @@ export async function getSearchResponse(
 			tenantDbOps.seasons.getByClientId(clientId)
 		]);
 		const scopedSeason = resolveScopedSeason(seasons, event.url);
-		const [offerings, leagues, divisions, teams, facilities, facilityAreas] = await Promise.all([
+		const [
+			offerings,
+			leagues,
+			divisions,
+			teams,
+			facilities,
+			facilityAreas,
+			clubSeasons,
+			clubs,
+			clubLeagues,
+			clubTeams
+		] = await Promise.all([
 			tenantDbOps.offerings.searchByClient({
 				clientId,
 				query: trimmedQuery,
@@ -246,8 +262,36 @@ export async function getSearchResponse(
 				clientId,
 				query: trimmedQuery,
 				limit: SEARCH_CATEGORY_LIMIT
-			})
+			}),
+			tenantDbOps.clubSportsSeasons?.getByClientId
+				? tenantDbOps.clubSportsSeasons.getByClientId(clientId)
+				: Promise.resolve([]),
+			tenantDbOps.clubSportsClubs?.getByClientId
+				? tenantDbOps.clubSportsClubs.getByClientId(clientId)
+				: Promise.resolve([]),
+			tenantDbOps.clubSportsLeagues?.getByClientId
+				? tenantDbOps.clubSportsLeagues.getByClientId(clientId)
+				: Promise.resolve([]),
+			tenantDbOps.clubSportsTeams?.getByClientId
+				? tenantDbOps.clubSportsTeams.getByClientId(clientId)
+				: Promise.resolve([])
 		]);
+		const scopedClubSeason = resolveScopedSeason(clubSeasons, event.url, 'clubSeason');
+		const clubsById = new Map(
+			clubs
+				.filter((club): club is (typeof clubs)[number] & { id: string } => Boolean(club.id))
+				.map((club) => [club.id, club])
+		);
+		const clubLeaguesById = new Map(
+			clubLeagues
+				.filter((clubLeague): clubLeague is (typeof clubLeagues)[number] & { id: string } => Boolean(clubLeague.id))
+				.map((clubLeague) => [clubLeague.id, clubLeague])
+		);
+		const clubSeasonsById = new Map(
+			clubSeasons
+				.filter((clubSeason): clubSeason is (typeof clubSeasons)[number] & { id: string } => Boolean(clubSeason.id))
+				.map((clubSeason) => [clubSeason.id, clubSeason])
+		);
 
 		for (const member of members.rows) {
 			const result: SearchResult = {
@@ -275,6 +319,21 @@ export async function getSearchResponse(
 				title: season.name?.trim() || 'Season',
 				subtitle: 'Selected season',
 				href: `/dashboard/offerings?season=${encodeURIComponent(seasonSlug)}`
+			};
+			const score = scoreResult(trimmedQuery, result);
+			if (score > 0) scored.push({ ...result, score });
+		}
+
+		for (const clubSeason of clubSeasons) {
+			const seasonSlug = clubSeason.slug?.trim();
+			if (!clubSeason.id || !seasonSlug || clubSeason.id !== scopedClubSeason?.id) continue;
+			const result: SearchResult = {
+				id: clubSeason.id,
+				resultKey: `clubSeasons:${clubSeason.id}`,
+				category: 'seasons',
+				title: clubSeason.name?.trim() || 'Club Season',
+				subtitle: 'Club season',
+				href: `/dashboard/clubs?season=${encodeURIComponent(seasonSlug)}`
 			};
 			const score = scoreResult(trimmedQuery, result);
 			if (score > 0) scored.push({ ...result, score });
@@ -377,6 +436,88 @@ export async function getSearchResponse(
 			};
 			const baseScore = scoreResult(trimmedQuery, result);
 			// slight team boost ensures team-name queries prioritize direct team routes over parent records.
+			const score = baseScore > 0 ? baseScore + 25 : 0;
+			if (score > 0) scored.push({ ...result, score });
+		}
+
+		for (const club of clubs.filter(
+			(club) =>
+				isActiveFlag(club.isActive) &&
+				(!scopedClubSeason || normalizeRawSearchKey(club.clubSeasonId) === normalizeRawSearchKey(scopedClubSeason.id))
+		)) {
+			const clubSeason = clubSeasonsById.get(club.clubSeasonId ?? '');
+			const seasonSlug = clubSeason?.slug?.trim();
+			const clubSlug = club.slug?.trim();
+			if (!club.id || !seasonSlug || !clubSlug) continue;
+			const result: SearchResult = {
+				id: club.id,
+				resultKey: `clubs:${club.id}`,
+				category: 'clubs',
+				title: club.name?.trim() || 'Club',
+				subtitle: club.sport?.trim() || 'Club sport',
+				meta: clubSeason?.name?.trim() || null,
+				href: `/dashboard/clubs/${seasonSlug}/${clubSlug}`
+			};
+			const score = scoreResult(trimmedQuery, result);
+			if (score > 0) scored.push({ ...result, score });
+		}
+
+		for (const clubLeague of clubLeagues.filter((clubLeague) => isActiveFlag(clubLeague.isActive))) {
+			const club = clubsById.get(clubLeague.clubId ?? '');
+			const clubSeason = clubSeasonsById.get(clubLeague.clubSeasonId ?? '');
+			const seasonSlug = clubSeason?.slug?.trim();
+			const clubSlug = club?.slug?.trim();
+			const leagueSlug = clubLeague.slug?.trim();
+			if (!clubLeague.id || !seasonSlug || !clubSlug || !leagueSlug) continue;
+			if (
+				scopedClubSeason &&
+				normalizeRawSearchKey(clubLeague.clubSeasonId) !== normalizeRawSearchKey(scopedClubSeason.id)
+			) {
+				continue;
+			}
+			const result: SearchResult = {
+				id: clubLeague.id,
+				resultKey: `clubLeagues:${clubLeague.id}`,
+				category: 'leagues',
+				title: clubLeague.name?.trim() || 'League',
+				subtitle: club?.name?.trim() || 'Club',
+				meta: clubSeason?.name?.trim() || null,
+				href: `/dashboard/clubs/${seasonSlug}/${clubSlug}/${leagueSlug}`
+			};
+			const score = scoreResult(trimmedQuery, result);
+			if (score > 0) scored.push({ ...result, score });
+		}
+
+		for (const clubTeam of clubTeams.filter((clubTeam) => isActiveFlag(clubTeam.isActive))) {
+			const club = clubsById.get(clubTeam.clubId ?? '');
+			const clubLeague = clubLeaguesById.get(clubTeam.clubLeagueId ?? '');
+			const clubSeason = clubSeasonsById.get(clubTeam.clubSeasonId ?? '');
+			const seasonSlug = clubSeason?.slug?.trim();
+			const clubSlug = club?.slug?.trim();
+			const leagueSlug = clubLeague?.slug?.trim();
+			const teamSlug = clubTeam.slug?.trim();
+			if (!clubTeam.id || !seasonSlug || !clubSlug || !leagueSlug || !teamSlug) continue;
+			if (
+				scopedClubSeason &&
+				normalizeRawSearchKey(clubTeam.clubSeasonId) !== normalizeRawSearchKey(scopedClubSeason.id)
+			) {
+				continue;
+			}
+			const result: SearchResult = {
+				id: clubTeam.id,
+				resultKey: `clubTeams:${clubTeam.id}`,
+				category: 'teams',
+				title: clubTeam.name?.trim() || 'Team',
+				subtitle: [club?.name?.trim(), clubLeague?.name?.trim()].filter(Boolean).join(' - ') || null,
+				meta: clubSeason?.name?.trim() || null,
+				href: buildClubTeamSearchHref({
+					seasonSlug,
+					clubSlug,
+					leagueSlug,
+					teamSlug
+				})
+			};
+			const baseScore = scoreResult(trimmedQuery, result);
 			const score = baseScore > 0 ? baseScore + 25 : 0;
 			if (score > 0) scored.push({ ...result, score });
 		}

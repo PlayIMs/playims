@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
+	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { IconHistory } from '@tabler/icons-svelte';
 	import { tick } from 'svelte';
@@ -42,6 +43,7 @@
 		resolveSearchPaletteDefaultSeasonId,
 		resolveSearchPaletteScopedSeasonSlug
 	} from '$lib/search/season-scope.js';
+	import { resolveSearchPaletteContext } from '$lib/search/context.js';
 
 	interface SearchPaletteSeasonResponse {
 		success: boolean;
@@ -91,6 +93,7 @@
 	const seasonDropdownOptions = $derived.by(() =>
 		buildSearchPaletteSeasonDropdownOptions($searchPaletteSeasons, todayIsoDate)
 	);
+	const searchContext = $derived.by(() => resolveSearchPaletteContext($page.url.pathname));
 	const scopedSeasonSlug = $derived.by(() =>
 		resolveSearchPaletteScopedSeasonSlug($searchPaletteSeasons, $searchPaletteScopedSeasonId)
 	);
@@ -123,7 +126,7 @@
 		if (!browser || !$searchPaletteOpen) return;
 		setSearchPaletteLoadingSeasonScope(true);
 		try {
-			const response = await fetch('/api/intramural-sports/seasons');
+			const response = await fetch(searchContext.seasonEndpoint);
 			const payload = (await response.json()) as SearchPaletteSeasonResponse;
 			if (!response.ok || !payload.success || !payload.data) {
 				setSearchPaletteSeasons([]);
@@ -156,7 +159,7 @@
 				url.searchParams.set('q', trimmedQuery);
 			}
 			if (scopedSeasonSlug) {
-				url.searchParams.set('season', scopedSeasonSlug);
+				url.searchParams.set(searchContext.seasonQueryParam, scopedSeasonSlug);
 			}
 			const response = await fetch(url, { signal: abortController.signal });
 			const payload = (await response.json()) as SearchResponse;

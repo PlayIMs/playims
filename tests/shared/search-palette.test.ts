@@ -12,12 +12,13 @@ Summary of tests:
 2. It verifies that multi-term queries can match across punctuation and multiple result fields.
 3. It verifies that long multi-word queries reject results that match only one significant word.
 4. It verifies that grouped results enforce per-category and total caps.
-5. It verifies that member, facility-area, and team href builders create the expected page state.
+5. It verifies that member, facility-area, intramural-team, and club-team href builders create the expected page state.
 */
 
 import { describe, expect, it } from 'vitest';
 import {
 	buildFacilityAreaSearchHref,
+	buildClubTeamSearchHref,
 	buildMemberSearchHref,
 	buildTeamSearchHref,
 	groupSearchResults,
@@ -162,5 +163,13 @@ describe('search palette helpers', () => {
 				teamSlug: 'team-7'
 			})
 		).toBe('/dashboard/offerings/fall-2026/indoor-soccer/co-rec/division-a/team-7');
+		expect(
+			buildClubTeamSearchHref({
+				seasonSlug: '2026-2027',
+				clubSlug: 'ice-hockey',
+				leagueSlug: 'mens-league',
+				teamSlug: 'd1-team'
+			})
+		).toBe('/dashboard/clubs/2026-2027/ice-hockey/mens-league/d1-team');
 	});
 });
