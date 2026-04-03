@@ -30,6 +30,7 @@
 	import { page } from '$app/stores';
 	import { flip } from 'svelte/animate';
 	import { cubicInOut } from 'svelte/easing';
+	import { isCommunicationEditorEditableTarget } from '$lib/communications/editor-shortcuts.js';
 	import {
 		canAccessDashboardRouteForPermissions,
 		DASHBOARD_NAV_KEY_SET,
@@ -800,6 +801,9 @@
 				event.code === 'KeyB';
 
 			if (!isToggleShortcut) {
+				return;
+			}
+			if (isCommunicationEditorEditableTarget(event.target as EventTarget | null)) {
 				return;
 			}
 

@@ -9,10 +9,12 @@ These tests cover the business branches most likely to regress quietly when the 
 
 Summary of tests:
 1. It verifies that club season creation defaults rollover selection to clubs, leagues, and teams only.
-2. It verifies that duplicate club names in the same club season are rejected before writes happen.
-3. It verifies that club leagues can create teams through the management route without divisions.
-4. It verifies that organization-managed officer titles cannot be edited through the club endpoint.
-5. It verifies that officer assignments allow multiple roles for the same member.
+2. It verifies that club sport creation succeeds when the selected club season exists.
+3. It verifies that duplicate club names in the same club season are rejected before writes happen.
+4. It verifies that club league creation rejects duplicate league slugs before writes happen.
+5. It verifies that club leagues can create teams through the management route without divisions.
+6. It verifies that organization-managed officer titles cannot be edited through the club endpoint.
+7. It verifies that officer assignments allow multiple roles for the same member.
 */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -26,6 +28,7 @@ const mocks = vi.hoisted(() => {
 		dbOps: {
 			clubSportsSeasons: {
 				getByClientId: vi.fn(),
+				getByClientIdAndId: vi.fn(),
 				create: vi.fn(),
 				setCurrent: vi.fn(),
 				updateDetails: vi.fn()
@@ -92,7 +95,11 @@ vi.mock('$lib/server/club-sports-scope', async () => {
 });
 
 import { POST as createClubSeason } from '../../src/routes/api/club-sports/seasons/+server';
-import { PATCH as updateClub } from '../../src/routes/api/club-sports/clubs/+server';
+import {
+	POST as createClubSport,
+	PATCH as updateClub
+} from '../../src/routes/api/club-sports/clubs/+server';
+import { POST as createClubLeague } from '../../src/routes/api/club-sports/leagues/+server';
 import { POST as manageClubLeague } from '../../src/routes/api/club-sports/leagues/[seasonSlug]/[leagueSlug]/management/+server';
 import { PATCH as updateOfficerTitle } from '../../src/routes/api/club-sports/officer-titles/+server';
 import { POST as assignOfficerRole } from '../../src/routes/api/club-sports/officer-assignments/+server';
@@ -222,6 +229,102 @@ describe('club sports routes', () => {
 		expect(response.status).toBe(400);
 		expect(payload.success).toBe(false);
 		expect(payload.fieldErrors['club.name'][0]).toContain('already exists');
+	});
+
+	it('creates a club sport when the selected club season exists', async () => {
+		// this verifies the add-club endpoint is fully wired from validated input into the club table.
+		mocks.dbOps.clubSportsSeasons.getByClientIdAndId.mockResolvedValue({
+			id: 'season-1',
+			name: '2026-2027',
+			slug: '2026-2027'
+		});
+		mocks.dbOps.clubSportsClubs.getByClientId.mockResolvedValue([]);
+		mocks.dbOps.clubSportsClubs.create.mockResolvedValue({
+			id: 'club-1',
+			clubSeasonId: 'season-1',
+			name: 'Ice Hockey',
+			slug: 'ice-hockey'
+		});
+
+		const response = await createClubSport(
+			createRouteEvent({
+				path: '/api/club-sports/clubs',
+				body: {
+					club: {
+						clubSeasonId: 'season-1',
+						name: 'Ice Hockey',
+						slug: 'ice-hockey',
+						description: null,
+						sport: 'Ice Hockey',
+						imageUrl: null,
+						isActive: true
+					},
+					leagues: []
+				}
+			})
+		);
+		const payload = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(payload.success).toBe(true);
+		expect(payload.data.clubId).toBe('club-1');
+		expect(mocks.dbOps.clubSportsClubs.create).toHaveBeenCalledWith(
+			expect.objectContaining({
+				clientId: 'client-1',
+				clubSeasonId: 'season-1',
+				name: 'Ice Hockey',
+				slug: 'ice-hockey'
+			})
+		);
+	});
+
+	it('rejects duplicate league slugs for the same club before writes happen', async () => {
+		// this keeps league urls unique under a club, which the club detail and team routes depend on.
+		mocks.dbOps.clubSportsClubs.getByClientIdAndId.mockResolvedValue({
+			id: 'club-1',
+			clubSeasonId: 'season-1',
+			name: 'Ice Hockey',
+			slug: 'ice-hockey'
+		});
+		mocks.dbOps.clubSportsLeagues.getByClubId.mockResolvedValue([
+			{
+				id: 'league-1',
+				clubId: 'club-1',
+				name: "Men's League",
+				slug: 'mens-league'
+			}
+		]);
+
+		const response = await createClubLeague(
+			createRouteEvent({
+				path: '/api/club-sports/leagues',
+				body: {
+					clubId: 'club-1',
+					leagues: [
+						{
+							name: "Men's League",
+							slug: 'mens-league',
+							stackOrder: 1,
+							description: null,
+							gender: 'Men',
+							regStartDate: null,
+							regEndDate: null,
+							seasonStartDate: null,
+							seasonEndDate: null,
+							isActive: true,
+							isLocked: false,
+							imageUrl: null
+						}
+					]
+				}
+			})
+		);
+		const payload = await response.json();
+
+		expect(response.status).toBe(400);
+		expect(payload.success).toBe(false);
+		expect(payload.fieldErrors['leagues.0.slug'][0]).toContain('already exists');
+		expect(mocks.dbOps.clubSportsLeagues.create).not.toHaveBeenCalled();
 	});
 
 	it('creates club teams through the league management route without divisions', async () => {

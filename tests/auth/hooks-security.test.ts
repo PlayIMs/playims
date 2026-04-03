@@ -19,7 +19,8 @@ Summary of tests:
 8. It verifies that developer users can still reach protected dashboard SSR routes.
 9. It verifies that read-only API access can use the base role during participant view mode.
 10. It verifies that mutating API access is blocked by the effective participant role during view mode.
-11. It verifies that the join-client API route requires authentication.
+11. It verifies that club-sports mutating API routes are available through the API policy map.
+12. It verifies that the join-client API route requires authentication.
 */
 
 import { describe, expect, it, vi } from 'vitest';
@@ -364,6 +365,37 @@ describe('hooks security behavior', () => {
 
 		const response = await handle({ event, resolve: resolveOk });
 		expect(response.status).toBe(403);
+	});
+
+	it('allows club-sports mutating API routes through the policy map for managers', async () => {
+		// this proves the club sports add endpoints are actually reachable instead of being blocked as unknown apis.
+		const event = createEvent({
+			pathname: '/api/club-sports/seasons',
+			method: 'POST',
+			origin: 'https://playims.test',
+			ip: '198.51.100.83',
+			locals: {
+				user: {
+					id: 'u1',
+					clientId: '11111111-1111-1111-1111-111111111111',
+					role: 'manager',
+					baseRole: 'manager'
+				},
+				session: {
+					id: 's1',
+					userId: 'u1',
+					clientId: '11111111-1111-1111-1111-111111111111',
+					activeClientId: '11111111-1111-1111-1111-111111111111',
+					role: 'manager',
+					baseRole: 'manager',
+					authProvider: 'password',
+					expiresAt: new Date(Date.now() + 60_000).toISOString()
+				}
+			}
+		});
+
+		const response = await handle({ event, resolve: resolveOk });
+		expect(response.status).toBe(200);
 	});
 
 	it('requires authentication for join-client API route', async () => {

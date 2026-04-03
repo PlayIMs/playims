@@ -34,6 +34,7 @@ header strip, shared footer actions, and no broader redesign of the dashboard sh
   header, progress area, and footer visually consistent across routes.
 - `WizardModal` is draggable by grabbing the header area; drag state is temporary for that open modal instance and resets on close.
 - Dragging is viewport-bounded so no part of the wizard panel can be moved off-screen.
+- `WizardModal` and `ModalShell` panels stay capped to the viewport with `max-height` so the frame never grows beyond the available screen height.
 - `WizardModal` form content uses the thin scrollbar treatment by default when vertical scrolling is needed.
 - Do not change wizard scrollbar treatment as part of the UI consistency cleanup; keep the current thin treatment unchanged.
 - `WizardUnsavedConfirm` centers to the active wizard panel (not the viewport) and still uses a full-viewport scrim.
@@ -63,6 +64,8 @@ header strip, shared footer actions, and no broader redesign of the dashboard sh
 - Prevent wizard step content from exceeding modal height whenever possible.
 - Prefer adding another wizard step/panel over introducing more in-panel scrolling.
 - If a step becomes dense (multiple decision blocks), split it into sequential steps.
+- When a dense step still needs lists, previews, or tables, keep the overall wizard form `overflow-hidden` and make the inner panels or sections the scroll containers with `min-h-0` plus `overflow-y-auto`.
+- Avoid making the entire modal or wizard form the primary scroll container for split-panel layouts; keep the header and footer anchored while the overflowing section scrolls inside the viewport-capped panel.
 - Keep the shell consistent with the offerings page instead of inventing a separate wizard visual system.
 
 ## Scannability and Action UX

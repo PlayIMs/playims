@@ -1,5 +1,8 @@
 import { json } from '@sveltejs/kit';
-import { requireAuthenticatedClientId, requireAuthenticatedUserId } from '$lib/server/client-context';
+import {
+	requireAuthenticatedClientId,
+	requireAuthenticatedUserId
+} from '$lib/server/client-context';
 import { PERMISSIONS, requirePermission } from '$lib/server/auth/permissions';
 import { getTenantDbOps } from '$lib/server/database/context';
 import {
@@ -8,10 +11,7 @@ import {
 	type CreateClubInput,
 	type UpdateClubInput
 } from '$lib/server/club-sports-validation';
-import {
-	normalizeClubSportsSlug,
-	normalizeClubSportsText
-} from '$lib/server/club-sports-scope';
+import { normalizeClubSportsSlug, normalizeClubSportsText } from '$lib/server/club-sports-scope';
 import type { RequestHandler } from './$types';
 
 const toFieldErrorMap = (issues: Array<{ path: Array<PropertyKey>; message: string }>) => {
@@ -24,8 +24,23 @@ const toFieldErrorMap = (issues: Array<{ path: Array<PropertyKey>; message: stri
 	return fieldErrors;
 };
 
+const findDuplicateLeague = (
+	leagues: Array<{ name?: string | null; slug?: string | null }>,
+	input: { name: string; slug: string }
+) =>
+	leagues.find(
+		(league) =>
+			normalizeClubSportsText(league.name) === normalizeClubSportsText(input.name) ||
+			normalizeClubSportsSlug(league.slug) === normalizeClubSportsSlug(input.slug)
+	);
+
 const findDuplicateClub = (
-	clubs: Array<{ id?: string | null; clubSeasonId?: string | null; name?: string | null; slug?: string | null }>,
+	clubs: Array<{
+		id?: string | null;
+		clubSeasonId?: string | null;
+		name?: string | null;
+		slug?: string | null;
+	}>,
 	input: { clubSeasonId: string; name: string; slug: string },
 	excludeClubId?: string
 ) =>
@@ -33,15 +48,16 @@ const findDuplicateClub = (
 		(club) =>
 			club.id !== excludeClubId &&
 			club.clubSeasonId === input.clubSeasonId &&
-			(
-				normalizeClubSportsText(club.name) === normalizeClubSportsText(input.name) ||
-				normalizeClubSportsSlug(club.slug) === normalizeClubSportsSlug(input.slug)
-			)
+			(normalizeClubSportsText(club.name) === normalizeClubSportsText(input.name) ||
+				normalizeClubSportsSlug(club.slug) === normalizeClubSportsSlug(input.slug))
 	);
 
 const createOrUpdateForbiddenResponse = () =>
 	json(
-		{ success: false, error: 'Only managers, administrators, and developers can manage club sports.' },
+		{
+			success: false,
+			error: 'Only managers, administrators, and developers can manage club sports.'
+		},
 		{ status: 403 }
 	);
 
@@ -56,7 +72,11 @@ export const POST: RequestHandler = async (event) => {
 	const parsed = createClubSchema.safeParse(await event.request.json().catch(() => null));
 	if (!parsed.success) {
 		return json(
-			{ success: false, error: 'Invalid request payload.', fieldErrors: toFieldErrorMap(parsed.error.issues) },
+			{
+				success: false,
+				error: 'Invalid request payload.',
+				fieldErrors: toFieldErrorMap(parsed.error.issues)
+			},
 			{ status: 400 }
 		);
 	}
@@ -67,6 +87,23 @@ export const POST: RequestHandler = async (event) => {
 	const dbOps = await getTenantDbOps(event, clientId);
 
 	try {
+		const existingSeason = await dbOps.clubSportsSeasons.getByClientIdAndId(
+			clientId,
+			input.club.clubSeasonId
+		);
+		if (!existingSeason?.id) {
+			return json(
+				{
+					success: false,
+					error: 'The selected club season was not found.',
+					fieldErrors: {
+						'club.clubSeasonId': ['Select a valid club season.']
+					}
+				},
+				{ status: 404 }
+			);
+		}
+
 		const existingClubs = await dbOps.clubSportsClubs.getByClientId(clientId);
 		if (findDuplicateClub(existingClubs, input.club)) {
 			return json(
@@ -95,6 +132,28 @@ export const POST: RequestHandler = async (event) => {
 			updatedUser: userId
 		});
 
+		const existingLeagues = createdClub?.id
+			? await dbOps.clubSportsLeagues.getByClubId(createdClub.id)
+			: [];
+		for (const [index, league] of input.leagues.entries()) {
+			if (!findDuplicateLeague(existingLeagues, league)) continue;
+			return json(
+				{
+					success: false,
+					error: 'A league with this name or slug already exists for the selected club sport.',
+					fieldErrors: {
+						[`leagues.${index}.name`]: [
+							'A league with this name already exists for the selected club sport.'
+						],
+						[`leagues.${index}.slug`]: [
+							'A league with this slug already exists for the selected club sport.'
+						]
+					}
+				},
+				{ status: 400 }
+			);
+		}
+
 		const createdLeagueIds: string[] = [];
 		for (const [index, league] of input.leagues.entries()) {
 			const createdLeague = await dbOps.clubSportsLeagues.create({
@@ -119,7 +178,10 @@ export const POST: RequestHandler = async (event) => {
 			if (createdLeague?.id) createdLeagueIds.push(createdLeague.id);
 		}
 
-		return json({ success: true, data: { clubId: createdClub?.id ?? '', leagueIds: createdLeagueIds } });
+		return json({
+			success: true,
+			data: { clubId: createdClub?.id ?? '', leagueIds: createdLeagueIds }
+		});
 	} catch (error) {
 		console.error('Failed to create club:', error);
 		return json({ success: false, error: 'Unable to save club right now.' }, { status: 500 });
@@ -137,7 +199,11 @@ export const PATCH: RequestHandler = async (event) => {
 	const parsed = updateClubSchema.safeParse(await event.request.json().catch(() => null));
 	if (!parsed.success) {
 		return json(
-			{ success: false, error: 'Invalid request payload.', fieldErrors: toFieldErrorMap(parsed.error.issues) },
+			{
+				success: false,
+				error: 'Invalid request payload.',
+				fieldErrors: toFieldErrorMap(parsed.error.issues)
+			},
 			{ status: 400 }
 		);
 	}

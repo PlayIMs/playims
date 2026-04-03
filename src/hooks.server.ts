@@ -77,7 +77,10 @@ const API_ROUTE_POLICIES: ApiRoutePolicy[] = [
 	},
 	{ pattern: /^\/api\/search$/, policy: { access: 'public' } },
 	{ pattern: /^\/api\/search\/recent$/, policy: { access: 'authenticated' } },
-	{ pattern: /^\/api\/themes$/, policy: { access: 'permission', permissions: [PERMISSIONS.MANAGE_THEMES] } },
+	{
+		pattern: /^\/api\/themes$/,
+		policy: { access: 'permission', permissions: [PERMISSIONS.MANAGE_THEMES] }
+	},
 	{
 		pattern: /^\/api\/themes\/current$/,
 		policy: { access: 'permission', permissions: [PERMISSIONS.MANAGE_THEMES] }
@@ -103,13 +106,39 @@ const API_ROUTE_POLICIES: ApiRoutePolicy[] = [
 		policy: { access: 'permission', permissions: [PERMISSIONS.MANAGE_OFFERINGS] }
 	},
 	{
+		pattern: /^\/api\/club-sports\/seasons$/,
+		policy: {
+			access: 'permission',
+			permissions: (method) =>
+				method === 'GET' ? [PERMISSIONS.VIEW_CLUB_SPORTS] : [PERMISSIONS.MANAGE_CLUB_SPORTS]
+		}
+	},
+	{
+		pattern: /^\/api\/club-sports\/clubs$/,
+		policy: { access: 'permission', permissions: [PERMISSIONS.MANAGE_CLUB_SPORTS] }
+	},
+	{
+		pattern: /^\/api\/club-sports\/leagues$/,
+		policy: { access: 'permission', permissions: [PERMISSIONS.MANAGE_CLUB_SPORTS] }
+	},
+	{
+		pattern: /^\/api\/club-sports\/leagues\/[^/]+\/[^/]+\/management$/,
+		policy: { access: 'permission', permissions: [PERMISSIONS.MANAGE_CLUB_SPORTS] }
+	},
+	{
+		pattern: /^\/api\/club-sports\/officer-titles$/,
+		policy: { access: 'permission', permissions: [PERMISSIONS.MANAGE_CLUB_SPORTS] }
+	},
+	{
+		pattern: /^\/api\/club-sports\/officer-assignments$/,
+		policy: { access: 'permission', permissions: [PERMISSIONS.MANAGE_CLUB_SPORTS] }
+	},
+	{
 		pattern: /^\/api\/facilities$/,
 		policy: {
 			access: 'permission',
 			permissions: (method) =>
-				method === 'GET'
-					? [PERMISSIONS.VIEW_FACILITIES]
-					: [PERMISSIONS.MANAGE_FACILITIES]
+				method === 'GET' ? [PERMISSIONS.VIEW_FACILITIES] : [PERMISSIONS.MANAGE_FACILITIES]
 		}
 	},
 	{
@@ -117,9 +146,7 @@ const API_ROUTE_POLICIES: ApiRoutePolicy[] = [
 		policy: {
 			access: 'permission',
 			permissions: (method) =>
-				method === 'GET'
-					? [PERMISSIONS.VIEW_MEMBER_MANAGEMENT]
-					: [PERMISSIONS.ADD_MEMBER]
+				method === 'GET' ? [PERMISSIONS.VIEW_MEMBER_MANAGEMENT] : [PERMISSIONS.ADD_MEMBER]
 		}
 	},
 	{
@@ -136,7 +163,7 @@ const API_ROUTE_POLICIES: ApiRoutePolicy[] = [
 				return [PERMISSIONS.EDIT_MEMBER_PROFILE, PERMISSIONS.CHANGE_MEMBER_ROLE];
 			}
 		}
-	},
+	}
 ];
 
 const LOGIN_RATE_LIMIT: RateLimitConfig = {
@@ -258,10 +285,7 @@ const resolveRateLimitConfig = (pathname: string): RateLimitConfig | null => {
 		return FACILITIES_RATE_LIMIT;
 	}
 
-	if (
-		pathname === '/api/members' ||
-		/^\/api\/members\/[^/]+$/.test(pathname)
-	) {
+	if (pathname === '/api/members' || /^\/api\/members\/[^/]+$/.test(pathname)) {
 		return MEMBERS_RATE_LIMIT;
 	}
 
@@ -554,12 +578,15 @@ const extractCspNonce = (cspHeader: string | null): string | null => {
 };
 
 const addNonceToInlineScripts = (html: string, nonce: string): string =>
-	html.replace(/<script(?![^>]*\bsrc=)(?![^>]*\bnonce=)([^>]*)>/gi, (_match, attributes: string) => {
-		const trimmedAttributes = attributes.trim();
-		return trimmedAttributes.length > 0
-			? `<script nonce="${nonce}" ${trimmedAttributes}>`
-			: `<script nonce="${nonce}">`;
-	});
+	html.replace(
+		/<script(?![^>]*\bsrc=)(?![^>]*\bnonce=)([^>]*)>/gi,
+		(_match, attributes: string) => {
+			const trimmedAttributes = attributes.trim();
+			return trimmedAttributes.length > 0
+				? `<script nonce="${nonce}" ${trimmedAttributes}>`
+				: `<script nonce="${nonce}">`;
+		}
+	);
 
 const withHtmlInlineScriptNonces = async (response: Response): Promise<Response> => {
 	const headers = new Headers(response.headers);
@@ -967,7 +994,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 			}
 
 			const mustChangePassword = event.locals.user.mustChangePassword === true;
-			const passwordSetupRoute = pathname === '/set-password' || pathname.startsWith('/set-password/');
+			const passwordSetupRoute =
+				pathname === '/set-password' || pathname.startsWith('/set-password/');
 			if (mustChangePassword && !passwordSetupRoute) {
 				const response = toRedirectResponse(
 					buildPasswordSetupLocation(`${pathname}${getSafeSearch(event.url)}`),
@@ -996,13 +1024,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 				pathname === '/set-password'
 					? true
 					: pathname === '/colors'
-					? permissionSnapshot.ACCESS_DEV_TOOLS === true
-					: pathname === '/schedule'
-						? permissionSnapshot.VIEW_SCHEDULE === true
-						: canAccessDashboardRouteForPermissions({
-								pathname,
-								permissions: permissionSnapshot
-							});
+						? permissionSnapshot.ACCESS_DEV_TOOLS === true
+						: pathname === '/schedule'
+							? permissionSnapshot.VIEW_SCHEDULE === true
+							: canAccessDashboardRouteForPermissions({
+									pathname,
+									permissions: permissionSnapshot
+								});
 			if (!canAccessProtectedPage) {
 				const response = toPageErrorResponse(403, 'Forbidden');
 				logRequestSummary({

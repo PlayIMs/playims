@@ -379,6 +379,12 @@ When a UI bug reproduces but parser or unit tests pass:
 2. Search sibling routes for duplicated wizard or inference logic before assuming a shared utility is the live source of truth.
 3. Add or use one integration-path check that proves the rendered UI is wired to the same logic the tests cover.
 
+## Dashboard Pattern Parity
+
+- When a dashboard route is meant to mirror the offerings page or its descendant routes, copy the existing offerings interaction pattern instead of inventing a route-local alternative.
+- For club sports specifically, `Add Club Season`, `Add Club Sport`, and `Add League` on `/dashboard/clubs` must use offerings-style shared wizard modals via the PlayIMs wizard system and route-local `_wizards/*` wrappers.
+- Do not replace those club creation flows with inline cards, side panels, drawers, or ad-hoc modal systems unless the user explicitly asks for a UX divergence.
+
 ## Agentic TDD Workflow
 
 This repo is the source of truth for when Codex must use TDD and when it should stay fast.
