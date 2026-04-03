@@ -70,7 +70,10 @@
 		temporaryPassword: string;
 	}
 
-	const createEmptyMembersPayload = () => ({
+	type MemberPagePayload = NonNullable<MemberListResponse['data']>;
+	type MemberAssignableRoleOption = { value: MemberAssignableRole; label: string };
+
+	const createEmptyMembersPayload = (): MemberPagePayload => ({
 		rows: [] as MemberListRow[],
 		page: 1,
 		pageSize: 50,
@@ -86,7 +89,7 @@
 	});
 
 	let { data } = $props<{ data: PageData }>();
-	const serverMembers = $derived.by(() => data.members ?? createEmptyMembersPayload());
+	const serverMembers = $derived.by<MemberPagePayload>(() => data.members ?? createEmptyMembersPayload());
 	const serverError = $derived.by(() => data.error ?? '');
 	const serverMemberId = $derived.by(() => data.memberId ?? null);
 
@@ -108,7 +111,9 @@
 	const activeSeasonOptions = $derived.by<MemberSeasonFilterOption[]>(
 		() => data.activeSeasons ?? []
 	);
-	const memberAssignableRoleOptions = $derived.by(() => data.memberAssignableRoleOptions ?? []);
+	const memberAssignableRoleOptions = $derived.by<MemberAssignableRoleOption[]>(
+		() => data.memberAssignableRoleOptions ?? []
+	);
 
 	const ROLE_LABELS: Record<MemberRole, string> = {
 		participant: 'Participant',
@@ -126,9 +131,7 @@
 		{ value: 'F', label: 'Female' }
 	] satisfies Array<{ value: '' | MemberSex; label: string }>;
 	const includeDeveloperRoleFilter = $derived.by(
-		() =>
-			data.permissions?.ACCESS_DEV_TOOLS === true ||
-			memberAssignableRoleOptions.some((option) => option.value === 'dev')
+		() => data.permissions?.ACCESS_DEV_TOOLS === true
 	);
 	const roleFilterOptions = $derived.by(() =>
 		buildMemberRoleFilterOptions(includeDeveloperRoleFilter)

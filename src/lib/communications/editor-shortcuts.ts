@@ -65,20 +65,22 @@ export const resolveCommunicationEditorShortcut = (
 };
 
 export const isCommunicationEditorEditableTarget = (
-	target: ShortcutTargetLike | null | undefined
+	target: EventTarget | ShortcutTargetLike | null | undefined
 ): boolean => {
 	if (!target) {
 		return false;
 	}
 
-	if (target.isContentEditable) {
+	const shortcutTarget = target as ShortcutTargetLike;
+
+	if (shortcutTarget.isContentEditable) {
 		return true;
 	}
 
-	const tagName = target.tagName?.toLowerCase() ?? '';
+	const tagName = shortcutTarget.tagName?.toLowerCase() ?? '';
 	if (tagName === 'input' || tagName === 'textarea' || tagName === 'select') {
 		return true;
 	}
 
-	return Boolean(target.closest?.('[data-communication-editor-root]'));
+	return Boolean(shortcutTarget.closest?.('[data-communication-editor-root]'));
 };

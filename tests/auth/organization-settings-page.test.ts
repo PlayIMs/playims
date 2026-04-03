@@ -47,6 +47,8 @@ vi.mock('$lib/server/database/context', () => {
 
 import { actions, load } from '../../src/routes/dashboard/settings/organization/+page.server';
 
+type OrganizationSettingsLoadData = Exclude<Awaited<ReturnType<typeof load>>, void>;
+
 const buildLocals = (input?: {
 	role?: string;
 	baseRole?: string;
@@ -147,12 +149,12 @@ describe('dashboard organization settings page', () => {
 			isDefault: 1
 		});
 
-		const result = await load(
+		const result = (await load(
 			buildLoadEvent({
 				role: 'manager',
 				baseRole: 'manager'
 			})
-		);
+		)) as OrganizationSettingsLoadData;
 
 		expect(result.canEditOrganization).toBe(false);
 		expect(result.readOnlyMessage).toBe(

@@ -803,7 +803,7 @@
 			if (!isToggleShortcut) {
 				return;
 			}
-			if (isCommunicationEditorEditableTarget(event.target as EventTarget | null)) {
+			if (isCommunicationEditorEditableTarget(event.target)) {
 				return;
 			}
 

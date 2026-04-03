@@ -61,7 +61,7 @@
 	);
 
 	let searchQuery = $state('');
-	let selectedSeasonId = $state(data.currentSeasonId?.trim() || 'all');
+	let selectedSeasonId = $state('all');
 	let selectedOfferingId = $state('all');
 	let selectedLeagueId = $state('all');
 	let selectedDivisionId = $state('all');

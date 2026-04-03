@@ -17,7 +17,7 @@ export const normalizeClubSportsSlug = (value: string | null | undefined): strin
 
 export function buildSeasonScopedClubOptions(input: {
 	season: Pick<ClubSeason, 'id' | 'slug'>;
-	clubs: Club[];
+	clubs: Array<Pick<Club, 'id' | 'clubSeasonId' | 'name' | 'slug'>>;
 }): Array<{ label: string; href: string }> {
 	const seasonSlug = input.season.slug?.trim();
 	if (!input.season.id || !seasonSlug) return [];

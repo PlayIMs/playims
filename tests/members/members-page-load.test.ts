@@ -39,6 +39,8 @@ vi.mock('$lib/server/database/context', () => {
 
 import { load } from '../../src/routes/dashboard/members/+page.server';
 
+type MembersPageLoadData = Exclude<Awaited<ReturnType<typeof load>>, void>;
+
 // this helper keeps the authenticated load event compact and readable.
 const buildEvent = (path: string) =>
 	({
@@ -124,7 +126,7 @@ describe('dashboard members page load', () => {
 
 	it('returns an empty starter payload when there is no active search', async () => {
 		// the page should guide the user to search instead of loading the entire organization roster.
-		const result = await load(buildEvent('/dashboard/members'));
+		const result = (await load(buildEvent('/dashboard/members'))) as MembersPageLoadData;
 
 		expect(result.members.rows).toEqual([]);
 		expect(result.members.totalCount).toBe(0);
@@ -137,11 +139,11 @@ describe('dashboard members page load', () => {
 
 	it('loads matching members once the search query is at least two characters', async () => {
 		// valid searches should still hydrate the page from the server so the first render is useful.
-		const result = await load(
+		const result = (await load(
 			buildEvent(
 				'/dashboard/members?q=jamie&lastActiveSeason=season-spring&sort=lastLoginAt&dir=desc&page=2'
 			)
-		);
+		)) as MembersPageLoadData;
 
 		expect(result.members.rows).toHaveLength(1);
 		expect(result.members.totalCount).toBe(1);

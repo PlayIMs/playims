@@ -40,6 +40,8 @@ vi.mock('$lib/server/communications', () => ({
 
 import { load } from '../../src/routes/dashboard/communications/+page.server';
 
+type CommunicationPageLoadData = Exclude<Awaited<ReturnType<typeof load>>, void>;
+
 const buildEvent = (path: string, role = 'manager', withDb = true) =>
 	({
 		platform: withDb ? { env: { DB: {} } } : undefined,
@@ -113,14 +115,18 @@ describe('communication center page load', () => {
 
 	it('allows participant viewers because the current permission registry exposes the page to them', async () => {
 		// this locks the current auth contract so the page load matches the sidebar visibility rules.
-		const result = await load(buildEvent('/dashboard/communications', 'participant'));
+		const result = (await load(
+			buildEvent('/dashboard/communications', 'participant')
+		)) as CommunicationPageLoadData;
 
 		expect(result.messages).toHaveLength(1);
 	});
 
 	it('loads message history, filter options, and the selected message detail', async () => {
 		// the page needs all three payload slices up front so it can open the draft immediately.
-		const result = await load(buildEvent('/dashboard/communications?messageId=message-1'));
+		const result = (await load(
+			buildEvent('/dashboard/communications?messageId=message-1')
+		)) as CommunicationPageLoadData;
 
 		expect(result.messages).toHaveLength(1);
 		expect(result.filterOptions.seasons).toEqual([{ value: 'season-1', label: 'Spring 2029' }]);
@@ -130,7 +136,9 @@ describe('communication center page load', () => {
 
 	it('returns an empty payload when the database binding is unavailable', async () => {
 		// local fallback handling should keep the page renderable even when the db is missing.
-		const result = await load(buildEvent('/dashboard/communications', 'manager', false));
+		const result = (await load(
+			buildEvent('/dashboard/communications', 'manager', false)
+		)) as CommunicationPageLoadData;
 
 		expect(result.messages).toEqual([]);
 		expect(result.selectedMessage).toBeNull();

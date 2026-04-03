@@ -1,4 +1,11 @@
-import type { MemberSeasonFilterOption } from '$lib/members/types.js';
+import type {
+	MemberListResponse,
+	MemberRole,
+	MemberSeasonFilterOption,
+	MemberSex,
+	MemberSortKey,
+	SortDirection
+} from '$lib/members/types.js';
 import { requireAuthenticatedClientId } from '$lib/server/client-context';
 import { getCentralDbOps } from '$lib/server/database/context';
 import { memberListQuerySchema } from '$lib/server/members/validation';
@@ -12,12 +19,12 @@ import type { PageServerLoad } from './$types';
 
 const buildEmptyMemberPayload = (input: {
 	query: string;
-	sort: string;
-	dir: string;
-	sexFilter: string | null;
-	roleFilter: string | null;
+	sort: MemberSortKey;
+	dir: SortDirection;
+	sexFilter: MemberSex | null;
+	roleFilter: MemberRole | null;
 	lastActiveSeasonId: string | null;
-}) => ({
+}): NonNullable<MemberListResponse['data']> => ({
 	rows: [],
 	page: 1,
 	pageSize: 50,

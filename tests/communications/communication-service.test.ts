@@ -32,6 +32,7 @@ import {
 	buildCommunicationFilterOptions,
 	createRecipientPreview
 } from '../../src/lib/server/communications/service.js';
+import type { CommunicationEmailProvider } from '../../src/lib/server/communications/provider.js';
 import type {
 	CommunicationAudienceRow,
 	CommunicationStoragePort
@@ -89,7 +90,8 @@ describe('communication service', () => {
 	let audienceRows: CommunicationAudienceRow[];
 	let detail: CommunicationMessageDetail;
 	let storage: CommunicationStoragePort;
-	let emailProvider: { sendMessage: ReturnType<typeof vi.fn> };
+	let emailProvider: CommunicationEmailProvider;
+	let sendMessageMock: ReturnType<typeof vi.fn>;
 	let service: CommunicationService;
 
 	beforeEach(() => {
@@ -187,8 +189,9 @@ describe('communication service', () => {
 			duplicateMessage: vi.fn(),
 			listAudienceRows: vi.fn().mockResolvedValue(audienceRows)
 		};
+		sendMessageMock = vi.fn().mockResolvedValue({ providerMessageId: 'resend-1' });
 		emailProvider = {
-			sendMessage: vi.fn().mockResolvedValue({ providerMessageId: 'resend-1' })
+			sendMessage: sendMessageMock as CommunicationEmailProvider['sendMessage']
 		};
 		service = new CommunicationService({
 			storage,
@@ -268,7 +271,7 @@ describe('communication service', () => {
 			messageId: 'message-1'
 		});
 
-		expect(emailProvider.sendMessage).toHaveBeenCalledWith({
+		expect(sendMessageMock).toHaveBeenCalledWith({
 			to: ['alex@playims.test', 'jamie@playims.test'],
 			subject: 'Playoffs update',
 			html: '<p>Hello captains.</p>',
@@ -287,7 +290,7 @@ describe('communication service', () => {
 
 	it('marks the draft failed when the provider rejects the send', async () => {
 		// failures should be persisted so the history board can explain what happened to the user.
-		emailProvider.sendMessage.mockRejectedValueOnce(new Error('Resend unavailable'));
+		sendMessageMock.mockRejectedValueOnce(new Error('Resend unavailable'));
 
 		await expect(
 			service.sendDraft({

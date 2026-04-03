@@ -9,7 +9,14 @@ import { AUTH_ENV_KEYS } from '$lib/server/auth/constants';
 import { normalizeIterations, hashPassword } from '$lib/server/auth/password';
 import { resolvePasswordPepper } from '$lib/server/auth/service';
 import { createMemberSchema, memberListQuerySchema } from '$lib/server/members/validation';
-import type { CreateMemberResponse, MemberListResponse } from '$lib/members/types.js';
+import type {
+	CreateMemberResponse,
+	MemberListResponse,
+	MemberRole,
+	MemberSex,
+	MemberSortKey,
+	SortDirection
+} from '$lib/members/types.js';
 import type { RequestHandler } from './$types';
 
 const TEMP_PASSWORD_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*';
@@ -33,12 +40,12 @@ const toFieldErrorMap = (
 
 const buildEmptyMemberPayload = (input: {
 	query: string;
-	sort: string;
-	dir: string;
-	sexFilter: string | null;
-	roleFilter: string | null;
+	sort: MemberSortKey;
+	dir: SortDirection;
+	sexFilter: MemberSex | null;
+	roleFilter: MemberRole | null;
 	lastActiveSeasonId: string | null;
-}) => ({
+}): NonNullable<MemberListResponse['data']> => ({
 	rows: [],
 	page: 1,
 	pageSize: 50,

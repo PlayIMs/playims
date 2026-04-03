@@ -14,6 +14,8 @@
 		buttonClass?: string;
 		panelClass?: string;
 		iconClass?: string;
+		title?: string;
+		content?: string;
 		children?: Snippet;
 	}
 
@@ -25,6 +27,8 @@
 		buttonClass,
 		panelClass = 'z-[260] border border-secondary-300 bg-white p-2 text-xs text-neutral-950 shadow-md',
 		iconClass,
+		title,
+		content,
 		children
 	}: Props = $props();
 
@@ -153,7 +157,18 @@
 	</button>
 	{#if open}
 		<div bind:this={panel} class={`${panelWidthClass} ${panelClass}`} style={panelStyle}>
-			{@render children?.()}
+			{#if children}
+				{@render children()}
+			{:else}
+				<div class="space-y-1">
+					{#if title}
+						<p class="text-sm font-semibold text-neutral-950">{title}</p>
+					{/if}
+					{#if content}
+						<p>{content}</p>
+					{/if}
+				</div>
+			{/if}
 		</div>
 	{/if}
 </div>

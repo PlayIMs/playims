@@ -84,6 +84,10 @@ import { load as loadClubDetail } from '../../src/routes/dashboard/clubs/[season
 import { load as loadClubLeague } from '../../src/routes/dashboard/clubs/[seasonSlug]/[clubSlug]/[leagueSlug]/+page.server';
 import { load as loadClubTeam } from '../../src/routes/dashboard/clubs/[seasonSlug]/[clubSlug]/[leagueSlug]/[teamSlug]/+page.server';
 
+type ClubIndexLoadData = Exclude<Awaited<ReturnType<typeof loadClubIndex>>, void>;
+type ClubDetailLoadData = Exclude<Awaited<ReturnType<typeof loadClubDetail>>, void>;
+type ClubLeagueLoadData = Exclude<Awaited<ReturnType<typeof loadClubLeague>>, void>;
+
 const createEvent = (params?: Partial<Record<string, string>>) =>
 	({
 		url: new URL('https://playims.test/dashboard/clubs'),
@@ -268,7 +272,7 @@ describe('club sports page loads', () => {
 
 	it('returns season boards for the top-level club page', async () => {
 		// this proves the clubs landing page can render season-grouped club activity cards.
-		const data = await loadClubIndex(createEvent());
+		const data = (await loadClubIndex(createEvent())) as ClubIndexLoadData;
 
 		expect(data.seasons).toHaveLength(1);
 		expect(data.activities).toHaveLength(1);
@@ -277,7 +281,7 @@ describe('club sports page loads', () => {
 
 	it('returns leagues and officer summaries for the club detail page', async () => {
 		// this keeps the club page ready to show league navigation and club leadership sidebars.
-		const data = await loadClubDetail(createEvent());
+		const data = (await loadClubDetail(createEvent())) as ClubDetailLoadData;
 
 		expect(data.club.name).toBe('Ice Hockey');
 		expect(data.leagues).toHaveLength(1);
@@ -286,7 +290,7 @@ describe('club sports page loads', () => {
 
 	it('returns teams and schedule rows for the league page without divisions', async () => {
 		// this locks in the division-free league contract that the club UI depends on.
-		const data = await loadClubLeague(createEvent());
+		const data = (await loadClubLeague(createEvent())) as ClubLeagueLoadData;
 
 		expect(data.league.name).toBe("Men's League");
 		expect(data.teams).toHaveLength(1);

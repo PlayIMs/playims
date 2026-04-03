@@ -44,7 +44,7 @@ export const POST: RequestHandler = async (event) => {
 			dbOps,
 			clientId,
 			season,
-			event.params.clubSlug ?? '',
+			'',
 			event.params.leagueSlug
 		);
 		const club = resolved?.club;
