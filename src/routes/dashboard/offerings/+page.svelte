@@ -60,6 +60,11 @@
 	} from '$lib/components/data-table.js';
 	import { buildPreviousOfferingLinkChoices } from '$lib/utils/offering-linking.js';
 	import {
+		getCurrentAcademicSeasonLabel,
+		inferAcademicSeasonRangeFromName,
+		resolveAcademicSeasonEndDate
+	} from '$lib/utils/academic-season.js';
+	import {
 		buildOfferingTimelineGroups,
 		formatTimelineRelativeDayLabel,
 		findInitialTimelineGroup,
@@ -339,6 +344,7 @@
 		'button-primary-outlined h-[1.875rem] px-2 text-xs font-bold uppercase tracking-wide cursor-pointer';
 	const HEADER_SPLIT_ADD_MENU_BUTTON_CLASS =
 		'button-primary-outlined -ml-[2px] h-[1.875rem] px-1 cursor-pointer';
+	const DEFAULT_ACADEMIC_SEASON_PLACEHOLDER = getCurrentAcademicSeasonLabel();
 	const FORM_DROPDOWN_BUTTON_CLASS =
 		'w-full border-2 border-secondary-400 bg-white px-4 py-2 text-base leading-6 font-normal text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2 hover:bg-white focus:outline-none focus-visible:outline-none focus-visible:border-secondary-500 focus-visible:ring-0 focus-visible:shadow-[0_0_0_1px_var(--color-secondary-500)] disabled:cursor-not-allowed disabled:opacity-60';
 	let { data } = $props<{ data: PageData }>();
@@ -386,6 +392,7 @@
 	let createSeasonFormError = $state('');
 	let createSeasonServerFieldErrors = $state<Record<string, string>>({});
 	let seasonSlugTouched = $state(false);
+	let createSeasonStartDateTouched = $state(false);
 	let createSeasonEndDateTouched = $state(false);
 	let createSeasonForm = $state<WizardSeasonInput>(createEmptySeasonForm(false));
 	let createSeasonInitialForm = $state<WizardSeasonInput>(createEmptySeasonForm(false));
@@ -671,7 +678,7 @@
 			name: '',
 			slug: '',
 			startDate,
-			endDate: seasonEndDateFromStart(startDate),
+			endDate: resolveAcademicSeasonEndDate('', startDate),
 			isCurrent: defaultCurrent,
 			isActive: true
 		};
@@ -1097,6 +1104,7 @@
 		createSeasonWizardUnsavedConfirmOpen = false;
 		createSeasonServerFieldErrors = {};
 		seasonSlugTouched = false;
+		createSeasonStartDateTouched = false;
 		createSeasonEndDateTouched = false;
 		createSeasonCopy = { ...baseCopy };
 		createSeasonInitialCopy = { ...baseCopy };
@@ -1151,6 +1159,23 @@
 
 	function openCreateSeasonWizard(): void {
 		openCreateSeasonWizardWithCopy();
+	}
+
+	function applyCreateSeasonDateInferenceFromName(nextName: string): void {
+		const inferredRange = inferAcademicSeasonRangeFromName(nextName);
+		if (!inferredRange) return;
+
+		if (!createSeasonStartDateTouched) {
+			createSeasonForm.startDate = inferredRange.startDate;
+		}
+		if (!createSeasonEndDateTouched) {
+			createSeasonForm.endDate = inferredRange.endDate;
+		}
+	}
+
+	function syncCreateSeasonEndDateFromStart(nextStartDate: string): void {
+		if (createSeasonEndDateTouched) return;
+		createSeasonForm.endDate = resolveAcademicSeasonEndDate(createSeasonForm.name, nextStartDate);
 	}
 
 	function openManageSeasonWizard(): void {
@@ -5982,13 +6007,14 @@
 						data-wizard-autofocus
 						class="input-secondary"
 						value={createSeasonForm.name}
-						placeholder="Spring 2026"
+						placeholder={DEFAULT_ACADEMIC_SEASON_PLACEHOLDER}
 						oninput={(event) => {
 							const value = (event.currentTarget as HTMLInputElement).value;
 							createSeasonForm.name = value;
 							if (!seasonSlugTouched) {
 								createSeasonForm.slug = slugifyFinal(value);
 							}
+							applyCreateSeasonDateInferenceFromName(value);
 						}}
 						autocomplete="off"
 					/>
@@ -6019,7 +6045,7 @@
 							type="text"
 							class="input-secondary pr-10"
 							value={createSeasonForm.slug}
-							placeholder="spring-2026"
+							placeholder={DEFAULT_ACADEMIC_SEASON_PLACEHOLDER}
 							oninput={(event) => {
 								seasonSlugTouched = true;
 								createSeasonForm.slug = applyLiveSlugInput(event.currentTarget as HTMLInputElement);
@@ -6061,17 +6087,15 @@
 							value={createSeasonForm.startDate}
 							oninput={(event) => {
 								const nextStartDate = (event.currentTarget as HTMLInputElement).value;
+								createSeasonStartDateTouched = true;
 								createSeasonForm.startDate = nextStartDate;
-								if (!createSeasonEndDateTouched) {
-									createSeasonForm.endDate = seasonEndDateFromStart(nextStartDate);
-								}
+								syncCreateSeasonEndDateFromStart(nextStartDate);
 							}}
 							onchange={(event) => {
 								const nextStartDate = (event.currentTarget as HTMLInputElement).value;
+								createSeasonStartDateTouched = true;
 								createSeasonForm.startDate = nextStartDate;
-								if (!createSeasonEndDateTouched) {
-									createSeasonForm.endDate = seasonEndDateFromStart(nextStartDate);
-								}
+								syncCreateSeasonEndDateFromStart(nextStartDate);
 							}}
 						/>
 						<button

@@ -22,6 +22,11 @@
 	} from '$lib/components/wizard';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import { toast } from '$lib/toasts';
+	import {
+		getCurrentAcademicSeasonLabel,
+		inferAcademicSeasonRangeFromName,
+		resolveAcademicSeasonEndDate
+	} from '$lib/utils/academic-season.js';
 	import CreateClubLeagueWizard from './_wizards/CreateClubLeagueWizard.svelte';
 	import CreateClubSeasonWizard from './_wizards/CreateClubSeasonWizard.svelte';
 	import CreateClubSportWizard from './_wizards/CreateClubSportWizard.svelte';
@@ -114,6 +119,7 @@
 		'button-primary-outlined h-[1.875rem] px-2 text-xs font-bold uppercase tracking-wide cursor-pointer';
 	const HEADER_SPLIT_ADD_MENU_BUTTON_CLASS =
 		'button-primary-outlined -ml-[2px] h-[1.875rem] px-1 cursor-pointer';
+	const DEFAULT_ACADEMIC_SEASON_PLACEHOLDER = getCurrentAcademicSeasonLabel();
 	const CREATE_SEASON_STEP_TITLES: Record<ClubSeasonWizardStep, string> = {
 		1: 'Season Details',
 		2: 'Copy Setup',
@@ -149,6 +155,8 @@
 	let createSeasonFormError = $state('');
 	let createSeasonServerFieldErrors = $state<Record<string, string>>({});
 	let seasonSlugTouched = $state(false);
+	let createSeasonStartDateTouched = $state(false);
+	let createSeasonEndDateTouched = $state(false);
 	let createSeasonValidatedSteps = $state<ClubSeasonWizardStep[]>([]);
 	let createSeasonForm = $state<ClubSeasonWizardForm>(createEmptyClubSeasonWizardForm(false));
 	let createSeasonCopy = $state<ClubSeasonWizardCopyForm>(createEmptyClubSeasonWizardCopy(''));
@@ -604,6 +612,8 @@
 		createSeasonServerFieldErrors = {};
 		createSeasonWizardUnsavedConfirmOpen = false;
 		seasonSlugTouched = false;
+		createSeasonStartDateTouched = false;
+		createSeasonEndDateTouched = false;
 		createSeasonValidatedSteps = [];
 		createSeasonForm = createEmptyClubSeasonWizardForm(data.seasons.length === 0);
 		createSeasonCopy = createEmptyClubSeasonWizardCopy(
@@ -645,6 +655,23 @@
 			copy: createSeasonCopy
 		});
 		isCreateSeasonModalOpen = true;
+	}
+
+	function applyCreateClubSeasonDateInferenceFromName(nextName: string): void {
+		const inferredRange = inferAcademicSeasonRangeFromName(nextName);
+		if (!inferredRange) return;
+
+		if (!createSeasonStartDateTouched) {
+			createSeasonForm.startDate = inferredRange.startDate;
+		}
+		if (!createSeasonEndDateTouched) {
+			createSeasonForm.endDate = inferredRange.endDate;
+		}
+	}
+
+	function syncCreateClubSeasonEndDateFromStart(nextStartDate: string): void {
+		if (createSeasonEndDateTouched) return;
+		createSeasonForm.endDate = resolveAcademicSeasonEndDate(createSeasonForm.name, nextStartDate);
 	}
 
 	function openCreateClubWizard(): void {
@@ -1550,7 +1577,7 @@
 						data-wizard-autofocus
 						class="input-secondary"
 						value={createSeasonForm.name}
-						placeholder="2026-2027"
+						placeholder={DEFAULT_ACADEMIC_SEASON_PLACEHOLDER}
 						autocomplete="off"
 						oninput={(event) => {
 							const value = (event.currentTarget as HTMLInputElement).value;
@@ -1558,6 +1585,7 @@
 							if (!seasonSlugTouched) {
 								createSeasonForm.slug = slugifyFinal(value);
 							}
+							applyCreateClubSeasonDateInferenceFromName(value);
 						}}
 					/>
 					{#if createSeasonFieldErrors['season.name']}
@@ -1588,7 +1616,7 @@
 							type="text"
 							class="input-secondary pr-10"
 							value={createSeasonForm.slug}
-							placeholder="2026-2027"
+							placeholder={DEFAULT_ACADEMIC_SEASON_PLACEHOLDER}
 							autocomplete="off"
 							oninput={(event) => {
 								seasonSlugTouched = true;
@@ -1630,10 +1658,16 @@
 							bind:this={createSeasonStartDateInput}
 							value={createSeasonForm.startDate}
 							oninput={(event) => {
-								createSeasonForm.startDate = (event.currentTarget as HTMLInputElement).value;
+								const nextStartDate = (event.currentTarget as HTMLInputElement).value;
+								createSeasonStartDateTouched = true;
+								createSeasonForm.startDate = nextStartDate;
+								syncCreateClubSeasonEndDateFromStart(nextStartDate);
 							}}
 							onchange={(event) => {
-								createSeasonForm.startDate = (event.currentTarget as HTMLInputElement).value;
+								const nextStartDate = (event.currentTarget as HTMLInputElement).value;
+								createSeasonStartDateTouched = true;
+								createSeasonForm.startDate = nextStartDate;
+								syncCreateClubSeasonEndDateFromStart(nextStartDate);
 							}}
 						/>
 						<button
@@ -1665,9 +1699,11 @@
 							bind:this={createSeasonEndDateInput}
 							value={createSeasonForm.endDate}
 							oninput={(event) => {
+								createSeasonEndDateTouched = true;
 								createSeasonForm.endDate = (event.currentTarget as HTMLInputElement).value;
 							}}
 							onchange={(event) => {
+								createSeasonEndDateTouched = true;
 								createSeasonForm.endDate = (event.currentTarget as HTMLInputElement).value;
 							}}
 						/>
