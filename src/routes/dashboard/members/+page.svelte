@@ -523,8 +523,8 @@
 	function actionOptions(row: MemberListRow) {
 		return [
 			{ value: 'view', label: 'View' },
-			{ value: 'copy', label: 'Copy Row' },
 			{ value: 'edit', label: 'Edit' },
+			{ value: 'copy', label: 'Copy to Clipboard' },
 			{
 				value: 'permissions',
 				label: 'Permissions',
@@ -1031,7 +1031,7 @@
 										</span>
 									{:else if column.key === 'role'}
 										<span
-											class={`${roleToneClass(row.role)} px-2 py-0.5 text-xs uppercase tracking-wide`}
+											class={roleToneClass(row.role)}
 										>
 											{ROLE_LABELS[row.role]}
 										</span>
