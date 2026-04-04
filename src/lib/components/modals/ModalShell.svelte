@@ -68,7 +68,7 @@
 		open = false,
 		closeAriaLabel = 'Close modal',
 		showCloseButton = true,
-		closeButtonClass = 'modal-close-button absolute right-4 top-4 z-10',
+		closeButtonClass = 'modal-close-button absolute right-4 top-3 z-10',
 		backdropClass = 'bg-black/55',
 		panelClass = 'w-full max-w-5xl max-h-[calc(100vh-2rem)] lg:max-h-[calc(100vh-3rem)] border-[3px] border-neutral-950 bg-neutral overflow-hidden flex flex-col',
 		alignmentClass = 'items-center',

@@ -90,19 +90,14 @@
 	on:saveShortcut={() => formElement?.requestSubmit()}
 >
 	<div
-		class="cursor-move select-none space-y-3 border-b border-neutral-950 bg-neutral-600/66 p-4"
+		class="cursor-move select-none border-b border-neutral-950 bg-neutral-600/66 p-4"
 		data-wizard-modal-drag-handle
 	>
-		<div class="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
-			<div>
-				<h2 class="text-3xl font-bold font-serif text-neutral-950">{title}</h2>
-				{#if showStepMeta}
-					<p class="text-sm font-sans text-neutral-800">Step {step} of {stepCount}: {stepTitle}</p>
-				{/if}
-			</div>
+		<div class="flex items-center justify-between gap-3">
+			<h2 class="min-w-0 flex-1 text-3xl font-bold font-serif text-neutral-950">{title}</h2>
 			<button
 				type="button"
-				class="modal-close-button"
+				class="modal-close-button shrink-0"
 				aria-label={closeAriaLabel}
 				data-modal-drag-ignore
 				onclick={() => dispatch('requestClose')}
@@ -111,7 +106,10 @@
 			</button>
 		</div>
 		{#if showStepMeta}
-			<div class="border border-neutral-950 bg-white h-3" aria-hidden="true">
+			<p class="text-sm font-sans text-neutral-800">Step {step} of {stepCount}: {stepTitle}</p>
+		{/if}
+		{#if showStepMeta}
+			<div class="mt-1 border border-neutral-950 bg-white h-3" aria-hidden="true">
 				<div class="h-full bg-primary" style={`width: ${progressPercent}%`}></div>
 			</div>
 		{/if}
