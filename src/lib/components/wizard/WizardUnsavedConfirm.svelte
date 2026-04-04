@@ -12,6 +12,14 @@
 	let { open, title, message, confirmLabel, cancelLabel }: Props = $props();
 
 	const dispatch = createEventDispatcher<{ confirm: void; cancel: void }>();
+	const resolvedTitle = $derived.by(() =>
+		title === 'Discard Wizard Changes?' ? 'Discard Changes?' : title
+	);
+	const resolvedMessage = $derived.by(() =>
+		message === 'You have unsaved changes in this wizard. Close without saving?'
+			? 'You have unsaved changes. Close without saving?'
+			: message
+	);
 
 	let pointerDownStartedInside = $state(false);
 	let overlayElement = $state<HTMLDivElement | null>(null);
@@ -128,17 +136,17 @@
 	>
 		<div
 			bind:this={panelElement}
-			class="w-full max-w-xl border border-neutral-950 bg-neutral"
+			class="w-full max-w-xl border-[3px] border-neutral-950 bg-neutral overflow-hidden"
 			style={panelStyle}
 			role="dialog"
 			aria-modal="true"
 			tabindex="-1"
 		>
 			<div class="border-b border-neutral-950 bg-neutral-600/66 p-5">
-				<h3 class="text-2xl font-bold font-serif text-neutral-950">{title}</h3>
+				<h3 class="text-2xl font-bold font-serif text-neutral-950">{resolvedTitle}</h3>
 			</div>
 			<div class="p-5 space-y-4">
-				<p class="font-sans text-neutral-950">{message}</p>
+				<p class="font-sans text-neutral-950">{resolvedMessage}</p>
 				<div class="flex items-center justify-end gap-3 pt-2">
 					<button
 						type="button"
