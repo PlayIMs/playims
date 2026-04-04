@@ -15,6 +15,7 @@ Summary of tests:
 4. It verifies that the communication center navigation entry points at the real dashboard route.
 5. It verifies that participant permission snapshots lose access to management routes and keep safe pages.
 6. It verifies that developer-only routes reject non-developer snapshots.
+7. It verifies that the communication center opts out of hover data preloading.
 */
 
 import { describe, expect, it } from 'vitest';
@@ -22,6 +23,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	canAccessDashboardRouteForPermissions,
 	filterDashboardNavigationItemsForPermissions,
+	getDashboardNavigationPreloadData,
 	orderDashboardNavigationItems
 } from '../../src/lib/dashboard/navigation';
 import { buildPermissionSnapshot } from '../../src/lib/server/auth/permissions';
@@ -140,5 +142,11 @@ describe('dashboard navigation helper', () => {
 				permissions: buildPermissionSnapshot('dev')
 			})
 		).toBe(true);
+	});
+
+	it('opts the communication center out of hover data preloading', () => {
+		// this keeps the heavy editor workspace from throwing noisy preload fetch warnings on sidebar hover.
+		expect(getDashboardNavigationPreloadData('communicationCenter')).toBe('off');
+		expect(getDashboardNavigationPreloadData('memberManagement')).toBeUndefined();
 	});
 });

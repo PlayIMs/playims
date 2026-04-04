@@ -34,6 +34,9 @@ export type DashboardPermissionSnapshot = Record<string, boolean>;
 const DEV_ONLY_ROUTE_PREFIX = '/dashboard/dev';
 const ACCOUNT_ROUTE_PREFIX = '/dashboard/account';
 const NOTIFICATIONS_ROUTE_PREFIX = '/dashboard/settings/notifications';
+const NAV_PRELOAD_DATA_BY_KEY: Partial<Record<DashboardNavKey, 'off'>> = {
+	communicationCenter: 'off'
+};
 
 const NAV_ITEM_PERMISSION: Record<DashboardNavKey, string> = {
 	dashboard: 'VIEW_DASHBOARD_HOME',
@@ -224,6 +227,10 @@ export const canAccessDashboardRouteForPermissions = ({
 
 	return hasPermission(permissions, 'VIEW_DASHBOARD_HOME');
 };
+
+export const getDashboardNavigationPreloadData = (
+	key: DashboardNavKey
+): 'off' | undefined => NAV_PRELOAD_DATA_BY_KEY[key];
 
 export const toDashboardNavigationOverrides = (
 	labels: Partial<Record<DashboardNavKey, string>>
