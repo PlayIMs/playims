@@ -5,6 +5,8 @@ import {
 } from '$lib/server/client-context';
 import { getTenantDbOps } from '$lib/server/database/context';
 import {
+	bulkUpdateIntramuralLeaguesSchema,
+	type BulkUpdateIntramuralLeaguesInput,
 	createIntramuralLeagueSchema,
 	type CreateIntramuralLeagueInput,
 	type CreatedIntramuralActivity,
@@ -103,6 +105,11 @@ const toFieldErrorMap = (
 	}
 
 	return fieldErrors;
+};
+
+const trimOptional = (value: string | null | undefined): string | null => {
+	const trimmed = value?.trim() ?? '';
+	return trimmed.length > 0 ? trimmed : null;
 };
 
 export const POST: RequestHandler = async (event) => {
@@ -378,6 +385,341 @@ export const PATCH: RequestHandler = async (event) => {
 			},
 			{ status: 400 }
 		);
+	}
+
+	if (
+		typeof body === 'object' &&
+		body !== null &&
+		'action' in body &&
+		(body as { action?: unknown }).action === 'bulk-update'
+	) {
+		const parsedBulk = bulkUpdateIntramuralLeaguesSchema.safeParse(body);
+		if (!parsedBulk.success) {
+			return json(
+				{
+					success: false,
+					error: 'Invalid request payload.',
+					fieldErrors: toFieldErrorMap(parsedBulk.error.issues)
+				},
+				{ status: 400 }
+			);
+		}
+
+		const input: BulkUpdateIntramuralLeaguesInput = parsedBulk.data;
+		const clientId = requireAuthenticatedClientId(event.locals);
+		const dbOps = await getTenantDbOps(event, clientId);
+		const userId = requireAuthenticatedUserId(event.locals);
+
+		try {
+			const offerings = await dbOps.offerings.getByClientId(clientId);
+			const seasons = await dbOps.seasons.getByClientId(clientId);
+			const seasonById = new Map(seasons.map((season) => [season.id, season]));
+			const selectedOffering =
+				offerings.find((offering) => offering.id === input.offeringId && Boolean(offering.id)) ??
+				null;
+
+			if (!selectedOffering?.id) {
+				return json(
+					{
+						success: false,
+						error: 'Select a valid offering before saving these entries.',
+						fieldErrors: {
+							offeringId: ['Offering is required.']
+						}
+					},
+					{ status: 400 }
+				);
+			}
+
+			const existingOfferingLeagues = await dbOps.leagues.getByOfferingId(selectedOffering.id);
+			const leaguesById = new Map(
+				existingOfferingLeagues
+					.filter((league): league is typeof existingOfferingLeagues[number] & { id: string } =>
+						Boolean(league.id)
+					)
+					.map((league) => [league.id, league] as const)
+			);
+			const selectedLeagues = input.leagueIds
+				.map((leagueId) => leaguesById.get(leagueId))
+				.filter((league): league is NonNullable<typeof league> => Boolean(league));
+
+			if (selectedLeagues.length !== input.leagueIds.length) {
+				return json(
+					{
+						success: false,
+						error: 'Some selected leagues could not be found.',
+						fieldErrors: {
+							leagueIds: ['One or more selected leagues are no longer available.']
+						}
+					},
+					{ status: 404 }
+				);
+			}
+
+			if (
+				input.changes.postseasonStartDate ||
+				input.changes.postseasonEndDate
+			) {
+				if (input.changes.hasPostseason === false) {
+					return json(
+						{
+							success: false,
+							error: 'Invalid postseason settings.',
+							fieldErrors: {
+								'changes.hasPostseason': [
+									'Postseason dates cannot be set while postseason is being disabled.'
+								]
+							}
+						},
+						{ status: 400 }
+					);
+				}
+				if (
+					input.changes.hasPostseason === undefined &&
+					selectedLeagues.some((league) => (league.hasPostseason ?? 0) !== 1)
+				) {
+					return json(
+						{
+							success: false,
+							error: 'Invalid postseason settings.',
+							fieldErrors: {
+								'changes.hasPostseason': [
+									'Set postseason to enabled before bulk editing postseason dates for leagues that do not already use postseason.'
+								]
+							}
+						},
+						{ status: 400 }
+					);
+				}
+			}
+
+			if (
+				input.changes.preseasonStartDate ||
+				input.changes.preseasonEndDate
+			) {
+				if (input.changes.hasPreseason === false) {
+					return json(
+						{
+							success: false,
+							error: 'Invalid preseason settings.',
+							fieldErrors: {
+								'changes.hasPreseason': [
+									'Preseason dates cannot be set while preseason is being disabled.'
+								]
+							}
+						},
+						{ status: 400 }
+					);
+				}
+				if (
+					input.changes.hasPreseason === undefined &&
+					selectedLeagues.some((league) => (league.hasPreseason ?? 0) !== 1)
+				) {
+					return json(
+						{
+							success: false,
+							error: 'Invalid preseason settings.',
+							fieldErrors: {
+								'changes.hasPreseason': [
+									'Set preseason to enabled before bulk editing preseason dates for leagues that do not already use preseason.'
+								]
+							}
+						},
+						{ status: 400 }
+					);
+				}
+			}
+
+			const validationIssues: Array<{ path: Array<PropertyKey>; message: string }> = [];
+			const mergedLeagues = selectedLeagues.map((league) => {
+				const seasonId = league.seasonId?.trim() || selectedOffering.seasonId?.trim() || '';
+				const mergedLeague = {
+					name: league.name?.trim() || 'Untitled League',
+					slug: league.slug?.trim() || '',
+					stackOrder: league.stackOrder ?? 1,
+					description:
+						input.changes.description !== undefined
+							? input.changes.description
+							: trimOptional(league.description),
+					seasonId,
+					gender:
+						input.changes.gender !== undefined
+							? input.changes.gender
+							: ((league.gender?.trim() ?? null) as 'male' | 'female' | 'mixed' | null),
+					skillLevel:
+						input.changes.skillLevel !== undefined
+							? input.changes.skillLevel
+							: ((league.skillLevel?.trim() ?? null) as
+									| 'competitive'
+									| 'intermediate'
+									| 'recreational'
+									| 'all'
+									| null),
+					regStartDate: input.changes.regStartDate ?? league.regStartDate ?? '',
+					regEndDate: input.changes.regEndDate ?? league.regEndDate ?? '',
+					seasonStartDate: input.changes.seasonStartDate ?? league.seasonStartDate ?? '',
+					seasonEndDate: input.changes.seasonEndDate ?? league.seasonEndDate ?? '',
+					hasPostseason:
+						input.changes.hasPostseason !== undefined
+							? input.changes.hasPostseason
+							: (league.hasPostseason ?? 0) === 1,
+					postseasonStartDate:
+						input.changes.hasPostseason === false
+							? null
+							: input.changes.postseasonStartDate ??
+								trimOptional(league.postseasonStartDate),
+					postseasonEndDate:
+						input.changes.hasPostseason === false
+							? null
+							: input.changes.postseasonEndDate ?? trimOptional(league.postseasonEndDate),
+					hasPreseason:
+						input.changes.hasPreseason !== undefined
+							? input.changes.hasPreseason
+							: (league.hasPreseason ?? 0) === 1,
+					preseasonStartDate:
+						input.changes.hasPreseason === false
+							? null
+							: input.changes.preseasonStartDate ?? trimOptional(league.preseasonStartDate),
+					preseasonEndDate:
+						input.changes.hasPreseason === false
+							? null
+							: input.changes.preseasonEndDate ?? trimOptional(league.preseasonEndDate),
+					isActive:
+						input.changes.isActive !== undefined
+							? input.changes.isActive
+							: (league.isActive ?? 0) !== 0,
+					isLocked:
+						input.changes.isLocked !== undefined
+							? input.changes.isLocked
+							: (league.isLocked ?? 0) === 1,
+					imageUrl:
+						input.changes.imageUrl !== undefined
+							? input.changes.imageUrl
+							: trimOptional(league.imageUrl)
+				};
+
+				const validationResult = updateIntramuralLeagueSchema.safeParse({
+					leagueId: league.id,
+					offeringId: selectedOffering.id,
+					league: mergedLeague
+				});
+				if (!validationResult.success) {
+					const firstIssue = validationResult.error.issues[0];
+					validationIssues.push({
+						path: ['changes', firstIssue?.path?.[1] ?? 'changes'],
+						message: `${league.name?.trim() || 'League'}: ${firstIssue?.message ?? 'Invalid league update.'}`
+					});
+					return null;
+				}
+
+				return {
+					existing: league,
+					league: validationResult.data.league
+				};
+			});
+
+			if (validationIssues.length > 0 || mergedLeagues.some((league) => league === null)) {
+				return json(
+					{
+						success: false,
+						error: 'One or more selected leagues could not be updated with those changes.',
+						fieldErrors: toFieldErrorMap(validationIssues)
+					},
+					{ status: 400 }
+				);
+			}
+
+			const updatedLeagueIds: string[] = [];
+			for (const mergedLeague of mergedLeagues) {
+				if (!mergedLeague) continue;
+
+				const selectedSeason = seasonById.get(mergedLeague.league.seasonId);
+				if (!selectedSeason?.id) {
+					return json(
+						{
+							success: false,
+							error: 'Invalid season selected.',
+							fieldErrors: {
+								'changes.seasonStartDate': ['A selected league is missing a valid season.']
+							}
+						},
+						{ status: 400 }
+					);
+				}
+
+				const seasonLabel = selectedSeason.name?.trim() || 'Unscheduled';
+				const parsedSeason = parseSeasonAndYear(seasonLabel);
+				const updatedLeague = await dbOps.leagues.updateByClientIdAndId(
+					clientId,
+					mergedLeague.existing.id,
+					{
+						offeringId: selectedOffering.id,
+						seasonId: selectedSeason.id,
+						name: mergedLeague.league.name,
+						slug: mergedLeague.league.slug,
+						stackOrder: mergedLeague.league.stackOrder,
+						description: mergedLeague.league.description,
+						year: parsedSeason.year,
+						season: parsedSeason.season,
+						gender: mergedLeague.league.gender,
+						skillLevel: mergedLeague.league.skillLevel,
+						regStartDate: mergedLeague.league.regStartDate,
+						regEndDate: mergedLeague.league.regEndDate,
+						seasonStartDate: mergedLeague.league.seasonStartDate,
+						seasonEndDate: mergedLeague.league.seasonEndDate,
+						hasPostseason: mergedLeague.league.hasPostseason ? 1 : 0,
+						postseasonStartDate: mergedLeague.league.hasPostseason
+							? mergedLeague.league.postseasonStartDate
+							: null,
+						postseasonEndDate: mergedLeague.league.hasPostseason
+							? mergedLeague.league.postseasonEndDate
+							: null,
+						hasPreseason: mergedLeague.league.hasPreseason ? 1 : 0,
+						preseasonStartDate: mergedLeague.league.hasPreseason
+							? mergedLeague.league.preseasonStartDate
+							: null,
+						preseasonEndDate: mergedLeague.league.hasPreseason
+							? mergedLeague.league.preseasonEndDate
+							: null,
+						isActive: mergedLeague.league.isActive ? 1 : 0,
+						isLocked: mergedLeague.league.isLocked ? 1 : 0,
+						imageUrl: mergedLeague.league.imageUrl,
+						updatedUser: userId
+					}
+				);
+
+				if (!updatedLeague?.id) {
+					return json(
+						{
+							success: false,
+							error: 'Unable to update leagues right now.'
+						},
+						{ status: 500 }
+					);
+				}
+
+				updatedLeagueIds.push(updatedLeague.id);
+			}
+
+			return json(
+				{
+					success: true,
+					data: {
+						leagueIds: updatedLeagueIds
+					}
+				},
+				{ status: 200 }
+			);
+		} catch (error) {
+			console.error('Failed to bulk update intramural leagues:', error);
+			return json(
+				{
+					success: false,
+					error: 'Unable to save entries right now.'
+				},
+				{ status: 500 }
+			);
+		}
 	}
 
 	const parsed = updateIntramuralLeagueSchema.safeParse(body);

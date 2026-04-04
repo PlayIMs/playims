@@ -20,6 +20,7 @@
 	import CreateLeagueWizard from './_wizards/CreateLeagueWizard.svelte';
 	import CreateOfferingWizard from './_wizards/CreateOfferingWizard.svelte';
 	import CreateSeasonWizard from './_wizards/CreateSeasonWizard.svelte';
+	import BulkEditLeaguesWizard from './_wizards/BulkEditLeaguesWizard.svelte';
 	import EditOfferingWizard from './_wizards/EditOfferingWizard.svelte';
 	import ManageSeasonWizard from './_wizards/ManageSeasonWizard.svelte';
 	import type { PageData } from './$types';
@@ -97,7 +98,7 @@
 		categoryLabel: string;
 		divisionCount: number;
 		status: OfferingStatus;
-		statusLabel: 'Open' | 'Waitlist' | 'Closed' | 'Upcoming';
+		statusLabel: 'Open' | 'Waitlist' | 'Closed' | 'Upcoming' | 'Concluded';
 		teamRegistrationOpenText: string;
 		teamRegistrationCloseText: string;
 		teamRegistrationOpenDate: string | null;
@@ -167,6 +168,7 @@
 	type RegistrationWindowState = 'upcoming' | 'open' | 'closed';
 	type OfferingView = 'leagues' | 'tournaments' | 'all';
 	type LeagueWizardStep = 1 | 2 | 3 | 4;
+	type BulkLeagueWizardStep = 1 | 2 | 3;
 	type SeasonWizardStep = 1 | 2 | 3 | 4;
 	type AuthRole = 'participant' | 'manager' | 'admin' | 'dev';
 	type LeagueWizardMode = 'create' | 'edit';
@@ -174,6 +176,14 @@
 	type LeagueChoice = 'yes' | 'no';
 	type LeagueGender = '' | 'male' | 'female' | 'mixed';
 	type LeagueSkillLevel = '' | 'competitive' | 'intermediate' | 'recreational' | 'all';
+	type BulkBooleanChoice = 'unchanged' | 'true' | 'false';
+	type BulkLeagueGenderChoice = 'unchanged' | 'male' | 'female' | 'mixed';
+	type BulkLeagueSkillLevelChoice =
+		| 'unchanged'
+		| 'competitive'
+		| 'intermediate'
+		| 'recreational'
+		| 'all';
 	interface DropdownOption {
 		value: string;
 		label: string;
@@ -235,6 +245,25 @@
 		offeringId: string;
 		league: WizardLeagueInput;
 		leagues: WizardLeagueInput[];
+	}
+
+	interface BulkLeagueEditFormState {
+		description: string;
+		gender: BulkLeagueGenderChoice;
+		skillLevel: BulkLeagueSkillLevelChoice;
+		regStartDate: string;
+		regEndDate: string;
+		seasonStartDate: string;
+		seasonEndDate: string;
+		hasPostseason: BulkBooleanChoice;
+		postseasonStartDate: string;
+		postseasonEndDate: string;
+		hasPreseason: BulkBooleanChoice;
+		preseasonStartDate: string;
+		preseasonEndDate: string;
+		isActive: BulkBooleanChoice;
+		isLocked: BulkBooleanChoice;
+		imageUrl: string;
 	}
 
 	interface WizardSeasonInput {
@@ -311,6 +340,15 @@
 		fieldErrors?: Record<string, string[] | undefined>;
 	}
 
+	interface BulkUpdateLeaguesApiResponse {
+		success: boolean;
+		data?: {
+			leagueIds: string[];
+		};
+		error?: string;
+		fieldErrors?: Record<string, string[] | undefined>;
+	}
+
 	const OFFERING_VIEW_STORAGE_KEY = 'intramural-offerings-view-mode';
 	const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 	const DATE_TIME_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
@@ -327,6 +365,11 @@
 		2: 'Copy Content',
 		3: 'Current Season Transition',
 		4: 'Review & Create'
+	};
+	const BULK_LEAGUE_WIZARD_STEP_TITLES: Record<BulkLeagueWizardStep, string> = {
+		1: 'Select Leagues',
+		2: 'Shared Updates',
+		3: 'Review Changes'
 	};
 	const COMPACT_DROPDOWN_BUTTON_CLASS =
 		'button-neutral-outlined w-auto h-[1.875rem] min-w-36 px-3 py-1 text-sm font-semibold cursor-pointer inline-flex items-center justify-between gap-2';
@@ -423,11 +466,22 @@
 	let editOfferingFormError = $state('');
 	let editOfferingServerFieldErrors = $state<Record<string, string>>({});
 	let editingOfferingId = $state<string | null>(null);
+	let bulkEditingOfferingId = $state<string | null>(null);
+	let bulkEditingOfferingName = $state('');
+	let bulkEditingEntryLabelPlural = $state('Leagues');
 	let offeringSlugTouched = $state(false);
 	let leagueSlugTouched = $state(false);
 	let leagueEditingIndex = $state<number | null>(null);
 	let leagueDraftActive = $state(false);
 	let serverFieldErrors = $state<Record<string, string>>({});
+	let isBulkEditLeaguesModalOpen = $state(false);
+	let bulkEditLeaguesUnsavedConfirmOpen = $state(false);
+	let bulkEditLeaguesValidationVisible = $state(false);
+	let bulkEditLeaguesStep = $state<BulkLeagueWizardStep>(1);
+	let bulkEditLeaguesSubmitting = $state(false);
+	let bulkEditLeaguesFormError = $state('');
+	let bulkEditLeaguesServerFieldErrors = $state<Record<string, string>>({});
+	let bulkEditLeagueSelectedIds = $state<string[]>([]);
 	let isCreateLeagueModalOpen = $state(false);
 	let createLeagueWizardUnsavedConfirmOpen = $state(false);
 	let createLeagueStep = $state<LeagueWizardStep>(1);
@@ -444,12 +498,18 @@
 	let createLeagueServerFieldErrors = $state<Record<string, string>>({});
 	let createLeagueForm = $state<LeagueWizardFormState>(createEmptyCreateLeagueForm());
 	let editOfferingForm = $state<WizardOfferingInput>(createEmptyOfferingInput());
+	let bulkEditLeaguesForm = $state<BulkLeagueEditFormState>(createEmptyBulkLeagueEditForm());
 	let createSeasonStartDateInput = $state<HTMLInputElement | null>(null);
 	let createSeasonEndDateInput = $state<HTMLInputElement | null>(null);
 	let lastPageErrorToast = $state('');
 	let lastSuccessToast = $state('');
 	const createOfferingWizardDirtyState = createWizardDirtyState<WizardFormState>();
 	const editOfferingWizardDirtyState = createWizardDirtyState<WizardOfferingInput>();
+	const bulkEditLeaguesDirtyState = createWizardDirtyState<{
+		offeringId: string | null;
+		selectedLeagueIds: string[];
+		form: BulkLeagueEditFormState;
+	}>();
 	const createLeagueWizardDirtyState = createWizardDirtyState<LeagueWizardFormState>();
 	const createSeasonWizardDirtyState = createWizardDirtyState<{
 		form: WizardSeasonInput;
@@ -549,17 +609,6 @@
 		if (startDateDiff !== 0) return startDateDiff;
 
 		return a.name.localeCompare(b.name);
-	}
-
-	function seasonEndDateFromStart(startDate: string): string {
-		const parsedStart = parseDateOnly(startDate);
-		if (!parsedStart) return '';
-
-		const target = new Date(parsedStart);
-		target.setDate(target.getDate() + 16 * 7);
-		const daysUntilSaturday = (6 - target.getDay() + 7) % 7;
-		target.setDate(target.getDate() + daysUntilSaturday);
-		return formatDateOnly(target);
 	}
 
 	function defaultDateTimeValue(type: 'start' | 'end'): string {
@@ -669,6 +718,27 @@
 			offeringId: '',
 			league: createEmptyLeague(),
 			leagues: []
+		};
+	}
+
+	function createEmptyBulkLeagueEditForm(): BulkLeagueEditFormState {
+		return {
+			description: '',
+			gender: 'unchanged',
+			skillLevel: 'unchanged',
+			regStartDate: '',
+			regEndDate: '',
+			seasonStartDate: '',
+			seasonEndDate: '',
+			hasPostseason: 'unchanged',
+			postseasonStartDate: '',
+			postseasonEndDate: '',
+			hasPreseason: 'unchanged',
+			preseasonStartDate: '',
+			preseasonEndDate: '',
+			isActive: 'unchanged',
+			isLocked: 'unchanged',
+			imageUrl: ''
 		};
 	}
 
@@ -1255,6 +1325,103 @@
 		isEditOfferingModalOpen = true;
 	}
 
+	function bulkEditActionLabel(offering: OfferingGroup): string {
+		return entryLabelFor(offering) === 'group' ? 'Bulk Edit Groups' : 'Bulk Edit Leagues';
+	}
+
+	function offeringActionOptions(offering: OfferingGroup): DropdownOption[] {
+		return [
+			{
+				value: 'edit-offering',
+				label: 'Edit Offering'
+			},
+			{
+				value: 'bulk-edit-leagues',
+				label: bulkEditActionLabel(offering),
+				disabled: offering.leagues.length === 0,
+				disabledTooltip:
+					entryLabelFor(offering) === 'group'
+						? 'Add groups before bulk editing.'
+						: 'Add leagues before bulk editing.'
+			}
+		];
+	}
+
+	function createBulkLeagueTemplateMap(offeringId: string): Map<string, LeagueTemplate> {
+		return new Map(
+			leagueTemplates
+				.filter((league) => league.offeringId === offeringId)
+				.map((league) => [league.id, league] as const)
+		);
+	}
+
+	function getBulkEditSelectedLeagueTemplates(): LeagueTemplate[] {
+		const offeringId = bulkEditingOfferingId?.trim() ?? '';
+		if (!offeringId) return [];
+
+		const templatesById = createBulkLeagueTemplateMap(offeringId);
+		return bulkEditLeagueSelectedIds
+			.map((leagueId) => templatesById.get(leagueId))
+			.filter((league): league is LeagueTemplate => Boolean(league));
+	}
+
+	function resetBulkEditLeaguesWizard(): void {
+		isBulkEditLeaguesModalOpen = false;
+		bulkEditLeaguesUnsavedConfirmOpen = false;
+		bulkEditLeaguesValidationVisible = false;
+		bulkEditLeaguesStep = 1;
+		bulkEditLeaguesSubmitting = false;
+		bulkEditLeaguesFormError = '';
+		bulkEditLeaguesServerFieldErrors = {};
+		bulkEditingOfferingId = null;
+		bulkEditingOfferingName = '';
+		bulkEditingEntryLabelPlural = 'Leagues';
+		bulkEditLeagueSelectedIds = [];
+		bulkEditLeaguesForm = createEmptyBulkLeagueEditForm();
+		bulkEditLeaguesDirtyState.clearBaseline();
+	}
+
+	function closeBulkEditLeaguesWizard(): void {
+		resetBulkEditLeaguesWizard();
+	}
+
+	function openBulkEditLeaguesWizard(offering: OfferingGroup): void {
+		if (!canEditLeagueRows || !offering.offeringId || offering.leagues.length === 0) return;
+
+		const selectedLeagueIds = offering.leagues
+			.map((league) => league.id?.trim() ?? '')
+			.filter((leagueId) => leagueId.length > 0);
+		if (selectedLeagueIds.length === 0) {
+			toast.error('Unable to load leagues for bulk editing right now.', {
+				title: pageLabel
+			});
+			return;
+		}
+
+		resetBulkEditLeaguesWizard();
+		bulkEditingOfferingId = offering.offeringId;
+		bulkEditingOfferingName = offering.offeringName;
+		bulkEditingEntryLabelPlural = entryLabelFor(offering) === 'group' ? 'Groups' : 'Leagues';
+		bulkEditLeagueSelectedIds = selectedLeagueIds;
+		bulkEditLeaguesDirtyState.captureBaseline({
+			offeringId: offering.offeringId,
+			selectedLeagueIds,
+			form: bulkEditLeaguesForm
+		});
+		isBulkEditLeaguesModalOpen = true;
+	}
+
+	function handleOfferingAction(action: string, offering: OfferingGroup): void {
+		if (action === 'edit-offering') {
+			openEditOfferingWizard(offering);
+			return;
+		}
+
+		if (action === 'bulk-edit-leagues') {
+			openBulkEditLeaguesWizard(offering);
+		}
+	}
+
 	function buildEditableLeagueDraft(template: LeagueTemplate): WizardLeagueInput {
 		return {
 			draftId: template.id,
@@ -1362,6 +1529,14 @@
 		resetEditOfferingWizard();
 	}
 
+	function hasUnsavedBulkEditLeaguesChanges(): boolean {
+		return bulkEditLeaguesDirtyState.isDirty({
+			offeringId: bulkEditingOfferingId,
+			selectedLeagueIds: bulkEditLeagueSelectedIds,
+			form: bulkEditLeaguesForm
+		});
+	}
+
 	function closeCreateLeagueWizard(): void {
 		isCreateLeagueModalOpen = false;
 		createLeagueWizardUnsavedConfirmOpen = false;
@@ -1413,6 +1588,16 @@
 		editOfferingWizardUnsavedConfirmOpen = true;
 	}
 
+	function requestCloseBulkEditLeaguesWizard(): void {
+		if (!isBulkEditLeaguesModalOpen) return;
+		if (bulkEditLeaguesSubmitting) return;
+		if (!hasUnsavedBulkEditLeaguesChanges()) {
+			closeBulkEditLeaguesWizard();
+			return;
+		}
+		bulkEditLeaguesUnsavedConfirmOpen = true;
+	}
+
 	function requestCloseCreateLeagueWizard(): void {
 		if (!isCreateLeagueModalOpen) return;
 		if (createLeagueSubmitting) return;
@@ -1451,6 +1636,15 @@
 		editOfferingWizardUnsavedConfirmOpen = false;
 	}
 
+	function confirmDiscardBulkEditLeaguesWizard(): void {
+		bulkEditLeaguesUnsavedConfirmOpen = false;
+		closeBulkEditLeaguesWizard();
+	}
+
+	function cancelDiscardBulkEditLeaguesWizard(): void {
+		bulkEditLeaguesUnsavedConfirmOpen = false;
+	}
+
 	function confirmDiscardCreateLeagueWizard(): void {
 		createLeagueWizardUnsavedConfirmOpen = false;
 		closeCreateLeagueWizard();
@@ -1487,6 +1681,15 @@
 		}
 	}
 
+	function clearBulkEditLeaguesApiErrors(): void {
+		if (Object.keys(bulkEditLeaguesServerFieldErrors).length > 0) {
+			bulkEditLeaguesServerFieldErrors = {};
+		}
+		if (bulkEditLeaguesFormError) {
+			bulkEditLeaguesFormError = '';
+		}
+	}
+
 	function clearCreateLeagueApiErrors(): void {
 		if (Object.keys(createLeagueServerFieldErrors).length > 0) {
 			createLeagueServerFieldErrors = {};
@@ -1510,6 +1713,8 @@
 		const hasUnsavedCreateOfferingChanges = isCreateModalOpen && hasUnsavedCreateWizardChanges();
 		const hasUnsavedEditOfferingWizardChanges =
 			isEditOfferingModalOpen && hasUnsavedEditOfferingChanges();
+		const hasUnsavedBulkLeagueChanges =
+			isBulkEditLeaguesModalOpen && hasUnsavedBulkEditLeaguesChanges();
 		const hasUnsavedCreateLeagueChanges =
 			isCreateLeagueModalOpen && hasUnsavedCreateLeagueWizardChanges();
 		const hasUnsavedCreateSeasonChanges =
@@ -1517,6 +1722,7 @@
 		if (
 			!hasUnsavedCreateOfferingChanges &&
 			!hasUnsavedEditOfferingWizardChanges &&
+			!hasUnsavedBulkLeagueChanges &&
 			!hasUnsavedCreateLeagueChanges &&
 			!hasUnsavedCreateSeasonChanges
 		)
@@ -2419,6 +2625,100 @@
 		}
 	}
 
+	function normalizeBulkEditServerFieldErrors(
+		fieldErrors: Record<string, string[] | undefined> | undefined
+	): Record<string, string> {
+		const mapped = toServerFieldErrorMap(fieldErrors);
+		const normalized: Record<string, string> = {};
+
+		for (const [key, value] of Object.entries(mapped)) {
+			if (key.length === 0) {
+				normalized.changes = value;
+				continue;
+			}
+			if (key === 'leagueIds' || key === 'changes') {
+				normalized[key] = value;
+				continue;
+			}
+
+			if (key.startsWith('changes.')) {
+				normalized[key.slice('changes.'.length)] = value;
+				continue;
+			}
+
+			normalized[key] = value;
+		}
+
+		return normalized;
+	}
+
+	async function submitBulkEditLeaguesWizard(): Promise<void> {
+		bulkEditLeaguesValidationVisible = true;
+		const clientErrors = getBulkEditLeaguesFieldErrors();
+		if (Object.keys(clientErrors).length > 0) {
+			bulkEditLeaguesStep = clientErrors.selectedLeagueIds ? 1 : 2;
+			return;
+		}
+
+		const offeringId = bulkEditingOfferingId?.trim() ?? '';
+		const selectedLeagueIds = bulkEditLeagueSelectedIds
+			.map((leagueId) => leagueId.trim())
+			.filter((leagueId) => leagueId.length > 0);
+		if (!offeringId || selectedLeagueIds.length === 0) {
+			bulkEditLeaguesFormError = `Unable to bulk edit ${bulkEditingEntryLabelPlural.toLowerCase()} right now.`;
+			return;
+		}
+
+		bulkEditLeaguesSubmitting = true;
+		bulkEditLeaguesFormError = '';
+		bulkEditLeaguesServerFieldErrors = {};
+		createSuccessMessage = '';
+
+		try {
+			const response = await fetch('/api/intramural-sports/leagues', {
+				method: 'PATCH',
+				headers: {
+					'content-type': 'application/json'
+				},
+				body: JSON.stringify({
+					action: 'bulk-update',
+					offeringId,
+					leagueIds: selectedLeagueIds,
+					changes: buildBulkEditLeagueChangesPayload(bulkEditLeaguesForm)
+				})
+			});
+
+			let body: BulkUpdateLeaguesApiResponse | null = null;
+			try {
+				body = (await response.json()) as BulkUpdateLeaguesApiResponse;
+			} catch {
+				body = null;
+			}
+
+			if (!response.ok || !body?.success || !body?.data?.leagueIds?.length) {
+				bulkEditLeaguesServerFieldErrors = normalizeBulkEditServerFieldErrors(body?.fieldErrors);
+				bulkEditLeaguesFormError =
+					body?.error ||
+					`Unable to bulk edit ${bulkEditingEntryLabelPlural.toLowerCase()} right now.`;
+				bulkEditLeaguesStep = bulkEditLeaguesServerFieldErrors.selectedLeagueIds ? 1 : 2;
+				return;
+			}
+
+			const updatedCount = body.data.leagueIds.length;
+			createSuccessMessage = `${updatedCount} ${pluralize(
+				updatedCount,
+				bulkEditingEntryLabelPlural.slice(0, -1).toLowerCase(),
+				bulkEditingEntryLabelPlural.toLowerCase()
+			)} updated successfully.`;
+			closeBulkEditLeaguesWizard();
+			await invalidateAll();
+		} catch {
+			bulkEditLeaguesFormError = `Unable to bulk edit ${bulkEditingEntryLabelPlural.toLowerCase()} right now.`;
+		} finally {
+			bulkEditLeaguesSubmitting = false;
+		}
+	}
+
 	async function submitCreateWizard(): Promise<void> {
 		const clientErrors = getSubmitClientErrors(createForm);
 		if (Object.keys(clientErrors).length > 0) {
@@ -2668,6 +2968,314 @@
 			return value;
 		}
 		return '';
+	}
+
+	function parseBulkBooleanChoice(value: BulkBooleanChoice): boolean | undefined {
+		if (value === 'unchanged') return undefined;
+		return value === 'true';
+	}
+
+	function hasBulkEditLeaguesFieldChanges(form: BulkLeagueEditFormState): boolean {
+		return (
+			form.description.trim().length > 0 ||
+			form.gender !== 'unchanged' ||
+			form.skillLevel !== 'unchanged' ||
+			form.regStartDate.trim().length > 0 ||
+			form.regEndDate.trim().length > 0 ||
+			form.seasonStartDate.trim().length > 0 ||
+			form.seasonEndDate.trim().length > 0 ||
+			form.hasPostseason !== 'unchanged' ||
+			form.postseasonStartDate.trim().length > 0 ||
+			form.postseasonEndDate.trim().length > 0 ||
+			form.hasPreseason !== 'unchanged' ||
+			form.preseasonStartDate.trim().length > 0 ||
+			form.preseasonEndDate.trim().length > 0 ||
+			form.isActive !== 'unchanged' ||
+			form.isLocked !== 'unchanged' ||
+			form.imageUrl.trim().length > 0
+		);
+	}
+
+	function applyBulkEditFormToLeague(
+		template: LeagueTemplate,
+		form: BulkLeagueEditFormState
+	): WizardLeagueInput {
+		const merged = buildEditableLeagueDraft(template);
+
+		if (form.description.trim()) merged.description = form.description.trim();
+		if (form.gender !== 'unchanged') merged.gender = form.gender;
+		if (form.skillLevel !== 'unchanged') merged.skillLevel = form.skillLevel;
+		if (form.regStartDate.trim()) merged.regStartDate = form.regStartDate.trim();
+		if (form.regEndDate.trim()) merged.regEndDate = form.regEndDate.trim();
+		if (form.seasonStartDate.trim()) merged.seasonStartDate = form.seasonStartDate.trim();
+		if (form.seasonEndDate.trim()) merged.seasonEndDate = form.seasonEndDate.trim();
+		if (form.imageUrl.trim()) merged.imageUrl = form.imageUrl.trim();
+
+		const hasPostseason = parseBulkBooleanChoice(form.hasPostseason);
+		if (hasPostseason !== undefined) {
+			merged.hasPostseason = hasPostseason;
+			if (!hasPostseason) {
+				merged.postseasonStartDate = '';
+				merged.postseasonEndDate = '';
+			}
+		}
+		if (form.postseasonStartDate.trim()) {
+			merged.postseasonStartDate = form.postseasonStartDate.trim();
+		}
+		if (form.postseasonEndDate.trim()) {
+			merged.postseasonEndDate = form.postseasonEndDate.trim();
+		}
+
+		const hasPreseason = parseBulkBooleanChoice(form.hasPreseason);
+		if (hasPreseason !== undefined) {
+			merged.hasPreseason = hasPreseason;
+			if (!hasPreseason) {
+				merged.preseasonStartDate = '';
+				merged.preseasonEndDate = '';
+			}
+		}
+		if (form.preseasonStartDate.trim()) {
+			merged.preseasonStartDate = form.preseasonStartDate.trim();
+		}
+		if (form.preseasonEndDate.trim()) {
+			merged.preseasonEndDate = form.preseasonEndDate.trim();
+		}
+
+		const isActive = parseBulkBooleanChoice(form.isActive);
+		if (isActive !== undefined) merged.isActive = isActive;
+
+		const isLocked = parseBulkBooleanChoice(form.isLocked);
+		if (isLocked !== undefined) merged.isLocked = isLocked;
+
+		return merged;
+	}
+
+	function getBulkEditLeaguesFieldErrors(): Record<string, string> {
+		const errors: Record<string, string> = { ...bulkEditLeaguesServerFieldErrors };
+		if (!bulkEditLeaguesValidationVisible) return errors;
+
+		if (bulkEditLeagueSelectedIds.length === 0) {
+			errors.selectedLeagueIds = `Select at least one ${bulkEditingEntryLabelPlural.toLowerCase()}.`;
+		}
+
+		if (!hasBulkEditLeaguesFieldChanges(bulkEditLeaguesForm)) {
+			errors.changes = 'Choose at least one field to update.';
+			return errors;
+		}
+
+		const selectedTemplates = getBulkEditSelectedLeagueTemplates();
+		if (selectedTemplates.length !== bulkEditLeagueSelectedIds.length) {
+			errors.selectedLeagueIds = 'Some selected leagues could not be loaded.';
+			return errors;
+		}
+
+		const postseasonDatesTouched =
+			bulkEditLeaguesForm.postseasonStartDate.trim().length > 0 ||
+			bulkEditLeaguesForm.postseasonEndDate.trim().length > 0;
+		if (postseasonDatesTouched) {
+			if (bulkEditLeaguesForm.hasPostseason === 'false') {
+				errors.hasPostseason = 'Postseason dates cannot be set while postseason is being disabled.';
+			} else if (
+				bulkEditLeaguesForm.hasPostseason === 'unchanged' &&
+				selectedTemplates.some((league) => !league.hasPostseason)
+			) {
+				errors.hasPostseason =
+					'Set postseason to Enabled before bulk editing postseason dates for leagues that do not already use postseason.';
+			}
+		}
+
+		const preseasonDatesTouched =
+			bulkEditLeaguesForm.preseasonStartDate.trim().length > 0 ||
+			bulkEditLeaguesForm.preseasonEndDate.trim().length > 0;
+		if (preseasonDatesTouched) {
+			if (bulkEditLeaguesForm.hasPreseason === 'false') {
+				errors.hasPreseason = 'Preseason dates cannot be set while preseason is being disabled.';
+			} else if (
+				bulkEditLeaguesForm.hasPreseason === 'unchanged' &&
+				selectedTemplates.some((league) => !league.hasPreseason)
+			) {
+				errors.hasPreseason =
+					'Set preseason to Enabled before bulk editing preseason dates for leagues that do not already use preseason.';
+			}
+		}
+
+		for (const template of selectedTemplates) {
+			const mergedLeague = applyBulkEditFormToLeague(template, bulkEditLeaguesForm);
+			const mergedErrors = getLeagueFieldErrors(mergedLeague);
+			const candidateEntries = Object.entries(mergedErrors).map(([key, value]) => [
+				key.replace(/^league\./, ''),
+				value
+			] as const);
+
+			for (const [key, value] of candidateEntries) {
+				const fieldKey =
+					key === 'scheduleRange'
+						? 'scheduleRange'
+						: key === 'regStartDate' ||
+							  key === 'regEndDate' ||
+							  key === 'seasonStartDate' ||
+							  key === 'seasonEndDate' ||
+							  key === 'preseasonStartDate' ||
+							  key === 'preseasonEndDate' ||
+							  key === 'postseasonStartDate' ||
+							  key === 'postseasonEndDate' ||
+							  key === 'imageUrl'
+							? key
+							: null;
+				if (!fieldKey || errors[fieldKey]) continue;
+
+				const isTouched =
+					fieldKey === 'regStartDate'
+						? bulkEditLeaguesForm.regStartDate.trim().length > 0
+						: fieldKey === 'regEndDate'
+							? bulkEditLeaguesForm.regEndDate.trim().length > 0
+							: fieldKey === 'seasonStartDate'
+								? bulkEditLeaguesForm.seasonStartDate.trim().length > 0
+								: fieldKey === 'seasonEndDate'
+									? bulkEditLeaguesForm.seasonEndDate.trim().length > 0
+									: fieldKey === 'preseasonStartDate' || fieldKey === 'preseasonEndDate'
+										? bulkEditLeaguesForm.hasPreseason !== 'unchanged' ||
+											preseasonDatesTouched
+										: fieldKey === 'postseasonStartDate' || fieldKey === 'postseasonEndDate'
+											? bulkEditLeaguesForm.hasPostseason !== 'unchanged' ||
+												postseasonDatesTouched
+											: fieldKey === 'imageUrl'
+												? bulkEditLeaguesForm.imageUrl.trim().length > 0
+												: bulkEditLeaguesForm.regStartDate.trim().length > 0 ||
+													bulkEditLeaguesForm.regEndDate.trim().length > 0 ||
+													bulkEditLeaguesForm.seasonStartDate.trim().length > 0 ||
+													bulkEditLeaguesForm.seasonEndDate.trim().length > 0 ||
+													bulkEditLeaguesForm.hasPreseason !== 'unchanged' ||
+													preseasonDatesTouched ||
+													bulkEditLeaguesForm.hasPostseason !== 'unchanged' ||
+													postseasonDatesTouched;
+				if (!isTouched) continue;
+
+				errors[fieldKey] =
+					selectedTemplates.length > 1 ? `${template.name}: ${value}` : value;
+			}
+		}
+
+		return errors;
+	}
+
+	function bulkLeagueStepTitle(step: BulkLeagueWizardStep): string {
+		return BULK_LEAGUE_WIZARD_STEP_TITLES[step];
+	}
+
+	function bulkLeagueStepProgress(step: BulkLeagueWizardStep): number {
+		return Math.round((step / 3) * 100);
+	}
+
+	function toggleBulkEditLeagueSelection(leagueId: string): void {
+		const normalizedLeagueId = leagueId.trim();
+		if (!normalizedLeagueId) return;
+		bulkEditLeagueSelectedIds = bulkEditLeagueSelectedIds.includes(normalizedLeagueId)
+			? bulkEditLeagueSelectedIds.filter((value) => value !== normalizedLeagueId)
+			: [...bulkEditLeagueSelectedIds, normalizedLeagueId];
+		clearBulkEditLeaguesApiErrors();
+	}
+
+	function selectAllBulkEditLeagues(): void {
+		bulkEditLeagueSelectedIds = getBulkEditableLeaguesForCurrentOffering()
+			.map((league) => league.id)
+			.filter((leagueId) => leagueId.trim().length > 0);
+		clearBulkEditLeaguesApiErrors();
+	}
+
+	function clearBulkEditLeagueSelection(): void {
+		bulkEditLeagueSelectedIds = [];
+		clearBulkEditLeaguesApiErrors();
+	}
+
+	function getBulkEditableLeaguesForCurrentOffering(): LeagueTemplate[] {
+		const offeringId = bulkEditingOfferingId?.trim() ?? '';
+		if (!offeringId) return [];
+		return leagueTemplates.filter((league) => league.offeringId === offeringId);
+	}
+
+	function buildBulkEditLeagueChangesPayload(form: BulkLeagueEditFormState): Record<string, unknown> {
+		const changes: Record<string, unknown> = {};
+
+		if (form.description.trim()) changes.description = normalizeOptionalTextForRequest(form.description);
+		if (form.gender !== 'unchanged') changes.gender = form.gender;
+		if (form.skillLevel !== 'unchanged') changes.skillLevel = form.skillLevel;
+		if (form.regStartDate.trim()) changes.regStartDate = normalizeDateForRequest(form.regStartDate);
+		if (form.regEndDate.trim()) changes.regEndDate = normalizeDateForRequest(form.regEndDate);
+		if (form.seasonStartDate.trim()) {
+			changes.seasonStartDate = normalizeDateForRequest(form.seasonStartDate);
+		}
+		if (form.seasonEndDate.trim()) changes.seasonEndDate = normalizeDateForRequest(form.seasonEndDate);
+
+		const hasPostseason = parseBulkBooleanChoice(form.hasPostseason);
+		if (hasPostseason !== undefined) changes.hasPostseason = hasPostseason;
+		if (form.postseasonStartDate.trim()) {
+			changes.postseasonStartDate = normalizeDateForRequest(form.postseasonStartDate);
+		}
+		if (form.postseasonEndDate.trim()) {
+			changes.postseasonEndDate = normalizeDateForRequest(form.postseasonEndDate);
+		}
+
+		const hasPreseason = parseBulkBooleanChoice(form.hasPreseason);
+		if (hasPreseason !== undefined) changes.hasPreseason = hasPreseason;
+		if (form.preseasonStartDate.trim()) {
+			changes.preseasonStartDate = normalizeDateForRequest(form.preseasonStartDate);
+		}
+		if (form.preseasonEndDate.trim()) {
+			changes.preseasonEndDate = normalizeDateForRequest(form.preseasonEndDate);
+		}
+
+		const isActive = parseBulkBooleanChoice(form.isActive);
+		if (isActive !== undefined) changes.isActive = isActive;
+		const isLocked = parseBulkBooleanChoice(form.isLocked);
+		if (isLocked !== undefined) changes.isLocked = isLocked;
+		if (form.imageUrl.trim()) changes.imageUrl = normalizeOptionalUrlForRequest(form.imageUrl);
+
+		return changes;
+	}
+
+	function bulkEditChangeSummary(): string[] {
+		const lines: string[] = [];
+		if (bulkEditLeaguesForm.description.trim()) lines.push('Description');
+		if (bulkEditLeaguesForm.gender !== 'unchanged') lines.push('Gender');
+		if (bulkEditLeaguesForm.skillLevel !== 'unchanged') lines.push('Skill level');
+		if (bulkEditLeaguesForm.regStartDate.trim()) lines.push('Registration start');
+		if (bulkEditLeaguesForm.regEndDate.trim()) lines.push('Registration end');
+		if (bulkEditLeaguesForm.seasonStartDate.trim()) lines.push('Season start');
+		if (bulkEditLeaguesForm.seasonEndDate.trim()) lines.push('Season end');
+		if (bulkEditLeaguesForm.hasPreseason !== 'unchanged') lines.push('Preseason enabled state');
+		if (bulkEditLeaguesForm.preseasonStartDate.trim()) lines.push('Preseason start');
+		if (bulkEditLeaguesForm.preseasonEndDate.trim()) lines.push('Preseason end');
+		if (bulkEditLeaguesForm.hasPostseason !== 'unchanged') lines.push('Postseason enabled state');
+		if (bulkEditLeaguesForm.postseasonStartDate.trim()) lines.push('Postseason start');
+		if (bulkEditLeaguesForm.postseasonEndDate.trim()) lines.push('Postseason end');
+		if (bulkEditLeaguesForm.isActive !== 'unchanged') lines.push('Active state');
+		if (bulkEditLeaguesForm.isLocked !== 'unchanged') lines.push('Locked state');
+		if (bulkEditLeaguesForm.imageUrl.trim()) lines.push('Image URL');
+		return lines;
+	}
+
+	function nextBulkEditLeaguesStep(): void {
+		bulkEditLeaguesValidationVisible = true;
+		const errors = getBulkEditLeaguesFieldErrors();
+		if (
+			(bulkEditLeaguesStep === 1 && errors.selectedLeagueIds) ||
+			(bulkEditLeaguesStep === 2 &&
+				Object.keys(errors).some((key) => key !== 'selectedLeagueIds'))
+		) {
+			return;
+		}
+
+		if (bulkEditLeaguesStep < 3) {
+			bulkEditLeaguesStep = (bulkEditLeaguesStep + 1) as BulkLeagueWizardStep;
+		}
+	}
+
+	function previousBulkEditLeaguesStep(): void {
+		clearBulkEditLeaguesApiErrors();
+		if (bulkEditLeaguesStep > 1) {
+			bulkEditLeaguesStep = (bulkEditLeaguesStep - 1) as BulkLeagueWizardStep;
+		}
 	}
 
 	function buildDraftFromTemplate(template: LeagueTemplate): WizardLeagueInput {
@@ -4052,6 +4660,14 @@
 			const status = getOfferingStatus(activity, registrationWindow.windowState);
 			const joinTeam = getJoinTeamInfo(activity);
 			const categoryLabel = buildCategoryLabel(activity);
+			const seasonConcluded = isOfferingTimelineConcluded(
+				{
+					seasonEnd: activity.seasonEnd ?? null,
+					hasPostseason: activity.hasPostseason ?? false,
+					postseasonEnd: activity.postseasonEnd ?? null
+				},
+				now
+			);
 			const leagueOffering: LeagueOffering = {
 				id: activity.id,
 				leagueSlug: activity.leagueSlug ?? null,
@@ -4061,7 +4677,9 @@
 				divisionCount: activity.divisionCount ?? 0,
 				status,
 				statusLabel:
-					registrationWindow.windowState === 'upcoming'
+					seasonConcluded
+						? 'Concluded'
+						: registrationWindow.windowState === 'upcoming'
 						? 'Upcoming'
 						: status === 'open'
 							? 'Open'
@@ -4080,14 +4698,7 @@
 				seasonEndDate: activity.seasonEnd ?? null,
 				hasPostseason: activity.hasPostseason ?? false,
 				postseasonEndDate: activity.postseasonEnd ?? null,
-				seasonConcluded: isOfferingTimelineConcluded(
-					{
-						seasonEnd: activity.seasonEnd ?? null,
-						hasPostseason: activity.hasPostseason ?? false,
-						postseasonEnd: activity.postseasonEnd ?? null
-					},
-					now
-				)
+				seasonConcluded
 			};
 
 			offeringGroup.leagues.push(leagueOffering);
@@ -4350,6 +4961,19 @@
 		{ value: 'intermediate', label: 'Intermediate' },
 		{ value: 'recreational', label: 'Recreational' },
 		{ value: 'all', label: 'All' }
+	]);
+	const bulkBooleanDropdownOptions = $derived.by<DropdownOption[]>(() => [
+		{ value: 'unchanged', label: 'Leave unchanged' },
+		{ value: 'true', label: 'Yes' },
+		{ value: 'false', label: 'No' }
+	]);
+	const bulkGenderDropdownOptions = $derived.by<DropdownOption[]>(() => [
+		{ value: 'unchanged', label: 'Leave unchanged' },
+		...leagueGenderDropdownOptions.filter((option) => option.value.length > 0)
+	]);
+	const bulkSkillLevelDropdownOptions = $derived.by<DropdownOption[]>(() => [
+		{ value: 'unchanged', label: 'Leave unchanged' },
+		...leagueSkillLevelDropdownOptions.filter((option) => option.value.length > 0)
 	]);
 	const offeringTypeDropdownOptions = $derived.by<DropdownOption[]>(() => [
 		{ value: 'league', label: 'League' },
@@ -4917,6 +5541,29 @@
 			...nextErrors
 		};
 	});
+	const bulkEditableLeagues = $derived.by(() => getBulkEditableLeaguesForCurrentOffering());
+	const bulkEditSelectedLeagueTemplates = $derived.by(() => getBulkEditSelectedLeagueTemplates());
+	const bulkEditLeaguesFieldErrors = $derived.by(() => getBulkEditLeaguesFieldErrors());
+	const canGoNextBulkEditLeaguesStep = $derived.by(() => {
+		if (bulkEditLeaguesSubmitting) return false;
+		if (bulkEditLeaguesStep === 1) {
+			return bulkEditLeagueSelectedIds.length > 0;
+		}
+		if (bulkEditLeaguesStep === 2) {
+			return (
+				hasBulkEditLeaguesFieldChanges(bulkEditLeaguesForm) &&
+				Object.keys(bulkEditLeaguesFieldErrors).every((key) => key === 'selectedLeagueIds')
+			);
+		}
+		return false;
+	});
+	const canSubmitBulkEditLeagues = $derived.by(
+		() =>
+			bulkEditLeaguesStep === 3 &&
+			hasUnsavedBulkEditLeaguesChanges() &&
+			Object.keys(bulkEditLeaguesFieldErrors).every((key) => key === 'selectedLeagueIds') &&
+			!bulkEditLeaguesSubmitting
+	);
 	const canGoNextStep = $derived.by(
 		() => createStep < 6 && Object.keys(clientCreateFieldErrors).length === 0 && !createSubmitting
 	);
@@ -5046,6 +5693,7 @@
 		statusLabel: LeagueOffering['statusLabel']
 	): string {
 		if (statusLabel === 'Upcoming') return 'Team registration has not opened yet';
+		if (statusLabel === 'Concluded') return 'This season has concluded';
 		if (status === 'open') return 'Team registration is currently open';
 		if (status === 'waitlisted') return 'Teams may register on the waitlist';
 		return 'Team registration is now closed';
@@ -5644,18 +6292,20 @@
 											</span>
 										{/if}
 										{#if canEditOfferingSettings && offering.offeringId}
-											<HoverTooltip text="Edit offering" wrapperClass="inline-flex">
-												<button
-													type="button"
-													class="inline-flex h-7 w-7 items-center justify-center p-0 cursor-pointer"
-													aria-label={`Edit ${offering.offeringName}`}
-													onclick={() => {
-														openEditOfferingWizard(offering);
-													}}
-												>
-													<IconDots class="h-4 w-4" />
-												</button>
-											</HoverTooltip>
+											<ListboxDropdown
+												options={offeringActionOptions(offering)}
+												value=""
+												mode="action"
+												align="right"
+												ariaLabel={`${offering.offeringName} actions`}
+												buttonClass="inline-flex h-7 w-7 items-center justify-center p-0 cursor-pointer text-neutral-950 hover:text-secondary-900"
+												listClass="w-44"
+												on:action={(event) => {
+													handleOfferingAction(event.detail.value, offering);
+												}}
+											>
+												{#snippet trigger()}<IconDots class="h-4 w-4" />{/snippet}
+											</ListboxDropdown>
 										{/if}
 									</div>
 								</div>
@@ -5798,22 +6448,7 @@
 						</div>
 
 						{#if !selectedSeasonIsHistorical && concludedOfferings.length > 0}
-							<section class="border-t-4 border-secondary-600 bg-neutral-100/70">
-								<div
-									class="flex flex-col gap-1 border-b border-neutral-950 px-4 py-3 sm:flex-row sm:items-end sm:justify-between"
-								>
-									<div>
-										<h3 class="text-lg font-bold font-serif text-neutral-950">
-											Concluded Offerings
-										</h3>
-										<p class="text-xs text-neutral-950 font-sans">
-											Most recently ended to least recently ended.
-										</p>
-									</div>
-									<span class="badge-secondary-outlined text-xs uppercase tracking-wide">
-										{concludedOfferings.length} total
-									</span>
-								</div>
+							<section class="border-t border-neutral-950">
 								<div class="divide-y divide-neutral-950">
 									{#each concludedOfferings as offering}
 										{@render offeringArticle(offering, true)}
@@ -6949,6 +7584,437 @@
 		</div>
 	{/snippet}
 </EditOfferingWizard>
+
+<BulkEditLeaguesWizard
+	open={isBulkEditLeaguesModalOpen}
+	title={bulkEditingOfferingName
+		? `Bulk Edit ${bulkEditingOfferingName} ${bulkEditingEntryLabelPlural}`
+		: 'Bulk Edit Leagues'}
+	step={bulkEditLeaguesStep}
+	stepTitle={bulkLeagueStepTitle(bulkEditLeaguesStep)}
+	stepProgress={bulkLeagueStepProgress(bulkEditLeaguesStep)}
+	formError={bulkEditLeaguesFormError}
+	unsavedConfirmOpen={bulkEditLeaguesUnsavedConfirmOpen}
+	canGoNext={canGoNextBulkEditLeaguesStep}
+	canSubmit={canSubmitBulkEditLeagues}
+	isSubmitting={bulkEditLeaguesSubmitting}
+	nextLabel={bulkEditLeaguesStep === 1 ? 'Next: Shared Updates' : 'Review Changes'}
+	submitLabel="Save Bulk Changes"
+	submittingLabel="Saving..."
+	onRequestClose={requestCloseBulkEditLeaguesWizard}
+	onSubmit={() => {
+		void submitBulkEditLeaguesWizard();
+	}}
+	onInput={clearBulkEditLeaguesApiErrors}
+	onNext={nextBulkEditLeaguesStep}
+	onBack={previousBulkEditLeaguesStep}
+	onUnsavedConfirm={confirmDiscardBulkEditLeaguesWizard}
+	onUnsavedCancel={cancelDiscardBulkEditLeaguesWizard}
+>
+	{#if bulkEditLeaguesStep === 1}
+		<div class="space-y-4">
+			<div class="border border-neutral-950 bg-white p-4">
+				<p class="font-sans text-sm leading-6 text-neutral-950">
+					Choose which {bulkEditingEntryLabelPlural.toLowerCase()} should receive the shared updates.
+					All visible {bulkEditingEntryLabelPlural.toLowerCase()} start selected by default.
+				</p>
+			</div>
+
+			<div class="flex flex-wrap items-center justify-between gap-2 border border-neutral-950 bg-neutral-25 p-3">
+				<p class="text-xs font-bold uppercase tracking-wide text-neutral-950">
+					{bulkEditLeagueSelectedIds.length} of {bulkEditableLeagues.length} selected
+				</p>
+				<div class="flex items-center gap-2">
+					<button
+						type="button"
+						class="button-secondary-outlined cursor-pointer"
+						onclick={selectAllBulkEditLeagues}
+					>
+						Select All
+					</button>
+					<button
+						type="button"
+						class="button-secondary-outlined cursor-pointer"
+						onclick={clearBulkEditLeagueSelection}
+					>
+						Clear All
+					</button>
+				</div>
+			</div>
+
+			{#if bulkEditLeaguesFieldErrors.selectedLeagueIds}
+				<p class="text-xs text-error-700">{bulkEditLeaguesFieldErrors.selectedLeagueIds}</p>
+			{/if}
+
+			<div class="divide-y divide-neutral-950 border border-neutral-950 bg-white">
+				{#each bulkEditableLeagues as league, index}
+					<label class="flex cursor-pointer items-start gap-3 p-3 hover:bg-neutral-25">
+						<input
+							type="checkbox"
+							class="checkbox-secondary mt-1"
+							checked={bulkEditLeagueSelectedIds.includes(league.id)}
+							data-wizard-autofocus={index === 0 ? true : undefined}
+							onchange={() => {
+								toggleBulkEditLeagueSelection(league.id);
+							}}
+						/>
+						<div class="min-w-0">
+							<p class="font-sans text-sm font-bold text-neutral-950">{league.name}</p>
+							<p class="mt-1 text-xs text-neutral-700">
+								{league.gender ? toTitleCase(league.gender) : 'Unspecified'} ·
+								{league.skillLevel ? toTitleCase(league.skillLevel) : 'All levels'}
+							</p>
+						</div>
+					</label>
+				{/each}
+			</div>
+		</div>
+	{:else if bulkEditLeaguesStep === 2}
+		<div class="space-y-5">
+			<div class="border border-neutral-950 bg-white p-4">
+				<p class="font-sans text-sm leading-6 text-neutral-950">
+					Leave any field blank or set to <span class="font-semibold">Leave unchanged</span>
+					to keep the existing value on each selected {bulkEditingEntryLabelPlural.toLowerCase()}.
+				</p>
+			</div>
+
+			{#if bulkEditLeaguesFieldErrors.changes}
+				<p class="text-xs text-error-700">{bulkEditLeaguesFieldErrors.changes}</p>
+			{/if}
+
+			<div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
+				<section class="space-y-4 border border-neutral-950 bg-white p-4">
+					<div>
+						<h3 class="font-serif text-lg font-bold text-neutral-950">Shared Details</h3>
+						<p class="mt-1 text-xs text-neutral-700">
+							These updates apply to every selected {bulkEditingEntryLabelPlural.toLowerCase()}.
+						</p>
+					</div>
+
+					<div>
+						<label class="mb-1 block text-sm font-sans text-neutral-950" for="bulk-league-description">
+							Description
+						</label>
+						<textarea
+							id="bulk-league-description"
+							class="textarea-secondary min-h-24"
+							bind:value={bulkEditLeaguesForm.description}
+							placeholder="Leave blank to keep each current description."
+							oninput={clearBulkEditLeaguesApiErrors}
+						></textarea>
+					</div>
+
+					<div>
+						<label class="mb-1 block text-sm font-sans text-neutral-950" for="bulk-league-image-url">
+							Image URL
+						</label>
+						<input
+							id="bulk-league-image-url"
+							type="url"
+							class="input-secondary"
+							bind:value={bulkEditLeaguesForm.imageUrl}
+							placeholder="Leave blank to keep each current image URL."
+							oninput={clearBulkEditLeaguesApiErrors}
+						/>
+						{#if bulkEditLeaguesFieldErrors.imageUrl}
+							<p class="mt-1 text-xs text-error-700">{bulkEditLeaguesFieldErrors.imageUrl}</p>
+						{/if}
+					</div>
+
+					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+						<div>
+							<p class="mb-1 block text-sm font-sans text-neutral-950">Gender</p>
+							<ListboxDropdown
+								options={bulkGenderDropdownOptions}
+								value={bulkEditLeaguesForm.gender}
+								ariaLabel="Bulk edit gender"
+								buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
+								on:change={(event) => {
+									bulkEditLeaguesForm.gender = event.detail.value as BulkLeagueGenderChoice;
+									clearBulkEditLeaguesApiErrors();
+								}}
+							/>
+						</div>
+
+						<div>
+							<p class="mb-1 block text-sm font-sans text-neutral-950">Skill Level</p>
+							<ListboxDropdown
+								options={bulkSkillLevelDropdownOptions}
+								value={bulkEditLeaguesForm.skillLevel}
+								ariaLabel="Bulk edit skill level"
+								buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
+								on:change={(event) => {
+									bulkEditLeaguesForm.skillLevel = event.detail.value as BulkLeagueSkillLevelChoice;
+									clearBulkEditLeaguesApiErrors();
+								}}
+							/>
+						</div>
+					</div>
+
+					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+						<div>
+							<p class="mb-1 block text-sm font-sans text-neutral-950">Active</p>
+							<ListboxDropdown
+								options={bulkBooleanDropdownOptions}
+								value={bulkEditLeaguesForm.isActive}
+								ariaLabel="Bulk edit active state"
+								buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
+								on:change={(event) => {
+									bulkEditLeaguesForm.isActive = event.detail.value as BulkBooleanChoice;
+									clearBulkEditLeaguesApiErrors();
+								}}
+							/>
+						</div>
+
+						<div>
+							<p class="mb-1 block text-sm font-sans text-neutral-950">Locked</p>
+							<ListboxDropdown
+								options={bulkBooleanDropdownOptions}
+								value={bulkEditLeaguesForm.isLocked}
+								ariaLabel="Bulk edit locked state"
+								buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
+								on:change={(event) => {
+									bulkEditLeaguesForm.isLocked = event.detail.value as BulkBooleanChoice;
+									clearBulkEditLeaguesApiErrors();
+								}}
+							/>
+						</div>
+					</div>
+				</section>
+
+				<section class="space-y-4 border border-neutral-950 bg-white p-4">
+					<div>
+						<h3 class="font-serif text-lg font-bold text-neutral-950">Schedule and Extras</h3>
+						<p class="mt-1 text-xs text-neutral-700">
+							Only the fields you fill in here will be overwritten.
+						</p>
+					</div>
+
+					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+						<div>
+							<label class="mb-1 block text-sm font-sans text-neutral-950" for="bulk-reg-start">
+								Registration Start
+							</label>
+							<input
+								id="bulk-reg-start"
+								type="datetime-local"
+								class="input-secondary"
+								bind:value={bulkEditLeaguesForm.regStartDate}
+								oninput={clearBulkEditLeaguesApiErrors}
+							/>
+							{#if bulkEditLeaguesFieldErrors.regStartDate}
+								<p class="mt-1 text-xs text-error-700">{bulkEditLeaguesFieldErrors.regStartDate}</p>
+							{/if}
+						</div>
+
+						<div>
+							<label class="mb-1 block text-sm font-sans text-neutral-950" for="bulk-reg-end">
+								Registration End
+							</label>
+							<input
+								id="bulk-reg-end"
+								type="datetime-local"
+								class="input-secondary"
+								bind:value={bulkEditLeaguesForm.regEndDate}
+								oninput={clearBulkEditLeaguesApiErrors}
+							/>
+							{#if bulkEditLeaguesFieldErrors.regEndDate}
+								<p class="mt-1 text-xs text-error-700">{bulkEditLeaguesFieldErrors.regEndDate}</p>
+							{/if}
+						</div>
+					</div>
+
+					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+						<div>
+							<label class="mb-1 block text-sm font-sans text-neutral-950" for="bulk-season-start">
+								Season Start
+							</label>
+							<input
+								id="bulk-season-start"
+								type="date"
+								class="input-secondary"
+								bind:value={bulkEditLeaguesForm.seasonStartDate}
+								oninput={clearBulkEditLeaguesApiErrors}
+							/>
+							{#if bulkEditLeaguesFieldErrors.seasonStartDate}
+								<p class="mt-1 text-xs text-error-700">
+									{bulkEditLeaguesFieldErrors.seasonStartDate}
+								</p>
+							{/if}
+						</div>
+
+						<div>
+							<label class="mb-1 block text-sm font-sans text-neutral-950" for="bulk-season-end">
+								Season End
+							</label>
+							<input
+								id="bulk-season-end"
+								type="date"
+								class="input-secondary"
+								bind:value={bulkEditLeaguesForm.seasonEndDate}
+								oninput={clearBulkEditLeaguesApiErrors}
+							/>
+							{#if bulkEditLeaguesFieldErrors.seasonEndDate}
+								<p class="mt-1 text-xs text-error-700">{bulkEditLeaguesFieldErrors.seasonEndDate}</p>
+							{/if}
+						</div>
+					</div>
+
+					{#if bulkEditLeaguesFieldErrors.scheduleRange}
+						<p class="text-xs text-error-700">{bulkEditLeaguesFieldErrors.scheduleRange}</p>
+					{/if}
+
+					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+						<div class="space-y-3 border border-neutral-950 bg-neutral-25 p-3">
+							<p class="text-sm font-semibold text-neutral-950">Preseason</p>
+							<div>
+								<p class="mb-1 block text-sm font-sans text-neutral-950">Enabled</p>
+								<ListboxDropdown
+									options={bulkBooleanDropdownOptions}
+									value={bulkEditLeaguesForm.hasPreseason}
+									ariaLabel="Bulk edit preseason enabled"
+									buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
+									on:change={(event) => {
+										bulkEditLeaguesForm.hasPreseason = event.detail.value as BulkBooleanChoice;
+										clearBulkEditLeaguesApiErrors();
+									}}
+								/>
+								{#if bulkEditLeaguesFieldErrors.hasPreseason}
+									<p class="mt-1 text-xs text-error-700">{bulkEditLeaguesFieldErrors.hasPreseason}</p>
+								{/if}
+							</div>
+							<div>
+								<label class="mb-1 block text-sm font-sans text-neutral-950" for="bulk-preseason-start">
+									Start Date
+								</label>
+								<input
+									id="bulk-preseason-start"
+									type="date"
+									class="input-secondary"
+									bind:value={bulkEditLeaguesForm.preseasonStartDate}
+									oninput={clearBulkEditLeaguesApiErrors}
+								/>
+								{#if bulkEditLeaguesFieldErrors.preseasonStartDate}
+									<p class="mt-1 text-xs text-error-700">
+										{bulkEditLeaguesFieldErrors.preseasonStartDate}
+									</p>
+								{/if}
+							</div>
+							<div>
+								<label class="mb-1 block text-sm font-sans text-neutral-950" for="bulk-preseason-end">
+									End Date
+								</label>
+								<input
+									id="bulk-preseason-end"
+									type="date"
+									class="input-secondary"
+									bind:value={bulkEditLeaguesForm.preseasonEndDate}
+									oninput={clearBulkEditLeaguesApiErrors}
+								/>
+								{#if bulkEditLeaguesFieldErrors.preseasonEndDate}
+									<p class="mt-1 text-xs text-error-700">
+										{bulkEditLeaguesFieldErrors.preseasonEndDate}
+									</p>
+								{/if}
+							</div>
+						</div>
+
+						<div class="space-y-3 border border-neutral-950 bg-neutral-25 p-3">
+							<p class="text-sm font-semibold text-neutral-950">Postseason</p>
+							<div>
+								<p class="mb-1 block text-sm font-sans text-neutral-950">Enabled</p>
+								<ListboxDropdown
+									options={bulkBooleanDropdownOptions}
+									value={bulkEditLeaguesForm.hasPostseason}
+									ariaLabel="Bulk edit postseason enabled"
+									buttonClass={FORM_DROPDOWN_BUTTON_CLASS}
+									on:change={(event) => {
+										bulkEditLeaguesForm.hasPostseason = event.detail.value as BulkBooleanChoice;
+										clearBulkEditLeaguesApiErrors();
+									}}
+								/>
+								{#if bulkEditLeaguesFieldErrors.hasPostseason}
+									<p class="mt-1 text-xs text-error-700">{bulkEditLeaguesFieldErrors.hasPostseason}</p>
+								{/if}
+							</div>
+							<div>
+								<label class="mb-1 block text-sm font-sans text-neutral-950" for="bulk-postseason-start">
+									Start Date
+								</label>
+								<input
+									id="bulk-postseason-start"
+									type="date"
+									class="input-secondary"
+									bind:value={bulkEditLeaguesForm.postseasonStartDate}
+									oninput={clearBulkEditLeaguesApiErrors}
+								/>
+								{#if bulkEditLeaguesFieldErrors.postseasonStartDate}
+									<p class="mt-1 text-xs text-error-700">
+										{bulkEditLeaguesFieldErrors.postseasonStartDate}
+									</p>
+								{/if}
+							</div>
+							<div>
+								<label class="mb-1 block text-sm font-sans text-neutral-950" for="bulk-postseason-end">
+									End Date
+								</label>
+								<input
+									id="bulk-postseason-end"
+									type="date"
+									class="input-secondary"
+									bind:value={bulkEditLeaguesForm.postseasonEndDate}
+									oninput={clearBulkEditLeaguesApiErrors}
+								/>
+								{#if bulkEditLeaguesFieldErrors.postseasonEndDate}
+									<p class="mt-1 text-xs text-error-700">
+										{bulkEditLeaguesFieldErrors.postseasonEndDate}
+									</p>
+								{/if}
+							</div>
+						</div>
+					</div>
+				</section>
+			</div>
+		</div>
+	{:else}
+		<div class="space-y-4">
+			<div class="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)]">
+				<section class="space-y-3 border border-neutral-950 bg-white p-4">
+					<h3 class="font-serif text-lg font-bold text-neutral-950">Selected {bulkEditingEntryLabelPlural}</h3>
+					<p class="text-xs text-neutral-700">
+						{bulkEditSelectedLeagueTemplates.length} {bulkEditingEntryLabelPlural.toLowerCase()} will be updated.
+					</p>
+					<div class="divide-y divide-neutral-950 border border-neutral-950 bg-neutral-25">
+						{#each bulkEditSelectedLeagueTemplates as league}
+							<div class="p-3">
+								<p class="font-sans text-sm font-bold text-neutral-950">{league.name}</p>
+								<p class="mt-1 text-xs text-neutral-700">
+									{league.gender ? toTitleCase(league.gender) : 'Unspecified'} ·
+									{league.skillLevel ? toTitleCase(league.skillLevel) : 'All levels'}
+								</p>
+							</div>
+						{/each}
+					</div>
+				</section>
+
+				<section class="space-y-3 border border-neutral-950 bg-white p-4">
+					<h3 class="font-serif text-lg font-bold text-neutral-950">Changes to Apply</h3>
+					{#if bulkEditChangeSummary().length === 0}
+						<p class="text-sm text-neutral-950">No shared changes were selected.</p>
+					{:else}
+						<ul class="space-y-2">
+							{#each bulkEditChangeSummary() as line}
+								<li class="border border-neutral-950 bg-neutral-25 px-3 py-2 text-sm text-neutral-950">
+									{line}
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</section>
+			</div>
+		</div>
+	{/if}
+</BulkEditLeaguesWizard>
 
 <CreateLeagueWizard
 	open={isCreateLeagueModalOpen}

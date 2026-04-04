@@ -16,9 +16,11 @@ Summary of tests:
 4. It verifies that created league responses include the slugs needed for stable offering-page regrouping.
 5. It verifies that tournament offerings use group wording in duplicate errors.
 6. It verifies that league updates reject seasons outside the selected offering.
-7. It verifies that duplicate season creation is blocked before any writes happen.
-8. It verifies that the current season cannot be archived without a fallback active season.
-9. It verifies that season deletion is restricted to administrator-like roles.
+7. It verifies that bulk league edits update every selected league while preserving untouched fields.
+8. It verifies that bulk league edits reject postseason dates until postseason is enabled.
+9. It verifies that duplicate season creation is blocked before any writes happen.
+10. It verifies that the current season cannot be archived without a fallback active season.
+11. It verifies that season deletion is restricted to administrator-like roles.
 */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -241,6 +243,52 @@ const createLeagueUpdatePayload = (overrides?: {
 		isLocked: false,
 		imageUrl: null,
 		...(overrides?.league ?? {})
+	}
+});
+
+// this fixture mirrors existing league rows returned from the database during update routes.
+// keeping one source of truth helps the bulk-edit tests focus on which fields changed versus stayed intact.
+const existingLeagueRecord = (overrides?: Record<string, unknown>) => ({
+	id: 'league-1',
+	offeringId: 'offering-1',
+	seasonId: 'season-1',
+	name: 'Competitive',
+	slug: 'competitive',
+	stackOrder: 3,
+	description: 'Existing description',
+	season: 'Spring',
+	year: 2026,
+	gender: 'mixed',
+	skillLevel: 'all',
+	regStartDate: '2026-03-01T09:00',
+	regEndDate: '2026-03-10T09:00',
+	seasonStartDate: '2026-03-20',
+	seasonEndDate: '2026-04-20',
+	hasPostseason: 0,
+	postseasonStartDate: null,
+	postseasonEndDate: null,
+	hasPreseason: 0,
+	preseasonStartDate: null,
+	preseasonEndDate: null,
+	isActive: 1,
+	isLocked: 0,
+	imageUrl: null,
+	...overrides
+});
+
+// this helper builds the bulk-update payload used by the new offering table action.
+// each test overrides only the changed shared fields so the route behavior stays easy to read.
+const createBulkLeagueUpdatePayload = (overrides?: {
+	offeringId?: string;
+	leagueIds?: string[];
+	changes?: Record<string, unknown>;
+}) => ({
+	action: 'bulk-update',
+	offeringId: overrides?.offeringId ?? 'offering-1',
+	leagueIds: overrides?.leagueIds ?? ['league-1', 'league-2'],
+	changes: {
+		isLocked: true,
+		...(overrides?.changes ?? {})
 	}
 });
 
@@ -697,6 +745,100 @@ describe('intramural routes', () => {
 		expect(payload.fieldErrors['league.seasonId'][0]).toBe(
 			'League/group season must match the selected offering season.'
 		);
+		expect(mocks.dbOps.leagues.updateByClientIdAndId).not.toHaveBeenCalled();
+	});
+
+	it('updates every selected league during a bulk edit while preserving untouched fields', async () => {
+		// bulk edits should stamp only the shared fields the manager chose and leave the rest of each
+		// league's existing schedule and settings intact.
+		mocks.dbOps.leagues.getByOfferingId.mockResolvedValue([
+			existingLeagueRecord(),
+			existingLeagueRecord({
+				id: 'league-2',
+				name: "Women's",
+				slug: 'womens',
+				stackOrder: 4,
+				description: 'Second description',
+				gender: 'female',
+				isLocked: 1
+			})
+		]);
+		mocks.dbOps.leagues.updateByClientIdAndId
+			.mockResolvedValueOnce({ id: 'league-1' })
+			.mockResolvedValueOnce({ id: 'league-2' });
+
+		const response = await updateLeague(
+			createRouteEvent({
+				method: 'PATCH',
+				path: '/api/intramural-sports/leagues',
+				body: createBulkLeagueUpdatePayload({
+					changes: {
+						description: 'Shared update',
+						regEndDate: '2026-03-12T09:00',
+						isLocked: false
+					}
+				})
+			})
+		);
+		const payload = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(payload).toEqual({
+			success: true,
+			data: {
+				leagueIds: ['league-1', 'league-2']
+			}
+		});
+		expect(mocks.dbOps.leagues.updateByClientIdAndId).toHaveBeenNthCalledWith(
+			1,
+			'client-1',
+			'league-1',
+			expect.objectContaining({
+				name: 'Competitive',
+				description: 'Shared update',
+				regStartDate: '2026-03-01T09:00',
+				regEndDate: '2026-03-12T09:00',
+				isLocked: 0
+			})
+		);
+		expect(mocks.dbOps.leagues.updateByClientIdAndId).toHaveBeenNthCalledWith(
+			2,
+			'client-1',
+			'league-2',
+			expect.objectContaining({
+				name: "Women's",
+				description: 'Shared update',
+				regStartDate: '2026-03-01T09:00',
+				regEndDate: '2026-03-12T09:00',
+				isLocked: 0
+			})
+		);
+	});
+
+	it('rejects bulk postseason dates until postseason is enabled for selected leagues', async () => {
+		// a shared postseason date should not silently create postseason on leagues that do not use it yet.
+		mocks.dbOps.leagues.getByOfferingId.mockResolvedValue([existingLeagueRecord()]);
+
+		const response = await updateLeague(
+			createRouteEvent({
+				method: 'PATCH',
+				path: '/api/intramural-sports/leagues',
+				body: createBulkLeagueUpdatePayload({
+					leagueIds: ['league-1'],
+					changes: {
+						isLocked: true,
+						postseasonStartDate: '2026-04-21'
+					}
+				})
+			})
+		);
+		const payload = await response.json();
+
+		expect(response.status).toBe(400);
+		expect(payload.error).toBe('Invalid postseason settings.');
+		expect(payload.fieldErrors['changes.hasPostseason']).toEqual([
+			'Set postseason to enabled before bulk editing postseason dates for leagues that do not already use postseason.'
+		]);
 		expect(mocks.dbOps.leagues.updateByClientIdAndId).not.toHaveBeenCalled();
 	});
 

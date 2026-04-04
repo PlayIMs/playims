@@ -103,6 +103,50 @@ const optionalDate = z.preprocess(
 	z.union([z.string().regex(DATE_REGEX, 'Date must be in YYYY-MM-DD format.'), z.null()])
 );
 
+const optionalPatchText = (label: string, max = 2000) =>
+	z.preprocess(
+		(value) => {
+			if (typeof value !== 'string') return value;
+			const trimmed = value.trim();
+			return trimmed.length === 0 ? undefined : trimmed;
+		},
+		z.string().max(max, `${label} must be ${max} characters or fewer.`).optional()
+	);
+
+const optionalPatchUrl = (label: string) =>
+	z.preprocess(
+		(value) => {
+			if (typeof value !== 'string') return value;
+			const trimmed = value.trim();
+			return trimmed.length === 0 ? undefined : trimmed;
+		},
+		z
+			.string()
+			.max(500, `${label} must be 500 characters or fewer.`)
+			.url(`${label} must be a valid URL.`)
+			.optional()
+	);
+
+const optionalPatchDate = (label: string) =>
+	z.preprocess(
+		(value) => {
+			if (typeof value !== 'string') return value;
+			const trimmed = value.trim();
+			return trimmed.length === 0 ? undefined : trimmed;
+		},
+		z.string().regex(DATE_REGEX, `${label} must be in YYYY-MM-DD format.`).optional()
+	);
+
+const optionalPatchDateTime = (label: string) =>
+	z.preprocess(
+		(value) => {
+			if (typeof value !== 'string') return value;
+			const trimmed = value.trim();
+			return trimmed.length === 0 ? undefined : trimmed;
+		},
+		z.string().regex(DATE_TIME_REGEX, `${label} must be in YYYY-MM-DDTHH:mm format.`).optional()
+	);
+
 const toDateMs = (value: string | null): number | null => {
 	if (!value) return null;
 	if (DATE_REGEX.test(value)) {
@@ -599,6 +643,42 @@ export const updateIntramuralLeagueSchema = z
 		addLeagueDateValidationIssues(payload.league, ['league'], ctx);
 	});
 
+const bulkIntramuralLeagueChangesSchema = z
+	.object({
+		description: optionalPatchText('League description', 2000),
+		gender: z.enum(['male', 'female', 'mixed']).optional(),
+		skillLevel: z.enum(['competitive', 'intermediate', 'recreational', 'all']).optional(),
+		regStartDate: optionalPatchDateTime('Registration start date'),
+		regEndDate: optionalPatchDateTime('Registration end date'),
+		seasonStartDate: optionalPatchDate('Season start date'),
+		seasonEndDate: optionalPatchDate('Season end date'),
+		hasPostseason: z.boolean().optional(),
+		postseasonStartDate: optionalPatchDate('Postseason start date'),
+		postseasonEndDate: optionalPatchDate('Postseason end date'),
+		hasPreseason: z.boolean().optional(),
+		preseasonStartDate: optionalPatchDate('Preseason start date'),
+		preseasonEndDate: optionalPatchDate('Preseason end date'),
+		isActive: z.boolean().optional(),
+		isLocked: z.boolean().optional(),
+		imageUrl: optionalPatchUrl('League image URL')
+	})
+	.superRefine((payload, ctx) => {
+		if (Object.values(payload).every((value) => value === undefined)) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: [],
+				message: 'Choose at least one field to update.'
+			});
+		}
+	});
+
+export const bulkUpdateIntramuralLeaguesSchema = z.object({
+	action: z.literal('bulk-update'),
+	offeringId: requiredText('Offering', 120),
+	leagueIds: z.array(requiredText('League', 120)).min(1, 'Select at least one league.'),
+	changes: bulkIntramuralLeagueChangesSchema
+});
+
 export const createIntramuralSeasonSchema = z
 	.object({
 		season: seasonInputSchema,
@@ -661,6 +741,7 @@ export type UpdateIntramuralOfferingInput = z.infer<typeof updateIntramuralOffer
 
 export type CreateIntramuralLeagueInput = z.infer<typeof createIntramuralLeagueSchema>;
 export type UpdateIntramuralLeagueInput = z.infer<typeof updateIntramuralLeagueSchema>;
+export type BulkUpdateIntramuralLeaguesInput = z.infer<typeof bulkUpdateIntramuralLeaguesSchema>;
 
 export type CreateIntramuralSeasonInput = z.infer<typeof createIntramuralSeasonSchema>;
 export type ManageIntramuralSeasonInput = z.infer<typeof manageIntramuralSeasonSchema>;
