@@ -1,9 +1,7 @@
 <script lang="ts">
 	import { onDestroy, onMount, tick } from 'svelte';
-	import { Editor } from '@tiptap/core';
+	import { Editor, Extension } from '@tiptap/core';
 	import StarterKit from '@tiptap/starter-kit';
-	import Underline from '@tiptap/extension-underline';
-	import Link from '@tiptap/extension-link';
 	import Highlight from '@tiptap/extension-highlight';
 	import { TextStyle } from '@tiptap/extension-text-style';
 	import Color from '@tiptap/extension-color';
@@ -14,7 +12,6 @@
 		IconBold,
 		IconClearFormatting,
 		IconColorFilter,
-		IconH1,
 		IconItalic,
 		IconLink,
 		IconList,
@@ -22,7 +19,11 @@
 		IconUnderline
 	} from '@tabler/icons-svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
-	import { resolveCommunicationEditorShortcut } from '$lib/communications/editor-shortcuts.js';
+	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
+	import {
+		buildCommunicationEditorContentSignature,
+		getCommunicationEditorInitialContent
+	} from '$lib/communications/editor-content.js';
 
 	interface EditorPayload {
 		html: string;
@@ -37,58 +38,51 @@
 		onChange?: ((payload: EditorPayload) => void) | null;
 	}
 
-	type CommunicationEditorShortcut = NonNullable<
-		ReturnType<typeof resolveCommunicationEditorShortcut>
-	>;
+	type TextBlockStyle = 'paragraph' | 'heading-1' | 'heading-2' | 'heading-3';
 
-	let {
-		initialHtml = '',
-		initialJson = null,
-		editable = true,
-		onChange = null
-	}: Props = $props();
+	let { initialHtml = '', initialJson = null, editable = true, onChange = null }: Props = $props();
 
 	let rootElement = $state<HTMLDivElement | null>(null);
-	let editorHost = $state<HTMLDivElement | null>(null);
-	let editor = $state<Editor | null>(null);
+	let editorElement = $state<HTMLDivElement | null>(null);
+	let editorState = $state<{ editor: Editor | null }>({ editor: null });
 	let linkDialogOpen = $state(false);
 	let linkValue = $state('');
 	let linkInput = $state<HTMLInputElement | null>(null);
 	let textColor = $state('#14213d');
 	let highlightColor = $state('#eedbce');
 	let lastAppliedSignature = $state('');
+	const defaultLinkColor = '#2563eb';
+	const textBlockOptions = [
+		{ value: 'paragraph', label: 'Paragraph', description: 'Standard body text.' },
+		{ value: 'heading-1', label: 'Heading 1', description: 'Primary section heading.' },
+		{ value: 'heading-2', label: 'Heading 2', description: 'Major subsection heading.' },
+		{ value: 'heading-3', label: 'Heading 3', description: 'Minor subsection heading.' }
+	];
 
-	const buildSignature = (html: string, json: Record<string, unknown> | null): string =>
-		JSON.stringify({ html, json });
-
-	const emitChange = (): void => {
-		if (!editor) {
-			return;
+	const editor = $derived(editorState.editor);
+	const activeTextBlockStyle = $derived.by<TextBlockStyle>(() => {
+		if (editor?.isActive('heading', { level: 1 })) {
+			return 'heading-1';
 		}
+		if (editor?.isActive('heading', { level: 2 })) {
+			return 'heading-2';
+		}
+		if (editor?.isActive('heading', { level: 3 })) {
+			return 'heading-3';
+		}
+		return 'paragraph';
+	});
 
+	const emitChange = (nextEditor: Editor): void => {
 		onChange?.({
-			html: editor.getHTML(),
-			json: editor.getJSON() as Record<string, unknown>,
-			text: editor.getText()
+			html: nextEditor.getHTML(),
+			json: nextEditor.getJSON() as Record<string, unknown>,
+			text: nextEditor.getText()
 		});
 	};
 
-	const applyContentIfNeeded = (): void => {
-		if (!editor) {
-			return;
-		}
-
-		const nextSignature = buildSignature(initialHtml, initialJson);
-		if (nextSignature === lastAppliedSignature) {
-			return;
-		}
-
-		lastAppliedSignature = nextSignature;
-		if (initialJson) {
-			editor.commands.setContent(initialJson, { emitUpdate: false });
-			return;
-		}
-		editor.commands.setContent(initialHtml || '<p></p>', { emitUpdate: false });
+	const setEditorState = (nextEditor: Editor | null): void => {
+		editorState = { editor: nextEditor };
 	};
 
 	function toolbarButtonClass(active = false): string {
@@ -98,24 +92,31 @@
 		].join(' ');
 	}
 
-	function runCommand(command: () => void): void {
+	function runCommand(command: (nextEditor: Editor) => void): void {
 		if (!editor || !editable) {
 			return;
 		}
-		command();
+
+		command(editor);
+		setEditorState(editor);
 	}
 
-	function toggleHeading(): void {
-		runCommand(() => {
-			if (!editor) {
-				return;
+	function applyTextBlockStyle(value: TextBlockStyle): void {
+		runCommand((nextEditor) => {
+			const chain = nextEditor.chain().focus();
+			switch (value) {
+				case 'heading-1':
+					chain.setHeading({ level: 1 }).run();
+					return;
+				case 'heading-2':
+					chain.setHeading({ level: 2 }).run();
+					return;
+				case 'heading-3':
+					chain.setHeading({ level: 3 }).run();
+					return;
+				default:
+					chain.setParagraph().run();
 			}
-			const chain = editor.chain().focus();
-			if (editor.isActive('heading', { level: 2 })) {
-				chain.setParagraph().run();
-				return;
-			}
-			chain.toggleHeading({ level: 2 }).run();
 		});
 	}
 
@@ -139,26 +140,28 @@
 	}
 
 	function applyLink(): void {
-		runCommand(() => {
-			if (!editor) {
-				return;
-			}
-
+		runCommand((nextEditor) => {
 			const value = linkValue.trim();
 			if (!value) {
-				editor.chain().focus().unsetLink().run();
+				nextEditor.chain().focus().unsetLink().run();
 				closeLinkDialog();
 				return;
 			}
 
-			editor.chain().focus().extendMarkRange('link').setLink({ href: value }).run();
+			nextEditor
+				.chain()
+				.focus()
+				.extendMarkRange('link')
+				.setColor(defaultLinkColor)
+				.setLink({ href: value })
+				.run();
 			closeLinkDialog();
 		});
 	}
 
 	function removeLink(): void {
-		runCommand(() => {
-			editor?.chain().focus().unsetLink().run();
+		runCommand((nextEditor) => {
+			nextEditor.chain().focus().unsetLink().run();
 			closeLinkDialog();
 		});
 	}
@@ -166,16 +169,16 @@
 	function applyTextColor(event: Event): void {
 		const value = (event.currentTarget as HTMLInputElement).value;
 		textColor = value;
-		runCommand(() => {
-			editor?.chain().focus().setColor(value).run();
+		runCommand((nextEditor) => {
+			nextEditor.chain().focus().setColor(value).run();
 		});
 	}
 
 	function applyHighlightColor(event: Event): void {
 		const value = (event.currentTarget as HTMLInputElement).value;
 		highlightColor = value;
-		runCommand(() => {
-			editor?.chain().focus().setHighlight({ color: value }).run();
+		runCommand((nextEditor) => {
+			nextEditor.chain().focus().setHighlight({ color: value }).run();
 		});
 	}
 
@@ -188,57 +191,20 @@
 			const from = editor.view.posAtDOM(anchor, 0);
 			const textLength = anchor.textContent?.length ?? 0;
 			if (textLength > 0) {
-				editor.chain().focus().setTextSelection({ from, to: from + textLength }).run();
+				editor
+					.chain()
+					.focus()
+					.setTextSelection({ from, to: from + textLength })
+					.run();
 			} else {
 				editor.chain().focus().setTextSelection(from).run();
 			}
 			editor.chain().focus().extendMarkRange('link').run();
+			setEditorState(editor);
 		} catch {
 			editor.commands.focus();
+			setEditorState(editor);
 		}
-	}
-
-	function executeShortcut(shortcut: CommunicationEditorShortcut): void {
-		switch (shortcut) {
-			case 'bold':
-				runCommand(() => editor?.chain().focus().toggleBold().run());
-				return;
-			case 'italic':
-				runCommand(() => editor?.chain().focus().toggleItalic().run());
-				return;
-			case 'underline':
-				runCommand(() => editor?.chain().focus().toggleUnderline().run());
-				return;
-			case 'bulletList':
-				runCommand(() => editor?.chain().focus().toggleBulletList().run());
-				return;
-			case 'orderedList':
-				runCommand(() => editor?.chain().focus().toggleOrderedList().run());
-				return;
-			case 'undo':
-				runCommand(() => editor?.chain().focus().undo().run());
-				return;
-			case 'redo':
-				runCommand(() => editor?.chain().focus().redo().run());
-				return;
-			case 'link':
-				runCommand(() => {
-					openLinkDialog();
-				});
-				return;
-		}
-	}
-
-	function handleEditorKeydown(event: KeyboardEvent): void {
-		const shortcut = resolveCommunicationEditorShortcut(event);
-		if (!shortcut) {
-			return;
-		}
-
-		event.preventDefault();
-		event.stopPropagation();
-		event.stopImmediatePropagation?.();
-		executeShortcut(shortcut);
 	}
 
 	function handleEditorClick(event: MouseEvent): void {
@@ -259,63 +225,88 @@
 	}
 
 	onMount(() => {
-		if (!editorHost) {
+		if (!editorElement) {
 			return;
 		}
 
-		editor = new Editor({
-			element: editorHost,
+		const communicationKeyboardShortcuts = Extension.create({
+			name: 'communicationKeyboardShortcuts',
+			addKeyboardShortcuts() {
+				return {
+					'Mod-k': () => {
+						openLinkDialog();
+						return true;
+					},
+					'Mod-y': () => this.editor.commands.redo()
+				};
+			}
+		});
+
+		const nextEditor = new Editor({
+			element: editorElement,
 			editable,
 			extensions: [
 				StarterKit.configure({
 					heading: {
-						levels: [2, 3]
+						levels: [1, 2, 3]
+					},
+					link: {
+						openOnClick: false,
+						autolink: true,
+						defaultProtocol: 'https'
 					}
 				}),
-				Underline,
+				communicationKeyboardShortcuts,
 				TextStyle,
 				Color,
-				Highlight.configure({ multicolor: true }),
-				Link.configure({
-					openOnClick: false,
-					autolink: true,
-					defaultProtocol: 'https'
-				})
+				Highlight.configure({ multicolor: true })
 			],
-			content: initialJson ?? initialHtml ?? '<p></p>',
-			onUpdate: () => {
-				emitChange();
+			content: getCommunicationEditorInitialContent({ initialHtml, initialJson }),
+			onUpdate: ({ editor: updatedEditor }) => {
+				emitChange(updatedEditor);
+			},
+			onTransaction: ({ editor: updatedEditor }) => {
+				// Replacing the editor reference is the official Svelte runes pattern for fresh active-state UI.
+				setEditorState(updatedEditor);
 			}
 		});
-		lastAppliedSignature = buildSignature(initialHtml, initialJson);
 
-		rootElement?.addEventListener('keydown', handleEditorKeydown);
+		setEditorState(nextEditor);
+		lastAppliedSignature = buildCommunicationEditorContentSignature({ initialHtml, initialJson });
+
 		rootElement?.addEventListener('click', handleEditorClick);
-
-		return () => {
-			rootElement?.removeEventListener('keydown', handleEditorKeydown);
-			rootElement?.removeEventListener('click', handleEditorClick);
-			editor?.destroy();
-			editor = null;
-		};
 	});
 
 	onDestroy(() => {
-		rootElement?.removeEventListener('keydown', handleEditorKeydown);
 		rootElement?.removeEventListener('click', handleEditorClick);
 		editor?.destroy();
-		editor = null;
+		setEditorState(null);
 	});
 
 	$effect(() => {
 		if (!editor) {
 			return;
 		}
+
 		editor.setEditable(editable);
+		setEditorState(editor);
 	});
 
 	$effect(() => {
-		applyContentIfNeeded();
+		if (!editor) {
+			return;
+		}
+
+		const nextSignature = buildCommunicationEditorContentSignature({ initialHtml, initialJson });
+		if (nextSignature === lastAppliedSignature) {
+			return;
+		}
+
+		lastAppliedSignature = nextSignature;
+		editor.commands.setContent(getCommunicationEditorInitialContent({ initialHtml, initialJson }), {
+			emitUpdate: false
+		});
+		setEditorState(editor);
 	});
 
 	$effect(() => {
@@ -327,6 +318,7 @@
 			if (event.key !== 'Escape') {
 				return;
 			}
+
 			event.preventDefault();
 			event.stopPropagation();
 			event.stopImmediatePropagation();
@@ -347,72 +339,149 @@
 >
 	{#if editable}
 		<div class="flex flex-wrap gap-2 border border-neutral-950 bg-neutral-50 p-2">
+			<ListboxDropdown
+				options={textBlockOptions}
+				value={activeTextBlockStyle}
+				ariaLabel="Paragraph and heading style"
+				buttonClass="button-neutral-outlined min-h-9 min-w-[11rem] px-3 py-2 text-xs font-semibold cursor-pointer inline-flex items-center justify-between gap-2"
+				listClass="mt-1 w-64 border-2 border-neutral-950 bg-white z-20 max-h-72 overflow-y-auto scrollbar-thin"
+				on:change={(event) => {
+					applyTextBlockStyle(event.detail.value as TextBlockStyle);
+				}}
+			/>
 			<HoverTooltip text="Bold" shortcutKeys={['Mod', 'B']}>
-				<button type="button" class={toolbarButtonClass(editor?.isActive('bold') ?? false)} aria-label="Bold" onclick={() => runCommand(() => editor?.chain().focus().toggleBold().run())}>
+				<button
+					type="button"
+					class={toolbarButtonClass(editor?.isActive('bold') ?? false)}
+					aria-label="Bold"
+					onclick={() => runCommand((nextEditor) => nextEditor.chain().focus().toggleBold().run())}
+				>
 					<IconBold class="h-4 w-4" />
 				</button>
 			</HoverTooltip>
 			<HoverTooltip text="Italic" shortcutKeys={['Mod', 'I']}>
-				<button type="button" class={toolbarButtonClass(editor?.isActive('italic') ?? false)} aria-label="Italic" onclick={() => runCommand(() => editor?.chain().focus().toggleItalic().run())}>
+				<button
+					type="button"
+					class={toolbarButtonClass(editor?.isActive('italic') ?? false)}
+					aria-label="Italic"
+					onclick={() =>
+						runCommand((nextEditor) => nextEditor.chain().focus().toggleItalic().run())}
+				>
 					<IconItalic class="h-4 w-4" />
 				</button>
 			</HoverTooltip>
 			<HoverTooltip text="Underline" shortcutKeys={['Mod', 'U']}>
-				<button type="button" class={toolbarButtonClass(editor?.isActive('underline') ?? false)} aria-label="Underline" onclick={() => runCommand(() => editor?.chain().focus().toggleUnderline().run())}>
+				<button
+					type="button"
+					class={toolbarButtonClass(editor?.isActive('underline') ?? false)}
+					aria-label="Underline"
+					onclick={() =>
+						runCommand((nextEditor) => nextEditor.chain().focus().toggleUnderline().run())}
+				>
 					<IconUnderline class="h-4 w-4" />
 				</button>
 			</HoverTooltip>
 			<HoverTooltip text="Bulleted list" shortcutKeys={['Mod', 'Shift', '8']}>
-				<button type="button" class={toolbarButtonClass(editor?.isActive('bulletList') ?? false)} aria-label="Bulleted list" onclick={() => runCommand(() => editor?.chain().focus().toggleBulletList().run())}>
+				<button
+					type="button"
+					class={toolbarButtonClass(editor?.isActive('bulletList') ?? false)}
+					aria-label="Bulleted list"
+					onclick={() =>
+						runCommand((nextEditor) => nextEditor.chain().focus().toggleBulletList().run())}
+				>
 					<IconList class="h-4 w-4" />
 				</button>
 			</HoverTooltip>
 			<HoverTooltip text="Numbered list" shortcutKeys={['Mod', 'Shift', '7']}>
-				<button type="button" class={toolbarButtonClass(editor?.isActive('orderedList') ?? false)} aria-label="Numbered list" onclick={() => runCommand(() => editor?.chain().focus().toggleOrderedList().run())}>
+				<button
+					type="button"
+					class={toolbarButtonClass(editor?.isActive('orderedList') ?? false)}
+					aria-label="Numbered list"
+					onclick={() =>
+						runCommand((nextEditor) => nextEditor.chain().focus().toggleOrderedList().run())}
+				>
 					<IconListNumbers class="h-4 w-4" />
 				</button>
 			</HoverTooltip>
 			<HoverTooltip text="Blockquote">
-				<button type="button" class={toolbarButtonClass(editor?.isActive('blockquote') ?? false)} aria-label="Blockquote" onclick={() => runCommand(() => editor?.chain().focus().toggleBlockquote().run())}>
+				<button
+					type="button"
+					class={toolbarButtonClass(editor?.isActive('blockquote') ?? false)}
+					aria-label="Blockquote"
+					onclick={() =>
+						runCommand((nextEditor) => nextEditor.chain().focus().toggleBlockquote().run())}
+				>
 					<IconBlockquote class="h-4 w-4" />
 				</button>
 			</HoverTooltip>
-			<HoverTooltip text="Heading">
-				<button type="button" class={toolbarButtonClass(editor?.isActive('heading', { level: 2 }) ?? false)} aria-label="Heading" onclick={toggleHeading}>
-					<IconH1 class="h-4 w-4" />
-				</button>
-			</HoverTooltip>
 			<HoverTooltip text="Hyperlink" shortcutKeys={['Mod', 'K']}>
-				<button type="button" class={toolbarButtonClass(editor?.isActive('link') ?? false)} aria-label="Hyperlink" onclick={() => openLinkDialog()}>
+				<button
+					type="button"
+					class={toolbarButtonClass(editor?.isActive('link') ?? false)}
+					aria-label="Hyperlink"
+					onclick={() => openLinkDialog()}
+				>
 					<IconLink class="h-4 w-4" />
 				</button>
 			</HoverTooltip>
 			<HoverTooltip text="Text color">
-				<label class="button-neutral-outlined min-h-9 px-2 py-2 text-xs font-semibold cursor-pointer inline-flex items-center gap-2">
+				<label
+					class="button-neutral-outlined min-h-9 px-2 py-2 text-xs font-semibold cursor-pointer inline-flex items-center gap-2"
+				>
 					<IconColorFilter class="h-4 w-4" />
 					<span>Text</span>
-					<input class="h-5 w-5 cursor-pointer" type="color" value={textColor} oninput={applyTextColor} />
+					<input
+						class="h-5 w-5 cursor-pointer"
+						type="color"
+						value={textColor}
+						oninput={applyTextColor}
+					/>
 				</label>
 			</HoverTooltip>
 			<HoverTooltip text="Highlight color">
-				<label class="button-neutral-outlined min-h-9 px-2 py-2 text-xs font-semibold cursor-pointer inline-flex items-center gap-2">
+				<label
+					class="button-neutral-outlined min-h-9 px-2 py-2 text-xs font-semibold cursor-pointer inline-flex items-center gap-2"
+				>
 					<span class="inline-flex h-4 w-4 border border-neutral-950 bg-warning-100"></span>
 					<span>Highlight</span>
-					<input class="h-5 w-5 cursor-pointer" type="color" value={highlightColor} oninput={applyHighlightColor} />
+					<input
+						class="h-5 w-5 cursor-pointer"
+						type="color"
+						value={highlightColor}
+						oninput={applyHighlightColor}
+					/>
 				</label>
 			</HoverTooltip>
 			<HoverTooltip text="Clear formatting">
-				<button type="button" class={toolbarButtonClass()} aria-label="Clear formatting" onclick={() => runCommand(() => editor?.chain().focus().unsetAllMarks().clearNodes().run())}>
+				<button
+					type="button"
+					class={toolbarButtonClass()}
+					aria-label="Clear formatting"
+					onclick={() =>
+						runCommand((nextEditor) =>
+							nextEditor.chain().focus().unsetAllMarks().clearNodes().run()
+						)}
+				>
 					<IconClearFormatting class="h-4 w-4" />
 				</button>
 			</HoverTooltip>
 			<HoverTooltip text="Undo" shortcutKeys={['Mod', 'Z']}>
-				<button type="button" class={toolbarButtonClass()} aria-label="Undo" onclick={() => runCommand(() => editor?.chain().focus().undo().run())}>
+				<button
+					type="button"
+					class={toolbarButtonClass()}
+					aria-label="Undo"
+					onclick={() => runCommand((nextEditor) => nextEditor.chain().focus().undo().run())}
+				>
 					<IconArrowBackUp class="h-4 w-4" />
 				</button>
 			</HoverTooltip>
 			<HoverTooltip text="Redo" shortcutKeys={['Mod', 'Shift', 'Z']}>
-				<button type="button" class={toolbarButtonClass()} aria-label="Redo" onclick={() => runCommand(() => editor?.chain().focus().redo().run())}>
+				<button
+					type="button"
+					class={toolbarButtonClass()}
+					aria-label="Redo"
+					onclick={() => runCommand((nextEditor) => nextEditor.chain().focus().redo().run())}
+				>
 					<IconArrowForwardUp class="h-4 w-4" />
 				</button>
 			</HoverTooltip>
@@ -420,7 +489,10 @@
 	{/if}
 
 	<div class="border border-neutral-950 bg-white relative">
-		<div bind:this={editorHost} class="editor-host min-h-[18rem] px-4 py-3"></div>
+		<div
+			bind:this={editorElement}
+			class="tiptap editor-host min-h-[18rem] max-w-none px-4 py-3 prose prose-neutral focus:outline-none"
+		></div>
 
 		{#if linkDialogOpen}
 			<div class="absolute inset-0 z-10 flex items-center justify-center bg-black/20 p-4">
@@ -453,16 +525,25 @@
 									if (event.key !== 'Enter') {
 										return;
 									}
+
 									event.preventDefault();
 									applyLink();
 								}}
 							/>
 						</div>
 						<div class="flex flex-wrap items-center justify-end gap-2">
-							<button type="button" class="button-neutral-outlined cursor-pointer" onclick={closeLinkDialog}>
+							<button
+								type="button"
+								class="button-neutral-outlined cursor-pointer"
+								onclick={closeLinkDialog}
+							>
 								Cancel
 							</button>
-							<button type="button" class="button-secondary-outlined cursor-pointer" onclick={removeLink}>
+							<button
+								type="button"
+								class="button-secondary-outlined cursor-pointer"
+								onclick={removeLink}
+							>
 								Remove Link
 							</button>
 							<button type="button" class="button-primary cursor-pointer" onclick={applyLink}>
@@ -477,7 +558,7 @@
 </div>
 
 <style>
-	.communication-rich-editor :global(.ProseMirror) {
+	.communication-rich-editor :global(.tiptap) {
 		min-height: 18rem;
 		outline: none;
 		color: var(--color-neutral-950);
@@ -485,11 +566,19 @@
 		line-height: 1.6;
 	}
 
-	.communication-rich-editor :global(.ProseMirror p) {
+	.communication-rich-editor :global(.tiptap p) {
 		margin: 0 0 0.85rem;
 	}
 
-	.communication-rich-editor :global(.ProseMirror h2) {
+	.communication-rich-editor :global(.tiptap h1) {
+		font-family: 'Bitter', serif;
+		font-size: 1.9rem;
+		font-weight: 700;
+		line-height: 1;
+		margin: 0 0 0.95rem;
+	}
+
+	.communication-rich-editor :global(.tiptap h2) {
 		font-family: 'Bitter', serif;
 		font-size: 1.4rem;
 		font-weight: 700;
@@ -497,7 +586,7 @@
 		margin: 0 0 0.85rem;
 	}
 
-	.communication-rich-editor :global(.ProseMirror h3) {
+	.communication-rich-editor :global(.tiptap h3) {
 		font-family: 'Bitter', serif;
 		font-size: 1.15rem;
 		font-weight: 700;
@@ -505,36 +594,44 @@
 		margin: 0 0 0.75rem;
 	}
 
-	.communication-rich-editor :global(.ProseMirror ul) {
+	.communication-rich-editor :global(.tiptap ul) {
 		list-style: disc outside;
 		margin: 0 0 0.85rem 1.5rem;
 		padding-left: 0.5rem;
 	}
 
-	.communication-rich-editor :global(.ProseMirror ol) {
+	.communication-rich-editor :global(.tiptap ol) {
 		list-style: decimal outside;
 		margin: 0 0 0.85rem 1.5rem;
 		padding-left: 0.5rem;
 	}
 
-	.communication-rich-editor :global(.ProseMirror li) {
+	.communication-rich-editor :global(.tiptap li) {
 		margin: 0.2rem 0;
 	}
 
-	.communication-rich-editor :global(.ProseMirror li > p) {
+	.communication-rich-editor :global(.tiptap li > p) {
 		margin: 0;
 	}
 
-	.communication-rich-editor :global(.ProseMirror blockquote) {
+	.communication-rich-editor :global(.tiptap blockquote) {
 		border-left: 4px solid var(--color-secondary-500);
 		margin: 0 0 0.85rem;
 		padding-left: 0.9rem;
 		color: var(--color-neutral-800);
 	}
 
-	.communication-rich-editor :global(.ProseMirror a) {
-		color: var(--color-primary-700);
+	.communication-rich-editor :global(.tiptap a) {
+		color: #2563eb;
 		text-decoration: underline;
 		cursor: pointer;
+	}
+
+	.communication-rich-editor :global(.tiptap a:hover) {
+		color: #1d4ed8;
+	}
+
+	.communication-rich-editor :global(.tiptap.ProseMirror-selectednode) {
+		outline: 2px solid var(--color-secondary-500);
 	}
 </style>

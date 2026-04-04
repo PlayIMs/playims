@@ -34,8 +34,6 @@
 	} from '$lib/communications/types.js';
 	import type { PageData } from './$types';
 
-	type ComposerView = 'editor' | 'preview';
-
 	const HEADER_SPLIT_SEND_BUTTON_CLASS =
 		'button-primary h-[2.375rem] px-3 text-xs font-bold uppercase tracking-wide cursor-pointer';
 	const HEADER_SPLIT_SEND_MENU_BUTTON_CLASS =
@@ -60,7 +58,6 @@
 	let editorJson = $state<Record<string, unknown> | null>(null);
 	let batches = $state<CommunicationBatchDraft[]>([]);
 	let preview = $state<CommunicationRecipientPreview>({ totalCount: 0, rows: [] });
-	let composerView = $state<ComposerView>('editor');
 	let saveLoading = $state(false);
 	let sendLoading = $state(false);
 	let duplicationLoadingId = $state('');
@@ -137,7 +134,6 @@
 			totalCount: message?.recipientCount ?? 0,
 			rows: toPreviewRows(message)
 		};
-		composerView = message?.status === 'draft' ? 'editor' : 'preview';
 		recipientBuilderOpen = false;
 	}
 
@@ -332,15 +328,7 @@
 
 		<section class="section-shell min-w-0">
 			<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
-				<div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-					<div>
-						<h2 class="dashboard-section-title text-neutral-950">Composer</h2>
-					</div>
-					<div class="flex items-center gap-2">
-						<button type="button" class={`button-neutral-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer ${composerView === 'editor' ? 'bg-secondary-100 border-secondary-700' : ''}`} onclick={() => (composerView = 'editor')} disabled={isReadOnlyMessage}>Editor</button>
-						<button type="button" class={`button-neutral-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer ${composerView === 'preview' ? 'bg-secondary-100 border-secondary-700' : ''}`} onclick={() => (composerView = 'preview')}>Preview</button>
-					</div>
-				</div>
+				<h2 class="dashboard-section-title text-neutral-950">Composer</h2>
 			</div>
 			<div class="p-4 space-y-4">
 				<div class="flex flex-wrap gap-2">
@@ -392,34 +380,12 @@
 					<input id="communication-subject" class="input-secondary min-h-10" type="text" placeholder="Season kickoff update" bind:value={subject} disabled={isReadOnlyMessage} />
 				</div>
 
-				{#if composerView === 'editor' && !isReadOnlyMessage}
-					<CommunicationRichEditor initialHtml={editorHtml} initialJson={editorJson} editable={!isReadOnlyMessage} onChange={updateEditorContent} />
-				{:else}
-					<div class="section-card p-4 space-y-4">
-						<div class="flex flex-wrap items-center gap-2 text-xs text-neutral-700">
-							<span class="border border-secondary-300 px-2 py-1 uppercase tracking-wide">Preview</span>
-							{#if selectedMessage?.sentAt}
-								<span class="border border-secondary-300 px-2 py-1 uppercase tracking-wide">Sent <DateHoverText display={formatDateDisplay(selectedMessage.sentAt)} value={selectedMessage.sentAt} includeTime /></span>
-							{/if}
-						</div>
-						<div class="border border-neutral-950 bg-white p-4 min-h-[22rem]">
-							<div class="mx-auto max-w-3xl space-y-4">
-								<div class="border-b border-neutral-200 pb-4 space-y-2">
-									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-700">To</p>
-									<p class="text-sm text-neutral-950">{recipientSummaryText}</p>
-									<p class="text-[11px] uppercase tracking-wide text-neutral-700">{batches.length} batch{batches.length === 1 ? '' : 'es'}</p>
-								</div>
-								<div class="border-b border-neutral-200 pb-4">
-									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-700">Subject</p>
-									<p class="mt-2 text-2xl font-serif font-bold text-neutral-950">{subject || 'Untitled draft'}</p>
-								</div>
-								<div class="communication-preview-content prose prose-neutral max-w-none">
-									{@html editorHtml || '<p class="text-neutral-700">No message body yet.</p>'}
-								</div>
-							</div>
-						</div>
-					</div>
-				{/if}
+				<CommunicationRichEditor
+					initialHtml={editorHtml}
+					initialJson={editorJson}
+					editable={!isReadOnlyMessage}
+					onChange={updateEditorContent}
+				/>
 			</div>
 		</section>
 
@@ -508,24 +474,3 @@
 	</div>
 </div>
 
-<style>
-	.communication-preview-content :global(ul) {
-		list-style: disc outside;
-		margin: 0 0 0.85rem 1.5rem;
-		padding-left: 0.5rem;
-	}
-
-	.communication-preview-content :global(ol) {
-		list-style: decimal outside;
-		margin: 0 0 0.85rem 1.5rem;
-		padding-left: 0.5rem;
-	}
-
-	.communication-preview-content :global(li) {
-		margin: 0.2rem 0;
-	}
-	
-	.communication-preview-content :global(li > p) {
-		margin: 0;
-	}
-</style>
