@@ -527,9 +527,9 @@
 	]);
 
 	const addActionOptions = [
-		{ value: 'season', label: 'Add club season' },
-		{ value: 'club', label: 'Add club sport' },
-		{ value: 'league', label: 'Add league' }
+		{ value: 'season', label: 'Add Season' },
+		{ value: 'club', label: 'Add Club' },
+		{ value: 'league', label: 'Add League' }
 	];
 
 	const createSeasonSourceSeasonId = $derived.by(() => createSeasonCopy.sourceSeasonIds[0] ?? '');
