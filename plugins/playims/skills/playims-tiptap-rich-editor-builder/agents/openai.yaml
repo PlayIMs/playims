@@ -1,0 +1,4 @@
+interface:
+  display_name: "PlayIMs TipTap Rich Editor Builder"
+  short_description: "Build TipTap editors in Svelte 5 with PlayIMs styling"
+  default_prompt: "Use $playims-tiptap-rich-editor-builder and $playims-style-builder to build or refactor a Svelte 5 TipTap editor that follows official TipTap patterns and PlayIMs styling."

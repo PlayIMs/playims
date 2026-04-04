@@ -17,6 +17,7 @@ It bundles the project's PlayIMs-specific skills into one place so future UI and
 - `playims-info-popover-builder`: helper/info popover patterns
 - `playims-hover-tooltip-builder`: hover/focus tooltip patterns
 - `playims-toast-builder`: shared toast feedback patterns
+- `playims-tiptap-rich-editor-builder`: TipTap v3 editor architecture, lifecycle, persistence, and integration patterns for PlayIMs
 
 ## When To Use It
 
@@ -26,6 +27,7 @@ Use this plugin whenever the task should match existing PlayIMs product conventi
 - new wizards or modals
 - offerings-style tables
 - shared dropdown/search/tooltip/popover work
+- rich-text editor work that should follow official TipTap patterns and PlayIMs styling
 - toast-first feedback flows
 - refactors that should align older UI with current PlayIMs patterns
 
@@ -42,6 +44,10 @@ Use $playims-style-builder and $playims-listbox-dropdown-builder to restyle this
 
 ```text
 Use $playims-data-table-builder to convert this list into an offerings-style table with shared row actions.
+```
+
+```text
+Use $playims-tiptap-rich-editor-builder and $playims-style-builder to build a Svelte 5 TipTap editor with PlayIMs styling and JSON-first persistence.
 ```
 
 ## How To Think About It
@@ -61,6 +67,7 @@ plugins/playims/
 |-- README.md
 `-- skills/
     |-- playims-style-builder/
+    |-- playims-tiptap-rich-editor-builder/
     |-- playims-wizard-builder/
     |-- playims-data-table-builder/
     `-- ...
