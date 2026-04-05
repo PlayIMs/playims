@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import SearchInput from '$lib/components/SearchInput.svelte';
+	import { isSearchPaletteLauncherActivationKey } from '$lib/search/launcher.js';
 	import {
 		searchPaletteQuery,
 		openSearchPalette,
@@ -44,6 +45,12 @@
 		openSearchPalette('launcher', initialQuery ?? $searchPaletteQuery);
 	}
 
+	function handleLauncherKeydown(event: KeyboardEvent): void {
+		if (!isSearchPaletteLauncherActivationKey(event.key)) return;
+		event.preventDefault();
+		openFromLauncher();
+	}
+
 	$effect(() => {
 		if (!browser) return;
 		shortcutHint = resolveSearchPaletteShortcutHint(
@@ -61,16 +68,12 @@
 			type="search"
 			{placeholder}
 			{inputClass}
+			onInputKeydown={handleLauncherKeydown}
 			iconClass="pointer-events-none absolute left-3 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-neutral-950"
 			clearButtonClass="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-neutral-700 hover:text-neutral-950"
 			clearIconClass="h-4 w-4"
-			onfocus={() => {
-				openFromLauncher();
-			}}
 			onmousedown={() => {
-				if (!$searchPaletteQuery.trim()) {
-					openFromLauncher();
-				}
+				openFromLauncher();
 			}}
 			on:input={(event) => {
 				const nextValue = event.detail.value;
