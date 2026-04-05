@@ -15,7 +15,8 @@
 	} from '$lib/components/floating-position.js';
 	import {
 		shouldHideHoverTooltipOnVisibilityChange,
-		shouldHideHoverTooltipOnWindowMouseOut
+		shouldHideHoverTooltipOnWindowMouseOut,
+		resolveHoverTooltipShortcutKeyLabel
 	} from '$lib/components/hover-tooltip.js';
 
 	interface Props {
@@ -63,17 +64,9 @@
 	const tooltipId = nextTooltipId('hover-tooltip');
 	const normalizedText = $derived.by(() => String(text ?? '').trim());
 	const tooltipTextClass = $derived.by(() => (textCase === 'preserve' ? '' : 'capitalize'));
-	const resolveShortcutKeyLabel = (value: string, useMacLabels: boolean): string => {
-		const normalized = value.trim().toLowerCase();
-		if (normalized === 'mod' || normalized === 'cmdorctrl' || normalized === 'ctrl/cmd') {
-			return useMacLabels ? 'Cmd' : 'Ctrl';
-		}
-
-		return value.trim();
-	};
 	const normalizedShortcutKeys = $derived.by(() =>
 		shortcutKeys
-			.map((key) => resolveShortcutKeyLabel(String(key ?? ''), isMacLikePlatform))
+			.map((key) => resolveHoverTooltipShortcutKeyLabel(String(key ?? ''), isMacLikePlatform))
 			.filter((key) => key.length > 0)
 	);
 

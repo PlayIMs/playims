@@ -4,6 +4,15 @@ interface ShortcutTargetLike {
 	closest?: ((selector: string) => unknown) | null;
 }
 
+interface ShortcutKeyLike {
+	key?: string | null;
+	altKey?: boolean;
+	shiftKey?: boolean;
+	ctrlKey?: boolean;
+	metaKey?: boolean;
+	repeat?: boolean;
+}
+
 export const isCommunicationEditorEditableTarget = (
 	target: EventTarget | ShortcutTargetLike | null | undefined
 ): boolean => {
@@ -23,4 +32,20 @@ export const isCommunicationEditorEditableTarget = (
 	}
 
 	return Boolean(shortcutTarget.closest?.('[data-communication-editor-root]'));
+};
+
+export const isCommunicationEditorSpecialCharacterShortcut = (
+	event: KeyboardEvent | ShortcutKeyLike | null | undefined
+): boolean => {
+	if (!event || event.repeat) {
+		return false;
+	}
+
+	return (
+		String(event.key ?? '').toLowerCase() === 's' &&
+		Boolean(event.altKey) &&
+		Boolean(event.shiftKey) &&
+		!Boolean(event.ctrlKey) &&
+		!Boolean(event.metaKey)
+	);
 };
