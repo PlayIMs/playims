@@ -1234,6 +1234,7 @@
 		formError={viewModeBadgeError}
 		submitting={roleWizardSubmitting || organizationSwitching}
 		{effectiveRole}
+		assignedRole={baseRole}
 		allowedRoles={availableViewTargets}
 		onRequestClose={closeRoleWizard}
 		onSelectRole={(role) => void applyViewRole(role)}

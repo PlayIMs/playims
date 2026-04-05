@@ -16,6 +16,7 @@
 		formError: string;
 		submitting: boolean;
 		effectiveRole: AuthRole;
+		assignedRole: AuthRole;
 		allowedRoles: AuthRole[];
 		onRequestClose: () => void;
 		onSelectRole: (role: AuthRole | null) => void;
@@ -26,6 +27,7 @@
 		formError,
 		submitting,
 		effectiveRole,
+		assignedRole,
 		allowedRoles,
 		onRequestClose,
 		onSelectRole
@@ -37,7 +39,7 @@
 	let lastToastSignature = $state('');
 
 	const roleOptions = $derived.by(() =>
-		buildViewRoleSwitcherOptions(effectiveRole, allowedRoles)
+		buildViewRoleSwitcherOptions(effectiveRole, allowedRoles, assignedRole)
 	);
 	const visibleRoleOptions = $derived.by(() =>
 		filterViewRoleSwitcherOptions(roleOptions, roleSearchTerm)

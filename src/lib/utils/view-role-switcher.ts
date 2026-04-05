@@ -22,20 +22,24 @@ const toRoleQuickKey = (role: ViewSwitcherRole): string =>
 
 export const buildViewRoleSwitcherOptions = (
 	currentRole: ViewSwitcherRole,
-	allowedRoles: ViewSwitcherRole[]
+	allowedRoles: ViewSwitcherRole[],
+	assignedRole: ViewSwitcherRole = currentRole
 ): ViewRoleSwitcherOption[] => {
 	const orderedRoles = [currentRole, ...allowedRoles.filter((role) => role !== currentRole)];
 
 	return orderedRoles.map((role) => {
 		const isCurrent = role === currentRole;
 		const title = toRoleLabel(role);
+		const isAssignedRole = role === assignedRole;
 
 		return {
 			role,
 			title,
 			description: isCurrent
-				? `Current role view. Permissions match ${title}.`
-				: `Switch to ${title} view permissions.`,
+				? isAssignedRole
+					? 'This is the role assigned to you for this organization.'
+					: `Viewing from the ${title}'s perspective.`
+				: `Switch to view from the ${title}'s perspective.`,
 			searchText: `${title} ${role}`,
 			isCurrent,
 			quickKey: isCurrent ? null : toRoleQuickKey(role)

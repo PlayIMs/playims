@@ -10,8 +10,9 @@ integration test.
 
 Summary of tests:
 1. It verifies that the current role appears first and does not receive a quick-key badge.
-2. It verifies that alternate roles keep their expected quick-key badges.
-3. It verifies that search filtering matches role labels while preserving the current-first order.
+2. It verifies that the current role copy changes when the user is viewing as a lower role.
+3. It verifies that alternate roles keep their expected quick-key badges.
+4. It verifies that search filtering matches role labels while preserving the current-first order.
 */
 
 import { describe, expect, it } from 'vitest';
@@ -23,29 +24,47 @@ import {
 describe('view role switcher utilities', () => {
 	it('places the current role first without a quick-key badge', () => {
 		// this mirrors the org switcher pattern where the current selection is included but not hot-switchable.
-		const options = buildViewRoleSwitcherOptions('dev', ['admin', 'manager', 'participant']);
+		const options = buildViewRoleSwitcherOptions('dev', ['admin', 'manager', 'participant'], 'dev');
 
 		expect(options[0]).toMatchObject({
 			role: 'dev',
 			isCurrent: true,
-			quickKey: null
+			quickKey: null,
+			description: 'This is the role assigned to you for this organization.'
+		});
+	});
+
+	it('changes the current-role copy when viewing as a lower role', () => {
+		// this distinguishes "your assigned role" from "the role you are temporarily viewing as."
+		const options = buildViewRoleSwitcherOptions(
+			'manager',
+			['participant'],
+			'admin'
+		);
+
+		expect(options[0]).toMatchObject({
+			role: 'manager',
+			isCurrent: true,
+			description: "Viewing from the Manager's perspective."
 		});
 	});
 
 	it('keeps the alternate roles hot-switchable with their expected keycaps', () => {
 		// quick keys remain part of the role-switch flow for the non-current choices below the current role.
-		const options = buildViewRoleSwitcherOptions('admin', ['manager', 'participant']);
+		const options = buildViewRoleSwitcherOptions('admin', ['manager', 'participant'], 'admin');
 
 		expect(options.map((option) => [option.role, option.quickKey])).toEqual([
 			['admin', null],
 			['manager', 'M'],
 			['participant', 'P']
 		]);
+		expect(options[1]?.description).toBe("Switch to view from the Manager's perspective.");
+		expect(options[2]?.description).toBe("Switch to view from the Participant's perspective.");
 	});
 
 	it('filters by role label without reordering the current-first list', () => {
 		// searching should narrow the list, not rebuild it in a different order.
-		const options = buildViewRoleSwitcherOptions('dev', ['admin', 'manager', 'participant']);
+		const options = buildViewRoleSwitcherOptions('dev', ['admin', 'manager', 'participant'], 'dev');
 		const filtered = filterViewRoleSwitcherOptions(options, 'a');
 
 		expect(filtered.map((option) => option.role)).toEqual(['admin', 'manager', 'participant']);
