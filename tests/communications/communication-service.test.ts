@@ -9,27 +9,31 @@ adapter. These tests keep that behavior explicit so future UI or storage changes
 change who receives a message or how failures are recorded.
 
 Summary of tests:
-1. It verifies that include-only batches can resolve recipients from member and roster filters.
-2. It verifies that exclude batches remove overlapping recipients while preserving deduped includes.
+1. It verifies that include-only recipient groups can resolve recipients from member and roster filters.
+2. It verifies that exclude recipient groups remove overlapping recipients while preserving deduped includes.
 3. It verifies that users without email addresses are excluded from previews.
-4. It verifies that sending a draft marks the message as sent through the provider adapter.
-5. It verifies that provider failures mark the message as failed.
+4. It verifies that manual recipients can be resolved by email or member name.
+5. It verifies that ambiguous manual recipient queries return a condensed suggestion list.
+6. It verifies that saving a new draft persists the editor content, recipient groups, manual recipients, and resolved recipients.
+7. It verifies that updating an existing draft rewrites the draft body and recipient resolution in place.
+8. It verifies that deleting a draft only succeeds for draft messages.
+9. It verifies that sending rejects drafts with too many recipients at once.
+10. It verifies that sending a draft marks the message as sent through the provider adapter.
+11. It verifies that provider failures mark the message as failed.
 */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type {
-	CommunicationBatchDraft,
-	CommunicationFilterOptions,
 	CommunicationMessageDetail
 } from '../../src/lib/communications/types.js';
 import {
-	EMPTY_COMMUNICATION_BATCH_FILTER,
-	type CommunicationBatchFilter
+	EMPTY_COMMUNICATION_RECIPIENT_GROUP_FILTER,
+	type CommunicationRecipientGroupDraft,
+	type CommunicationRecipientGroupFilter
 } from '../../src/lib/communications/types.js';
 import {
 	CommunicationService,
-	buildCommunicationFilterOptions,
 	createRecipientPreview
 } from '../../src/lib/server/communications/service.js';
 import type { CommunicationEmailProvider } from '../../src/lib/server/communications/provider.js';
@@ -66,23 +70,10 @@ const buildAudienceRow = (
 	...overrides
 });
 
-const FILTER_OPTIONS: CommunicationFilterOptions = buildCommunicationFilterOptions({
-	seasons: [{ id: 'season-a', name: 'Spring 2029' }],
-	offerings: [{ id: 'offering-a', name: 'Basketball', seasonId: 'season-a' }],
-	leagues: [
-		{
-			id: 'league-a',
-			name: 'Basketball League',
-			seasonId: 'season-a',
-			offeringId: 'offering-a'
-		}
-	],
-	divisions: [{ id: 'division-a', name: 'Division A', leagueId: 'league-a' }],
-	teams: [{ id: 'team-a', name: 'Wildcats', divisionId: 'division-a' }]
-});
-
-const buildFilters = (overrides: Partial<CommunicationBatchFilter>): CommunicationBatchFilter => ({
-	...EMPTY_COMMUNICATION_BATCH_FILTER,
+const buildFilters = (
+	overrides: Partial<CommunicationRecipientGroupFilter>
+): CommunicationRecipientGroupFilter => ({
+	...EMPTY_COMMUNICATION_RECIPIENT_GROUP_FILTER,
 	...overrides
 });
 
@@ -149,6 +140,7 @@ describe('communication service', () => {
 			channel: 'email',
 			status: 'draft',
 			subject: 'Playoffs update',
+			recipientGroupCount: 0,
 			editorJson: { type: 'doc', content: [] },
 			bodyHtml: '<p>Hello captains.</p>',
 			bodyText: 'Hello captains.',
@@ -157,9 +149,10 @@ describe('communication service', () => {
 			updatedAt: '2029-01-01T00:00:00.000Z',
 			sentAt: null,
 			createdByName: 'Admin User',
-			batchSummary: 'Captains',
+			recipientGroupSummary: 'Captains',
 			failureMessage: null,
-			batches: [],
+			recipientGroups: [],
+			manualRecipients: [],
 			recipients: [
 				{
 					userId: 'user-1',
@@ -181,7 +174,9 @@ describe('communication service', () => {
 			getMessageDetail: vi.fn().mockResolvedValue(detail),
 			createDraft: vi.fn(),
 			updateDraft: vi.fn(),
-			replaceBatches: vi.fn(),
+			deleteDraft: vi.fn(),
+			replaceRecipientGroups: vi.fn(),
+			replaceManualRecipients: vi.fn(),
 			replaceRecipients: vi.fn(),
 			markMessageSending: vi.fn().mockResolvedValue(true),
 			markMessageSent: vi.fn().mockResolvedValue(true),
@@ -213,24 +208,24 @@ describe('communication service', () => {
 	});
 
 	it('dedupes overlapping includes and removes excluded recipients', async () => {
-		// one player matches both include batches, and the exclude batch should still remove them once.
-		const batches: CommunicationBatchDraft[] = [
+		// one player matches both include recipient groups, and the exclude group should still remove them once.
+		const recipientGroups: CommunicationRecipientGroupDraft[] = [
 			{
-				id: 'batch-1',
+				id: 'recipient-group-1',
 				mode: 'include',
 				filters: buildFilters({ teamId: 'team-a' }),
 				summaryText: 'Team A',
 				resolvedRecipientCount: 2
 			},
 			{
-				id: 'batch-2',
+				id: 'recipient-group-2',
 				mode: 'include',
 				filters: buildFilters({ memberSex: 'F' }),
 				summaryText: 'Women',
 				resolvedRecipientCount: 1
 			},
 			{
-				id: 'batch-3',
+				id: 'recipient-group-3',
 				mode: 'exclude',
 				filters: buildFilters({ memberQuery: 'jamie' }),
 				summaryText: 'Exclude Jamie',
@@ -240,7 +235,7 @@ describe('communication service', () => {
 
 		const preview = await service.previewAudience({
 			clientId: 'client-1',
-			batches
+			recipientGroups
 		});
 
 		expect(preview.totalCount).toBe(1);
@@ -253,6 +248,304 @@ describe('communication service', () => {
 
 		expect(preview.totalCount).toBe(0);
 		expect(preview.rows).toEqual([]);
+	});
+
+	it('resolves manual recipients by email or unique member name', async () => {
+		// manual recipient chips should normalize to the same canonical org member whether typed as email or name.
+		await expect(
+			service.resolveManualRecipients({
+				clientId: 'client-1',
+				manualRecipients: [
+					{
+						email: 'alex@playims.test',
+						fullName: 'alex@playims.test'
+					},
+					{
+						email: 'Jamie Player',
+						fullName: 'Jamie Player'
+					}
+				]
+			})
+		).resolves.toEqual([
+			{
+				userId: 'user-1',
+				email: 'alex@playims.test',
+				fullName: 'Alex Captain'
+			},
+			{
+				userId: 'user-2',
+				email: 'jamie@playims.test',
+				fullName: 'Jamie Player'
+			}
+		]);
+	});
+
+	it('returns suggestions when multiple members match a manual recipient query', async () => {
+		// ambiguous free-text queries should offer choices instead of failing the input flow outright.
+		audienceRows.push(
+			buildAudienceRow({
+				userId: 'user-4',
+				membershipId: 'membership-4',
+				email: 'jake@playims.test',
+				firstName: 'Jake',
+				lastName: 'Harvanchik',
+				teamId: null,
+				teamName: null,
+				divisionId: null,
+				divisionName: null,
+				leagueId: null,
+				leagueName: null,
+				offeringId: null,
+				offeringName: null,
+				seasonId: null,
+				seasonName: null,
+				isCaptain: 0,
+				isCoCaptain: 0
+			}),
+			buildAudienceRow({
+				userId: 'user-5',
+				membershipId: 'membership-5',
+				email: 'jamie.harvanchik@playims.test',
+				firstName: 'Jamie',
+				lastName: 'Harvanchik',
+				teamId: null,
+				teamName: null,
+				divisionId: null,
+				divisionName: null,
+				leagueId: null,
+				leagueName: null,
+				offeringId: null,
+				offeringName: null,
+				seasonId: null,
+				seasonName: null,
+				isCaptain: 0,
+				isCoCaptain: 0
+			})
+		);
+
+		await expect(
+			service.searchManualRecipientMatches({
+				clientId: 'client-1',
+				query: 'harvanchik'
+			})
+		).resolves.toEqual({
+			status: 'ambiguous',
+			query: 'harvanchik',
+			suggestions: [
+				{
+					userId: 'user-4',
+					email: 'jake@playims.test',
+					fullName: 'Jake Harvanchik'
+				},
+				{
+					userId: 'user-5',
+					email: 'jamie.harvanchik@playims.test',
+					fullName: 'Jamie Harvanchik'
+				}
+			]
+		});
+	});
+
+	it('persists a new draft with the rich editor payload, recipient groups, manual recipients, and resolved recipients', async () => {
+		// this protects the main save path so drafts reopen with the same formatting and audience rules.
+		(storage.createDraft as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'message-new' });
+
+		const recipientGroups: CommunicationRecipientGroupDraft[] = [
+			{
+				id: 'recipient-group-1',
+				mode: 'include',
+				filters: buildFilters({ teamId: 'team-a' }),
+				summaryText: 'Team A',
+				resolvedRecipientCount: 0
+			}
+		];
+		const editorJson = {
+			type: 'doc',
+			content: [
+				{
+					type: 'paragraph',
+					content: [{ type: 'text', text: 'Playoffs start tonight.' }]
+				}
+			]
+		};
+
+		const result = await service.saveDraft({
+			clientId: 'client-1',
+			userId: 'user-admin',
+			payload: {
+				subject: 'Playoffs update',
+				editorJson,
+				bodyHtml: '<p>Playoffs start <strong>tonight</strong>.</p>',
+				manualRecipients: [
+					{
+						userId: null,
+						email: 'jamie@playims.test',
+						fullName: 'jamie@playims.test'
+					}
+				],
+				recipientGroups: recipientGroups.map((group) => ({
+					id: group.id,
+					mode: group.mode,
+					filters: group.filters
+				}))
+			},
+			filterOptions: {
+				memberRoles: [{ value: '', label: 'All Roles' }],
+				memberSexes: [{ value: '', label: 'All Sexes' }],
+				rosterRoles: [{ value: '', label: 'Any roster role' }],
+				teamStatuses: [{ value: '', label: 'Any team status' }],
+				seasons: [],
+				offerings: [],
+				leagues: [],
+				divisions: [],
+				teams: [{ value: 'team-a', label: 'Wildcats', divisionId: 'division-a' }]
+			}
+		});
+
+		expect(result).toEqual({ id: 'message-new' });
+		expect(storage.createDraft).toHaveBeenCalledWith({
+			clientId: 'client-1',
+			subject: 'Playoffs update',
+			editorJson: JSON.stringify(editorJson),
+			bodyHtml: '<p>Playoffs start <strong>tonight</strong>.</p>',
+			bodyText: 'Playoffs start tonight .',
+			createdUser: 'user-admin',
+			updatedUser: 'user-admin'
+		});
+		expect(storage.replaceRecipientGroups).toHaveBeenCalledWith({
+			messageId: 'message-new',
+			recipientGroups: [
+				expect.objectContaining({
+					id: 'recipient-group-1',
+					mode: 'include',
+					filters: expect.objectContaining({ teamId: 'team-a' }),
+					summaryText: 'Wildcats'
+				})
+			]
+		});
+		expect(storage.replaceManualRecipients).toHaveBeenCalledWith({
+			messageId: 'message-new',
+			manualRecipients: [
+				{
+					userId: 'user-2',
+					email: 'jamie@playims.test',
+					fullName: 'Jamie Player'
+				}
+			]
+		});
+		expect(storage.replaceRecipients).toHaveBeenCalledWith({
+			messageId: 'message-new',
+			recipients: [
+				expect.objectContaining({
+					userId: 'user-1',
+					email: 'alex@playims.test'
+				}),
+				expect.objectContaining({
+					userId: 'user-2',
+					email: 'jamie@playims.test'
+				})
+			]
+		});
+	});
+
+	it('updates an existing draft instead of creating a second draft record', async () => {
+		// this keeps "continue editing draft" behavior tied to the same message history entry.
+		(storage.updateDraft as ReturnType<typeof vi.fn>).mockResolvedValue(true);
+
+		const result = await service.saveDraft({
+			clientId: 'client-1',
+			userId: 'user-admin',
+			payload: {
+				messageId: 'message-1',
+				subject: 'Updated playoffs update',
+				editorJson: { type: 'doc', content: [] },
+				bodyHtml: '<p>Updated body</p>',
+				manualRecipients: [],
+				recipientGroups: [
+					{
+						id: 'recipient-group-2',
+						mode: 'include',
+						filters: buildFilters({ memberSex: 'F' })
+					}
+				]
+			},
+			filterOptions: {
+				memberRoles: [{ value: '', label: 'All Roles' }],
+				memberSexes: [{ value: 'F', label: 'Female' }, { value: '', label: 'All Sexes' }],
+				rosterRoles: [{ value: '', label: 'Any roster role' }],
+				teamStatuses: [{ value: '', label: 'Any team status' }],
+				seasons: [],
+				offerings: [],
+				leagues: [],
+				divisions: [],
+				teams: []
+			}
+		});
+
+		expect(result).toEqual({ id: 'message-1' });
+		expect(storage.updateDraft).toHaveBeenCalledWith({
+			clientId: 'client-1',
+			messageId: 'message-1',
+			subject: 'Updated playoffs update',
+			editorJson: JSON.stringify({ type: 'doc', content: [] }),
+			bodyHtml: '<p>Updated body</p>',
+			bodyText: 'Updated body',
+			updatedUser: 'user-admin'
+		});
+		expect(storage.createDraft).not.toHaveBeenCalled();
+		expect(storage.replaceRecipients).toHaveBeenCalledWith({
+			messageId: 'message-1',
+			recipients: [expect.objectContaining({ email: 'jamie@playims.test' })]
+		});
+	});
+
+	it('deletes draft messages and rejects non-draft deletes', async () => {
+		// deletion should stay limited to true drafts so history records cannot be removed by mistake.
+		(storage.deleteDraft as ReturnType<typeof vi.fn>).mockResolvedValueOnce(true);
+
+		await expect(
+			service.deleteDraft({
+				clientId: 'client-1',
+				messageId: 'message-1'
+			})
+		).resolves.toEqual({ deleted: true });
+
+		(storage.getMessageDetail as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+			...detail,
+			status: 'sent'
+		});
+
+		await expect(
+			service.deleteDraft({
+				clientId: 'client-1',
+				messageId: 'message-1'
+			})
+		).rejects.toThrow(/only draft messages can be deleted/i);
+	});
+
+	it('rejects sends that target too many recipients at once', async () => {
+		// this caps blast radius if someone tries to fan out a single message too aggressively.
+		(storage.getMessageDetail as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+			...detail,
+			recipientCount: 501,
+			recipients: Array.from({ length: 501 }, (_, index) => ({
+				userId: `user-${index + 1}`,
+				email: `user-${index + 1}@playims.test`,
+				fullName: `User ${index + 1}`,
+				resolutionMetadata: null
+			}))
+		});
+
+		await expect(
+			service.sendDraft({
+				clientId: 'client-1',
+				userId: 'user-admin',
+				messageId: 'message-1'
+			})
+		).rejects.toThrow(/too many recipients/i);
+
+		expect(sendMessageMock).not.toHaveBeenCalled();
+		expect(storage.markMessageSending).not.toHaveBeenCalled();
 	});
 
 	it('sends a draft through the provider adapter and marks it sent', async () => {

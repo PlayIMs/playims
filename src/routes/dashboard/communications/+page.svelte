@@ -1,38 +1,53 @@
 <script lang="ts">
-	import { goto, invalidateAll } from '$app/navigation';
-	import { onMount } from 'svelte';
+	import { beforeNavigate, goto, invalidateAll } from '$app/navigation';
 	import {
 		IconBell,
 		IconCopy,
 		IconDeviceMobileMessage,
-		IconEdit,
 		IconEye,
+		IconFilter,
 		IconMail,
 		IconMessageCircle,
 		IconPlus,
 		IconRefresh,
-		IconSend,
-		IconTrash
+		IconTrash,
+		IconUserEdit,
+		IconUsersGroup
 	} from '@tabler/icons-svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
 	import DashboardSearchLauncher from '$lib/components/dashboard/DashboardSearchLauncher.svelte';
 	import SplitAddAction from '$lib/components/dashboard/SplitAddAction.svelte';
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
-	import InfoPopover from '$lib/components/InfoPopover.svelte';
+	import {
+		buildCommunicationSidebarFeed,
+		getCommunicationHistoryAt,
+		getCommunicationScheduledAt,
+		type CommunicationSidebarFeedItem
+	} from '$lib/communications/sidebar-feed.js';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import { toast } from '$lib/toasts';
 	import CommunicationRichEditor from '$lib/components/communications/CommunicationRichEditor.svelte';
+	import { WizardUnsavedConfirm } from '$lib/components/wizard';
 	import RecipientBuilderWizard from './_wizards/RecipientBuilderWizard.svelte';
+	import { buildCommunicationDraftStateSignature } from '$lib/communications/editor-content.js';
 	import {
-		type CommunicationBatchDraft,
-		type CommunicationBatchMode,
+		mergeCommunicationManualRecipients,
+		splitCommunicationManualRecipientInput
+	} from '$lib/communications/manual-recipients.js';
+	import {
 		type CommunicationFilterOptions,
+		type CommunicationManualRecipientDraft,
 		type CommunicationMessageDetail,
 		type CommunicationMessageSummary,
+		type CommunicationRecipientGroupDraft,
+		type CommunicationRecipientGroupMode,
 		type CommunicationRecipientPreview
 	} from '$lib/communications/types.js';
 	import type { PageData } from './$types';
+
+	type MessageSidebarView = 'drafts' | 'scheduled' | 'history';
+	type UnsavedDraftConfirmMode = 'leave' | 'new-message';
 
 	const HEADER_SPLIT_SEND_BUTTON_CLASS =
 		'button-primary h-[2.375rem] px-3 text-xs font-bold uppercase tracking-wide cursor-pointer';
@@ -40,7 +55,7 @@
 		'button-primary -ml-[2px] h-[2.375rem] px-1 cursor-pointer';
 
 	const PAGE_DESCRIPTION =
-		'Build recipient batches, draft messages, and review communication history for your organization.';
+		'Build recipient groups, draft messages, and review communication history for your organization.';
 
 	let { data } = $props<{ data: PageData }>();
 
@@ -50,18 +65,36 @@
 				(data?.navigationLabels ?? {}) as Partial<Record<DashboardNavKey, string>>
 			).communicationCenter
 	);
+	const permissions = $derived.by(() => data.permissions ?? {});
 
 	let messages = $state<CommunicationMessageSummary[]>([]);
 	let selectedMessage = $state<CommunicationMessageDetail | null>(null);
 	let subject = $state('');
 	let editorHtml = $state('<p></p>');
 	let editorJson = $state<Record<string, unknown> | null>(null);
-	let batches = $state<CommunicationBatchDraft[]>([]);
+	let recipientGroups = $state<CommunicationRecipientGroupDraft[]>([]);
+	let manualRecipients = $state<CommunicationManualRecipientDraft[]>([]);
+	let manualRecipientInput = $state('');
+	let manualRecipientLoading = $state(false);
+	let manualRecipientSuggestions = $state<CommunicationManualRecipientDraft[]>([]);
+	let manualRecipientSuggestionQuery = $state('');
+	let manualRecipientActiveSuggestionIndex = $state(0);
+	let manualRecipientFieldElement = $state<HTMLDivElement | null>(null);
 	let preview = $state<CommunicationRecipientPreview>({ totalCount: 0, rows: [] });
 	let saveLoading = $state(false);
 	let sendLoading = $state(false);
+	let deleteLoading = $state(false);
 	let duplicationLoadingId = $state('');
 	let recipientBuilderOpen = $state(false);
+	let draftDeleteConfirmOpen = $state(false);
+	let unsavedLeaveConfirmOpen = $state(false);
+	let baselineDraftStateSignature = $state('');
+	let pendingNavigationHref = $state<string | null>(null);
+	let activeMessageView = $state<MessageSidebarView>('drafts');
+	let unsavedDraftConfirmMode = $state<UnsavedDraftConfirmMode>('leave');
+	let editorResetToken = $state(0);
+
+	let allowNextNavigation = false;
 
 	const loadedMessageSignature = $derived.by(() =>
 		data.selectedMessage
@@ -71,11 +104,45 @@
 
 	const filterOptions = $derived.by<CommunicationFilterOptions>(() => data.filterOptions);
 
-	const isReadOnlyMessage = $derived.by(() => Boolean(selectedMessage && selectedMessage.status !== 'draft'));
+	const canViewHistory = $derived.by(() => permissions.VIEW_COMMUNICATION_HISTORY === true);
+	const canPreviewAudience = $derived.by(
+		() => permissions.PREVIEW_COMMUNICATION_AUDIENCE === true
+	);
+	const canCreateDraft = $derived.by(
+		() => permissions.CREATE_COMMUNICATION_DRAFT === true
+	);
+	const canEditDraft = $derived.by(() => permissions.EDIT_COMMUNICATION_DRAFT === true);
+	const canSendCommunication = $derived.by(
+		() => permissions.SEND_COMMUNICATION === true
+	);
+	const canDuplicateCommunication = $derived.by(
+		() => permissions.DUPLICATE_COMMUNICATION === true
+	);
+	const canDeleteDraft = $derived.by(
+		() => permissions.DELETE_COMMUNICATION_DRAFT === true
+	);
+	const canEditCurrentDraft = $derived.by(() =>
+		selectedMessage ? selectedMessage.status === 'draft' && canEditDraft : canCreateDraft
+	);
+	const canDeleteCurrentDraft = $derived.by(
+		() => canDeleteDraft && selectedMessage?.status === 'draft' && Boolean(selectedMessage?.id)
+	);
+	const currentDraftStateSignature = $derived.by(() =>
+		buildCommunicationDraftStateSignature({
+			subject,
+			html: editorHtml,
+			json: editorJson,
+			recipientGroups,
+			manualRecipients
+		})
+	);
+	const hasUnsavedDraftChanges = $derived.by(
+		() => canEditCurrentDraft && currentDraftStateSignature !== baselineDraftStateSignature
+	);
 	const recipientSummaryText = $derived.by(() =>
 		preview.totalCount > 0
 			? `${preview.totalCount} recipient${preview.totalCount === 1 ? '' : 's'} selected`
-			: 'Choose recipients'
+			: 'Choose Recipients'
 	);
 	const sendActionOptions = $derived.by(() => [
 		{
@@ -86,6 +153,29 @@
 			disabledTooltip: 'Send later is coming soon.'
 		}
 	]);
+	const sidebarFeedItems = $derived.by(() => buildCommunicationSidebarFeed(messages));
+	const draftFeedItems = $derived.by(() =>
+		sidebarFeedItems.filter((item) => item.kind === 'draft')
+	);
+	const scheduledFeedItems = $derived.by(() =>
+		sidebarFeedItems.filter((item) => item.kind === 'scheduled')
+	);
+	const historyFeedItems = $derived.by(() =>
+		sidebarFeedItems.filter((item) => item.kind === 'history')
+	);
+	const draftMessageCount = $derived.by(() => draftFeedItems.length);
+	const scheduledMessageCount = $derived.by(() => scheduledFeedItems.length);
+	const historyMessageCount = $derived.by(() => historyFeedItems.length);
+	const visibleSidebarItems = $derived.by(() => {
+		switch (activeMessageView) {
+			case 'drafts':
+				return draftFeedItems;
+			case 'scheduled':
+				return scheduledFeedItems;
+			default:
+				return historyFeedItems;
+		}
+	});
 
 	function formatDateDisplay(value: string | null | undefined): string {
 		const normalized = value?.trim() ?? '';
@@ -96,13 +186,95 @@
 		if (Number.isNaN(date.getTime())) {
 			return normalized;
 		}
-		return date.toLocaleString('en-US', {
-			month: 'short',
+		const datePart = new Intl.DateTimeFormat('en-GB', {
 			day: 'numeric',
-			year: 'numeric',
+			month: 'short',
+			year: 'numeric'
+		}).format(date);
+		const timePart = new Intl.DateTimeFormat('en-US', {
 			hour: 'numeric',
-			minute: '2-digit'
-		});
+			minute: '2-digit',
+			hour12: true
+		}).format(date);
+		return `${datePart}, ${timePart}`;
+	}
+
+	function getSidebarItemDateValue(item: CommunicationSidebarFeedItem): string | null {
+		return item.kind === 'scheduled'
+			? getCommunicationScheduledAt(item.message)
+			: getCommunicationHistoryAt(item.message);
+	}
+
+	function getSidebarItemDateLabel(item: CommunicationSidebarFeedItem): string {
+		if (item.kind === 'draft') {
+			return 'Updated';
+		}
+
+		if (item.kind === 'scheduled') {
+			return 'Scheduled';
+		}
+
+		return item.message.sentAt ? 'Sent' : 'Updated';
+	}
+
+	function getSidebarViewForMessage(message: CommunicationMessageDetail | null): MessageSidebarView {
+		if (message?.status === 'draft') {
+			return 'drafts';
+		}
+		if (message?.status === 'scheduled') {
+			return 'scheduled';
+		}
+		return 'history';
+	}
+
+	function getPreferredSidebarView(): MessageSidebarView {
+		if (draftMessageCount > 0) return 'drafts';
+		if (scheduledMessageCount > 0) return 'scheduled';
+		return 'history';
+	}
+
+	function setActiveSidebarView(nextView: MessageSidebarView): void {
+		activeMessageView = nextView;
+	}
+
+	function getSidebarViewEmptyMessage(view: MessageSidebarView): string {
+		switch (view) {
+			case 'drafts':
+				return 'No drafts yet.';
+			case 'scheduled':
+				return 'No scheduled messages yet.';
+			default:
+				return 'No message history yet.';
+		}
+	}
+
+	function getSidebarItemBadgeClass(item: CommunicationSidebarFeedItem): string {
+		if (item.kind === 'draft') {
+			return '';
+		}
+		if (item.kind === 'scheduled') {
+			return 'border-secondary-700 bg-secondary-100 text-neutral-950';
+		}
+		return getMessageStatusBadgeClass(item.message.status);
+	}
+
+	function getSidebarItemBadgeText(item: CommunicationSidebarFeedItem): string {
+		return item.kind === 'draft' ? 'Draft' : item.message.status;
+	}
+
+	function getMessageStatusBadgeClass(status: CommunicationMessageSummary['status']): string {
+		switch (status) {
+			case 'sent':
+				return 'border-primary-700 bg-primary text-primary-foreground';
+			case 'failed':
+				return 'border-error-700 bg-error-100 text-error-800';
+			case 'sending':
+				return 'border-secondary-700 bg-secondary-100 text-neutral-950';
+			case 'scheduled':
+				return 'border-secondary-700 bg-secondary-100 text-neutral-950';
+			default:
+				return 'border-neutral-950 bg-white text-neutral-950';
+		}
 	}
 
 	function toPreviewRows(message: CommunicationMessageDetail | null) {
@@ -126,15 +298,35 @@
 
 	function loadMessageIntoComposer(message: CommunicationMessageDetail | null): void {
 		selectedMessage = message;
+		activeMessageView = message ? getSidebarViewForMessage(message) : getPreferredSidebarView();
+		if (!message) {
+			editorResetToken += 1;
+		}
 		subject = message?.subject ?? '';
 		editorHtml = message?.bodyHtml || '<p></p>';
 		editorJson = message?.editorJson ?? null;
-		batches = message?.batches ? [...message.batches] : [];
+		recipientGroups = message?.recipientGroups ? [...message.recipientGroups] : [];
+		manualRecipients = message?.manualRecipients ? [...message.manualRecipients] : [];
+		manualRecipientInput = '';
+		manualRecipientSuggestions = [];
+		manualRecipientSuggestionQuery = '';
+		manualRecipientActiveSuggestionIndex = 0;
 		preview = {
 			totalCount: message?.recipientCount ?? 0,
 			rows: toPreviewRows(message)
 		};
 		recipientBuilderOpen = false;
+		draftDeleteConfirmOpen = false;
+		unsavedLeaveConfirmOpen = false;
+		unsavedDraftConfirmMode = 'leave';
+		pendingNavigationHref = null;
+		baselineDraftStateSignature = buildCommunicationDraftStateSignature({
+			subject: message?.subject ?? '',
+			html: message?.bodyHtml || '<p></p>',
+			json: message?.editorJson ?? null,
+			recipientGroups: message?.recipientGroups ? [...message.recipientGroups] : [],
+			manualRecipients: message?.manualRecipients ? [...message.manualRecipients] : []
+		});
 	}
 
 	$effect(() => {
@@ -142,10 +334,6 @@
 		if (!signature) return;
 		messages = data.messages ?? [];
 		loadMessageIntoComposer(data.selectedMessage ?? null);
-	});
-
-	onMount(() => {
-		if (!data.selectedMessage) loadMessageIntoComposer(null);
 	});
 
 	function updateEditorContent(payload: {
@@ -157,35 +345,277 @@
 		editorJson = payload.json;
 	}
 
+	async function navigateWithoutDraftGuard(href: string): Promise<void> {
+		allowNextNavigation = true;
+		try {
+			await goto(href);
+			await invalidateAll();
+		} finally {
+			allowNextNavigation = false;
+		}
+	}
+
+	async function openNewMessageComposer(): Promise<void> {
+		if (selectedMessage === null) {
+			loadMessageIntoComposer(null);
+			return;
+		}
+
+		await navigateWithoutDraftGuard('/dashboard/communications');
+	}
+
+	beforeNavigate((navigation) => {
+		if (
+			typeof window === 'undefined' ||
+			allowNextNavigation ||
+			!hasUnsavedDraftChanges ||
+			!canEditCurrentDraft
+		) {
+			return;
+		}
+
+		if (navigation.willUnload) {
+			return;
+		}
+
+		navigation.cancel();
+		pendingNavigationHref = navigation.to?.url ? navigation.to.url.toString() : null;
+		unsavedDraftConfirmMode = 'leave';
+		unsavedLeaveConfirmOpen = true;
+	});
+
+	$effect(() => {
+		if (typeof window === 'undefined' || !hasUnsavedDraftChanges || !canEditCurrentDraft) return;
+
+		const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+			event.preventDefault();
+			event.returnValue = '';
+		};
+
+		window.addEventListener('beforeunload', handleBeforeUnload);
+		return () => {
+			window.removeEventListener('beforeunload', handleBeforeUnload);
+		};
+	});
+
+	$effect(() => {
+		if (typeof window === 'undefined' || manualRecipientSuggestions.length === 0) return;
+
+		const handlePointerDown = (event: PointerEvent) => {
+			const target = event.target;
+			if (
+				manualRecipientFieldElement &&
+				target instanceof Node &&
+				manualRecipientFieldElement.contains(target)
+			) {
+				return;
+			}
+
+			clearManualRecipientSuggestions();
+		};
+
+		window.addEventListener('pointerdown', handlePointerDown);
+		return () => {
+			window.removeEventListener('pointerdown', handlePointerDown);
+		};
+	});
+
 	async function requestPreview(
-		nextBatches: Array<{
+		nextRecipientGroups: Array<{
 			id: string;
-			mode: CommunicationBatchMode;
-			filters: CommunicationBatchDraft['filters'];
-		}>
+			mode: CommunicationRecipientGroupMode;
+			filters: CommunicationRecipientGroupDraft['filters'];
+		}>,
+		nextManualRecipients: CommunicationManualRecipientDraft[] = manualRecipients
 	): Promise<{
-		batches: CommunicationBatchDraft[];
+		recipientGroups: CommunicationRecipientGroupDraft[];
 		preview: CommunicationRecipientPreview;
 	}> {
+		if (!canPreviewAudience) {
+			throw new Error('You do not have permission to preview communication recipients.');
+		}
+
 		const response = await fetch('/api/communications/preview', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ batches: nextBatches })
+			body: JSON.stringify({
+				recipientGroups: nextRecipientGroups,
+				manualRecipients: nextManualRecipients
+			})
 		});
 		const payload = await response.json();
 		if (!response.ok || payload.success === false) {
 			throw new Error(payload.error ?? 'Unable to preview the selected audience.');
 		}
 		return {
-			batches: payload.data.batches as CommunicationBatchDraft[],
+			recipientGroups: payload.data.recipientGroups as CommunicationRecipientGroupDraft[],
 			preview: payload.data.messagePreview as CommunicationRecipientPreview
 		};
 	}
 
-	async function saveDraftMessage(): Promise<void> {
+	async function resolveManualRecipientQueries(
+		queries: string[]
+	): Promise<{
+		status: 'resolved' | 'ambiguous';
+		query: string;
+		manualRecipients: CommunicationManualRecipientDraft[];
+		suggestions: CommunicationManualRecipientDraft[];
+	}> {
+		const response = await fetch('/api/communications/recipients/resolve', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ queries })
+		});
+		const payload = await response.json();
+		if (!response.ok || payload.success === false) {
+			throw new Error(payload.error ?? 'Unable to resolve manual recipients.');
+		}
+		return {
+			status: payload.data.status as 'resolved' | 'ambiguous',
+			query: payload.data.query as string,
+			manualRecipients: payload.data.manualRecipients as CommunicationManualRecipientDraft[],
+			suggestions: payload.data.suggestions as CommunicationManualRecipientDraft[]
+		};
+	}
+
+	function clearManualRecipientSuggestions(): void {
+		manualRecipientSuggestions = [];
+		manualRecipientSuggestionQuery = '';
+		manualRecipientActiveSuggestionIndex = 0;
+	}
+
+	async function syncManualRecipients(
+		nextManualRecipients: CommunicationManualRecipientDraft[],
+		input?: {
+			clearSuggestions?: boolean;
+		}
+	): Promise<void> {
+		const previewResult = await requestPreview(recipientGroups, nextManualRecipients);
+		manualRecipients = nextManualRecipients;
+		recipientGroups = previewResult.recipientGroups;
+		preview = previewResult.preview;
+		if (input?.clearSuggestions ?? true) {
+			clearManualRecipientSuggestions();
+		}
+	}
+
+	async function commitManualRecipientQueries(
+		queries: string[],
+		fallbackInput = ''
+	): Promise<void> {
+		const normalizedQueries = queries.map((query) => query.trim()).filter((query) => query.length > 0);
+		if (normalizedQueries.length === 0) {
+			return;
+		}
+		if (!canEditCurrentDraft || !canPreviewAudience) {
+			toast.error('You do not have permission to add manual recipients.');
+			return;
+		}
+
+		manualRecipientLoading = true;
+		try {
+			let nextManualRecipients = manualRecipients;
+			for (const query of normalizedQueries) {
+				const resolution = await resolveManualRecipientQueries([query]);
+				if (resolution.status === 'ambiguous') {
+					if (nextManualRecipients !== manualRecipients) {
+						await syncManualRecipients(nextManualRecipients, { clearSuggestions: false });
+					}
+					manualRecipientInput = resolution.query;
+					manualRecipientSuggestionQuery = resolution.query;
+					manualRecipientSuggestions = resolution.suggestions;
+					manualRecipientActiveSuggestionIndex = 0;
+					return;
+				}
+
+				nextManualRecipients = mergeCommunicationManualRecipients(
+					nextManualRecipients,
+					resolution.manualRecipients
+				);
+			}
+
+			await syncManualRecipients(nextManualRecipients);
+			manualRecipientInput = '';
+		} catch (error) {
+			manualRecipientInput = fallbackInput.trimStart();
+			clearManualRecipientSuggestions();
+			toast.error(
+				error instanceof Error ? error.message : 'Unable to add the selected manual recipients.'
+			);
+		} finally {
+			manualRecipientLoading = false;
+		}
+	}
+
+	function moveManualRecipientSuggestion(direction: 1 | -1): void {
+		if (manualRecipientSuggestions.length === 0) {
+			return;
+		}
+
+		manualRecipientActiveSuggestionIndex =
+			(manualRecipientActiveSuggestionIndex + direction + manualRecipientSuggestions.length) %
+			manualRecipientSuggestions.length;
+	}
+
+	async function handleManualRecipientInputChange(value: string): Promise<void> {
+		manualRecipientInput = value;
+		if (manualRecipientSuggestions.length > 0) {
+			clearManualRecipientSuggestions();
+		}
+		const { tokens, remainder } = splitCommunicationManualRecipientInput(value);
+		if (tokens.length === 0) {
+			return;
+		}
+
+		manualRecipientInput = remainder.trimStart();
+		await commitManualRecipientQueries(tokens, value);
+	}
+
+	async function removeManualRecipient(index: number): Promise<void> {
+		const nextManualRecipients = manualRecipients.filter((_, currentIndex) => currentIndex !== index);
+		manualRecipientLoading = true;
+		try {
+			await syncManualRecipients(nextManualRecipients);
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : 'Unable to remove the selected recipient.'
+			);
+		} finally {
+			manualRecipientLoading = false;
+		}
+	}
+
+	async function applyManualRecipientSuggestion(
+		recipient: CommunicationManualRecipientDraft
+	): Promise<void> {
+		manualRecipientLoading = true;
+		try {
+			const nextManualRecipients = mergeCommunicationManualRecipients(manualRecipients, [recipient]);
+			await syncManualRecipients(nextManualRecipients);
+			manualRecipientInput = '';
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : 'Unable to add the selected recipient.'
+			);
+		} finally {
+			manualRecipientLoading = false;
+		}
+	}
+
+	async function saveDraftMessage(input?: {
+		navigateToSavedDraft?: boolean;
+		successToast?: string | null;
+	}): Promise<string | null> {
+		if (!canEditCurrentDraft) {
+			toast.error('You do not have permission to save this draft.');
+			return null;
+		}
+
 		saveLoading = true;
 		try {
-			const endpoint = selectedMessage?.id ? `/api/communications/${selectedMessage.id}` : '/api/communications';
+			const endpoint = selectedMessage?.id
+				? `/api/communications/${selectedMessage.id}`
+				: '/api/communications';
 			const method = selectedMessage?.id ? 'PATCH' : 'POST';
 			const response = await fetch(endpoint, {
 				method,
@@ -194,37 +624,56 @@
 					subject,
 					editorJson,
 					bodyHtml: editorHtml,
-					batches: batches.map((batch) => ({ id: batch.id, mode: batch.mode, filters: batch.filters }))
+					manualRecipients,
+					recipientGroups: recipientGroups.map((recipientGroup) => ({
+						id: recipientGroup.id,
+						mode: recipientGroup.mode,
+						filters: recipientGroup.filters
+					}))
 				})
 			});
 			const payload = await response.json();
 			if (!response.ok || payload.success === false) {
 				throw new Error(payload.error ?? 'Unable to save this draft.');
 			}
-			await goto(`/dashboard/communications?messageId=${payload.data.messageId}`);
-			await invalidateAll();
-			toast.success('Draft saved.');
+			const messageId = payload.data.messageId as string;
+			if (input?.navigateToSavedDraft ?? true) {
+				await navigateWithoutDraftGuard(`/dashboard/communications?messageId=${messageId}`);
+			} else {
+				baselineDraftStateSignature = currentDraftStateSignature;
+			}
+			if (input?.successToast !== null) {
+				toast.success(input?.successToast ?? 'Draft saved.');
+			}
+			return messageId;
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : 'Unable to save this draft.');
+			return null;
 		} finally {
 			saveLoading = false;
 		}
 	}
 
 	async function sendMessageNow(): Promise<void> {
+		if (!canSendCommunication) {
+			toast.error('You do not have permission to send communications.');
+			return;
+		}
+
 		if (!selectedMessage?.id) {
 			toast.error('Save the draft before sending.');
 			return;
 		}
 		sendLoading = true;
 		try {
-			const response = await fetch(`/api/communications/${selectedMessage.id}/send`, { method: 'POST' });
+			const response = await fetch(`/api/communications/${selectedMessage.id}/send`, {
+				method: 'POST'
+			});
 			const payload = await response.json();
 			if (!response.ok || payload.success === false) {
 				throw new Error(payload.error ?? 'Unable to send this message.');
 			}
-			await goto(`/dashboard/communications?messageId=${selectedMessage.id}`);
-			await invalidateAll();
+			await navigateWithoutDraftGuard(`/dashboard/communications?messageId=${selectedMessage.id}`);
 			toast.success('Communication sent.');
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : 'Unable to send this message.');
@@ -234,20 +683,30 @@
 	}
 
 	async function openHistoryMessage(messageId: string): Promise<void> {
-		await goto(`/dashboard/communications?messageId=${messageId}`);
-		await invalidateAll();
+		if (!canViewHistory) {
+			toast.error('You do not have permission to view message history.');
+			return;
+		}
+
+		await navigateWithoutDraftGuard(`/dashboard/communications?messageId=${messageId}`);
 	}
 
 	async function duplicateHistoryMessage(messageId: string): Promise<void> {
+		if (!canDuplicateCommunication) {
+			toast.error('You do not have permission to duplicate messages.');
+			return;
+		}
+
 		duplicationLoadingId = messageId;
 		try {
-			const response = await fetch(`/api/communications/${messageId}/duplicate`, { method: 'POST' });
+			const response = await fetch(`/api/communications/${messageId}/duplicate`, {
+				method: 'POST'
+			});
 			const payload = await response.json();
 			if (!response.ok || payload.success === false) {
 				throw new Error(payload.error ?? 'Unable to duplicate this message.');
 			}
-			await goto(`/dashboard/communications?messageId=${payload.data.messageId}`);
-			await invalidateAll();
+			await navigateWithoutDraftGuard(`/dashboard/communications?messageId=${payload.data.messageId}`);
 			toast.success('Message duplicated into a new draft.');
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : 'Unable to duplicate this message.');
@@ -257,15 +716,94 @@
 	}
 
 	function startNewMessage(): void {
-		loadMessageIntoComposer(null);
-		void goto('/dashboard/communications');
+		if (!canCreateDraft) {
+			toast.error('You do not have permission to create drafts.');
+			return;
+		}
+
+		if (hasUnsavedDraftChanges && canEditCurrentDraft) {
+			unsavedDraftConfirmMode = 'new-message';
+			unsavedLeaveConfirmOpen = true;
+			return;
+		}
+
+		void openNewMessageComposer();
+	}
+
+	async function deleteCurrentDraft(): Promise<void> {
+		if (!canDeleteCurrentDraft || !selectedMessage?.id) {
+			toast.error('You do not have permission to delete this draft.');
+			return;
+		}
+
+		deleteLoading = true;
+		try {
+			const response = await fetch(`/api/communications/${selectedMessage.id}`, {
+				method: 'DELETE'
+			});
+			const payload = await response.json();
+			if (!response.ok || payload.success === false) {
+				throw new Error(payload.error ?? 'Unable to delete this draft.');
+			}
+
+			draftDeleteConfirmOpen = false;
+			loadMessageIntoComposer(null);
+			await navigateWithoutDraftGuard('/dashboard/communications');
+			toast.success('Draft deleted.');
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : 'Unable to delete this draft.');
+		} finally {
+			deleteLoading = false;
+		}
+	}
+
+	async function confirmSaveBeforeLeaving(): Promise<void> {
+		const confirmMode = unsavedDraftConfirmMode;
+		const pendingHref = pendingNavigationHref;
+		const savedMessageId = await saveDraftMessage({
+			navigateToSavedDraft: false,
+			successToast: 'Draft saved.'
+		});
+		if (!savedMessageId) {
+			return;
+		}
+
+		unsavedLeaveConfirmOpen = false;
+		pendingNavigationHref = null;
+		unsavedDraftConfirmMode = 'leave';
+
+		if (confirmMode === 'new-message') {
+			await openNewMessageComposer();
+			return;
+		}
+
+		if (pendingHref) {
+			await navigateWithoutDraftGuard(pendingHref);
+		}
+	}
+
+	function keepEditingDraft(): void {
+		unsavedLeaveConfirmOpen = false;
+		pendingNavigationHref = null;
+		unsavedDraftConfirmMode = 'leave';
+	}
+
+	async function discardUnsavedDraftAndContinue(): Promise<void> {
+		const confirmMode = unsavedDraftConfirmMode;
+		unsavedLeaveConfirmOpen = false;
+		pendingNavigationHref = null;
+		unsavedDraftConfirmMode = 'leave';
+
+		if (confirmMode === 'new-message') {
+			await openNewMessageComposer();
+		}
 	}
 
 	function applyRecipientBuilder(payload: {
-		batches: CommunicationBatchDraft[];
+		recipientGroups: CommunicationRecipientGroupDraft[];
 		preview: CommunicationRecipientPreview;
 	}): void {
-		batches = payload.batches;
+		recipientGroups = payload.recipientGroups;
 		preview = payload.preview;
 		recipientBuilderOpen = false;
 	}
@@ -282,188 +820,485 @@
 		<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
 			<div class="flex flex-col gap-4 py-2 lg:flex-row lg:items-center lg:justify-between">
 				<div class="flex items-center gap-3">
-					<div class="bg-primary text-primary-foreground border-2 border-primary-700 w-[2.75rem] h-[2.75rem] lg:w-[3.4rem] lg:h-[3.4rem] flex items-center justify-center">
+					<div
+						class="bg-primary text-primary-foreground border-2 border-primary-700 w-[2.75rem] h-[2.75rem] lg:w-[3.4rem] lg:h-[3.4rem] flex items-center justify-center"
+					>
 						<IconMessageCircle class="h-6 w-6 lg:h-7 lg:w-7" />
 					</div>
-					<h1 class="text-5xl lg:text-6xl leading-[0.9] tracking-[0.01em] font-bold font-serif text-neutral-950">{pageLabel}</h1>
+					<h1
+						class="text-5xl lg:text-6xl leading-[0.9] tracking-[0.01em] font-bold font-serif text-neutral-950"
+					>
+						{pageLabel}
+					</h1>
 				</div>
 				<DashboardSearchLauncher />
 			</div>
 		</div>
 	</header>
 
-	<div class="px-4 lg:px-6 space-y-4">
-		<section class="section-shell p-4 space-y-4">
-			<div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-				<div>
-					<h2 class="dashboard-section-title text-neutral-950">
-						{selectedMessage ? (selectedMessage.status === 'draft' ? 'Draft Composer' : 'Message Detail') : 'New Message'}
-					</h2>
-				</div>
-				<div class="flex flex-wrap items-center gap-2">
-					<button type="button" class="button-primary-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer" onclick={startNewMessage}>
-						<IconPlus class="h-4 w-4" />
-						<span>New Message</span>
-					</button>
-					<button type="button" class="button-secondary-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer" onclick={saveDraftMessage} disabled={saveLoading || isReadOnlyMessage}>
-						<IconRefresh class="h-4 w-4" />
-						<span>{saveLoading ? 'Saving...' : 'Save Draft'}</span>
-					</button>
-					<SplitAddAction
-						label={sendLoading ? 'Sending...' : 'Send Now'}
-						options={sendActionOptions}
-						ariaLabel="Open send options"
-						buttonClass={HEADER_SPLIT_SEND_BUTTON_CLASS}
-						menuButtonClass={HEADER_SPLIT_SEND_MENU_BUTTON_CLASS}
-						disabled={sendLoading || isReadOnlyMessage || !selectedMessage?.id}
-						on:click={() => void sendMessageNow()}
-						on:action={() => {
-							toast.info('Send later is coming soon.');
-						}}
-					/>
-				</div>
+	<div class="px-4 lg:px-6">
+		<div class="grid grid-cols-1 2xl:grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)] gap-6">
+			<div class="min-w-0 space-y-4">
+				<section class="section-shell min-w-0">
+					<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
+						<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+							<h2 class="dashboard-section-title text-neutral-950">Message Composer</h2>
+							<button
+								type="button"
+								class="button-primary-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer"
+								onclick={startNewMessage}
+								disabled={!canCreateDraft}
+							>
+								<IconPlus class="h-4 w-4" />
+								<span>New Message</span>
+							</button>
+						</div>
+					</div>
+					<div class="p-4 space-y-4">
+						<div class="grid gap-3 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.25fr)]">
+							<div class="space-y-2">
+								<label
+									class="mb-1 block text-sm font-sans text-neutral-950"
+									for="communication-recipient-trigger">To</label
+								>
+								<button
+									id="communication-recipient-trigger"
+									type="button"
+									class="button-secondary-outlined min-h-10 w-full items-center justify-between px-4 py-2 text-left cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+									onclick={() => {
+										recipientBuilderOpen = true;
+									}}
+									disabled={!canPreviewAudience || !canEditCurrentDraft}
+								>
+									<span class="truncate text-sm text-neutral-950">{recipientSummaryText}</span>
+									<span class="text-[11px] font-bold uppercase tracking-wide text-neutral-700">
+										Recipient Groups
+									</span>
+								</button>
+							</div>
+
+							<div class="space-y-2">
+								<label
+									class="mb-1 block text-sm font-sans text-neutral-950"
+									for="communication-manual-recipient-input">Manual Recipients</label
+								>
+								<div class="relative" bind:this={manualRecipientFieldElement}>
+									<div
+										class="min-h-10 w-full border-2 border-secondary-500 bg-white px-4 py-2"
+									>
+										<div class="flex flex-wrap items-center gap-2">
+										{#each manualRecipients as recipient, index (recipient.userId ?? recipient.email)}
+											<HoverTooltip
+												text={`${recipient.fullName} (${recipient.email})`}
+												case="preserve"
+											>
+												<span class="inline-flex items-center gap-2 border border-secondary-500 bg-secondary-50 px-2 py-1 text-xs font-semibold text-secondary-950">
+													<span class="max-w-[11rem] truncate">{recipient.fullName}</span>
+													{#if canEditCurrentDraft}
+														<button
+															type="button"
+															class="cursor-pointer text-secondary-900"
+															aria-label={`Remove ${recipient.fullName}`}
+															onclick={() => void removeManualRecipient(index)}
+															disabled={manualRecipientLoading}
+														>
+															×
+														</button>
+													{/if}
+												</span>
+											</HoverTooltip>
+										{/each}
+										<input
+											id="communication-manual-recipient-input"
+											class="min-w-[12rem] flex-1 border-0 bg-transparent p-0 text-sm text-neutral-950 outline-none placeholder:text-neutral-500"
+											type="text"
+											value={manualRecipientInput}
+											role="combobox"
+											aria-autocomplete="list"
+											aria-expanded={manualRecipientSuggestions.length > 0}
+											aria-controls="communication-manual-recipient-suggestions"
+											aria-activedescendant={
+												manualRecipientSuggestions.length > 0
+													? `communication-manual-recipient-suggestion-${manualRecipientActiveSuggestionIndex}`
+													: undefined
+											}
+											placeholder="Type a member name or email"
+											disabled={!canPreviewAudience || !canEditCurrentDraft || manualRecipientLoading}
+											oninput={(event) =>
+												void handleManualRecipientInputChange(event.currentTarget.value)}
+											onkeydown={(event) => {
+												if (manualRecipientSuggestions.length > 0) {
+													if (event.key === 'ArrowDown') {
+														event.preventDefault();
+														moveManualRecipientSuggestion(1);
+														return;
+													}
+													if (event.key === 'ArrowUp') {
+														event.preventDefault();
+														moveManualRecipientSuggestion(-1);
+														return;
+													}
+													if (event.key === 'Enter') {
+														event.preventDefault();
+														const activeSuggestion =
+															manualRecipientSuggestions[
+																manualRecipientActiveSuggestionIndex
+															] ?? manualRecipientSuggestions[0];
+														if (activeSuggestion) {
+															void applyManualRecipientSuggestion(activeSuggestion);
+														}
+														return;
+													}
+													if (event.key === 'Escape') {
+														event.preventDefault();
+														clearManualRecipientSuggestions();
+														return;
+													}
+												}
+
+												if (
+													event.key === 'Enter' ||
+													(event.key === ',' && !event.shiftKey)
+												) {
+													event.preventDefault();
+													const pendingValue = manualRecipientInput.trim();
+													manualRecipientInput = '';
+													void commitManualRecipientQueries([pendingValue], pendingValue);
+													return;
+												}
+
+												if (
+													event.key === 'Backspace' &&
+													manualRecipientInput.trim().length === 0 &&
+													manualRecipients.length > 0
+												) {
+													event.preventDefault();
+													void removeManualRecipient(manualRecipients.length - 1);
+												}
+											}}
+											onblur={() => {
+												if (manualRecipientSuggestions.length > 0) {
+													return;
+												}
+
+												const pendingValue = manualRecipientInput.trim();
+												if (!pendingValue) return;
+												manualRecipientInput = '';
+												void commitManualRecipientQueries([pendingValue], pendingValue);
+											}}
+										/>
+										</div>
+									</div>
+									{#if manualRecipientSuggestions.length > 0}
+										<div
+											id="communication-manual-recipient-suggestions"
+											class="absolute left-0 right-0 top-full z-30 mt-1 max-h-[13.5rem] overflow-y-auto border-2 border-neutral-950 bg-white scrollbar-thin"
+											role="listbox"
+											aria-label="Manual recipient suggestions"
+										>
+											<div class="border-b border-neutral-400 bg-neutral-100 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-neutral-700">
+												Multiple matches for "{manualRecipientSuggestionQuery}"
+											</div>
+											{#each manualRecipientSuggestions as suggestion, index (suggestion.userId ?? suggestion.email)}
+												<button
+													id={`communication-manual-recipient-suggestion-${index}`}
+													type="button"
+													role="option"
+													aria-selected={index === manualRecipientActiveSuggestionIndex}
+													class={`flex w-full items-center gap-2 border-b border-neutral-300 px-3 py-2 text-left text-sm cursor-pointer last:border-b-0 ${
+														index === manualRecipientActiveSuggestionIndex
+															? 'bg-neutral-100 text-neutral-950'
+															: 'bg-white text-neutral-900'
+													}`}
+													onmousedown={(event) => {
+														event.preventDefault();
+													}}
+													onmouseenter={() => {
+														manualRecipientActiveSuggestionIndex = index;
+													}}
+													onclick={() => void applyManualRecipientSuggestion(suggestion)}
+												>
+													<span class="min-w-0 flex-1 truncate font-semibold">
+														{suggestion.fullName}
+													</span>
+													<span class="min-w-0 truncate text-xs text-neutral-700">
+														{suggestion.email}
+													</span>
+												</button>
+											{/each}
+										</div>
+									{/if}
+								</div>
+							</div>
+						</div>
+
+						<div class="space-y-2">
+							<label
+								class="mb-1 block text-sm font-sans text-neutral-950"
+								for="communication-subject">Email Subject</label
+							>
+							<input
+								id="communication-subject"
+								class="input-secondary min-h-10"
+								type="text"
+								bind:value={subject}
+								disabled={!canEditCurrentDraft}
+							/>
+						</div>
+
+						{#key editorResetToken}
+							<CommunicationRichEditor
+								initialHtml={editorHtml}
+								initialJson={editorJson}
+								editable={canEditCurrentDraft}
+								onChange={updateEditorContent}
+							/>
+						{/key}
+
+						<div
+							class="flex flex-col gap-3 border-t border-neutral-950 pt-4 lg:flex-row lg:items-end lg:justify-between"
+						>
+							<div class="flex flex-wrap gap-2">
+								{#each [{ label: 'Email', icon: IconMail, active: true }, { label: 'SMS', icon: IconDeviceMobileMessage, active: false }, { label: 'In-app', icon: IconBell, active: false }] as chip}
+									<div
+										class={`inline-flex items-center gap-2 border px-3 py-2 text-sm ${chip.active ? 'border-primary-700 bg-primary text-primary-foreground' : 'border-secondary-300 bg-white text-neutral-700 opacity-65'}`}
+									>
+										<chip.icon class="h-4 w-4" />
+										<span>{chip.label}</span>
+									</div>
+								{/each}
+							</div>
+
+							<div class="flex flex-wrap items-center justify-start gap-2 lg:justify-end">
+								{#if canDeleteCurrentDraft}
+									<button
+										type="button"
+										class="button-secondary-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer border-error-700 text-error-700 hover:bg-error-50"
+										onclick={() => {
+											draftDeleteConfirmOpen = true;
+										}}
+										disabled={deleteLoading}
+									>
+										<IconTrash class="h-4 w-4" />
+										<span>{deleteLoading ? 'Deleting...' : 'Delete Draft'}</span>
+									</button>
+								{/if}
+								<button
+									type="button"
+									class="button-secondary-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer"
+									onclick={() => void saveDraftMessage()}
+									disabled={saveLoading || !canEditCurrentDraft}
+								>
+									<IconRefresh class="h-4 w-4" />
+									<span>{saveLoading ? 'Saving...' : 'Save Draft'}</span>
+								</button>
+								<SplitAddAction
+									label={sendLoading ? 'Sending...' : 'Send Now'}
+									options={sendActionOptions}
+									ariaLabel="Open send options"
+									buttonClass={HEADER_SPLIT_SEND_BUTTON_CLASS}
+									menuButtonClass={HEADER_SPLIT_SEND_MENU_BUTTON_CLASS}
+									disabled={
+										sendLoading ||
+										!canSendCommunication ||
+										!selectedMessage?.id ||
+										selectedMessage?.status !== 'draft'
+									}
+									on:click={() => void sendMessageNow()}
+									on:action={() => {
+										toast.info('Send later is coming soon.');
+									}}
+								/>
+							</div>
+						</div>
+					</div>
+				</section>
 			</div>
 
-		</section>
+			{#if canViewHistory}
+				<aside class="w-full min-w-0 space-y-6">
+					<section class="section-shell min-w-0">
+						<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
+							<div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+								<h2 class="dashboard-section-title text-neutral-950">Messages</h2>
+								<div class="flex flex-nowrap items-stretch border-2 border-neutral-950 bg-white">
+									{#each [
+										{ value: 'drafts', label: 'Drafts', count: draftMessageCount },
+										{ value: 'scheduled', label: 'Scheduled', count: scheduledMessageCount },
+										{ value: 'history', label: 'History', count: historyMessageCount }
+									] as option}
+										<button
+											type="button"
+											class={`border-r-2 border-neutral-950 px-2 py-1 text-[11px] font-bold uppercase tracking-[0.04em] cursor-pointer whitespace-nowrap last:border-r-0 ${
+												activeMessageView === option.value
+													? 'bg-secondary-100 text-secondary-950'
+													: 'bg-white text-neutral-950 hover:bg-neutral-100'
+											}`}
+											onclick={() => setActiveSidebarView(option.value as MessageSidebarView)}
+										>
+											{option.label} ({option.count})
+										</button>
+									{/each}
+								</div>
+							</div>
+						</div>
+						<div class="p-4">
+							{#if visibleSidebarItems.length === 0}
+								<div class="border border-neutral-950 bg-white p-4 text-sm text-neutral-700">
+									{getSidebarViewEmptyMessage(activeMessageView)}
+								</div>
+							{:else}
+								<div class="max-h-[56rem] space-y-3 overflow-y-auto pr-1">
+									{#each visibleSidebarItems as item}
+										{@const itemDateValue = getSidebarItemDateValue(item)}
+										<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+										<article
+											class={`border-2 p-3 transition-colors ${
+												item.message.status === 'draft' ? 'cursor-pointer' : ''
+											} ${selectedMessage?.id === item.message.id ? 'border-secondary-700 bg-secondary-50' : 'border-neutral-950 bg-white'}`}
+											role={item.message.status === 'draft' ? 'button' : undefined}
+											tabindex={item.message.status === 'draft' ? 0 : undefined}
+											aria-label={item.message.status === 'draft'
+												? `Open draft ${item.message.subject}`
+												: undefined}
+											onclick={() => {
+												if (item.message.status !== 'draft') return;
+												void openHistoryMessage(item.message.id);
+											}}
+											onkeydown={(event) => {
+												if (item.message.status !== 'draft') return;
+												if (event.key !== 'Enter' && event.key !== ' ') return;
+												event.preventDefault();
+												void openHistoryMessage(item.message.id);
+											}}
+										>
+											<div class="space-y-3">
+												<div class="flex items-start justify-between gap-3">
+													<div class="min-w-0 flex-1 space-y-2">
+														{#if item.kind !== 'draft'}
+															<div class="flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-wide">
+																<span
+																	class={`inline-flex border px-2 py-1 ${getSidebarItemBadgeClass(item)}`}
+																>
+																	{getSidebarItemBadgeText(item)}
+																</span>
+															</div>
+														{/if}
+														<HoverTooltip text={item.message.subject} case="preserve">
+															<h3 class="line-clamp-1 text-[1.6rem] leading-tight font-bold text-neutral-950">
+																{item.message.subject}
+															</h3>
+														</HoverTooltip>
+													</div>
+													<p class="shrink-0 text-sm font-semibold text-neutral-950">
+														{#if itemDateValue}
+															<DateHoverText
+																display={formatDateDisplay(itemDateValue)}
+																value={itemDateValue}
+																includeTime
+															/>
+														{:else}
+															--
+														{/if}
+													</p>
+												</div>
 
-		<section class="section-shell min-w-0">
-			<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
-				<h2 class="dashboard-section-title text-neutral-950">Composer</h2>
-			</div>
-			<div class="p-4 space-y-4">
-				<div class="flex flex-wrap gap-2">
-					{#each [
-						{ label: 'Email', icon: IconMail, active: true },
-						{ label: 'SMS', icon: IconDeviceMobileMessage, active: false },
-						{ label: 'In-app', icon: IconBell, active: false }
-					] as chip}
-						<div class={`inline-flex items-center gap-2 border px-3 py-2 text-sm ${chip.active ? 'border-primary-700 bg-primary text-primary-foreground' : 'border-secondary-300 bg-white text-neutral-700'}`}>
-							<chip.icon class="h-4 w-4" />
-							<span>{chip.label}</span>
-							{#if !chip.active}
-								<span class="text-[11px] uppercase tracking-wide">Coming soon</span>
+												<div
+													class="flex flex-col gap-3 border-t border-neutral-300 pt-3 lg:flex-row lg:items-center lg:justify-between"
+												>
+													<div class="space-y-1 text-sm text-neutral-950">
+														<div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+															<HoverTooltip text="Recipient groups">
+																<p class="flex items-center gap-2">
+																	<IconFilter
+																		class="h-4 w-4 shrink-0 text-neutral-950 opacity-100"
+																		color="currentColor"
+																		stroke={2.1}
+																	/>
+																	<span>{item.message.recipientGroupCount}</span>
+																</p>
+															</HoverTooltip>
+															<HoverTooltip text="Audience recipients">
+																<p class="flex items-center gap-2">
+																	<IconUsersGroup
+																		class="h-4 w-4 shrink-0 text-neutral-950 opacity-100"
+																		color="currentColor"
+																		stroke={2.1}
+																	/>
+																	<span>{item.message.recipientCount}</span>
+																</p>
+															</HoverTooltip>
+														</div>
+														<HoverTooltip text="Author">
+															<p class="flex items-center gap-2">
+																<IconUserEdit
+																	class="h-4 w-4 shrink-0 text-neutral-950 opacity-100"
+																	color="currentColor"
+																	stroke={2.1}
+																/>
+																<span>{item.message.createdByName}</span>
+															</p>
+														</HoverTooltip>
+														{#if item.message.failureMessage}
+															<p class="text-xs text-error-700">{item.message.failureMessage}</p>
+														{/if}
+													</div>
+
+													<div class="flex flex-wrap items-center justify-end gap-2">
+													{#if item.message.status !== 'draft'}
+														<HoverTooltip text="View message">
+															<button
+																type="button"
+																class="button-neutral-outlined dashboard-icon-button cursor-pointer text-neutral-950 border-neutral-950 hover:bg-neutral-100"
+																aria-label="View message"
+																onclick={() => void openHistoryMessage(item.message.id)}
+															>
+																<IconEye
+																	class="h-[1.05rem] w-[1.05rem] text-neutral-950 opacity-100"
+																	color="currentColor"
+																	stroke={2.2}
+																/>
+															</button>
+														</HoverTooltip>
+													{/if}
+													<HoverTooltip text="Duplicate into a new draft">
+														<button
+															type="button"
+															class="button-neutral-outlined dashboard-icon-button cursor-pointer text-neutral-950 border-neutral-950 hover:bg-neutral-100"
+															aria-label="Duplicate message"
+															onclick={(event) => {
+																event.stopPropagation();
+																void duplicateHistoryMessage(item.message.id);
+															}}
+															disabled={
+																duplicationLoadingId === item.message.id ||
+																!canDuplicateCommunication
+															}
+														>
+															<IconCopy
+																class="h-[1.05rem] w-[1.05rem] text-neutral-950 opacity-100"
+																color="currentColor"
+																stroke={2.2}
+															/>
+														</button>
+													</HoverTooltip>
+												</div>
+												</div>
+											</div>
+										</article>
+									{/each}
+								</div>
 							{/if}
 						</div>
-					{/each}
-				</div>
-
-				<div class="space-y-2">
-					<div class="mb-1 flex min-h-6 items-center gap-1.5">
-						<label class="block text-sm font-sans text-neutral-950" for="communication-recipient-trigger">To</label>
-						<InfoPopover buttonVariant="label-inline" title="Recipient builder" content="Open the recipient builder to add include and exclude batches. Apply saves that working selection back to this draft." />
-					</div>
-					<button
-						id="communication-recipient-trigger"
-						type="button"
-						class="button-secondary-outlined min-h-12 w-full justify-between px-4 py-3 text-left cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-						onclick={() => {
-							recipientBuilderOpen = true;
-						}}
-						disabled={isReadOnlyMessage}
-					>
-						<span class="flex min-w-0 flex-col">
-							<span class="text-sm font-semibold text-neutral-950">{recipientSummaryText}</span>
-							<span class="text-xs text-neutral-700">
-								{batches.length > 0
-									? `${batches.length} saved batch${batches.length === 1 ? '' : 'es'}`
-									: 'Open Recipient Builder'}
-							</span>
-						</span>
-						<span class="text-[11px] font-bold uppercase tracking-wide text-neutral-700">
-							Recipient Builder
-						</span>
-					</button>
-				</div>
-
-				<div class="space-y-2">
-					<label class="block text-sm font-sans text-neutral-950 mb-1" for="communication-subject">Email subject</label>
-					<input id="communication-subject" class="input-secondary min-h-10" type="text" placeholder="Season kickoff update" bind:value={subject} disabled={isReadOnlyMessage} />
-				</div>
-
-				<CommunicationRichEditor
-					initialHtml={editorHtml}
-					initialJson={editorJson}
-					editable={!isReadOnlyMessage}
-					onChange={updateEditorContent}
-				/>
-			</div>
-		</section>
-
-		<section class="section-shell min-w-0">
-			<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
-				<div class="flex items-center gap-2">
-					<h2 class="dashboard-section-title text-neutral-950">Message History</h2>
-					<InfoPopover buttonVariant="label-inline" title="History" content="Drafts can be reopened and edited. Sent or failed messages are read-only and can be duplicated into a fresh draft." />
-				</div>
-			</div>
-			<div class="p-4 space-y-3">
-				{#if messages.length === 0}
-					<div class="border border-neutral-950 bg-white p-4 text-sm text-neutral-700">No communication history yet.</div>
-				{:else}
-					<div class="border border-neutral-950 bg-white overflow-x-auto">
-						<table class="min-w-full border-collapse">
-							<thead class="bg-neutral-100">
-								<tr>
-									<th class="border-b border-neutral-950 px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950">Message</th>
-									<th class="border-b border-neutral-950 px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950">Status</th>
-									<th class="border-b border-neutral-950 px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950">Recipients</th>
-									<th class="border-b border-neutral-950 px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950">Updated</th>
-									<th class="border-b border-neutral-950 px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950">Actions</th>
-								</tr>
-							</thead>
-							<tbody>
-								{#each messages as message}
-									<tr class="border-b border-neutral-200 last:border-b-0">
-										<td class="px-3 py-3 align-top">
-											<div class="space-y-1">
-												<p class="font-semibold text-neutral-950">{message.subject}</p>
-												<p class="text-sm text-neutral-700">{message.batchSummary}</p>
-												<p class="text-xs text-neutral-700">By {message.createdByName}</p>
-											</div>
-										</td>
-										<td class="px-3 py-3 align-top">
-											<div class="space-y-1">
-												<span class="inline-flex border border-secondary-300 px-2 py-1 text-[11px] font-bold uppercase tracking-wide">{message.status}</span>
-												<p class="text-xs text-neutral-700">Email</p>
-												{#if message.failureMessage}<p class="text-xs text-error-700">{message.failureMessage}</p>{/if}
-											</div>
-										</td>
-										<td class="px-3 py-3 align-top text-sm text-neutral-950">{message.recipientCount}</td>
-										<td class="px-3 py-3 align-top text-sm text-neutral-700">
-											<p><DateHoverText display={formatDateDisplay(message.updatedAt)} value={message.updatedAt} includeTime /></p>
-											{#if message.sentAt}<p class="text-xs text-neutral-700">Sent <DateHoverText display={formatDateDisplay(message.sentAt)} value={message.sentAt} includeTime /></p>{/if}
-										</td>
-										<td class="px-3 py-3 align-top">
-											<div class="flex flex-wrap items-center gap-2">
-												<HoverTooltip text={message.status === 'draft' ? 'Open draft' : 'View message'}>
-													<button type="button" class="button-secondary-outlined dashboard-icon-button cursor-pointer" aria-label={message.status === 'draft' ? 'Open draft' : 'View message'} onclick={() => void openHistoryMessage(message.id)}>
-														{#if message.status === 'draft'}
-															<IconEdit class="h-4 w-4" />
-														{:else}
-															<IconEye class="h-4 w-4" />
-														{/if}
-													</button>
-												</HoverTooltip>
-												<HoverTooltip text="Duplicate into a new draft">
-													<button type="button" class="button-neutral-outlined dashboard-icon-button cursor-pointer" aria-label="Duplicate message" onclick={() => void duplicateHistoryMessage(message.id)} disabled={duplicationLoadingId === message.id}>
-														<IconCopy class="h-4 w-4" />
-													</button>
-												</HoverTooltip>
-											</div>
-										</td>
-									</tr>
-								{/each}
-							</tbody>
-						</table>
-					</div>
-				{/if}
-			</div>
-		</section>
+					</section>
+				</aside>
+			{/if}
+		</div>
 
 		<RecipientBuilderWizard
-			open={recipientBuilderOpen && !isReadOnlyMessage}
+			open={recipientBuilderOpen && canPreviewAudience && canEditCurrentDraft}
 			{filterOptions}
-			initialBatches={batches}
+			initialRecipientGroups={recipientGroups}
 			initialPreview={preview}
 			onPreviewRequest={requestPreview}
 			onApply={applyRecipientBuilder}
@@ -471,6 +1306,36 @@
 				recipientBuilderOpen = false;
 			}}
 		/>
+
+		<WizardUnsavedConfirm
+			open={draftDeleteConfirmOpen}
+			title="Delete Draft?"
+			message="Delete this draft and any unsaved changes? This cannot be undone."
+			confirmLabel={deleteLoading ? 'Deleting...' : 'Delete Draft'}
+			cancelLabel="Keep Draft"
+			on:confirm={() => void deleteCurrentDraft()}
+			on:cancel={() => {
+				if (deleteLoading) return;
+				draftDeleteConfirmOpen = false;
+			}}
+		/>
+
+		<WizardUnsavedConfirm
+			open={unsavedLeaveConfirmOpen}
+			title={unsavedDraftConfirmMode === 'new-message'
+				? 'Save Draft Before Starting New Message?'
+				: 'Save Draft Before Leaving?'}
+			message={unsavedDraftConfirmMode === 'new-message'
+				? 'You have unsaved draft changes. Save or discard this draft before clearing the composer?'
+				: 'You have unsaved draft changes. Save this draft before leaving the page?'}
+			confirmLabel={saveLoading ? 'Saving...' : 'Save Draft'}
+			cancelLabel="Keep Editing"
+			confirmVariant="primary"
+			secondaryLabel={unsavedDraftConfirmMode === 'new-message' ? 'Discard Draft' : null}
+			secondaryVariant="error"
+			on:confirm={() => void confirmSaveBeforeLeaving()}
+			on:cancel={keepEditingDraft}
+			on:secondary={() => void discardUnsavedDraftAndContinue()}
+		/>
 	</div>
 </div>
-

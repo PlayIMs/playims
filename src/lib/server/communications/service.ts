@@ -1,7 +1,8 @@
 import {
-	EMPTY_COMMUNICATION_BATCH_FILTER,
-	type CommunicationBatchDraft,
-	type CommunicationBatchFilter,
+	EMPTY_COMMUNICATION_RECIPIENT_GROUP_FILTER,
+	type CommunicationManualRecipientDraft,
+	type CommunicationRecipientGroupDraft,
+	type CommunicationRecipientGroupFilter,
 	type CommunicationFilterOptions,
 	type CommunicationMessageDetail,
 	type CommunicationRecipientPreview,
@@ -12,11 +13,14 @@ import {
 import { communicationHtmlToPlainText, sanitizeCommunicationHtml } from './html.js';
 import type { CommunicationEmailProvider } from './provider.js';
 import type {
-	BatchPreviewResult,
+	RecipientGroupPreviewResult,
 	CommunicationAudienceRow,
 	CommunicationDraftPayload,
 	CommunicationStoragePort
 } from './types.js';
+
+export const MAX_COMMUNICATION_SEND_RECIPIENTS = 500;
+const MAX_MANUAL_RECIPIENT_SUGGESTIONS = 25;
 
 const MEMBER_ROLE_OPTIONS: CommunicationFilterOptions['memberRoles'] = [
 	{ value: '', label: 'All Roles' },
@@ -74,6 +78,13 @@ const getRosterRole = (row: CommunicationAudienceRow): CommunicationRosterRole |
 	return null;
 };
 
+const getAudienceKey = (input: {
+	userId?: string | null | undefined;
+	email: string | null | undefined;
+}): string => {
+	return normalizeText(input.userId) || normalizeEmail(input.email);
+};
+
 const normalizeTeamStatus = (value: string | null | undefined): CommunicationTeamStatus | '' => {
 	const normalized = normalizeLower(value);
 	if (normalized === 'active') {
@@ -105,7 +116,7 @@ const matchesMemberQuery = (row: CommunicationAudienceRow, memberQuery: string):
 
 const rowMatchesHierarchyFilters = (
 	row: CommunicationAudienceRow,
-	filters: CommunicationBatchFilter
+	filters: CommunicationRecipientGroupFilter
 ): boolean => {
 	if (filters.seasonId && normalizeText(row.seasonId) !== filters.seasonId) {
 		return false;
@@ -133,7 +144,7 @@ const rowMatchesHierarchyFilters = (
 
 const recipientMatchesFilters = (
 	rows: CommunicationAudienceRow[],
-	filters: CommunicationBatchFilter
+	filters: CommunicationRecipientGroupFilter
 ): boolean => {
 	const primaryRow = rows[0];
 	if (!primaryRow) {
@@ -185,6 +196,15 @@ const toPreviewRow = (rows: CommunicationAudienceRow[]): RecipientPreviewRow => 
 	};
 };
 
+const toManualRecipient = (rows: CommunicationAudienceRow[]): CommunicationManualRecipientDraft => {
+	const primaryRow = rows[0]!;
+	return {
+		userId: normalizeText(primaryRow.userId) || null,
+		email: normalizeEmail(primaryRow.email),
+		fullName: buildFullName(primaryRow)
+	};
+};
+
 const buildAudienceMap = (rows: CommunicationAudienceRow[]): Map<string, CommunicationAudienceRow[]> => {
 	const grouped = new Map<string, CommunicationAudienceRow[]>();
 	for (const row of rows) {
@@ -205,8 +225,43 @@ const buildAudienceMap = (rows: CommunicationAudienceRow[]): Map<string, Communi
 	return grouped;
 };
 
-const buildBatchSummary = (
-	filters: CommunicationBatchFilter,
+const dedupeManualRecipients = (
+	manualRecipients: CommunicationManualRecipientDraft[]
+): CommunicationManualRecipientDraft[] => {
+	const deduped = new Map<string, CommunicationManualRecipientDraft>();
+	for (const recipient of manualRecipients) {
+		const key = getAudienceKey(recipient);
+		if (!key || deduped.has(key)) {
+			continue;
+		}
+		deduped.set(key, {
+			userId: normalizeText(recipient.userId) || null,
+			email: normalizeEmail(recipient.email),
+			fullName: normalizeText(recipient.fullName)
+		});
+	}
+	return Array.from(deduped.values());
+};
+
+type ManualRecipientMatchResult =
+	| {
+			status: 'resolved';
+			query: string;
+			manualRecipient: CommunicationManualRecipientDraft;
+	  }
+	| {
+			status: 'ambiguous';
+			query: string;
+			suggestions: CommunicationManualRecipientDraft[];
+	  }
+	| {
+			status: 'not_found';
+			query: string;
+			message: string;
+	  };
+
+const buildRecipientGroupSummary = (
+	filters: CommunicationRecipientGroupFilter,
 	options: CommunicationFilterOptions
 ): string => {
 	const labels: string[] = [];
@@ -278,7 +333,7 @@ export const buildCommunicationFilterOptions = (input: {
 
 export const createRecipientPreview = (
 	rows: CommunicationAudienceRow[],
-	filters: CommunicationBatchFilter,
+	filters: CommunicationRecipientGroupFilter,
 	limit = 25
 ): CommunicationRecipientPreview => {
 	const audienceMap = buildAudienceMap(rows);
@@ -293,18 +348,24 @@ export const createRecipientPreview = (
 	};
 };
 
-const normalizeFilters = (filters: Partial<CommunicationBatchFilter>): CommunicationBatchFilter => ({
-	...EMPTY_COMMUNICATION_BATCH_FILTER,
+const normalizeFilters = (
+	filters: Partial<CommunicationRecipientGroupFilter>
+): CommunicationRecipientGroupFilter => ({
+	...EMPTY_COMMUNICATION_RECIPIENT_GROUP_FILTER,
 	memberQuery: normalizeText(filters.memberQuery),
-	memberRole: (normalizeText(filters.memberRole) as CommunicationBatchFilter['memberRole']) || '',
-	memberSex: (normalizeText(filters.memberSex) as CommunicationBatchFilter['memberSex']) || '',
+	memberRole:
+		(normalizeText(filters.memberRole) as CommunicationRecipientGroupFilter['memberRole']) || '',
+	memberSex:
+		(normalizeText(filters.memberSex) as CommunicationRecipientGroupFilter['memberSex']) || '',
 	seasonId: normalizeText(filters.seasonId),
 	offeringId: normalizeText(filters.offeringId),
 	leagueId: normalizeText(filters.leagueId),
 	divisionId: normalizeText(filters.divisionId),
 	teamId: normalizeText(filters.teamId),
-	rosterRole: (normalizeText(filters.rosterRole) as CommunicationBatchFilter['rosterRole']) || '',
-	teamStatus: (normalizeText(filters.teamStatus) as CommunicationBatchFilter['teamStatus']) || ''
+	rosterRole:
+		(normalizeText(filters.rosterRole) as CommunicationRecipientGroupFilter['rosterRole']) || '',
+	teamStatus:
+		(normalizeText(filters.teamStatus) as CommunicationRecipientGroupFilter['teamStatus']) || ''
 });
 
 export class CommunicationService {
@@ -316,22 +377,131 @@ export class CommunicationService {
 		this.emailProvider = input.emailProvider;
 	}
 
-	async previewBatch(input: {
+	async searchManualRecipientMatches(input: {
 		clientId: string;
-		batchId: string;
+		query: string;
+	}): Promise<ManualRecipientMatchResult> {
+		const normalizedQuery = normalizeText(input.query);
+		if (!normalizedQuery) {
+			return {
+				status: 'not_found',
+				query: input.query,
+				message: 'Recipient query is required.'
+			};
+		}
+
+		const rows = await this.storage.listAudienceRows(input.clientId);
+		const audienceMap = buildAudienceMap(rows);
+		const loweredQuery = normalizeLower(input.query);
+
+		const exactEmailMatch = Array.from(audienceMap.values()).find(
+			(audienceRows) => normalizeEmail(audienceRows[0]?.email) === loweredQuery
+		);
+		if (exactEmailMatch) {
+			return {
+				status: 'resolved',
+				query: input.query,
+				manualRecipient: toManualRecipient(exactEmailMatch)
+			};
+		}
+
+		const exactNameMatches = Array.from(audienceMap.values()).filter(
+			(audienceRows) => normalizeLower(buildFullName(audienceRows[0]!)) === loweredQuery
+		);
+		if (exactNameMatches.length === 1) {
+			return {
+				status: 'resolved',
+				query: input.query,
+				manualRecipient: toManualRecipient(exactNameMatches[0]!)
+			};
+		}
+		if (exactNameMatches.length > 1) {
+			return {
+				status: 'ambiguous',
+				query: input.query,
+				suggestions: dedupeManualRecipients(exactNameMatches.map((rowsOut) => toManualRecipient(rowsOut)))
+					.sort((a, b) => a.fullName.localeCompare(b.fullName))
+					.slice(0, MAX_MANUAL_RECIPIENT_SUGGESTIONS)
+			};
+		}
+
+		const partialMatches = Array.from(audienceMap.values()).filter((audienceRows) => {
+			const fullName = normalizeLower(buildFullName(audienceRows[0]!));
+			const email = normalizeEmail(audienceRows[0]?.email);
+			return fullName.includes(loweredQuery) || email.includes(loweredQuery);
+		});
+		if (partialMatches.length === 1) {
+			return {
+				status: 'resolved',
+				query: input.query,
+				manualRecipient: toManualRecipient(partialMatches[0]!)
+			};
+		}
+		if (partialMatches.length > 1) {
+			return {
+				status: 'ambiguous',
+				query: input.query,
+				suggestions: dedupeManualRecipients(partialMatches.map((rowsOut) => toManualRecipient(rowsOut)))
+					.sort((a, b) => a.fullName.localeCompare(b.fullName))
+					.slice(0, MAX_MANUAL_RECIPIENT_SUGGESTIONS)
+			};
+		}
+
+		return {
+			status: 'not_found',
+			query: input.query,
+			message: `No active member in this organization matches "${normalizedQuery}".`
+		};
+	}
+
+	async resolveManualRecipients(input: {
+		clientId: string;
+		manualRecipients?: Array<{
+			userId?: string | null;
+			email: string;
+			fullName: string;
+		}>;
+	}): Promise<CommunicationManualRecipientDraft[]> {
+		const resolved: CommunicationManualRecipientDraft[] = [];
+		for (const recipient of input.manualRecipients ?? []) {
+			const result = await this.searchManualRecipientMatches({
+				clientId: input.clientId,
+				query: normalizeText(recipient.fullName) || normalizeText(recipient.email)
+			});
+
+			if (result.status === 'resolved') {
+				resolved.push(result.manualRecipient);
+				continue;
+			}
+
+			if (result.status === 'ambiguous') {
+				throw new Error(
+					`Multiple members match "${result.query}". Use the full name or email address.`
+				);
+			}
+
+			throw new Error(result.message);
+		}
+
+		return dedupeManualRecipients(resolved);
+	}
+
+	async previewRecipientGroup(input: {
+		clientId: string;
+		recipientGroupId: string;
 		mode: 'include' | 'exclude';
-		filters: Partial<CommunicationBatchFilter>;
+		filters: Partial<CommunicationRecipientGroupFilter>;
 		filterOptions: CommunicationFilterOptions;
-	}): Promise<BatchPreviewResult> {
+	}): Promise<RecipientGroupPreviewResult> {
 		const filters = normalizeFilters(input.filters);
 		const preview = createRecipientPreview(await this.storage.listAudienceRows(input.clientId), filters);
 		return {
 			preview,
-			storedBatch: {
-				id: input.batchId,
+			storedRecipientGroup: {
+				id: input.recipientGroupId,
 				mode: input.mode,
 				filters,
-				summaryText: buildBatchSummary(filters, input.filterOptions),
+				summaryText: buildRecipientGroupSummary(filters, input.filterOptions),
 				resolvedRecipientCount: preview.totalCount
 			}
 		};
@@ -339,7 +509,8 @@ export class CommunicationService {
 
 	async previewAudience(input: {
 		clientId: string;
-		batches: CommunicationBatchDraft[];
+		recipientGroups: CommunicationRecipientGroupDraft[];
+		manualRecipients?: CommunicationManualRecipientDraft[];
 		limit?: number;
 	}): Promise<CommunicationRecipientPreview> {
 		const rows = await this.storage.listAudienceRows(input.clientId);
@@ -347,11 +518,13 @@ export class CommunicationService {
 		const includeKeys = new Set<string>();
 		const excludeKeys = new Set<string>();
 
-		for (const batch of input.batches) {
+		for (const recipientGroup of input.recipientGroups) {
 			const keys = Array.from(audienceMap.entries())
-				.filter(([, recipientRows]) => recipientMatchesFilters(recipientRows, batch.filters))
+				.filter(([, recipientRows]) =>
+					recipientMatchesFilters(recipientRows, recipientGroup.filters)
+				)
 				.map(([key]) => key);
-			if (batch.mode === 'exclude') {
+			if (recipientGroup.mode === 'exclude') {
 				for (const key of keys) {
 					excludeKeys.add(key);
 				}
@@ -360,6 +533,14 @@ export class CommunicationService {
 			for (const key of keys) {
 				includeKeys.add(key);
 			}
+		}
+
+		for (const manualRecipient of input.manualRecipients ?? []) {
+			const key = getAudienceKey(manualRecipient);
+			if (!key || !audienceMap.has(key)) {
+				continue;
+			}
+			includeKeys.add(key);
 		}
 
 		const rowsOut = Array.from(includeKeys)
@@ -381,21 +562,26 @@ export class CommunicationService {
 	}): Promise<{ id: string }> {
 		const sanitizedHtml = sanitizeCommunicationHtml(input.payload.bodyHtml);
 		const bodyText = communicationHtmlToPlainText(sanitizedHtml);
-		const previewBatches = await Promise.all(
-			input.payload.batches.map((batch) =>
-				this.previewBatch({
+		const previewRecipientGroups = await Promise.all(
+			input.payload.recipientGroups.map((recipientGroup) =>
+				this.previewRecipientGroup({
 					clientId: input.clientId,
-					batchId: batch.id,
-					mode: batch.mode,
-					filters: batch.filters,
+					recipientGroupId: recipientGroup.id,
+					mode: recipientGroup.mode,
+					filters: recipientGroup.filters,
 					filterOptions: input.filterOptions
 				})
 			)
 		);
-		const storedBatches = previewBatches.map((entry) => entry.storedBatch);
+		const storedRecipientGroups = previewRecipientGroups.map((entry) => entry.storedRecipientGroup);
+		const storedManualRecipients = await this.resolveManualRecipients({
+			clientId: input.clientId,
+			manualRecipients: input.payload.manualRecipients
+		});
 		const fullAudience = await this.previewAudience({
 			clientId: input.clientId,
-			batches: storedBatches,
+			recipientGroups: storedRecipientGroups,
+			manualRecipients: storedManualRecipients,
 			limit: Number.MAX_SAFE_INTEGER
 		});
 
@@ -429,15 +615,42 @@ export class CommunicationService {
 						})
 					).id;
 
-		await this.storage.replaceBatches({
+		await this.storage.replaceRecipientGroups({
 			messageId,
-			batches: storedBatches
+			recipientGroups: storedRecipientGroups
+		});
+		await this.storage.replaceManualRecipients({
+			messageId,
+			manualRecipients: storedManualRecipients
 		});
 		await this.storage.replaceRecipients({
 			messageId,
 			recipients: fullAudience.rows
 		});
 		return { id: messageId };
+	}
+
+	async deleteDraft(input: {
+		clientId: string;
+		messageId: string;
+	}): Promise<{ deleted: true }> {
+		const detail = await this.storage.getMessageDetail(input.clientId, input.messageId);
+		if (!detail) {
+			throw new Error('Communication message not found.');
+		}
+		if (detail.status !== 'draft') {
+			throw new Error('Only draft messages can be deleted.');
+		}
+
+		const deleted = await this.storage.deleteDraft({
+			clientId: input.clientId,
+			messageId: input.messageId
+		});
+		if (!deleted) {
+			throw new Error('Communication message not found.');
+		}
+
+		return { deleted: true };
 	}
 
 	async sendDraft(input: {
@@ -460,6 +673,11 @@ export class CommunicationService {
 		}
 		if (detail.recipients.length === 0) {
 			throw new Error('At least one recipient is required before sending.');
+		}
+		if (detail.recipients.length > MAX_COMMUNICATION_SEND_RECIPIENTS) {
+			throw new Error(
+				`This message has too many recipients to send at once. Reduce the audience to ${MAX_COMMUNICATION_SEND_RECIPIENTS} recipients or fewer.`
+			);
 		}
 
 		await this.storage.markMessageSending({

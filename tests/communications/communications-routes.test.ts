@@ -9,12 +9,16 @@ authorization, validation, and payload shape without depending on the rich edito
 
 Summary of tests:
 1. It verifies that invalid preview payloads are rejected.
-2. It verifies that preview requests return stored batch summaries and recipient previews.
-3. It verifies that creating a draft requires a subject and at least one batch.
-4. It verifies that creating and updating drafts call the communication service.
-5. It verifies that sending a draft returns the refreshed message detail.
-6. It verifies that duplicate requests return the new draft id.
-7. It verifies that message detail fetches return 404 when the draft is missing.
+2. It verifies that preview requests return stored recipient-group summaries and recipient previews.
+3. It verifies that manual recipient resolve requests return canonical org members.
+4. It verifies that ambiguous manual recipient resolve requests return suggestion rows instead of a hard error.
+5. It verifies that creating a draft requires a subject and at least one recipient source.
+6. It verifies that creating and updating drafts call the communication service.
+7. It verifies that deleting a draft calls the communication service.
+8. It verifies that sending a draft returns the refreshed message detail.
+9. It verifies that duplicate requests return the new draft id.
+10. It verifies that participant callers are blocked from mutating communication routes.
+11. It verifies that message detail fetches return 404 when the draft is missing.
 */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -30,9 +34,12 @@ const mocks = vi.hoisted(() => ({
 	createCommunicationService: vi.fn(),
 	loadCommunicationFilterOptions: vi.fn(),
 	service: {
-		previewBatch: vi.fn(),
+		previewRecipientGroup: vi.fn(),
 		previewAudience: vi.fn(),
+		resolveManualRecipients: vi.fn(),
+		searchManualRecipientMatches: vi.fn(),
 		saveDraft: vi.fn(),
+		deleteDraft: vi.fn(),
 		sendDraft: vi.fn()
 	}
 }));
@@ -54,9 +61,11 @@ vi.mock('$lib/server/communications', () => {
 
 import { POST as createDraft } from '../../src/routes/api/communications/+server';
 import { POST as previewAudience } from '../../src/routes/api/communications/preview/+server';
+import { POST as resolveManualRecipients } from '../../src/routes/api/communications/recipients/resolve/+server';
 import {
 	GET as getMessageDetail,
-	PATCH as updateDraft
+	PATCH as updateDraft,
+	DELETE as deleteDraft
 } from '../../src/routes/api/communications/[messageId]/+server';
 import { POST as sendDraft } from '../../src/routes/api/communications/[messageId]/send/+server';
 import { POST as duplicateDraft } from '../../src/routes/api/communications/[messageId]/duplicate/+server';
@@ -107,13 +116,13 @@ describe('communication routes', () => {
 			divisions: [],
 			teams: []
 		});
-		mocks.service.previewBatch.mockResolvedValue({
+		mocks.service.previewRecipientGroup.mockResolvedValue({
 			preview: {
 				totalCount: 2,
 				rows: []
 			},
-			storedBatch: {
-				id: 'batch-1',
+			storedRecipientGroup: {
+				id: 'recipient-group-1',
 				mode: 'include',
 				filters: {
 					memberQuery: 'captain',
@@ -135,12 +144,30 @@ describe('communication routes', () => {
 			totalCount: 2,
 			rows: []
 		});
+		mocks.service.resolveManualRecipients.mockResolvedValue([
+			{
+				userId: 'user-1',
+				email: 'alex@playims.test',
+				fullName: 'Alex Captain'
+			}
+		]);
+		mocks.service.searchManualRecipientMatches.mockResolvedValue({
+			status: 'resolved',
+			query: 'alex@playims.test',
+			manualRecipient: {
+				userId: 'user-1',
+				email: 'alex@playims.test',
+				fullName: 'Alex Captain'
+			}
+		});
 		mocks.service.saveDraft.mockResolvedValue({ id: 'message-1' });
+		mocks.service.deleteDraft.mockResolvedValue({ deleted: true });
 		mocks.service.sendDraft.mockResolvedValue({
 			id: 'message-1',
 			channel: 'email',
 			status: 'sent',
 			subject: 'League update',
+			recipientGroupCount: 0,
 			editorJson: { type: 'doc', content: [] },
 			bodyHtml: '<p>Hello</p>',
 			bodyText: 'Hello',
@@ -149,9 +176,10 @@ describe('communication routes', () => {
 			updatedAt: '2029-01-01T00:00:00.000Z',
 			sentAt: '2029-01-02T00:00:00.000Z',
 			createdByName: 'Admin User',
-			batchSummary: 'Captains',
+			recipientGroupSummary: 'Captains',
 			failureMessage: null,
-			batches: [],
+			recipientGroups: [],
+			manualRecipients: [],
 			recipients: []
 		});
 		mocks.dbOps.communications.getMessageDetail.mockResolvedValue({
@@ -159,6 +187,7 @@ describe('communication routes', () => {
 			channel: 'email',
 			status: 'draft',
 			subject: 'League update',
+			recipientGroupCount: 0,
 			editorJson: { type: 'doc', content: [] },
 			bodyHtml: '<p>Hello</p>',
 			bodyText: 'Hello',
@@ -167,40 +196,42 @@ describe('communication routes', () => {
 			updatedAt: '2029-01-01T00:00:00.000Z',
 			sentAt: null,
 			createdByName: 'Admin User',
-			batchSummary: 'Captains',
+			recipientGroupSummary: 'Captains',
 			failureMessage: null,
-			batches: [],
+			recipientGroups: [],
+			manualRecipients: [],
 			recipients: []
 		});
 		mocks.dbOps.communications.duplicateMessage.mockResolvedValue({ id: 'message-copy-1' });
 	});
 
 	it('rejects invalid preview payloads', async () => {
-		// preview requests should fail fast when the batch payload is malformed.
+		// preview requests should fail fast when the recipient-group payload is malformed.
 		const response = await previewAudience(
 			buildEvent({
 				path: '/api/communications/preview',
 				method: 'POST',
-				body: { batches: [{ nope: true }] }
+				body: { recipientGroups: [{ nope: true }] }
 			})
 		);
 		const payload = await response.json();
 
 		expect(response.status).toBe(400);
 		expect(payload.success).toBe(false);
-		expect(mocks.service.previewBatch).not.toHaveBeenCalled();
+		expect(mocks.service.previewRecipientGroup).not.toHaveBeenCalled();
 	});
 
-	it('returns stored batch summaries and the final preview payload', async () => {
-		// the ui depends on the server-normalized batch summaries, not the raw client labels.
+	it('returns stored recipient-group summaries and the final preview payload', async () => {
+		// the ui depends on the server-normalized recipient-group summaries, not the raw client labels.
 		const response = await previewAudience(
 			buildEvent({
 				path: '/api/communications/preview',
 				method: 'POST',
 				body: {
-					batches: [
+					manualRecipients: [],
+					recipientGroups: [
 						{
-							id: 'batch-1',
+							id: 'recipient-group-1',
 							mode: 'include',
 							filters: {
 								memberQuery: 'captain',
@@ -223,10 +254,64 @@ describe('communication routes', () => {
 
 		expect(response.status).toBe(200);
 		expect(payload.data.messagePreview.totalCount).toBe(2);
-		expect(payload.data.batches[0].summaryText).toBe('Search: "captain"');
+		expect(payload.data.recipientGroups[0].summaryText).toBe('Search: "captain"');
 	});
 
-	it('requires a subject and at least one batch before saving a draft', async () => {
+	it('returns canonical org members for manual recipient resolution', async () => {
+		// typed tokens should normalize to a single saved member record before they become draft chips.
+		const response = await resolveManualRecipients(
+			buildEvent({
+				path: '/api/communications/recipients/resolve',
+				method: 'POST',
+				body: { queries: ['alex@playims.test'] }
+			})
+		);
+		const payload = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(payload.data.manualRecipients).toEqual([
+			{
+				userId: 'user-1',
+				email: 'alex@playims.test',
+				fullName: 'Alex Captain'
+			}
+		]);
+	});
+
+	it('returns suggestions when a manual recipient query has multiple matches', async () => {
+		// the input should be able to offer condensed choices for ambiguous names instead of only showing an error toast.
+		mocks.service.searchManualRecipientMatches.mockResolvedValueOnce({
+			status: 'ambiguous',
+			query: 'harvanchik',
+			suggestions: [
+				{
+					userId: 'user-4',
+					email: 'jake@playims.test',
+					fullName: 'Jake Harvanchik'
+				},
+				{
+					userId: 'user-5',
+					email: 'jamie.harvanchik@playims.test',
+					fullName: 'Jamie Harvanchik'
+				}
+			]
+		});
+
+		const response = await resolveManualRecipients(
+			buildEvent({
+				path: '/api/communications/recipients/resolve',
+				method: 'POST',
+				body: { queries: ['harvanchik'] }
+			})
+		);
+		const payload = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(payload.data.status).toBe('ambiguous');
+		expect(payload.data.suggestions).toHaveLength(2);
+	});
+
+	it('requires a subject and at least one recipient source before saving a draft', async () => {
 		// draft validation should stay server-enforced so the api remains trustworthy.
 		const response = await createDraft(
 			buildEvent({
@@ -236,7 +321,8 @@ describe('communication routes', () => {
 					subject: ' ',
 					editorJson: null,
 					bodyHtml: '<p>Hello</p>',
-					batches: []
+					manualRecipients: [],
+					recipientGroups: []
 				}
 			})
 		);
@@ -257,9 +343,10 @@ describe('communication routes', () => {
 					subject: 'League update',
 					editorJson: { type: 'doc', content: [] },
 					bodyHtml: '<p>Hello</p>',
-					batches: [
+					manualRecipients: [],
+					recipientGroups: [
 						{
-							id: 'batch-1',
+							id: 'recipient-group-1',
 							mode: 'include',
 							filters: {
 								memberQuery: '',
@@ -289,9 +376,15 @@ describe('communication routes', () => {
 					subject: 'League update',
 					editorJson: { type: 'doc', content: [] },
 					bodyHtml: '<p>Hello again</p>',
-					batches: [
+					manualRecipients: [
 						{
-							id: 'batch-1',
+							email: 'alex@playims.test',
+							fullName: 'Alex Captain'
+						}
+					],
+					recipientGroups: [
+						{
+							id: 'recipient-group-1',
 							mode: 'include',
 							filters: {
 								memberQuery: '',
@@ -317,6 +410,25 @@ describe('communication routes', () => {
 		expect(updateResponse.status).toBe(200);
 		expect(updatePayload.data.messageId).toBe('message-1');
 		expect(mocks.service.saveDraft).toHaveBeenCalledTimes(2);
+	});
+
+	it('deletes drafts through the communication service', async () => {
+		// delete should stay draft-only and route through the same server-side communication boundary.
+		const response = await deleteDraft(
+			buildEvent({
+				path: '/api/communications/message-1',
+				method: 'DELETE',
+				messageId: 'message-1'
+			})
+		);
+		const payload = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(payload.success).toBe(true);
+		expect(mocks.service.deleteDraft).toHaveBeenCalledWith({
+			clientId: 'client-1',
+			messageId: 'message-1'
+		});
 	});
 
 	it('returns refreshed detail when sending a draft', async () => {
@@ -352,6 +464,51 @@ describe('communication routes', () => {
 
 		expect(response.status).toBe(200);
 		expect(payload.data.messageId).toBe('message-copy-1');
+	});
+
+	it('blocks participant callers from mutating communication routes', async () => {
+		// route handlers should still protect writes even if a caller somehow bypasses the outer hook.
+		const response = await createDraft(
+			buildEvent({
+				path: '/api/communications',
+				method: 'POST',
+				role: 'participant',
+				body: {
+					subject: 'League update',
+					editorJson: { type: 'doc', content: [] },
+					bodyHtml: '<p>Hello</p>',
+					manualRecipients: [
+						{
+							email: 'alex@playims.test',
+							fullName: 'Alex Captain'
+						}
+					],
+					recipientGroups: [
+						{
+							id: 'recipient-group-1',
+							mode: 'include',
+							filters: {
+								memberQuery: '',
+								memberRole: '',
+								memberSex: '',
+								seasonId: '',
+								offeringId: '',
+								leagueId: '',
+								divisionId: '',
+								teamId: '',
+								rosterRole: '',
+								teamStatus: ''
+							}
+						}
+					]
+				}
+			})
+		);
+		const payload = await response.json();
+
+		expect(response.status).toBe(403);
+		expect(payload.success).toBe(false);
+		expect(mocks.service.saveDraft).not.toHaveBeenCalled();
 	});
 
 	it('returns 404 when the selected message detail is missing', async () => {
