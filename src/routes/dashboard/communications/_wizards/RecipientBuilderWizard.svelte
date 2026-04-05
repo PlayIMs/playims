@@ -3,57 +3,60 @@
 	import {
 		IconEdit,
 		IconPlus,
-		IconRefresh,
 		IconTrash,
 		IconUsers
 	} from '@tabler/icons-svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
-	import InfoPopover from '$lib/components/InfoPopover.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
+	import {
+		buildRecipientBuilderPreviewRequestGroups,
+		buildRecipientBuilderPreviewSignature,
+		RECIPIENT_BUILDER_ADDITIONAL_FILTERS
+	} from '$lib/communications/recipient-builder.js';
 	import {
 		WizardModal,
 		WizardUnsavedConfirm,
 		createWizardDirtyState
 	} from '$lib/components/wizard';
 	import {
-		EMPTY_COMMUNICATION_BATCH_FILTER,
-		type CommunicationBatchDraft,
-		type CommunicationBatchFilter,
-		type CommunicationBatchMode,
+		EMPTY_COMMUNICATION_RECIPIENT_GROUP_FILTER,
 		type CommunicationFilterOptions,
+		type CommunicationRecipientGroupDraft,
+		type CommunicationRecipientGroupFilter,
+		type CommunicationRecipientGroupMode,
 		type CommunicationRecipientPreview
 	} from '$lib/communications/types.js';
 	import { toast } from '$lib/toasts';
 
-	type FilterKey = keyof CommunicationBatchFilter;
+	type FilterKey = keyof CommunicationRecipientGroupFilter;
 
-	interface BatchFormState {
+	interface RecipientGroupFormState {
 		id: string | null;
-		mode: CommunicationBatchMode;
-		filters: CommunicationBatchFilter;
+		mode: CommunicationRecipientGroupMode;
+		filters: CommunicationRecipientGroupFilter;
 	}
 
 	interface RecipientBuilderSnapshot {
-		batches: CommunicationBatchDraft[];
-		batchForm: BatchFormState;
+		recipientGroups: CommunicationRecipientGroupDraft[];
+		recipientGroupForm: RecipientGroupFormState;
 	}
 
 	interface Props {
 		open: boolean;
 		filterOptions: CommunicationFilterOptions;
-		initialBatches: CommunicationBatchDraft[];
+		initialRecipientGroups: CommunicationRecipientGroupDraft[];
 		initialPreview: CommunicationRecipientPreview;
-		onPreviewRequest: (nextBatches: Array<{
+		onPreviewRequest: (nextRecipientGroups: Array<{
 			id: string;
-			mode: CommunicationBatchMode;
-			filters: CommunicationBatchFilter;
+			mode: CommunicationRecipientGroupMode;
+			filters: CommunicationRecipientGroupFilter;
 		}>) => Promise<{
-			batches: CommunicationBatchDraft[];
+			recipientGroups: CommunicationRecipientGroupDraft[];
 			preview: CommunicationRecipientPreview;
 		}>;
 		onApply: (payload: {
-			batches: CommunicationBatchDraft[];
+			recipientGroups: CommunicationRecipientGroupDraft[];
 			preview: CommunicationRecipientPreview;
 		}) => void;
 		onRequestClose: () => void;
@@ -62,7 +65,7 @@
 	let {
 		open,
 		filterOptions,
-		initialBatches,
+		initialRecipientGroups,
 		initialPreview,
 		onPreviewRequest,
 		onApply,
@@ -74,23 +77,23 @@
 
 	const dirtyState = createWizardDirtyState<RecipientBuilderSnapshot>();
 
-	let draftBatches = $state<CommunicationBatchDraft[]>([]);
-	let batchForm = $state<BatchFormState>({
+	let draftRecipientGroups = $state<CommunicationRecipientGroupDraft[]>([]);
+	let recipientGroupForm = $state<RecipientGroupFormState>({
 		id: null,
 		mode: 'include',
-		filters: { ...EMPTY_COMMUNICATION_BATCH_FILTER }
+		filters: { ...EMPTY_COMMUNICATION_RECIPIENT_GROUP_FILTER }
 	});
 	let preview = $state<CommunicationRecipientPreview>({ totalCount: 0, rows: [] });
 	let previewSearch = $state('');
 	let previewLoading = $state(false);
 	let unsavedConfirmOpen = $state(false);
-	let openSession = $state(0);
+	let previewSyncSignature = $state('');
+	let previewRequestNonce = 0;
 
 	const modalSignature = $derived.by(() =>
 		JSON.stringify({
 			open,
-			openSession,
-			initialBatches,
+			initialRecipientGroups,
 			initialPreview
 		})
 	);
@@ -107,43 +110,59 @@
 		{ value: '', label: 'All Offerings' },
 		...(filterOptions.offerings ?? []).filter(
 			(offering) =>
-				!batchForm.filters.seasonId || offering.seasonId === batchForm.filters.seasonId
+				!recipientGroupForm.filters.seasonId ||
+				offering.seasonId === recipientGroupForm.filters.seasonId
 		)
 	]);
 	const leagueOptions = $derived.by(() => [
 		{ value: '', label: 'All Leagues' },
 		...(filterOptions.leagues ?? []).filter(
 			(league) =>
-				(!batchForm.filters.seasonId || league.seasonId === batchForm.filters.seasonId) &&
-				(!batchForm.filters.offeringId || league.offeringId === batchForm.filters.offeringId)
+				(!recipientGroupForm.filters.seasonId ||
+					league.seasonId === recipientGroupForm.filters.seasonId) &&
+				(!recipientGroupForm.filters.offeringId ||
+					league.offeringId === recipientGroupForm.filters.offeringId)
 		)
 	]);
 	const divisionOptions = $derived.by(() => [
 		{ value: '', label: 'All Divisions' },
 		...(filterOptions.divisions ?? []).filter(
-			(division) => !batchForm.filters.leagueId || division.leagueId === batchForm.filters.leagueId
+			(division) =>
+				!recipientGroupForm.filters.leagueId ||
+				division.leagueId === recipientGroupForm.filters.leagueId
 		)
 	]);
 	const teamOptions = $derived.by(() => [
 		{ value: '', label: 'All Teams' },
 		...(filterOptions.teams ?? []).filter(
-			(team) => !batchForm.filters.divisionId || team.divisionId === batchForm.filters.divisionId
+			(team) =>
+				!recipientGroupForm.filters.divisionId ||
+				team.divisionId === recipientGroupForm.filters.divisionId
 		)
 	]);
 
 	const snapshot = $derived.by<RecipientBuilderSnapshot>(() => ({
-		batches: draftBatches.map((batch) => ({
-			...batch,
-			filters: { ...batch.filters }
+		recipientGroups: draftRecipientGroups.map((recipientGroup) => ({
+			...recipientGroup,
+			filters: { ...recipientGroup.filters }
 		})),
-		batchForm: {
-			id: batchForm.id,
-			mode: batchForm.mode,
-			filters: { ...batchForm.filters }
+		recipientGroupForm: {
+			id: recipientGroupForm.id,
+			mode: recipientGroupForm.mode,
+			filters: { ...recipientGroupForm.filters }
 		}
 	}));
 
 	const isDirty = $derived.by(() => open && dirtyState.isDirty(snapshot));
+	const livePreviewRequestGroups = $derived.by(() =>
+		buildRecipientBuilderPreviewRequestGroups({
+			draftRecipientGroups,
+			recipientGroupForm
+		})
+	);
+	const livePreviewSignature = $derived.by(() =>
+		buildRecipientBuilderPreviewSignature(livePreviewRequestGroups)
+	);
 	const visiblePreviewRows = $derived.by(() => {
 		const query = previewSearch.trim().toLowerCase();
 		if (!query) {
@@ -165,10 +184,12 @@
 		);
 	});
 
-	const cloneBatches = (batches: CommunicationBatchDraft[]): CommunicationBatchDraft[] =>
-		batches.map((batch) => ({
-			...batch,
-			filters: { ...batch.filters }
+	const cloneRecipientGroups = (
+		recipientGroups: CommunicationRecipientGroupDraft[]
+	): CommunicationRecipientGroupDraft[] =>
+		recipientGroups.map((recipientGroup) => ({
+			...recipientGroup,
+			filters: { ...recipientGroup.filters }
 		}));
 
 	const clonePreview = (
@@ -178,31 +199,42 @@
 		rows: nextPreview.rows.map((row) => ({ ...row }))
 	});
 
-	function createBatchId(): string {
+	function createRecipientGroupId(): string {
 		return crypto.randomUUID();
 	}
 
-	function resetBatchForm(): void {
-		batchForm = {
+	function resetRecipientGroupForm(): void {
+		recipientGroupForm = {
 			id: null,
 			mode: 'include',
-			filters: { ...EMPTY_COMMUNICATION_BATCH_FILTER }
+			filters: { ...EMPTY_COMMUNICATION_RECIPIENT_GROUP_FILTER }
 		};
 	}
 
 	function beginSession(): void {
-		draftBatches = cloneBatches(initialBatches ?? []);
+		draftRecipientGroups = cloneRecipientGroups(initialRecipientGroups ?? []);
 		preview = clonePreview(initialPreview ?? { totalCount: 0, rows: [] });
 		previewSearch = '';
 		previewLoading = false;
 		unsavedConfirmOpen = false;
-		resetBatchForm();
+		previewRequestNonce += 1;
+		resetRecipientGroupForm();
+		previewSyncSignature = buildRecipientBuilderPreviewSignature(
+			buildRecipientBuilderPreviewRequestGroups({
+				draftRecipientGroups: initialRecipientGroups ?? [],
+				recipientGroupForm: {
+					id: null,
+					mode: 'include',
+					filters: { ...EMPTY_COMMUNICATION_RECIPIENT_GROUP_FILTER }
+				}
+			})
+		);
 		dirtyState.captureBaseline({
-			batches: cloneBatches(initialBatches ?? []),
-			batchForm: {
+			recipientGroups: cloneRecipientGroups(initialRecipientGroups ?? []),
+			recipientGroupForm: {
 				id: null,
 				mode: 'include',
-				filters: { ...EMPTY_COMMUNICATION_BATCH_FILTER }
+				filters: { ...EMPTY_COMMUNICATION_RECIPIENT_GROUP_FILTER }
 			}
 		});
 	}
@@ -219,7 +251,48 @@
 		if (!open) {
 			previewLoading = false;
 			unsavedConfirmOpen = false;
+			previewRequestNonce += 1;
 		}
+	});
+
+	$effect(() => {
+		if (!open) return;
+		const nextSignature = livePreviewSignature;
+		if (nextSignature === previewSyncSignature) {
+			return;
+		}
+
+		const nextGroups = livePreviewRequestGroups.map((recipientGroup) => ({
+			id: recipientGroup.id,
+			mode: recipientGroup.mode,
+			filters: { ...recipientGroup.filters }
+		}));
+		const requestNonce = previewRequestNonce + 1;
+		previewRequestNonce = requestNonce;
+
+		const timeoutId = setTimeout(async () => {
+			previewLoading = true;
+			try {
+				const result = await onPreviewRequest(nextGroups);
+				if (!open || previewRequestNonce !== requestNonce) return;
+				preview = clonePreview(result.preview);
+				previewSyncSignature = nextSignature;
+			} catch (error) {
+				if (previewRequestNonce !== requestNonce) return;
+				toast.error(
+					error instanceof Error ? error.message : 'Unable to refresh the preview.',
+					{ id: 'recipient-builder-preview-error' }
+				);
+			} finally {
+				if (previewRequestNonce === requestNonce) {
+					previewLoading = false;
+				}
+			}
+		}, 250);
+
+		return () => {
+			clearTimeout(timeoutId);
+		};
 	});
 
 	beforeNavigate((navigation) => {
@@ -257,10 +330,10 @@
 	}
 
 	function updateFilter(key: FilterKey, value: string): void {
-		batchForm = {
-			...batchForm,
+		recipientGroupForm = {
+			...recipientGroupForm,
 			filters: {
-				...batchForm.filters,
+				...recipientGroupForm.filters,
 				[key]: value,
 				...(key === 'seasonId' ? { offeringId: '', leagueId: '', divisionId: '', teamId: '' } : {}),
 				...(key === 'offeringId' ? { leagueId: '', divisionId: '', teamId: '' } : {}),
@@ -271,86 +344,117 @@
 	}
 
 	async function requestPreview(
-		nextBatches: Array<{ id: string; mode: CommunicationBatchMode; filters: CommunicationBatchFilter }>
-	): Promise<CommunicationBatchDraft[] | null> {
+		nextRecipientGroups: Array<{
+			id: string;
+			mode: CommunicationRecipientGroupMode;
+			filters: CommunicationRecipientGroupFilter;
+		}>
+	): Promise<CommunicationRecipientGroupDraft[] | null> {
 		previewLoading = true;
 		try {
-			const result = await onPreviewRequest(nextBatches);
+			const result = await onPreviewRequest(nextRecipientGroups);
 			preview = clonePreview(result.preview);
-			return cloneBatches(result.batches);
+			return cloneRecipientGroups(result.recipientGroups);
 		} finally {
 			previewLoading = false;
 		}
 	}
 
-	async function applyBatch(): Promise<void> {
+	async function applyRecipientGroup(): Promise<void> {
 		try {
-			const targetId = batchForm.id ?? createBatchId();
+			previewRequestNonce += 1;
+			const targetId = recipientGroupForm.id ?? createRecipientGroupId();
 			const normalized = await requestPreview([
-				...draftBatches
-					.filter((batch) => batch.id !== batchForm.id)
-					.map((batch) => ({ id: batch.id, mode: batch.mode, filters: batch.filters })),
-				{ id: targetId, mode: batchForm.mode, filters: batchForm.filters }
+				...draftRecipientGroups
+					.filter((recipientGroup) => recipientGroup.id !== recipientGroupForm.id)
+					.map((recipientGroup) => ({
+						id: recipientGroup.id,
+						mode: recipientGroup.mode,
+						filters: recipientGroup.filters
+					})),
+				{
+					id: targetId,
+					mode: recipientGroupForm.mode,
+					filters: recipientGroupForm.filters
+				}
 			]);
 			if (!normalized) return;
-			draftBatches = normalized;
-			resetBatchForm();
-			toast.success('Recipient batch updated.');
-		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : 'Unable to update the recipient batch.'
+			const nextFormState: RecipientGroupFormState = {
+				id: null,
+				mode: 'include',
+				filters: { ...EMPTY_COMMUNICATION_RECIPIENT_GROUP_FILTER }
+			};
+			draftRecipientGroups = normalized;
+			recipientGroupForm = nextFormState;
+			previewSyncSignature = buildRecipientBuilderPreviewSignature(
+				buildRecipientBuilderPreviewRequestGroups({
+					draftRecipientGroups: normalized,
+					recipientGroupForm: nextFormState
+				})
 			);
+			toast.success('Recipient group updated.');
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : 'Unable to update the recipient group.');
 		}
 	}
 
-	async function removeBatch(batchId: string): Promise<void> {
+	async function removeRecipientGroup(recipientGroupId: string): Promise<void> {
 		try {
-			const remaining = draftBatches
-				.filter((batch) => batch.id !== batchId)
-				.map((batch) => ({ id: batch.id, mode: batch.mode, filters: batch.filters }));
+			previewRequestNonce += 1;
+			const nextFormState: RecipientGroupFormState =
+				recipientGroupForm.id === recipientGroupId
+					? {
+							id: null,
+							mode: 'include',
+							filters: { ...EMPTY_COMMUNICATION_RECIPIENT_GROUP_FILTER }
+						}
+					: recipientGroupForm;
+			const remaining = draftRecipientGroups
+				.filter((recipientGroup) => recipientGroup.id !== recipientGroupId)
+				.map((recipientGroup) => ({
+					id: recipientGroup.id,
+					mode: recipientGroup.mode,
+					filters: recipientGroup.filters
+				}));
 			if (remaining.length === 0) {
-				draftBatches = [];
+				draftRecipientGroups = [];
 				preview = { totalCount: 0, rows: [] };
-				resetBatchForm();
+				recipientGroupForm = nextFormState;
+				previewSyncSignature = buildRecipientBuilderPreviewSignature(
+					buildRecipientBuilderPreviewRequestGroups({
+						draftRecipientGroups: [],
+						recipientGroupForm: nextFormState
+					})
+				);
 				return;
 			}
 			const normalized = await requestPreview(remaining);
 			if (normalized) {
-				draftBatches = normalized;
+				draftRecipientGroups = normalized;
+				recipientGroupForm = nextFormState;
+				previewSyncSignature = buildRecipientBuilderPreviewSignature(
+					buildRecipientBuilderPreviewRequestGroups({
+						draftRecipientGroups: normalized,
+						recipientGroupForm: nextFormState
+					})
+				);
 			}
 		} catch (error) {
-			toast.error(error instanceof Error ? error.message : 'Unable to remove this batch.');
+			toast.error(error instanceof Error ? error.message : 'Unable to remove this recipient group.');
 		}
 	}
 
-	async function refreshPreview(): Promise<void> {
-		try {
-			const normalized = await requestPreview(
-				draftBatches.map((batch) => ({
-					id: batch.id,
-					mode: batch.mode,
-					filters: batch.filters
-				}))
-			);
-			if (normalized) {
-				draftBatches = normalized;
-			}
-		} catch (error) {
-			toast.error(error instanceof Error ? error.message : 'Unable to refresh the preview.');
-		}
-	}
-
-	function startEditingBatch(batch: CommunicationBatchDraft): void {
-		batchForm = {
-			id: batch.id,
-			mode: batch.mode,
-			filters: { ...batch.filters }
+	function startEditingRecipientGroup(recipientGroup: CommunicationRecipientGroupDraft): void {
+		recipientGroupForm = {
+			id: recipientGroup.id,
+			mode: recipientGroup.mode,
+			filters: { ...recipientGroup.filters }
 		};
 	}
 
 	function submitBuilder(): void {
 		onApply({
-			batches: cloneBatches(draftBatches),
+			recipientGroups: cloneRecipientGroups(draftRecipientGroups),
 			preview: clonePreview(preview)
 		});
 	}
@@ -364,7 +468,7 @@
 	stepTitle="Build recipients"
 	progressPercent={100}
 	closeAriaLabel="Close recipient builder"
-	maxWidthClass="max-w-6xl"
+	maxWidthClass="max-w-[96rem]"
 	formClass="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4"
 	on:requestClose={requestClose}
 	on:submit={submitBuilder}
@@ -373,33 +477,35 @@
 		<div class="min-h-0">
 			<div class="flex h-full min-h-0 flex-col border border-neutral-950 bg-white p-4">
 				<div class="min-h-0 space-y-4 overflow-y-auto pr-1 scrollbar-thin">
-					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+					<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
 						<div class="space-y-2">
-							<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Batch mode</p>
+							<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+								Recipient group mode
+							</p>
 							<ListboxDropdown
 								options={[
 									{ value: 'include', label: 'Include recipients' },
 									{ value: 'exclude', label: 'Exclude recipients' }
 								]}
-								value={batchForm.mode}
-								ariaLabel="Batch mode"
+								value={recipientGroupForm.mode}
+								ariaLabel="Recipient group mode"
 								buttonClass={DROPDOWN_BUTTON_CLASS}
 								on:change={(event) => {
-									batchForm = {
-										...batchForm,
-										mode: event.detail.value as CommunicationBatchMode
+									recipientGroupForm = {
+										...recipientGroupForm,
+										mode: event.detail.value as CommunicationRecipientGroupMode
 									};
 								}}
 							/>
 						</div>
 						<div class="space-y-2">
 							<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
-								Member search
+								Member Search
 							</p>
 							<SearchInput
 								id="communication-recipient-member-search"
 								label="Search members"
-								value={batchForm.filters.memberQuery}
+								value={recipientGroupForm.filters.memberQuery}
 								placeholder="Search by name, email, or student ID"
 								inputClass="input-neutral min-h-10 pl-10 pr-10 py-2 text-sm"
 								clearButtonClass="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-700 hover:text-neutral-950 cursor-pointer"
@@ -408,60 +514,83 @@
 						</div>
 					</div>
 
-					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+					<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
 						<div class="space-y-2">
-							<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Member role</p>
-							<ListboxDropdown options={memberRoleOptions} value={batchForm.filters.memberRole} ariaLabel="Filter by member role" buttonClass={DROPDOWN_BUTTON_CLASS} on:change={(event) => updateFilter('memberRole', event.detail.value)} />
+							<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Member Role</p>
+							<ListboxDropdown options={memberRoleOptions} value={recipientGroupForm.filters.memberRole} ariaLabel="Filter by member role" buttonClass={DROPDOWN_BUTTON_CLASS} on:change={(event) => updateFilter('memberRole', event.detail.value)} />
 						</div>
 						<div class="space-y-2">
-							<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Sex</p>
-							<ListboxDropdown options={memberSexOptions} value={batchForm.filters.memberSex} ariaLabel="Filter by sex" buttonClass={DROPDOWN_BUTTON_CLASS} on:change={(event) => updateFilter('memberSex', event.detail.value)} />
+							<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Gender</p>
+							<ListboxDropdown options={memberSexOptions.map((option) => option.value === '' ? { ...option, label: 'All Genders' } : option)} value={recipientGroupForm.filters.memberSex} ariaLabel="Filter by gender" buttonClass={DROPDOWN_BUTTON_CLASS} on:change={(event) => updateFilter('memberSex', event.detail.value)} />
 						</div>
 						<div class="space-y-2">
 							<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Season</p>
-							<ListboxDropdown options={seasonOptions} value={batchForm.filters.seasonId} ariaLabel="Filter by season" buttonClass={DROPDOWN_BUTTON_CLASS} on:change={(event) => updateFilter('seasonId', event.detail.value)} />
+							<ListboxDropdown options={seasonOptions} value={recipientGroupForm.filters.seasonId} ariaLabel="Filter by season" buttonClass={DROPDOWN_BUTTON_CLASS} on:change={(event) => updateFilter('seasonId', event.detail.value)} />
 						</div>
 						<div class="space-y-2">
 							<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Offering</p>
-							<ListboxDropdown options={offeringOptions} value={batchForm.filters.offeringId} ariaLabel="Filter by offering" buttonClass={DROPDOWN_BUTTON_CLASS} on:change={(event) => updateFilter('offeringId', event.detail.value)} />
+							<ListboxDropdown options={offeringOptions} value={recipientGroupForm.filters.offeringId} ariaLabel="Filter by offering" buttonClass={DROPDOWN_BUTTON_CLASS} on:change={(event) => updateFilter('offeringId', event.detail.value)} />
 						</div>
 						<div class="space-y-2">
 							<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">League</p>
-							<ListboxDropdown options={leagueOptions} value={batchForm.filters.leagueId} ariaLabel="Filter by league" buttonClass={DROPDOWN_BUTTON_CLASS} on:change={(event) => updateFilter('leagueId', event.detail.value)} />
+							<ListboxDropdown options={leagueOptions} value={recipientGroupForm.filters.leagueId} ariaLabel="Filter by league" buttonClass={DROPDOWN_BUTTON_CLASS} on:change={(event) => updateFilter('leagueId', event.detail.value)} />
 						</div>
 						<div class="space-y-2">
 							<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Division</p>
-							<ListboxDropdown options={divisionOptions} value={batchForm.filters.divisionId} ariaLabel="Filter by division" buttonClass={DROPDOWN_BUTTON_CLASS} on:change={(event) => updateFilter('divisionId', event.detail.value)} />
+							<ListboxDropdown options={divisionOptions} value={recipientGroupForm.filters.divisionId} ariaLabel="Filter by division" buttonClass={DROPDOWN_BUTTON_CLASS} on:change={(event) => updateFilter('divisionId', event.detail.value)} />
 						</div>
 						<div class="space-y-2">
 							<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Team</p>
-							<ListboxDropdown options={teamOptions} value={batchForm.filters.teamId} ariaLabel="Filter by team" buttonClass={DROPDOWN_BUTTON_CLASS} on:change={(event) => updateFilter('teamId', event.detail.value)} />
+							<ListboxDropdown options={teamOptions} value={recipientGroupForm.filters.teamId} ariaLabel="Filter by team" buttonClass={DROPDOWN_BUTTON_CLASS} on:change={(event) => updateFilter('teamId', event.detail.value)} />
 						</div>
 						<div class="space-y-2">
 							<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
-								Roster role
+								Roster Role
 							</p>
-							<ListboxDropdown options={rosterRoleOptions} value={batchForm.filters.rosterRole} ariaLabel="Filter by roster role" buttonClass={DROPDOWN_BUTTON_CLASS} on:change={(event) => updateFilter('rosterRole', event.detail.value)} />
+							<ListboxDropdown options={rosterRoleOptions} value={recipientGroupForm.filters.rosterRole} ariaLabel="Filter by roster role" buttonClass={DROPDOWN_BUTTON_CLASS} on:change={(event) => updateFilter('rosterRole', event.detail.value)} />
 						</div>
 						<div class="space-y-2">
 							<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
-								Team status
+								Team Status
 							</p>
-							<ListboxDropdown options={teamStatusOptions} value={batchForm.filters.teamStatus} ariaLabel="Filter by team status" buttonClass={DROPDOWN_BUTTON_CLASS} on:change={(event) => updateFilter('teamStatus', event.detail.value)} />
+							<ListboxDropdown options={teamStatusOptions} value={recipientGroupForm.filters.teamStatus} ariaLabel="Filter by team status" buttonClass={DROPDOWN_BUTTON_CLASS} on:change={(event) => updateFilter('teamStatus', event.detail.value)} />
+						</div>
+					</div>
+
+					<div class="space-y-3">
+						<div class="flex items-center justify-between gap-3">
+							<h3 class="text-sm font-bold uppercase tracking-wide text-neutral-950">
+								Additional Filters
+							</h3>
+							<p class="text-xs text-neutral-700">
+								Unavailable filters are shown but disabled until they are wired up.
+							</p>
+						</div>
+						<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+							{#each RECIPIENT_BUILDER_ADDITIONAL_FILTERS as additionalFilter}
+								<div class="space-y-2">
+									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+										{additionalFilter.label}
+									</p>
+									<ListboxDropdown
+										options={additionalFilter.options}
+										value=""
+										ariaLabel={additionalFilter.label}
+										buttonClass={DROPDOWN_BUTTON_CLASS}
+										disabled={additionalFilter.disabled}
+									/>
+								</div>
+							{/each}
 						</div>
 					</div>
 
 					<div class="flex flex-wrap items-center gap-2">
-						<button type="button" class="button-primary-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer" onclick={applyBatch}>
+						<button type="button" class="button-primary-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer" onclick={applyRecipientGroup}>
 							<IconPlus class="h-4 w-4" />
-							<span>{batchForm.id ? 'Update Batch' : 'Add Batch'}</span>
+							<span>{recipientGroupForm.id ? 'Update Recipient Group' : 'Add Recipient Group'}</span>
 						</button>
-						<button type="button" class="button-secondary-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer" onclick={refreshPreview} disabled={previewLoading || draftBatches.length === 0}>
-							<IconRefresh class="h-4 w-4" />
-							<span>{previewLoading ? 'Refreshing...' : 'Refresh Preview'}</span>
-						</button>
-						{#if batchForm.id}
-							<button type="button" class="button-neutral-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer" onclick={resetBatchForm}>
+						{#if recipientGroupForm.id}
+							<button type="button" class="button-neutral-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer" onclick={resetRecipientGroupForm}>
 								Cancel Edit
 							</button>
 						{/if}
@@ -472,44 +601,44 @@
 
 		<div class="flex min-h-0 flex-col gap-4">
 			<div class="flex max-h-[min(16rem,35vh)] min-h-[10rem] flex-col border border-neutral-950 bg-white p-4">
-				<div class="flex items-center gap-2">
-					<h3 class="text-sm font-bold uppercase tracking-wide text-neutral-950">
-						Saved Batches
-					</h3>
-					<IconUsers class="h-4 w-4 text-neutral-700" />
-				</div>
-				<div class="mt-3 min-h-0 overflow-y-auto pr-1 scrollbar-thin">
-					{#if draftBatches.length === 0}
-						<div class="border border-neutral-950 bg-neutral-50 p-4 text-sm text-neutral-700">
-							No recipient batches yet.
-						</div>
-					{:else}
-						<div class="space-y-3">
-							{#each draftBatches as batch}
-								<div class="section-card p-3 space-y-3">
-									<div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-										<div class="space-y-2">
-											<div class="flex flex-wrap items-center gap-2">
-												<span class={`border px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${batch.mode === 'include' ? 'border-primary-700 bg-primary text-primary-foreground' : 'border-warning-700 bg-warning-100 text-neutral-950'}`}>
-													{batch.mode}
-												</span>
-												<span class="border border-secondary-300 px-2 py-1 text-[11px] font-bold uppercase tracking-wide">
-													{batch.resolvedRecipientCount} recipients
-												</span>
+					<div class="flex items-center gap-2">
+						<h3 class="text-sm font-bold uppercase tracking-wide text-neutral-950">
+							Saved Recipient Groups
+						</h3>
+						<IconUsers class="h-4 w-4 text-neutral-700" />
+					</div>
+					<div class="mt-3 min-h-0 overflow-y-auto pr-1 scrollbar-thin">
+						{#if draftRecipientGroups.length === 0}
+							<div class="border border-neutral-950 bg-neutral-50 p-4 text-sm text-neutral-700">
+								No recipient groups yet.
+							</div>
+						{:else}
+							<div class="space-y-3">
+								{#each draftRecipientGroups as recipientGroup}
+									<div class="section-card p-3 space-y-3">
+										<div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+											<div class="space-y-2">
+												<div class="flex flex-wrap items-center gap-2">
+													<span class={`border px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${recipientGroup.mode === 'include' ? 'border-primary-700 bg-primary text-primary-foreground' : 'border-warning-700 bg-warning-100 text-neutral-950'}`}>
+														{recipientGroup.mode}
+													</span>
+													<span class="border border-secondary-300 px-2 py-1 text-[11px] font-bold uppercase tracking-wide">
+														{recipientGroup.resolvedRecipientCount} recipients
+													</span>
+												</div>
+												<p class="text-sm text-neutral-950">{recipientGroup.summaryText}</p>
 											</div>
-											<p class="text-sm text-neutral-950">{batch.summaryText}</p>
-										</div>
-										<div class="flex items-center gap-2">
-											<HoverTooltip text="Edit batch">
-												<button type="button" class="button-secondary-outlined dashboard-icon-button cursor-pointer" aria-label="Edit recipient batch" onclick={() => startEditingBatch(batch)}>
-													<IconEdit class="h-4 w-4" />
-												</button>
-											</HoverTooltip>
-											<HoverTooltip text="Remove batch">
-												<button type="button" class="button-neutral-outlined dashboard-icon-button cursor-pointer" aria-label="Remove recipient batch" onclick={() => void removeBatch(batch.id)}>
-													<IconTrash class="h-4 w-4" />
-												</button>
-											</HoverTooltip>
+											<div class="flex items-center gap-2">
+												<HoverTooltip text="Edit recipient group">
+													<button type="button" class="button-secondary-outlined dashboard-icon-button cursor-pointer" aria-label="Edit recipient group" onclick={() => startEditingRecipientGroup(recipientGroup)}>
+														<IconEdit class="h-4 w-4" />
+													</button>
+												</HoverTooltip>
+												<HoverTooltip text="Remove recipient group">
+													<button type="button" class="button-neutral-outlined dashboard-icon-button cursor-pointer" aria-label="Remove recipient group" onclick={() => void removeRecipientGroup(recipientGroup.id)}>
+														<IconTrash class="h-4 w-4" />
+													</button>
+												</HoverTooltip>
 										</div>
 									</div>
 								</div>
@@ -520,33 +649,25 @@
 			</div>
 
 			<div class="flex min-h-0 flex-1 flex-col border border-neutral-950 bg-white p-4 min-w-0">
-				<div class="space-y-1 shrink-0">
-					<div class="flex items-center gap-2">
-						<h3 class="text-sm font-bold uppercase tracking-wide text-neutral-950">
-							Recipient Preview
-						</h3>
-						<InfoPopover
-							title="Preview recipients"
-							buttonAriaLabel="Preview recipients help"
-							content="This list shows the final deduplicated audience after every include and exclude batch has been applied."
+				<div class="flex shrink-0 flex-col gap-1.5 md:flex-row md:items-center md:justify-between">
+					<h3 class="text-sm font-bold uppercase tracking-wide text-neutral-950">
+						Recipient Preview
+					</h3>
+					<div class="w-full md:max-w-xs">
+						<SearchInput
+							id="communication-recipient-preview-search"
+							label="Search previewed recipients"
+							value={previewSearch}
+							placeholder="Search preview list"
+							inputClass="input-neutral min-h-9 pl-9 pr-9 py-1.5 text-sm"
+							clearButtonClass="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-700 hover:text-neutral-950 cursor-pointer"
+							on:input={(event) => {
+								previewSearch = event.detail.value;
+							}}
 						/>
 					</div>
-					<p class="text-sm text-neutral-700">
-						{preview.totalCount} final recipients after all include and exclude batches.
-					</p>
 				</div>
-				<SearchInput
-					id="communication-recipient-preview-search"
-					label="Search previewed recipients"
-					value={previewSearch}
-					placeholder="Search preview list"
-					inputClass="input-neutral min-h-10 pl-10 pr-10 py-2 text-sm"
-					clearButtonClass="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-700 hover:text-neutral-950 cursor-pointer"
-					on:input={(event) => {
-						previewSearch = event.detail.value;
-					}}
-				/>
-				<div class="min-h-0 flex-1 overflow-auto border border-neutral-950 bg-white">
+				<div class="mt-2 min-h-0 flex-1 overflow-auto border border-neutral-950 bg-white">
 					<table class="min-w-full border-collapse">
 						<thead class="bg-neutral-100">
 							<tr>
@@ -586,6 +707,9 @@
 						</tbody>
 					</table>
 				</div>
+				<p class="pt-2 text-right text-sm text-neutral-700">
+					{preview.totalCount} recipients
+				</p>
 			</div>
 		</div>
 	</div>
@@ -594,17 +718,9 @@
 		<div class="pt-2 border-t border-neutral-950 flex justify-end">
 			<div class="flex flex-wrap items-center justify-end gap-2">
 				<button
-					type="button"
-					class="button-secondary-outlined cursor-pointer"
-					onclick={refreshPreview}
-					disabled={previewLoading || draftBatches.length === 0}
-				>
-					{previewLoading ? 'Refreshing...' : 'Refresh Preview'}
-				</button>
-				<button
 					type="submit"
 					class="button-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-					disabled={draftBatches.length === 0 || previewLoading}
+					disabled={draftRecipientGroups.length === 0 || previewLoading}
 				>
 					Apply Recipients
 				</button>
