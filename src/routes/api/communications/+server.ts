@@ -30,7 +30,7 @@ export const POST: RequestHandler = async (event) => {
 	if (!event.platform?.env?.DB) {
 		return json({ success: false, error: 'Database is unavailable.' }, { status: 500 });
 	}
-	if (!requirePermission(event.locals, PERMISSIONS.VIEW_COMMUNICATION_CENTER, { mutate: true })) {
+	if (!requirePermission(event.locals, PERMISSIONS.CREATE_COMMUNICATION_DRAFT, { mutate: true })) {
 		return json(
 			{ success: false, error: 'You do not have permission to save communications.' },
 			{ status: 403 }
@@ -67,12 +67,14 @@ export const POST: RequestHandler = async (event) => {
 		);
 	}
 
-	if (parsed.data.batches.length === 0) {
+	if (parsed.data.recipientGroups.length === 0 && parsed.data.manualRecipients.length === 0) {
 		return json(
 			{
 				success: false,
-				error: 'At least one audience batch is required.',
-				fieldErrors: { batches: ['Add at least one audience batch before saving.'] }
+				error: 'At least one recipient source is required.',
+				fieldErrors: {
+					recipientGroups: ['Add at least one recipient group or manual recipient before saving.']
+				}
 			},
 			{ status: 400 }
 		);
@@ -91,7 +93,8 @@ export const POST: RequestHandler = async (event) => {
 	});
 
 	event.locals.requestLogMeta = {
-		table: 'communication_messages,communication_message_batches,communication_message_recipients',
+		table:
+			'communication_messages,communication_message_batches,communication_message_manual_recipients,communication_message_recipients',
 		recordCount: 1
 	};
 

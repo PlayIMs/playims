@@ -1,10 +1,10 @@
 export type CommunicationChannel = 'email';
-export type CommunicationMessageStatus = 'draft' | 'sending' | 'sent' | 'failed';
-export type CommunicationBatchMode = 'include' | 'exclude';
+export type CommunicationMessageStatus = 'draft' | 'scheduled' | 'sending' | 'sent' | 'failed';
+export type CommunicationRecipientGroupMode = 'include' | 'exclude';
 export type CommunicationRosterRole = 'captain' | 'co-captain' | 'player';
 export type CommunicationTeamStatus = 'active' | 'waitlist';
 
-export interface CommunicationBatchFilter {
+export interface CommunicationRecipientGroupFilter {
 	memberQuery: string;
 	memberRole: '' | 'participant' | 'manager' | 'admin' | 'dev';
 	memberSex: '' | 'M' | 'F';
@@ -17,10 +17,10 @@ export interface CommunicationBatchFilter {
 	teamStatus: '' | CommunicationTeamStatus;
 }
 
-export interface CommunicationBatchDraft {
+export interface CommunicationRecipientGroupDraft {
 	id: string;
-	mode: CommunicationBatchMode;
-	filters: CommunicationBatchFilter;
+	mode: CommunicationRecipientGroupMode;
+	filters: CommunicationRecipientGroupFilter;
 	summaryText: string;
 	resolvedRecipientCount: number;
 }
@@ -47,17 +47,25 @@ export interface CommunicationRecipientPreview {
 	rows: RecipientPreviewRow[];
 }
 
+export interface CommunicationManualRecipientDraft {
+	userId: string | null;
+	email: string;
+	fullName: string;
+}
+
 export interface CommunicationMessageSummary {
 	id: string;
 	channel: CommunicationChannel;
 	status: CommunicationMessageStatus;
 	subject: string;
+	recipientGroupCount: number;
 	recipientCount: number;
 	createdAt: string | null;
 	updatedAt: string | null;
+	scheduledAt?: string | null;
 	sentAt: string | null;
 	createdByName: string;
-	batchSummary: string;
+	recipientGroupSummary: string;
 	failureMessage: string | null;
 }
 
@@ -72,7 +80,8 @@ export interface CommunicationMessageDetail extends CommunicationMessageSummary 
 	editorJson: Record<string, unknown> | null;
 	bodyHtml: string;
 	bodyText: string;
-	batches: CommunicationBatchDraft[];
+	recipientGroups: CommunicationRecipientGroupDraft[];
+	manualRecipients: CommunicationManualRecipientDraft[];
 	recipients: CommunicationMessageRecipient[];
 }
 
@@ -82,10 +91,10 @@ export interface CommunicationFilterOption {
 }
 
 export interface CommunicationFilterOptions {
-	memberRoles: Array<{ value: CommunicationBatchFilter['memberRole']; label: string }>;
-	memberSexes: Array<{ value: CommunicationBatchFilter['memberSex']; label: string }>;
-	rosterRoles: Array<{ value: CommunicationBatchFilter['rosterRole']; label: string }>;
-	teamStatuses: Array<{ value: CommunicationBatchFilter['teamStatus']; label: string }>;
+	memberRoles: Array<{ value: CommunicationRecipientGroupFilter['memberRole']; label: string }>;
+	memberSexes: Array<{ value: CommunicationRecipientGroupFilter['memberSex']; label: string }>;
+	rosterRoles: Array<{ value: CommunicationRecipientGroupFilter['rosterRole']; label: string }>;
+	teamStatuses: Array<{ value: CommunicationRecipientGroupFilter['teamStatus']; label: string }>;
 	seasons: CommunicationFilterOption[];
 	offerings: Array<CommunicationFilterOption & { seasonId: string | null }>;
 	leagues: Array<
@@ -108,10 +117,11 @@ export interface CommunicationFilterOptions {
 
 export interface CommunicationAudiencePreviewResponse {
 	messagePreview: CommunicationRecipientPreview;
-	batches: CommunicationBatchDraft[];
+	recipientGroups: CommunicationRecipientGroupDraft[];
+	manualRecipients: CommunicationManualRecipientDraft[];
 }
 
-export const EMPTY_COMMUNICATION_BATCH_FILTER: CommunicationBatchFilter = {
+export const EMPTY_COMMUNICATION_RECIPIENT_GROUP_FILTER: CommunicationRecipientGroupFilter = {
 	memberQuery: '',
 	memberRole: '',
 	memberSex: '',

@@ -9,12 +9,13 @@ an optional selected message. These tests keep that contract stable so the Svelt
 focused on rendering rather than rebuilding missing server context.
 
 Summary of tests:
-1. It verifies that participant viewers can still open the page because the current permission registry grants that access.
+1. It verifies that participant viewers are now blocked from the communication center page.
 2. It verifies that the page returns history, filter options, and the selected message detail.
 3. It verifies that the page falls back to an empty payload when the database is unavailable.
 */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { isHttpError } from '@sveltejs/kit';
 
 const mocks = vi.hoisted(() => ({
 	dbOps: {
@@ -73,12 +74,13 @@ describe('communication center page load', () => {
 				channel: 'email',
 				status: 'draft',
 				subject: 'League update',
+				recipientGroupCount: 1,
 				recipientCount: 12,
 				createdAt: '2029-01-01T00:00:00.000Z',
 				updatedAt: '2029-01-01T00:00:00.000Z',
 				sentAt: null,
 				createdByName: 'Admin User',
-				batchSummary: 'All captains',
+				recipientGroupSummary: 'All captains',
 				failureMessage: null
 			}
 		]);
@@ -87,6 +89,7 @@ describe('communication center page load', () => {
 			channel: 'email',
 			status: 'draft',
 			subject: 'League update',
+			recipientGroupCount: 1,
 			editorJson: { type: 'doc', content: [] },
 			bodyHtml: '<p>Hello</p>',
 			bodyText: 'Hello',
@@ -95,9 +98,10 @@ describe('communication center page load', () => {
 			updatedAt: '2029-01-01T00:00:00.000Z',
 			sentAt: null,
 			createdByName: 'Admin User',
-			batchSummary: 'All captains',
+			recipientGroupSummary: 'All captains',
 			failureMessage: null,
-			batches: [],
+			recipientGroups: [],
+			manualRecipients: [],
 			recipients: []
 		});
 		mocks.loadCommunicationFilterOptions.mockResolvedValue({
@@ -113,13 +117,11 @@ describe('communication center page load', () => {
 		});
 	});
 
-	it('allows participant viewers because the current permission registry exposes the page to them', async () => {
-		// this locks the current auth contract so the page load matches the sidebar visibility rules.
-		const result = (await load(
-			buildEvent('/dashboard/communications', 'participant')
-		)) as CommunicationPageLoadData;
-
-		expect(result.messages).toHaveLength(1);
+	it('blocks participant viewers from the communication center page', async () => {
+		// communications is a manager-and-up workspace because it exposes recipient targeting and message history.
+		await expect(load(buildEvent('/dashboard/communications', 'participant'))).rejects.toSatisfy(
+			(error) => isHttpError(error) && error.status === 403
+		);
 	});
 
 	it('loads message history, filter options, and the selected message detail', async () => {

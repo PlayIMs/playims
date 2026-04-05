@@ -85,6 +85,7 @@ Default class recipes to copy first:
 - Module page title: `text-5xl lg:text-6xl leading-[0.9] tracking-[0.01em] font-bold font-serif text-neutral-950`
 - Module body wrapper: `px-4 lg:px-6`
 - Module action/meta row: place page actions, timestamps, counts, and utility controls below the header inside the body wrapper, not inside the title strip
+- Primary module sections: use 2px neutral outer borders like the offerings page; shared `section-shell` is the standard outer section wrapper and should match that thickness
 - Compact icon action helper: `dashboard-icon-button` paired with `button-secondary-outlined` or `button-neutral-outlined`
 - Compact icon dropdown trigger: `button-secondary-outlined dashboard-icon-button cursor-pointer`
 - Neutralized header utility dropdown trigger: `button-neutral-outlined dashboard-icon-button cursor-pointer`
@@ -130,6 +131,7 @@ Do not use the older boxed hero shell for module pages:
 Border token policy:
 
 - Use `neutral-950` for non-interactive page chrome: module shells, section shells, header dividers, card borders, table wrappers, draft containers, and wizard footers.
+- Keep primary module and sidebar sections at 2px outer border weight to match the offerings page; reserve 1px borders for nested cards, tables, and inner content containers.
 - Keep `secondary-300` for inactive interactive states when the border is part of the control affordance itself, such as badge-like chips, unselected option cards, and button-adjacent control states, unless the user asks to restyle those controls too.
 - If a dashboard control cluster is explicitly restyled to neutral, carry that neutral family through the full interaction surface: trigger border, panel border, internal dividers, footer buttons, icons, hover fills, and focus treatment.
 - Do not put page subtitles in the module header by default.

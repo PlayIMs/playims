@@ -1,8 +1,21 @@
 export const COMMUNICATION_EDITOR_EMPTY_HTML = '<p></p>';
 
+interface CommunicationDraftStateSignatureInput {
+	subject?: string;
+	html?: string;
+	json?: Record<string, unknown> | null;
+	recipientGroups?: unknown[];
+	manualRecipients?: unknown[];
+}
+
 interface CommunicationEditorInitialContentInput {
 	initialHtml?: string;
 	initialJson?: Record<string, unknown> | null;
+}
+
+interface CommunicationEditorPayloadSignatureInput {
+	html?: string;
+	json?: Record<string, unknown> | null;
 }
 
 export const buildCommunicationEditorContentSignature = ({
@@ -12,6 +25,32 @@ export const buildCommunicationEditorContentSignature = ({
 	JSON.stringify({
 		html: initialHtml.trim(),
 		json: initialJson
+	});
+
+export const buildCommunicationEditorPayloadSignature = ({
+	html = '',
+	json = null
+}: CommunicationEditorPayloadSignatureInput): string =>
+	buildCommunicationEditorContentSignature({
+		initialHtml: html,
+		initialJson: json
+	});
+
+export const buildCommunicationDraftStateSignature = ({
+	subject = '',
+	html = '',
+	json = null,
+	recipientGroups = [],
+	manualRecipients = []
+}: CommunicationDraftStateSignatureInput): string =>
+	JSON.stringify({
+		subject: subject.trim(),
+		editor: {
+			html: html.trim(),
+			json
+		},
+		recipientGroups,
+		manualRecipients
 	});
 
 export const getCommunicationEditorInitialContent = ({

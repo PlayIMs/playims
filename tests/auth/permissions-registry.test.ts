@@ -10,7 +10,7 @@ matrix and the defensive validation behavior in one place.
 
 Summary of tests:
 1. It verifies that participant permissions stay limited to safe read-only dashboard areas.
-2. It verifies that manager inherits participant permissions, including add-member access, and gains operational write access.
+2. It verifies that manager inherits participant permissions, gains communication-center access, and gains operational write access.
 3. It verifies that admin inherits manager permissions and gains elevated organization and member control.
 4. It verifies that dev inherits admin permissions and keeps developer-only access.
 5. It verifies that permission snapshots expose booleans for each known permission.
@@ -52,6 +52,13 @@ describe('permission registry', () => {
 		expectPermission('participant', PERMISSIONS.VIEW_SCHEDULE);
 		expectPermission('participant', PERMISSIONS.VIEW_OFFERINGS);
 		expectPermission('participant', PERMISSIONS.VIEW_ACCOUNT);
+		expectNoPermission('participant', PERMISSIONS.VIEW_COMMUNICATION_CENTER);
+		expectNoPermission('participant', PERMISSIONS.VIEW_COMMUNICATION_HISTORY);
+		expectNoPermission('participant', PERMISSIONS.PREVIEW_COMMUNICATION_AUDIENCE);
+		expectNoPermission('participant', PERMISSIONS.CREATE_COMMUNICATION_DRAFT);
+		expectNoPermission('participant', PERMISSIONS.EDIT_COMMUNICATION_DRAFT);
+		expectNoPermission('participant', PERMISSIONS.DELETE_COMMUNICATION_DRAFT);
+		expectNoPermission('participant', PERMISSIONS.SEND_COMMUNICATION);
 		expectNoPermission('participant', PERMISSIONS.VIEW_SETTINGS);
 		expectNoPermission('participant', PERMISSIONS.MANAGE_FACILITIES);
 		expectNoPermission('participant', PERMISSIONS.MANAGE_OFFERINGS);
@@ -63,6 +70,14 @@ describe('permission registry', () => {
 		// manager should keep day-to-day operations, including adding members, without receiving elevated admin-only account control.
 		expectPermission('manager', PERMISSIONS.VIEW_DASHBOARD_HOME);
 		expectPermission('manager', PERMISSIONS.VIEW_SETTINGS);
+		expectPermission('manager', PERMISSIONS.VIEW_COMMUNICATION_CENTER);
+		expectPermission('manager', PERMISSIONS.VIEW_COMMUNICATION_HISTORY);
+		expectPermission('manager', PERMISSIONS.PREVIEW_COMMUNICATION_AUDIENCE);
+		expectPermission('manager', PERMISSIONS.CREATE_COMMUNICATION_DRAFT);
+		expectPermission('manager', PERMISSIONS.EDIT_COMMUNICATION_DRAFT);
+		expectPermission('manager', PERMISSIONS.DELETE_COMMUNICATION_DRAFT);
+		expectPermission('manager', PERMISSIONS.SEND_COMMUNICATION);
+		expectPermission('manager', PERMISSIONS.DUPLICATE_COMMUNICATION);
 		expectPermission('manager', PERMISSIONS.MANAGE_FACILITIES);
 		expectPermission('manager', PERMISSIONS.MANAGE_OFFERINGS);
 		expectPermission('manager', PERMISSIONS.EDIT_NAVIGATION_SETTINGS);

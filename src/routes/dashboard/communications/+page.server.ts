@@ -7,7 +7,16 @@ import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async (event) => {
 	const { locals, url } = event;
-	if (!requirePermission(locals, PERMISSIONS.VIEW_COMMUNICATION_CENTER)) {
+	const canViewCommunicationCenter = requirePermission(
+		locals,
+		PERMISSIONS.VIEW_COMMUNICATION_CENTER
+	);
+	const canViewCommunicationHistory = requirePermission(
+		locals,
+		PERMISSIONS.VIEW_COMMUNICATION_HISTORY
+	);
+
+	if (!canViewCommunicationCenter) {
 		throw error(403, 'You do not have permission to access the communication center.');
 	}
 
@@ -33,9 +42,13 @@ export const load: PageServerLoad = async (event) => {
 	const dbOps = getCentralDbOps(event);
 	const selectedMessageId = url.searchParams.get('messageId')?.trim() || null;
 	const [messages, filterOptions, selectedMessage] = await Promise.all([
-		dbOps.communications.listMessageSummaries(clientId, 40),
+		canViewCommunicationHistory
+			? dbOps.communications.listMessageSummaries(clientId, 40)
+			: Promise.resolve([]),
 		loadCommunicationFilterOptions(dbOps, clientId),
-		selectedMessageId ? dbOps.communications.getMessageDetail(clientId, selectedMessageId) : null
+		canViewCommunicationHistory && selectedMessageId
+			? dbOps.communications.getMessageDetail(clientId, selectedMessageId)
+			: null
 	]);
 
 	locals.requestLogMeta = {

@@ -27,12 +27,14 @@
 	interface ListboxDropdownOption {
 		value: string;
 		label: string;
+		labelClass?: string;
 		labelIcon?: LabelIconComponent;
 		labelIconClass?: string;
 		labelIconAriaLabel?: string;
 		leadingVisualClass?: string;
 		leadingVisualAriaLabel?: string;
 		description?: string;
+		descriptionClass?: string;
 		statusLabel?: string;
 		rightLabel?: string;
 		rightDescription?: string;
@@ -862,6 +864,7 @@
 		aria-expanded={open}
 		aria-controls={listboxId}
 		{disabled}
+		data-listbox-dropdown-trigger="true"
 		data-wizard-autofocus={autoFocus ? 'true' : undefined}
 		bind:this={buttonElement}
 		onclick={handleButtonClick}
@@ -960,7 +963,9 @@
 													aria-hidden={option.leadingVisualAriaLabel ? undefined : 'true'}
 												></span>
 											{/if}
-											<span class="truncate">{option.label}</span>
+											<span class={joinClassNames('truncate', option.labelClass)}>
+												{option.label}
+											</span>
 											{#if option.labelIcon}
 												{@const LabelIcon = option.labelIcon}
 												<LabelIcon
@@ -979,7 +984,10 @@
 										</span>
 										{#if option.description}
 											<span
-												class="mt-0.5 block text-[11px] font-normal normal-case tracking-normal text-neutral-700"
+												class={joinClassNames(
+													'mt-0.5 block text-[11px] font-normal normal-case tracking-normal text-neutral-700',
+													option.descriptionClass
+												)}
 											>
 												{option.description}
 											</span>
@@ -1041,7 +1049,9 @@
 													aria-hidden={option.leadingVisualAriaLabel ? undefined : 'true'}
 												></span>
 											{/if}
-											<span class="truncate">{option.label}</span>
+											<span class={joinClassNames('truncate', option.labelClass)}>
+												{option.label}
+											</span>
 											{#if option.labelIcon}
 												{@const LabelIcon = option.labelIcon}
 												<LabelIcon
@@ -1062,7 +1072,10 @@
 										</span>
 										{#if option.description}
 											<span
-												class={`mt-0.5 block text-[11px] font-normal normal-case tracking-normal ${isSelectedOption ? 'text-primary-foreground-muted' : 'text-neutral-800'}`}
+												class={joinClassNames(
+													`mt-0.5 block text-[11px] font-normal normal-case tracking-normal ${isSelectedOption ? 'text-primary-foreground-muted' : 'text-neutral-800'}`,
+													option.descriptionClass
+												)}
 											>
 												{option.description}
 											</span>

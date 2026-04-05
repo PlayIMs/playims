@@ -1,6 +1,6 @@
 import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
-export const communicationMessageBatches = sqliteTable(
+export const communicationMessageRecipientGroups = sqliteTable(
 	'communication_message_batches',
 	{
 		id: text().primaryKey(),
@@ -18,5 +18,5 @@ export const communicationMessageBatches = sqliteTable(
 	]
 );
 
-export type CommunicationMessageBatch = typeof communicationMessageBatches.$inferSelect;
-export type NewCommunicationMessageBatch = typeof communicationMessageBatches.$inferInsert;
+export type CommunicationMessageRecipientGroup = typeof communicationMessageRecipientGroups.$inferSelect;
+export type NewCommunicationMessageRecipientGroup = typeof communicationMessageRecipientGroups.$inferInsert;

@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 const nonEmptyTrimmed = (message: string) => z.string().trim().min(1, message);
 
-export const communicationBatchFilterSchema = z.object({
+export const communicationRecipientGroupFilterSchema = z.object({
 	memberQuery: z.string().trim().max(120).default(''),
 	memberRole: z.enum(['', 'participant', 'manager', 'admin', 'dev']).default(''),
 	memberSex: z.enum(['', 'M', 'F']).default(''),
@@ -15,14 +15,27 @@ export const communicationBatchFilterSchema = z.object({
 	teamStatus: z.enum(['', 'active', 'waitlist']).default('')
 });
 
-export const communicationBatchInputSchema = z.object({
-	id: nonEmptyTrimmed('Batch ID is required.'),
+export const communicationRecipientGroupInputSchema = z.object({
+	id: nonEmptyTrimmed('Recipient group ID is required.'),
 	mode: z.enum(['include', 'exclude']),
-	filters: communicationBatchFilterSchema
+	filters: communicationRecipientGroupFilterSchema
+});
+
+export const communicationManualRecipientSchema = z.object({
+	userId: z
+		.string()
+		.trim()
+		.max(64)
+		.nullable()
+		.optional()
+		.transform((value) => value ?? null),
+	email: nonEmptyTrimmed('Recipient email or lookup text is required.').max(160),
+	fullName: nonEmptyTrimmed('Recipient name is required.').max(160)
 });
 
 export const communicationPreviewRequestSchema = z.object({
-	batches: z.array(communicationBatchInputSchema).max(20)
+	manualRecipients: z.array(communicationManualRecipientSchema).max(100).default([]),
+	recipientGroups: z.array(communicationRecipientGroupInputSchema).max(20)
 });
 
 export const communicationDraftPayloadSchema = z.object({
@@ -30,9 +43,14 @@ export const communicationDraftPayloadSchema = z.object({
 	subject: z.string().trim().max(160),
 	editorJson: z.record(z.string(), z.unknown()).nullable(),
 	bodyHtml: z.string().max(50000),
-	batches: z.array(communicationBatchInputSchema).max(20)
+	manualRecipients: z.array(communicationManualRecipientSchema).max(100).default([]),
+	recipientGroups: z.array(communicationRecipientGroupInputSchema).max(20)
 });
 
 export const communicationSendRequestSchema = z.object({
 	messageId: nonEmptyTrimmed('Message ID is required.')
+});
+
+export const communicationManualRecipientResolveRequestSchema = z.object({
+	queries: z.array(nonEmptyTrimmed('Recipient query is required.').max(160)).min(1).max(25)
 });

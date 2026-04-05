@@ -225,6 +225,13 @@
       "when": 1775077797273,
       "tag": "0031_daily_lily_hollister",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1775424768405,
+      "tag": "0032_lying_scarlet_spider",
+      "breakpoints": true
     }
   ]
 }

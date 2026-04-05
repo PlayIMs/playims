@@ -10,7 +10,7 @@ remain isolated behind the dedicated developer permission.
 
 Summary of tests:
 1. It verifies that normal navigation ordering still returns every default dashboard item.
-2. It verifies that participant permission snapshots hide management-oriented sidebar links.
+2. It verifies that participant permission snapshots hide management-oriented sidebar links, including communications.
 3. It verifies that manager permission snapshots keep the full sidebar list.
 4. It verifies that the communication center navigation entry points at the real dashboard route.
 5. It verifies that participant permission snapshots lose access to management routes and keep safe pages.
@@ -61,7 +61,6 @@ describe('dashboard navigation helper', () => {
 			'schedule',
 			'offerings',
 			'clubSports',
-			'communicationCenter',
 			'equipmentCheckout'
 		]);
 	});
@@ -93,6 +92,12 @@ describe('dashboard navigation helper', () => {
 		expect(
 			canAccessDashboardRouteForPermissions({
 				pathname: '/dashboard/members',
+				permissions: participantPermissions
+			})
+		).toBe(false);
+		expect(
+			canAccessDashboardRouteForPermissions({
+				pathname: '/dashboard/communications',
 				permissions: participantPermissions
 			})
 		).toBe(false);

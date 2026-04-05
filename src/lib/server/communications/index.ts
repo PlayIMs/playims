@@ -1,6 +1,7 @@
 import type { DatabaseOperations } from '$lib/database';
 import { buildCommunicationFilterOptions } from './service.js';
 import { CommunicationService } from './service.js';
+import type { CommunicationEmailProvider } from './provider.js';
 import { ResendCommunicationProvider } from './resend.js';
 
 const readEnvValue = (event: { platform?: App.Platform }, key: string): string | null => {
@@ -17,32 +18,38 @@ const readEnvValue = (event: { platform?: App.Platform }, key: string): string |
 	return null;
 };
 
-const createFallbackProvider = () => ({
+export const createLocalHistoryOnlyCommunicationProvider = (): CommunicationEmailProvider => ({
 	async sendMessage(): Promise<{ providerMessageId: string | null }> {
-		throw new Error('Email delivery is not configured for Communication Center.');
+		return { providerMessageId: null };
 	}
 });
+
+export const createCommunicationEmailProvider = (
+	event: { platform?: App.Platform }
+): CommunicationEmailProvider => {
+	const deliveryMode = readEnvValue(event, 'COMMUNICATION_DELIVERY_MODE');
+	const apiKey = readEnvValue(event, 'RESEND_API_KEY');
+	const fromEmail = readEnvValue(event, 'COMMUNICATION_FROM_EMAIL');
+	const replyTo = readEnvValue(event, 'COMMUNICATION_REPLY_TO_EMAIL');
+
+	if (deliveryMode === 'resend' && apiKey && fromEmail) {
+		return new ResendCommunicationProvider({
+			apiKey,
+			fromEmail,
+			replyTo
+		});
+	}
+
+	return createLocalHistoryOnlyCommunicationProvider();
+};
 
 export const createCommunicationService = (
 	event: { platform?: App.Platform },
 	dbOps: DatabaseOperations
 ): CommunicationService => {
-	const apiKey = readEnvValue(event, 'RESEND_API_KEY');
-	const fromEmail = readEnvValue(event, 'COMMUNICATION_FROM_EMAIL');
-	const replyTo = readEnvValue(event, 'COMMUNICATION_REPLY_TO_EMAIL');
-
-	const emailProvider =
-		apiKey && fromEmail
-			? new ResendCommunicationProvider({
-					apiKey,
-					fromEmail,
-					replyTo
-				})
-			: createFallbackProvider();
-
 	return new CommunicationService({
 		storage: dbOps.communications,
-		emailProvider
+		emailProvider: createCommunicationEmailProvider(event)
 	});
 };
 

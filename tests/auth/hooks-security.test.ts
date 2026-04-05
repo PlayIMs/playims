@@ -19,8 +19,10 @@ Summary of tests:
 8. It verifies that developer users can still reach protected dashboard SSR routes.
 9. It verifies that read-only API access can use the base role during participant view mode.
 10. It verifies that mutating API access is blocked by the effective participant role during view mode.
-11. It verifies that club-sports mutating API routes are available through the API policy map.
-12. It verifies that the join-client API route requires authentication.
+11. It verifies that communication center routes are blocked for participants and available to managers.
+12. It verifies that communication send routes are rate limited.
+13. It verifies that club-sports mutating API routes are available through the API policy map.
+14. It verifies that the join-client API route requires authentication.
 */
 
 import { describe, expect, it, vi } from 'vitest';
@@ -365,6 +367,125 @@ describe('hooks security behavior', () => {
 
 		const response = await handle({ event, resolve: resolveOk });
 		expect(response.status).toBe(403);
+	});
+
+	it('blocks participant communication-center access and allows manager communication API access', async () => {
+		// communications now sits behind manager-and-up permissions at both the page and api policy layers.
+		const participantPageEvent = createEvent({
+			pathname: '/dashboard/communications',
+			ip: '198.51.100.83',
+			locals: {
+				user: {
+					id: 'u6',
+					clientId: '66666666-6666-4666-8666-666666666666',
+					role: 'participant',
+					baseRole: 'participant'
+				},
+				session: {
+					id: 's6',
+					userId: 'u6',
+					clientId: '66666666-6666-4666-8666-666666666666',
+					activeClientId: '66666666-6666-4666-8666-666666666666',
+					role: 'participant',
+					baseRole: 'participant',
+					authProvider: 'password',
+					expiresAt: new Date(Date.now() + 60_000).toISOString()
+				}
+			}
+		});
+
+		const participantPageResponse = await handle({ event: participantPageEvent, resolve: resolveOk });
+		expect(participantPageResponse.status).toBe(403);
+
+		const managerApiEvent = createEvent({
+			pathname: '/api/communications',
+			method: 'POST',
+			origin: 'https://playims.test',
+			ip: '198.51.100.84',
+			locals: {
+				user: {
+					id: 'u7',
+					clientId: '77777777-7777-4777-8777-777777777777',
+					role: 'manager',
+					baseRole: 'manager'
+				},
+				session: {
+					id: 's7',
+					userId: 'u7',
+					clientId: '77777777-7777-4777-8777-777777777777',
+					activeClientId: '77777777-7777-4777-8777-777777777777',
+					role: 'manager',
+					baseRole: 'manager',
+					authProvider: 'password',
+					expiresAt: new Date(Date.now() + 60_000).toISOString()
+				}
+			}
+		});
+
+		const managerApiResponse = await handle({ event: managerApiEvent, resolve: resolveOk });
+		expect(managerApiResponse.status).toBe(200);
+	});
+
+	it('rate limits communication send API posts', async () => {
+		// send is the highest-risk communication action, so it gets a tighter route-level throttle.
+		const ip = '198.51.100.85';
+		for (let i = 0; i < 6; i += 1) {
+			const event = createEvent({
+				pathname: '/api/communications/message-1/send',
+				method: 'POST',
+				origin: 'https://playims.test',
+				ip,
+				locals: {
+					user: {
+						id: 'u8',
+						clientId: '88888888-8888-4888-8888-888888888888',
+						role: 'manager',
+						baseRole: 'manager'
+					},
+					session: {
+						id: 's8',
+						userId: 'u8',
+						clientId: '88888888-8888-4888-8888-888888888888',
+						activeClientId: '88888888-8888-4888-8888-888888888888',
+						role: 'manager',
+						baseRole: 'manager',
+						authProvider: 'password',
+						expiresAt: new Date(Date.now() + 60_000).toISOString()
+					}
+				}
+			});
+			const response = await handle({ event, resolve: resolveOk });
+			expect(response.status).toBe(200);
+		}
+
+		const blockedEvent = createEvent({
+			pathname: '/api/communications/message-1/send',
+			method: 'POST',
+			origin: 'https://playims.test',
+			ip,
+			locals: {
+				user: {
+					id: 'u8',
+					clientId: '88888888-8888-4888-8888-888888888888',
+					role: 'manager',
+					baseRole: 'manager'
+				},
+				session: {
+					id: 's8',
+					userId: 'u8',
+					clientId: '88888888-8888-4888-8888-888888888888',
+					activeClientId: '88888888-8888-4888-8888-888888888888',
+					role: 'manager',
+					baseRole: 'manager',
+					authProvider: 'password',
+					expiresAt: new Date(Date.now() + 60_000).toISOString()
+				}
+			}
+		});
+
+		const blockedResponse = await handle({ event: blockedEvent, resolve: resolveOk });
+		expect(blockedResponse.status).toBe(429);
+		expect(blockedResponse.headers.get('retry-after')).toBeTruthy();
 	});
 
 	it('allows club-sports mutating API routes through the policy map for managers', async () => {

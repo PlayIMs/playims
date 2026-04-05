@@ -30,7 +30,7 @@ export const POST: RequestHandler = async (event) => {
 	if (!event.platform?.env?.DB) {
 		return json({ success: false, error: 'Database is unavailable.' }, { status: 500 });
 	}
-	if (!requirePermission(event.locals, PERMISSIONS.VIEW_COMMUNICATION_CENTER)) {
+	if (!requirePermission(event.locals, PERMISSIONS.PREVIEW_COMMUNICATION_AUDIENCE, { mutate: true })) {
 		return json(
 			{ success: false, error: 'You do not have permission to preview communications.' },
 			{ status: 403 }
@@ -60,20 +60,25 @@ export const POST: RequestHandler = async (event) => {
 	const dbOps = getCentralDbOps(event);
 	const filterOptions = await loadCommunicationFilterOptions(dbOps, clientId);
 	const service = createCommunicationService(event, dbOps);
-	const batches = await Promise.all(
-		parsed.data.batches.map((batch) =>
-			service.previewBatch({
+	const recipientGroups = await Promise.all(
+		parsed.data.recipientGroups.map((recipientGroup) =>
+			service.previewRecipientGroup({
 				clientId,
-				batchId: batch.id,
-				mode: batch.mode,
-				filters: batch.filters,
+				recipientGroupId: recipientGroup.id,
+				mode: recipientGroup.mode,
+				filters: recipientGroup.filters,
 				filterOptions
 			})
 		)
 	);
+	const manualRecipients = await service.resolveManualRecipients({
+		clientId,
+		manualRecipients: parsed.data.manualRecipients
+	});
 	const preview = await service.previewAudience({
 		clientId,
-		batches: batches.map((entry) => entry.storedBatch)
+		recipientGroups: recipientGroups.map((entry) => entry.storedRecipientGroup),
+		manualRecipients
 	});
 
 	event.locals.requestLogMeta = {
@@ -85,7 +90,8 @@ export const POST: RequestHandler = async (event) => {
 		success: true,
 		data: {
 			messagePreview: preview,
-			batches: batches.map((entry) => entry.storedBatch)
+			recipientGroups: recipientGroups.map((entry) => entry.storedRecipientGroup),
+			manualRecipients
 		}
 	});
 };

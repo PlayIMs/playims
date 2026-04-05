@@ -26,8 +26,17 @@ importers:
       '@tiptap/extension-highlight':
         specifier: ^3.22.1
         version: 3.22.1(@tiptap/core@3.22.1(@tiptap/pm@3.22.1))
+      '@tiptap/extension-image':
+        specifier: 3.22.1
+        version: 3.22.1(@tiptap/core@3.22.1(@tiptap/pm@3.22.1))
       '@tiptap/extension-link':
         specifier: ^3.22.1
+        version: 3.22.1(@tiptap/core@3.22.1(@tiptap/pm@3.22.1))(@tiptap/pm@3.22.1)
+      '@tiptap/extension-list':
+        specifier: 3.22.1
+        version: 3.22.1(@tiptap/core@3.22.1(@tiptap/pm@3.22.1))(@tiptap/pm@3.22.1)
+      '@tiptap/extension-table':
+        specifier: 3.22.1
         version: 3.22.1(@tiptap/core@3.22.1(@tiptap/pm@3.22.1))(@tiptap/pm@3.22.1)
       '@tiptap/extension-text-style':
         specifier: ^3.22.1
@@ -2190,6 +2199,11 @@ packages:
       '@tiptap/core': ^3.22.1
       '@tiptap/pm': ^3.22.1
 
+  '@tiptap/extension-image@3.22.1':
+    resolution: {integrity: sha512-FtZCOWyyaEvSfaOPoH78IKb1BlG/Vao4PARdlrVCD1FlV1YGLAgSW5YkQAJ/vPTLwyNNZtqryaBpZrA8Wm25nQ==}
+    peerDependencies:
+      '@tiptap/core': ^3.22.1
+
   '@tiptap/extension-italic@3.22.1':
     resolution: {integrity: sha512-EXPZWEsWJK9tUMypddOBvayaBeu8wFV2uH5PNrtDKrfRZ1Bf8GQ3lfcO0blHssaQ9nWqa9HwBC1mdfWcmfpxig==}
     peerDependencies:
@@ -2231,6 +2245,12 @@ packages:
     resolution: {integrity: sha512-LTdnGmglK1f/AW//36k+Km8URA1wrTLENi3R5N+/ipv+yP2rZ2Ki1R1m6yJx3KSFzR55c91xE6659/vz1uZ6iA==}
     peerDependencies:
       '@tiptap/core': ^3.22.1
+
+  '@tiptap/extension-table@3.22.1':
+    resolution: {integrity: sha512-wGioCPgrAhqQ9NNQitVM4sm8WVsu6MBs+4hdgTCtBTA7oEv7EqKWAujY6DA/aPE8uV236pUmosZX3iloHmvpOA==}
+    peerDependencies:
+      '@tiptap/core': ^3.22.1
+      '@tiptap/pm': ^3.22.1
 
   '@tiptap/extension-text-style@3.22.1':
     resolution: {integrity: sha512-xtUuqXFRQxJ2C0OIp4MpD+reHrULkZSec+YXbFt4SHHHluK1lquibYbZknbmd9jsagPUcv0hc7zmdkxdz83lfA==}
@@ -6133,6 +6153,10 @@ snapshots:
       '@tiptap/core': 3.22.1(@tiptap/pm@3.22.1)
       '@tiptap/pm': 3.22.1
 
+  '@tiptap/extension-image@3.22.1(@tiptap/core@3.22.1(@tiptap/pm@3.22.1))':
+    dependencies:
+      '@tiptap/core': 3.22.1(@tiptap/pm@3.22.1)
+
   '@tiptap/extension-italic@3.22.1(@tiptap/core@3.22.1(@tiptap/pm@3.22.1))':
     dependencies:
       '@tiptap/core': 3.22.1(@tiptap/pm@3.22.1)
@@ -6167,6 +6191,11 @@ snapshots:
   '@tiptap/extension-strike@3.22.1(@tiptap/core@3.22.1(@tiptap/pm@3.22.1))':
     dependencies:
       '@tiptap/core': 3.22.1(@tiptap/pm@3.22.1)
+
+  '@tiptap/extension-table@3.22.1(@tiptap/core@3.22.1(@tiptap/pm@3.22.1))(@tiptap/pm@3.22.1)':
+    dependencies:
+      '@tiptap/core': 3.22.1(@tiptap/pm@3.22.1)
+      '@tiptap/pm': 3.22.1
 
   '@tiptap/extension-text-style@3.22.1(@tiptap/core@3.22.1(@tiptap/pm@3.22.1))':
     dependencies:

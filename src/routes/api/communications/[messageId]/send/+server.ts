@@ -9,7 +9,7 @@ export const POST: RequestHandler = async (event) => {
 	if (!event.platform?.env?.DB) {
 		return json({ success: false, error: 'Database is unavailable.' }, { status: 500 });
 	}
-	if (!requirePermission(event.locals, PERMISSIONS.VIEW_COMMUNICATION_CENTER, { mutate: true })) {
+	if (!requirePermission(event.locals, PERMISSIONS.SEND_COMMUNICATION, { mutate: true })) {
 		return json(
 			{ success: false, error: 'You do not have permission to send communications.' },
 			{ status: 403 }

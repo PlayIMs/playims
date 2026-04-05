@@ -30,7 +30,7 @@ export const GET: RequestHandler = async (event) => {
 	if (!event.platform?.env?.DB) {
 		return json({ success: false, error: 'Database is unavailable.' }, { status: 500 });
 	}
-	if (!requirePermission(event.locals, PERMISSIONS.VIEW_COMMUNICATION_CENTER)) {
+	if (!requirePermission(event.locals, PERMISSIONS.VIEW_COMMUNICATION_HISTORY)) {
 		return json(
 			{ success: false, error: 'You do not have permission to view communications.' },
 			{ status: 403 }
@@ -59,7 +59,7 @@ export const PATCH: RequestHandler = async (event) => {
 	if (!event.platform?.env?.DB) {
 		return json({ success: false, error: 'Database is unavailable.' }, { status: 500 });
 	}
-	if (!requirePermission(event.locals, PERMISSIONS.VIEW_COMMUNICATION_CENTER, { mutate: true })) {
+	if (!requirePermission(event.locals, PERMISSIONS.EDIT_COMMUNICATION_DRAFT, { mutate: true })) {
 		return json(
 			{ success: false, error: 'You do not have permission to update communications.' },
 			{ status: 403 }
@@ -97,12 +97,14 @@ export const PATCH: RequestHandler = async (event) => {
 			{ status: 400 }
 		);
 	}
-	if (parsed.data.batches.length === 0) {
+	if (parsed.data.recipientGroups.length === 0 && parsed.data.manualRecipients.length === 0) {
 		return json(
 			{
 				success: false,
-				error: 'At least one audience batch is required.',
-				fieldErrors: { batches: ['Add at least one audience batch before saving.'] }
+				error: 'At least one recipient source is required.',
+				fieldErrors: {
+					recipientGroups: ['Add at least one recipient group or manual recipient before saving.']
+				}
 			},
 			{ status: 400 }
 		);
@@ -124,6 +126,47 @@ export const PATCH: RequestHandler = async (event) => {
 		success: true,
 		data: {
 			messageId: result.id
+		}
+	});
+};
+
+export const DELETE: RequestHandler = async (event) => {
+	if (!event.platform?.env?.DB) {
+		return json({ success: false, error: 'Database is unavailable.' }, { status: 500 });
+	}
+	if (!requirePermission(event.locals, PERMISSIONS.DELETE_COMMUNICATION_DRAFT, { mutate: true })) {
+		return json(
+			{ success: false, error: 'You do not have permission to delete communications.' },
+			{ status: 403 }
+		);
+	}
+
+	const clientId = requireAuthenticatedClientId(event.locals);
+	const messageId = event.params.messageId?.trim();
+	if (!messageId) {
+		return json({ success: false, error: 'Message ID is required.' }, { status: 400 });
+	}
+
+	const dbOps = getCentralDbOps(event);
+	const service = createCommunicationService(event, dbOps);
+
+	try {
+		await service.deleteDraft({
+			clientId,
+			messageId
+		});
+	} catch (error) {
+		const message = error instanceof Error ? error.message : 'Unable to delete this draft.';
+		return json(
+			{ success: false, error: message },
+			{ status: /not found/i.test(message) ? 404 : 400 }
+		);
+	}
+
+	return json({
+		success: true,
+		data: {
+			messageId
 		}
 	});
 };

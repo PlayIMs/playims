@@ -1,7 +1,8 @@
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import type { DrizzleClient } from '../drizzle.js';
 import {
-	communicationMessageBatches,
+	communicationMessageManualRecipients,
+	communicationMessageRecipientGroups,
 	communicationMessageRecipients,
 	communicationMessages,
 	leagues,
@@ -14,11 +15,13 @@ import {
 	users
 } from '../schema/index.js';
 import type {
+	CommunicationManualRecipientDraft,
 	CommunicationMessageDetail,
 	CommunicationMessageSummary,
+	CommunicationRecipientGroupDraft,
 	RecipientPreviewRow
 } from '$lib/communications/types.js';
-import { EMPTY_COMMUNICATION_BATCH_FILTER } from '$lib/communications/types.js';
+import { EMPTY_COMMUNICATION_RECIPIENT_GROUP_FILTER } from '$lib/communications/types.js';
 import type {
 	CommunicationAudienceRow,
 	CommunicationStoragePort
@@ -29,9 +32,9 @@ const buildFullName = (firstName: string | null, lastName: string | null): strin
 	return joined.length > 0 ? joined : 'Unknown sender';
 };
 
-const summarizeBatchLabels = (labels: string[]): string => {
+const summarizeRecipientGroupLabels = (labels: string[]): string => {
 	if (labels.length === 0) {
-		return 'No audience batches yet';
+		return 'No recipient groups yet';
 	}
 	if (labels.length <= 2) {
 		return labels.join(' · ');
@@ -53,14 +56,14 @@ const parseEditorJson = (value: string | null): Record<string, unknown> | null =
 	}
 };
 
-const parseFilters = (value: string): typeof EMPTY_COMMUNICATION_BATCH_FILTER => {
+const parseFilters = (value: string): typeof EMPTY_COMMUNICATION_RECIPIENT_GROUP_FILTER => {
 	try {
 		return {
-			...EMPTY_COMMUNICATION_BATCH_FILTER,
+			...EMPTY_COMMUNICATION_RECIPIENT_GROUP_FILTER,
 			...(JSON.parse(value) as Record<string, string>)
 		};
 	} catch {
-		return { ...EMPTY_COMMUNICATION_BATCH_FILTER };
+		return { ...EMPTY_COMMUNICATION_RECIPIENT_GROUP_FILTER };
 	}
 };
 
@@ -100,26 +103,26 @@ export class CommunicationOperations implements CommunicationStoragePort {
 			.limit(limit);
 
 		const messageIds = messages.map((message) => message.id);
-		const batchRows =
+		const recipientGroupRows =
 			messageIds.length > 0
 				? await this.db
 						.select({
-							messageId: communicationMessageBatches.messageId,
-							summaryText: communicationMessageBatches.summaryText,
-							sortOrder: communicationMessageBatches.sortOrder
+							messageId: communicationMessageRecipientGroups.messageId,
+							summaryText: communicationMessageRecipientGroups.summaryText,
+							sortOrder: communicationMessageRecipientGroups.sortOrder
 						})
-						.from(communicationMessageBatches)
-						.where(inArray(communicationMessageBatches.messageId, messageIds))
+						.from(communicationMessageRecipientGroups)
+						.where(inArray(communicationMessageRecipientGroups.messageId, messageIds))
 						.orderBy(
-							asc(communicationMessageBatches.messageId),
-							asc(communicationMessageBatches.sortOrder)
+							asc(communicationMessageRecipientGroups.messageId),
+							asc(communicationMessageRecipientGroups.sortOrder)
 						)
 				: [];
-		const batchLabelsByMessageId = new Map<string, string[]>();
-		for (const batch of batchRows) {
-			const labels = batchLabelsByMessageId.get(batch.messageId) ?? [];
-			labels.push(batch.summaryText);
-			batchLabelsByMessageId.set(batch.messageId, labels);
+		const recipientGroupLabelsByMessageId = new Map<string, string[]>();
+		for (const recipientGroup of recipientGroupRows) {
+			const labels = recipientGroupLabelsByMessageId.get(recipientGroup.messageId) ?? [];
+			labels.push(recipientGroup.summaryText);
+			recipientGroupLabelsByMessageId.set(recipientGroup.messageId, labels);
 		}
 
 		return messages.map((message) => ({
@@ -127,12 +130,15 @@ export class CommunicationOperations implements CommunicationStoragePort {
 			channel: message.channel as CommunicationMessageSummary['channel'],
 			status: message.status as CommunicationMessageSummary['status'],
 			subject: message.subject,
+			recipientGroupCount: (recipientGroupLabelsByMessageId.get(message.id) ?? []).length,
 			recipientCount: message.recipientCount,
 			createdAt: message.createdAt,
 			updatedAt: message.updatedAt,
 			sentAt: message.sentAt,
 			createdByName: buildFullName(message.createdUserFirstName, message.createdUserLastName),
-			batchSummary: summarizeBatchLabels(batchLabelsByMessageId.get(message.id) ?? []),
+			recipientGroupSummary: summarizeRecipientGroupLabels(
+				recipientGroupLabelsByMessageId.get(message.id) ?? []
+			),
 			failureMessage: message.failureMessage
 		}));
 	}
@@ -166,12 +172,17 @@ export class CommunicationOperations implements CommunicationStoragePort {
 			return null;
 		}
 
-		const [batches, recipients] = await Promise.all([
+		const [recipientGroups, manualRecipients, recipients] = await Promise.all([
 			this.db
 				.select()
-				.from(communicationMessageBatches)
-				.where(eq(communicationMessageBatches.messageId, messageId))
-				.orderBy(asc(communicationMessageBatches.sortOrder)),
+				.from(communicationMessageRecipientGroups)
+				.where(eq(communicationMessageRecipientGroups.messageId, messageId))
+				.orderBy(asc(communicationMessageRecipientGroups.sortOrder)),
+			this.db
+				.select()
+				.from(communicationMessageManualRecipients)
+				.where(eq(communicationMessageManualRecipients.messageId, messageId))
+				.orderBy(asc(communicationMessageManualRecipients.sortOrder)),
 			this.db
 				.select()
 				.from(communicationMessageRecipients)
@@ -179,12 +190,15 @@ export class CommunicationOperations implements CommunicationStoragePort {
 				.orderBy(asc(communicationMessageRecipients.fullName), asc(communicationMessageRecipients.email))
 		]);
 
-		const batchSummary = summarizeBatchLabels(batches.map((batch) => batch.summaryText));
+		const recipientGroupSummary = summarizeRecipientGroupLabels(
+			recipientGroups.map((recipientGroup) => recipientGroup.summaryText)
+		);
 		return {
 			id: message.id,
 			channel: message.channel as CommunicationMessageDetail['channel'],
 			status: message.status as CommunicationMessageDetail['status'],
 			subject: message.subject,
+			recipientGroupCount: recipientGroups.length,
 			editorJson: parseEditorJson(message.editorJson),
 			bodyHtml: message.bodyHtml,
 			bodyText: message.bodyText,
@@ -193,14 +207,19 @@ export class CommunicationOperations implements CommunicationStoragePort {
 			updatedAt: message.updatedAt,
 			sentAt: message.sentAt,
 			createdByName: buildFullName(message.createdUserFirstName, message.createdUserLastName),
-			batchSummary,
+			recipientGroupSummary,
 			failureMessage: message.failureMessage,
-			batches: batches.map((batch) => ({
-				id: batch.id,
-				mode: batch.mode as 'include' | 'exclude',
-				filters: parseFilters(batch.filtersJson),
-				summaryText: batch.summaryText,
-				resolvedRecipientCount: batch.resolvedRecipientCount
+			recipientGroups: recipientGroups.map((recipientGroup) => ({
+				id: recipientGroup.id,
+				mode: recipientGroup.mode as 'include' | 'exclude',
+				filters: parseFilters(recipientGroup.filtersJson),
+				summaryText: recipientGroup.summaryText,
+				resolvedRecipientCount: recipientGroup.resolvedRecipientCount
+			})),
+			manualRecipients: manualRecipients.map((recipient) => ({
+				userId: recipient.userId,
+				email: recipient.email,
+				fullName: recipient.fullName
 			})),
 			recipients: recipients.map((recipient) => ({
 				userId: recipient.userId,
@@ -271,27 +290,81 @@ export class CommunicationOperations implements CommunicationStoragePort {
 		return result.length > 0;
 	}
 
-	async replaceBatches(input: {
+	async deleteDraft(input: { clientId: string; messageId: string }): Promise<boolean> {
+		const deletedMessages = await this.db
+			.delete(communicationMessages)
+			.where(
+				and(
+					eq(communicationMessages.clientId, input.clientId),
+					eq(communicationMessages.id, input.messageId),
+					eq(communicationMessages.status, 'draft')
+				)
+			)
+			.returning({ id: communicationMessages.id });
+		if (deletedMessages.length === 0) {
+			return false;
+		}
+
+		await this.db
+			.delete(communicationMessageRecipientGroups)
+			.where(eq(communicationMessageRecipientGroups.messageId, input.messageId));
+		await this.db
+			.delete(communicationMessageManualRecipients)
+			.where(eq(communicationMessageManualRecipients.messageId, input.messageId));
+		await this.db
+			.delete(communicationMessageRecipients)
+			.where(eq(communicationMessageRecipients.messageId, input.messageId));
+
+		return true;
+	}
+
+	async replaceRecipientGroups(input: {
 		messageId: string;
-		batches: CommunicationMessageDetail['batches'];
+		recipientGroups: CommunicationRecipientGroupDraft[];
 	}): Promise<void> {
 		await this.db
-			.delete(communicationMessageBatches)
-			.where(eq(communicationMessageBatches.messageId, input.messageId));
-		if (input.batches.length === 0) {
+			.delete(communicationMessageRecipientGroups)
+			.where(eq(communicationMessageRecipientGroups.messageId, input.messageId));
+		if (input.recipientGroups.length === 0) {
 			return;
 		}
 
 		const now = nowIso();
-		await this.db.insert(communicationMessageBatches).values(
-			input.batches.map((batch, index) => ({
-				id: batch.id || crypto.randomUUID(),
+		await this.db.insert(communicationMessageRecipientGroups).values(
+			input.recipientGroups.map((recipientGroup, index) => ({
+				id: recipientGroup.id || crypto.randomUUID(),
 				messageId: input.messageId,
-				mode: batch.mode,
+				mode: recipientGroup.mode,
 				sortOrder: index,
-				filtersJson: JSON.stringify(batch.filters),
-				summaryText: batch.summaryText,
-				resolvedRecipientCount: batch.resolvedRecipientCount,
+				filtersJson: JSON.stringify(recipientGroup.filters),
+				summaryText: recipientGroup.summaryText,
+				resolvedRecipientCount: recipientGroup.resolvedRecipientCount,
+				createdAt: now,
+				updatedAt: now
+			}))
+		);
+	}
+
+	async replaceManualRecipients(input: {
+		messageId: string;
+		manualRecipients: CommunicationManualRecipientDraft[];
+	}): Promise<void> {
+		await this.db
+			.delete(communicationMessageManualRecipients)
+			.where(eq(communicationMessageManualRecipients.messageId, input.messageId));
+		if (input.manualRecipients.length === 0) {
+			return;
+		}
+
+		const now = nowIso();
+		await this.db.insert(communicationMessageManualRecipients).values(
+			input.manualRecipients.map((recipient, index) => ({
+				id: crypto.randomUUID(),
+				messageId: input.messageId,
+				sortOrder: index,
+				userId: recipient.userId,
+				email: recipient.email,
+				fullName: recipient.fullName,
 				createdAt: now,
 				updatedAt: now
 			}))
@@ -434,12 +507,16 @@ export class CommunicationOperations implements CommunicationStoragePort {
 			createdUser: input.createdUser,
 			updatedUser: input.updatedUser
 		});
-		await this.replaceBatches({
+		await this.replaceRecipientGroups({
 			messageId: created.id,
-			batches: detail.batches.map((batch) => ({
-				...batch,
+			recipientGroups: detail.recipientGroups.map((recipientGroup) => ({
+				...recipientGroup,
 				id: crypto.randomUUID()
 			}))
+		});
+		await this.replaceManualRecipients({
+			messageId: created.id,
+			manualRecipients: detail.manualRecipients
 		});
 		await this.replaceRecipients({
 			messageId: created.id,

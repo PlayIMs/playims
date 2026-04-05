@@ -75,8 +75,8 @@ export type {
 	NewSearchRecent,
 	CommunicationMessage,
 	NewCommunicationMessage,
-	CommunicationMessageBatch,
-	NewCommunicationMessageBatch,
+	CommunicationMessageRecipientGroup,
+	NewCommunicationMessageRecipientGroup,
 	CommunicationMessageRecipient,
 	NewCommunicationMessageRecipient
 } from './schema/index.js';

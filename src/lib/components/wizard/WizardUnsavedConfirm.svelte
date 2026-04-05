@@ -7,11 +7,23 @@
 		message: string;
 		confirmLabel: string;
 		cancelLabel: string;
+		confirmVariant?: 'error' | 'primary';
+		secondaryLabel?: string | null;
+		secondaryVariant?: 'error' | 'primary' | 'secondary';
 	}
 
-	let { open, title, message, confirmLabel, cancelLabel }: Props = $props();
+	let {
+		open,
+		title,
+		message,
+		confirmLabel,
+		cancelLabel,
+		confirmVariant = 'error',
+		secondaryLabel = null,
+		secondaryVariant = 'secondary'
+	}: Props = $props();
 
-	const dispatch = createEventDispatcher<{ confirm: void; cancel: void }>();
+	const dispatch = createEventDispatcher<{ confirm: void; cancel: void; secondary: void }>();
 	const resolvedTitle = $derived.by(() =>
 		title === 'Discard Wizard Changes?' ? 'Discard Changes?' : title
 	);
@@ -117,6 +129,17 @@
 			window.removeEventListener('resize', handleResize);
 		};
 	});
+
+	const secondaryButtonClass = $derived.by(() => {
+		switch (secondaryVariant) {
+			case 'primary':
+				return 'button-primary';
+			case 'error':
+				return 'button-error';
+			default:
+				return 'button-secondary-outlined';
+		}
+	});
 </script>
 
 {#if open}
@@ -155,9 +178,18 @@
 					>
 						{cancelLabel}
 					</button>
+					{#if secondaryLabel}
+						<button
+							type="button"
+							class={`${secondaryButtonClass} cursor-pointer`}
+							onclick={() => dispatch('secondary')}
+						>
+							{secondaryLabel}
+						</button>
+					{/if}
 					<button
 						type="button"
-						class="button-error cursor-pointer"
+						class={`${confirmVariant === 'primary' ? 'button-primary' : 'button-error'} cursor-pointer`}
 						onclick={() => dispatch('confirm')}
 					>
 						{confirmLabel}

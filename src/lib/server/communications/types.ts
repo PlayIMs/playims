@@ -1,6 +1,7 @@
 import type {
-	CommunicationBatchDraft,
-	CommunicationBatchFilter,
+	CommunicationManualRecipientDraft,
+	CommunicationRecipientGroupDraft,
+	CommunicationRecipientGroupFilter,
 	CommunicationMessageDetail,
 	CommunicationMessageSummary,
 	CommunicationRecipientPreview,
@@ -53,9 +54,14 @@ export interface CommunicationStoragePort {
 		bodyText: string;
 		updatedUser: string;
 	}): Promise<boolean>;
-	replaceBatches(input: {
+	deleteDraft(input: { clientId: string; messageId: string }): Promise<boolean>;
+	replaceRecipientGroups(input: {
 		messageId: string;
-		batches: CommunicationBatchDraft[];
+		recipientGroups: CommunicationRecipientGroupDraft[];
+	}): Promise<void>;
+	replaceManualRecipients(input: {
+		messageId: string;
+		manualRecipients: CommunicationManualRecipientDraft[];
 	}): Promise<void>;
 	replaceRecipients(input: {
 		messageId: string;
@@ -89,9 +95,9 @@ export interface CommunicationStoragePort {
 	listAudienceRows(clientId: string): Promise<CommunicationAudienceRow[]>;
 }
 
-export interface BatchPreviewResult {
+export interface RecipientGroupPreviewResult {
 	preview: CommunicationRecipientPreview;
-	storedBatch: CommunicationBatchDraft;
+	storedRecipientGroup: CommunicationRecipientGroupDraft;
 }
 
 export interface CommunicationDraftPayload {
@@ -99,9 +105,10 @@ export interface CommunicationDraftPayload {
 	subject: string;
 	editorJson: Record<string, unknown> | null;
 	bodyHtml: string;
-	batches: Array<{
+	manualRecipients: CommunicationManualRecipientDraft[];
+	recipientGroups: Array<{
 		id: string;
 		mode: 'include' | 'exclude';
-		filters: CommunicationBatchFilter;
+		filters: CommunicationRecipientGroupFilter;
 	}>;
 }

@@ -134,6 +134,50 @@ const API_ROUTE_POLICIES: ApiRoutePolicy[] = [
 		policy: { access: 'permission', permissions: [PERMISSIONS.MANAGE_CLUB_SPORTS] }
 	},
 	{
+		pattern: /^\/api\/communications$/,
+		policy: {
+			access: 'permission',
+			permissions: (method) =>
+				method === 'POST'
+					? [PERMISSIONS.CREATE_COMMUNICATION_DRAFT]
+					: [PERMISSIONS.VIEW_COMMUNICATION_CENTER]
+		}
+	},
+	{
+		pattern: /^\/api\/communications\/preview$/,
+		policy: {
+			access: 'permission',
+			permissions: [PERMISSIONS.PREVIEW_COMMUNICATION_AUDIENCE]
+		}
+	},
+	{
+		pattern: /^\/api\/communications\/recipients\/resolve$/,
+		policy: {
+			access: 'permission',
+			permissions: [PERMISSIONS.PREVIEW_COMMUNICATION_AUDIENCE]
+		}
+	},
+	{
+		pattern: /^\/api\/communications\/[^/]+$/,
+		policy: {
+			access: 'permission',
+			permissions: (method) =>
+				method === 'GET'
+					? [PERMISSIONS.VIEW_COMMUNICATION_HISTORY]
+					: method === 'DELETE'
+						? [PERMISSIONS.DELETE_COMMUNICATION_DRAFT]
+						: [PERMISSIONS.EDIT_COMMUNICATION_DRAFT]
+		}
+	},
+	{
+		pattern: /^\/api\/communications\/[^/]+\/send$/,
+		policy: { access: 'permission', permissions: [PERMISSIONS.SEND_COMMUNICATION] }
+	},
+	{
+		pattern: /^\/api\/communications\/[^/]+\/duplicate$/,
+		policy: { access: 'permission', permissions: [PERMISSIONS.DUPLICATE_COMMUNICATION] }
+	},
+	{
 		pattern: /^\/api\/facilities$/,
 		policy: {
 			access: 'permission',
@@ -209,6 +253,21 @@ const FACILITIES_RATE_LIMIT: RateLimitConfig = {
 const MEMBERS_RATE_LIMIT: RateLimitConfig = {
 	windowMs: 60_000,
 	maxRequests: 90
+};
+
+const COMMUNICATION_PREVIEW_RATE_LIMIT: RateLimitConfig = {
+	windowMs: 60_000,
+	maxRequests: 45
+};
+
+const COMMUNICATION_DRAFT_RATE_LIMIT: RateLimitConfig = {
+	windowMs: 60_000,
+	maxRequests: 20
+};
+
+const COMMUNICATION_SEND_RATE_LIMIT: RateLimitConfig = {
+	windowMs: 60_000,
+	maxRequests: 6
 };
 
 const SEARCH_RATE_LIMIT: RateLimitConfig = {
@@ -287,6 +346,24 @@ const resolveRateLimitConfig = (pathname: string): RateLimitConfig | null => {
 
 	if (pathname === '/api/members' || /^\/api\/members\/[^/]+$/.test(pathname)) {
 		return MEMBERS_RATE_LIMIT;
+	}
+
+	if (
+		pathname === '/api/communications/preview' ||
+		pathname === '/api/communications/recipients/resolve'
+	) {
+		return COMMUNICATION_PREVIEW_RATE_LIMIT;
+	}
+
+	if (pathname === '/api/communications' || /^\/api\/communications\/[^/]+$/.test(pathname)) {
+		return COMMUNICATION_DRAFT_RATE_LIMIT;
+	}
+
+	if (
+		/^\/api\/communications\/[^/]+\/send$/.test(pathname) ||
+		/^\/api\/communications\/[^/]+\/duplicate$/.test(pathname)
+	) {
+		return COMMUNICATION_SEND_RATE_LIMIT;
 	}
 
 	if (

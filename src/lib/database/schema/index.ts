@@ -34,5 +34,6 @@ export * from './signup-invite-keys';
 export * from './auth-rate-limits';
 export * from './search-recents';
 export * from './communication-messages';
-export * from './communication-message-batches';
+export * from './communication-message-recipient-groups';
+export * from './communication-message-manual-recipients';
 export * from './communication-message-recipients';
