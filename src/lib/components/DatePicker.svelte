@@ -26,6 +26,7 @@
 		buildShortcutValue,
 		clampPickerValue,
 		consumeCalendarWheelDelta,
+		formatMonthReferenceLabel,
 		formatPickerValueForDisplay,
 		inferPickerYearRange,
 		mergeDateKeyWithValue,
@@ -33,7 +34,7 @@
 		parseDisplayPickerValue,
 		parsePickerValue,
 		resolveCalendarKeyboardDateKey,
-		resolveCalendarMonthStripTranslatePercent,
+		resolveCalendarMonthStripPageOffset,
 		resolveDisplaySelectionRange,
 		shouldResetCalendarWheelGesture,
 		shiftMonthReference,
@@ -101,7 +102,6 @@
 		close: { value: string };
 	}>();
 
-	const MONTH_FORMATTER = new Intl.DateTimeFormat('en-US', { month: 'long' });
 	const DESKTOP_MEDIA_QUERY = '(min-width: 768px)';
 	const EDGE_PADDING_PX = 8;
 	const TRIGGER_GAP_PX = 8;
@@ -169,7 +169,7 @@
 	}
 
 	function monthLabel(reference: MonthReference): string {
-		return MONTH_FORMATTER.format(new Date(Date.UTC(reference.year, reference.month - 1, 1)));
+		return formatMonthReferenceLabel(reference);
 	}
 
 	function compareMonthReference(left: MonthReference, right: MonthReference): number {
@@ -731,8 +731,8 @@
 		)
 	);
 	const monthStripStyle = $derived.by(() => {
-		const translatePercent = resolveCalendarMonthStripTranslatePercent(monthSlideDirection);
-		return `transform: translateY(${translatePercent}%);`;
+		const pageOffset = resolveCalendarMonthStripPageOffset(monthSlideDirection);
+		return `transform: translateY(calc(-1 * ${pageOffset} * var(--date-picker-month-page-height)));`;
 	});
 	const canMoveBackward = $derived.by(() => {
 		const previousMonth = shiftMonthReference(visibleMonth, -1, type, min, max);

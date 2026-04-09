@@ -53,6 +53,10 @@ const DISPLAY_TIME_REGEX = /^(\d{2}):(\d{2})$/;
 const DEFAULT_DATE_DISPLAY_FORMAT = 'MM/DD/YYYY';
 const DEFAULT_CALENDAR_WHEEL_THRESHOLD = 72;
 const DEFAULT_CALENDAR_WHEEL_GESTURE_GAP_MS = 30;
+const MONTH_LABEL_FORMATTER = new Intl.DateTimeFormat('en-US', {
+	month: 'long',
+	timeZone: 'UTC'
+});
 
 function pad2(value: number): string {
 	return String(value).padStart(2, '0');
@@ -119,6 +123,10 @@ function dateKeyFromValue(value: string | undefined, type: DatePickerType): stri
 	const parsed = parsePickerValue(value ?? '', type);
 	if (!parsed) return null;
 	return dateKeyFromParts(parsed);
+}
+
+export function formatMonthReferenceLabel(reference: MonthReference): string {
+	return MONTH_LABEL_FORMATTER.format(new Date(Date.UTC(reference.year, reference.month - 1, 1, 12)));
 }
 
 function addDays(dateKey: string, dayDelta: number): string {
@@ -618,10 +626,10 @@ export function buildCalendarMonthWindow(
 	];
 }
 
-export function resolveCalendarMonthStripTranslatePercent(direction: -1 | 0 | 1): number {
+export function resolveCalendarMonthStripPageOffset(direction: -1 | 0 | 1): number {
 	if (direction === -1) return 0;
-	if (direction === 1) return -200 / 3;
-	return -100 / 3;
+	if (direction === 1) return 2;
+	return 1;
 }
 
 export function mergeDateKeyWithValue(

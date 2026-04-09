@@ -34,6 +34,7 @@ import {
 	buildShortcutValue,
 	clampPickerValue,
 	consumeCalendarWheelDelta,
+	formatMonthReferenceLabel,
 	formatPickerValueForDisplay,
 	inferPickerYearRange,
 	mergeDateKeyWithValue,
@@ -41,7 +42,7 @@ import {
 	parseDisplayPickerValue,
 	parsePickerValue,
 	resolveCalendarKeyboardDateKey,
-	resolveCalendarMonthStripTranslatePercent,
+	resolveCalendarMonthStripPageOffset,
 	resolveDisplaySelectionRange,
 	resolvePickerYearRange,
 	serializePickerValue,
@@ -70,6 +71,11 @@ describe('date-picker helpers', () => {
 		expect(formatPickerValueForDisplay('2026-04-08T14:35', 'datetime-local')).toBe(
 			'04/08/2026 14:35'
 		);
+	});
+
+	it('formats month labels without shifting them backward in local american timezones', () => {
+		expect(formatMonthReferenceLabel({ year: 2026, month: 3 })).toBe('March');
+		expect(formatMonthReferenceLabel({ year: 2026, month: 2 })).toBe('February');
 	});
 
 	it('supports custom display formats when one is provided', () => {
@@ -113,6 +119,27 @@ describe('date-picker helpers', () => {
 		});
 	});
 
+	it('keeps short months aligned to the selected month instead of drifting into the next one', () => {
+		const grid = buildCalendarGrid(
+			{ year: 2009, month: 2 },
+			{ value: '2009-02-23', type: 'date', today: '2009-02-23' }
+		);
+
+		expect(grid[0]).toMatchObject({
+			dateKey: '2009-02-01',
+			isCurrentMonth: true
+		});
+		expect(grid[27]).toMatchObject({
+			dateKey: '2009-02-28',
+			isCurrentMonth: true
+		});
+		expect(grid[28]).toMatchObject({
+			dateKey: '2009-03-01',
+			isCurrentMonth: false,
+			monthOffset: 1
+		});
+	});
+
 	it('builds an ordered previous current and next month strip for calendar snapping', () => {
 		expect(buildCalendarMonthWindow({ year: 2026, month: 4 }, 'date')).toEqual([
 			{ year: 2026, month: 3 },
@@ -127,10 +154,10 @@ describe('date-picker helpers', () => {
 		]);
 	});
 
-	it('resolves month strip offsets by single month pages instead of the whole strip height', () => {
-		expect(resolveCalendarMonthStripTranslatePercent(0)).toBeCloseTo(-100 / 3, 6);
-		expect(resolveCalendarMonthStripTranslatePercent(1)).toBeCloseTo(-200 / 3, 6);
-		expect(resolveCalendarMonthStripTranslatePercent(-1)).toBe(0);
+	it('resolves month strip offsets by exact month pages instead of percentage guesses', () => {
+		expect(resolveCalendarMonthStripPageOffset(0)).toBe(1);
+		expect(resolveCalendarMonthStripPageOffset(1)).toBe(2);
+		expect(resolveCalendarMonthStripPageOffset(-1)).toBe(0);
 	});
 
 	it('disables days outside the allowed bounds', () => {
