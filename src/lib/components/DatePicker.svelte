@@ -32,8 +32,10 @@
 		moveDisplaySelectionRange,
 		parseDisplayPickerValue,
 		parsePickerValue,
+		resolveCalendarKeyboardDateKey,
 		resolveCalendarMonthStripTranslatePercent,
 		resolveDisplaySelectionRange,
+		shouldResetCalendarWheelGesture,
 		shiftMonthReference,
 		type DatePickerShortcut,
 		type DatePickerType,
@@ -104,7 +106,8 @@
 	const EDGE_PADDING_PX = 8;
 	const TRIGGER_GAP_PX = 8;
 	const CALENDAR_WHEEL_THRESHOLD = 72;
-	const MONTH_STRIP_TRANSITION_FALLBACK_MS = 320;
+	const CALENDAR_WHEEL_GESTURE_GAP_MS = 30;
+	const MONTH_STRIP_TRANSITION_FALLBACK_MS = 120;
 	const datePickerId = Symbol('date-picker');
 
 	let root = $state<HTMLDivElement | null>(null);
@@ -114,9 +117,13 @@
 	let open = $state(false);
 	let isDesktop = $state(false);
 	let calendarWheelRemainder = $state(0);
+	let isCalendarWheelGestureLocked = $state(false);
+	let calendarWheelLockedDirection = $state<-1 | 0 | 1>(0);
+	let lastCalendarWheelEventTimestamp = $state<number | null>(null);
 	let monthSlideDirection = $state<-1 | 0 | 1>(0);
 	let isMonthTransitioning = $state(false);
 	let pendingVisibleMonth = $state<MonthReference | null>(null);
+	let focusActiveDateFrameId: number | null = null;
 	let panelStyle = $state('position: fixed; left: 0px; top: 0px; visibility: hidden;');
 	const initialNow = new Date();
 	let monthTransitionTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -168,19 +175,6 @@
 	function compareMonthReference(left: MonthReference, right: MonthReference): number {
 		if (left.year !== right.year) return left.year - right.year;
 		return left.month - right.month;
-	}
-
-	function parseDateKey(value: string): MonthReference & { day: number } | null {
-		const parsed = parsePickerValue(value, 'date');
-		if (!parsed) return null;
-		return { year: parsed.year, month: parsed.month, day: parsed.day };
-	}
-
-	function addDays(dateKey: string, dayDelta: number): string {
-		const parsed = parseDateKey(dateKey);
-		if (!parsed) return dateKey;
-		const utcDate = new Date(Date.UTC(parsed.year, parsed.month - 1, parsed.day + dayDelta));
-		return `${utcDate.getUTCFullYear()}-${pad2(utcDate.getUTCMonth() + 1)}-${pad2(utcDate.getUTCDate())}`;
 	}
 
 	function matchesMonthBounds(
@@ -327,10 +321,31 @@
 		);
 	}
 
-	function focusActiveDateButton(): void {
+	function focusActiveDateButton(): boolean {
 		const selector = `[data-month-page="current"] [data-date-picker-day="${activeDateKey}"]`;
 		const activeButton = panel?.querySelector<HTMLButtonElement>(selector);
-		activeButton?.focus();
+		if (!activeButton) return false;
+		activeButton.focus({ preventScroll: true });
+		return document.activeElement === activeButton;
+	}
+
+	function clearFocusActiveDateFrame(): void {
+		if (focusActiveDateFrameId === null || typeof window === 'undefined') return;
+		window.cancelAnimationFrame(focusActiveDateFrameId);
+		focusActiveDateFrameId = null;
+	}
+
+	function queueFocusActiveDateButton(attemptsRemaining = 3): void {
+		if (typeof window === 'undefined' || !open) return;
+		clearFocusActiveDateFrame();
+		void tick().then(() => {
+			if (!open) return;
+			focusActiveDateFrameId = window.requestAnimationFrame(() => {
+				focusActiveDateFrameId = null;
+				if (focusActiveDateButton() || attemptsRemaining <= 0) return;
+				queueFocusActiveDateButton(attemptsRemaining - 1);
+			});
+		});
 	}
 
 	function clearMonthTransitionTimeout(): void {
@@ -339,12 +354,19 @@
 		monthTransitionTimeoutId = null;
 	}
 
+	function unlockCalendarWheelGesture(): void {
+		isCalendarWheelGestureLocked = false;
+		calendarWheelLockedDirection = 0;
+		calendarWheelRemainder = 0;
+	}
+
 	function resetMonthAnimation(): void {
 		clearMonthTransitionTimeout();
+		unlockCalendarWheelGesture();
+		lastCalendarWheelEventTimestamp = null;
 		monthSlideDirection = 0;
 		isMonthTransitioning = false;
 		pendingVisibleMonth = null;
-		calendarWheelRemainder = 0;
 	}
 
 	function finalizeMonthAnimation(): void {
@@ -399,13 +421,14 @@
 		dispatch('open', { value: String(value ?? '') });
 		await tick();
 		updatePanelPosition();
-		focusActiveDateButton();
+		queueFocusActiveDateButton();
 	}
 
 	function closePanel(returnFocus = false): void {
 		if (!open) return;
 		open = false;
 		resetMonthAnimation();
+		clearFocusActiveDateFrame();
 		panelStyle = 'position: fixed; left: 0px; top: 0px; visibility: hidden;';
 		dispatch('close', { value: String(value ?? '') });
 		if (returnFocus) {
@@ -514,6 +537,22 @@
 		closePanel(true);
 	}
 
+	function moveSelectedDate(dateKey: string): void {
+		const nextValue =
+			type === 'date'
+				? dateKey
+				: mergeDateKeyWithValue(dateKey, String(value ?? ''), type);
+		const clampedValue = clampPickerValue(nextValue, type, min, max);
+		const parsed = parsePickerValue(clampedValue, type);
+		if (!parsed) return;
+
+		commitValue(clampedValue);
+		const nextDateKey = `${parsed.year}-${pad2(parsed.month)}-${pad2(parsed.day)}`;
+		activeDateKey = nextDateKey;
+		jumpToMonth({ year: parsed.year, month: parsed.month });
+		queueFocusActiveDateButton();
+	}
+
 	function moveMonth(delta: number): void {
 		if (!Number.isFinite(delta) || delta === 0) return;
 		startMonthAnimation(delta < 0 ? -1 : 1);
@@ -521,8 +560,24 @@
 
 	function handleCalendarWheel(event: WheelEvent): void {
 		if (disabled || event.ctrlKey) return;
-		if (isMonthTransitioning) {
-			event.preventDefault();
+		event.preventDefault();
+
+		const nextWheelTimestamp = Number.isFinite(event.timeStamp) ? event.timeStamp : null;
+		if (
+			nextWheelTimestamp !== null &&
+			shouldResetCalendarWheelGesture(
+				lastCalendarWheelEventTimestamp,
+				nextWheelTimestamp,
+				calendarWheelLockedDirection,
+				event.deltaY,
+				CALENDAR_WHEEL_GESTURE_GAP_MS
+			)
+		) {
+			unlockCalendarWheelGesture();
+		}
+		lastCalendarWheelEventTimestamp = nextWheelTimestamp;
+
+		if (isCalendarWheelGestureLocked) {
 			return;
 		}
 
@@ -533,13 +588,18 @@
 		);
 		calendarWheelRemainder = wheelResult.remainderDeltaY;
 		if (wheelResult.monthDelta === 0) {
-			event.preventDefault();
 			return;
 		}
 
-		event.preventDefault();
+		isCalendarWheelGestureLocked = true;
+		calendarWheelLockedDirection = wheelResult.monthDelta < 0 ? -1 : 1;
 		calendarWheelRemainder = 0;
-		startMonthAnimation(wheelResult.monthDelta < 0 ? -1 : 1);
+		const nextDirection: -1 | 1 = wheelResult.monthDelta < 0 ? -1 : 1;
+		if (isMonthTransitioning) {
+			finalizeMonthAnimation();
+		}
+
+		startMonthAnimation(nextDirection);
 	}
 
 	function handleMonthChange(nextValue: string): void {
@@ -578,24 +638,39 @@
 	}
 
 	function handleDayKeydown(event: KeyboardEvent, dateKey: string): void {
-		const movementByKey: Record<string, number> = {
-			ArrowLeft: -1,
-			ArrowRight: 1,
-			ArrowUp: -7,
-			ArrowDown: 7
-		};
-		const dayDelta = movementByKey[event.key];
-		if (dayDelta === undefined) return;
+		const nextDateKey = resolveCalendarKeyboardDateKey(dateKey, event.key, event.shiftKey);
+		if (!nextDateKey) return;
 
 		event.preventDefault();
-		const nextDateKey = addDays(dateKey, dayDelta);
-		activeDateKey = nextDateKey;
-		const nextDate = parseDateKey(nextDateKey);
-		if (!nextDate) return;
-		jumpToMonth({ year: nextDate.year, month: nextDate.month });
-		void tick().then(() => {
-			focusActiveDateButton();
-		});
+		moveSelectedDate(nextDateKey);
+	}
+
+	function shouldHandleCalendarNavigationKey(event: KeyboardEvent): boolean {
+		if (!open || !isTopDatePicker(datePickerId)) return false;
+		if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return false;
+		if (
+			event.key !== 'ArrowLeft' &&
+			event.key !== 'ArrowRight' &&
+			event.key !== 'ArrowUp' &&
+			event.key !== 'ArrowDown'
+		) {
+			return false;
+		}
+
+		const target = event.target;
+		if (!(target instanceof Element)) return true;
+		if (target.closest('[data-date-picker-day], .date-picker-month-viewport')) return true;
+		if (target.closest('input, textarea, select, [role="listbox"], [role="option"]')) return false;
+		if (target.closest('button:not([data-date-picker-day])')) return false;
+		return true;
+	}
+
+	function handleCalendarNavigationKey(event: KeyboardEvent): void {
+		const nextDateKey = resolveCalendarKeyboardDateKey(activeDateKey, event.key, event.shiftKey);
+		if (!nextDateKey) return;
+		event.preventDefault();
+		event.stopPropagation();
+		moveSelectedDate(nextDateKey);
 	}
 
 	function handleMonthStripTransitionEnd(event: TransitionEvent): void {
@@ -724,6 +799,10 @@
 		};
 
 		const handleWindowKeydown = (event: KeyboardEvent) => {
+			if (shouldHandleCalendarNavigationKey(event)) {
+				handleCalendarNavigationKey(event);
+				return;
+			}
 			if (event.key !== 'Escape') return;
 			if (!isTopDatePicker(datePickerId)) return;
 			event.preventDefault();
@@ -755,6 +834,7 @@
 	$effect(() => {
 		return () => {
 			clearMonthTransitionTimeout();
+			clearFocusActiveDateFrame();
 		};
 	});
 </script>
@@ -914,7 +994,7 @@
 									type="button"
 									role="gridcell"
 									data-date-picker-day={cell.dateKey}
-									tabindex={monthPage.slot === 'current' ? undefined : -1}
+									tabindex={monthPage.slot === 'current' && cell.dateKey === activeDateKey ? 0 : -1}
 									aria-selected={cell.isSelected}
 									aria-current={cell.isToday ? 'date' : undefined}
 									disabled={cell.isDisabled}

@@ -52,6 +52,7 @@ const DATETIME_LOCAL_VALUE_REGEX = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::
 const DISPLAY_TIME_REGEX = /^(\d{2}):(\d{2})$/;
 const DEFAULT_DATE_DISPLAY_FORMAT = 'MM/DD/YYYY';
 const DEFAULT_CALENDAR_WHEEL_THRESHOLD = 72;
+const DEFAULT_CALENDAR_WHEEL_GESTURE_GAP_MS = 30;
 
 function pad2(value: number): string {
 	return String(value).padStart(2, '0');
@@ -410,15 +411,30 @@ export function consumeCalendarWheelDelta(
 		};
 	}
 
-	const monthDelta =
-		nextDelta > 0
-			? Math.floor(nextDelta / resolvedThreshold)
-			: Math.ceil(nextDelta / resolvedThreshold);
-
 	return {
-		remainderDeltaY: nextDelta - monthDelta * resolvedThreshold,
-		monthDelta
+		remainderDeltaY: 0,
+		monthDelta: nextDelta < 0 ? -1 : 1
 	};
+}
+
+export function shouldResetCalendarWheelGesture(
+	lastEventTimestamp: number | null,
+	nextEventTimestamp: number,
+	lockedDirection: -1 | 0 | 1,
+	deltaY: number,
+	gapMs = DEFAULT_CALENDAR_WHEEL_GESTURE_GAP_MS
+): boolean {
+	if (!Number.isFinite(nextEventTimestamp)) return false;
+	if (lastEventTimestamp === null || !Number.isFinite(lastEventTimestamp)) return true;
+
+	const resolvedGapMs =
+		Number.isFinite(gapMs) && gapMs >= 0 ? gapMs : DEFAULT_CALENDAR_WHEEL_GESTURE_GAP_MS;
+	const deltaDirection: -1 | 0 | 1 = deltaY < 0 ? -1 : deltaY > 0 ? 1 : 0;
+	if (deltaDirection !== 0 && lockedDirection !== 0 && deltaDirection !== lockedDirection) {
+		return true;
+	}
+
+	return nextEventTimestamp - lastEventTimestamp > resolvedGapMs;
 }
 
 export function resolveDisplaySelectionRange(
@@ -518,6 +534,37 @@ export function shiftMonthReference(
 		monthReferenceFromValue(min, type),
 		monthReferenceFromValue(max, type)
 	);
+}
+
+export function shiftDateKeyByMonths(dateKey: string, delta: number): string {
+	const parsed = parsePickerValue(dateKey, 'date');
+	if (!parsed || !Number.isFinite(delta) || delta === 0) return dateKey;
+
+	const shiftedMonthIndex = parsed.month - 1 + delta;
+	const shiftedYear = parsed.year + Math.floor(shiftedMonthIndex / 12);
+	const shiftedMonth = ((shiftedMonthIndex % 12) + 12) % 12 + 1;
+	const shiftedDay = Math.min(parsed.day, daysInMonth(shiftedYear, shiftedMonth));
+
+	return dateKeyFromParts({
+		year: shiftedYear,
+		month: shiftedMonth,
+		day: shiftedDay
+	});
+}
+
+export function resolveCalendarKeyboardDateKey(
+	dateKey: string,
+	key: string,
+	shiftKey: boolean
+): string | null {
+	if (key === 'ArrowLeft') return addDays(dateKey, -1);
+	if (key === 'ArrowRight') return addDays(dateKey, 1);
+	if (key === 'ArrowUp') return shiftKey ? shiftDateKeyByMonths(dateKey, -1) : addDays(dateKey, -7);
+	if (key === 'ArrowDown') {
+		return shiftKey ? shiftDateKeyByMonths(dateKey, 1) : addDays(dateKey, 7);
+	}
+
+	return null;
 }
 
 export function buildCalendarGrid(

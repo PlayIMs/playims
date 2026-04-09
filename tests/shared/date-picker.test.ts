@@ -18,10 +18,12 @@ Summary of tests:
 6. It verifies month navigation clamps to the allowed month range.
 7. It verifies year ranges default to the current year through ten years ahead.
 8. It verifies inferred year ranges expand to include contextual values and caller overrides.
-9. It verifies wheel scrolling accumulates into previous and next month shifts.
-10. It verifies month day and year selection ranges move cleanly across separators.
-11. It verifies date shortcuts use the current day while preserving datetime-local time.
-12. It verifies date selection merges with an existing or fallback time for datetime-local values.
+9. It verifies wheel scrolling accumulates toward a single previous or next month shift per gesture.
+10. It verifies new wheel gestures reset after a pause or direction change.
+11. It verifies keyboard calendar movement resolves day, week, and month jumps.
+12. It verifies month day and year selection ranges move cleanly across separators.
+13. It verifies date shortcuts use the current day while preserving datetime-local time.
+14. It verifies date selection merges with an existing or fallback time for datetime-local values.
 */
 
 import { describe, expect, it } from 'vitest';
@@ -38,10 +40,12 @@ import {
 	moveDisplaySelectionRange,
 	parseDisplayPickerValue,
 	parsePickerValue,
+	resolveCalendarKeyboardDateKey,
 	resolveCalendarMonthStripTranslatePercent,
 	resolveDisplaySelectionRange,
 	resolvePickerYearRange,
 	serializePickerValue,
+	shouldResetCalendarWheelGesture,
 	shiftMonthReference,
 	type DatePickerType
 } from '../../src/lib/components/date-picker';
@@ -212,19 +216,38 @@ describe('date-picker helpers', () => {
 		});
 	});
 
-	it('accumulates wheel scrolling into previous and next month shifts', () => {
+	it('accumulates wheel scrolling into a single previous or next month shift per gesture', () => {
 		expect(consumeCalendarWheelDelta(0, 24)).toEqual({
 			remainderDeltaY: 24,
 			monthDelta: 0
 		});
 		expect(consumeCalendarWheelDelta(24, 52)).toEqual({
-			remainderDeltaY: 4,
+			remainderDeltaY: 0,
 			monthDelta: 1
 		});
 		expect(consumeCalendarWheelDelta(0, -170)).toEqual({
-			remainderDeltaY: -26,
-			monthDelta: -2
+			remainderDeltaY: 0,
+			monthDelta: -1
 		});
+	});
+
+	it('resets wheel gestures after a pause or direction change', () => {
+		expect(shouldResetCalendarWheelGesture(null, 1000, 0, 28)).toBe(true);
+		expect(shouldResetCalendarWheelGesture(1000, 1020, 1, 28)).toBe(false);
+		expect(shouldResetCalendarWheelGesture(1000, 1038, 1, 28)).toBe(true);
+		expect(shouldResetCalendarWheelGesture(1000, 1035, 1, -14)).toBe(true);
+	});
+
+	it('resolves keyboard calendar movement across day week and month jumps', () => {
+		expect(resolveCalendarKeyboardDateKey('2026-06-04', 'ArrowLeft', false)).toBe('2026-06-03');
+		expect(resolveCalendarKeyboardDateKey('2026-06-04', 'ArrowRight', false)).toBe('2026-06-05');
+		expect(resolveCalendarKeyboardDateKey('2026-06-04', 'ArrowUp', false)).toBe('2026-05-28');
+		expect(resolveCalendarKeyboardDateKey('2026-06-04', 'ArrowDown', false)).toBe('2026-06-11');
+		expect(resolveCalendarKeyboardDateKey('2026-06-04', 'ArrowUp', true)).toBe('2026-05-04');
+		expect(resolveCalendarKeyboardDateKey('2026-03-31', 'ArrowDown', true)).toBe(
+			'2026-04-30'
+		);
+		expect(resolveCalendarKeyboardDateKey('2026-06-04', 'Enter', false)).toBeNull();
 	});
 
 	it('moves month day and year selection ranges across formatted date separators', () => {
