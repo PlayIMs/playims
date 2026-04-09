@@ -192,7 +192,9 @@
 				disabled={isReloading}
 				onclick={onReload}
 			>
-				<IconRefresh class="h-4.5 w-4.5" />
+				<IconRefresh
+					class={`h-4.5 w-4.5 motion-reduce:animate-none ${isReloading ? 'animate-spin' : ''}`}
+				/>
 			</button>
 		</HoverTooltip>
 		<HoverTooltip text="Open dashboard">
