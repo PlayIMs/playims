@@ -1051,7 +1051,9 @@
 								<HoverTooltip text={isSidebarOpen ? '' : item.label} wrapperClass="block w-full">
 									<a
 										href={item.href}
-										data-sveltekit-preload-data={getDashboardNavigationPreloadData(item.key)}
+										data-sveltekit-preload-data={DASHBOARD_NAV_KEY_SET.has(item.key as DashboardNavKey)
+											? getDashboardNavigationPreloadData(item.key as DashboardNavKey)
+											: undefined}
 										class="w-full whitespace-nowrap {isSidebarOpen
 											? 'px-4 py-3 md:px-3 md:py-2.5 md:gap-2.5 xl:px-4 xl:py-3 xl:gap-3 flex items-center text-base md:text-sm xl:text-base'
 											: 'px-2 py-3 md:px-1.5 md:py-2.5 xl:px-2 xl:py-3 flex items-center justify-start'} overflow-hidden transition-colors duration-150 cursor-pointer {isMenuItemActive(

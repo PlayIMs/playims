@@ -43,9 +43,9 @@ export const isCommunicationEditorSpecialCharacterShortcut = (
 
 	return (
 		String(event.key ?? '').toLowerCase() === 's' &&
-		Boolean(event.altKey) &&
-		Boolean(event.shiftKey) &&
-		!Boolean(event.ctrlKey) &&
-		!Boolean(event.metaKey)
+		(event.altKey ?? false) &&
+		(event.shiftKey ?? false) &&
+		!(event.ctrlKey ?? false) &&
+		!(event.metaKey ?? false)
 	);
 };
