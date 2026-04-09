@@ -24,6 +24,21 @@ export interface CalendarCell {
 	isToday: boolean;
 }
 
+export interface PickerYearRange {
+	minYear: number;
+	maxYear: number;
+}
+
+export interface CalendarWheelDeltaResult {
+	remainderDeltaY: number;
+	monthDelta: number;
+}
+
+export interface DisplaySelectionRange {
+	start: number;
+	end: number;
+}
+
 interface CalendarGridOptions {
 	value?: string;
 	type: DatePickerType;
@@ -34,6 +49,9 @@ interface CalendarGridOptions {
 
 const DATE_VALUE_REGEX = /^(\d{4})-(\d{2})-(\d{2})$/;
 const DATETIME_LOCAL_VALUE_REGEX = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::\d{2}(?:\.\d+)?)?$/;
+const DISPLAY_TIME_REGEX = /^(\d{2}):(\d{2})$/;
+const DEFAULT_DATE_DISPLAY_FORMAT = 'MM/DD/YYYY';
+const DEFAULT_CALENDAR_WHEEL_THRESHOLD = 72;
 
 function pad2(value: number): string {
 	return String(value).padStart(2, '0');
@@ -130,6 +148,149 @@ function currentLocalParts(now: Date): Pick<DatePickerParts, 'year' | 'month' | 
 	};
 }
 
+function normalizeYearValue(value: number | undefined): number | null {
+	if (!Number.isFinite(value)) return null;
+	return Math.trunc(value as number);
+}
+
+function extractYearCandidate(value: string | number | null | undefined): number | null {
+	if (typeof value === 'number') {
+		return normalizeYearValue(value);
+	}
+
+	if (typeof value !== 'string') return null;
+	const trimmed = value.trim();
+	if (!trimmed) return null;
+
+	const dateMatch = /^(\d{4})-/.exec(trimmed);
+	if (dateMatch) return Number(dateMatch[1]);
+
+	const displayMatch = /(\d{4})/.exec(trimmed);
+	return displayMatch ? Number(displayMatch[1]) : null;
+}
+
+type DateDisplayToken = 'MM' | 'DD' | 'YYYY';
+
+interface DateFormatSegment {
+	kind: 'token' | 'literal';
+	value: string;
+}
+
+function splitDateFormat(format: string): DateFormatSegment[] | null {
+	const normalized = format.trim();
+	if (!normalized) return null;
+
+	const segments: DateFormatSegment[] = [];
+	let cursor = 0;
+	while (cursor < normalized.length) {
+		const remainder = normalized.slice(cursor);
+		if (remainder.startsWith('YYYY')) {
+			segments.push({ kind: 'token', value: 'YYYY' });
+			cursor += 4;
+			continue;
+		}
+
+		if (remainder.startsWith('MM') || remainder.startsWith('DD')) {
+			segments.push({ kind: 'token', value: remainder.slice(0, 2) });
+			cursor += 2;
+			continue;
+		}
+
+		segments.push({ kind: 'literal', value: normalized[cursor] });
+		cursor += 1;
+	}
+
+	const tokenSequence = segments.filter((segment) => segment.kind === 'token').map((segment) => segment.value);
+	const hasEachDateToken =
+		tokenSequence.filter((token) => token === 'MM').length === 1 &&
+		tokenSequence.filter((token) => token === 'DD').length === 1 &&
+		tokenSequence.filter((token) => token === 'YYYY').length === 1;
+
+	return hasEachDateToken ? segments : null;
+}
+
+function resolveDateDisplayFormat(format?: string): string {
+	return splitDateFormat(format ?? '') ? format!.trim() : DEFAULT_DATE_DISPLAY_FORMAT;
+}
+
+function displayLayout(type: DatePickerType, format?: string): string {
+	const dateLayout = resolveDateDisplayFormat(format);
+	return type === 'date' ? dateLayout : `${dateLayout} HH:mm`;
+}
+
+function displaySelectionSegments(type: DatePickerType, format?: string): DisplaySelectionRange[] {
+	const layout = displayLayout(type, format);
+	const tokenMatches = Array.from(layout.matchAll(/YYYY|MM|DD|HH|mm/g));
+	return tokenMatches.map((match) => ({
+		start: match.index ?? 0,
+		end: (match.index ?? 0) + match[0].length
+	}));
+}
+
+function selectionSegmentIndexForCaret(
+	segments: DisplaySelectionRange[],
+	caret: number
+): number {
+	if (segments.length === 0) return -1;
+
+	const containingIndex = segments.findIndex((segment) => caret >= segment.start && caret < segment.end);
+	if (containingIndex !== -1) return containingIndex;
+
+	const nextIndex = segments.findIndex((segment) => caret < segment.start);
+	return nextIndex !== -1 ? nextIndex : segments.length - 1;
+}
+
+function formatDatePartsForDisplay(
+	parts: Pick<DatePickerParts, 'year' | 'month' | 'day'>,
+	format?: string
+): string {
+	const resolvedFormat = resolveDateDisplayFormat(format);
+	const segments = splitDateFormat(resolvedFormat) ?? [];
+	return segments
+		.map((segment) => {
+			if (segment.kind === 'literal') return segment.value;
+			if (segment.value === 'MM') return pad2(parts.month);
+			if (segment.value === 'DD') return pad2(parts.day);
+			return String(parts.year);
+		})
+		.join('');
+}
+
+function parseDateDisplayParts(
+	value: string,
+	format?: string
+): Pick<DatePickerParts, 'year' | 'month' | 'day'> | null {
+	const resolvedFormat = resolveDateDisplayFormat(format);
+	const segments = splitDateFormat(resolvedFormat);
+	if (!segments) return null;
+
+	let cursor = 0;
+	let year: number | null = null;
+	let month: number | null = null;
+	let day: number | null = null;
+
+	for (const segment of segments) {
+		if (segment.kind === 'literal') {
+			if (value.slice(cursor, cursor + segment.value.length) !== segment.value) return null;
+			cursor += segment.value.length;
+			continue;
+		}
+
+		const width = segment.value === 'YYYY' ? 4 : 2;
+		const slice = value.slice(cursor, cursor + width);
+		if (!/^\d+$/.test(slice) || slice.length !== width) return null;
+
+		if (segment.value === 'YYYY') year = Number(slice);
+		if (segment.value === 'MM') month = Number(slice);
+		if (segment.value === 'DD') day = Number(slice);
+		cursor += width;
+	}
+
+	if (cursor !== value.length || year === null || month === null || day === null) return null;
+	if (!isValidDateParts(year, month, day)) return null;
+	return { year, month, day };
+}
+
 export function parsePickerValue(
 	value: string,
 	type: DatePickerType
@@ -153,10 +314,173 @@ export function parsePickerValue(
 	return { year, month, day, hour, minute };
 }
 
+export function parseDisplayPickerValue(
+	value: string,
+	type: DatePickerType,
+	format?: string
+): string | null {
+	const trimmed = value.trim();
+	if (!trimmed) return null;
+
+	const isoParsed = parsePickerValue(trimmed, type);
+	if (isoParsed) {
+		return serializePickerValue(isoParsed, type);
+	}
+
+	if (type === 'date') {
+		const dateParts = parseDateDisplayParts(trimmed, format);
+		if (!dateParts) return null;
+		return dateKeyFromParts(dateParts);
+	}
+
+	const timeMatch = /^(.*?)(?:\s+|T)(\d{2}:\d{2})$/.exec(trimmed);
+	if (!timeMatch) return null;
+	const dateParts = parseDateDisplayParts(timeMatch[1].trim(), format);
+	if (!dateParts) return null;
+	const parsedTime = DISPLAY_TIME_REGEX.exec(timeMatch[2]);
+	if (!parsedTime) return null;
+
+	const hour = Number(parsedTime[1]);
+	const minute = Number(parsedTime[2]);
+	if (!isValidTimeParts(hour, minute)) return null;
+
+	return `${dateKeyFromParts(dateParts)}T${pad2(hour)}:${pad2(minute)}`;
+}
+
+export function resolvePickerYearRange(
+	minYear?: number,
+	maxYear?: number,
+	now = new Date()
+): PickerYearRange {
+	const currentYear = now.getFullYear();
+	const resolvedMinYear = normalizeYearValue(minYear) ?? currentYear;
+	const resolvedMaxYear = normalizeYearValue(maxYear) ?? currentYear + 10;
+
+	return resolvedMinYear <= resolvedMaxYear
+		? { minYear: resolvedMinYear, maxYear: resolvedMaxYear }
+		: { minYear: resolvedMaxYear, maxYear: resolvedMinYear };
+}
+
+export function inferPickerYearRange(
+	values: Array<string | number | null | undefined>,
+	options: {
+		minYear?: number;
+		maxYear?: number;
+		pastYears?: number;
+		futureYears?: number;
+		now?: Date;
+	} = {}
+): PickerYearRange {
+	const now = options.now ?? new Date();
+	const currentYear = now.getFullYear();
+	const baseline = resolvePickerYearRange(
+		options.minYear ?? currentYear - (options.pastYears ?? 0),
+		options.maxYear ?? currentYear + (options.futureYears ?? 10),
+		now
+	);
+
+	const inferredYears = values
+		.map((value) => extractYearCandidate(value))
+		.filter((value): value is number => value !== null);
+	if (inferredYears.length === 0) {
+		return baseline;
+	}
+
+	return {
+		minYear: Math.min(baseline.minYear, ...inferredYears),
+		maxYear: Math.max(baseline.maxYear, ...inferredYears)
+	};
+}
+
+export function consumeCalendarWheelDelta(
+	remainderDeltaY: number,
+	deltaY: number,
+	threshold = DEFAULT_CALENDAR_WHEEL_THRESHOLD
+): CalendarWheelDeltaResult {
+	if (!Number.isFinite(deltaY) || !Number.isFinite(remainderDeltaY)) {
+		return { remainderDeltaY: 0, monthDelta: 0 };
+	}
+
+	const resolvedThreshold = Number.isFinite(threshold) && threshold > 0 ? threshold : DEFAULT_CALENDAR_WHEEL_THRESHOLD;
+	const nextDelta = remainderDeltaY + deltaY;
+	if (Math.abs(nextDelta) < resolvedThreshold) {
+		return {
+			remainderDeltaY: nextDelta,
+			monthDelta: 0
+		};
+	}
+
+	const monthDelta =
+		nextDelta > 0
+			? Math.floor(nextDelta / resolvedThreshold)
+			: Math.ceil(nextDelta / resolvedThreshold);
+
+	return {
+		remainderDeltaY: nextDelta - monthDelta * resolvedThreshold,
+		monthDelta
+	};
+}
+
+export function resolveDisplaySelectionRange(
+	value: string,
+	type: DatePickerType,
+	format?: string,
+	caret = 0
+): DisplaySelectionRange {
+	const segments = displaySelectionSegments(type, format);
+	if (segments.length === 0) {
+		return {
+			start: 0,
+			end: value.length
+		};
+	}
+
+	const clampedCaret = Math.max(0, Math.min(caret, Math.max(value.length, segments.at(-1)?.end ?? 0)));
+	return segments[selectionSegmentIndexForCaret(segments, clampedCaret)] ?? segments[0];
+}
+
+export function moveDisplaySelectionRange(
+	value: string,
+	type: DatePickerType,
+	format: string | undefined,
+	currentStart: number,
+	currentEnd: number,
+	direction: -1 | 1
+): DisplaySelectionRange {
+	const segments = displaySelectionSegments(type, format);
+	if (segments.length === 0) {
+		return {
+			start: 0,
+			end: value.length
+		};
+	}
+
+	const currentIndex = segments.findIndex(
+		(segment) => segment.start === currentStart && segment.end === currentEnd
+	);
+	const fallbackIndex = selectionSegmentIndexForCaret(segments, direction < 0 ? currentStart : currentEnd);
+	const resolvedIndex = currentIndex === -1 ? fallbackIndex : currentIndex;
+	const nextIndex = Math.max(0, Math.min(resolvedIndex + direction, segments.length - 1));
+	return segments[nextIndex] ?? segments[0];
+}
+
 export function serializePickerValue(parts: DatePickerParts, type: DatePickerType): string {
 	const dateValue = dateKeyFromParts(parts);
 	if (type === 'date') return dateValue;
 	return `${dateValue}T${pad2(parts.hour)}:${pad2(parts.minute)}`;
+}
+
+export function formatPickerValueForDisplay(
+	value: string,
+	type: DatePickerType,
+	format?: string
+): string {
+	const parsed = parsePickerValue(value, type);
+	if (!parsed) return value;
+
+	const formattedDate = formatDatePartsForDisplay(parsed, format);
+	if (type === 'date') return formattedDate;
+	return `${formattedDate} ${pad2(parsed.hour)}:${pad2(parsed.minute)}`;
 }
 
 export function clampPickerValue(
@@ -232,6 +556,25 @@ export function buildCalendarGrid(
 			isToday: todayDateKey === dateKey
 		};
 	});
+}
+
+export function buildCalendarMonthWindow(
+	reference: MonthReference,
+	type: DatePickerType,
+	min?: string,
+	max?: string
+): [MonthReference, MonthReference, MonthReference] {
+	return [
+		shiftMonthReference(reference, -1, type, min, max),
+		{ ...reference },
+		shiftMonthReference(reference, 1, type, min, max)
+	];
+}
+
+export function resolveCalendarMonthStripTranslatePercent(direction: -1 | 0 | 1): number {
+	if (direction === -1) return 0;
+	if (direction === 1) return -200 / 3;
+	return -100 / 3;
 }
 
 export function mergeDateKeyWithValue(

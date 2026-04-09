@@ -21,6 +21,7 @@
 	import CreateLeagueWizard from '../../_wizards/CreateLeagueWizard.svelte';
 	import CreateDivisionCollectionWizard from './[leagueSlug]/_wizards/CreateDivisionCollectionWizard.svelte';
 	import DatePicker from '$lib/components/DatePicker.svelte';
+	import { inferPickerYearRange } from '$lib/components/date-picker.js';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import InfoPopover from '$lib/components/InfoPopover.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
@@ -291,6 +292,21 @@
 	});
 	const createDivisionDirtyState = createWizardDirtyState<CreateDivisionWizardState>();
 	const createLeagueDirtyState = createWizardDirtyState<LeagueWizardFormState>();
+	const createLeagueDateYearRange = $derived.by(() =>
+		inferPickerYearRange(
+			[
+				createLeagueForm.league.regStartDate,
+				createLeagueForm.league.regEndDate,
+				createLeagueForm.league.seasonStartDate,
+				createLeagueForm.league.seasonEndDate,
+				createLeagueForm.league.preseasonStartDate,
+				createLeagueForm.league.preseasonEndDate,
+				createLeagueForm.league.postseasonStartDate,
+				createLeagueForm.league.postseasonEndDate
+			],
+			{ pastYears: 1, futureYears: 4 }
+		)
+	);
 
 	function normalizeAuthRole(
 		value: string | null | undefined
@@ -3336,6 +3352,8 @@
 						<DatePicker
 							id="league-wizard-reg-start"
 							type="datetime-local"
+							minYear={createLeagueDateYearRange.minYear}
+							maxYear={createLeagueDateYearRange.maxYear}
 							inputClass="input-secondary py-2 text-sm"
 							bind:value={createLeagueForm.league.regStartDate}
 							on:focus={() => {
@@ -3361,6 +3379,8 @@
 						<DatePicker
 							id="league-wizard-reg-end"
 							type="datetime-local"
+							minYear={createLeagueDateYearRange.minYear}
+							maxYear={createLeagueDateYearRange.maxYear}
 							inputClass="input-secondary py-2 text-sm"
 							bind:value={createLeagueForm.league.regEndDate}
 							on:focus={() => {
@@ -3385,6 +3405,8 @@
 						<DatePicker
 							id="league-wizard-season-start"
 							type="date"
+							minYear={createLeagueDateYearRange.minYear}
+							maxYear={createLeagueDateYearRange.maxYear}
 							inputClass="input-secondary py-2 text-sm"
 							bind:value={createLeagueForm.league.seasonStartDate}
 						/>
@@ -3404,6 +3426,8 @@
 						<DatePicker
 							id="league-wizard-season-end"
 							type="date"
+							minYear={createLeagueDateYearRange.minYear}
+							maxYear={createLeagueDateYearRange.maxYear}
 							inputClass="input-secondary py-2 text-sm"
 							bind:value={createLeagueForm.league.seasonEndDate}
 						/>
@@ -3445,6 +3469,8 @@
 									<DatePicker
 										id="league-wizard-preseason-start"
 										type="date"
+										minYear={createLeagueDateYearRange.minYear}
+										maxYear={createLeagueDateYearRange.maxYear}
 										inputClass="input-secondary py-2 text-sm"
 										bind:value={createLeagueForm.league.preseasonStartDate}
 									/>
@@ -3462,6 +3488,8 @@
 									<DatePicker
 										id="league-wizard-preseason-end"
 										type="date"
+										minYear={createLeagueDateYearRange.minYear}
+										maxYear={createLeagueDateYearRange.maxYear}
 										inputClass="input-secondary py-2 text-sm"
 										bind:value={createLeagueForm.league.preseasonEndDate}
 									/>
@@ -3500,6 +3528,8 @@
 									<DatePicker
 										id="league-wizard-postseason-start"
 										type="date"
+										minYear={createLeagueDateYearRange.minYear}
+										maxYear={createLeagueDateYearRange.maxYear}
 										inputClass="input-secondary py-2 text-sm"
 										bind:value={createLeagueForm.league.postseasonStartDate}
 									/>
@@ -3517,6 +3547,8 @@
 									<DatePicker
 										id="league-wizard-postseason-end"
 										type="date"
+										minYear={createLeagueDateYearRange.minYear}
+										maxYear={createLeagueDateYearRange.maxYear}
 										inputClass="input-secondary py-2 text-sm"
 										bind:value={createLeagueForm.league.postseasonEndDate}
 									/>

@@ -12,6 +12,7 @@
 	import { createEventDispatcher, tick } from 'svelte';
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import DatePicker from '$lib/components/DatePicker.svelte';
+	import { inferPickerYearRange } from '$lib/components/date-picker.js';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import InfoPopover from '$lib/components/InfoPopover.svelte';
 	import ModalShell from '$lib/components/modals/ModalShell.svelte';
@@ -79,6 +80,9 @@
 	let seasonSearchTerm = $state('');
 	let nameInput = $state<HTMLInputElement | null>(null);
 	let lastToastSignature = $state('');
+	const seasonDateYearRange = $derived.by(() =>
+		inferPickerYearRange([startDate, endDate], { futureYears: 10 })
+	);
 
 	const sortedSeasons = $derived.by(() => [...seasons].sort(compareSeasonHistoryOrder));
 	const filteredSeasons = $derived.by(() => {
@@ -644,6 +648,8 @@
 						<DatePicker
 							id="manage-season-start"
 							type="date"
+							minYear={seasonDateYearRange.minYear}
+							maxYear={seasonDateYearRange.maxYear}
 							inputClass="input-secondary py-2 text-sm"
 							bind:value={startDate}
 							disabled={isSubmitting}
@@ -659,6 +665,8 @@
 						<DatePicker
 							id="manage-season-end"
 							type="date"
+							minYear={seasonDateYearRange.minYear}
+							maxYear={seasonDateYearRange.maxYear}
 							inputClass="input-secondary py-2 text-sm"
 							bind:value={endDate}
 							disabled={isSubmitting}

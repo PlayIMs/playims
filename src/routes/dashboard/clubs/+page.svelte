@@ -28,6 +28,7 @@
 		inferAcademicSeasonRangeFromName,
 		resolveAcademicSeasonEndDate
 	} from '$lib/utils/academic-season.js';
+	import { inferPickerYearRange } from '$lib/components/date-picker.js';
 	import CreateClubLeagueWizard from './_wizards/CreateClubLeagueWizard.svelte';
 	import CreateClubSeasonWizard from './_wizards/CreateClubSeasonWizard.svelte';
 	import CreateClubSportWizard from './_wizards/CreateClubSportWizard.svelte';
@@ -192,6 +193,11 @@
 			value: season.id,
 			label: season.name
 		}))
+	);
+	const createSeasonDateYearRange = $derived.by(() =>
+		inferPickerYearRange([createSeasonForm.startDate, createSeasonForm.endDate], {
+			futureYears: 10
+		})
 	);
 
 	const availableClubs = $derived.by<DropdownOption[]>(() => {
@@ -1646,6 +1652,8 @@
 					<DatePicker
 						id="club-season-start-date"
 						type="date"
+						minYear={createSeasonDateYearRange.minYear}
+						maxYear={createSeasonDateYearRange.maxYear}
 						inputClass="input-secondary py-2 text-sm"
 						on:input={(event) => {
 							const nextStartDate = event.detail.value;
@@ -1673,6 +1681,8 @@
 					<DatePicker
 						id="club-season-end-date"
 						type="date"
+						minYear={createSeasonDateYearRange.minYear}
+						maxYear={createSeasonDateYearRange.maxYear}
 						inputClass="input-secondary py-2 text-sm"
 						on:input={(event) => {
 							createSeasonEndDateTouched = true;

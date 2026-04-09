@@ -4,6 +4,7 @@
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import InfoPopover from '$lib/components/InfoPopover.svelte';
 	import ToggleField from '$lib/components/ToggleField.svelte';
+	import { inferPickerYearRange } from '$lib/components/date-picker.js';
 	import {
 		formatDivisionDays,
 		parseDivisionDays
@@ -87,6 +88,9 @@
 	let lastToastSignature = $state('');
 	const resolvedSelectedDayValues = $derived.by(() => parseDivisionDays(form.dayOfWeek));
 	const selectedDaysSummary = $derived.by(() => formatDivisionDays(resolvedSelectedDayValues));
+	const divisionStartDateYearRange = $derived.by(() =>
+		inferPickerYearRange([form.startDate], { pastYears: 1, futureYears: 4 })
+	);
 
 	$effect(() => {
 		const message = formError.trim();
@@ -285,6 +289,8 @@
 						<DatePicker
 							id="create-division-start-date"
 							type="date"
+							minYear={divisionStartDateYearRange.minYear}
+							maxYear={divisionStartDateYearRange.maxYear}
 							inputClass="input-secondary py-2 text-sm"
 							bind:value={form.startDate}
 						/>

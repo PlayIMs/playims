@@ -186,29 +186,6 @@
 		--tw-ring-color: var(--color-primary-500) !important;
 	}
 
-	/* Opt-in: hide native picker indicator when a custom trigger is rendered. */
-	input.no-native-date-picker {
-		appearance: none;
-		-moz-appearance: textfield;
-	}
-
-	input.no-native-date-picker::-webkit-calendar-picker-indicator {
-		-webkit-appearance: none;
-		appearance: none;
-		opacity: 0;
-		pointer-events: none;
-		width: 0;
-		min-width: 0;
-		margin: 0;
-		padding: 0;
-	}
-
-	input.no-native-date-picker::-webkit-clear-button,
-	input.no-native-date-picker::-webkit-inner-spin-button {
-		-webkit-appearance: none;
-		display: none;
-	}
-
 	/* Opt-in: suppress browser focus chrome when a parent shell provides the interaction surface. */
 	input.no-date-input-focus-chrome:focus {
 		outline: none !important;
@@ -1099,6 +1076,7 @@
 	}
 
 	.date-picker-panel {
+		--date-picker-day-height: 2.3rem;
 		border: 2px solid var(--color-neutral-950);
 		background-color: white;
 		color: var(--color-neutral-950);
@@ -1204,12 +1182,39 @@
 	.date-picker-grid {
 		display: grid;
 		grid-template-columns: repeat(7, minmax(0, 1fr));
+		grid-template-rows: repeat(6, var(--date-picker-day-height));
 		background-color: white;
+	}
+
+	.date-picker-month-viewport {
+		overflow: hidden;
+		height: calc(var(--date-picker-day-height) * 6);
+		background-color: white;
+		touch-action: pan-y;
+	}
+
+	.date-picker-month-strip {
+		display: flex;
+		flex-direction: column;
+		transform: translateY(-100%);
+	}
+
+	.date-picker-month-strip-animating {
+		transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+		will-change: transform;
+	}
+
+	.date-picker-month-page {
+		flex: 0 0 auto;
+	}
+
+	.date-picker-grid[aria-hidden='true'] {
+		pointer-events: none;
 	}
 
 	.date-picker-day {
 		display: inline-flex;
-		min-height: 2.3rem;
+		min-height: 0;
 		align-items: center;
 		justify-content: center;
 		border-right: 1px solid var(--color-neutral-200);
@@ -1340,6 +1345,10 @@
 	}
 
 	@media (max-width: 767px) {
+		.date-picker-panel {
+			--date-picker-day-height: 3.5rem;
+		}
+
 		.date-picker-panel-header {
 			grid-template-columns: auto minmax(0, 1fr) auto;
 			padding: 0.625rem;
@@ -1350,7 +1359,6 @@
 		}
 
 		.date-picker-day {
-			min-height: 3.5rem;
 			font-size: 1.125rem;
 		}
 

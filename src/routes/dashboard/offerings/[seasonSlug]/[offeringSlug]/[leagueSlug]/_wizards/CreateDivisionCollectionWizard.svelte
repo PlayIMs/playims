@@ -4,6 +4,7 @@
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import InfoPopover from '$lib/components/InfoPopover.svelte';
 	import ToggleField from '$lib/components/ToggleField.svelte';
+	import { inferPickerYearRange } from '$lib/components/date-picker.js';
 	import {
 		formatDivisionDays,
 		parseDivisionDays
@@ -137,6 +138,9 @@
 	const stepTitle = $derived.by(() => getCreateDivisionWizardStepTitle(step));
 	const nextLabel = $derived.by(() =>
 		getCreateDivisionWizardNextLabel(step, draftActive, editingIndex)
+	);
+	const divisionStartDateYearRange = $derived.by(() =>
+		inferPickerYearRange([form.startDate], { pastYears: 1, futureYears: 4 })
 	);
 	const formClass = $derived.by(() =>
 		step === 2 ? 'p-4 space-y-5 flex-1 min-h-0 overflow-hidden' : 'p-4 space-y-5 flex-1 min-h-0 overflow-y-auto'
@@ -356,6 +360,8 @@
 								<DatePicker
 									id="create-division-start-date"
 									type="date"
+									minYear={divisionStartDateYearRange.minYear}
+									maxYear={divisionStartDateYearRange.maxYear}
 									inputClass="input-secondary py-2 text-sm"
 									bind:value={form.startDate}
 								/>

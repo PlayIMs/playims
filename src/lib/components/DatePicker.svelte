@@ -5,7 +5,7 @@
 		IconChevronRight,
 		IconClock
 	} from '@tabler/icons-svelte';
-	import { createEventDispatcher, tick } from 'svelte';
+	import { createEventDispatcher, tick, untrack } from 'svelte';
 	import type { Snippet } from 'svelte';
 	import type { HTMLInputAttributes } from 'svelte/elements';
 
@@ -21,11 +21,19 @@
 		toFixedStyle
 	} from '$lib/components/floating-position.js';
 	import {
+		buildCalendarMonthWindow,
 		buildCalendarGrid,
 		buildShortcutValue,
 		clampPickerValue,
+		consumeCalendarWheelDelta,
+		formatPickerValueForDisplay,
+		inferPickerYearRange,
 		mergeDateKeyWithValue,
+		moveDisplaySelectionRange,
+		parseDisplayPickerValue,
 		parsePickerValue,
+		resolveCalendarMonthStripTranslatePercent,
+		resolveDisplaySelectionRange,
 		shiftMonthReference,
 		type DatePickerShortcut,
 		type DatePickerType,
@@ -39,11 +47,14 @@
 		value?: string;
 		min?: string;
 		max?: string;
+		minYear?: number;
+		maxYear?: number;
 		step?: string | number;
 		disabled?: boolean;
 		required?: boolean;
 		autocomplete?: HTMLInputAttributes['autocomplete'];
 		ariaLabel?: string;
+		format?: string;
 		placeholder?: string;
 		inputClass?: string;
 		triggerClass?: string;
@@ -53,6 +64,7 @@
 	}
 
 	type DatePickerOption = { value: string; label: string; disabled?: boolean };
+	type MonthPageSlot = 'previous' | 'current' | 'next';
 
 	let {
 		id,
@@ -61,11 +73,14 @@
 		value = $bindable(''),
 		min,
 		max,
+		minYear,
+		maxYear,
 		step,
 		disabled = false,
 		required = false,
 		autocomplete = 'off',
 		ariaLabel,
+		format,
 		placeholder,
 		inputClass = 'input-secondary min-h-10 pr-10 py-2 text-sm disabled:cursor-not-allowed',
 		triggerClass = 'date-picker-trigger-shell',
@@ -88,6 +103,8 @@
 	const DESKTOP_MEDIA_QUERY = '(min-width: 768px)';
 	const EDGE_PADDING_PX = 8;
 	const TRIGGER_GAP_PX = 8;
+	const CALENDAR_WHEEL_THRESHOLD = 72;
+	const MONTH_STRIP_TRANSITION_FALLBACK_MS = 320;
 	const datePickerId = Symbol('date-picker');
 
 	let root = $state<HTMLDivElement | null>(null);
@@ -96,9 +113,16 @@
 	let panel = $state<HTMLDivElement | null>(null);
 	let open = $state(false);
 	let isDesktop = $state(false);
+	let calendarWheelRemainder = $state(0);
+	let monthSlideDirection = $state<-1 | 0 | 1>(0);
+	let isMonthTransitioning = $state(false);
+	let pendingVisibleMonth = $state<MonthReference | null>(null);
 	let panelStyle = $state('position: fixed; left: 0px; top: 0px; visibility: hidden;');
 	const initialNow = new Date();
-	let draftValue = $state(String(value ?? ''));
+	let monthTransitionTimeoutId: ReturnType<typeof setTimeout> | null = null;
+	let draftValue = $state(
+		untrack(() => formatPickerValueForDisplay(String(value ?? ''), type, format))
+	);
 	let visibleMonth = $state<MonthReference>({
 		year: initialNow.getFullYear(),
 		month: initialNow.getMonth() + 1
@@ -194,10 +218,13 @@
 	}
 
 	function yearOptions(): DatePickerOption[] {
-		const parsedMin = parsePickerValue(min ?? '', type);
-		const parsedMax = parsePickerValue(max ?? '', type);
-		const yearFloor = parsedMin?.year ?? visibleMonth.year - 12;
-		const yearCeiling = parsedMax?.year ?? visibleMonth.year + 12;
+		const parsedValueYear = parsePickerValue(String(value ?? ''), type)?.year;
+		const yearRange = inferPickerYearRange([visibleMonth.year, parsedValueYear], {
+			minYear,
+			maxYear
+		});
+		const yearFloor = yearRange.minYear;
+		const yearCeiling = yearRange.maxYear;
 
 		return Array.from({ length: yearCeiling - yearFloor + 1 }, (_, index) => {
 			const year = yearFloor + index;
@@ -220,6 +247,10 @@
 		return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
 	}
 
+	function currentDisplayValue(currentValue: string): string {
+		return formatPickerValueForDisplay(currentValue, type, format);
+	}
+
 	function currentTimeValue(): { hour: string; minute: string } {
 		const parsed = parsePickerValue(String(value ?? ''), 'datetime-local');
 		const now = new Date();
@@ -229,10 +260,32 @@
 		};
 	}
 
+	function setInputSelection(start: number, end: number): void {
+		if (!inputElement || disabled || !draftValue) return;
+		inputElement.setSelectionRange(start, end);
+	}
+
+	function selectInputSegmentAtCaret(caret?: number): void {
+		if (!inputElement || disabled || !draftValue) return;
+		const selection = resolveDisplaySelectionRange(
+			draftValue,
+			type,
+			format,
+			caret ?? inputElement.selectionStart ?? 0
+		);
+		setInputSelection(selection.start, selection.end);
+	}
+
+	function queueInputSegmentSelection(caret?: number): void {
+		queueMicrotask(() => {
+			selectInputSegmentAtCaret(caret);
+		});
+	}
+
 	function commitValue(nextValue: string, emitChange = true): void {
 		const clampedValue = clampPickerValue(nextValue, type, min, max);
 		value = clampedValue;
-		draftValue = clampedValue;
+		draftValue = currentDisplayValue(clampedValue);
 		activeDateKey = resolveActiveDateKey(clampedValue, type);
 		dispatch('input', { value: clampedValue });
 		if (emitChange) {
@@ -275,14 +328,72 @@
 	}
 
 	function focusActiveDateButton(): void {
-		const selector = `[data-date-picker-day="${activeDateKey}"]`;
+		const selector = `[data-month-page="current"] [data-date-picker-day="${activeDateKey}"]`;
 		const activeButton = panel?.querySelector<HTMLButtonElement>(selector);
 		activeButton?.focus();
+	}
+
+	function clearMonthTransitionTimeout(): void {
+		if (monthTransitionTimeoutId === null) return;
+		clearTimeout(monthTransitionTimeoutId);
+		monthTransitionTimeoutId = null;
+	}
+
+	function resetMonthAnimation(): void {
+		clearMonthTransitionTimeout();
+		monthSlideDirection = 0;
+		isMonthTransitioning = false;
+		pendingVisibleMonth = null;
+		calendarWheelRemainder = 0;
+	}
+
+	function finalizeMonthAnimation(): void {
+		if (!pendingVisibleMonth) {
+			resetMonthAnimation();
+			return;
+		}
+
+		const nextVisibleMonth = pendingVisibleMonth;
+		clearMonthTransitionTimeout();
+		pendingVisibleMonth = null;
+		monthSlideDirection = 0;
+		isMonthTransitioning = false;
+		visibleMonth = nextVisibleMonth;
+
+		if (panel?.contains(document.activeElement)) {
+			void tick().then(() => {
+				focusActiveDateButton();
+			});
+		}
+	}
+
+	function startMonthAnimation(direction: -1 | 1): void {
+		if (isMonthTransitioning || monthSlideDirection !== 0) return;
+
+		const nextVisibleMonth = shiftMonthReference(visibleMonth, direction, type, min, max);
+		if (compareMonthReference(nextVisibleMonth, visibleMonth) === 0) {
+			calendarWheelRemainder = 0;
+			return;
+		}
+
+		pendingVisibleMonth = nextVisibleMonth;
+		isMonthTransitioning = true;
+		monthSlideDirection = direction;
+		clearMonthTransitionTimeout();
+		monthTransitionTimeoutId = setTimeout(() => {
+			finalizeMonthAnimation();
+		}, MONTH_STRIP_TRANSITION_FALLBACK_MS);
+	}
+
+	function jumpToMonth(nextMonth: MonthReference): void {
+		resetMonthAnimation();
+		visibleMonth = nextMonth;
 	}
 
 	async function openPanel(): Promise<void> {
 		if (disabled || open) return;
 		open = true;
+		resetMonthAnimation();
 		visibleMonth = resolveVisibleMonth(String(value ?? ''), type);
 		activeDateKey = resolveActiveDateKey(String(value ?? ''), type);
 		dispatch('open', { value: String(value ?? '') });
@@ -294,6 +405,7 @@
 	function closePanel(returnFocus = false): void {
 		if (!open) return;
 		open = false;
+		resetMonthAnimation();
 		panelStyle = 'position: fixed; left: 0px; top: 0px; visibility: hidden;';
 		dispatch('close', { value: String(value ?? '') });
 		if (returnFocus) {
@@ -318,27 +430,41 @@
 	function handleTextInput(event: Event): void {
 		const nextValue = (event.currentTarget as HTMLInputElement).value;
 		draftValue = nextValue;
-		value = nextValue;
-		dispatch('input', { value: nextValue });
+		const parsedDisplayValue = parseDisplayPickerValue(nextValue, type, format);
+		if (!parsedDisplayValue) {
+			dispatch('input', { value: nextValue });
+			return;
+		}
+
+		const normalizedValue = clampPickerValue(parsedDisplayValue, type, min, max);
+		value = normalizedValue;
+		activeDateKey = resolveActiveDateKey(normalizedValue, type);
+		dispatch('input', { value: normalizedValue });
 	}
 
 	function handleTextBlur(): void {
-		const parsed = parsePickerValue(draftValue, type);
-		if (parsed) {
-			const normalized = clampPickerValue(draftValue, type, min, max);
+		const normalizedInputValue = parseDisplayPickerValue(draftValue, type, format);
+		if (normalizedInputValue) {
+			const normalized = clampPickerValue(normalizedInputValue, type, min, max);
 			value = normalized;
-			draftValue = normalized;
+			draftValue = currentDisplayValue(normalized);
 			activeDateKey = resolveActiveDateKey(normalized, type);
 			dispatch('change', { value: normalized });
 			dispatch('blur', { value: normalized });
 			return;
 		}
 
+		draftValue = currentDisplayValue(String(value ?? ''));
 		dispatch('blur', { value: draftValue });
 	}
 
 	function handleTextFocus(): void {
 		dispatch('focus', { value: draftValue });
+		queueInputSegmentSelection(0);
+	}
+
+	function handleTextMouseup(): void {
+		queueInputSegmentSelection();
 	}
 
 	function handleInputKeydown(event: KeyboardEvent): void {
@@ -352,6 +478,28 @@
 		if (event.key === 'Escape' && open) {
 			event.preventDefault();
 			closePanel();
+			return;
+		}
+
+		if (
+			(event.key === 'ArrowLeft' || event.key === 'ArrowRight') &&
+			!event.altKey &&
+			!event.ctrlKey &&
+			!event.metaKey &&
+			!event.shiftKey &&
+			draftValue &&
+			inputElement
+		) {
+			event.preventDefault();
+			const selection = moveDisplaySelectionRange(
+				draftValue,
+				type,
+				format,
+				inputElement.selectionStart ?? 0,
+				inputElement.selectionEnd ?? 0,
+				event.key === 'ArrowLeft' ? -1 : 1
+			);
+			setInputSelection(selection.start, selection.end);
 		}
 	}
 
@@ -367,19 +515,43 @@
 	}
 
 	function moveMonth(delta: number): void {
-		visibleMonth = shiftMonthReference(visibleMonth, delta, type, min, max);
+		if (!Number.isFinite(delta) || delta === 0) return;
+		startMonthAnimation(delta < 0 ? -1 : 1);
+	}
+
+	function handleCalendarWheel(event: WheelEvent): void {
+		if (disabled || event.ctrlKey) return;
+		if (isMonthTransitioning) {
+			event.preventDefault();
+			return;
+		}
+
+		const wheelResult = consumeCalendarWheelDelta(
+			calendarWheelRemainder,
+			event.deltaY,
+			CALENDAR_WHEEL_THRESHOLD
+		);
+		calendarWheelRemainder = wheelResult.remainderDeltaY;
+		if (wheelResult.monthDelta === 0) {
+			event.preventDefault();
+			return;
+		}
+
+		event.preventDefault();
+		calendarWheelRemainder = 0;
+		startMonthAnimation(wheelResult.monthDelta < 0 ? -1 : 1);
 	}
 
 	function handleMonthChange(nextValue: string): void {
 		const nextMonth = Number.parseInt(nextValue, 10);
 		if (!Number.isFinite(nextMonth)) return;
-		visibleMonth = { year: visibleMonth.year, month: nextMonth };
+		jumpToMonth({ year: visibleMonth.year, month: nextMonth });
 	}
 
 	function handleYearChange(nextValue: string): void {
 		const nextYear = Number.parseInt(nextValue, 10);
 		if (!Number.isFinite(nextYear)) return;
-		visibleMonth = { year: nextYear, month: visibleMonth.month };
+		jumpToMonth({ year: nextYear, month: visibleMonth.month });
 	}
 
 	function updateTimePart(part: 'hour' | 'minute', nextValue: string): void {
@@ -420,10 +592,16 @@
 		activeDateKey = nextDateKey;
 		const nextDate = parseDateKey(nextDateKey);
 		if (!nextDate) return;
-		visibleMonth = { year: nextDate.year, month: nextDate.month };
+		jumpToMonth({ year: nextDate.year, month: nextDate.month });
 		void tick().then(() => {
 			focusActiveDateButton();
 		});
+	}
+
+	function handleMonthStripTransitionEnd(event: TransitionEvent): void {
+		if (event.target !== event.currentTarget || event.propertyName !== 'transform') return;
+		if (monthSlideDirection === 0 || !pendingVisibleMonth) return;
+		finalizeMonthAnimation();
 	}
 
 	function timeOptions(unit: 'hour' | 'minute'): DatePickerOption[] {
@@ -450,12 +628,20 @@
 			}));
 	}
 
-	const calendarCells = $derived.by(() =>
-		buildCalendarGrid(visibleMonth, {
-			value: String(value ?? ''),
-			type,
-			min,
-			max
+	const calendarMonthWindow = $derived.by(() => buildCalendarMonthWindow(visibleMonth, type, min, max));
+	const calendarMonthPages = $derived.by(() =>
+		calendarMonthWindow.map((reference, index) => {
+			const slot: MonthPageSlot = index === 0 ? 'previous' : index === 1 ? 'current' : 'next';
+			return {
+				slot,
+				reference,
+				cells: buildCalendarGrid(reference, {
+					value: String(value ?? ''),
+					type,
+					min,
+					max
+				})
+			};
 		})
 	);
 	const selectedTime = $derived.by(() => currentTimeValue());
@@ -463,6 +649,16 @@
 	const hourOptionsList = $derived.by(() => timeOptions('hour'));
 	const monthOptionList = $derived.by(() => monthOptions());
 	const yearOptionList = $derived.by(() => yearOptions());
+	const monthStripClass = $derived.by(() =>
+		joinClassNames(
+			'date-picker-month-strip',
+			monthSlideDirection !== 0 && 'date-picker-month-strip-animating'
+		)
+	);
+	const monthStripStyle = $derived.by(() => {
+		const translatePercent = resolveCalendarMonthStripTranslatePercent(monthSlideDirection);
+		return `transform: translateY(${translatePercent}%);`;
+	});
 	const canMoveBackward = $derived.by(() => {
 		const previousMonth = shiftMonthReference(visibleMonth, -1, type, min, max);
 		return compareMonthReference(previousMonth, visibleMonth) !== 0;
@@ -472,13 +668,14 @@
 		return compareMonthReference(nextMonth, visibleMonth) !== 0;
 	});
 	const resolvedPlaceholder = $derived.by(() =>
-		placeholder ?? (type === 'date' ? 'YYYY-MM-DD' : 'YYYY-MM-DDTHH:mm')
+		placeholder ?? (type === 'date' ? format ?? 'MM/DD/YYYY' : `${format ?? 'MM/DD/YYYY'} HH:mm`)
 	);
 
 	$effect(() => {
 		const normalizedValue = String(value ?? '');
-		if (normalizedValue === draftValue) return;
-		draftValue = normalizedValue;
+		const displayValue = currentDisplayValue(normalizedValue);
+		if (displayValue === draftValue) return;
+		draftValue = displayValue;
 		if (!open) {
 			visibleMonth = resolveVisibleMonth(normalizedValue, type);
 			activeDateKey = resolveActiveDateKey(normalizedValue, type);
@@ -554,6 +751,12 @@
 			}
 		};
 	});
+
+	$effect(() => {
+		return () => {
+			clearMonthTransitionTimeout();
+		};
+	});
 </script>
 
 <div class="date-picker-root" bind:this={root}>
@@ -594,6 +797,7 @@
 				onfocus={handleTextFocus}
 				onblur={handleTextBlur}
 				onkeydown={handleInputKeydown}
+				onmouseup={handleTextMouseup}
 			/>
 			<button
 				type="button"
@@ -686,29 +890,51 @@
 				{/each}
 			</div>
 
-			<div class="date-picker-grid" role="grid" aria-label={`${monthLabel(visibleMonth)} ${visibleMonth.year}`}>
-				{#each calendarCells as cell (cell.dateKey)}
-					<button
-						type="button"
-						role="gridcell"
-						data-date-picker-day={cell.dateKey}
-						aria-selected={cell.isSelected}
-						aria-current={cell.isToday ? 'date' : undefined}
-						disabled={cell.isDisabled}
-						class={dayButtonClass(cell)}
-						onclick={() => {
-							selectDate(cell.dateKey);
-						}}
-						onfocus={() => {
-							activeDateKey = cell.dateKey;
-						}}
-						onkeydown={(event) => {
-							handleDayKeydown(event, cell.dateKey);
-						}}
-					>
-						{cell.dayNumber}
-					</button>
-				{/each}
+			<div
+				class="date-picker-month-viewport"
+				role="group"
+				aria-label={`${monthLabel(visibleMonth)} ${visibleMonth.year}`}
+				onwheel={handleCalendarWheel}
+			>
+				<div
+					class={monthStripClass}
+					style={monthStripStyle}
+					ontransitionend={handleMonthStripTransitionEnd}
+				>
+					{#each calendarMonthPages as monthPage (`${monthPage.slot}-${monthPage.reference.year}-${monthPage.reference.month}`)}
+						<div
+							class="date-picker-grid date-picker-month-page"
+							role="grid"
+							data-month-page={monthPage.slot}
+							aria-hidden={monthPage.slot !== 'current'}
+							aria-label={`${monthLabel(monthPage.reference)} ${monthPage.reference.year}`}
+						>
+							{#each monthPage.cells as cell (`${monthPage.slot}-${cell.dateKey}`)}
+								<button
+									type="button"
+									role="gridcell"
+									data-date-picker-day={cell.dateKey}
+									tabindex={monthPage.slot === 'current' ? undefined : -1}
+									aria-selected={cell.isSelected}
+									aria-current={cell.isToday ? 'date' : undefined}
+									disabled={cell.isDisabled}
+									class={dayButtonClass(cell)}
+									onclick={() => {
+										selectDate(cell.dateKey);
+									}}
+									onfocus={() => {
+										activeDateKey = cell.dateKey;
+									}}
+									onkeydown={(event) => {
+										handleDayKeydown(event, cell.dateKey);
+									}}
+								>
+									{cell.dayNumber}
+								</button>
+							{/each}
+						</div>
+					{/each}
+				</div>
 			</div>
 
 			{#if type === 'datetime-local'}

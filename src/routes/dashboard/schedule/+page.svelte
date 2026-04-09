@@ -13,6 +13,7 @@
 	} from '@tabler/icons-svelte';
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import DatePicker from '$lib/components/DatePicker.svelte';
+	import { inferPickerYearRange } from '$lib/components/date-picker.js';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
@@ -31,6 +32,7 @@
 		getScheduleRangeForView,
 		sanitizeScheduleFilters,
 		summarizeScheduleEvents,
+		type ScheduleEventRecord,
 		type ScheduleFilters,
 		type ScheduleOptionCount,
 		type ScheduleRange
@@ -74,6 +76,15 @@
 	let lastPageError = $state('');
 
 	const events = $derived(data.events ?? []);
+	const scheduleDateYearRange = $derived.by(() =>
+		inferPickerYearRange(
+			[
+				anchorDate,
+				...events.map((event: ScheduleEventRecord) => getScheduleEventDateKey(event.scheduledStartAt))
+			],
+			{ pastYears: 1, futureYears: 2 }
+		)
+	);
 
 	function todayDateKey(): string {
 		const today = new Date();
@@ -538,6 +549,8 @@
 								<DatePicker
 									type="date"
 									value={anchorDate}
+									minYear={scheduleDateYearRange.minYear}
+									maxYear={scheduleDateYearRange.maxYear}
 									ariaLabel="Choose schedule date"
 									triggerClass="flex h-[3.375rem] items-center gap-3 border-b border-neutral-950 bg-white px-4 text-sm font-semibold text-neutral-950 xl:min-w-[12rem] xl:border-b-0 xl:border-r"
 									on:change={(event) => {
