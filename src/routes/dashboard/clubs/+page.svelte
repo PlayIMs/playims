@@ -2,6 +2,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { IconCalendar, IconHistory, IconRestore, IconTarget } from '@tabler/icons-svelte';
 	import DataTable from '$lib/components/DataTable.svelte';
+	import DatePicker from '$lib/components/DatePicker.svelte';
 	import DashboardSearchLauncher from '$lib/components/dashboard/DashboardSearchLauncher.svelte';
 	import DashboardSidebarPanel from '$lib/components/dashboard/DashboardSidebarPanel.svelte';
 	import SplitAddAction from '$lib/components/dashboard/SplitAddAction.svelte';
@@ -145,8 +146,6 @@
 
 	let searchQuery = $state('');
 	let selectedSeasonId = $state('');
-	let createSeasonStartDateInput = $state<HTMLInputElement | null>(null);
-	let createSeasonEndDateInput = $state<HTMLInputElement | null>(null);
 
 	let isCreateSeasonModalOpen = $state(false);
 	let createSeasonWizardUnsavedConfirmOpen = $state(false);
@@ -256,12 +255,6 @@
 			window.removeEventListener('beforeunload', handleBeforeUnload);
 		};
 	});
-
-	function openDatePicker(input: HTMLInputElement | null): void {
-		if (!input) return;
-		input.focus();
-		input.showPicker?.();
-	}
 
 	function boardStatus(activity: Activity): { label: string; className: string } {
 		if (activity.isLocked) {
@@ -1650,38 +1643,24 @@
 					<label for="club-season-start-date" class="mb-1 block text-sm font-sans text-neutral-950">
 						Start date <span class="text-error-700">*</span>
 					</label>
-					<div class="relative">
-						<input
-							id="club-season-start-date"
-							type="date"
-							class="input-secondary pr-9 no-native-date-picker"
-							bind:this={createSeasonStartDateInput}
-							value={createSeasonForm.startDate}
-							oninput={(event) => {
-								const nextStartDate = (event.currentTarget as HTMLInputElement).value;
-								createSeasonStartDateTouched = true;
-								createSeasonForm.startDate = nextStartDate;
-								syncCreateClubSeasonEndDateFromStart(nextStartDate);
-							}}
-							onchange={(event) => {
-								const nextStartDate = (event.currentTarget as HTMLInputElement).value;
-								createSeasonStartDateTouched = true;
-								createSeasonForm.startDate = nextStartDate;
-								syncCreateClubSeasonEndDateFromStart(nextStartDate);
-							}}
-						/>
-						<button
-							type="button"
-							tabindex="-1"
-							class="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-secondary-900 hover:text-secondary-700"
-							aria-label="Open club season start date picker"
-							onclick={() => {
-								openDatePicker(createSeasonStartDateInput);
-							}}
-						>
-							<IconCalendar class="h-4 w-4" />
-						</button>
-					</div>
+					<DatePicker
+						id="club-season-start-date"
+						type="date"
+						inputClass="input-secondary py-2 text-sm"
+						on:input={(event) => {
+							const nextStartDate = event.detail.value;
+							createSeasonStartDateTouched = true;
+							createSeasonForm.startDate = nextStartDate;
+							syncCreateClubSeasonEndDateFromStart(nextStartDate);
+						}}
+						on:change={(event) => {
+							const nextStartDate = event.detail.value;
+							createSeasonStartDateTouched = true;
+							createSeasonForm.startDate = nextStartDate;
+							syncCreateClubSeasonEndDateFromStart(nextStartDate);
+						}}
+						bind:value={createSeasonForm.startDate}
+					/>
 					{#if createSeasonFieldErrors['season.startDate']}
 						<p class="mt-1 text-xs text-error-700">{createSeasonFieldErrors['season.startDate']}</p>
 					{/if}
@@ -1691,34 +1670,20 @@
 					<label for="club-season-end-date" class="mb-1 block text-sm font-sans text-neutral-950">
 						End date
 					</label>
-					<div class="relative">
-						<input
-							id="club-season-end-date"
-							type="date"
-							class="input-secondary pr-9 no-native-date-picker"
-							bind:this={createSeasonEndDateInput}
-							value={createSeasonForm.endDate}
-							oninput={(event) => {
-								createSeasonEndDateTouched = true;
-								createSeasonForm.endDate = (event.currentTarget as HTMLInputElement).value;
-							}}
-							onchange={(event) => {
-								createSeasonEndDateTouched = true;
-								createSeasonForm.endDate = (event.currentTarget as HTMLInputElement).value;
-							}}
-						/>
-						<button
-							type="button"
-							tabindex="-1"
-							class="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-secondary-900 hover:text-secondary-700"
-							aria-label="Open club season end date picker"
-							onclick={() => {
-								openDatePicker(createSeasonEndDateInput);
-							}}
-						>
-							<IconCalendar class="h-4 w-4" />
-						</button>
-					</div>
+					<DatePicker
+						id="club-season-end-date"
+						type="date"
+						inputClass="input-secondary py-2 text-sm"
+						on:input={(event) => {
+							createSeasonEndDateTouched = true;
+							createSeasonForm.endDate = event.detail.value;
+						}}
+						on:change={(event) => {
+							createSeasonEndDateTouched = true;
+							createSeasonForm.endDate = event.detail.value;
+						}}
+						bind:value={createSeasonForm.endDate}
+					/>
 					{#if createSeasonFieldErrors['season.endDate']}
 						<p class="mt-1 text-xs text-error-700">{createSeasonFieldErrors['season.endDate']}</p>
 					{/if}

@@ -2,6 +2,7 @@
 	import { invalidateAll, replaceState } from '$app/navigation';
 	import { onDestroy, tick } from 'svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
+	import DatePicker from '$lib/components/DatePicker.svelte';
 	import {
 		adjustEditingIndexOnRemove,
 		adjustEditingIndexOnReorder,
@@ -499,7 +500,6 @@
 	let createLeagueForm = $state<LeagueWizardFormState>(createEmptyCreateLeagueForm());
 	let editOfferingForm = $state<WizardOfferingInput>(createEmptyOfferingInput());
 	let bulkEditLeaguesForm = $state<BulkLeagueEditFormState>(createEmptyBulkLeagueEditForm());
-	let createSeasonStartDateInput = $state<HTMLInputElement | null>(null);
 	let createSeasonEndDateInput = $state<HTMLInputElement | null>(null);
 	let lastPageErrorToast = $state('');
 	let lastSuccessToast = $state('');
@@ -640,13 +640,6 @@
 	function handleSeasonHistoryChange(value: string): void {
 		if (!value || value === selectedSeasonId) return;
 		selectedSeasonId = value;
-	}
-
-	function openDatePicker(input: HTMLInputElement | null): void {
-		if (!input) return;
-		input.focus();
-		const pickerInput = input as HTMLInputElement & { showPicker?: () => void };
-		pickerInput.showPicker?.();
 	}
 
 	function focusCreateSeasonEndDateOnReverseTab(event: KeyboardEvent): void {
@@ -6713,38 +6706,24 @@
 					<label for="season-start-date" class="block text-sm font-sans text-neutral-950 mb-1">
 						Start Date <span class="text-error-700">*</span>
 					</label>
-					<div class="relative">
-						<input
-							id="season-start-date"
-							type="date"
-							class="input-secondary pr-9 no-native-date-picker"
-							bind:this={createSeasonStartDateInput}
-							value={createSeasonForm.startDate}
-							oninput={(event) => {
-								const nextStartDate = (event.currentTarget as HTMLInputElement).value;
-								createSeasonStartDateTouched = true;
-								createSeasonForm.startDate = nextStartDate;
-								syncCreateSeasonEndDateFromStart(nextStartDate);
-							}}
-							onchange={(event) => {
-								const nextStartDate = (event.currentTarget as HTMLInputElement).value;
-								createSeasonStartDateTouched = true;
-								createSeasonForm.startDate = nextStartDate;
-								syncCreateSeasonEndDateFromStart(nextStartDate);
-							}}
-						/>
-						<button
-							type="button"
-							tabindex="-1"
-							class="absolute right-2 top-1/2 -translate-y-1/2 text-secondary-900 hover:text-secondary-700 cursor-pointer"
-							aria-label="Open start date picker"
-							onclick={() => {
-								openDatePicker(createSeasonStartDateInput);
-							}}
-						>
-							<IconCalendar class="w-4 h-4" />
-						</button>
-					</div>
+					<DatePicker
+						id="season-start-date"
+						type="date"
+						inputClass="input-secondary py-2 text-sm"
+						on:input={(event) => {
+							const nextStartDate = event.detail.value;
+							createSeasonStartDateTouched = true;
+							createSeasonForm.startDate = nextStartDate;
+							syncCreateSeasonEndDateFromStart(nextStartDate);
+						}}
+						on:change={(event) => {
+							const nextStartDate = event.detail.value;
+							createSeasonStartDateTouched = true;
+							createSeasonForm.startDate = nextStartDate;
+							syncCreateSeasonEndDateFromStart(nextStartDate);
+						}}
+						bind:value={createSeasonForm.startDate}
+					/>
 					{#if createSeasonFieldErrors['season.startDate']}
 						<p class="text-xs text-error-700 mt-1">{createSeasonFieldErrors['season.startDate']}</p>
 					{/if}
@@ -6753,34 +6732,21 @@
 					<label for="season-end-date" class="block text-sm font-sans text-neutral-950 mb-1">
 						End Date
 					</label>
-					<div class="relative">
-						<input
-							id="season-end-date"
-							type="date"
-							class="input-secondary pr-9 no-native-date-picker"
-							bind:this={createSeasonEndDateInput}
-							value={createSeasonForm.endDate}
-							oninput={(event) => {
-								createSeasonEndDateTouched = true;
-								createSeasonForm.endDate = (event.currentTarget as HTMLInputElement).value;
-							}}
-							onchange={(event) => {
-								createSeasonEndDateTouched = true;
-								createSeasonForm.endDate = (event.currentTarget as HTMLInputElement).value;
-							}}
-						/>
-						<button
-							type="button"
-							tabindex="-1"
-							class="absolute right-2 top-1/2 -translate-y-1/2 text-secondary-900 hover:text-secondary-700 cursor-pointer"
-							aria-label="Open end date picker"
-							onclick={() => {
-								openDatePicker(createSeasonEndDateInput);
-							}}
-						>
-							<IconCalendar class="w-4 h-4" />
-						</button>
-					</div>
+					<DatePicker
+						id="season-end-date"
+						type="date"
+						inputClass="input-secondary py-2 text-sm"
+						bind:inputElement={createSeasonEndDateInput}
+						on:input={(event) => {
+							createSeasonEndDateTouched = true;
+							createSeasonForm.endDate = event.detail.value;
+						}}
+						on:change={(event) => {
+							createSeasonEndDateTouched = true;
+							createSeasonForm.endDate = event.detail.value;
+						}}
+						bind:value={createSeasonForm.endDate}
+					/>
 					{#if createSeasonFieldErrors['season.endDate']}
 						<p class="text-xs text-error-700 mt-1">{createSeasonFieldErrors['season.endDate']}</p>
 					{/if}
@@ -7795,12 +7761,12 @@
 							<label class="mb-1 block text-sm font-sans text-neutral-950" for="bulk-reg-start">
 								Registration Start
 							</label>
-							<input
+							<DatePicker
 								id="bulk-reg-start"
 								type="datetime-local"
-								class="input-secondary"
+								inputClass="input-secondary py-2 text-sm"
 								bind:value={bulkEditLeaguesForm.regStartDate}
-								oninput={clearBulkEditLeaguesApiErrors}
+								on:input={clearBulkEditLeaguesApiErrors}
 							/>
 							{#if bulkEditLeaguesFieldErrors.regStartDate}
 								<p class="mt-1 text-xs text-error-700">{bulkEditLeaguesFieldErrors.regStartDate}</p>
@@ -7811,12 +7777,12 @@
 							<label class="mb-1 block text-sm font-sans text-neutral-950" for="bulk-reg-end">
 								Registration End
 							</label>
-							<input
+							<DatePicker
 								id="bulk-reg-end"
 								type="datetime-local"
-								class="input-secondary"
+								inputClass="input-secondary py-2 text-sm"
 								bind:value={bulkEditLeaguesForm.regEndDate}
-								oninput={clearBulkEditLeaguesApiErrors}
+								on:input={clearBulkEditLeaguesApiErrors}
 							/>
 							{#if bulkEditLeaguesFieldErrors.regEndDate}
 								<p class="mt-1 text-xs text-error-700">{bulkEditLeaguesFieldErrors.regEndDate}</p>
@@ -7829,12 +7795,12 @@
 							<label class="mb-1 block text-sm font-sans text-neutral-950" for="bulk-season-start">
 								Season Start
 							</label>
-							<input
+							<DatePicker
 								id="bulk-season-start"
 								type="date"
-								class="input-secondary"
+								inputClass="input-secondary py-2 text-sm"
 								bind:value={bulkEditLeaguesForm.seasonStartDate}
-								oninput={clearBulkEditLeaguesApiErrors}
+								on:input={clearBulkEditLeaguesApiErrors}
 							/>
 							{#if bulkEditLeaguesFieldErrors.seasonStartDate}
 								<p class="mt-1 text-xs text-error-700">
@@ -7847,12 +7813,12 @@
 							<label class="mb-1 block text-sm font-sans text-neutral-950" for="bulk-season-end">
 								Season End
 							</label>
-							<input
+							<DatePicker
 								id="bulk-season-end"
 								type="date"
-								class="input-secondary"
+								inputClass="input-secondary py-2 text-sm"
 								bind:value={bulkEditLeaguesForm.seasonEndDate}
-								oninput={clearBulkEditLeaguesApiErrors}
+								on:input={clearBulkEditLeaguesApiErrors}
 							/>
 							{#if bulkEditLeaguesFieldErrors.seasonEndDate}
 								<p class="mt-1 text-xs text-error-700">{bulkEditLeaguesFieldErrors.seasonEndDate}</p>
@@ -7887,12 +7853,12 @@
 								<label class="mb-1 block text-sm font-sans text-neutral-950" for="bulk-preseason-start">
 									Start Date
 								</label>
-								<input
+								<DatePicker
 									id="bulk-preseason-start"
 									type="date"
-									class="input-secondary"
+									inputClass="input-secondary py-2 text-sm"
 									bind:value={bulkEditLeaguesForm.preseasonStartDate}
-									oninput={clearBulkEditLeaguesApiErrors}
+									on:input={clearBulkEditLeaguesApiErrors}
 								/>
 								{#if bulkEditLeaguesFieldErrors.preseasonStartDate}
 									<p class="mt-1 text-xs text-error-700">
@@ -7904,12 +7870,12 @@
 								<label class="mb-1 block text-sm font-sans text-neutral-950" for="bulk-preseason-end">
 									End Date
 								</label>
-								<input
+								<DatePicker
 									id="bulk-preseason-end"
 									type="date"
-									class="input-secondary"
+									inputClass="input-secondary py-2 text-sm"
 									bind:value={bulkEditLeaguesForm.preseasonEndDate}
-									oninput={clearBulkEditLeaguesApiErrors}
+									on:input={clearBulkEditLeaguesApiErrors}
 								/>
 								{#if bulkEditLeaguesFieldErrors.preseasonEndDate}
 									<p class="mt-1 text-xs text-error-700">
@@ -7941,12 +7907,12 @@
 								<label class="mb-1 block text-sm font-sans text-neutral-950" for="bulk-postseason-start">
 									Start Date
 								</label>
-								<input
+								<DatePicker
 									id="bulk-postseason-start"
 									type="date"
-									class="input-secondary"
+									inputClass="input-secondary py-2 text-sm"
 									bind:value={bulkEditLeaguesForm.postseasonStartDate}
-									oninput={clearBulkEditLeaguesApiErrors}
+									on:input={clearBulkEditLeaguesApiErrors}
 								/>
 								{#if bulkEditLeaguesFieldErrors.postseasonStartDate}
 									<p class="mt-1 text-xs text-error-700">
@@ -7958,12 +7924,12 @@
 								<label class="mb-1 block text-sm font-sans text-neutral-950" for="bulk-postseason-end">
 									End Date
 								</label>
-								<input
+								<DatePicker
 									id="bulk-postseason-end"
 									type="date"
-									class="input-secondary"
+									inputClass="input-secondary py-2 text-sm"
 									bind:value={bulkEditLeaguesForm.postseasonEndDate}
-									oninput={clearBulkEditLeaguesApiErrors}
+									on:input={clearBulkEditLeaguesApiErrors}
 								/>
 								{#if bulkEditLeaguesFieldErrors.postseasonEndDate}
 									<p class="mt-1 text-xs text-error-700">
@@ -8412,12 +8378,12 @@
 								: 'Team Registration Opens'}
 							<span class="text-error-700">*</span></label
 						>
-						<input
+						<DatePicker
 							id="league-wizard-reg-start"
 							type="datetime-local"
-							class="input-secondary"
+							inputClass="input-secondary py-2 text-sm"
 							bind:value={createLeagueForm.league.regStartDate}
-							onfocus={() => {
+							on:focus={() => {
 								if (!createLeagueForm.league.regStartDate.trim()) {
 									createLeagueForm.league.regStartDate = defaultDateTimeValue('start');
 								}
@@ -8436,12 +8402,12 @@
 								: 'Team Registration Deadline'}
 							<span class="text-error-700">*</span></label
 						>
-						<input
+						<DatePicker
 							id="league-wizard-reg-end"
 							type="datetime-local"
-							class="input-secondary"
+							inputClass="input-secondary py-2 text-sm"
 							bind:value={createLeagueForm.league.regEndDate}
-							onfocus={() => {
+							on:focus={() => {
 								if (!createLeagueForm.league.regEndDate.trim()) {
 									createLeagueForm.league.regEndDate = defaultDateTimeValue('end');
 								}
@@ -8459,10 +8425,10 @@
 							class="block text-sm font-sans text-neutral-950 mb-1"
 							>Season Start Date <span class="text-error-700">*</span></label
 						>
-						<input
+						<DatePicker
 							id="league-wizard-season-start"
 							type="date"
-							class="input-secondary"
+							inputClass="input-secondary py-2 text-sm"
 							bind:value={createLeagueForm.league.seasonStartDate}
 						/>
 						{#if createLeagueFieldErrors['league.seasonStartDate']}
@@ -8477,10 +8443,10 @@
 							class="block text-sm font-sans text-neutral-950 mb-1"
 							>Season End Date <span class="text-error-700">*</span></label
 						>
-						<input
+						<DatePicker
 							id="league-wizard-season-end"
 							type="date"
-							class="input-secondary"
+							inputClass="input-secondary py-2 text-sm"
 							bind:value={createLeagueForm.league.seasonEndDate}
 						/>
 						{#if createLeagueFieldErrors['league.seasonEndDate']}
@@ -8520,10 +8486,10 @@
 										for="league-wizard-preseason-start"
 										class="block text-sm font-sans text-neutral-950 mb-1">Preseason Start</label
 									>
-									<input
+									<DatePicker
 										id="league-wizard-preseason-start"
 										type="date"
-										class="input-secondary"
+										inputClass="input-secondary py-2 text-sm"
 										bind:value={createLeagueForm.league.preseasonStartDate}
 									/>
 									{#if createLeagueFieldErrors['league.preseasonStartDate']}
@@ -8537,10 +8503,10 @@
 										for="league-wizard-preseason-end"
 										class="block text-sm font-sans text-neutral-950 mb-1">Preseason End</label
 									>
-									<input
+									<DatePicker
 										id="league-wizard-preseason-end"
 										type="date"
-										class="input-secondary"
+										inputClass="input-secondary py-2 text-sm"
 										bind:value={createLeagueForm.league.preseasonEndDate}
 									/>
 									{#if createLeagueFieldErrors['league.preseasonEndDate']}
@@ -8575,10 +8541,10 @@
 										for="league-wizard-postseason-start"
 										class="block text-sm font-sans text-neutral-950 mb-1">Postseason Start</label
 									>
-									<input
+									<DatePicker
 										id="league-wizard-postseason-start"
 										type="date"
-										class="input-secondary"
+										inputClass="input-secondary py-2 text-sm"
 										bind:value={createLeagueForm.league.postseasonStartDate}
 									/>
 									{#if createLeagueFieldErrors['league.postseasonStartDate']}
@@ -8592,10 +8558,10 @@
 										for="league-wizard-postseason-end"
 										class="block text-sm font-sans text-neutral-950 mb-1">Postseason End</label
 									>
-									<input
+									<DatePicker
 										id="league-wizard-postseason-end"
 										type="date"
-										class="input-secondary"
+										inputClass="input-secondary py-2 text-sm"
 										bind:value={createLeagueForm.league.postseasonEndDate}
 									/>
 									{#if createLeagueFieldErrors['league.postseasonEndDate']}
@@ -9431,12 +9397,12 @@
 							>{isTournamentWizard() ? 'Tournament Registration Opens' : 'Team Registration Opens'}
 							<span class="text-error-700">*</span></label
 						>
-						<input
+						<DatePicker
 							id="league-reg-start"
 							type="datetime-local"
-							class="input-secondary"
+							inputClass="input-secondary py-2 text-sm"
 							bind:value={createForm.league.regStartDate}
-							onfocus={() => {
+							on:focus={() => {
 								if (!createForm.league.regStartDate.trim()) {
 									createForm.league.regStartDate = defaultDateTimeValue('start');
 								}
@@ -9455,12 +9421,12 @@
 								: 'Team Registration Deadline'}
 							<span class="text-error-700">*</span></label
 						>
-						<input
+						<DatePicker
 							id="league-reg-end"
 							type="datetime-local"
-							class="input-secondary"
+							inputClass="input-secondary py-2 text-sm"
 							bind:value={createForm.league.regEndDate}
-							onfocus={() => {
+							on:focus={() => {
 								if (!createForm.league.regEndDate.trim()) {
 									createForm.league.regEndDate = defaultDateTimeValue('end');
 								}
@@ -9476,10 +9442,10 @@
 						<label for="league-season-start" class="block text-sm font-sans text-neutral-950 mb-1"
 							>Season Start Date <span class="text-error-700">*</span></label
 						>
-						<input
+						<DatePicker
 							id="league-season-start"
 							type="date"
-							class="input-secondary"
+							inputClass="input-secondary py-2 text-sm"
 							bind:value={createForm.league.seasonStartDate}
 						/>
 						{#if createFieldErrors['league.seasonStartDate']}
@@ -9492,10 +9458,10 @@
 						<label for="league-season-end" class="block text-sm font-sans text-neutral-950 mb-1"
 							>Season End Date <span class="text-error-700">*</span></label
 						>
-						<input
+						<DatePicker
 							id="league-season-end"
 							type="date"
-							class="input-secondary"
+							inputClass="input-secondary py-2 text-sm"
 							bind:value={createForm.league.seasonEndDate}
 						/>
 						{#if createFieldErrors['league.seasonEndDate']}
@@ -9533,10 +9499,10 @@
 										for="league-preseason-start"
 										class="block text-sm font-sans text-neutral-950 mb-1">Preseason Start</label
 									>
-									<input
+									<DatePicker
 										id="league-preseason-start"
 										type="date"
-										class="input-secondary"
+										inputClass="input-secondary py-2 text-sm"
 										bind:value={createForm.league.preseasonStartDate}
 									/>
 									{#if createFieldErrors['league.preseasonStartDate']}
@@ -9550,10 +9516,10 @@
 										for="league-preseason-end"
 										class="block text-sm font-sans text-neutral-950 mb-1">Preseason End</label
 									>
-									<input
+									<DatePicker
 										id="league-preseason-end"
 										type="date"
-										class="input-secondary"
+										inputClass="input-secondary py-2 text-sm"
 										bind:value={createForm.league.preseasonEndDate}
 									/>
 									{#if createFieldErrors['league.preseasonEndDate']}
@@ -9588,10 +9554,10 @@
 										for="league-postseason-start"
 										class="block text-sm font-sans text-neutral-950 mb-1">Postseason Start</label
 									>
-									<input
+									<DatePicker
 										id="league-postseason-start"
 										type="date"
-										class="input-secondary"
+										inputClass="input-secondary py-2 text-sm"
 										bind:value={createForm.league.postseasonStartDate}
 									/>
 									{#if createFieldErrors['league.postseasonStartDate']}
@@ -9605,10 +9571,10 @@
 										for="league-postseason-end"
 										class="block text-sm font-sans text-neutral-950 mb-1">Postseason End</label
 									>
-									<input
+									<DatePicker
 										id="league-postseason-end"
 										type="date"
-										class="input-secondary"
+										inputClass="input-secondary py-2 text-sm"
 										bind:value={createForm.league.postseasonEndDate}
 									/>
 									{#if createFieldErrors['league.postseasonEndDate']}

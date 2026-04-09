@@ -1,4 +1,5 @@
 <script lang="ts">
+	import DatePicker from '$lib/components/DatePicker.svelte';
 	import DayOfWeekButtonGroup from '$lib/components/DayOfWeekButtonGroup.svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import InfoPopover from '$lib/components/InfoPopover.svelte';
@@ -281,10 +282,10 @@
 						<label for="create-division-start-date" class="mb-1 block text-sm text-neutral-950">
 							Start Date
 						</label>
-						<input
+						<DatePicker
 							id="create-division-start-date"
 							type="date"
-							class="input-secondary"
+							inputClass="input-secondary py-2 text-sm"
 							bind:value={form.startDate}
 						/>
 					</div>

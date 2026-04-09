@@ -12,6 +12,7 @@
 		IconPlus
 	} from '@tabler/icons-svelte';
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
+	import DatePicker from '$lib/components/DatePicker.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
@@ -79,6 +80,12 @@
 		return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(
 			today.getDate()
 		).padStart(2, '0')}`;
+	}
+
+	function formatCompactDate(dateKey: string): string {
+		if (!isDateKey(dateKey)) return '--/--/----';
+		const [year, month, day] = dateKey.split('-');
+		return `${month}/${day}/${year}`;
 	}
 
 	function isDateKey(value: string | null | undefined): value is string {
@@ -225,13 +232,6 @@
 
 	function handleMonthDateSelect(dateKey: string): void {
 		setSelectedDate(dateKey);
-	}
-
-	function handleDateInputChange(event: Event): void {
-		const value = (event.currentTarget as HTMLInputElement).value;
-		if (isDateKey(value)) {
-			setSelectedDate(value);
-		}
 	}
 
 	function handleAddEvent(): void {
@@ -535,19 +535,22 @@
 
 						<div class="overflow-hidden border border-neutral-950 bg-white">
 							<div class="flex flex-col xl:flex-row xl:items-stretch">
-								<label
-									class="flex h-[3.375rem] items-center gap-3 border-b border-neutral-950 bg-white px-4 xl:min-w-[12rem] xl:border-b-0 xl:border-r"
+								<DatePicker
+									type="date"
+									value={anchorDate}
+									ariaLabel="Choose schedule date"
+									triggerClass="flex h-[3.375rem] items-center gap-3 border-b border-neutral-950 bg-white px-4 text-sm font-semibold text-neutral-950 xl:min-w-[12rem] xl:border-b-0 xl:border-r"
+									on:change={(event) => {
+										if (isDateKey(event.detail.value)) {
+											setSelectedDate(event.detail.value);
+										}
+									}}
 								>
-									<IconCalendar class="h-5 w-5 shrink-0 text-neutral-950" />
-									<span class="sr-only">Choose schedule date</span>
-									<input
-										type="date"
-										class="w-full border-0 bg-transparent p-0 text-sm font-semibold text-neutral-950 focus:outline-none"
-										value={anchorDate}
-										aria-label="Choose schedule date"
-										onchange={handleDateInputChange}
-									/>
-								</label>
+									{#snippet trigger()}
+										<IconCalendar class="h-5 w-5 shrink-0 text-neutral-950" />
+										<span class="tabular-nums">{formatCompactDate(anchorDate)}</span>
+									{/snippet}
+								</DatePicker>
 
 								<div
 									class="flex min-w-0 flex-1 items-stretch border-b border-neutral-950 xl:border-b-0"

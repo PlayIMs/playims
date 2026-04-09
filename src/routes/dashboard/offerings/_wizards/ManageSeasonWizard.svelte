@@ -11,6 +11,7 @@
 	} from '@tabler/icons-svelte';
 	import { createEventDispatcher, tick } from 'svelte';
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
+	import DatePicker from '$lib/components/DatePicker.svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import InfoPopover from '$lib/components/InfoPopover.svelte';
 	import ModalShell from '$lib/components/modals/ModalShell.svelte';
@@ -640,10 +641,10 @@
 						<label for="manage-season-start" class="block text-sm text-neutral-950 mb-1"
 							>Start Date</label
 						>
-						<input
+						<DatePicker
 							id="manage-season-start"
 							type="date"
-							class="input-secondary"
+							inputClass="input-secondary py-2 text-sm"
 							bind:value={startDate}
 							disabled={isSubmitting}
 						/>
@@ -655,10 +656,10 @@
 						<label for="manage-season-end" class="block text-sm text-neutral-950 mb-1"
 							>End Date</label
 						>
-						<input
+						<DatePicker
 							id="manage-season-end"
 							type="date"
-							class="input-secondary"
+							inputClass="input-secondary py-2 text-sm"
 							bind:value={endDate}
 							disabled={isSubmitting}
 						/>

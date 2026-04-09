@@ -45,6 +45,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import type { Snippet } from 'svelte';
 	import { IconX } from '@tabler/icons-svelte';
+	import { hasOpenDatePicker } from '$lib/components/date-picker-stack.js';
 	import { clampModalTranslate } from './modal-drag.js';
 	import { isSaveShortcutEvent } from './save-shortcut.js';
 
@@ -303,6 +304,7 @@
 			}
 			if (event.key !== 'Escape') return;
 			if (!isTopModal(modalId)) return;
+			if (hasOpenDatePicker()) return;
 			dispatch('requestClose');
 		};
 
