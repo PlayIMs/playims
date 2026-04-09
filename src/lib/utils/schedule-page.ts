@@ -95,6 +95,24 @@ export interface ScheduleNavigatorDay {
 	isToday: boolean;
 }
 
+export interface ScheduleNavigatorWeek {
+	anchorDate: string;
+	startDate: string;
+	endDate: string;
+	rangeLabel: string;
+	monthLabel: string;
+	isCurrentWeek: boolean;
+}
+
+export interface ScheduleNavigatorMonth {
+	anchorDate: string;
+	startDate: string;
+	endDate: string;
+	rangeLabel: string;
+	monthLabel: string;
+	isCurrentMonth: boolean;
+}
+
 export interface ScheduleSummary {
 	total: number;
 	live: number;
@@ -250,6 +268,16 @@ function startOfMonth(date: Date): Date {
 
 function endOfMonth(date: Date): Date {
 	return new Date(date.getFullYear(), date.getMonth() + 1, 0);
+}
+
+function shiftMonthPreservingDay(date: Date, monthDelta: number): Date {
+	const targetMonth = new Date(date.getFullYear(), date.getMonth() + monthDelta, 1);
+	const targetLastDay = endOfMonth(targetMonth).getDate();
+	return new Date(
+		targetMonth.getFullYear(),
+		targetMonth.getMonth(),
+		Math.min(date.getDate(), targetLastDay)
+	);
 }
 
 function monthGridStart(date: Date): Date {
@@ -538,8 +566,16 @@ export function shiftScheduleAnchorDate(
 		return dateKeyFromDate(next);
 	}
 
-	next.setMonth(next.getMonth() + direction);
-	return dateKeyFromDate(next);
+	return dateKeyFromDate(shiftMonthPreservingDay(normalized, direction));
+}
+
+export function resolveScheduleNavigatorDirection(
+	key: string,
+	shiftKey = false
+): -7 | -1 | 1 | 7 | null {
+	if (key === 'ArrowLeft') return shiftKey ? -7 : -1;
+	if (key === 'ArrowRight') return shiftKey ? 7 : 1;
+	return null;
 }
 
 export function buildWeekScheduleDays(
@@ -586,6 +622,64 @@ export function buildCenteredScheduleDays(anchorDate: string, radius = 3): Sched
 				weekday: 'short'
 			}),
 			isToday: key === todayKey
+		};
+	});
+}
+
+export function buildCenteredScheduleWeeks(
+	anchorDate: string,
+	previousWeeks = 3,
+	nextWeeks = 2
+): ScheduleNavigatorWeek[] {
+	const center = getNormalizedAnchorDate(anchorDate);
+	const todayRange = getScheduleRangeForView(todayDateKey(), 'week');
+
+	return Array.from({ length: Math.max(1, previousWeeks + nextWeeks + 1) }, (_, index) => {
+		const weekOffset = index - previousWeeks;
+		const current = new Date(center);
+		current.setDate(center.getDate() + weekOffset * 7);
+		const range = getScheduleRangeForView(dateKeyFromDate(current), 'week');
+		const start = parseDateKey(range.startDate) ?? current;
+
+		return {
+			anchorDate: dateKeyFromDate(current),
+			startDate: range.startDate,
+			endDate: range.endDate,
+			rangeLabel: `${start.getDate()}-${endOfWeek(start).getDate()}`,
+			monthLabel: start.toLocaleDateString('en-US', {
+				month: 'short'
+			}),
+			isCurrentWeek:
+				range.startDate === todayRange.startDate && range.endDate === todayRange.endDate
+		};
+	});
+}
+
+export function buildCenteredScheduleMonths(
+	anchorDate: string,
+	previousMonths = 3,
+	nextMonths = 3
+): ScheduleNavigatorMonth[] {
+	const center = getNormalizedAnchorDate(anchorDate);
+	const todayRange = getScheduleRangeForView(todayDateKey(), 'month');
+
+	return Array.from({ length: Math.max(1, previousMonths + nextMonths + 1) }, (_, index) => {
+		const monthOffset = index - previousMonths;
+		const current = shiftMonthPreservingDay(center, monthOffset);
+		const range = getScheduleRangeForView(dateKeyFromDate(current), 'month');
+		const start = parseDateKey(range.startDate) ?? current;
+		const end = parseDateKey(range.endDate) ?? endOfMonth(start);
+
+		return {
+			anchorDate: dateKeyFromDate(current),
+			startDate: range.startDate,
+			endDate: range.endDate,
+			rangeLabel: `${start.getDate()}-${end.getDate()}`,
+			monthLabel: start.toLocaleDateString('en-US', {
+				month: 'short'
+			}),
+			isCurrentMonth:
+				range.startDate === todayRange.startDate && range.endDate === todayRange.endDate
 		};
 	});
 }
@@ -704,7 +798,7 @@ export function buildNextScheduleHref(
 	setUrlSearchParam(
 		nextUrl,
 		'view',
-		state.selectedView !== state.defaultView ? state.selectedView : null
+		state.selectedView
 	);
 	setUrlSearchParam(nextUrl, 'date', state.anchorDate !== state.today ? state.anchorDate : null);
 	setUrlSearchParam(

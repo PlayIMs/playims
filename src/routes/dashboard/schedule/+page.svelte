@@ -26,11 +26,15 @@
 	import {
 		buildNextScheduleHref,
 		buildCenteredScheduleDays,
+		buildCenteredScheduleMonths,
+		buildCenteredScheduleWeeks,
 		buildScheduleOptionCollections,
 		filterScheduleEvents,
 		getScheduleEventDateKey,
 		getScheduleRangeForView,
+		resolveScheduleNavigatorDirection,
 		sanitizeScheduleFilters,
+		shiftScheduleAnchorDate,
 		summarizeScheduleEvents,
 		type ScheduleEventRecord,
 		type ScheduleFilters,
@@ -42,8 +46,9 @@
 
 	const FILTER_DROPDOWN_BUTTON_CLASS =
 		'button-neutral-outlined min-h-10 w-full px-3 py-2 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2';
+	const NAVIGATION_SIDE_SECTION_CLASS = 'w-full xl:w-[9rem] xl:shrink-0';
 	const NAVIGATION_VIEW_BUTTON_CLASS =
-		'h-[3.375rem] min-w-[10.5rem] border-0 bg-white px-4 py-3 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-3';
+		'h-[3.375rem] w-full border-0 bg-white px-4 py-0 text-sm font-semibold leading-none text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-3';
 	const DATE_KEY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 	type ScheduleDisplayMode = 'day' | 'week' | 'month' | 'date-range' | 'entire-season';
 	const DEFAULT_VIEW: ScheduleDisplayMode = 'day';
@@ -71,6 +76,7 @@
 	let selectedView = $state<ScheduleDisplayMode>(DEFAULT_VIEW);
 	let anchorDate = $state(todayDateKey());
 	let selectedMonthDate = $state(todayDateKey());
+	let navigatorDayStrip = $state<HTMLDivElement | null>(null);
 	let scheduleSearchInput = $state<HTMLInputElement | null>(null);
 	let stateHydrated = $state(false);
 	let lastPageError = $state('');
@@ -209,16 +215,6 @@
 		return Boolean(dateKey && dateKey >= startDate && dateKey <= endDate);
 	}
 
-	function shiftDateKeyByDays(dateKey: string, amount: number): string {
-		const parsed = new Date(`${dateKey}T00:00:00`);
-		if (Number.isNaN(parsed.getTime())) return todayDateKey();
-
-		parsed.setDate(parsed.getDate() + amount);
-		return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(
-			parsed.getDate()
-		).padStart(2, '0')}`;
-	}
-
 	function setSelectedDate(dateKey: string): void {
 		anchorDate = dateKey;
 		selectedMonthDate = dateKey;
@@ -230,7 +226,56 @@
 	}
 
 	function moveAnchor(direction: -1 | 1): void {
-		setSelectedDate(shiftDateKeyByDays(anchorDate, direction));
+		setSelectedDate(
+			shiftScheduleAnchorDate(
+				anchorDate,
+				selectedView === 'week' ? 'week' : selectedView === 'month' ? 'month' : 'day',
+				direction
+			)
+		);
+	}
+
+	async function focusNavigatorAnchor(dateKey: string): Promise<void> {
+		await tick();
+		navigatorDayStrip
+			?.querySelector<HTMLButtonElement>(`[data-schedule-navigator-anchor="${dateKey}"]`)
+			?.focus();
+	}
+
+	function handleNavigatorDayKeydown(event: KeyboardEvent, dateKey: string): void {
+		const direction = resolveScheduleNavigatorDirection(event.key, event.shiftKey);
+		if (direction === null) return;
+
+		event.preventDefault();
+		const normalizedDirection: -1 | 1 = direction < 0 ? -1 : 1;
+		const nextDateKey =
+			Math.abs(direction) === 1
+				? shiftScheduleAnchorDate(dateKey, 'day', normalizedDirection)
+				: shiftScheduleAnchorDate(dateKey, 'week', normalizedDirection);
+		setSelectedDate(nextDateKey);
+		void focusNavigatorAnchor(nextDateKey);
+	}
+
+	function handleNavigatorWeekKeydown(event: KeyboardEvent, dateKey: string): void {
+		const direction = resolveScheduleNavigatorDirection(event.key, true);
+		if (direction === null) return;
+
+		event.preventDefault();
+		const normalizedDirection: -1 | 1 = direction < 0 ? -1 : 1;
+		const nextDateKey = shiftScheduleAnchorDate(dateKey, 'week', normalizedDirection);
+		setSelectedDate(nextDateKey);
+		void focusNavigatorAnchor(nextDateKey);
+	}
+
+	function handleNavigatorMonthKeydown(event: KeyboardEvent, dateKey: string): void {
+		const direction = resolveScheduleNavigatorDirection(event.key);
+		if (direction === null) return;
+
+		event.preventDefault();
+		const normalizedDirection: -1 | 1 = direction < 0 ? -1 : 1;
+		const nextDateKey = shiftScheduleAnchorDate(dateKey, 'month', normalizedDirection);
+		setSelectedDate(nextDateKey);
+		void focusNavigatorAnchor(nextDateKey);
 	}
 
 	function resetFilters(): void {
@@ -296,6 +341,10 @@
 		return data.currentSeasonId?.trim() || 'all';
 	});
 	const navigatorDays = $derived.by(() => buildCenteredScheduleDays(anchorDate, 3));
+	const navigatorMonths = $derived.by(() => buildCenteredScheduleMonths(anchorDate));
+	const navigatorWeeks = $derived.by(() => buildCenteredScheduleWeeks(anchorDate));
+	const selectedMonthRange = $derived.by(() => getScheduleRangeForView(anchorDate, 'month'));
+	const selectedWeekRange = $derived.by(() => getScheduleRangeForView(anchorDate, 'week'));
 	const centeredRange = $derived.by<ScheduleRange>(() => ({
 		startDate: navigatorDays[0]?.dateKey ?? anchorDate,
 		endDate: navigatorDays[navigatorDays.length - 1]?.dateKey ?? anchorDate
@@ -546,32 +595,41 @@
 
 						<div class="overflow-hidden border border-neutral-950 bg-white">
 							<div class="flex flex-col xl:flex-row xl:items-stretch">
-								<DatePicker
-									type="date"
-									value={anchorDate}
-									minYear={scheduleDateYearRange.minYear}
-									maxYear={scheduleDateYearRange.maxYear}
-									ariaLabel="Choose schedule date"
-									triggerClass="flex h-[3.375rem] items-center gap-3 border-b border-neutral-950 bg-white px-4 text-sm font-semibold text-neutral-950 xl:min-w-[12rem] xl:border-b-0 xl:border-r"
-									on:change={(event) => {
-										if (isDateKey(event.detail.value)) {
-											setSelectedDate(event.detail.value);
-										}
-									}}
-								>
-									{#snippet trigger()}
-										<IconCalendar class="h-5 w-5 shrink-0 text-neutral-950" />
-										<span class="tabular-nums">{formatCompactDate(anchorDate)}</span>
-									{/snippet}
-								</DatePicker>
+								<div class={NAVIGATION_SIDE_SECTION_CLASS}>
+									<DatePicker
+										type="date"
+										value={anchorDate}
+										minYear={scheduleDateYearRange.minYear}
+										maxYear={scheduleDateYearRange.maxYear}
+										ariaLabel="Choose schedule date"
+										triggerClass="flex h-[3.375rem] w-full items-center justify-start gap-3 border-b border-neutral-950 bg-white px-4 py-0 text-sm font-semibold leading-none text-neutral-950 xl:border-b-0 xl:border-r"
+										on:change={(event) => {
+											if (isDateKey(event.detail.value)) {
+												setSelectedDate(event.detail.value);
+											}
+										}}
+									>
+										{#snippet trigger()}
+											<IconCalendar class="h-5 w-5 shrink-0 text-neutral-950" />
+											<span class="tabular-nums">{formatCompactDate(anchorDate)}</span>
+										{/snippet}
+									</DatePicker>
+								</div>
 
 								<div
 									class="flex min-w-0 flex-1 items-stretch border-b border-neutral-950 xl:border-b-0"
+									bind:this={navigatorDayStrip}
 								>
 									<button
 										type="button"
-										class="inline-flex h-[3.375rem] w-14 shrink-0 items-center justify-center border-r border-neutral-950 bg-white text-neutral-900 transition-colors hover:bg-neutral-50 hover:text-neutral-950 cursor-pointer"
-										aria-label="View previous day"
+										class="inline-flex h-[3.375rem] w-10 shrink-0 items-center justify-center border-r border-neutral-950 bg-white text-neutral-900 transition-colors hover:bg-neutral-50 hover:text-neutral-950 cursor-pointer"
+										aria-label={
+											selectedView === 'week'
+												? 'View previous week'
+												: selectedView === 'month'
+													? 'View previous month'
+													: 'View previous day'
+										}
 										onclick={() => {
 											moveAnchor(-1);
 										}}
@@ -579,52 +637,156 @@
 										<IconChevronLeft class="h-5 w-5" />
 									</button>
 
-									<div class="grid min-w-0 flex-1 grid-cols-7">
-										{#each navigatorDays as day, index (day.dateKey)}
-											<button
-												type="button"
-												class={`group flex min-w-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center transition-colors cursor-pointer ${
-													index === navigatorDays.length - 1 ? '' : 'border-r border-neutral-300'
-												} ${
-													day.dateKey === anchorDate
-														? 'bg-neutral-50 text-neutral-950'
-														: 'bg-white text-neutral-700 hover:bg-neutral-50 hover:text-neutral-950'
-												}`}
-												aria-current={day.dateKey === anchorDate ? 'date' : undefined}
-												aria-label={`View schedule for ${formatLongDate(day.dateKey)}`}
-												onclick={() => {
-													setSelectedDate(day.dateKey);
-												}}
-											>
-												<span
-													class={`text-lg font-semibold tabular-nums leading-none ${
-														day.dateKey === anchorDate
-															? 'text-primary-700'
-															: day.isToday
-																? 'text-primary-600'
-																: 'text-neutral-950'
+									{#if selectedView === 'week'}
+										<div class="grid min-w-0 flex-1 grid-cols-6">
+											{#each navigatorWeeks as week, index (week.anchorDate)}
+												<button
+													type="button"
+													data-schedule-navigator-anchor={week.anchorDate}
+													class={`group flex min-w-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center transition-colors cursor-pointer ${
+														index === navigatorWeeks.length - 1 ? '' : 'border-r border-neutral-300'
+													} ${
+														week.startDate === selectedWeekRange.startDate
+															? 'bg-neutral-50 text-neutral-950'
+															: 'bg-white text-neutral-700 hover:bg-neutral-50 hover:text-neutral-950'
 													}`}
+													aria-current={week.startDate === selectedWeekRange.startDate ? 'date' : undefined}
+													aria-label={`View schedule week of ${formatLongDate(week.startDate)} through ${formatLongDate(week.endDate)}`}
+													onclick={() => {
+														setSelectedDate(week.anchorDate);
+													}}
+													onkeydown={(event) => {
+														handleNavigatorWeekKeydown(event, week.anchorDate);
+													}}
 												>
-													{day.dayNumber}
-												</span>
-												<span class="text-[11px] font-semibold uppercase tracking-wide">
-													{day.monthLabel}
-												</span>
-												<span
-													class={`mt-1 h-0.5 w-8 ${
-														day.dateKey === anchorDate
-															? 'bg-primary-700'
-															: 'bg-transparent group-hover:bg-neutral-300'
+													<span
+														class={`text-lg font-semibold tabular-nums leading-none whitespace-nowrap ${
+															week.startDate === selectedWeekRange.startDate
+																? 'text-primary-700'
+																: week.isCurrentWeek
+																	? 'text-primary-600'
+																	: 'text-neutral-950'
+														}`}
+													>
+														{week.rangeLabel}
+													</span>
+													<span class="text-[11px] font-semibold uppercase tracking-wide">
+														{week.monthLabel}
+													</span>
+													<span
+														class={`mt-1 h-0.5 w-10 ${
+															week.startDate === selectedWeekRange.startDate
+																? 'bg-primary-700'
+																: 'bg-transparent group-hover:bg-neutral-300'
+														}`}
+													></span>
+												</button>
+											{/each}
+										</div>
+									{:else if selectedView === 'month'}
+										<div class="grid min-w-0 flex-1 grid-cols-7">
+											{#each navigatorMonths as month, index (month.anchorDate)}
+												<button
+													type="button"
+													data-schedule-navigator-anchor={month.anchorDate}
+													class={`group flex min-w-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center transition-colors cursor-pointer ${
+														index === navigatorMonths.length - 1 ? '' : 'border-r border-neutral-300'
+													} ${
+														month.startDate === selectedMonthRange.startDate
+															? 'bg-neutral-50 text-neutral-950'
+															: 'bg-white text-neutral-700 hover:bg-neutral-50 hover:text-neutral-950'
 													}`}
-												></span>
-											</button>
-										{/each}
-									</div>
+													aria-current={month.startDate === selectedMonthRange.startDate ? 'date' : undefined}
+													aria-label={`View schedule month of ${month.monthLabel} ${month.rangeLabel}`}
+													onclick={() => {
+														setSelectedDate(month.anchorDate);
+													}}
+													onkeydown={(event) => {
+														handleNavigatorMonthKeydown(event, month.anchorDate);
+													}}
+												>
+													<span
+														class={`text-lg font-semibold tabular-nums leading-none whitespace-nowrap ${
+															month.startDate === selectedMonthRange.startDate
+																? 'text-primary-700'
+																: month.isCurrentMonth
+																	? 'text-primary-600'
+																	: 'text-neutral-950'
+														}`}
+													>
+														{month.rangeLabel}
+													</span>
+													<span class="text-[11px] font-semibold uppercase tracking-wide">
+														{month.monthLabel}
+													</span>
+													<span
+														class={`mt-1 h-0.5 w-10 ${
+															month.startDate === selectedMonthRange.startDate
+																? 'bg-primary-700'
+																: 'bg-transparent group-hover:bg-neutral-300'
+														}`}
+													></span>
+												</button>
+											{/each}
+										</div>
+									{:else}
+										<div class="grid min-w-0 flex-1 grid-cols-7">
+											{#each navigatorDays as day, index (day.dateKey)}
+												<button
+													type="button"
+													data-schedule-navigator-anchor={day.dateKey}
+													class={`group flex min-w-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center transition-colors cursor-pointer ${
+														index === navigatorDays.length - 1 ? '' : 'border-r border-neutral-300'
+													} ${
+														day.dateKey === anchorDate
+															? 'bg-neutral-50 text-neutral-950'
+															: 'bg-white text-neutral-700 hover:bg-neutral-50 hover:text-neutral-950'
+													}`}
+													aria-current={day.dateKey === anchorDate ? 'date' : undefined}
+													aria-label={`View schedule for ${formatLongDate(day.dateKey)}`}
+													onclick={() => {
+														setSelectedDate(day.dateKey);
+													}}
+													onkeydown={(event) => {
+														handleNavigatorDayKeydown(event, day.dateKey);
+													}}
+												>
+													<span
+														class={`text-lg font-semibold tabular-nums leading-none ${
+															day.dateKey === anchorDate
+																? 'text-primary-700'
+																: day.isToday
+																	? 'text-primary-600'
+																	: 'text-neutral-950'
+														}`}
+													>
+														{day.dayNumber}
+													</span>
+													<span class="text-[11px] font-semibold uppercase tracking-wide">
+														{day.monthLabel}
+													</span>
+													<span
+														class={`mt-1 h-0.5 w-8 ${
+															day.dateKey === anchorDate
+																? 'bg-primary-700'
+																: 'bg-transparent group-hover:bg-neutral-300'
+														}`}
+													></span>
+												</button>
+											{/each}
+										</div>
+									{/if}
 
 									<button
 										type="button"
-										class="inline-flex h-[3.375rem] w-14 shrink-0 items-center justify-center border-l border-neutral-950 bg-white text-neutral-900 transition-colors hover:bg-neutral-50 hover:text-neutral-950 cursor-pointer"
-										aria-label="View next day"
+										class="inline-flex h-[3.375rem] w-10 shrink-0 items-center justify-center border-l border-neutral-950 bg-white text-neutral-900 transition-colors hover:bg-neutral-50 hover:text-neutral-950 cursor-pointer"
+										aria-label={
+											selectedView === 'week'
+												? 'View next week'
+												: selectedView === 'month'
+													? 'View next month'
+													: 'View next day'
+										}
 										onclick={() => {
 											moveAnchor(1);
 										}}
@@ -633,9 +795,7 @@
 									</button>
 								</div>
 
-								<div
-									class="border-t border-neutral-950 xl:min-w-[10.5rem] xl:border-l xl:border-t-0"
-								>
+								<div class={`${NAVIGATION_SIDE_SECTION_CLASS} border-t border-neutral-950 xl:border-l xl:border-t-0`}>
 									<ListboxDropdown
 										options={VIEW_DROPDOWN_OPTIONS}
 										value={selectedView}

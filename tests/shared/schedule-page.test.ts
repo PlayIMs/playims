@@ -7,14 +7,15 @@ The schedule page now depends on shared filtering and calendar helpers instead o
 its date math and option pruning directly in the route. These tests protect the behavior that keeps
 the cascading filters valid, places events into the correct calendar buckets, preserves the
 expected day, week, and month ranges, and keeps the top date navigator aligned around the selected
-day.
+day, week, or month.
 
 Summary of tests:
 1. It verifies invalid lower-level schedule filters are cleared when a higher-level filter changes.
 2. It verifies team filtering matches events where the selected team is either home or away.
-3. It verifies centered day-strip, range, and month helpers stay aligned around the selected date.
+3. It verifies centered day-strip, week-strip, month-strip, range, and month helpers stay aligned around the selected date.
 4. It verifies the URL-sync helper removes default schedule params and no-ops once the URL matches.
 5. It verifies unscheduled events stay out of dated agenda buckets and month cells.
+6. It verifies the simple day navigator maps arrow-key combinations to the expected day jumps.
 */
 
 import { describe, expect, it } from 'vitest';
@@ -23,11 +24,14 @@ import {
 	bucketScheduleEventsByTiming,
 	buildNextScheduleHref,
 	buildCenteredScheduleDays,
+	buildCenteredScheduleMonths,
+	buildCenteredScheduleWeeks,
 	buildScheduleDateIndex,
 	buildScheduleAgendaBuckets,
 	buildMonthScheduleCells,
 	filterScheduleEvents,
 	getScheduleRangeForView,
+	resolveScheduleNavigatorDirection,
 	sanitizeScheduleFilters,
 	type ScheduleEventRecord,
 	type ScheduleFilters,
@@ -164,10 +168,12 @@ describe('schedule page helpers', () => {
 		).toEqual(['event-1', 'event-2']);
 	});
 
-	it('builds centered day strips, week ranges, and month cells around the selected date', () => {
-		// this protects the navigator so the highlighted day stays centered while the related views stay in sync.
+	it('builds centered day strips, week strips, month strips, ranges, and month cells around the selected date', () => {
+		// this protects the navigator so the highlighted day, week, or month stays aligned while the related views stay in sync.
 		const dateIndex = buildScheduleDateIndex(events);
 		const centeredDays = buildCenteredScheduleDays('2026-03-18', 3);
+		const centeredWeeks = buildCenteredScheduleWeeks('2026-04-02');
+		const centeredMonths = buildCenteredScheduleMonths('2026-04-14');
 		const weekRange = getScheduleRangeForView('2026-03-18', 'week' satisfies ScheduleView);
 		const monthCells = buildMonthScheduleCells(events, '2026-03-18');
 		const marchEighteenthCell = monthCells.find((cell) => cell.dateKey === '2026-03-18');
@@ -186,6 +192,33 @@ describe('schedule page helpers', () => {
 			dayNumber: '18',
 			monthLabel: 'Mar'
 		});
+		expect(centeredWeeks.map((week) => week.rangeLabel)).toEqual([
+			'8-14',
+			'15-21',
+			'22-28',
+			'29-4',
+			'5-11',
+			'12-18'
+		]);
+		expect(centeredWeeks[3]).toMatchObject({
+			startDate: '2026-03-29',
+			endDate: '2026-04-04',
+			monthLabel: 'Mar'
+		});
+		expect(centeredMonths.map((month) => month.rangeLabel)).toEqual([
+			'1-31',
+			'1-28',
+			'1-31',
+			'1-30',
+			'1-31',
+			'1-30',
+			'1-31'
+		]);
+		expect(centeredMonths[3]).toMatchObject({
+			startDate: '2026-04-01',
+			endDate: '2026-04-30',
+			monthLabel: 'Apr'
+		});
 		expect(weekRange).toEqual({
 			startDate: '2026-03-15',
 			endDate: '2026-03-21'
@@ -198,8 +231,8 @@ describe('schedule page helpers', () => {
 	});
 
 	it('builds stable schedule urls so the page does not keep rewriting identical history state', () => {
-		// this protects the client page from reactive url loops by proving defaults disappear and repeated syncs become a no-op.
-		const nextHref = buildNextScheduleHref('https://example.com/dashboard/schedule?view=day', {
+		// this protects the client page from reactive url loops by proving the chosen view stays shareable and repeated syncs become a no-op.
+		const nextHref = buildNextScheduleHref('https://example.com/dashboard/schedule', {
 			searchQuery: '',
 			selectedSeasonId: 'season-spring',
 			defaultSeasonId: 'season-spring',
@@ -213,7 +246,7 @@ describe('schedule page helpers', () => {
 			today: '2026-03-18'
 		});
 
-		expect(nextHref).toBe('/dashboard/schedule');
+		expect(nextHref).toBe('/dashboard/schedule?view=day');
 		expect(
 			buildNextScheduleHref(`https://example.com${nextHref}`, {
 				searchQuery: '',
@@ -249,5 +282,14 @@ describe('schedule page helpers', () => {
 		expect(monthCells.some((cell) => cell.events.some((event) => event.id === 'event-4'))).toBe(
 			false
 		);
+	});
+
+	it('maps simple navigator arrow keys to horizontal date movement only', () => {
+		// this keeps keyboard navigation predictable so plain arrows move one day and shift-arrows move one week.
+		expect(resolveScheduleNavigatorDirection('ArrowLeft')).toBe(-1);
+		expect(resolveScheduleNavigatorDirection('ArrowRight')).toBe(1);
+		expect(resolveScheduleNavigatorDirection('ArrowLeft', true)).toBe(-7);
+		expect(resolveScheduleNavigatorDirection('ArrowRight', true)).toBe(7);
+		expect(resolveScheduleNavigatorDirection('Enter')).toBeNull();
 	});
 });
