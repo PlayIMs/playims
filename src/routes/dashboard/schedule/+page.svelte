@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { afterNavigate, replaceState } from '$app/navigation';
+	import { afterNavigate, goto, replaceState } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { onMount, tick } from 'svelte';
 	import {
@@ -218,11 +218,46 @@
 	function setSelectedDate(dateKey: string): void {
 		anchorDate = dateKey;
 		selectedMonthDate = dateKey;
+		syncScheduleUrl(true);
 	}
 
 	function changeView(nextView: ScheduleDisplayMode): void {
 		selectedView = nextView;
 		selectedMonthDate = anchorDate;
+		syncScheduleUrl(true);
+	}
+
+	function syncScheduleUrl(immediate = false): void {
+		if (!browser || !stateHydrated) return;
+
+		const nextHref = buildNextScheduleHref(window.location.href, {
+			searchQuery,
+			selectedSeasonId,
+			defaultSeasonId,
+			selectedOfferingId,
+			selectedLeagueId,
+			selectedDivisionId,
+			selectedView,
+			defaultView: DEFAULT_VIEW,
+			anchorDate,
+			selectedMonthDate,
+			today: todayDateKey()
+		});
+
+		if (!nextHref) return;
+
+		if (immediate) {
+			// use a same-page replace navigation so the visible address bar updates immediately without adding history entries.
+			void goto(nextHref, {
+				replaceState: true,
+				noScroll: true,
+				keepFocus: true,
+				invalidateAll: false
+			});
+			return;
+		}
+
+		replaceState(nextHref, {});
 	}
 
 	function moveAnchor(direction: -1 | 1): void {
@@ -488,24 +523,7 @@
 
 	$effect(() => {
 		if (!browser || !stateHydrated) return;
-
-		const nextHref = buildNextScheduleHref(window.location.href, {
-			searchQuery,
-			selectedSeasonId,
-			defaultSeasonId,
-			selectedOfferingId,
-			selectedLeagueId,
-			selectedDivisionId,
-			selectedView,
-			defaultView: DEFAULT_VIEW,
-			anchorDate,
-			selectedMonthDate,
-			today: todayDateKey()
-		});
-
-		if (nextHref) {
-			replaceState(nextHref, {});
-		}
+		syncScheduleUrl();
 	});
 
 	$effect(() => {
