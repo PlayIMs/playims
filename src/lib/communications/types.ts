@@ -121,6 +121,18 @@ export interface CommunicationAudiencePreviewResponse {
 	manualRecipients: CommunicationManualRecipientDraft[];
 }
 
+export const createEmptyCommunicationFilterOptions = (): CommunicationFilterOptions => ({
+	memberRoles: [],
+	memberSexes: [],
+	rosterRoles: [],
+	teamStatuses: [],
+	seasons: [],
+	offerings: [],
+	leagues: [],
+	divisions: [],
+	teams: []
+});
+
 export const EMPTY_COMMUNICATION_RECIPIENT_GROUP_FILTER: CommunicationRecipientGroupFilter = {
 	memberQuery: '',
 	memberRole: '',

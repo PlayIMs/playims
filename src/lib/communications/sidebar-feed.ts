@@ -1,6 +1,7 @@
 import type { CommunicationMessageSummary } from '$lib/communications/types.js';
 
 export type CommunicationSidebarFeedItemKind = 'draft' | 'scheduled' | 'history';
+export type CommunicationSidebarView = 'drafts' | 'scheduled' | 'history';
 
 export interface CommunicationSidebarFeedItem {
 	kind: CommunicationSidebarFeedItemKind;
@@ -54,6 +55,39 @@ export function getCommunicationSidebarItemKind(
 
 	if (isScheduledMessage(message, now.getTime())) {
 		return 'scheduled';
+	}
+
+	return 'history';
+}
+
+export function getCommunicationSidebarViewFromStatus(
+	status: CommunicationMessageSummary['status'] | null | undefined
+): CommunicationSidebarView {
+	if (status === 'draft') {
+		return 'drafts';
+	}
+
+	if (status === 'scheduled') {
+		return 'scheduled';
+	}
+
+	return 'history';
+}
+
+export function getPreferredCommunicationSidebarView(
+	messages: CommunicationMessageSummary[],
+	now: Date = new Date()
+): CommunicationSidebarView {
+	for (const message of messages) {
+		if (getCommunicationSidebarItemKind(message, now) === 'draft') {
+			return 'drafts';
+		}
+	}
+
+	for (const message of messages) {
+		if (getCommunicationSidebarItemKind(message, now) === 'scheduled') {
+			return 'scheduled';
+		}
 	}
 
 	return 'history';

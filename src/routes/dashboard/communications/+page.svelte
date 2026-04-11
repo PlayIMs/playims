@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { beforeNavigate, goto, invalidateAll } from '$app/navigation';
+	import { onMount } from 'svelte';
 	import {
 		IconBell,
 		IconCopy,
@@ -23,6 +24,8 @@
 		buildCommunicationSidebarFeed,
 		getCommunicationHistoryAt,
 		getCommunicationScheduledAt,
+		getCommunicationSidebarViewFromStatus,
+		getPreferredCommunicationSidebarView,
 		type CommunicationSidebarFeedItem
 	} from '$lib/communications/sidebar-feed.js';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
@@ -36,6 +39,7 @@
 		splitCommunicationManualRecipientInput
 	} from '$lib/communications/manual-recipients.js';
 	import {
+		createEmptyCommunicationFilterOptions,
 		type CommunicationFilterOptions,
 		type CommunicationManualRecipientDraft,
 		type CommunicationMessageDetail,
@@ -67,6 +71,11 @@
 	);
 	const permissions = $derived.by(() => data.permissions ?? {});
 
+	let recipientFilterOptions = $state<CommunicationFilterOptions>(
+		createEmptyCommunicationFilterOptions()
+	);
+	let recipientFilterOptionsLoaded = $state(false);
+	let recipientFilterOptionsLoading = $state(false);
 	let messages = $state<CommunicationMessageSummary[]>([]);
 	let selectedMessage = $state<CommunicationMessageDetail | null>(null);
 	let subject = $state('');
@@ -93,6 +102,7 @@
 	let activeMessageView = $state<MessageSidebarView>('drafts');
 	let unsavedDraftConfirmMode = $state<UnsavedDraftConfirmMode>('leave');
 	let editorResetToken = $state(0);
+	let richEditorReady = $state(false);
 
 	let allowNextNavigation = false;
 
@@ -101,8 +111,6 @@
 			? `${data.selectedMessage.id}:${data.selectedMessage.updatedAt ?? ''}:${data.selectedMessage.status}`
 			: 'new'
 	);
-
-	const filterOptions = $derived.by<CommunicationFilterOptions>(() => data.filterOptions);
 
 	const canViewHistory = $derived.by(() => permissions.VIEW_COMMUNICATION_HISTORY === true);
 	const canPreviewAudience = $derived.by(
@@ -217,22 +225,6 @@
 		return item.message.sentAt ? 'Sent' : 'Updated';
 	}
 
-	function getSidebarViewForMessage(message: CommunicationMessageDetail | null): MessageSidebarView {
-		if (message?.status === 'draft') {
-			return 'drafts';
-		}
-		if (message?.status === 'scheduled') {
-			return 'scheduled';
-		}
-		return 'history';
-	}
-
-	function getPreferredSidebarView(): MessageSidebarView {
-		if (draftMessageCount > 0) return 'drafts';
-		if (scheduledMessageCount > 0) return 'scheduled';
-		return 'history';
-	}
-
 	function setActiveSidebarView(nextView: MessageSidebarView): void {
 		activeMessageView = nextView;
 	}
@@ -296,9 +288,14 @@
 		}));
 	}
 
-	function loadMessageIntoComposer(message: CommunicationMessageDetail | null): void {
+	function loadMessageIntoComposer(
+		message: CommunicationMessageDetail | null,
+		nextActiveView: MessageSidebarView = message
+			? getCommunicationSidebarViewFromStatus(message.status)
+			: getPreferredCommunicationSidebarView(messages)
+	): void {
 		selectedMessage = message;
-		activeMessageView = message ? getSidebarViewForMessage(message) : getPreferredSidebarView();
+		activeMessageView = nextActiveView;
 		if (!message) {
 			editorResetToken += 1;
 		}
@@ -332,8 +329,21 @@
 	$effect(() => {
 		const signature = loadedMessageSignature;
 		if (!signature) return;
-		messages = data.messages ?? [];
-		loadMessageIntoComposer(data.selectedMessage ?? null);
+		const nextMessages = data.messages ?? [];
+		const nextSelectedMessage = data.selectedMessage ?? null;
+		const nextActiveView: MessageSidebarView = nextSelectedMessage
+			? getCommunicationSidebarViewFromStatus(nextSelectedMessage.status)
+			: getPreferredCommunicationSidebarView(nextMessages);
+		messages = nextMessages;
+		if (data.filterOptionsLoaded) {
+			recipientFilterOptions = data.filterOptions;
+			recipientFilterOptionsLoaded = true;
+		}
+		loadMessageIntoComposer(nextSelectedMessage, nextActiveView);
+	});
+
+	onMount(() => {
+		richEditorReady = true;
 	});
 
 	function updateEditorContent(payload: {
@@ -497,6 +507,39 @@
 		if (input?.clearSuggestions ?? true) {
 			clearManualRecipientSuggestions();
 		}
+	}
+
+	async function ensureRecipientFilterOptionsLoaded(): Promise<void> {
+		if (recipientFilterOptionsLoaded || recipientFilterOptionsLoading) {
+			return;
+		}
+
+		recipientFilterOptionsLoading = true;
+		try {
+			const response = await fetch('/api/communications/filter-options');
+			const payload = await response.json();
+			if (!response.ok || payload.success === false) {
+				throw new Error(payload.error ?? 'Unable to load recipient filters.');
+			}
+
+			recipientFilterOptions = payload.data.filterOptions as CommunicationFilterOptions;
+			recipientFilterOptionsLoaded = true;
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : 'Unable to load recipient filters.'
+			);
+		} finally {
+			recipientFilterOptionsLoading = false;
+		}
+	}
+
+	function openRecipientBuilder(): void {
+		if (!canPreviewAudience || !canEditCurrentDraft) {
+			return;
+		}
+
+		recipientBuilderOpen = true;
+		void ensureRecipientFilterOptionsLoaded();
 	}
 
 	async function commitManualRecipientQueries(
@@ -865,9 +908,7 @@
 									id="communication-recipient-trigger"
 									type="button"
 									class="button-secondary-outlined min-h-10 w-full items-center justify-between px-4 py-2 text-left cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-									onclick={() => {
-										recipientBuilderOpen = true;
-									}}
+									onclick={openRecipientBuilder}
 									disabled={!canPreviewAudience || !canEditCurrentDraft}
 								>
 									<span class="truncate text-sm text-neutral-950">{recipientSummaryText}</span>
@@ -1046,14 +1087,22 @@
 							/>
 						</div>
 
-						{#key editorResetToken}
-							<CommunicationRichEditor
-								initialHtml={editorHtml}
-								initialJson={editorJson}
-								editable={canEditCurrentDraft}
-								onChange={updateEditorContent}
-							/>
-						{/key}
+						{#if richEditorReady}
+							{#key editorResetToken}
+								<CommunicationRichEditor
+									initialHtml={editorHtml}
+									initialJson={editorJson}
+									editable={canEditCurrentDraft}
+									onChange={updateEditorContent}
+								/>
+							{/key}
+						{:else}
+							<div class="min-h-[22rem] border border-neutral-950 bg-white px-4 py-4">
+								<div class="flex h-full min-h-[22rem] items-center justify-center text-sm text-neutral-700">
+									Loading editor...
+								</div>
+							</div>
+						{/if}
 
 						<div
 							class="flex flex-col gap-3 border-t border-neutral-950 pt-4 lg:flex-row lg:items-end lg:justify-between"
@@ -1121,24 +1170,29 @@
 						<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
 							<div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
 								<h2 class="dashboard-section-title text-neutral-950">Messages</h2>
-								<div class="flex flex-nowrap items-stretch border-2 border-neutral-950 bg-white">
-									{#each [
-										{ value: 'drafts', label: 'Drafts', count: draftMessageCount },
-										{ value: 'scheduled', label: 'Scheduled', count: scheduledMessageCount },
-										{ value: 'history', label: 'History', count: historyMessageCount }
-									] as option}
-										<button
-											type="button"
-											class={`border-r-2 border-neutral-950 px-2 py-1 text-[11px] font-bold uppercase tracking-[0.04em] cursor-pointer whitespace-nowrap last:border-r-0 ${
-												activeMessageView === option.value
-													? 'bg-secondary-100 text-secondary-950'
-													: 'bg-white text-neutral-950 hover:bg-neutral-100'
-											}`}
-											onclick={() => setActiveSidebarView(option.value as MessageSidebarView)}
-										>
-											{option.label} ({option.count})
-										</button>
-									{/each}
+								<div
+									class="messages-tab-scroll min-w-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none]"
+								>
+									<div class="flex w-max min-w-full flex-nowrap items-stretch border-2 border-neutral-950 bg-white">
+										{#each [
+											{ value: 'drafts', label: 'Drafts', count: draftMessageCount },
+											{ value: 'scheduled', label: 'Scheduled', count: scheduledMessageCount },
+											{ value: 'history', label: 'Sent', count: historyMessageCount }
+										] as option}
+											<button
+												type="button"
+												class={`border-r-2 border-neutral-950 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.04em] cursor-pointer whitespace-nowrap last:border-r-0 ${
+													activeMessageView === option.value
+														? 'bg-secondary-100 text-secondary-950'
+														: 'bg-white text-neutral-950 hover:bg-neutral-100'
+												}`}
+												onclick={() => setActiveSidebarView(option.value as MessageSidebarView)}
+											>
+												<span>{option.label}</span>
+												<span class="ml-1.5 text-neutral-500">{option.count}</span>
+											</button>
+										{/each}
+									</div>
 								</div>
 							</div>
 						</div>
@@ -1297,7 +1351,8 @@
 
 		<RecipientBuilderWizard
 			open={recipientBuilderOpen && canPreviewAudience && canEditCurrentDraft}
-			{filterOptions}
+			filterOptions={recipientFilterOptions}
+			filterOptionsLoading={recipientFilterOptionsLoading}
 			initialRecipientGroups={recipientGroups}
 			initialPreview={preview}
 			onPreviewRequest={requestPreview}
@@ -1336,6 +1391,12 @@
 			on:confirm={() => void confirmSaveBeforeLeaving()}
 			on:cancel={keepEditingDraft}
 			on:secondary={() => void discardUnsavedDraftAndContinue()}
-		/>
-	</div>
+	/>
+</div>
+
+<style>
+	.messages-tab-scroll::-webkit-scrollbar {
+		display: none;
+	}
+</style>
 </div>

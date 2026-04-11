@@ -12,13 +12,14 @@ Summary of tests:
 2. It verifies that preview requests return stored recipient-group summaries and recipient previews.
 3. It verifies that manual recipient resolve requests return canonical org members.
 4. It verifies that ambiguous manual recipient resolve requests return suggestion rows instead of a hard error.
-5. It verifies that creating a draft requires a subject and at least one recipient source.
-6. It verifies that creating and updating drafts call the communication service.
-7. It verifies that deleting a draft calls the communication service.
-8. It verifies that sending a draft returns the refreshed message detail.
-9. It verifies that duplicate requests return the new draft id.
-10. It verifies that participant callers are blocked from mutating communication routes.
-11. It verifies that message detail fetches return 404 when the draft is missing.
+5. It verifies that recipient filter options can be fetched lazily for the recipient builder.
+6. It verifies that creating a draft requires a subject and at least one recipient source.
+7. It verifies that creating and updating drafts call the communication service.
+8. It verifies that deleting a draft calls the communication service.
+9. It verifies that sending a draft returns the refreshed message detail.
+10. It verifies that duplicate requests return the new draft id.
+11. It verifies that participant callers are blocked from mutating communication routes.
+12. It verifies that message detail fetches return 404 when the draft is missing.
 */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -60,6 +61,7 @@ vi.mock('$lib/server/communications', () => {
 });
 
 import { POST as createDraft } from '../../src/routes/api/communications/+server';
+import { GET as getFilterOptions } from '../../src/routes/api/communications/filter-options/+server';
 import { POST as previewAudience } from '../../src/routes/api/communications/preview/+server';
 import { POST as resolveManualRecipients } from '../../src/routes/api/communications/recipients/resolve/+server';
 import {
@@ -309,6 +311,22 @@ describe('communication routes', () => {
 		expect(response.status).toBe(200);
 		expect(payload.data.status).toBe('ambiguous');
 		expect(payload.data.suggestions).toHaveLength(2);
+	});
+
+	it('returns recipient filter options for the lazy-loaded recipient builder', async () => {
+		// the page defers this dataset until the modal opens so route navigation stays fast.
+		const response = await getFilterOptions(
+			buildEvent({
+				path: '/api/communications/filter-options',
+				method: 'GET'
+			})
+		);
+		const payload = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(payload.success).toBe(true);
+		expect(payload.data.filterOptions.memberRoles).toEqual([{ value: '', label: 'All Roles' }]);
+		expect(mocks.loadCommunicationFilterOptions).toHaveBeenCalledWith(mocks.dbOps, 'client-1');
 	});
 
 	it('requires a subject and at least one recipient source before saving a draft', async () => {

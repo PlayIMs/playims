@@ -12,6 +12,7 @@ Summary of tests:
 1. It verifies that messages are classified into draft, scheduled, and history buckets.
 2. It verifies that scheduled messages are sorted by their scheduled time.
 3. It verifies that draft and history items are sorted from most recent to oldest using sent, updated, then created dates.
+4. It verifies that the page can choose a stable active tab from message status or the available message buckets.
 */
 
 import { describe, expect, it } from 'vitest';
@@ -20,7 +21,9 @@ import {
 	buildCommunicationSidebarFeed,
 	getCommunicationHistoryAt,
 	getCommunicationScheduledAt,
-	getCommunicationSidebarItemKind
+	getCommunicationSidebarItemKind,
+	getCommunicationSidebarViewFromStatus,
+	getPreferredCommunicationSidebarView
 } from '../../src/lib/communications/sidebar-feed';
 import type { CommunicationMessageSummary } from '../../src/lib/communications/types';
 
@@ -144,5 +147,48 @@ describe('communication sidebar feed helpers', () => {
 		]);
 		expect(getCommunicationHistoryAt(feed[0]!.message)).toBe('2026-04-04T15:00:00.000Z');
 		expect(getCommunicationHistoryAt(feed[1]!.message)).toBe('2026-04-04T11:00:00.000Z');
+	});
+
+	it('chooses the active tab from status or the available message buckets', () => {
+		// the route hydrate path should be able to decide the tab from incoming data alone.
+		const messages = [
+			createMessage({
+				id: 'scheduled-1',
+				subject: 'Tonight reminder',
+				status: 'scheduled',
+				scheduledAt: '2026-04-05T19:00:00.000Z'
+			}),
+			createMessage({
+				id: 'draft-1',
+				subject: 'Working draft',
+				status: 'draft'
+			})
+		];
+
+		expect(getCommunicationSidebarViewFromStatus('draft')).toBe('drafts');
+		expect(getCommunicationSidebarViewFromStatus('scheduled')).toBe('scheduled');
+		expect(getCommunicationSidebarViewFromStatus('sent')).toBe('history');
+		expect(getPreferredCommunicationSidebarView(messages, new Date('2026-04-04T12:00:00.000Z'))).toBe(
+			'drafts'
+		);
+		expect(
+			getPreferredCommunicationSidebarView(
+				messages.filter((message) => message.status !== 'draft'),
+				new Date('2026-04-04T12:00:00.000Z')
+			)
+		).toBe('scheduled');
+		expect(
+			getPreferredCommunicationSidebarView(
+				[
+					createMessage({
+						id: 'sent-1',
+						subject: 'Already sent',
+						status: 'sent',
+						sentAt: '2026-04-04T12:30:00.000Z'
+					})
+				],
+				new Date('2026-04-04T12:00:00.000Z')
+			)
+		).toBe('history');
 	});
 });

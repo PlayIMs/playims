@@ -975,6 +975,23 @@
 		openLinkDialog(anchor.getAttribute('href') ?? '');
 	}
 
+	function focusEditorFromShell(event: MouseEvent): void {
+		const target = event.target;
+		if (!(target instanceof HTMLElement) || !editable || !editor) {
+			return;
+		}
+
+		if (
+			target.closest(
+				'button, input, textarea, select, a, img, [role="dialog"], [data-listbox-dropdown-panel], [data-listbox-dropdown-trigger]'
+			)
+		) {
+			return;
+		}
+
+		editor.commands.focus('end');
+	}
+
 	onMount(() => {
 		if (!editorElement) {
 			return;
@@ -1602,7 +1619,8 @@
 		</div>
 	{/if}
 
-	<div class="relative border border-neutral-950 bg-white">
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="relative border border-neutral-950 bg-white cursor-text" onmousedown={focusEditorFromShell}>
 		<div
 			bind:this={editorElement}
 			class="tiptap editor-host min-h-[22rem] max-w-none px-4 py-4 prose prose-neutral focus:outline-none"
@@ -2021,6 +2039,11 @@
 		color: var(--color-neutral-950);
 		font-size: 0.95rem;
 		line-height: 1.35;
+	}
+
+	.communication-rich-editor :global(.editor-host .ProseMirror) {
+		min-height: calc(22rem - 2rem);
+		cursor: text;
 	}
 
 	.communication-rich-editor :global(.editor-host:focus),

@@ -1,8 +1,8 @@
 import { error } from '@sveltejs/kit';
+import { createEmptyCommunicationFilterOptions } from '$lib/communications/types.js';
 import { getCentralDbOps } from '$lib/server/database/context';
 import { PERMISSIONS, requirePermission } from '$lib/server/auth/permissions';
 import { requireAuthenticatedClientId } from '$lib/server/client-context';
-import { loadCommunicationFilterOptions } from '$lib/server/communications';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async (event) => {
@@ -23,17 +23,8 @@ export const load: PageServerLoad = async (event) => {
 	if (!event.platform?.env?.DB) {
 		return {
 			messages: [],
-			filterOptions: {
-				memberRoles: [],
-				memberSexes: [],
-				rosterRoles: [],
-				teamStatuses: [],
-				seasons: [],
-				offerings: [],
-				leagues: [],
-				divisions: [],
-				teams: []
-			},
+			filterOptions: createEmptyCommunicationFilterOptions(),
+			filterOptionsLoaded: false,
 			selectedMessage: null
 		};
 	}
@@ -41,11 +32,10 @@ export const load: PageServerLoad = async (event) => {
 	const clientId = requireAuthenticatedClientId(locals);
 	const dbOps = getCentralDbOps(event);
 	const selectedMessageId = url.searchParams.get('messageId')?.trim() || null;
-	const [messages, filterOptions, selectedMessage] = await Promise.all([
+	const [messages, selectedMessage] = await Promise.all([
 		canViewCommunicationHistory
 			? dbOps.communications.listMessageSummaries(clientId, 40)
 			: Promise.resolve([]),
-		loadCommunicationFilterOptions(dbOps, clientId),
 		canViewCommunicationHistory && selectedMessageId
 			? dbOps.communications.getMessageDetail(clientId, selectedMessageId)
 			: null
@@ -53,13 +43,14 @@ export const load: PageServerLoad = async (event) => {
 
 	locals.requestLogMeta = {
 		table:
-			'communication_messages,communication_message_batches,communication_message_recipients,users,user_clients,rosters,teams,divisions,leagues,offerings,seasons',
+			'communication_messages,communication_message_batches,communication_message_recipients,users',
 		recordCount: messages.length
 	};
 
 	return {
 		messages,
-		filterOptions,
+		filterOptions: createEmptyCommunicationFilterOptions(),
+		filterOptionsLoaded: false,
 		selectedMessage
 	};
 };

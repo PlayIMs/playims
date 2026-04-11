@@ -10,7 +10,7 @@ focused on rendering rather than rebuilding missing server context.
 
 Summary of tests:
 1. It verifies that participant viewers are now blocked from the communication center page.
-2. It verifies that the page returns history, filter options, and the selected message detail.
+2. It verifies that the page returns history and the selected message detail without eagerly loading recipient filters.
 3. It verifies that the page falls back to an empty payload when the database is unavailable.
 */
 
@@ -125,15 +125,17 @@ describe('communication center page load', () => {
 	});
 
 	it('loads message history, filter options, and the selected message detail', async () => {
-		// the page needs all three payload slices up front so it can open the draft immediately.
+		// the page still needs history and the selected draft detail, but filter options now load lazily.
 		const result = (await load(
 			buildEvent('/dashboard/communications?messageId=message-1')
 		)) as CommunicationPageLoadData;
 
 		expect(result.messages).toHaveLength(1);
-		expect(result.filterOptions.seasons).toEqual([{ value: 'season-1', label: 'Spring 2029' }]);
+		expect(result.filterOptions.seasons).toEqual([]);
+		expect(result.filterOptionsLoaded).toBe(false);
 		expect(result.selectedMessage?.id).toBe('message-1');
 		expect(mocks.dbOps.communications.getMessageDetail).toHaveBeenCalledWith('client-1', 'message-1');
+		expect(mocks.loadCommunicationFilterOptions).not.toHaveBeenCalled();
 	});
 
 	it('returns an empty payload when the database binding is unavailable', async () => {
@@ -145,6 +147,7 @@ describe('communication center page load', () => {
 		expect(result.messages).toEqual([]);
 		expect(result.selectedMessage).toBeNull();
 		expect(result.filterOptions.seasons).toEqual([]);
+		expect(result.filterOptionsLoaded).toBe(false);
 		expect(mocks.getCentralDbOps).not.toHaveBeenCalled();
 	});
 });

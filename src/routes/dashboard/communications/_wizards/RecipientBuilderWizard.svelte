@@ -45,6 +45,7 @@
 	interface Props {
 		open: boolean;
 		filterOptions: CommunicationFilterOptions;
+		filterOptionsLoading?: boolean;
 		initialRecipientGroups: CommunicationRecipientGroupDraft[];
 		initialPreview: CommunicationRecipientPreview;
 		onPreviewRequest: (nextRecipientGroups: Array<{
@@ -65,6 +66,7 @@
 	let {
 		open,
 		filterOptions,
+		filterOptionsLoading = false,
 		initialRecipientGroups,
 		initialPreview,
 		onPreviewRequest,
@@ -513,6 +515,12 @@
 							/>
 						</div>
 					</div>
+
+					{#if filterOptionsLoading}
+						<div class="border border-neutral-950 bg-neutral-50 px-3 py-2 text-sm text-neutral-700">
+							Loading season, offering, league, division, and team filters...
+						</div>
+					{/if}
 
 					<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
 						<div class="space-y-2">
