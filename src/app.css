@@ -1265,6 +1265,11 @@
 		box-shadow: inset 0 -3px 0 var(--color-primary-500);
 	}
 
+	.date-picker-day-in-range {
+		background-color: var(--color-primary-100);
+		color: var(--color-neutral-950);
+	}
+
 	.date-picker-day-selected {
 		background-color: var(--color-primary-500);
 		color: var(--color-primary-foreground);
@@ -1272,6 +1277,18 @@
 	}
 
 	.date-picker-day-selected:hover:not(:disabled) {
+		background-color: var(--color-primary-600);
+	}
+
+	.date-picker-day-range-start,
+	.date-picker-day-range-end {
+		background-color: var(--color-primary-500);
+		color: var(--color-primary-foreground);
+		font-weight: 700;
+	}
+
+	.date-picker-day-range-start:hover:not(:disabled),
+	.date-picker-day-range-end:hover:not(:disabled) {
 		background-color: var(--color-primary-600);
 	}
 
@@ -1370,6 +1387,126 @@
 		background-color: var(--color-primary-600);
 	}
 
+	.date-range-picker-trigger-shell {
+		display: flex;
+		width: 100%;
+		align-items: stretch;
+		gap: 0;
+	}
+
+	.date-range-picker-trigger-segment {
+		display: inline-flex;
+		min-height: 3.375rem;
+		flex: 1 1 0;
+		align-items: center;
+		justify-content: flex-start;
+		border: 0;
+		background-color: white;
+		padding: 0.75rem 1rem;
+		text-align: left;
+		color: var(--color-neutral-950);
+		cursor: pointer;
+	}
+
+	.date-range-picker-trigger-segment + .date-range-picker-trigger-segment {
+		border-left: 1px solid var(--color-neutral-950);
+	}
+
+	.date-range-picker-trigger-segment:disabled {
+		cursor: not-allowed;
+		opacity: 0.6;
+	}
+
+	.date-range-picker-trigger-copy {
+		display: inline-flex;
+		min-width: 0;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.25rem;
+		line-height: 1;
+	}
+
+	.date-range-picker-trigger-label,
+	.date-range-picker-boundary-label {
+		font-size: 0.625rem;
+		font-weight: 700;
+		letter-spacing: 0.18em;
+		text-transform: uppercase;
+		color: var(--color-neutral-500);
+	}
+
+	.date-range-picker-trigger-value,
+	.date-range-picker-boundary-value {
+		font-size: 0.9375rem;
+		font-weight: 700;
+		color: var(--color-neutral-950);
+	}
+
+	.date-range-picker-panel-desktop {
+		width: min(42rem, calc(100vw - 1rem));
+	}
+
+	.date-range-picker-panel-mobile {
+		max-height: min(90vh, 56rem);
+	}
+
+	.date-range-picker-boundary-row {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		border-bottom: 1px solid var(--color-neutral-300);
+		background-color: var(--color-neutral-50);
+	}
+
+	.date-range-picker-boundary-button {
+		display: inline-flex;
+		min-width: 0;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.25rem;
+		border: 0;
+		background-color: transparent;
+		padding: 0.65rem 0.75rem;
+		text-align: left;
+		cursor: pointer;
+	}
+
+	.date-range-picker-boundary-button + .date-range-picker-boundary-button {
+		border-left: 1px solid var(--color-neutral-300);
+	}
+
+	.date-range-picker-boundary-button-active {
+		background-color: white;
+	}
+
+	.date-range-picker-heading-group {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 0.7fr);
+		gap: 0.3rem;
+	}
+
+	.date-range-picker-calendars {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	.date-range-picker-calendar + .date-range-picker-calendar {
+		border-left: 1px solid var(--color-neutral-300);
+	}
+
+	.date-range-picker-calendar-header {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		align-items: center;
+		gap: 0.375rem;
+		border-bottom: 1px solid var(--color-neutral-300);
+		background-color: white;
+		padding: 0.5rem;
+	}
+
+	.date-range-picker-month-viewport {
+		overflow: hidden;
+	}
+
 	@media (max-width: 767px) {
 		.date-picker-panel {
 			--date-picker-day-height: 3.5rem;
@@ -1390,6 +1527,19 @@
 
 		.date-picker-shortcuts {
 			grid-template-columns: 1fr;
+		}
+
+		.date-range-picker-calendars {
+			grid-template-columns: minmax(0, 1fr);
+		}
+
+		.date-range-picker-heading-group {
+			grid-template-columns: minmax(0, 1fr);
+		}
+
+		.date-range-picker-calendar + .date-range-picker-calendar {
+			border-top: 1px solid var(--color-neutral-300);
+			border-left: 0;
 		}
 	}
 

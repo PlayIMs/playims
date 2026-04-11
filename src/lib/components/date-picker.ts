@@ -22,6 +22,9 @@ export interface CalendarCell {
 	isDisabled: boolean;
 	isSelected: boolean;
 	isToday: boolean;
+	isInRange: boolean;
+	isRangeStart: boolean;
+	isRangeEnd: boolean;
 }
 
 export interface PickerYearRange {
@@ -45,6 +48,8 @@ interface CalendarGridOptions {
 	min?: string;
 	max?: string;
 	today?: string;
+	rangeStart?: string;
+	rangeEnd?: string;
 }
 
 const DATE_VALUE_REGEX = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -52,7 +57,7 @@ const DATETIME_LOCAL_VALUE_REGEX = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::
 const DISPLAY_TIME_REGEX = /^(\d{2}):(\d{2})$/;
 const DEFAULT_DATE_DISPLAY_FORMAT = 'MM/DD/YYYY';
 const DEFAULT_CALENDAR_WHEEL_THRESHOLD = 72;
-const DEFAULT_CALENDAR_WHEEL_GESTURE_GAP_MS = 30;
+const DEFAULT_CALENDAR_WHEEL_GESTURE_GAP_MS = 80;
 const MONTH_LABEL_FORMATTER = new Intl.DateTimeFormat('en-US', {
 	month: 'long',
 	timeZone: 'UTC'
@@ -586,6 +591,19 @@ export function buildCalendarGrid(
 	const todayDateKey = options.today ?? dateKeyFromDate(new Date());
 	const minDateKey = dateKeyFromValue(options.min, options.type);
 	const maxDateKey = dateKeyFromValue(options.max, options.type);
+	const normalizedRangeStart = dateKeyFromValue(options.rangeStart, 'date');
+	const normalizedRangeEnd = dateKeyFromValue(options.rangeEnd, 'date');
+	const hasRange = Boolean(normalizedRangeStart && normalizedRangeEnd);
+	const rangeStartDateKey = !hasRange
+		? null
+		: normalizedRangeStart! <= normalizedRangeEnd!
+			? normalizedRangeStart!
+			: normalizedRangeEnd!;
+	const rangeEndDateKey = !hasRange
+		? null
+		: normalizedRangeStart! <= normalizedRangeEnd!
+			? normalizedRangeEnd!
+			: normalizedRangeStart!;
 
 	return Array.from({ length: 42 }, (_, index) => {
 		const dateKey = addDays(startDateKey, index);
@@ -608,7 +626,14 @@ export function buildCalendarGrid(
 			isCurrentMonth: monthOffset === 0,
 			isDisabled,
 			isSelected: selectedDateKey === dateKey,
-			isToday: todayDateKey === dateKey
+			isToday: todayDateKey === dateKey,
+			isInRange:
+				rangeStartDateKey !== null &&
+				rangeEndDateKey !== null &&
+				dateKey >= rangeStartDateKey &&
+				dateKey <= rangeEndDateKey,
+			isRangeStart: rangeStartDateKey === dateKey,
+			isRangeEnd: rangeEndDateKey === dateKey
 		};
 	});
 }
