@@ -13,9 +13,10 @@ Summary of tests:
 1. It verifies invalid lower-level schedule filters are cleared when a higher-level filter changes.
 2. It verifies team filtering matches events where the selected team is either home or away.
 3. It verifies centered day-strip, week-strip, month-strip, range, and month helpers stay aligned around the selected date.
-4. It verifies the URL-sync helper removes default schedule params and no-ops once the URL matches.
-5. It verifies unscheduled events stay out of dated agenda buckets and month cells.
-6. It verifies the simple day navigator maps arrow-key combinations to the expected day jumps.
+4. It verifies custom date ranges normalize cleanly, count inclusive days, and stay shareable in the URL.
+5. It verifies the URL-sync helper removes default schedule params and no-ops once the URL matches.
+6. It verifies unscheduled events stay out of dated agenda buckets and month cells.
+7. It verifies the simple day navigator maps arrow-key combinations to the expected day jumps.
 */
 
 import { describe, expect, it } from 'vitest';
@@ -29,8 +30,10 @@ import {
 	buildScheduleDateIndex,
 	buildScheduleAgendaBuckets,
 	buildMonthScheduleCells,
+	countScheduleRangeDays,
 	filterScheduleEvents,
 	getScheduleRangeForView,
+	normalizeScheduleDateRange,
 	resolveScheduleNavigatorDirection,
 	sanitizeScheduleFilters,
 	type ScheduleEventRecord,
@@ -243,6 +246,8 @@ describe('schedule page helpers', () => {
 			defaultView: 'day',
 			anchorDate: '2026-03-18',
 			selectedMonthDate: '2026-03-18',
+			selectedRangeStartDate: '2026-03-18',
+			selectedRangeEndDate: '2026-03-18',
 			today: '2026-03-18'
 		});
 
@@ -259,9 +264,40 @@ describe('schedule page helpers', () => {
 				defaultView: 'day',
 				anchorDate: '2026-03-18',
 				selectedMonthDate: '2026-03-18',
+				selectedRangeStartDate: '2026-03-18',
+				selectedRangeEndDate: '2026-03-18',
 				today: '2026-03-18'
 			})
 		).toBeNull();
+	});
+
+	it('normalizes custom date ranges, counts inclusive days, and keeps them shareable', () => {
+		// this keeps the custom range view predictable even when the user picks the end date before the start date.
+		const normalizedRange = normalizeScheduleDateRange('2026-04-10', '2026-04-03', '2026-04-01');
+		const nextHref = buildNextScheduleHref('https://example.com/dashboard/schedule', {
+			searchQuery: '',
+			selectedSeasonId: 'season-spring',
+			defaultSeasonId: 'season-spring',
+			selectedOfferingId: 'all',
+			selectedLeagueId: 'all',
+			selectedDivisionId: 'all',
+			selectedView: 'date-range',
+			defaultView: 'day',
+			anchorDate: normalizedRange.startDate,
+			selectedMonthDate: normalizedRange.startDate,
+			selectedRangeStartDate: normalizedRange.startDate,
+			selectedRangeEndDate: normalizedRange.endDate,
+			today: '2026-04-01'
+		});
+
+		expect(normalizedRange).toEqual({
+			startDate: '2026-04-03',
+			endDate: '2026-04-10'
+		});
+		expect(countScheduleRangeDays(normalizedRange)).toBe(8);
+		expect(nextHref).toBe(
+			'/dashboard/schedule?view=date-range&date=2026-04-03&startDate=2026-04-03&endDate=2026-04-10'
+		);
 	});
 
 	it('keeps unscheduled events out of agenda buckets and month cells while returning them separately', () => {

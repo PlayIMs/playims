@@ -13,6 +13,7 @@
 	} from '@tabler/icons-svelte';
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import DatePicker from '$lib/components/DatePicker.svelte';
+	import DateRangePicker from '$lib/components/DateRangePicker.svelte';
 	import { inferPickerYearRange } from '$lib/components/date-picker.js';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
@@ -29,9 +30,11 @@
 		buildCenteredScheduleMonths,
 		buildCenteredScheduleWeeks,
 		buildScheduleOptionCollections,
+		countScheduleRangeDays,
 		filterScheduleEvents,
 		getScheduleEventDateKey,
 		getScheduleRangeForView,
+		normalizeScheduleDateRange,
 		resolveScheduleNavigatorDirection,
 		sanitizeScheduleFilters,
 		shiftScheduleAnchorDate,
@@ -76,6 +79,8 @@
 	let selectedView = $state<ScheduleDisplayMode>(DEFAULT_VIEW);
 	let anchorDate = $state(todayDateKey());
 	let selectedMonthDate = $state(todayDateKey());
+	let selectedRangeStartDate = $state(todayDateKey());
+	let selectedRangeEndDate = $state(todayDateKey());
 	let navigatorDayStrip = $state<HTMLDivElement | null>(null);
 	let scheduleSearchInput = $state<HTMLInputElement | null>(null);
 	let stateHydrated = $state(false);
@@ -86,7 +91,9 @@
 		inferPickerYearRange(
 			[
 				anchorDate,
-				...events.map((event: ScheduleEventRecord) => getScheduleEventDateKey(event.scheduledStartAt))
+				...events.map((event: ScheduleEventRecord) =>
+					getScheduleEventDateKey(event.scheduledStartAt)
+				)
 			],
 			{ pastYears: 1, futureYears: 2 }
 		)
@@ -215,15 +222,53 @@
 		return Boolean(dateKey && dateKey >= startDate && dateKey <= endDate);
 	}
 
+	function formatDateRangeDayCount(totalDays: number): string {
+		return `${totalDays} day${totalDays === 1 ? '' : 's'} included`;
+	}
+
 	function setSelectedDate(dateKey: string): void {
 		anchorDate = dateKey;
 		selectedMonthDate = dateKey;
 		syncScheduleUrl(true);
 	}
 
+	function setSelectedDateRange(startDate: string, endDate: string): void {
+		const normalizedRange = normalizeScheduleDateRange(startDate, endDate, anchorDate);
+		selectedRangeStartDate = normalizedRange.startDate;
+		selectedRangeEndDate = normalizedRange.endDate;
+		anchorDate = normalizedRange.startDate;
+		selectedMonthDate = normalizedRange.startDate;
+		syncScheduleUrl(true);
+	}
+
 	function changeView(nextView: ScheduleDisplayMode): void {
+		if (nextView === selectedView) return;
+
+		if (nextView === 'date-range') {
+			const nextRange =
+				selectedView === 'week'
+					? selectedWeekRange
+					: selectedView === 'month'
+						? selectedMonthRange
+						: selectedView === 'date-range'
+							? selectedDateRange
+							: {
+									startDate: anchorDate,
+									endDate: anchorDate
+								};
+			selectedRangeStartDate = nextRange.startDate;
+			selectedRangeEndDate = nextRange.endDate;
+			anchorDate = nextRange.startDate;
+			selectedMonthDate = nextRange.startDate;
+		} else if (selectedView === 'date-range') {
+			anchorDate = selectedDateRange.startDate;
+			selectedMonthDate = selectedDateRange.startDate;
+		}
+
 		selectedView = nextView;
-		selectedMonthDate = anchorDate;
+		if (nextView === 'month') {
+			selectedMonthDate = anchorDate;
+		}
 		syncScheduleUrl(true);
 	}
 
@@ -241,6 +286,8 @@
 			defaultView: DEFAULT_VIEW,
 			anchorDate,
 			selectedMonthDate,
+			selectedRangeStartDate,
+			selectedRangeEndDate,
 			today: todayDateKey()
 		});
 
@@ -350,16 +397,26 @@
 		if (stateHydrated) return;
 
 		const params = $page.url.searchParams;
+		const hydratedAnchorDate = isDateKey(params.get('date'))
+			? (params.get('date') as string)
+			: todayDateKey();
+		const hydratedRange = normalizeScheduleDateRange(
+			params.get('startDate') ?? hydratedAnchorDate,
+			params.get('endDate') ?? hydratedAnchorDate,
+			hydratedAnchorDate
+		);
 		searchQuery = params.get('q')?.trim() ?? '';
 		selectedSeasonId = parseQueryValue(params.get('season'), defaultSeasonId);
 		selectedOfferingId = parseQueryValue(params.get('offering'));
 		selectedLeagueId = parseQueryValue(params.get('league'));
 		selectedDivisionId = parseQueryValue(params.get('division'));
 		selectedView = normalizeScheduleView(params.get('view'));
-		anchorDate = isDateKey(params.get('date')) ? (params.get('date') as string) : todayDateKey();
+		anchorDate = hydratedAnchorDate;
 		selectedMonthDate = isDateKey(params.get('selectedDay'))
 			? (params.get('selectedDay') as string)
 			: anchorDate;
+		selectedRangeStartDate = hydratedRange.startDate;
+		selectedRangeEndDate = hydratedRange.endDate;
 		stateHydrated = true;
 	});
 
@@ -380,10 +437,10 @@
 	const navigatorWeeks = $derived.by(() => buildCenteredScheduleWeeks(anchorDate));
 	const selectedMonthRange = $derived.by(() => getScheduleRangeForView(anchorDate, 'month'));
 	const selectedWeekRange = $derived.by(() => getScheduleRangeForView(anchorDate, 'week'));
-	const centeredRange = $derived.by<ScheduleRange>(() => ({
-		startDate: navigatorDays[0]?.dateKey ?? anchorDate,
-		endDate: navigatorDays[navigatorDays.length - 1]?.dateKey ?? anchorDate
-	}));
+	const selectedDateRange = $derived.by(() =>
+		normalizeScheduleDateRange(selectedRangeStartDate, selectedRangeEndDate, anchorDate)
+	);
+	const selectedDateRangeDayCount = $derived.by(() => countScheduleRangeDays(selectedDateRange));
 
 	const normalizedFilters = $derived.by(() => {
 		const sanitized = sanitizeScheduleFilters(events, rawFilters);
@@ -409,8 +466,7 @@
 	const visibleRange = $derived.by<ScheduleRange>(() => {
 		if (selectedView === 'week') return getScheduleRangeForView(anchorDate, 'week');
 		if (selectedView === 'month') return getScheduleRangeForView(anchorDate, 'month');
-		if (selectedView === 'date-range') return centeredRange;
-
+		if (selectedView === 'date-range') return selectedDateRange;
 		if (selectedView === 'entire-season') {
 			const firstDateKey = filteredEvents[0]
 				? getScheduleEventDateKey(filteredEvents[0].scheduledStartAt)
@@ -550,7 +606,7 @@
 <svelte:head>
 	<meta
 		name="description"
-		content="Browse intramural events with hierarchical filters and day, week, or month schedule views."
+		content="Browse intramural events with hierarchical filters and day, week, month, custom date-range, or entire-season schedule views."
 	/>
 </svelte:head>
 
@@ -613,62 +669,99 @@
 
 						<div class="overflow-hidden border border-neutral-950 bg-white">
 							<div class="flex flex-col xl:flex-row xl:items-stretch">
-								<div class={NAVIGATION_SIDE_SECTION_CLASS}>
-									<DatePicker
-										type="date"
-										value={anchorDate}
-										minYear={scheduleDateYearRange.minYear}
-										maxYear={scheduleDateYearRange.maxYear}
-										ariaLabel="Choose schedule date"
-										triggerClass="flex h-[3.375rem] w-full items-center justify-start gap-3 border-b border-neutral-950 bg-white px-4 py-0 text-sm font-semibold leading-none text-neutral-950 xl:border-b-0 xl:border-r"
-										on:change={(event) => {
-											if (isDateKey(event.detail.value)) {
-												setSelectedDate(event.detail.value);
-											}
-										}}
-									>
-										{#snippet trigger()}
-											<IconCalendar class="h-5 w-5 shrink-0 text-neutral-950" />
-											<span class="tabular-nums">{formatCompactDate(anchorDate)}</span>
-										{/snippet}
-									</DatePicker>
+								<div
+									class={selectedView === 'date-range'
+										? 'w-full xl:w-[22rem] xl:shrink-0'
+										: NAVIGATION_SIDE_SECTION_CLASS}
+								>
+									{#if selectedView === 'date-range'}
+										<div class="border-b border-neutral-950 bg-white xl:border-b-0 xl:border-r">
+											<DateRangePicker
+												startValue={selectedDateRange.startDate}
+												endValue={selectedDateRange.endDate}
+												minYear={scheduleDateYearRange.minYear}
+												maxYear={scheduleDateYearRange.maxYear}
+												ariaLabel="Choose schedule date range"
+												startLabel="Start"
+												endLabel="End"
+												on:change={(event) => {
+													setSelectedDateRange(
+														event.detail.startDate,
+														event.detail.endDate
+													);
+												}}
+											/>
+										</div>
+									{:else}
+										<DatePicker
+											type="date"
+											value={anchorDate}
+											minYear={scheduleDateYearRange.minYear}
+											maxYear={scheduleDateYearRange.maxYear}
+											ariaLabel="Choose schedule date"
+											triggerClass="flex h-[3.375rem] w-full items-center justify-start gap-3 border-b border-neutral-950 bg-white px-4 py-0 text-sm font-semibold leading-none text-neutral-950 xl:border-b-0 xl:border-r"
+											on:change={(event) => {
+												if (isDateKey(event.detail.value)) {
+													setSelectedDate(event.detail.value);
+												}
+											}}
+										>
+											{#snippet trigger()}
+												<IconCalendar class="h-5 w-5 shrink-0 text-neutral-950" />
+												<span class="tabular-nums">{formatCompactDate(anchorDate)}</span>
+											{/snippet}
+										</DatePicker>
+									{/if}
 								</div>
 
 								<div
 									class="flex min-w-0 flex-1 items-stretch border-b border-neutral-950 xl:border-b-0"
 									bind:this={navigatorDayStrip}
 								>
-									<button
-										type="button"
-										class="inline-flex h-[3.375rem] w-10 shrink-0 items-center justify-center border-r border-neutral-950 bg-white text-neutral-900 transition-colors hover:bg-neutral-50 hover:text-neutral-950 cursor-pointer"
-										aria-label={
-											selectedView === 'week'
+									{#if selectedView === 'date-range'}
+										<div class="flex min-w-0 flex-1 items-stretch bg-white">
+											<div class="flex min-w-0 flex-1 items-center justify-center px-4 py-2 text-center">
+												<div class="min-w-0">
+													<p
+														class="text-lg font-semibold leading-none text-neutral-950 [font-family:Inter,ui-sans-serif,system-ui,sans-serif]"
+													>
+														{formatDateRangeDayCount(selectedDateRangeDayCount)}
+													</p>
+												</div>
+											</div>
+										</div>
+									{:else}
+										<button
+											type="button"
+											class="inline-flex h-[3.375rem] w-10 shrink-0 items-center justify-center border-r border-neutral-950 bg-white text-neutral-900 transition-colors hover:bg-neutral-50 hover:text-neutral-950 cursor-pointer"
+											aria-label={selectedView === 'week'
 												? 'View previous week'
 												: selectedView === 'month'
 													? 'View previous month'
-													: 'View previous day'
-										}
-										onclick={() => {
-											moveAnchor(-1);
-										}}
-									>
-										<IconChevronLeft class="h-5 w-5" />
-									</button>
+													: 'View previous day'}
+											onclick={() => {
+												moveAnchor(-1);
+											}}
+										>
+											<IconChevronLeft class="h-5 w-5" />
+										</button>
 
-									{#if selectedView === 'week'}
-										<div class="grid min-w-0 flex-1 grid-cols-6">
+										{#if selectedView === 'week'}
+										<div class="grid h-[3.375rem] min-w-0 flex-1 grid-cols-6">
 											{#each navigatorWeeks as week, index (week.anchorDate)}
 												<button
 													type="button"
 													data-schedule-navigator-anchor={week.anchorDate}
-													class={`group flex min-w-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center transition-colors cursor-pointer ${
+													class={`group flex h-full min-w-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center transition-colors cursor-pointer ${
 														index === navigatorWeeks.length - 1 ? '' : 'border-r border-neutral-300'
 													} ${
 														week.startDate === selectedWeekRange.startDate
 															? 'bg-neutral-50 text-neutral-950'
 															: 'bg-white text-neutral-700 hover:bg-neutral-50 hover:text-neutral-950'
 													}`}
-													aria-current={week.startDate === selectedWeekRange.startDate ? 'date' : undefined}
+													aria-current={week.startDate === selectedWeekRange.startDate
+														? 'date'
+														: undefined}
 													aria-label={`View schedule week of ${formatLongDate(week.startDate)} through ${formatLongDate(week.endDate)}`}
 													onclick={() => {
 														setSelectedDate(week.anchorDate);
@@ -701,20 +794,24 @@
 												</button>
 											{/each}
 										</div>
-									{:else if selectedView === 'month'}
-										<div class="grid min-w-0 flex-1 grid-cols-7">
+										{:else if selectedView === 'month'}
+										<div class="grid h-[3.375rem] min-w-0 flex-1 grid-cols-7">
 											{#each navigatorMonths as month, index (month.anchorDate)}
 												<button
 													type="button"
 													data-schedule-navigator-anchor={month.anchorDate}
-													class={`group flex min-w-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center transition-colors cursor-pointer ${
-														index === navigatorMonths.length - 1 ? '' : 'border-r border-neutral-300'
+													class={`group flex h-full min-w-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center transition-colors cursor-pointer ${
+														index === navigatorMonths.length - 1
+															? ''
+															: 'border-r border-neutral-300'
 													} ${
 														month.startDate === selectedMonthRange.startDate
 															? 'bg-neutral-50 text-neutral-950'
 															: 'bg-white text-neutral-700 hover:bg-neutral-50 hover:text-neutral-950'
 													}`}
-													aria-current={month.startDate === selectedMonthRange.startDate ? 'date' : undefined}
+													aria-current={month.startDate === selectedMonthRange.startDate
+														? 'date'
+														: undefined}
 													aria-label={`View schedule month of ${month.monthLabel} ${month.rangeLabel}`}
 													onclick={() => {
 														setSelectedDate(month.anchorDate);
@@ -747,13 +844,13 @@
 												</button>
 											{/each}
 										</div>
-									{:else}
-										<div class="grid min-w-0 flex-1 grid-cols-7">
+										{:else}
+										<div class="grid h-[3.375rem] min-w-0 flex-1 grid-cols-7">
 											{#each navigatorDays as day, index (day.dateKey)}
 												<button
 													type="button"
 													data-schedule-navigator-anchor={day.dateKey}
-													class={`group flex min-w-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center transition-colors cursor-pointer ${
+													class={`group flex h-full min-w-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center transition-colors cursor-pointer ${
 														index === navigatorDays.length - 1 ? '' : 'border-r border-neutral-300'
 													} ${
 														day.dateKey === anchorDate
@@ -793,27 +890,28 @@
 												</button>
 											{/each}
 										</div>
-									{/if}
+										{/if}
 
-									<button
-										type="button"
-										class="inline-flex h-[3.375rem] w-10 shrink-0 items-center justify-center border-l border-neutral-950 bg-white text-neutral-900 transition-colors hover:bg-neutral-50 hover:text-neutral-950 cursor-pointer"
-										aria-label={
-											selectedView === 'week'
+										<button
+											type="button"
+											class="inline-flex h-[3.375rem] w-10 shrink-0 items-center justify-center border-l border-neutral-950 bg-white text-neutral-900 transition-colors hover:bg-neutral-50 hover:text-neutral-950 cursor-pointer"
+											aria-label={selectedView === 'week'
 												? 'View next week'
 												: selectedView === 'month'
 													? 'View next month'
-													: 'View next day'
-										}
-										onclick={() => {
-											moveAnchor(1);
-										}}
-									>
-										<IconChevronRight class="h-5 w-5" />
-									</button>
+													: 'View next day'}
+											onclick={() => {
+												moveAnchor(1);
+											}}
+										>
+											<IconChevronRight class="h-5 w-5" />
+										</button>
+									{/if}
 								</div>
 
-								<div class={`${NAVIGATION_SIDE_SECTION_CLASS} border-t border-neutral-950 xl:border-l xl:border-t-0`}>
+								<div
+									class={`${NAVIGATION_SIDE_SECTION_CLASS} border-t border-neutral-950 xl:border-l xl:border-t-0`}
+								>
 									<ListboxDropdown
 										options={VIEW_DROPDOWN_OPTIONS}
 										value={selectedView}
@@ -854,9 +952,9 @@
 						{:else if selectedView === 'date-range'}
 							<ScheduleAgendaView
 								events={filteredEvents}
-								startDate={centeredRange.startDate}
-								endDate={centeredRange.endDate}
-								emptyMessage="No scheduled events fall within the centered date range."
+								startDate={selectedDateRange.startDate}
+								endDate={selectedDateRange.endDate}
+								emptyMessage="No scheduled events fall within the selected date range."
 							/>
 						{:else if selectedView === 'entire-season'}
 							<ScheduleAgendaView

@@ -138,6 +138,8 @@ export interface ScheduleUrlSyncState {
 	defaultView: string;
 	anchorDate: string;
 	selectedMonthDate: string;
+	selectedRangeStartDate: string;
+	selectedRangeEndDate: string;
 	today: string;
 }
 
@@ -548,6 +550,38 @@ export function getScheduleRangeForView(anchorDate: string, view: ScheduleView):
 	};
 }
 
+export function normalizeScheduleDateRange(
+	startDate: string,
+	endDate: string,
+	fallbackDate = todayDateKey()
+): ScheduleRange {
+	const normalizedFallback = dateKeyFromDate(getNormalizedAnchorDate(fallbackDate));
+	const normalizedStart = parseDateKey(startDate) ? startDate : normalizedFallback;
+	const normalizedEnd = parseDateKey(endDate) ? endDate : normalizedStart;
+
+	if (normalizedStart <= normalizedEnd) {
+		return {
+			startDate: normalizedStart,
+			endDate: normalizedEnd
+		};
+	}
+
+	return {
+		startDate: normalizedEnd,
+		endDate: normalizedStart
+	};
+}
+
+export function countScheduleRangeDays(range: ScheduleRange): number {
+	const normalizedRange = normalizeScheduleDateRange(range.startDate, range.endDate);
+	const start = parseDateKey(normalizedRange.startDate);
+	const end = parseDateKey(normalizedRange.endDate);
+	if (!start || !end) return 0;
+
+	const millisecondsPerDay = 24 * 60 * 60 * 1000;
+	return Math.floor((end.getTime() - start.getTime()) / millisecondsPerDay) + 1;
+}
+
 export function shiftScheduleAnchorDate(
 	anchorDate: string,
 	view: ScheduleView,
@@ -771,6 +805,11 @@ export function buildNextScheduleHref(
 	state: ScheduleUrlSyncState
 ): string | null {
 	const nextUrl = new URL(currentHref);
+	const normalizedDateRange = normalizeScheduleDateRange(
+		state.selectedRangeStartDate,
+		state.selectedRangeEndDate,
+		state.anchorDate
+	);
 
 	setUrlSearchParam(nextUrl, 'q', state.searchQuery.trim() || null);
 	setUrlSearchParam(
@@ -807,6 +846,16 @@ export function buildNextScheduleHref(
 		state.selectedView === 'month' && state.selectedMonthDate !== state.anchorDate
 			? state.selectedMonthDate
 			: null
+	);
+	setUrlSearchParam(
+		nextUrl,
+		'startDate',
+		state.selectedView === 'date-range' ? normalizedDateRange.startDate : null
+	);
+	setUrlSearchParam(
+		nextUrl,
+		'endDate',
+		state.selectedView === 'date-range' ? normalizedDateRange.endDate : null
 	);
 
 	const currentUrl = new URL(currentHref);
