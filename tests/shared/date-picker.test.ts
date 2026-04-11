@@ -261,7 +261,8 @@ describe('date-picker helpers', () => {
 	it('resets wheel gestures after a pause or direction change', () => {
 		expect(shouldResetCalendarWheelGesture(null, 1000, 0, 28)).toBe(true);
 		expect(shouldResetCalendarWheelGesture(1000, 1020, 1, 28)).toBe(false);
-		expect(shouldResetCalendarWheelGesture(1000, 1038, 1, 28)).toBe(true);
+		expect(shouldResetCalendarWheelGesture(1000, 1060, 1, 28)).toBe(false);
+		expect(shouldResetCalendarWheelGesture(1000, 1085, 1, 28)).toBe(true);
 		expect(shouldResetCalendarWheelGesture(1000, 1035, 1, -14)).toBe(true);
 	});
 

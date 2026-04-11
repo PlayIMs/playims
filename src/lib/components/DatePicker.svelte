@@ -106,7 +106,7 @@
 	const EDGE_PADDING_PX = 8;
 	const TRIGGER_GAP_PX = 8;
 	const CALENDAR_WHEEL_THRESHOLD = 72;
-	const CALENDAR_WHEEL_GESTURE_GAP_MS = 30;
+	const CALENDAR_WHEEL_GESTURE_GAP_MS = 80;
 	const MONTH_STRIP_TRANSITION_FALLBACK_MS = 120;
 	const datePickerId = Symbol('date-picker');
 
@@ -127,6 +127,7 @@
 	let panelStyle = $state('position: fixed; left: 0px; top: 0px; visibility: hidden;');
 	const initialNow = new Date();
 	let monthTransitionTimeoutId: ReturnType<typeof setTimeout> | null = null;
+	let calendarWheelGestureTimeoutId: ReturnType<typeof setTimeout> | null = null;
 	let draftValue = $state(
 		untrack(() => formatPickerValueForDisplay(String(value ?? ''), type, format))
 	);
@@ -354,6 +355,21 @@
 		monthTransitionTimeoutId = null;
 	}
 
+	function clearCalendarWheelGestureTimeout(): void {
+		if (calendarWheelGestureTimeoutId === null) return;
+		clearTimeout(calendarWheelGestureTimeoutId);
+		calendarWheelGestureTimeoutId = null;
+	}
+
+	function scheduleCalendarWheelGestureUnlock(): void {
+		clearCalendarWheelGestureTimeout();
+		calendarWheelGestureTimeoutId = setTimeout(() => {
+			calendarWheelGestureTimeoutId = null;
+			unlockCalendarWheelGesture();
+			lastCalendarWheelEventTimestamp = null;
+		}, CALENDAR_WHEEL_GESTURE_GAP_MS);
+	}
+
 	function unlockCalendarWheelGesture(): void {
 		isCalendarWheelGestureLocked = false;
 		calendarWheelLockedDirection = 0;
@@ -362,6 +378,7 @@
 
 	function resetMonthAnimation(): void {
 		clearMonthTransitionTimeout();
+		clearCalendarWheelGestureTimeout();
 		unlockCalendarWheelGesture();
 		lastCalendarWheelEventTimestamp = null;
 		monthSlideDirection = 0;
@@ -576,6 +593,7 @@
 			unlockCalendarWheelGesture();
 		}
 		lastCalendarWheelEventTimestamp = nextWheelTimestamp;
+		scheduleCalendarWheelGestureUnlock();
 
 		if (isCalendarWheelGestureLocked) {
 			return;
@@ -834,6 +852,7 @@
 	$effect(() => {
 		return () => {
 			clearMonthTransitionTimeout();
+			clearCalendarWheelGestureTimeout();
 			clearFocusActiveDateFrame();
 		};
 	});
