@@ -28,7 +28,7 @@
 		"test:members": "vitest run tests/members"
 	},
 	"devDependencies": {
-		"@cloudflare/workers-types": "^4.20260411.1",
+		"@cloudflare/workers-types": "^4.20260412.1",
 		"@eslint/compat": "^2.0.5",
 		"@eslint/js": "^10.0.1",
 		"@libsql/client": "^0.17.2",
@@ -47,7 +47,7 @@
 		"eslint": "^10.2.0",
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-svelte": "^3.17.0",
-		"globals": "^17.4.0",
+		"globals": "^17.5.0",
 		"prettier": "^3.8.2",
 		"prettier-plugin-svelte": "^3.5.1",
 		"svelte": "^5.55.3",
@@ -77,7 +77,7 @@
 		"@tiptap/pm": "^3.22.3",
 		"@tiptap/starter-kit": "^3.22.3",
 		"date-fns": "^4.1.0",
-		"dotenv": "^17.4.1",
+		"dotenv": "^17.4.2",
 		"drizzle-orm": "^0.45.2",
 		"flag-icons": "^7.5.0",
 		"sanitize-html": "^2.17.2",
