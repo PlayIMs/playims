@@ -15,10 +15,12 @@ Summary of tests:
 4. It verifies that the visible document state keeps the tooltip available.
 5. It verifies that alt-style shortcut labels become opt on mac and alt on other platforms.
 6. It verifies that mod-style shortcut labels still map to cmd or ctrl.
+7. It verifies that multi-row tooltip content normalizes text and shortcut labels safely.
 */
 
 import { describe, expect, it } from 'vitest';
 import {
+	normalizeHoverTooltipRows,
 	shouldHideHoverTooltipOnVisibilityChange,
 	shouldHideHoverTooltipOnWindowMouseOut,
 	resolveHoverTooltipShortcutKeyLabel
@@ -56,5 +58,22 @@ describe('hover tooltip dismissal helpers', () => {
 		// the shared tooltip still needs to render the common command key pairing correctly.
 		expect(resolveHoverTooltipShortcutKeyLabel('Mod', false)).toBe('Ctrl');
 		expect(resolveHoverTooltipShortcutKeyLabel('Mod', true)).toBe('Cmd');
+	});
+
+	it('normalizes multi-row tooltip content and shortcut labels', () => {
+		// this lets one tooltip show separate action rows without leaking blank text or platform-inconsistent key labels.
+		expect(
+			normalizeHoverTooltipRows(
+				[
+					{ text: 'Previous Day', shortcutKeys: ['Left Arrow'] },
+					{ text: 'Previous Week', shortcutKeys: ['Shift', 'Left Arrow'] },
+					{ text: '   ', shortcutKeys: [] }
+				],
+				false
+			)
+		).toEqual([
+			{ text: 'Previous Day', shortcutKeys: ['Left Arrow'] },
+			{ text: 'Previous Week', shortcutKeys: ['Shift', 'Left Arrow'] }
+		]);
 	});
 });

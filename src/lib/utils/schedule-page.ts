@@ -143,6 +143,18 @@ export interface ScheduleUrlSyncState {
 	today: string;
 }
 
+export interface ScheduleKeyboardNavigationContext {
+	key: string;
+	hasOpenDatePicker: boolean;
+	hasOpenDropdown: boolean;
+	isEditableTarget: boolean;
+}
+
+export interface ScheduleKeyboardShortcutMove {
+	unit: 'day' | 'week';
+	direction: -1 | 1;
+}
+
 const DATE_KEY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 function padTwo(value: number): string {
@@ -612,6 +624,36 @@ export function resolveScheduleNavigatorDirection(
 	return null;
 }
 
+export function shouldHandleScheduleKeyboardNavigation(
+	context: ScheduleKeyboardNavigationContext
+): boolean {
+	if (resolveScheduleNavigatorDirection(context.key) === null) return false;
+	if (context.hasOpenDatePicker) return false;
+	if (context.hasOpenDropdown) return false;
+	if (context.isEditableTarget) return false;
+	return true;
+}
+
+export function resolveScheduleKeyboardShortcutMove(
+	key: string,
+	shiftKey = false
+): ScheduleKeyboardShortcutMove | null {
+	const direction = resolveScheduleNavigatorDirection(key, shiftKey);
+	if (direction === null) return null;
+
+	return {
+		unit: Math.abs(direction) === 7 ? 'week' : 'day',
+		direction: direction < 0 ? -1 : 1
+	};
+}
+
+export function resolveScheduleNavigatorFocusDateKey(
+	view: string,
+	anchorDate: string
+): string | null {
+	return view === 'date-range' ? null : anchorDate;
+}
+
 export function buildWeekScheduleDays(
 	events: ScheduleEventRecord[],
 	anchorDate: string
@@ -834,11 +876,7 @@ export function buildNextScheduleHref(
 	);
 	setUrlSearchParam(nextUrl, 'team', null);
 	setUrlSearchParam(nextUrl, 'status', null);
-	setUrlSearchParam(
-		nextUrl,
-		'view',
-		state.selectedView
-	);
+	setUrlSearchParam(nextUrl, 'view', state.selectedView);
 	setUrlSearchParam(nextUrl, 'date', state.anchorDate !== state.today ? state.anchorDate : null);
 	setUrlSearchParam(
 		nextUrl,

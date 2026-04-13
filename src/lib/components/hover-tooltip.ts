@@ -1,6 +1,14 @@
-export function shouldHideHoverTooltipOnWindowMouseOut(
-	relatedTarget: EventTarget | null
-): boolean {
+export interface HoverTooltipRowInput {
+	text: string;
+	shortcutKeys?: string[];
+}
+
+export interface HoverTooltipRow {
+	text: string;
+	shortcutKeys: string[];
+}
+
+export function shouldHideHoverTooltipOnWindowMouseOut(relatedTarget: EventTarget | null): boolean {
 	return relatedTarget === null;
 }
 
@@ -21,4 +29,18 @@ export function resolveHoverTooltipShortcutKeyLabel(value: string, useMacLabels:
 	}
 
 	return value.trim();
+}
+
+export function normalizeHoverTooltipRows(
+	rows: HoverTooltipRowInput[],
+	useMacLabels: boolean
+): HoverTooltipRow[] {
+	return rows
+		.map((row) => ({
+			text: String(row.text ?? '').trim(),
+			shortcutKeys: (row.shortcutKeys ?? [])
+				.map((key) => resolveHoverTooltipShortcutKeyLabel(String(key ?? ''), useMacLabels))
+				.filter((key) => key.length > 0)
+		}))
+		.filter((row) => row.text.length > 0 || row.shortcutKeys.length > 0);
 }

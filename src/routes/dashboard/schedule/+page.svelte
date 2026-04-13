@@ -14,7 +14,9 @@
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import DatePicker from '$lib/components/DatePicker.svelte';
 	import DateRangePicker from '$lib/components/DateRangePicker.svelte';
+	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import { inferPickerYearRange } from '$lib/components/date-picker.js';
+	import { hasOpenDatePicker } from '$lib/components/date-picker-stack.js';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
@@ -35,9 +37,12 @@
 		getScheduleEventDateKey,
 		getScheduleRangeForView,
 		normalizeScheduleDateRange,
+		resolveScheduleNavigatorFocusDateKey,
+		resolveScheduleKeyboardShortcutMove,
 		resolveScheduleNavigatorDirection,
 		sanitizeScheduleFilters,
 		shiftScheduleAnchorDate,
+		shouldHandleScheduleKeyboardNavigation,
 		summarizeScheduleEvents,
 		type ScheduleEventRecord,
 		type ScheduleFilters,
@@ -379,18 +384,71 @@
 		});
 	}
 
-	async function focusScheduleSearch(): Promise<void> {
+	function hasOpenScheduleDropdown(): boolean {
+		if (typeof document === 'undefined') return false;
+		return Boolean(
+			document.querySelector('[data-listbox-dropdown-trigger="true"][aria-expanded="true"]')
+		);
+	}
+
+	function isEditableKeyboardTarget(target: EventTarget | null): boolean {
+		const element =
+			target instanceof HTMLElement
+				? target
+				: document.activeElement instanceof HTMLElement
+					? document.activeElement
+					: null;
+		if (!element) return false;
+		if (element.isContentEditable || element.closest('[contenteditable="true"]')) return true;
+		if (element.closest('input, textarea, select')) return true;
+		return false;
+	}
+
+	function handleGlobalScheduleNavigatorKeydown(event: KeyboardEvent): void {
+		if (!browser || event.defaultPrevented) return;
+		if (event.metaKey || event.ctrlKey || event.altKey) return;
+		if (
+			!shouldHandleScheduleKeyboardNavigation({
+				key: event.key,
+				hasOpenDatePicker: hasOpenDatePicker(),
+				hasOpenDropdown: hasOpenScheduleDropdown(),
+				isEditableTarget: isEditableKeyboardTarget(event.target)
+			})
+		) {
+			return;
+		}
+
+		const shortcutMove = resolveScheduleKeyboardShortcutMove(event.key, event.shiftKey);
+		if (!shortcutMove) return;
+
+		event.preventDefault();
+		const nextDateKey = shiftScheduleAnchorDate(
+			anchorDate,
+			shortcutMove.unit,
+			shortcutMove.direction
+		);
+		setSelectedDate(nextDateKey);
+		void focusNavigatorAnchor(nextDateKey);
+	}
+
+	async function focusActiveScheduleNavigator(): Promise<void> {
 		if (!browser) return;
-		await tick();
-		scheduleSearchInput?.focus();
+		const focusDateKey = resolveScheduleNavigatorFocusDateKey(selectedView, anchorDate);
+		if (!focusDateKey) return;
+		await focusNavigatorAnchor(focusDateKey);
 	}
 
 	onMount(() => {
-		void focusScheduleSearch();
+		window.addEventListener('keydown', handleGlobalScheduleNavigatorKeydown);
+		void focusActiveScheduleNavigator();
+
+		return () => {
+			window.removeEventListener('keydown', handleGlobalScheduleNavigatorKeydown);
+		};
 	});
 
 	afterNavigate(() => {
-		void focusScheduleSearch();
+		void focusActiveScheduleNavigator();
 	});
 
 	$effect(() => {
@@ -685,10 +743,7 @@
 												startLabel="Start"
 												endLabel="End"
 												on:change={(event) => {
-													setSelectedDateRange(
-														event.detail.startDate,
-														event.detail.endDate
-													);
+													setSelectedDateRange(event.detail.startDate, event.detail.endDate);
 												}}
 											/>
 										</div>
@@ -699,7 +754,7 @@
 											minYear={scheduleDateYearRange.minYear}
 											maxYear={scheduleDateYearRange.maxYear}
 											ariaLabel="Choose schedule date"
-											triggerClass="flex h-[3.375rem] w-full items-center justify-start gap-3 border-b border-neutral-950 bg-white px-4 py-0 text-sm font-semibold leading-none text-neutral-950 xl:border-b-0 xl:border-r"
+											triggerClass="flex h-[3.375rem] w-full cursor-pointer items-center justify-start gap-3 border-b border-neutral-950 bg-white px-4 py-0 text-sm font-semibold leading-none text-neutral-950 xl:border-b-0 xl:border-r"
 											on:change={(event) => {
 												if (isDateKey(event.detail.value)) {
 													setSelectedDate(event.detail.value);
@@ -720,7 +775,9 @@
 								>
 									{#if selectedView === 'date-range'}
 										<div class="flex min-w-0 flex-1 items-stretch bg-white">
-											<div class="flex min-w-0 flex-1 items-center justify-center px-4 py-2 text-center">
+											<div
+												class="flex min-w-0 flex-1 items-center justify-center px-4 py-2 text-center"
+											>
 												<div class="min-w-0">
 													<p
 														class="text-lg font-semibold leading-none text-neutral-950 [font-family:Inter,ui-sans-serif,system-ui,sans-serif]"
@@ -731,181 +788,213 @@
 											</div>
 										</div>
 									{:else}
-										<button
-											type="button"
-											class="inline-flex h-[3.375rem] w-10 shrink-0 items-center justify-center border-r border-neutral-950 bg-white text-neutral-900 transition-colors hover:bg-neutral-50 hover:text-neutral-950 cursor-pointer"
-											aria-label={selectedView === 'week'
-												? 'View previous week'
-												: selectedView === 'month'
-													? 'View previous month'
-													: 'View previous day'}
-											onclick={() => {
-												moveAnchor(-1);
-											}}
+										<HoverTooltip
+											case="preserve"
+											rows={[
+												{
+													text: 'Previous Day',
+													shortcutKeys: ['Left Arrow']
+												},
+												{
+													text: 'Previous Week',
+													shortcutKeys: ['Shift', 'Left Arrow']
+												}
+											]}
 										>
-											<IconChevronLeft class="h-5 w-5" />
-										</button>
+											<button
+												type="button"
+												class="inline-flex h-[3.375rem] w-10 shrink-0 items-center justify-center border-r border-neutral-950 bg-white text-neutral-900 transition-colors hover:bg-neutral-50 hover:text-neutral-950 cursor-pointer"
+												aria-label={selectedView === 'week'
+													? 'View previous week'
+													: selectedView === 'month'
+														? 'View previous month'
+														: 'View previous day'}
+												onclick={() => {
+													moveAnchor(-1);
+												}}
+											>
+												<IconChevronLeft class="h-5 w-5" />
+											</button>
+										</HoverTooltip>
 
 										{#if selectedView === 'week'}
-										<div class="grid h-[3.375rem] min-w-0 flex-1 grid-cols-6">
-											{#each navigatorWeeks as week, index (week.anchorDate)}
-												<button
-													type="button"
-													data-schedule-navigator-anchor={week.anchorDate}
-													class={`group flex h-full min-w-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center transition-colors cursor-pointer ${
-														index === navigatorWeeks.length - 1 ? '' : 'border-r border-neutral-300'
-													} ${
-														week.startDate === selectedWeekRange.startDate
-															? 'bg-neutral-50 text-neutral-950'
-															: 'bg-white text-neutral-700 hover:bg-neutral-50 hover:text-neutral-950'
-													}`}
-													aria-current={week.startDate === selectedWeekRange.startDate
-														? 'date'
-														: undefined}
-													aria-label={`View schedule week of ${formatLongDate(week.startDate)} through ${formatLongDate(week.endDate)}`}
-													onclick={() => {
-														setSelectedDate(week.anchorDate);
-													}}
-													onkeydown={(event) => {
-														handleNavigatorWeekKeydown(event, week.anchorDate);
-													}}
-												>
-													<span
-														class={`text-lg font-semibold tabular-nums leading-none whitespace-nowrap ${
+											<div class="grid h-[3.375rem] min-w-0 flex-1 grid-cols-6">
+												{#each navigatorWeeks as week, index (week.anchorDate)}
+													<button
+														type="button"
+														data-schedule-navigator-anchor={week.anchorDate}
+														class={`group flex h-full min-w-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center transition-colors cursor-pointer ${
+															index === navigatorWeeks.length - 1
+																? ''
+																: 'border-r border-neutral-300'
+														} ${
 															week.startDate === selectedWeekRange.startDate
-																? 'text-primary-700'
-																: week.isCurrentWeek
-																	? 'text-primary-600'
-																	: 'text-neutral-950'
+																? 'bg-neutral-50 text-neutral-950'
+																: 'bg-white text-neutral-700 hover:bg-neutral-50 hover:text-neutral-950'
 														}`}
+														aria-current={week.startDate === selectedWeekRange.startDate
+															? 'date'
+															: undefined}
+														aria-label={`View schedule week of ${formatLongDate(week.startDate)} through ${formatLongDate(week.endDate)}`}
+														onclick={() => {
+															setSelectedDate(week.anchorDate);
+														}}
+														onkeydown={(event) => {
+															handleNavigatorWeekKeydown(event, week.anchorDate);
+														}}
 													>
-														{week.rangeLabel}
-													</span>
-													<span class="text-[11px] font-semibold uppercase tracking-wide">
-														{week.monthLabel}
-													</span>
-													<span
-														class={`mt-1 h-0.5 w-10 ${
-															week.startDate === selectedWeekRange.startDate
-																? 'bg-primary-700'
-																: 'bg-transparent group-hover:bg-neutral-300'
-														}`}
-													></span>
-												</button>
-											{/each}
-										</div>
+														<span
+															class={`text-lg font-semibold tabular-nums leading-none whitespace-nowrap ${
+																week.startDate === selectedWeekRange.startDate
+																	? 'text-primary-700'
+																	: week.isCurrentWeek
+																		? 'text-primary-600'
+																		: 'text-neutral-950'
+															}`}
+														>
+															{week.rangeLabel}
+														</span>
+														<span class="text-[11px] font-semibold uppercase tracking-wide">
+															{week.monthLabel}
+														</span>
+														<span
+															class={`mt-1 h-0.5 w-10 ${
+																week.startDate === selectedWeekRange.startDate
+																	? 'bg-primary-700'
+																	: 'bg-transparent group-hover:bg-neutral-300'
+															}`}
+														></span>
+													</button>
+												{/each}
+											</div>
 										{:else if selectedView === 'month'}
-										<div class="grid h-[3.375rem] min-w-0 flex-1 grid-cols-7">
-											{#each navigatorMonths as month, index (month.anchorDate)}
-												<button
-													type="button"
-													data-schedule-navigator-anchor={month.anchorDate}
-													class={`group flex h-full min-w-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center transition-colors cursor-pointer ${
-														index === navigatorMonths.length - 1
-															? ''
-															: 'border-r border-neutral-300'
-													} ${
-														month.startDate === selectedMonthRange.startDate
-															? 'bg-neutral-50 text-neutral-950'
-															: 'bg-white text-neutral-700 hover:bg-neutral-50 hover:text-neutral-950'
-													}`}
-													aria-current={month.startDate === selectedMonthRange.startDate
-														? 'date'
-														: undefined}
-													aria-label={`View schedule month of ${month.monthLabel} ${month.rangeLabel}`}
-													onclick={() => {
-														setSelectedDate(month.anchorDate);
-													}}
-													onkeydown={(event) => {
-														handleNavigatorMonthKeydown(event, month.anchorDate);
-													}}
-												>
-													<span
-														class={`text-lg font-semibold tabular-nums leading-none whitespace-nowrap ${
+											<div class="grid h-[3.375rem] min-w-0 flex-1 grid-cols-7">
+												{#each navigatorMonths as month, index (month.anchorDate)}
+													<button
+														type="button"
+														data-schedule-navigator-anchor={month.anchorDate}
+														class={`group flex h-full min-w-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center transition-colors cursor-pointer ${
+															index === navigatorMonths.length - 1
+																? ''
+																: 'border-r border-neutral-300'
+														} ${
 															month.startDate === selectedMonthRange.startDate
-																? 'text-primary-700'
-																: month.isCurrentMonth
-																	? 'text-primary-600'
-																	: 'text-neutral-950'
+																? 'bg-neutral-50 text-neutral-950'
+																: 'bg-white text-neutral-700 hover:bg-neutral-50 hover:text-neutral-950'
 														}`}
+														aria-current={month.startDate === selectedMonthRange.startDate
+															? 'date'
+															: undefined}
+														aria-label={`View schedule month of ${month.monthLabel} ${month.rangeLabel}`}
+														onclick={() => {
+															setSelectedDate(month.anchorDate);
+														}}
+														onkeydown={(event) => {
+															handleNavigatorMonthKeydown(event, month.anchorDate);
+														}}
 													>
-														{month.rangeLabel}
-													</span>
-													<span class="text-[11px] font-semibold uppercase tracking-wide">
-														{month.monthLabel}
-													</span>
-													<span
-														class={`mt-1 h-0.5 w-10 ${
-															month.startDate === selectedMonthRange.startDate
-																? 'bg-primary-700'
-																: 'bg-transparent group-hover:bg-neutral-300'
-														}`}
-													></span>
-												</button>
-											{/each}
-										</div>
+														<span
+															class={`text-lg font-semibold tabular-nums leading-none whitespace-nowrap ${
+																month.startDate === selectedMonthRange.startDate
+																	? 'text-primary-700'
+																	: month.isCurrentMonth
+																		? 'text-primary-600'
+																		: 'text-neutral-950'
+															}`}
+														>
+															{month.rangeLabel}
+														</span>
+														<span class="text-[11px] font-semibold uppercase tracking-wide">
+															{month.monthLabel}
+														</span>
+														<span
+															class={`mt-1 h-0.5 w-10 ${
+																month.startDate === selectedMonthRange.startDate
+																	? 'bg-primary-700'
+																	: 'bg-transparent group-hover:bg-neutral-300'
+															}`}
+														></span>
+													</button>
+												{/each}
+											</div>
 										{:else}
-										<div class="grid h-[3.375rem] min-w-0 flex-1 grid-cols-7">
-											{#each navigatorDays as day, index (day.dateKey)}
-												<button
-													type="button"
-													data-schedule-navigator-anchor={day.dateKey}
-													class={`group flex h-full min-w-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center transition-colors cursor-pointer ${
-														index === navigatorDays.length - 1 ? '' : 'border-r border-neutral-300'
-													} ${
-														day.dateKey === anchorDate
-															? 'bg-neutral-50 text-neutral-950'
-															: 'bg-white text-neutral-700 hover:bg-neutral-50 hover:text-neutral-950'
-													}`}
-													aria-current={day.dateKey === anchorDate ? 'date' : undefined}
-													aria-label={`View schedule for ${formatLongDate(day.dateKey)}`}
-													onclick={() => {
-														setSelectedDate(day.dateKey);
-													}}
-													onkeydown={(event) => {
-														handleNavigatorDayKeydown(event, day.dateKey);
-													}}
-												>
-													<span
-														class={`text-lg font-semibold tabular-nums leading-none ${
+											<div class="grid h-[3.375rem] min-w-0 flex-1 grid-cols-7">
+												{#each navigatorDays as day, index (day.dateKey)}
+													<button
+														type="button"
+														data-schedule-navigator-anchor={day.dateKey}
+														class={`group flex h-full min-w-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center transition-colors cursor-pointer ${
+															index === navigatorDays.length - 1
+																? ''
+																: 'border-r border-neutral-300'
+														} ${
 															day.dateKey === anchorDate
-																? 'text-primary-700'
-																: day.isToday
-																	? 'text-primary-600'
-																	: 'text-neutral-950'
+																? 'bg-neutral-50 text-neutral-950'
+																: 'bg-white text-neutral-700 hover:bg-neutral-50 hover:text-neutral-950'
 														}`}
+														aria-current={day.dateKey === anchorDate ? 'date' : undefined}
+														aria-label={`View schedule for ${formatLongDate(day.dateKey)}`}
+														onclick={() => {
+															setSelectedDate(day.dateKey);
+														}}
+														onkeydown={(event) => {
+															handleNavigatorDayKeydown(event, day.dateKey);
+														}}
 													>
-														{day.dayNumber}
-													</span>
-													<span class="text-[11px] font-semibold uppercase tracking-wide">
-														{day.monthLabel}
-													</span>
-													<span
-														class={`mt-1 h-0.5 w-8 ${
-															day.dateKey === anchorDate
-																? 'bg-primary-700'
-																: 'bg-transparent group-hover:bg-neutral-300'
-														}`}
-													></span>
-												</button>
-											{/each}
-										</div>
+														<span
+															class={`text-lg font-semibold tabular-nums leading-none ${
+																day.dateKey === anchorDate
+																	? 'text-primary-700'
+																	: day.isToday
+																		? 'text-primary-600'
+																		: 'text-neutral-950'
+															}`}
+														>
+															{day.dayNumber}
+														</span>
+														<span class="text-[11px] font-semibold uppercase tracking-wide">
+															{day.monthLabel}
+														</span>
+														<span
+															class={`mt-1 h-0.5 w-8 ${
+																day.dateKey === anchorDate
+																	? 'bg-primary-700'
+																	: 'bg-transparent group-hover:bg-neutral-300'
+															}`}
+														></span>
+													</button>
+												{/each}
+											</div>
 										{/if}
 
-										<button
-											type="button"
-											class="inline-flex h-[3.375rem] w-10 shrink-0 items-center justify-center border-l border-neutral-950 bg-white text-neutral-900 transition-colors hover:bg-neutral-50 hover:text-neutral-950 cursor-pointer"
-											aria-label={selectedView === 'week'
-												? 'View next week'
-												: selectedView === 'month'
-													? 'View next month'
-													: 'View next day'}
-											onclick={() => {
-												moveAnchor(1);
-											}}
+										<HoverTooltip
+											case="preserve"
+											rows={[
+												{
+													text: 'Next Day',
+													shortcutKeys: ['Right Arrow']
+												},
+												{
+													text: 'Next Week',
+													shortcutKeys: ['Shift', 'Right Arrow']
+												}
+											]}
 										>
-											<IconChevronRight class="h-5 w-5" />
-										</button>
+											<button
+												type="button"
+												class="inline-flex h-[3.375rem] w-10 shrink-0 items-center justify-center border-l border-neutral-950 bg-white text-neutral-900 transition-colors hover:bg-neutral-50 hover:text-neutral-950 cursor-pointer"
+												aria-label={selectedView === 'week'
+													? 'View next week'
+													: selectedView === 'month'
+														? 'View next month'
+														: 'View next day'}
+												onclick={() => {
+													moveAnchor(1);
+												}}
+											>
+												<IconChevronRight class="h-5 w-5" />
+											</button>
+										</HoverTooltip>
 									{/if}
 								</div>
 

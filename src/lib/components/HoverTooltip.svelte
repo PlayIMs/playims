@@ -16,13 +16,16 @@
 	import {
 		shouldHideHoverTooltipOnVisibilityChange,
 		shouldHideHoverTooltipOnWindowMouseOut,
-		resolveHoverTooltipShortcutKeyLabel
+		resolveHoverTooltipShortcutKeyLabel,
+		normalizeHoverTooltipRows,
+		type HoverTooltipRowInput
 	} from '$lib/components/hover-tooltip.js';
 
 	interface Props {
 		text: string;
 		case?: 'title' | 'preserve';
 		shortcutKeys?: string[];
+		rows?: HoverTooltipRowInput[];
 		cursorOffsetXPx?: number;
 		cursorOffsetYPx?: number;
 		paddingPx?: number;
@@ -38,6 +41,7 @@
 		text,
 		case: textCase = 'title',
 		shortcutKeys = [],
+		rows = [],
 		cursorOffsetXPx = 20,
 		cursorOffsetYPx = 18,
 		paddingPx = 8,
@@ -68,6 +72,19 @@
 		shortcutKeys
 			.map((key) => resolveHoverTooltipShortcutKeyLabel(String(key ?? ''), isMacLikePlatform))
 			.filter((key) => key.length > 0)
+	);
+	const normalizedRows = $derived.by(() =>
+		normalizeHoverTooltipRows(
+			rows.length > 0
+				? rows
+				: [
+						{
+							text: normalizedText,
+							shortcutKeys
+						}
+					],
+			isMacLikePlatform
+		)
 	);
 
 	$effect(() => {
@@ -161,7 +178,7 @@
 	}
 
 	function show(): void {
-		if (!normalizedText && normalizedShortcutKeys.length === 0) return;
+		if (normalizedRows.length === 0) return;
 		if (dismissedUntilReset) return;
 		open = true;
 		panelStyle = HIDDEN_PANEL_STYLE;
@@ -212,10 +229,7 @@
 		if (!root) return false;
 		const rect = root.getBoundingClientRect();
 		return (
-			clientX >= rect.left &&
-			clientX <= rect.right &&
-			clientY >= rect.top &&
-			clientY <= rect.bottom
+			clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom
 		);
 	}
 
@@ -275,13 +289,12 @@
 		minWidthPx;
 		panelClass;
 		maxWidthClass;
-		normalizedText;
-		normalizedShortcutKeys.length;
+		normalizedRows.length;
 		void tick().then(updatePosition);
 	});
 
 	$effect(() => {
-		if (normalizedText.length > 0 || normalizedShortcutKeys.length > 0 || !open) return;
+		if (normalizedRows.length > 0 || !open) return;
 		hide();
 	});
 </script>
@@ -315,21 +328,25 @@
 			bind:this={panel}
 			use:portalToBody
 		>
-			<span class={`inline-flex flex-wrap items-center gap-1.5 ${tooltipTextClass}`.trim()}>
-				{#if normalizedText}
-					<span>{normalizedText}</span>
-				{/if}
-				{#if normalizedShortcutKeys.length > 0}
-					<span class="inline-flex flex-wrap items-center gap-0.5">
-						{#each normalizedShortcutKeys as shortcutKey (shortcutKey)}
-							<kbd
-								class="inline-flex min-w-3 items-center justify-center border border-secondary-400 bg-neutral-50 px-[3px] py-px font-sans text-[9px] uppercase font-semibold leading-none text-secondary-900"
-							>
-								{shortcutKey}
-							</kbd>
-						{/each}
+			<span class="flex flex-col gap-1.5">
+				{#each normalizedRows as row, rowIndex (`${row.text}-${rowIndex}`)}
+					<span class={`inline-flex flex-wrap items-center gap-1.5 ${tooltipTextClass}`.trim()}>
+						{#if row.text}
+							<span>{row.text}</span>
+						{/if}
+						{#if row.shortcutKeys.length > 0}
+							<span class="inline-flex flex-wrap items-center gap-0.5">
+								{#each row.shortcutKeys as shortcutKey (shortcutKey)}
+									<kbd
+										class="inline-flex min-w-3 items-center justify-center border border-secondary-400 bg-neutral-50 px-[3px] py-px font-sans text-[9px] uppercase font-semibold leading-none text-secondary-900"
+									>
+										{shortcutKey}
+									</kbd>
+								{/each}
+							</span>
+						{/if}
 					</span>
-				{/if}
+				{/each}
 			</span>
 		</span>
 	{/if}

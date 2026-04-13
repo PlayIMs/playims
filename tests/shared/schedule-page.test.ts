@@ -15,8 +15,10 @@ Summary of tests:
 3. It verifies centered day-strip, week-strip, month-strip, range, and month helpers stay aligned around the selected date.
 4. It verifies custom date ranges normalize cleanly, count inclusive days, and stay shareable in the URL.
 5. It verifies the URL-sync helper removes default schedule params and no-ops once the URL matches.
-6. It verifies unscheduled events stay out of dated agenda buckets and month cells.
-7. It verifies the simple day navigator maps arrow-key combinations to the expected day jumps.
+6. It verifies page-level keyboard shortcuts stay idle while dropdowns, pickers, or text entry are active.
+7. It verifies the navigator focus target stays on the anchored date except for the custom range view.
+8. It verifies the simple day navigator maps arrow-key combinations to the expected day and week jumps.
+9. It verifies unscheduled events stay out of dated agenda buckets and month cells.
 */
 
 import { describe, expect, it } from 'vitest';
@@ -34,8 +36,11 @@ import {
 	filterScheduleEvents,
 	getScheduleRangeForView,
 	normalizeScheduleDateRange,
+	resolveScheduleNavigatorFocusDateKey,
+	resolveScheduleKeyboardShortcutMove,
 	resolveScheduleNavigatorDirection,
 	sanitizeScheduleFilters,
+	shouldHandleScheduleKeyboardNavigation,
 	type ScheduleEventRecord,
 	type ScheduleFilters,
 	type ScheduleView
@@ -300,6 +305,77 @@ describe('schedule page helpers', () => {
 		);
 	});
 
+	it('only enables page-level keyboard navigation when interactive controls are idle', () => {
+		// this keeps global arrow shortcuts from stealing caret movement or menu navigation from open controls.
+		expect(
+			shouldHandleScheduleKeyboardNavigation({
+				key: 'ArrowLeft',
+				hasOpenDatePicker: false,
+				hasOpenDropdown: false,
+				isEditableTarget: false
+			})
+		).toBe(true);
+		expect(
+			shouldHandleScheduleKeyboardNavigation({
+				key: 'ArrowLeft',
+				hasOpenDatePicker: true,
+				hasOpenDropdown: false,
+				isEditableTarget: false
+			})
+		).toBe(false);
+		expect(
+			shouldHandleScheduleKeyboardNavigation({
+				key: 'ArrowRight',
+				hasOpenDatePicker: false,
+				hasOpenDropdown: true,
+				isEditableTarget: false
+			})
+		).toBe(false);
+		expect(
+			shouldHandleScheduleKeyboardNavigation({
+				key: 'ArrowRight',
+				hasOpenDatePicker: false,
+				hasOpenDropdown: false,
+				isEditableTarget: true
+			})
+		).toBe(false);
+	});
+
+	it('keeps navigator focus on the anchored date except in custom range mode', () => {
+		// this makes the page-level shortcuts usable right away instead of bouncing focus back to the search box.
+		expect(resolveScheduleNavigatorFocusDateKey('day', '2026-04-12')).toBe('2026-04-12');
+		expect(resolveScheduleNavigatorFocusDateKey('week', '2026-04-12')).toBe('2026-04-12');
+		expect(resolveScheduleNavigatorFocusDateKey('month', '2026-04-12')).toBe('2026-04-12');
+		expect(resolveScheduleNavigatorFocusDateKey('entire-season', '2026-04-12')).toBe('2026-04-12');
+		expect(resolveScheduleNavigatorFocusDateKey('date-range', '2026-04-12')).toBeNull();
+	});
+
+	it('maps simple navigator arrow keys to the expected day and week movement', () => {
+		// this keeps keyboard navigation predictable so plain arrows move one day and shift-arrows move one week.
+		expect(resolveScheduleNavigatorDirection('ArrowLeft')).toBe(-1);
+		expect(resolveScheduleNavigatorDirection('ArrowRight')).toBe(1);
+		expect(resolveScheduleNavigatorDirection('ArrowLeft', true)).toBe(-7);
+		expect(resolveScheduleNavigatorDirection('ArrowRight', true)).toBe(7);
+		expect(resolveScheduleNavigatorDirection('Enter')).toBeNull();
+		expect(resolveScheduleKeyboardShortcutMove('ArrowLeft')).toEqual({
+			unit: 'day',
+			direction: -1
+		});
+		expect(resolveScheduleKeyboardShortcutMove('ArrowRight')).toEqual({
+			unit: 'day',
+			direction: 1
+		});
+		expect(resolveScheduleKeyboardShortcutMove('ArrowLeft', true)).toEqual({
+			unit: 'week',
+			direction: -1
+		});
+		expect(resolveScheduleKeyboardShortcutMove('ArrowRight', true)).toEqual({
+			unit: 'week',
+			direction: 1
+		});
+		expect(resolveScheduleKeyboardShortcutMove('Enter')).toBeNull();
+	});
+
 	it('keeps unscheduled events out of agenda buckets and month cells while returning them separately', () => {
 		// unscheduled rows should never appear in date-based views even though the helper still tracks them separately.
 		const buckets = bucketScheduleEventsByTiming(events);
@@ -318,14 +394,5 @@ describe('schedule page helpers', () => {
 		expect(monthCells.some((cell) => cell.events.some((event) => event.id === 'event-4'))).toBe(
 			false
 		);
-	});
-
-	it('maps simple navigator arrow keys to horizontal date movement only', () => {
-		// this keeps keyboard navigation predictable so plain arrows move one day and shift-arrows move one week.
-		expect(resolveScheduleNavigatorDirection('ArrowLeft')).toBe(-1);
-		expect(resolveScheduleNavigatorDirection('ArrowRight')).toBe(1);
-		expect(resolveScheduleNavigatorDirection('ArrowLeft', true)).toBe(-7);
-		expect(resolveScheduleNavigatorDirection('ArrowRight', true)).toBe(7);
-		expect(resolveScheduleNavigatorDirection('Enter')).toBeNull();
 	});
 });
