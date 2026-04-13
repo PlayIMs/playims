@@ -328,9 +328,9 @@
 			bind:this={panel}
 			use:portalToBody
 		>
-			<span class="flex flex-col gap-1.5">
+			<span class="flex flex-col gap-1">
 				{#each normalizedRows as row, rowIndex (`${row.text}-${rowIndex}`)}
-					<span class={`inline-flex flex-wrap items-center gap-1.5 ${tooltipTextClass}`.trim()}>
+					<span class={`inline-flex flex-wrap items-center gap-1 ${tooltipTextClass}`.trim()}>
 						{#if row.text}
 							<span>{row.text}</span>
 						{/if}
