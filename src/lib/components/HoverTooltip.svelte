@@ -22,7 +22,7 @@
 	} from '$lib/components/hover-tooltip.js';
 
 	interface Props {
-		text: string;
+		text?: string;
 		case?: 'title' | 'preserve';
 		shortcutKeys?: string[];
 		rows?: HoverTooltipRowInput[];
@@ -71,7 +71,7 @@
 	const normalizedShortcutKeys = $derived.by(() =>
 		shortcutKeys
 			.map((key) => resolveHoverTooltipShortcutKeyLabel(String(key ?? ''), isMacLikePlatform))
-			.filter((key) => key.length > 0)
+			.filter((key) => key.label.length > 0)
 	);
 	const normalizedRows = $derived.by(() =>
 		normalizeHoverTooltipRows(
@@ -339,8 +339,19 @@
 								{#each row.shortcutKeys as shortcutKey (shortcutKey)}
 									<kbd
 										class="inline-flex min-w-3 items-center justify-center border border-secondary-400 bg-neutral-50 px-[3px] py-px font-sans text-[9px] uppercase font-semibold leading-none text-secondary-900"
+										aria-label={shortcutKey.label}
 									>
-										{shortcutKey}
+										{#if shortcutKey.rotationDegrees !== undefined}
+											<span
+												aria-hidden="true"
+												class="inline-block leading-none"
+												style={`transform: rotate(${shortcutKey.rotationDegrees}deg);`}
+											>
+												{shortcutKey.visualLabel}
+											</span>
+										{:else}
+											{shortcutKey.visualLabel}
+										{/if}
 									</kbd>
 								{/each}
 							</span>

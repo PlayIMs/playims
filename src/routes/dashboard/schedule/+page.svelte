@@ -37,9 +37,8 @@
 		getScheduleEventDateKey,
 		getScheduleRangeForView,
 		normalizeScheduleDateRange,
+		resolveNextScheduleShortcutDate,
 		resolveScheduleNavigatorFocusDateKey,
-		resolveScheduleKeyboardShortcutMove,
-		resolveScheduleNavigatorDirection,
 		sanitizeScheduleFilters,
 		shiftScheduleAnchorDate,
 		shouldHandleScheduleKeyboardNavigation,
@@ -330,37 +329,28 @@
 	}
 
 	function handleNavigatorDayKeydown(event: KeyboardEvent, dateKey: string): void {
-		const direction = resolveScheduleNavigatorDirection(event.key, event.shiftKey);
-		if (direction === null) return;
+		const nextDateKey = resolveNextScheduleShortcutDate(dateKey, event.key, event.shiftKey);
+		if (!nextDateKey) return;
 
 		event.preventDefault();
-		const normalizedDirection: -1 | 1 = direction < 0 ? -1 : 1;
-		const nextDateKey =
-			Math.abs(direction) === 1
-				? shiftScheduleAnchorDate(dateKey, 'day', normalizedDirection)
-				: shiftScheduleAnchorDate(dateKey, 'week', normalizedDirection);
 		setSelectedDate(nextDateKey);
 		void focusNavigatorAnchor(nextDateKey);
 	}
 
 	function handleNavigatorWeekKeydown(event: KeyboardEvent, dateKey: string): void {
-		const direction = resolveScheduleNavigatorDirection(event.key, true);
-		if (direction === null) return;
+		const nextDateKey = resolveNextScheduleShortcutDate(dateKey, event.key, true);
+		if (!nextDateKey) return;
 
 		event.preventDefault();
-		const normalizedDirection: -1 | 1 = direction < 0 ? -1 : 1;
-		const nextDateKey = shiftScheduleAnchorDate(dateKey, 'week', normalizedDirection);
 		setSelectedDate(nextDateKey);
 		void focusNavigatorAnchor(nextDateKey);
 	}
 
 	function handleNavigatorMonthKeydown(event: KeyboardEvent, dateKey: string): void {
-		const direction = resolveScheduleNavigatorDirection(event.key);
-		if (direction === null) return;
+		const nextDateKey = resolveNextScheduleShortcutDate(dateKey, event.key, event.shiftKey);
+		if (!nextDateKey) return;
 
 		event.preventDefault();
-		const normalizedDirection: -1 | 1 = direction < 0 ? -1 : 1;
-		const nextDateKey = shiftScheduleAnchorDate(dateKey, 'month', normalizedDirection);
 		setSelectedDate(nextDateKey);
 		void focusNavigatorAnchor(nextDateKey);
 	}
@@ -410,6 +400,7 @@
 		if (
 			!shouldHandleScheduleKeyboardNavigation({
 				key: event.key,
+				shiftKey: event.shiftKey,
 				hasOpenDatePicker: hasOpenDatePicker(),
 				hasOpenDropdown: hasOpenScheduleDropdown(),
 				isEditableTarget: isEditableKeyboardTarget(event.target)
@@ -418,15 +409,10 @@
 			return;
 		}
 
-		const shortcutMove = resolveScheduleKeyboardShortcutMove(event.key, event.shiftKey);
-		if (!shortcutMove) return;
+		const nextDateKey = resolveNextScheduleShortcutDate(anchorDate, event.key, event.shiftKey);
+		if (!nextDateKey) return;
 
 		event.preventDefault();
-		const nextDateKey = shiftScheduleAnchorDate(
-			anchorDate,
-			shortcutMove.unit,
-			shortcutMove.direction
-		);
 		setSelectedDate(nextDateKey);
 		void focusNavigatorAnchor(nextDateKey);
 	}
@@ -793,11 +779,15 @@
 											rows={[
 												{
 													text: 'Previous Day',
-													shortcutKeys: ['Left Arrow']
+													shortcutKeys: ['ArrowLeft']
 												},
 												{
 													text: 'Previous Week',
-													shortcutKeys: ['Shift', 'Left Arrow']
+													shortcutKeys: ['Shift', 'ArrowLeft']
+												},
+												{
+													text: 'Previous Month',
+													shortcutKeys: ['Shift', 'ArrowUp']
 												}
 											]}
 										>
@@ -972,11 +962,15 @@
 											rows={[
 												{
 													text: 'Next Day',
-													shortcutKeys: ['Right Arrow']
+													shortcutKeys: ['ArrowRight']
 												},
 												{
 													text: 'Next Week',
-													shortcutKeys: ['Shift', 'Right Arrow']
+													shortcutKeys: ['Shift', 'ArrowRight']
+												},
+												{
+													text: 'Next Month',
+													shortcutKeys: ['Shift', 'ArrowDown']
 												}
 											]}
 										>
