@@ -3,7 +3,6 @@ import { z } from 'zod';
 const nonEmptyTrimmed = (message: string) => z.string().trim().min(1, message);
 
 export const communicationRecipientGroupFilterSchema = z.object({
-	memberQuery: z.string().trim().max(120).default(''),
 	memberRole: z.enum(['', 'participant', 'manager', 'admin', 'dev']).default(''),
 	memberSex: z.enum(['', 'M', 'F']).default(''),
 	seasonId: z.string().trim().max(64).default(''),

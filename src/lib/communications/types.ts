@@ -5,7 +5,6 @@ export type CommunicationRosterRole = 'captain' | 'co-captain' | 'player';
 export type CommunicationTeamStatus = 'active' | 'waitlist';
 
 export interface CommunicationRecipientGroupFilter {
-	memberQuery: string;
 	memberRole: '' | 'participant' | 'manager' | 'admin' | 'dev';
 	memberSex: '' | 'M' | 'F';
 	seasonId: string;
@@ -134,7 +133,6 @@ export const createEmptyCommunicationFilterOptions = (): CommunicationFilterOpti
 });
 
 export const EMPTY_COMMUNICATION_RECIPIENT_GROUP_FILTER: CommunicationRecipientGroupFilter = {
-	memberQuery: '',
 	memberRole: '',
 	memberSex: '',
 	seasonId: '',

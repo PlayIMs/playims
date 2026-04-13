@@ -127,9 +127,8 @@ describe('communication routes', () => {
 				id: 'recipient-group-1',
 				mode: 'include',
 				filters: {
-					memberQuery: 'captain',
 					memberRole: '',
-					memberSex: '',
+					memberSex: 'F',
 					seasonId: '',
 					offeringId: '',
 					leagueId: '',
@@ -138,7 +137,7 @@ describe('communication routes', () => {
 					rosterRole: '',
 					teamStatus: ''
 				},
-				summaryText: 'Search: "captain"',
+				summaryText: 'Female',
 				resolvedRecipientCount: 2
 			}
 		});
@@ -236,9 +235,8 @@ describe('communication routes', () => {
 							id: 'recipient-group-1',
 							mode: 'include',
 							filters: {
-								memberQuery: 'captain',
 								memberRole: '',
-								memberSex: '',
+								memberSex: 'F',
 								seasonId: '',
 								offeringId: '',
 								leagueId: '',
@@ -256,7 +254,7 @@ describe('communication routes', () => {
 
 		expect(response.status).toBe(200);
 		expect(payload.data.messagePreview.totalCount).toBe(2);
-		expect(payload.data.recipientGroups[0].summaryText).toBe('Search: "captain"');
+		expect(payload.data.recipientGroups[0].summaryText).toBe('Female');
 	});
 
 	it('returns canonical org members for manual recipient resolution', async () => {
@@ -367,7 +365,6 @@ describe('communication routes', () => {
 							id: 'recipient-group-1',
 							mode: 'include',
 							filters: {
-								memberQuery: '',
 								memberRole: '',
 								memberSex: '',
 								seasonId: '',
@@ -405,7 +402,6 @@ describe('communication routes', () => {
 							id: 'recipient-group-1',
 							mode: 'include',
 							filters: {
-								memberQuery: '',
 								memberRole: '',
 								memberSex: '',
 								seasonId: '',
@@ -506,7 +502,6 @@ describe('communication routes', () => {
 							id: 'recipient-group-1',
 							mode: 'include',
 							filters: {
-								memberQuery: '',
 								memberRole: '',
 								memberSex: '',
 								seasonId: '',

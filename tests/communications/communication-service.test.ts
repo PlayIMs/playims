@@ -227,8 +227,8 @@ describe('communication service', () => {
 			{
 				id: 'recipient-group-3',
 				mode: 'exclude',
-				filters: buildFilters({ memberQuery: 'jamie' }),
-				summaryText: 'Exclude Jamie',
+				filters: buildFilters({ memberSex: 'F' }),
+				summaryText: 'Exclude women',
 				resolvedRecipientCount: 1
 			}
 		];

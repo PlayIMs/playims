@@ -12,7 +12,8 @@ Summary of tests:
 1. It verifies that an empty new recipient-group form does not change the preview request payload.
 2. It verifies that a new in-progress recipient group is appended to the preview payload.
 3. It verifies that editing an existing recipient group replaces that group in the preview payload.
-4. It verifies that the additional placeholder filters are present and disabled until they are wired.
+4. It verifies that saved recipient groups sort includes before excludes without reshuffling peers.
+5. It verifies that the additional placeholder filters are present and disabled until they are wired.
 */
 
 import { describe, expect, it } from 'vitest';
@@ -20,6 +21,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	buildRecipientBuilderPreviewRequestGroups,
 	hasMeaningfulRecipientGroupFilters,
+	orderRecipientBuilderGroups,
 	RECIPIENT_BUILDER_ADDITIONAL_FILTERS
 } from '../../src/lib/communications/recipient-builder.js';
 import {
@@ -71,7 +73,7 @@ describe('recipient builder helper', () => {
 			recipientGroupForm: {
 				id: null,
 				mode: 'exclude',
-				filters: buildFilters({ memberQuery: 'alex' })
+				filters: buildFilters({ memberRole: 'manager' })
 			}
 		});
 
@@ -79,7 +81,7 @@ describe('recipient builder helper', () => {
 		expect(previewGroups[1]).toMatchObject({
 			id: '__recipient-preview-draft__',
 			mode: 'exclude',
-			filters: { memberQuery: 'alex' }
+			filters: { memberRole: 'manager' }
 		});
 	});
 
@@ -108,6 +110,39 @@ describe('recipient builder helper', () => {
 			filters: { teamStatus: 'waitlist' }
 		});
 		expect(previewGroups[1]?.id).toBe('group-2');
+	});
+
+	it('sorts saved recipient groups with includes before excludes', () => {
+		// this keeps the saved-groups panel easier to scan without losing stable order inside each mode.
+		const orderedGroups = orderRecipientBuilderGroups([
+			buildRecipientGroup({
+				id: 'exclude-1',
+				mode: 'exclude',
+				summaryText: 'Exclude Team A'
+			}),
+			buildRecipientGroup({
+				id: 'include-1',
+				mode: 'include',
+				summaryText: 'Include Team B'
+			}),
+			buildRecipientGroup({
+				id: 'exclude-2',
+				mode: 'exclude',
+				summaryText: 'Exclude Team C'
+			}),
+			buildRecipientGroup({
+				id: 'include-2',
+				mode: 'include',
+				summaryText: 'Include Team D'
+			})
+		]);
+
+		expect(orderedGroups.map((group) => group.id)).toEqual([
+			'include-1',
+			'include-2',
+			'exclude-1',
+			'exclude-2'
+		]);
 	});
 
 	it('keeps the placeholder additional filters visible but disabled', () => {
@@ -139,6 +174,6 @@ describe('recipient builder helper', () => {
 			)
 		).toBe(true);
 		expect(hasMeaningfulRecipientGroupFilters(buildFilters())).toBe(false);
-		expect(hasMeaningfulRecipientGroupFilters(buildFilters({ memberQuery: 'alex' }))).toBe(true);
+		expect(hasMeaningfulRecipientGroupFilters(buildFilters({ memberRole: 'manager' }))).toBe(true);
 	});
 });

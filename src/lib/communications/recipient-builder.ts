@@ -139,3 +139,14 @@ export function buildRecipientBuilderPreviewSignature(
 ): string {
 	return JSON.stringify(groups);
 }
+
+export function orderRecipientBuilderGroups(
+	recipientGroups: CommunicationRecipientGroupDraft[]
+): CommunicationRecipientGroupDraft[] {
+	return [...recipientGroups].sort((left, right) => {
+		if (left.mode === right.mode) {
+			return 0;
+		}
+		return left.mode === 'include' ? -1 : 1;
+	});
+}

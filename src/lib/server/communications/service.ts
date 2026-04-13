@@ -48,12 +48,6 @@ const TEAM_STATUS_OPTIONS: CommunicationFilterOptions['teamStatuses'] = [
 
 const normalizeText = (value: string | null | undefined): string => value?.trim() ?? '';
 const normalizeLower = (value: string | null | undefined): string => normalizeText(value).toLowerCase();
-const splitTokens = (value: string): string[] =>
-	value
-		.trim()
-		.toLowerCase()
-		.split(/\s+/)
-		.filter((token) => token.length > 0);
 
 const normalizeEmail = (value: string | null | undefined): string => normalizeLower(value);
 
@@ -96,24 +90,6 @@ const normalizeTeamStatus = (value: string | null | undefined): CommunicationTea
 	return '';
 };
 
-const matchesMemberQuery = (row: CommunicationAudienceRow, memberQuery: string): boolean => {
-	const tokens = splitTokens(memberQuery);
-	if (tokens.length === 0) {
-		return true;
-	}
-
-	const haystack = [
-		buildFullName(row),
-		row.email,
-		row.studentId,
-		row.firstName,
-		row.lastName
-	]
-		.map((value) => normalizeLower(value))
-		.join(' ');
-	return tokens.every((token) => haystack.includes(token));
-};
-
 const rowMatchesHierarchyFilters = (
 	row: CommunicationAudienceRow,
 	filters: CommunicationRecipientGroupFilter
@@ -148,9 +124,6 @@ const recipientMatchesFilters = (
 ): boolean => {
 	const primaryRow = rows[0];
 	if (!primaryRow) {
-		return false;
-	}
-	if (!matchesMemberQuery(primaryRow, filters.memberQuery)) {
 		return false;
 	}
 	if (filters.memberRole && normalizeText(primaryRow.memberRole) !== filters.memberRole) {
@@ -277,9 +250,6 @@ const buildRecipientGroupSummary = (
 		labels.push(match ? match.label : `${fallbackPrefix}: ${value}`);
 	};
 
-	if (filters.memberQuery) {
-		labels.push(`Search: "${filters.memberQuery}"`);
-	}
 	appendLookup(filters.memberRole, options.memberRoles, 'Role');
 	appendLookup(filters.memberSex, options.memberSexes, 'Sex');
 	appendLookup(filters.seasonId, options.seasons, 'Season');
@@ -352,7 +322,6 @@ const normalizeFilters = (
 	filters: Partial<CommunicationRecipientGroupFilter>
 ): CommunicationRecipientGroupFilter => ({
 	...EMPTY_COMMUNICATION_RECIPIENT_GROUP_FILTER,
-	memberQuery: normalizeText(filters.memberQuery),
 	memberRole:
 		(normalizeText(filters.memberRole) as CommunicationRecipientGroupFilter['memberRole']) || '',
 	memberSex:

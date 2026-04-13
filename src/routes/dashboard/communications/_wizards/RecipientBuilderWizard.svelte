@@ -2,6 +2,7 @@
 	import { beforeNavigate } from '$app/navigation';
 	import {
 		IconEdit,
+		IconMinus,
 		IconPlus,
 		IconTrash,
 		IconUsers
@@ -12,6 +13,7 @@
 	import {
 		buildRecipientBuilderPreviewRequestGroups,
 		buildRecipientBuilderPreviewSignature,
+		orderRecipientBuilderGroups,
 		RECIPIENT_BUILDER_ADDITIONAL_FILTERS
 	} from '$lib/communications/recipient-builder.js';
 	import {
@@ -41,6 +43,8 @@
 		recipientGroups: CommunicationRecipientGroupDraft[];
 		recipientGroupForm: RecipientGroupFormState;
 	}
+
+	type RecipientBuilderPanelView = 'groups' | 'preview';
 
 	interface Props {
 		open: boolean;
@@ -88,6 +92,7 @@
 	let preview = $state<CommunicationRecipientPreview>({ totalCount: 0, rows: [] });
 	let previewSearch = $state('');
 	let previewLoading = $state(false);
+	let sidePanelView = $state<RecipientBuilderPanelView>('groups');
 	let unsavedConfirmOpen = $state(false);
 	let previewSyncSignature = $state('');
 	let previewRequestNonce = 0;
@@ -185,6 +190,9 @@
 				.includes(query)
 		);
 	});
+	const orderedRecipientGroups = $derived.by(() =>
+		orderRecipientBuilderGroups(draftRecipientGroups)
+	);
 
 	const cloneRecipientGroups = (
 		recipientGroups: CommunicationRecipientGroupDraft[]
@@ -218,6 +226,7 @@
 		preview = clonePreview(initialPreview ?? { totalCount: 0, rows: [] });
 		previewSearch = '';
 		previewLoading = false;
+		sidePanelView = 'groups';
 		unsavedConfirmOpen = false;
 		previewRequestNonce += 1;
 		resetRecipientGroupForm();
@@ -362,21 +371,21 @@
 		}
 	}
 
-	async function applyRecipientGroup(): Promise<void> {
+	async function applyRecipientGroup(nextMode: CommunicationRecipientGroupMode): Promise<void> {
 		try {
 			previewRequestNonce += 1;
 			const targetId = recipientGroupForm.id ?? createRecipientGroupId();
 			const normalized = await requestPreview([
 				...draftRecipientGroups
 					.filter((recipientGroup) => recipientGroup.id !== recipientGroupForm.id)
-					.map((recipientGroup) => ({
-						id: recipientGroup.id,
-						mode: recipientGroup.mode,
-						filters: recipientGroup.filters
-					})),
+				.map((recipientGroup) => ({
+					id: recipientGroup.id,
+					mode: recipientGroup.mode,
+					filters: recipientGroup.filters
+				})),
 				{
 					id: targetId,
-					mode: recipientGroupForm.mode,
+					mode: nextMode,
 					filters: recipientGroupForm.filters
 				}
 			]);
@@ -394,7 +403,11 @@
 					recipientGroupForm: nextFormState
 				})
 			);
-			toast.success('Recipient group updated.');
+			toast.success(
+				nextMode === 'include'
+					? 'Recipient group added to included recipients.'
+					: 'Recipient group added to excluded recipients.'
+			);
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : 'Unable to update the recipient group.');
 		}
@@ -479,43 +492,6 @@
 		<div class="min-h-0">
 			<div class="flex h-full min-h-0 flex-col border border-neutral-950 bg-white p-4">
 				<div class="min-h-0 space-y-4 overflow-y-auto pr-1 scrollbar-thin">
-					<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-						<div class="space-y-2">
-							<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
-								Recipient group mode
-							</p>
-							<ListboxDropdown
-								options={[
-									{ value: 'include', label: 'Include recipients' },
-									{ value: 'exclude', label: 'Exclude recipients' }
-								]}
-								value={recipientGroupForm.mode}
-								ariaLabel="Recipient group mode"
-								buttonClass={DROPDOWN_BUTTON_CLASS}
-								on:change={(event) => {
-									recipientGroupForm = {
-										...recipientGroupForm,
-										mode: event.detail.value as CommunicationRecipientGroupMode
-									};
-								}}
-							/>
-						</div>
-						<div class="space-y-2">
-							<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
-								Member Search
-							</p>
-							<SearchInput
-								id="communication-recipient-member-search"
-								label="Search members"
-								value={recipientGroupForm.filters.memberQuery}
-								placeholder="Search by name, email, or student ID"
-								inputClass="input-neutral min-h-10 pl-10 pr-10 py-2 text-sm"
-								clearButtonClass="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-700 hover:text-neutral-950 cursor-pointer"
-								on:input={(event) => updateFilter('memberQuery', event.detail.value)}
-							/>
-						</div>
-					</div>
-
 					{#if filterOptionsLoading}
 						<div class="border border-neutral-950 bg-neutral-50 px-3 py-2 text-sm text-neutral-700">
 							Loading season, offering, league, division, and team filters...
@@ -593,12 +569,28 @@
 					</div>
 
 					<div class="flex flex-wrap items-center gap-2">
-						<button type="button" class="button-primary-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer" onclick={applyRecipientGroup}>
+						<button
+							type="button"
+							class="inline-flex cursor-pointer items-center gap-2 border-2 border-success-700 bg-success-100 px-3 py-2 text-xs font-bold uppercase tracking-wide text-success-950 hover:bg-success-200"
+							onclick={() => void applyRecipientGroup('include')}
+						>
 							<IconPlus class="h-4 w-4" />
-							<span>{recipientGroupForm.id ? 'Update Recipient Group' : 'Add Recipient Group'}</span>
+							<span>Include Recipients</span>
+						</button>
+						<button
+							type="button"
+							class="inline-flex cursor-pointer items-center gap-2 border-2 border-error-700 bg-error-100 px-3 py-2 text-xs font-bold uppercase tracking-wide text-error-900 hover:bg-error-200"
+							onclick={() => void applyRecipientGroup('exclude')}
+						>
+							<IconMinus class="h-4 w-4" />
+							<span>Exclude Recipients</span>
 						</button>
 						{#if recipientGroupForm.id}
-							<button type="button" class="button-neutral-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer" onclick={resetRecipientGroupForm}>
+							<button
+								type="button"
+								class="button-neutral-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer"
+								onclick={resetRecipientGroupForm}
+							>
 								Cancel Edit
 							</button>
 						{/if}
@@ -607,116 +599,175 @@
 			</div>
 		</div>
 
-		<div class="flex min-h-0 flex-col gap-4">
-			<div class="flex max-h-[min(16rem,35vh)] min-h-[10rem] flex-col border border-neutral-950 bg-white p-4">
-					<div class="flex items-center gap-2">
-						<h3 class="text-sm font-bold uppercase tracking-wide text-neutral-950">
-							Saved Recipient Groups
-						</h3>
-						<IconUsers class="h-4 w-4 text-neutral-700" />
+		<div class="flex min-h-0 flex-col">
+			<div class="flex min-h-0 flex-1 flex-col border border-neutral-950 bg-white p-4 min-w-0">
+				<div class="flex shrink-0 flex-col gap-2">
+					<div class="flex items-center justify-between gap-3">
+						<div class="flex items-center gap-2">
+							<h3 class="text-sm font-bold uppercase tracking-wide text-neutral-950">
+								Recipient Workspace
+							</h3>
+							<IconUsers class="h-4 w-4 text-neutral-700" />
+						</div>
+						<div class="inline-flex border-2 border-neutral-950">
+							<button
+								type="button"
+								class={`cursor-pointer px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide ${
+									sidePanelView === 'groups'
+										? 'bg-secondary-100 text-neutral-950'
+										: 'bg-white text-neutral-700 hover:bg-neutral-100'
+								}`}
+								onclick={() => {
+									sidePanelView = 'groups';
+								}}
+							>
+								Saved Groups ({draftRecipientGroups.length})
+							</button>
+							<button
+								type="button"
+								class={`border-l-2 border-neutral-950 cursor-pointer px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide ${
+									sidePanelView === 'preview'
+										? 'bg-secondary-100 text-neutral-950'
+										: 'bg-white text-neutral-700 hover:bg-neutral-100'
+								}`}
+								onclick={() => {
+									sidePanelView = 'preview';
+								}}
+							>
+								Preview ({preview.totalCount})
+							</button>
+						</div>
 					</div>
-					<div class="mt-3 min-h-0 overflow-y-auto pr-1 scrollbar-thin">
-						{#if draftRecipientGroups.length === 0}
-							<div class="border border-neutral-950 bg-neutral-50 p-4 text-sm text-neutral-700">
-								No recipient groups yet.
-							</div>
-						{:else}
-							<div class="space-y-3">
-								{#each draftRecipientGroups as recipientGroup}
-									<div class="section-card p-3 space-y-3">
-										<div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-											<div class="space-y-2">
-												<div class="flex flex-wrap items-center gap-2">
-													<span class={`border px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${recipientGroup.mode === 'include' ? 'border-primary-700 bg-primary text-primary-foreground' : 'border-warning-700 bg-warning-100 text-neutral-950'}`}>
-														{recipientGroup.mode}
-													</span>
-													<span class="border border-secondary-300 px-2 py-1 text-[11px] font-bold uppercase tracking-wide">
-														{recipientGroup.resolvedRecipientCount} recipients
-													</span>
-												</div>
-												<p class="text-sm text-neutral-950">{recipientGroup.summaryText}</p>
-											</div>
-											<div class="flex items-center gap-2">
-												<HoverTooltip text="Edit recipient group">
-													<button type="button" class="button-secondary-outlined dashboard-icon-button cursor-pointer" aria-label="Edit recipient group" onclick={() => startEditingRecipientGroup(recipientGroup)}>
-														<IconEdit class="h-4 w-4" />
-													</button>
-												</HoverTooltip>
-												<HoverTooltip text="Remove recipient group">
-													<button type="button" class="button-neutral-outlined dashboard-icon-button cursor-pointer" aria-label="Remove recipient group" onclick={() => void removeRecipientGroup(recipientGroup.id)}>
-														<IconTrash class="h-4 w-4" />
-													</button>
-												</HoverTooltip>
-										</div>
-									</div>
-								</div>
-							{/each}
+
+					{#if sidePanelView === 'preview'}
+						<div class="w-full md:max-w-xs">
+							<SearchInput
+								id="communication-recipient-preview-search"
+								label="Search previewed recipients"
+								value={previewSearch}
+								placeholder="Search preview list"
+								inputClass="input-neutral min-h-9 pl-9 pr-9 py-1.5 text-sm"
+								clearButtonClass="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-700 hover:text-neutral-950 cursor-pointer"
+								on:input={(event) => {
+									previewSearch = event.detail.value;
+								}}
+							/>
 						</div>
 					{/if}
 				</div>
-			</div>
 
-			<div class="flex min-h-0 flex-1 flex-col border border-neutral-950 bg-white p-4 min-w-0">
-				<div class="flex shrink-0 flex-col gap-1.5 md:flex-row md:items-center md:justify-between">
-					<h3 class="text-sm font-bold uppercase tracking-wide text-neutral-950">
-						Recipient Preview
-					</h3>
-					<div class="w-full md:max-w-xs">
-						<SearchInput
-							id="communication-recipient-preview-search"
-							label="Search previewed recipients"
-							value={previewSearch}
-							placeholder="Search preview list"
-							inputClass="input-neutral min-h-9 pl-9 pr-9 py-1.5 text-sm"
-							clearButtonClass="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-700 hover:text-neutral-950 cursor-pointer"
-							on:input={(event) => {
-								previewSearch = event.detail.value;
-							}}
-						/>
-					</div>
-				</div>
-				<div class="mt-2 min-h-0 flex-1 overflow-auto border border-neutral-950 bg-white">
-					<table class="min-w-full border-collapse">
-						<thead class="bg-neutral-100">
-							<tr>
-								<th class="border-b border-neutral-950 px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950">
-									Recipient
-								</th>
-								<th class="border-b border-neutral-950 px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950">
-									Email
-								</th>
-								<th class="border-b border-neutral-950 px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950">
-									Context
-								</th>
-							</tr>
-						</thead>
-						<tbody>
-							{#if visiblePreviewRows.length === 0}
-								<tr>
-									<td colspan="3" class="px-3 py-6 text-sm text-neutral-700">
-										No preview recipients match the current search.
-									</td>
-								</tr>
+				<div class="mt-2 min-h-0 flex-1 overflow-hidden border border-neutral-950 bg-white">
+					{#if sidePanelView === 'groups'}
+						<div class="h-full overflow-y-auto p-3 pr-2 scrollbar-thin">
+							{#if orderedRecipientGroups.length === 0}
+								<div class="border border-neutral-950 bg-neutral-50 p-4 text-sm text-neutral-700">
+									No recipient groups yet.
+								</div>
 							{:else}
-								{#each visiblePreviewRows as row}
-									<tr class="border-b border-neutral-200 last:border-b-0">
-										<td class="px-3 py-2 text-sm text-neutral-950">{row.fullName}</td>
-										<td class="px-3 py-2 text-sm text-neutral-950">{row.email}</td>
-										<td class="px-3 py-2 text-sm text-neutral-700">
-											{row.teamName ??
-												row.divisionName ??
-												row.leagueName ??
-												row.offeringName ??
-												'Member filter only'}
-										</td>
-									</tr>
-								{/each}
+								<div class="space-y-2">
+									{#each orderedRecipientGroups as recipientGroup}
+										<div class="border border-neutral-950 bg-white px-3 py-2">
+											<div class="flex items-start justify-between gap-3">
+												<div class="min-w-0 flex-1 space-y-2">
+													<div class="flex flex-wrap items-center gap-2">
+														<span
+															class={`inline-flex items-center gap-1 border px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${
+																recipientGroup.mode === 'include'
+																	? 'border-success-700 bg-success-100 text-success-950'
+																	: 'border-error-700 bg-error-100 text-error-900'
+															}`}
+														>
+															{#if recipientGroup.mode === 'include'}
+																<IconPlus class="h-3.5 w-3.5 text-current opacity-100" />
+															{:else}
+																<IconMinus class="h-3.5 w-3.5 text-current opacity-100" />
+															{/if}
+															<span>{recipientGroup.mode}</span>
+														</span>
+														<span class="border border-secondary-300 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+															{recipientGroup.resolvedRecipientCount} recipients
+														</span>
+													</div>
+													<p class="text-sm leading-5 text-neutral-950">
+														{recipientGroup.summaryText}
+													</p>
+												</div>
+												<div class="flex shrink-0 items-center gap-2">
+													<HoverTooltip text="Edit recipient group">
+														<button
+															type="button"
+															class="button-secondary-outlined dashboard-icon-button cursor-pointer text-neutral-950"
+															aria-label="Edit recipient group"
+															onclick={() => startEditingRecipientGroup(recipientGroup)}
+														>
+															<IconEdit class="h-4 w-4 text-current opacity-100" />
+														</button>
+													</HoverTooltip>
+													<HoverTooltip text="Remove recipient group">
+														<button
+															type="button"
+															class="button-neutral-outlined dashboard-icon-button cursor-pointer border-error-700 text-error-700 hover:bg-error-50"
+															aria-label="Remove recipient group"
+															onclick={() => void removeRecipientGroup(recipientGroup.id)}
+														>
+															<IconTrash class="h-4 w-4 text-current opacity-100" />
+														</button>
+													</HoverTooltip>
+												</div>
+											</div>
+										</div>
+									{/each}
+								</div>
 							{/if}
-						</tbody>
-					</table>
+						</div>
+					{:else}
+						<div class="h-full min-h-0 overflow-auto">
+							<table class="min-w-full border-collapse">
+								<thead class="bg-neutral-100">
+									<tr>
+										<th class="border-b border-neutral-950 px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+											Recipient
+										</th>
+										<th class="border-b border-neutral-950 px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+											Email
+										</th>
+										<th class="border-b border-neutral-950 px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+											Context
+										</th>
+									</tr>
+								</thead>
+								<tbody>
+									{#if visiblePreviewRows.length === 0}
+										<tr>
+											<td colspan="3" class="px-3 py-6 text-sm text-neutral-700">
+												No preview recipients match the current search.
+											</td>
+										</tr>
+									{:else}
+										{#each visiblePreviewRows as row}
+											<tr class="border-b border-neutral-200 last:border-b-0">
+												<td class="px-3 py-2 text-sm text-neutral-950">{row.fullName}</td>
+												<td class="px-3 py-2 text-sm text-neutral-950">{row.email}</td>
+												<td class="px-3 py-2 text-sm text-neutral-700">
+													{row.teamName ??
+														row.divisionName ??
+														row.leagueName ??
+														row.offeringName ??
+														'Member filter only'}
+												</td>
+											</tr>
+										{/each}
+									{/if}
+								</tbody>
+							</table>
+						</div>
+					{/if}
 				</div>
+
 				<p class="pt-2 text-right text-sm text-neutral-700">
-					{preview.totalCount} recipients
+					{sidePanelView === 'groups'
+						? `${orderedRecipientGroups.length} saved group${orderedRecipientGroups.length === 1 ? '' : 's'}`
+						: `${preview.totalCount} recipients`}
 				</p>
 			</div>
 		</div>
