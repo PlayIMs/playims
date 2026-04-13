@@ -665,6 +665,31 @@ const addNonceToInlineScripts = (html: string, nonce: string): string =>
 		}
 	);
 
+export const buildHtmlContentSecurityPolicy = (isDev: boolean): string => {
+	const connectSources = ["'self'"];
+	const workerSources = ["'self'"];
+
+	if (isDev) {
+		connectSources.push('ws:', 'wss:', 'http:', 'https:');
+		workerSources.push('blob:');
+	}
+
+	return [
+		"default-src 'self'",
+		"base-uri 'self'",
+		"object-src 'none'",
+		"frame-ancestors 'none'",
+		"form-action 'self'",
+		"img-src 'self' data: blob: https:",
+		"font-src 'self' https://fonts.gstatic.com data:",
+		"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+		"script-src 'self'",
+		`connect-src ${connectSources.join(' ')}`,
+		`worker-src ${workerSources.join(' ')}`,
+		"manifest-src 'self'"
+	].join('; ');
+};
+
 const withHtmlInlineScriptNonces = async (response: Response): Promise<Response> => {
 	const headers = new Headers(response.headers);
 	const contentType = headers.get('content-type') ?? '';
@@ -728,10 +753,7 @@ const withSecurityHeaders = (
 	const responseContentType = headers.get('content-type') ?? '';
 	const isHtmlResponse = responseContentType.toLowerCase().includes('text/html');
 	if (!isApiRequest && isHtmlResponse && !headers.has('content-security-policy')) {
-		headers.set(
-			'content-security-policy',
-			"default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob: https:; font-src 'self' https://fonts.gstatic.com data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'"
-		);
+		headers.set('content-security-policy', buildHtmlContentSecurityPolicy(dev));
 	}
 
 	if (isApiRequest && !headers.has('cache-control')) {

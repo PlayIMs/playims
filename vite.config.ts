@@ -42,7 +42,20 @@ export default defineConfig({
 		})
 	],
 	optimizeDeps: {
-		include: ['@tabler/icons-svelte', 'date-fns']
+		include: [
+			'@tabler/icons-svelte',
+			'date-fns',
+			'@tiptap/core',
+			'@tiptap/extension-color',
+			'@tiptap/extension-highlight',
+			'@tiptap/extension-image',
+			'@tiptap/extension-link',
+			'@tiptap/extension-list',
+			'@tiptap/extension-table',
+			'@tiptap/extension-text-style',
+			'@tiptap/extension-underline',
+			'@tiptap/starter-kit'
+		]
 	},
 	ssr: {
 		noExternal: ['@tabler/icons-svelte']

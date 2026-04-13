@@ -46,6 +46,7 @@
 		buildCommunicationEditorContentSignature,
 		getCommunicationEditorInitialContent
 	} from '$lib/communications/editor-content.js';
+	import { updateCommunicationEditorRuntimeState } from '$lib/communications/editor-runtime.js';
 	import { buildSpecialCharacterDialogOpenState } from '$lib/communications/editor-special-character-dialog.js';
 	import {
 		communicationEditorSpecialCharacters
@@ -354,10 +355,16 @@
 	};
 
 	const setEditorState = (nextEditor: Editor | null, bumpRevision = true): void => {
-		editorInstance = nextEditor;
-		if (bumpRevision) {
-			toolbarRevision += 1;
-		}
+		const nextState = updateCommunicationEditorRuntimeState(
+			{
+				editor: editorInstance,
+				toolbarRevision
+			},
+			nextEditor,
+			{ bumpRevision }
+		);
+		editorInstance = nextState.editor;
+		toolbarRevision = nextState.toolbarRevision;
 	};
 
 	function toolbarButtonClass(active = false): string {
@@ -1150,7 +1157,9 @@
 			return;
 		}
 
-		editor.setEditable(editable);
+		if (editor.isEditable !== editable) {
+			editor.setEditable(editable);
+		}
 	});
 
 	$effect(() => {

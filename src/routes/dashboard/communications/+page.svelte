@@ -34,6 +34,7 @@
 	import { WizardUnsavedConfirm } from '$lib/components/wizard';
 	import RecipientBuilderWizard from './_wizards/RecipientBuilderWizard.svelte';
 	import { buildCommunicationDraftStateSignature } from '$lib/communications/editor-content.js';
+	import { buildCommunicationPageHydrationSignature } from '$lib/communications/page-hydration.js';
 	import {
 		mergeCommunicationManualRecipients,
 		splitCommunicationManualRecipientInput
@@ -105,12 +106,7 @@
 	let richEditorReady = $state(false);
 
 	let allowNextNavigation = false;
-
-	const loadedMessageSignature = $derived.by(() =>
-		data.selectedMessage
-			? `${data.selectedMessage.id}:${data.selectedMessage.updatedAt ?? ''}:${data.selectedMessage.status}`
-			: 'new'
-	);
+	let lastHydratedServerDataSignature = '';
 
 	const canViewHistory = $derived.by(() => permissions.VIEW_COMMUNICATION_HISTORY === true);
 	const canPreviewAudience = $derived.by(
@@ -327,10 +323,20 @@
 	}
 
 	$effect(() => {
-		const signature = loadedMessageSignature;
-		if (!signature) return;
 		const nextMessages = data.messages ?? [];
 		const nextSelectedMessage = data.selectedMessage ?? null;
+		const nextHydrationSignature = buildCommunicationPageHydrationSignature({
+			messages: nextMessages,
+			selectedMessage: nextSelectedMessage,
+			filterOptions: data.filterOptions,
+			filterOptionsLoaded: data.filterOptionsLoaded
+		});
+		if (nextHydrationSignature === lastHydratedServerDataSignature) {
+			return;
+		}
+
+		lastHydratedServerDataSignature = nextHydrationSignature;
+
 		const nextActiveView: MessageSidebarView = nextSelectedMessage
 			? getCommunicationSidebarViewFromStatus(nextSelectedMessage.status)
 			: getPreferredCommunicationSidebarView(nextMessages);
