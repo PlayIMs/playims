@@ -4,8 +4,7 @@
 		IconEdit,
 		IconMinus,
 		IconPlus,
-		IconTrash,
-		IconUsers
+		IconTrash
 	} from '@tabler/icons-svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
@@ -602,14 +601,28 @@
 		<div class="flex min-h-0 flex-col">
 			<div class="flex min-h-0 flex-1 flex-col border border-neutral-950 bg-white p-4 min-w-0">
 				<div class="flex shrink-0 flex-col gap-2">
-					<div class="flex items-center justify-between gap-3">
-						<div class="flex items-center gap-2">
+					<div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-3">
+						<div class="shrink-0 flex items-center gap-2">
 							<h3 class="text-sm font-bold uppercase tracking-wide text-neutral-950">
 								Recipient Workspace
 							</h3>
-							<IconUsers class="h-4 w-4 text-neutral-700" />
 						</div>
-						<div class="inline-flex border-2 border-neutral-950">
+						<div class="min-w-0 flex-1">
+							{#if sidePanelView === 'preview'}
+								<SearchInput
+									id="communication-recipient-preview-search"
+									label="Search previewed recipients"
+									value={previewSearch}
+									placeholder="Search preview list"
+									inputClass="input-neutral h-8 pl-9 pr-9 py-0 text-sm leading-none"
+									clearButtonClass="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-700 hover:text-neutral-950 cursor-pointer"
+									on:input={(event) => {
+										previewSearch = event.detail.value;
+									}}
+								/>
+							{/if}
+						</div>
+						<div class="inline-flex shrink-0 border-2 border-neutral-950">
 							<button
 								type="button"
 								class={`cursor-pointer px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide ${
@@ -638,22 +651,6 @@
 							</button>
 						</div>
 					</div>
-
-					{#if sidePanelView === 'preview'}
-						<div class="w-full md:max-w-xs">
-							<SearchInput
-								id="communication-recipient-preview-search"
-								label="Search previewed recipients"
-								value={previewSearch}
-								placeholder="Search preview list"
-								inputClass="input-neutral min-h-9 pl-9 pr-9 py-1.5 text-sm"
-								clearButtonClass="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-700 hover:text-neutral-950 cursor-pointer"
-								on:input={(event) => {
-									previewSearch = event.detail.value;
-								}}
-							/>
-						</div>
-					{/if}
 				</div>
 
 				<div class="mt-2 min-h-0 flex-1 overflow-hidden border border-neutral-950 bg-white">

@@ -93,6 +93,7 @@ Default class recipes to copy first:
 - Shared `ListboxDropdown` panels should keep the component defaults unless a route needs a documented exception. That means 2px trigger/panel borders, darker neutral row dividers, and darker neutral option-body text by default.
 - Label-inline helper popover row: `mb-1 flex min-h-6 items-center gap-1.5`
 - Slug revert tooltip button: `border-0 bg-transparent ... text-secondary-700 hover:text-secondary-900`
+- Same-row control alignment rule: when controls sit on the same visual plane or toolbar/header row, match their height and border weight by default. Do not leave one control taller, thinner, or heavier than its neighbors unless the user explicitly asks for hierarchy or there is a documented functional reason.
 
 ### Switcher Modal Recipe
 
@@ -134,6 +135,7 @@ Border token policy:
 - Keep primary module and sidebar sections at 2px outer border weight to match the offerings page; reserve 1px borders for nested cards, tables, and inner content containers.
 - Keep `secondary-300` for inactive interactive states when the border is part of the control affordance itself, such as badge-like chips, unselected option cards, and button-adjacent control states, unless the user asks to restyle those controls too.
 - If a dashboard control cluster is explicitly restyled to neutral, carry that neutral family through the full interaction surface: trigger border, panel border, internal dividers, footer buttons, icons, hover fills, and focus treatment.
+- When a search input, segmented switcher, dropdown, or button group shares a single row, keep their outer heights visually aligned and keep border thickness consistent across the row by default.
 - Do not put page subtitles in the module header by default.
 - Do not place primary action buttons in the module header by default.
 
