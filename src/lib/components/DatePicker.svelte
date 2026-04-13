@@ -1,10 +1,5 @@
 <script lang="ts">
-	import {
-		IconCalendar,
-		IconChevronLeft,
-		IconChevronRight,
-		IconClock
-	} from '@tabler/icons-svelte';
+	import { IconCalendar, IconChevronLeft, IconChevronRight, IconClock } from '@tabler/icons-svelte';
 	import { createEventDispatcher, tick, untrack } from 'svelte';
 	import type { Snippet } from 'svelte';
 	import type { HTMLInputAttributes } from 'svelte/elements';
@@ -62,6 +57,7 @@
 		inputClass?: string;
 		triggerClass?: string;
 		panelClass?: string;
+		panelAlign?: 'center' | 'left';
 		inputElement?: HTMLInputElement | null;
 		trigger?: Snippet<[boolean, string]>;
 	}
@@ -88,6 +84,7 @@
 		inputClass = 'input-secondary min-h-10 pr-10 py-2 text-sm disabled:cursor-not-allowed',
 		triggerClass = 'date-picker-trigger-shell',
 		panelClass = '',
+		panelAlign = 'center',
 		inputElement = $bindable<HTMLInputElement | null>(null),
 		trigger,
 		...inputProps
@@ -316,7 +313,7 @@
 		panelStyle = toFixedStyle(
 			{
 				...position,
-				left: centeredLeft
+				left: panelAlign === 'left' ? position.left : centeredLeft
 			},
 			maxWidthStyle
 		);
@@ -556,9 +553,7 @@
 
 	function moveSelectedDate(dateKey: string): void {
 		const nextValue =
-			type === 'date'
-				? dateKey
-				: mergeDateKeyWithValue(dateKey, String(value ?? ''), type);
+			type === 'date' ? dateKey : mergeDateKeyWithValue(dateKey, String(value ?? ''), type);
 		const clampedValue = clampPickerValue(nextValue, type, min, max);
 		const parsed = parsePickerValue(clampedValue, type);
 		if (!parsed) return;
@@ -643,9 +638,7 @@
 		commitValue(`${baseDateKey}T${nextHour}:${nextMinute}`);
 	}
 
-	function dayButtonClass(
-		cell: ReturnType<typeof buildCalendarGrid>[number]
-	): string {
+	function dayButtonClass(cell: ReturnType<typeof buildCalendarGrid>[number]): string {
 		return joinClassNames(
 			'date-picker-day',
 			cell.isCurrentMonth ? '' : 'date-picker-day-muted',
@@ -721,7 +714,9 @@
 			}));
 	}
 
-	const calendarMonthWindow = $derived.by(() => buildCalendarMonthWindow(visibleMonth, type, min, max));
+	const calendarMonthWindow = $derived.by(() =>
+		buildCalendarMonthWindow(visibleMonth, type, min, max)
+	);
 	const calendarMonthPages = $derived.by(() =>
 		calendarMonthWindow.map((reference, index) => {
 			const slot: MonthPageSlot = index === 0 ? 'previous' : index === 1 ? 'current' : 'next';
@@ -760,8 +755,10 @@
 		const nextMonth = shiftMonthReference(visibleMonth, 1, type, min, max);
 		return compareMonthReference(nextMonth, visibleMonth) !== 0;
 	});
-	const resolvedPlaceholder = $derived.by(() =>
-		placeholder ?? (type === 'date' ? format ?? 'MM/DD/YYYY' : `${format ?? 'MM/DD/YYYY'} HH:mm`)
+	const resolvedPlaceholder = $derived.by(
+		() =>
+			placeholder ??
+			(type === 'date' ? (format ?? 'MM/DD/YYYY') : `${format ?? 'MM/DD/YYYY'} HH:mm`)
 	);
 
 	$effect(() => {
@@ -865,7 +862,7 @@
 
 	{#if trigger}
 		<button
-			id={id}
+			{id}
 			type="button"
 			class={triggerClass}
 			aria-label={ariaLabel}

@@ -740,6 +740,7 @@
 											minYear={scheduleDateYearRange.minYear}
 											maxYear={scheduleDateYearRange.maxYear}
 											ariaLabel="Choose schedule date"
+											panelAlign="left"
 											triggerClass="flex h-[3.375rem] w-full cursor-pointer items-center justify-start gap-3 border-b border-neutral-950 bg-white px-4 py-0 text-sm font-semibold leading-none text-neutral-950 xl:border-b-0 xl:border-r"
 											on:change={(event) => {
 												if (isDateKey(event.detail.value)) {
@@ -1001,7 +1002,7 @@
 										ariaLabel="Choose schedule view"
 										align="right"
 										buttonClass={NAVIGATION_VIEW_BUTTON_CLASS}
-										listClass="w-56"
+										panelWidthMode="trigger"
 										on:change={(event) => {
 											changeView(event.detail.value as ScheduleDisplayMode);
 										}}
