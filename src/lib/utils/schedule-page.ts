@@ -145,13 +145,14 @@ export interface ScheduleUrlSyncState {
 
 export interface ScheduleKeyboardNavigationContext {
 	key: string;
+	shiftKey?: boolean;
 	hasOpenDatePicker: boolean;
 	hasOpenDropdown: boolean;
 	isEditableTarget: boolean;
 }
 
 export interface ScheduleKeyboardShortcutMove {
-	unit: 'day' | 'week';
+	unit: 'day' | 'week' | 'month';
 	direction: -1 | 1;
 }
 
@@ -618,16 +619,19 @@ export function shiftScheduleAnchorDate(
 export function resolveScheduleNavigatorDirection(
 	key: string,
 	shiftKey = false
-): -7 | -1 | 1 | 7 | null {
+): -30 | -7 | -1 | 1 | 7 | 30 | null {
 	if (key === 'ArrowLeft') return shiftKey ? -7 : -1;
 	if (key === 'ArrowRight') return shiftKey ? 7 : 1;
+	if (shiftKey && key === 'ArrowUp') return -30;
+	if (shiftKey && key === 'ArrowDown') return 30;
 	return null;
 }
 
 export function shouldHandleScheduleKeyboardNavigation(
 	context: ScheduleKeyboardNavigationContext
 ): boolean {
-	if (resolveScheduleNavigatorDirection(context.key) === null) return false;
+	if (resolveScheduleNavigatorDirection(context.key, context.shiftKey ?? false) === null)
+		return false;
 	if (context.hasOpenDatePicker) return false;
 	if (context.hasOpenDropdown) return false;
 	if (context.isEditableTarget) return false;
@@ -642,9 +646,20 @@ export function resolveScheduleKeyboardShortcutMove(
 	if (direction === null) return null;
 
 	return {
-		unit: Math.abs(direction) === 7 ? 'week' : 'day',
+		unit: Math.abs(direction) === 30 ? 'month' : Math.abs(direction) === 7 ? 'week' : 'day',
 		direction: direction < 0 ? -1 : 1
 	};
+}
+
+export function resolveNextScheduleShortcutDate(
+	anchorDate: string,
+	key: string,
+	shiftKey = false
+): string | null {
+	const shortcutMove = resolveScheduleKeyboardShortcutMove(key, shiftKey);
+	if (!shortcutMove) return null;
+
+	return shiftScheduleAnchorDate(anchorDate, shortcutMove.unit, shortcutMove.direction);
 }
 
 export function resolveScheduleNavigatorFocusDateKey(

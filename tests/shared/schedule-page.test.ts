@@ -17,7 +17,7 @@ Summary of tests:
 5. It verifies the URL-sync helper removes default schedule params and no-ops once the URL matches.
 6. It verifies page-level keyboard shortcuts stay idle while dropdowns, pickers, or text entry are active.
 7. It verifies the navigator focus target stays on the anchored date except for the custom range view.
-8. It verifies the simple day navigator maps arrow-key combinations to the expected day and week jumps.
+8. It verifies the simple day navigator maps arrow-key combinations to the expected day, week, and month jumps.
 9. It verifies unscheduled events stay out of dated agenda buckets and month cells.
 */
 
@@ -36,6 +36,7 @@ import {
 	filterScheduleEvents,
 	getScheduleRangeForView,
 	normalizeScheduleDateRange,
+	resolveNextScheduleShortcutDate,
 	resolveScheduleNavigatorFocusDateKey,
 	resolveScheduleKeyboardShortcutMove,
 	resolveScheduleNavigatorDirection,
@@ -339,6 +340,23 @@ describe('schedule page helpers', () => {
 				isEditableTarget: true
 			})
 		).toBe(false);
+		expect(
+			shouldHandleScheduleKeyboardNavigation({
+				key: 'ArrowDown',
+				hasOpenDatePicker: false,
+				hasOpenDropdown: false,
+				isEditableTarget: false
+			})
+		).toBe(false);
+		expect(
+			shouldHandleScheduleKeyboardNavigation({
+				key: 'ArrowDown',
+				hasOpenDatePicker: false,
+				hasOpenDropdown: false,
+				isEditableTarget: false,
+				shiftKey: true
+			} as Parameters<typeof shouldHandleScheduleKeyboardNavigation>[0])
+		).toBe(true);
 	});
 
 	it('keeps navigator focus on the anchored date except in custom range mode', () => {
@@ -350,12 +368,14 @@ describe('schedule page helpers', () => {
 		expect(resolveScheduleNavigatorFocusDateKey('date-range', '2026-04-12')).toBeNull();
 	});
 
-	it('maps simple navigator arrow keys to the expected day and week movement', () => {
-		// this keeps keyboard navigation predictable so plain arrows move one day and shift-arrows move one week.
+	it('maps simple navigator arrow keys to the expected day, week, and month movement', () => {
+		// this keeps keyboard navigation predictable so plain arrows move one day, shifted left-right moves one week, and shifted up-down moves one month.
 		expect(resolveScheduleNavigatorDirection('ArrowLeft')).toBe(-1);
 		expect(resolveScheduleNavigatorDirection('ArrowRight')).toBe(1);
 		expect(resolveScheduleNavigatorDirection('ArrowLeft', true)).toBe(-7);
 		expect(resolveScheduleNavigatorDirection('ArrowRight', true)).toBe(7);
+		expect(resolveScheduleNavigatorDirection('ArrowUp', true)).toBe(-30);
+		expect(resolveScheduleNavigatorDirection('ArrowDown', true)).toBe(30);
 		expect(resolveScheduleNavigatorDirection('Enter')).toBeNull();
 		expect(resolveScheduleKeyboardShortcutMove('ArrowLeft')).toEqual({
 			unit: 'day',
@@ -373,6 +393,18 @@ describe('schedule page helpers', () => {
 			unit: 'week',
 			direction: 1
 		});
+		expect(resolveScheduleKeyboardShortcutMove('ArrowUp', true)).toEqual({
+			unit: 'month',
+			direction: -1
+		});
+		expect(resolveScheduleKeyboardShortcutMove('ArrowDown', true)).toEqual({
+			unit: 'month',
+			direction: 1
+		});
+		expect(resolveNextScheduleShortcutDate('2026-04-13', 'ArrowLeft')).toBe('2026-04-12');
+		expect(resolveNextScheduleShortcutDate('2026-04-13', 'ArrowRight', true)).toBe('2026-04-20');
+		expect(resolveNextScheduleShortcutDate('2026-04-13', 'ArrowDown', true)).toBe('2026-05-13');
+		expect(resolveNextScheduleShortcutDate('2026-03-31', 'ArrowUp', true)).toBe('2026-02-28');
 		expect(resolveScheduleKeyboardShortcutMove('Enter')).toBeNull();
 	});
 
