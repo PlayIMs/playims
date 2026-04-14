@@ -42,6 +42,15 @@ export class FacilityOperations {
 		return result[0] || null;
 	}
 
+	async getByClientIdAndId(clientId: string, id: string): Promise<Facility | null> {
+		const result = await this.db
+			.select()
+			.from(facilities)
+			.where(and(eq(facilities.clientId, clientId), eq(facilities.id, id)))
+			.limit(1);
+		return result[0] ?? null;
+	}
+
 	async create(data: {
 		clientId: string;
 		name: string;

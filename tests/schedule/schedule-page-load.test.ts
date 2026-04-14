@@ -9,8 +9,9 @@ calendar workspace even when the route is refactored or an error path is trigger
 
 Summary of tests:
 1. It verifies successful loads enrich events with season data and expose all filter option groups.
-2. It verifies missing database configuration returns the expanded empty payload shape safely.
-3. It verifies unexpected load failures still return the expanded empty payload shape safely.
+2. It verifies successful loads expose source-of-truth create-event wizard collections.
+3. It verifies missing database configuration returns the expanded empty payload shape safely.
+4. It verifies unexpected load failures still return the expanded empty payload shape safely.
 */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -210,6 +211,62 @@ describe('schedule page load', () => {
 				count: 1
 			}
 		]);
+		expect(result.createEventOptions).toEqual({
+			seasons: [
+				{
+					id: 'season-1',
+					name: 'Spring 2026',
+					isCurrent: true
+				}
+			],
+			offerings: [
+				{
+					id: 'offering-1',
+					seasonId: 'season-1',
+					name: 'Basketball'
+				}
+			],
+			leagues: [
+				{
+					id: 'league-1',
+					seasonId: null,
+					offeringId: null,
+					name: "Men's Competitive"
+				}
+			],
+			divisions: [
+				{
+					id: 'division-1',
+					leagueId: null,
+					name: 'Monday 6 PM'
+				}
+			],
+			teams: [
+				{
+					id: 'team-2',
+					divisionId: null,
+					name: 'Falcons'
+				},
+				{
+					id: 'team-1',
+					divisionId: null,
+					name: 'Wildcats'
+				}
+			],
+			facilities: [
+				{
+					id: 'facility-1',
+					name: 'Main Gym'
+				}
+			],
+			facilityAreas: [
+				{
+					id: 'area-1',
+					facilityId: null,
+					name: 'Court A'
+				}
+			]
+		});
 	});
 
 	it('returns the expanded empty payload when the database is unavailable', async () => {
@@ -226,6 +283,15 @@ describe('schedule page load', () => {
 			divisionOptions: [],
 			teamOptions: [],
 			statusOptions: [],
+			createEventOptions: {
+				seasons: [],
+				offerings: [],
+				leagues: [],
+				divisions: [],
+				teams: [],
+				facilities: [],
+				facilityAreas: []
+			},
 			error: 'Database not configured'
 		});
 	});
@@ -246,6 +312,15 @@ describe('schedule page load', () => {
 			divisionOptions: [],
 			teamOptions: [],
 			statusOptions: [],
+			createEventOptions: {
+				seasons: [],
+				offerings: [],
+				leagues: [],
+				divisions: [],
+				teams: [],
+				facilities: [],
+				facilityAreas: []
+			},
 			error: 'Unable to load schedule right now'
 		});
 	});

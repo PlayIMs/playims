@@ -68,6 +68,15 @@ export class FacilityAreaOperations {
 		return result[0] || null;
 	}
 
+	async getByClientIdAndId(clientId: string, id: string): Promise<FacilityArea | null> {
+		const result = await this.db
+			.select()
+			.from(facilityAreas)
+			.where(and(eq(facilityAreas.clientId, clientId), eq(facilityAreas.id, id)))
+			.limit(1);
+		return result[0] ?? null;
+	}
+
 	async getByFacilityId(facilityId: string): Promise<FacilityArea[]> {
 		return await this.db
 			.select()

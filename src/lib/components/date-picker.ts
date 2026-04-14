@@ -106,7 +106,10 @@ function clampMonthReference(
 	return reference;
 }
 
-function monthReferenceFromValue(value: string | undefined, type: DatePickerType): MonthReference | null {
+function monthReferenceFromValue(
+	value: string | undefined,
+	type: DatePickerType
+): MonthReference | null {
 	const parsed = parsePickerValue(value ?? '', type);
 	if (!parsed) return null;
 	return { year: parsed.year, month: parsed.month };
@@ -131,7 +134,9 @@ function dateKeyFromValue(value: string | undefined, type: DatePickerType): stri
 }
 
 export function formatMonthReferenceLabel(reference: MonthReference): string {
-	return MONTH_LABEL_FORMATTER.format(new Date(Date.UTC(reference.year, reference.month - 1, 1, 12)));
+	return MONTH_LABEL_FORMATTER.format(
+		new Date(Date.UTC(reference.year, reference.month - 1, 1, 12))
+	);
 }
 
 function addDays(dateKey: string, dayDelta: number): string {
@@ -152,7 +157,9 @@ function compareIsoValues(left: string, right: string): number {
 	return left < right ? -1 : 1;
 }
 
-function currentLocalParts(now: Date): Pick<DatePickerParts, 'year' | 'month' | 'day' | 'hour' | 'minute'> {
+function currentLocalParts(
+	now: Date
+): Pick<DatePickerParts, 'year' | 'month' | 'day' | 'hour' | 'minute'> {
 	return {
 		year: now.getFullYear(),
 		month: now.getMonth() + 1,
@@ -183,8 +190,6 @@ function extractYearCandidate(value: string | number | null | undefined): number
 	return displayMatch ? Number(displayMatch[1]) : null;
 }
 
-type DateDisplayToken = 'MM' | 'DD' | 'YYYY';
-
 interface DateFormatSegment {
 	kind: 'token' | 'literal';
 	value: string;
@@ -214,7 +219,9 @@ function splitDateFormat(format: string): DateFormatSegment[] | null {
 		cursor += 1;
 	}
 
-	const tokenSequence = segments.filter((segment) => segment.kind === 'token').map((segment) => segment.value);
+	const tokenSequence = segments
+		.filter((segment) => segment.kind === 'token')
+		.map((segment) => segment.value);
 	const hasEachDateToken =
 		tokenSequence.filter((token) => token === 'MM').length === 1 &&
 		tokenSequence.filter((token) => token === 'DD').length === 1 &&
@@ -241,13 +248,12 @@ function displaySelectionSegments(type: DatePickerType, format?: string): Displa
 	}));
 }
 
-function selectionSegmentIndexForCaret(
-	segments: DisplaySelectionRange[],
-	caret: number
-): number {
+function selectionSegmentIndexForCaret(segments: DisplaySelectionRange[], caret: number): number {
 	if (segments.length === 0) return -1;
 
-	const containingIndex = segments.findIndex((segment) => caret >= segment.start && caret < segment.end);
+	const containingIndex = segments.findIndex(
+		(segment) => caret >= segment.start && caret < segment.end
+	);
 	if (containingIndex !== -1) return containingIndex;
 
 	const nextIndex = segments.findIndex((segment) => caret < segment.start);
@@ -305,10 +311,7 @@ function parseDateDisplayParts(
 	return { year, month, day };
 }
 
-export function parsePickerValue(
-	value: string,
-	type: DatePickerType
-): DatePickerParts | null {
+export function parsePickerValue(value: string, type: DatePickerType): DatePickerParts | null {
 	const trimmed = value.trim();
 	const match =
 		type === 'datetime-local'
@@ -415,7 +418,8 @@ export function consumeCalendarWheelDelta(
 		return { remainderDeltaY: 0, monthDelta: 0 };
 	}
 
-	const resolvedThreshold = Number.isFinite(threshold) && threshold > 0 ? threshold : DEFAULT_CALENDAR_WHEEL_THRESHOLD;
+	const resolvedThreshold =
+		Number.isFinite(threshold) && threshold > 0 ? threshold : DEFAULT_CALENDAR_WHEEL_THRESHOLD;
 	const nextDelta = remainderDeltaY + deltaY;
 	if (Math.abs(nextDelta) < resolvedThreshold) {
 		return {
@@ -464,7 +468,10 @@ export function resolveDisplaySelectionRange(
 		};
 	}
 
-	const clampedCaret = Math.max(0, Math.min(caret, Math.max(value.length, segments.at(-1)?.end ?? 0)));
+	const clampedCaret = Math.max(
+		0,
+		Math.min(caret, Math.max(value.length, segments.at(-1)?.end ?? 0))
+	);
 	return segments[selectionSegmentIndexForCaret(segments, clampedCaret)] ?? segments[0];
 }
 
@@ -487,7 +494,10 @@ export function moveDisplaySelectionRange(
 	const currentIndex = segments.findIndex(
 		(segment) => segment.start === currentStart && segment.end === currentEnd
 	);
-	const fallbackIndex = selectionSegmentIndexForCaret(segments, direction < 0 ? currentStart : currentEnd);
+	const fallbackIndex = selectionSegmentIndexForCaret(
+		segments,
+		direction < 0 ? currentStart : currentEnd
+	);
 	const resolvedIndex = currentIndex === -1 ? fallbackIndex : currentIndex;
 	const nextIndex = Math.max(0, Math.min(resolvedIndex + direction, segments.length - 1));
 	return segments[nextIndex] ?? segments[0];
@@ -522,8 +532,12 @@ export function clampPickerValue(
 	if (!parsed) return value;
 
 	const normalizedValue = serializePickerValue(parsed, type);
-	const normalizedMin = min ? serializePickerValue(parsePickerValue(min, type) ?? parsed, type) : null;
-	const normalizedMax = max ? serializePickerValue(parsePickerValue(max, type) ?? parsed, type) : null;
+	const normalizedMin = min
+		? serializePickerValue(parsePickerValue(min, type) ?? parsed, type)
+		: null;
+	const normalizedMax = max
+		? serializePickerValue(parsePickerValue(max, type) ?? parsed, type)
+		: null;
 
 	if (normalizedMin && compareIsoValues(normalizedValue, normalizedMin) < 0) return normalizedMin;
 	if (normalizedMax && compareIsoValues(normalizedValue, normalizedMax) > 0) return normalizedMax;
@@ -539,7 +553,7 @@ export function shiftMonthReference(
 ): MonthReference {
 	const shiftedMonthIndex = reference.month - 1 + delta;
 	const shiftedYear = reference.year + Math.floor(shiftedMonthIndex / 12);
-	const shiftedMonth = ((shiftedMonthIndex % 12) + 12) % 12 + 1;
+	const shiftedMonth = (((shiftedMonthIndex % 12) + 12) % 12) + 1;
 	const shifted = { year: shiftedYear, month: shiftedMonth };
 
 	return clampMonthReference(
@@ -555,7 +569,7 @@ export function shiftDateKeyByMonths(dateKey: string, delta: number): string {
 
 	const shiftedMonthIndex = parsed.month - 1 + delta;
 	const shiftedYear = parsed.year + Math.floor(shiftedMonthIndex / 12);
-	const shiftedMonth = ((shiftedMonthIndex % 12) + 12) % 12 + 1;
+	const shiftedMonth = (((shiftedMonthIndex % 12) + 12) % 12) + 1;
 	const shiftedDay = Math.min(parsed.day, daysInMonth(shiftedYear, shiftedMonth));
 
 	return dateKeyFromParts({
@@ -611,13 +625,18 @@ export function buildCalendarGrid(
 		const monthOffset = parsed
 			? parsed.year === reference.year && parsed.month === reference.month
 				? 0
-				: parsed.year < reference.year || (parsed.year === reference.year && parsed.month < reference.month)
+				: parsed.year < reference.year ||
+					  (parsed.year === reference.year && parsed.month < reference.month)
 					? -1
 					: 1
 			: 0;
 		const isDisabled =
-			(minDateKey !== null && minDateKey !== undefined && compareIsoValues(dateKey, minDateKey) < 0) ||
-			(maxDateKey !== null && maxDateKey !== undefined && compareIsoValues(dateKey, maxDateKey) > 0);
+			(minDateKey !== null &&
+				minDateKey !== undefined &&
+				compareIsoValues(dateKey, minDateKey) < 0) ||
+			(maxDateKey !== null &&
+				maxDateKey !== undefined &&
+				compareIsoValues(dateKey, maxDateKey) > 0);
 
 		return {
 			dateKey,

@@ -11,7 +11,6 @@
 		IconLivePhoto,
 		IconPlus
 	} from '@tabler/icons-svelte';
-	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import DatePicker from '$lib/components/DatePicker.svelte';
 	import DateRangePicker from '$lib/components/DateRangePicker.svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
@@ -45,11 +44,17 @@
 		summarizeScheduleEvents,
 		type ScheduleEventRecord,
 		type ScheduleFilters,
-		type ScheduleOptionCount,
-		type ScheduleRange
+		type ScheduleOptionCount
 	} from '$lib/utils/schedule-page.js';
+	import {
+		buildScheduleEventWizardCollections,
+		sanitizeScheduleEventWizardSelection,
+		type ScheduleEventWizardOptions,
+		type ScheduleEventWizardSelection
+	} from '$lib/utils/schedule-event-wizard.js';
 	import type { PageData } from './$types';
 	import { toast } from '$lib/toasts';
+	import CreateEventWizard from './_wizards/CreateEventWizard.svelte';
 
 	const FILTER_DROPDOWN_BUTTON_CLASS =
 		'button-neutral-outlined min-h-10 w-full px-3 py-2 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2';
@@ -58,6 +63,14 @@
 		'h-[3.375rem] w-full border-0 bg-white px-4 py-0 text-sm font-semibold leading-none text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-3';
 	const DATE_KEY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 	type ScheduleDisplayMode = 'day' | 'week' | 'month' | 'date-range' | 'entire-season';
+	type CreateEventForm = ScheduleEventWizardSelection & {
+		scheduledStartAt: string;
+		scheduledEndAt: string;
+		weekNumber: string;
+		roundLabel: string;
+		notes: string;
+		isPostseason: boolean;
+	};
 	const DEFAULT_VIEW: ScheduleDisplayMode = 'day';
 	const VIEW_DROPDOWN_OPTIONS = [
 		{ value: 'day', label: 'Day' },
@@ -89,8 +102,31 @@
 	let scheduleSearchInput = $state<HTMLInputElement | null>(null);
 	let stateHydrated = $state(false);
 	let lastPageError = $state('');
+	let scheduleEvents = $state<ScheduleEventRecord[]>([]);
+	let createEventOpen = $state(false);
+	let createEventSubmitting = $state(false);
+	let createEventUnsavedConfirmOpen = $state(false);
+	let createEventFormError = $state('');
+	let createEventFieldErrors = $state<Record<string, string>>({});
+	let createEventInitialSignature = $state('');
+	let createEventForm = $state<CreateEventForm>({
+		seasonId: '',
+		offeringId: '',
+		leagueId: '',
+		divisionId: '',
+		homeTeamId: '',
+		awayTeamId: '',
+		facilityId: '',
+		facilityAreaId: '',
+		scheduledStartAt: `${todayDateKey()}T18:00`,
+		scheduledEndAt: `${todayDateKey()}T19:00`,
+		weekNumber: '',
+		roundLabel: '',
+		notes: '',
+		isPostseason: false
+	});
 
-	const events = $derived(data.events ?? []);
+	const events = $derived(scheduleEvents);
 	const scheduleDateYearRange = $derived.by(() =>
 		inferPickerYearRange(
 			[
@@ -189,45 +225,28 @@
 		});
 	}
 
-	function formatRangeLabel(
-		range: { startDate: string; endDate: string },
-		view: 'day' | 'week' | 'month'
-	): string {
-		if (view === 'day') return formatLongDate(range.startDate);
-		if (view === 'month') return formatMonthLabel(range.startDate);
-
-		const start = new Date(`${range.startDate}T00:00:00`);
-		const end = new Date(`${range.endDate}T00:00:00`);
-		if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-			return `${range.startDate} - ${range.endDate}`;
-		}
-
-		if (start.getFullYear() === end.getFullYear() && start.getMonth() === end.getMonth()) {
-			return `${start.toLocaleDateString('en-US', {
-				month: 'long',
-				day: 'numeric'
-			})} - ${end.toLocaleDateString('en-US', {
-				day: 'numeric',
-				year: 'numeric'
-			})}`;
-		}
-
-		return `${start.toLocaleDateString('en-US', {
-			month: 'short',
-			day: 'numeric'
-		})} - ${end.toLocaleDateString('en-US', {
-			month: 'short',
-			day: 'numeric',
-			year: 'numeric'
-		})}`;
-	}
-
-	function isDateWithinRange(dateKey: string | null, startDate: string, endDate: string): boolean {
-		return Boolean(dateKey && dateKey >= startDate && dateKey <= endDate);
-	}
-
 	function formatDateRangeDayCount(totalDays: number): string {
 		return `${totalDays} day${totalDays === 1 ? '' : 's'} included`;
+	}
+
+	function createEmptyEventOptions(): ScheduleEventWizardOptions {
+		return {
+			seasons: [],
+			offerings: [],
+			leagues: [],
+			divisions: [],
+			teams: [],
+			facilities: [],
+			facilityAreas: []
+		};
+	}
+
+	function createEventFormSignature(form: CreateEventForm): string {
+		return JSON.stringify(form);
+	}
+
+	function buildDefaultEventDateTime(dateKey: string, hour: number): string {
+		return `${dateKey}T${String(hour).padStart(2, '0')}:00`;
 	}
 
 	function setSelectedDate(dateKey: string): void {
@@ -367,11 +386,178 @@
 		setSelectedDate(dateKey);
 	}
 
-	function handleAddEvent(): void {
-		toast.info('Event creation is not connected on the schedule page yet.', {
-			id: 'schedule-add-event-coming-soon',
-			title: pageLabel
+	function clearCreateEventApiErrors(): void {
+		createEventFormError = '';
+		createEventFieldErrors = {};
+	}
+
+	function normalizeCreateEventFieldErrors(
+		fieldErrors: Record<string, string[] | undefined> | undefined
+	): Record<string, string> {
+		return Object.fromEntries(
+			Object.entries(fieldErrors ?? {})
+				.map(([key, messages]) => [key, messages?.[0] ?? ''])
+				.filter((entry) => entry[1].trim().length > 0)
+		);
+	}
+
+	function buildInitialCreateEventForm(): CreateEventForm {
+		const options = createEventOptions;
+		const preferredSeasonId =
+			(selectedSeasonId !== 'all' ? selectedSeasonId : '') ||
+			(defaultSeasonId !== 'all' ? defaultSeasonId : '') ||
+			options.seasons.find((season) => season.isCurrent)?.id ||
+			options.seasons[0]?.id ||
+			'';
+		const preferredSelection = sanitizeScheduleEventWizardSelection(options, {
+			seasonId: preferredSeasonId,
+			offeringId: selectedOfferingId !== 'all' ? selectedOfferingId : '',
+			leagueId: selectedLeagueId !== 'all' ? selectedLeagueId : '',
+			divisionId: selectedDivisionId !== 'all' ? selectedDivisionId : '',
+			homeTeamId: '',
+			awayTeamId: '',
+			facilityId: '',
+			facilityAreaId: ''
 		});
+
+		return {
+			...preferredSelection,
+			scheduledStartAt: buildDefaultEventDateTime(anchorDate, 18),
+			scheduledEndAt: buildDefaultEventDateTime(anchorDate, 19),
+			weekNumber: '',
+			roundLabel: '',
+			notes: '',
+			isPostseason: false
+		};
+	}
+
+	function closeCreateEventWizard(): void {
+		createEventOpen = false;
+		createEventSubmitting = false;
+		createEventUnsavedConfirmOpen = false;
+		clearCreateEventApiErrors();
+	}
+
+	function requestCloseCreateEventWizard(): void {
+		if (createEventSubmitting) return;
+		if (createEventFormSignature(createEventForm) === createEventInitialSignature) {
+			closeCreateEventWizard();
+			return;
+		}
+		createEventUnsavedConfirmOpen = true;
+	}
+
+	function applyCreateEventSelectionPatch(patch: Partial<ScheduleEventWizardSelection>): void {
+		clearCreateEventApiErrors();
+		const nextSelection = sanitizeScheduleEventWizardSelection(createEventOptions, {
+			seasonId: createEventForm.seasonId,
+			offeringId: createEventForm.offeringId,
+			leagueId: createEventForm.leagueId,
+			divisionId: createEventForm.divisionId,
+			homeTeamId: createEventForm.homeTeamId,
+			awayTeamId: createEventForm.awayTeamId,
+			facilityId: createEventForm.facilityId,
+			facilityAreaId: createEventForm.facilityAreaId,
+			...patch
+		});
+		createEventForm = {
+			...createEventForm,
+			...nextSelection
+		};
+	}
+
+	function handleAddEvent(): void {
+		if (!canManageEvents) {
+			toast.error('Only managers, administrators, and developers can add events.', {
+				id: 'schedule-add-event-forbidden',
+				title: pageLabel
+			});
+			return;
+		}
+
+		const initialForm = buildInitialCreateEventForm();
+		createEventForm = initialForm;
+		createEventInitialSignature = createEventFormSignature(initialForm);
+		clearCreateEventApiErrors();
+		createEventUnsavedConfirmOpen = false;
+		createEventOpen = true;
+	}
+
+	async function submitCreateEvent(): Promise<void> {
+		if (createEventSubmitting) return;
+
+		createEventSubmitting = true;
+		clearCreateEventApiErrors();
+
+		const payload = {
+			event: {
+				seasonId: createEventForm.seasonId,
+				offeringId: createEventForm.offeringId,
+				leagueId: createEventForm.leagueId,
+				divisionId: createEventForm.divisionId,
+				homeTeamId: createEventForm.homeTeamId,
+				awayTeamId: createEventForm.awayTeamId,
+				scheduledStartAt: createEventForm.scheduledStartAt,
+				scheduledEndAt: createEventForm.scheduledEndAt,
+				facilityId: createEventForm.facilityId || null,
+				facilityAreaId: createEventForm.facilityAreaId || null,
+				weekNumber:
+					createEventForm.weekNumber.trim().length > 0
+						? Number.parseInt(createEventForm.weekNumber, 10)
+						: null,
+				roundLabel: createEventForm.roundLabel.trim() || null,
+				notes: createEventForm.notes.trim() || null,
+				isPostseason: createEventForm.isPostseason
+			}
+		};
+
+		try {
+			const response = await fetch('/api/intramural-sports/events', {
+				method: 'POST',
+				headers: {
+					'content-type': 'application/json'
+				},
+				body: JSON.stringify(payload)
+			});
+			const result = (await response.json().catch(() => null)) as {
+				success?: boolean;
+				error?: string;
+				fieldErrors?: Record<string, string[] | undefined>;
+				data?: { event?: ScheduleEventRecord };
+			} | null;
+
+			if (!response.ok || !result?.success || !result.data?.event) {
+				createEventFormError = result?.error?.trim() || 'Unable to save event right now.';
+				createEventFieldErrors = normalizeCreateEventFieldErrors(result?.fieldErrors);
+				return;
+			}
+
+			const createdEvent = result.data.event;
+			scheduleEvents = [
+				...scheduleEvents.filter((event) => event.id !== createdEvent.id),
+				createdEvent
+			];
+			const isVisibleInCurrentFilters =
+				filterScheduleEvents([createdEvent], normalizedFilters).filter(
+					(event) => getScheduleEventDateKey(event.scheduledStartAt) !== null
+				).length > 0;
+
+			closeCreateEventWizard();
+			toast.success(
+				isVisibleInCurrentFilters
+					? 'Event added to the schedule.'
+					: 'Event created. It may be hidden by your current filters.',
+				{
+					id: `schedule-create-event:${createdEvent.id}`,
+					title: pageLabel
+				}
+			);
+		} catch (error) {
+			console.error('Failed to create schedule event:', error);
+			createEventFormError = 'Unable to save event right now.';
+		} finally {
+			createEventSubmitting = false;
+		}
 	}
 
 	function hasOpenScheduleDropdown(): boolean {
@@ -476,6 +662,33 @@
 	const defaultSeasonId = $derived.by(() => {
 		return data.currentSeasonId?.trim() || 'all';
 	});
+	const canManageEvents = $derived.by(() => data.permissions?.MANAGE_OFFERINGS === true);
+	const createEventOptions = $derived.by<ScheduleEventWizardOptions>(
+		() => (data.createEventOptions ?? createEmptyEventOptions()) as ScheduleEventWizardOptions
+	);
+	const createEventCollections = $derived.by(() =>
+		buildScheduleEventWizardCollections(createEventOptions, {
+			seasonId: createEventForm.seasonId,
+			offeringId: createEventForm.offeringId,
+			leagueId: createEventForm.leagueId,
+			divisionId: createEventForm.divisionId,
+			homeTeamId: createEventForm.homeTeamId,
+			awayTeamId: createEventForm.awayTeamId,
+			facilityId: createEventForm.facilityId,
+			facilityAreaId: createEventForm.facilityAreaId
+		})
+	);
+	const createEventCanSubmit = $derived.by(
+		() =>
+			createEventForm.seasonId.trim().length > 0 &&
+			createEventForm.offeringId.trim().length > 0 &&
+			createEventForm.leagueId.trim().length > 0 &&
+			createEventForm.divisionId.trim().length > 0 &&
+			createEventForm.homeTeamId.trim().length > 0 &&
+			createEventForm.awayTeamId.trim().length > 0 &&
+			createEventForm.scheduledStartAt.trim().length > 0 &&
+			createEventForm.scheduledEndAt.trim().length > 0
+	);
 	const navigatorDays = $derived.by(() => buildCenteredScheduleDays(anchorDate, 3));
 	const navigatorMonths = $derived.by(() => buildCenteredScheduleMonths(anchorDate));
 	const navigatorWeeks = $derived.by(() => buildCenteredScheduleWeeks(anchorDate));
@@ -507,66 +720,6 @@
 		)
 	);
 	const filteredSummary = $derived.by(() => summarizeScheduleEvents(filteredEvents));
-	const visibleRange = $derived.by<ScheduleRange>(() => {
-		if (selectedView === 'week') return getScheduleRangeForView(anchorDate, 'week');
-		if (selectedView === 'month') return getScheduleRangeForView(anchorDate, 'month');
-		if (selectedView === 'date-range') return selectedDateRange;
-		if (selectedView === 'entire-season') {
-			const firstDateKey = filteredEvents[0]
-				? getScheduleEventDateKey(filteredEvents[0].scheduledStartAt)
-				: anchorDate;
-			const lastDateKey = filteredEvents[filteredEvents.length - 1]
-				? getScheduleEventDateKey(filteredEvents[filteredEvents.length - 1].scheduledStartAt)
-				: anchorDate;
-
-			return {
-				startDate: firstDateKey ?? anchorDate,
-				endDate: lastDateKey ?? anchorDate
-			};
-		}
-
-		return {
-			startDate: anchorDate,
-			endDate: anchorDate
-		};
-	});
-	const visibleRangeLabel = $derived.by(() => {
-		if (selectedView === 'entire-season') {
-			if (selectedSeasonId !== 'all') {
-				const explicitSeasonLabel =
-					selectedSeasonId === defaultSeasonId && data.currentSeasonName?.trim()
-						? data.currentSeasonName.trim()
-						: filterOptions.seasonOptions.find((option) => option.value === selectedSeasonId)
-								?.label;
-
-				return explicitSeasonLabel ? `${explicitSeasonLabel} season` : 'Entire season';
-			}
-
-			return 'Entire filtered schedule';
-		}
-
-		if (selectedView === 'date-range') {
-			return formatRangeLabel(visibleRange, 'week');
-		}
-
-		if (selectedView === 'month') {
-			return formatRangeLabel(visibleRange, 'month');
-		}
-
-		return formatRangeLabel(visibleRange, selectedView === 'week' ? 'week' : 'day');
-	});
-	const visibleScheduledCount = $derived.by(() =>
-		selectedView === 'entire-season'
-			? filteredEvents.length
-			: filteredEvents.filter((event) =>
-					isDateWithinRange(
-						getScheduleEventDateKey(event.scheduledStartAt),
-						visibleRange.startDate,
-						visibleRange.endDate
-					)
-				).length
-	);
-
 	const seasonFilterOptions = $derived.by(() => {
 		const currentSeasonOption =
 			defaultSeasonId !== 'all' && data.currentSeasonName?.trim()
@@ -624,6 +777,10 @@
 	$effect(() => {
 		if (!browser || !stateHydrated) return;
 		syncScheduleUrl();
+	});
+
+	$effect(() => {
+		scheduleEvents = data.events ?? [];
 	});
 
 	$effect(() => {
@@ -1060,7 +1217,8 @@
 			<aside class="w-full min-w-0 space-y-3 2xl:sticky 2xl:top-4">
 				<button
 					type="button"
-					class="button-primary inline-flex w-full cursor-pointer items-center justify-center gap-2"
+					class="button-primary inline-flex w-full cursor-pointer items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
+					disabled={!canManageEvents}
 					onclick={handleAddEvent}
 				>
 					<IconPlus class="h-4 w-4" />
@@ -1170,3 +1328,25 @@
 		</div>
 	</div>
 </div>
+
+<CreateEventWizard
+	open={createEventOpen}
+	form={createEventForm}
+	fieldErrors={createEventFieldErrors}
+	formError={createEventFormError}
+	submitting={createEventSubmitting}
+	canSubmit={createEventCanSubmit}
+	unsavedConfirmOpen={createEventUnsavedConfirmOpen}
+	options={createEventOptions}
+	collections={createEventCollections}
+	onSelectionChange={applyCreateEventSelectionPatch}
+	onRequestClose={requestCloseCreateEventWizard}
+	onSubmit={() => {
+		void submitCreateEvent();
+	}}
+	onInput={clearCreateEventApiErrors}
+	onUnsavedConfirm={closeCreateEventWizard}
+	onUnsavedCancel={() => {
+		createEventUnsavedConfirmOpen = false;
+	}}
+/>

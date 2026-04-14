@@ -1,155 +1,24 @@
 import { requireAuthenticatedClientId } from '$lib/server/client-context';
 import { getTenantDbOps } from '$lib/server/database/context';
-import type { Event } from '$lib/database/schema/events';
 import type { Facility } from '$lib/database/schema/facilities';
 import type { FacilityArea } from '$lib/database/schema/facility-areas';
 import type { League } from '$lib/database/schema/leagues';
 import type { Division } from '$lib/database/schema/divisions';
 import type { Offering } from '$lib/database/schema/offerings';
 import type { Season } from '$lib/database/schema/seasons';
-import type { Team } from '$lib/database/schema/teams';
 import type { PageServerLoad } from './$types';
 import {
 	buildScheduleOptionCollections,
 	summarizeScheduleEvents,
 	type ScheduleEventRecord,
-	type ScheduleOptionCount,
-	type ScheduleStatus
+	type ScheduleOptionCount
 } from '$lib/utils/schedule-page.js';
-
-const STATUS_LABELS: Record<ScheduleStatus, string> = {
-	scheduled: 'Scheduled',
-	in_progress: 'Live',
-	completed: 'Completed',
-	cancelled: 'Cancelled',
-	postponed: 'Postponed',
-	other: 'Other'
-};
-
-function normalizeStatus(value: string | null): ScheduleStatus {
-	if (!value) return 'scheduled';
-	const normalized = value.trim().toLowerCase();
-
-	if (normalized === 'scheduled') return 'scheduled';
-	if (normalized === 'in_progress' || normalized === 'in-progress' || normalized === 'live') {
-		return 'in_progress';
-	}
-	if (normalized === 'completed' || normalized === 'final') return 'completed';
-	if (normalized === 'cancelled' || normalized === 'canceled') return 'cancelled';
-	if (normalized === 'postponed') return 'postponed';
-
-	return 'other';
-}
-
-function mapById<T extends { id: string }>(items: T[]) {
-	return new Map(items.map((item) => [item.id, item]));
-}
-
-function sortSeasonsDescending(
-	a: Pick<Season, 'startDate' | 'name'>,
-	b: Pick<Season, 'startDate' | 'name'>
-) {
-	return (
-		(b.startDate ?? '').localeCompare(a.startDate ?? '') ||
-		(b.name ?? '').localeCompare(a.name ?? '')
-	);
-}
-
-function resolveDefaultSeasonId(seasons: Season[]): string | null {
-	const eligibleSeasons = seasons.filter(
-		(season): season is Season & { id: string; startDate: string } =>
-			Boolean(season.id) && Boolean(season.startDate)
-	);
-	if (eligibleSeasons.length === 0) return null;
-
-	const explicitCurrent = eligibleSeasons.find((season) => season.isCurrent === 1);
-	if (explicitCurrent) return explicitCurrent.id;
-
-	const today = new Date().toISOString().slice(0, 10);
-	const inRange = eligibleSeasons.find(
-		(season) => season.startDate <= today && (!season.endDate || season.endDate >= today)
-	);
-	if (inRange) return inRange.id;
-
-	const started = eligibleSeasons
-		.filter((season) => season.startDate <= today)
-		.sort(sortSeasonsDescending);
-	if (started[0]) return started[0].id;
-
-	return (
-		[...eligibleSeasons].sort((a, b) => (a.startDate ?? '').localeCompare(b.startDate ?? ''))[0]
-			?.id ?? null
-	);
-}
-
-function buildScheduleEvent(
-	event: Event,
-	teamsById: Map<string, Team>,
-	offeringsById: Map<string, Offering>,
-	seasonsById: Map<string, Season>,
-	leaguesById: Map<string, League>,
-	divisionsById: Map<string, Division>,
-	facilitiesById: Map<string, Facility>,
-	facilityAreasById: Map<string, FacilityArea>
-): ScheduleEventRecord {
-	const status = normalizeStatus(event.status ?? null);
-	const homeTeam = event.homeTeamId ? teamsById.get(event.homeTeamId) : undefined;
-	const awayTeam = event.awayTeamId ? teamsById.get(event.awayTeamId) : undefined;
-	const offering = event.offeringId ? offeringsById.get(event.offeringId) : undefined;
-	const season = offering?.seasonId ? seasonsById.get(offering.seasonId) : undefined;
-	const league = event.leagueId ? leaguesById.get(event.leagueId) : undefined;
-	const division = event.divisionId ? divisionsById.get(event.divisionId) : undefined;
-	const facility = event.facilityId ? facilitiesById.get(event.facilityId) : undefined;
-	const facilityArea = event.facilityAreaId
-		? facilityAreasById.get(event.facilityAreaId)
-		: undefined;
-
-	const homeTeamName = homeTeam?.name?.trim() || 'TBD';
-	const awayTeamName = awayTeam?.name?.trim() || 'TBD';
-	const offeringName = offering?.name?.trim() || 'General';
-	const seasonName = season?.name?.trim() || 'Unassigned season';
-	const leagueName = league?.name?.trim() || 'Unassigned league';
-	const divisionName = division?.name?.trim() || 'Unassigned division';
-	const facilityName = facility?.name?.trim() || 'TBD location';
-	const facilityAreaName = facilityArea?.name?.trim() || '';
-	const location = facilityAreaName ? `${facilityName} - ${facilityAreaName}` : facilityName;
-	const hasScores = event.homeScore !== null && event.homeScore !== undefined;
-	const score = hasScores ? `${event.homeScore} - ${event.awayScore ?? 0}` : null;
-
-	return {
-		id: event.id,
-		type: event.type || 'game',
-		status,
-		rawStatus: event.status ?? null,
-		statusLabel: STATUS_LABELS[status],
-		scheduledStartAt: event.scheduledStartAt ?? null,
-		scheduledEndAt: event.scheduledEndAt ?? null,
-		seasonId: offering?.seasonId ?? null,
-		seasonName,
-		offeringId: event.offeringId ?? null,
-		offeringName,
-		leagueId: event.leagueId ?? null,
-		leagueName,
-		divisionId: event.divisionId ?? null,
-		divisionName,
-		homeTeamId: event.homeTeamId ?? null,
-		homeTeamName,
-		awayTeamId: event.awayTeamId ?? null,
-		awayTeamName,
-		matchup: `${homeTeamName} vs ${awayTeamName}`,
-		facilityId: event.facilityId ?? null,
-		facilityName,
-		facilityAreaId: event.facilityAreaId ?? null,
-		facilityAreaName,
-		location,
-		weekNumber: event.weekNumber ?? null,
-		roundLabel: event.roundLabel ?? null,
-		notes: event.notes ?? null,
-		isPostseason: event.isPostseason === 1,
-		score,
-		scoreSortValue: hasScores ? 1 : 0
-	};
-}
+import {
+	buildScheduleCreateEventOptions,
+	buildScheduleEvent,
+	mapById,
+	resolveDefaultSeasonId
+} from '$lib/server/schedule-events.js';
 
 export const load: PageServerLoad = async (event) => {
 	const { platform, locals } = event;
@@ -173,6 +42,15 @@ export const load: PageServerLoad = async (event) => {
 			divisionOptions: [] as ScheduleOptionCount[],
 			teamOptions: [] as ScheduleOptionCount[],
 			statusOptions: [] as ScheduleOptionCount[],
+			createEventOptions: {
+				seasons: [],
+				offerings: [],
+				leagues: [],
+				divisions: [],
+				teams: [],
+				facilities: [],
+				facilityAreas: []
+			},
 			error: 'Database not configured'
 		};
 	}
@@ -247,6 +125,15 @@ export const load: PageServerLoad = async (event) => {
 
 		const summary = summarizeScheduleEvents(scheduleEvents);
 		const optionCollections = buildScheduleOptionCollections(scheduleEvents);
+		const createEventOptions = buildScheduleCreateEventOptions({
+			seasons,
+			offerings,
+			leagues,
+			divisions,
+			teams,
+			facilities,
+			facilityAreas
+		});
 
 		return {
 			clientId,
@@ -260,7 +147,8 @@ export const load: PageServerLoad = async (event) => {
 			leagueOptions: optionCollections.leagueOptions,
 			divisionOptions: optionCollections.divisionOptions,
 			teamOptions: optionCollections.teamOptions,
-			statusOptions: optionCollections.statusOptions
+			statusOptions: optionCollections.statusOptions,
+			createEventOptions
 		};
 	} catch (err) {
 		console.error('Failed to load schedule page:', err);
@@ -283,6 +171,15 @@ export const load: PageServerLoad = async (event) => {
 			divisionOptions: [] as ScheduleOptionCount[],
 			teamOptions: [] as ScheduleOptionCount[],
 			statusOptions: [] as ScheduleOptionCount[],
+			createEventOptions: {
+				seasons: [],
+				offerings: [],
+				leagues: [],
+				divisions: [],
+				teams: [],
+				facilities: [],
+				facilityAreas: []
+			},
 			error: 'Unable to load schedule right now'
 		};
 	}
