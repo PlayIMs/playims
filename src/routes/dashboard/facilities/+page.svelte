@@ -5,6 +5,7 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import ModalShell from '$lib/components/modals/ModalShell.svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
+	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import DashboardSearchLauncher from '$lib/components/dashboard/DashboardSearchLauncher.svelte';
 	import CreateFacilityWizard from './_wizards/CreateFacilityWizard.svelte';
@@ -26,14 +27,10 @@
 		IconRestore,
 		IconCheck,
 		IconTrash,
-		IconAlertCircle,
 		IconMapPin,
 		IconSquare,
 		IconMapPinPlus,
 		IconChevronRight,
-		IconChevronDown,
-		IconChevronUp,
-		IconCopy,
 		IconExternalLink,
 		IconBuilding,
 		IconX
@@ -41,6 +38,11 @@
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
 	import { toast } from '$lib/toasts';
 	import { generateUuidV4 } from '$lib/utils/uuid.js';
+	import {
+		getVisibleAreasForFacility,
+		getVisibleFacilities,
+		resolveSelectedFacilityId
+	} from './facilities-page-state.js';
 
 	let { data, form }: PageProps = $props();
 	const pageLabel = $derived.by(
@@ -55,6 +57,31 @@
 	type FacilityRecord = PageProps['data']['facilities'][number];
 	type FacilityAreaRecord = PageProps['data']['facilityAreas'][number];
 	type FacilityCreateStep = 1 | 2 | 3 | 4 | 5;
+	interface FacilityDisplayRecord {
+		id: string;
+		name: string | null | undefined;
+		slug: string | null | undefined;
+		description?: string | null;
+		isActive: number | null | undefined;
+		addressLine1?: string | null;
+		addressLine2?: string | null;
+		city?: string | null;
+		state?: string | null;
+		postalCode?: string | null;
+		country?: string | null;
+		timezone?: string | null;
+		capacity?: number | null;
+	}
+
+	interface FacilityAreaDisplayRecord {
+		id: string;
+		facilityId: string | null | undefined;
+		name: string | null | undefined;
+		slug: string | null | undefined;
+		description?: string | null;
+		isActive: number | null | undefined;
+		capacity?: number | null;
+	}
 
 	interface FacilityAreaDraft {
 		draftId: string;
@@ -106,6 +133,12 @@
 		4: 'Facility Area Setup',
 		5: 'Review & Create'
 	};
+	const FACILITY_VIEW_OPTIONS = [
+		{ value: 'active', label: 'Active workspace' },
+		{ value: 'archive', label: 'Archive workspace' }
+	];
+	const SIDEBAR_DROPDOWN_BUTTON_CLASS =
+		'button-neutral-outlined min-h-10 w-full px-3 py-2 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2';
 
 	let viewArchiveMode = $state(false);
 	let facilitySearch = $state('');
@@ -130,6 +163,7 @@
 	}>({});
 
 	let isCreateAreaOpen = $state(false);
+	let selectedFacilityId = $state<string | null>(null);
 	let editingFacilityId = $state<string | null>(null);
 	let editingAreaId = $state<string | null>(null);
 	let expandedFacilityIds = new SvelteSet<string>();
@@ -145,6 +179,8 @@
 	let lastFacilitySuccessToast = $state('');
 	let highlightedAreaId = $state<string | null>(null);
 	let handledDeepLinkedAreaId = $state<string | null>(null);
+	let handledDeepLinkedFacilityId = $state<string | null>(null);
+	let matchedAreaIds = new SvelteSet<string>();
 
 	function createAreaDraftId(): string {
 		return generateUuidV4();
@@ -223,8 +259,6 @@
 	let confirmSlugInput = $state('');
 	let deleteConfirmSlug = $state('');
 	let deleteConfirmAreaSlug = $state('');
-	let archiveFacilityForm = $state<HTMLFormElement | null>(null);
-	let deleteFacilityForm = $state<HTMLFormElement | null>(null);
 	let archiveAreaFormId = $state<string | null>(null);
 	const createFacilityDirtyState = createWizardDirtyState<FacilityWizardForm>();
 
@@ -677,7 +711,7 @@
 
 			facilitiesData = [body.data.facility, ...facilitiesData];
 			facilityAreasData = [...body.data.facilityAreas, ...facilityAreasData];
-			expandedFacilityIds.add(body.data.facility.id);
+			selectedFacilityId = body.data.facility.id;
 			createFacilitySuccessMessage =
 				body.data.facilityAreas.length > 0
 					? `Facility and ${body.data.facilityAreas.length} ${body.data.facilityAreas.length === 1 ? 'area' : 'areas'} created successfully.`
@@ -728,8 +762,11 @@
 	});
 
 	$effect(() => {
-		if (!data.facilityId || expandedFacilityIds.has(data.facilityId)) return;
-		expandedFacilityIds.add(data.facilityId);
+		const deepLinkedFacilityId = data.facilityId?.trim() ?? '';
+		if (!deepLinkedFacilityId || handledDeepLinkedFacilityId === deepLinkedFacilityId) return;
+		handledDeepLinkedFacilityId = deepLinkedFacilityId;
+		selectedFacilityId = deepLinkedFacilityId;
+		expandedFacilityIds.add(deepLinkedFacilityId);
 	});
 
 	$effect(() => {
@@ -738,6 +775,7 @@
 		handledDeepLinkedAreaId = deepLinkedAreaId;
 		highlightedAreaId = deepLinkedAreaId;
 		if (data.facilityId) {
+			selectedFacilityId = data.facilityId;
 			expandedFacilityIds.add(data.facilityId);
 		}
 		void tick().then(() => {
@@ -762,98 +800,80 @@
 		};
 	});
 
-	// Compute matched area IDs based on facility search - use $effect to update state
-	let matchedAreaIds = new SvelteSet<string>();
-
 	$effect(() => {
 		const query = facilitySearch.trim().toLowerCase();
 		if (!query) {
 			matchedAreaIds.clear();
-		} else {
-			// Find matching areas
-			const matchingAreas = facilityAreasData.filter(
-				(a) =>
-					(a.name || '').toLowerCase().includes(query) ||
-					(a.slug || '').toLowerCase().includes(query)
-			);
-			matchedAreaIds.clear();
-			for (const area of matchingAreas) {
-				matchedAreaIds.add(area.id);
-			}
+			return;
+		}
+
+		const matchingAreas = facilityAreasData.filter(
+			(area) =>
+				(area.name || '').toLowerCase().includes(query) ||
+				(area.slug || '').toLowerCase().includes(query)
+		);
+
+		matchedAreaIds.clear();
+		for (const area of matchingAreas) {
+			matchedAreaIds.add(area.id);
 		}
 	});
 
-	// Get facilities based on view mode (normal or archive)
-	const facilities = $derived.by(() => {
-		const query = facilitySearch.trim().toLowerCase();
-		let filtered = facilitiesData;
+	const facilities = $derived.by(() =>
+		getVisibleFacilities(facilitiesData, facilityAreasData, {
+			viewArchiveMode,
+			facilitySearch
+		})
+	);
 
-		if (viewArchiveMode) {
-			// In archive mode, show only archived facilities OR facilities with archived areas
-			filtered = filtered.filter((f) => {
-				const isArchived = f.isActive === 0;
-				const hasArchivedAreas = facilityAreasData.some(
-					(a) => a.facilityId === f.id && a.isActive === 0
-				);
-				return isArchived || hasArchivedAreas;
-			});
-		} else {
-			// Normal mode: show active facilities (but they may have archived areas that we'll filter out)
-			filtered = filtered.filter((f) => f.isActive !== 0);
-		}
+	const selectedFacility = $derived.by(
+		() => facilities.find((facility) => facility.id === selectedFacilityId) ?? null
+	);
 
-		if (!query) {
-			return filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-		}
-
-		// Get facility IDs that have matching areas (use the reactive matchedAreaIds)
-		const facilityIdsWithMatchingAreas = new Set(
-			facilityAreasData.filter((a) => matchedAreaIds.has(a.id)).map((a) => a.facilityId)
-		);
-
-		return filtered
-			.filter(
-				(f) =>
-					(f.name || '').toLowerCase().includes(query) ||
-					(f.slug || '').toLowerCase().includes(query) ||
-					(f.description || '').toLowerCase().includes(query) ||
-					facilityIdsWithMatchingAreas.has(f.id)
-			)
-			.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+	$effect(() => {
+		const nextSelectedFacilityId = resolveSelectedFacilityId({
+			visibleFacilities: facilities,
+			currentSelectedFacilityId: selectedFacilityId
+		});
+		if (selectedFacilityId === nextSelectedFacilityId) return;
+		selectedFacilityId = nextSelectedFacilityId;
 	});
 
 	function getAreasForFacility(facilityId: string) {
-		const query = areaSearch.trim().toLowerCase();
-		const facilityQuery = facilitySearch.trim().toLowerCase();
-		return facilityAreasData
-			.filter((a) => a.facilityId === facilityId)
-			.filter((a) => {
-				if (viewArchiveMode) {
-					// In archive mode, show only archived areas
-					return a.isActive === 0;
-				}
-				// Normal mode: show active areas
-				return a.isActive !== 0;
-			})
-			.filter((a) => {
-				if (!query && !facilityQuery) return true;
-				// If searching facilities by area, show matching areas
-				if (facilityQuery && matchedAreaIds.has(a.id)) return true;
-				// Normal area search
-				if (!query) return true;
-				return (
-					(a.name || '').toLowerCase().includes(query) ||
-					(a.slug || '').toLowerCase().includes(query)
-				);
-			})
-			.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+		return getVisibleAreasForFacility(facilityAreasData, facilityId, {
+			viewArchiveMode,
+			facilitySearch,
+			areaSearch
+		});
+	}
+
+	function getAreaCount(facilityId: string, mode: 'all' | 'active' | 'archived' = 'all'): number {
+		return facilityAreasData.filter((area) => {
+			if (area.facilityId !== facilityId) return false;
+			if (mode === 'active') return area.isActive !== 0;
+			if (mode === 'archived') return area.isActive === 0;
+			return true;
+		}).length;
 	}
 
 	function getActiveAreaCount(facilityId: string) {
-		return facilityAreasData.filter((a) => a.facilityId === facilityId && a.isActive !== 0).length;
+		return getAreaCount(facilityId, 'active');
 	}
 
-	function getGoogleMapsUrl(facility: FacilityRecord) {
+	function getFacilityAddressSummary(facility: FacilityDisplayRecord): string {
+		return [
+			facility.addressLine1,
+			facility.addressLine2,
+			facility.city,
+			facility.state,
+			facility.postalCode,
+			facility.country
+		]
+			.filter(Boolean)
+			.join(', ');
+	}
+
+	function getGoogleMapsUrl(facility: FacilityDisplayRecord) {
 		const parts = [
 			facility.addressLine1,
 			facility.city,
@@ -865,15 +885,32 @@
 		return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(parts.join(', '))}`;
 	}
 
+	function selectFacility(facilityId: string) {
+		selectedFacilityId = facilityId;
+		if (editingFacilityId && editingFacilityId !== facilityId) editingFacilityId = null;
+		if (editingAreaId) {
+			const editingArea = facilityAreasData.find((area) => area.id === editingAreaId);
+			if (editingArea?.facilityId !== facilityId) editingAreaId = null;
+		}
+	}
+
 	function toggleFacilityExpanded(facilityId: string) {
 		if (expandedFacilityIds.has(facilityId)) {
 			expandedFacilityIds.delete(facilityId);
 		} else {
 			expandedFacilityIds.add(facilityId);
 		}
+		selectFacility(facilityId);
 	}
 
-	function startEditingFacility(facility: FacilityRecord) {
+	function handleFacilityRowKeydown(event: KeyboardEvent, facilityId: string) {
+		if (event.key !== 'Enter' && event.key !== ' ') return;
+		event.preventDefault();
+		toggleFacilityExpanded(facilityId);
+	}
+
+	function startEditingFacility(facility: FacilityDisplayRecord) {
+		selectFacility(facility.id);
 		editingFacilityId = facility.id;
 		facilityDrafts[facility.id] = {
 			name: facility.name || '',
@@ -905,7 +942,8 @@
 		editingFacilityId = null;
 	}
 
-	function startEditingArea(area: FacilityAreaRecord) {
+	function startEditingArea(area: FacilityAreaDisplayRecord) {
+		if (area.facilityId) selectFacility(area.facilityId);
 		editingAreaId = area.id;
 		areaDrafts[area.id] = {
 			name: area.name || '',
@@ -1046,6 +1084,7 @@
 	}
 
 	function openCreateArea(facilityId: string) {
+		selectFacility(facilityId);
 		creatingAreaForFacilityId = facilityId;
 		newAreaName = '';
 		newAreaCode = '';
@@ -1058,6 +1097,20 @@
 	function closeCreateArea() {
 		isCreateAreaOpen = false;
 		creatingAreaForFacilityId = null;
+	}
+
+	function submitFacilityArchive(facilityId: string) {
+		const formEl = document.getElementById(
+			`facility-archive-form-${facilityId}`
+		) as HTMLFormElement | null;
+		formEl?.requestSubmit();
+	}
+
+	function submitFacilityDelete(facilityId: string) {
+		const formEl = document.getElementById(
+			`facility-delete-form-${facilityId}`
+		) as HTMLFormElement | null;
+		formEl?.requestSubmit();
 	}
 
 	function submitAreaArchive(facilityAreaId: string) {
@@ -1098,732 +1151,1051 @@
 		</div>
 	</header>
 
-	<div class="px-4 lg:px-6 space-y-6">
-		<div class="flex justify-end">
-			<button
-				class="button-primary flex items-center gap-2 disabled:opacity-60 disabled:pointer-events-none cursor-pointer"
-				type="button"
-				onclick={openCreateFacility}
-				disabled={!currentClientId}
-			>
-				<IconPlus class="w-5 h-5" />
-				<span>New Facility</span>
-			</button>
-		</div>
-
-		<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
-			<div class="border border-neutral-950 bg-white px-4 py-3">
-				<p class="text-xs uppercase tracking-wide text-neutral-900 font-sans">Facilities</p>
-				<p class="text-2xl font-bold font-serif text-neutral-950">{totalFacilityCount}</p>
-			</div>
-			<div class="border border-neutral-950 bg-white px-4 py-3">
-				<p class="text-xs uppercase tracking-wide text-neutral-900 font-sans">Active Facilities</p>
-				<p class="text-2xl font-bold font-serif text-neutral-950">{activeFacilityCount}</p>
-			</div>
-			<div class="border border-neutral-950 bg-white px-4 py-3">
-				<p class="text-xs uppercase tracking-wide text-neutral-900 font-sans">Active Areas</p>
-				<p class="text-2xl font-bold font-serif text-neutral-950">{activeFacilityAreaCount}</p>
-			</div>
-			<div class="border border-neutral-950 bg-white px-4 py-3">
-				<p class="text-xs uppercase tracking-wide text-neutral-900 font-sans">
-					Archived Facilities
-				</p>
-				<p class="text-2xl font-bold font-serif text-neutral-950">{archivedFacilityCount}</p>
-			</div>
-		</div>
-
-		<section class="section-shell">
-			<div class="p-4 border-b border-neutral-950 bg-neutral-600/66 space-y-3">
-				<div class="flex flex-wrap items-center justify-between gap-3">
-					<h2 class="text-2xl font-bold font-serif text-neutral-950">
-						{viewArchiveMode ? 'Archived Facilities' : 'Facility Directory'}
-					</h2>
-					<div class="flex items-center gap-2 text-xs text-neutral-950 font-sans">
-						<span class="border border-secondary-300 px-2 py-1">
-							{facilities.length}
-							{facilities.length === 1 ? ' facility' : ' facilities'}
-						</span>
-						<button
-							class="button-secondary-outlined {viewArchiveMode
-								? 'bg-secondary-100'
-								: ''} cursor-pointer"
-							type="button"
-							onclick={() => (viewArchiveMode = !viewArchiveMode)}
-						>
-							{viewArchiveMode ? 'View Active' : 'View Archive'}
-						</button>
-					</div>
-				</div>
-				<div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
-					<SearchInput
-						id="facility-search"
-						label="Search facilities and areas"
-						value={facilitySearch}
-						placeholder="Search facilities and areas..."
-						autocomplete="off"
-						data-lpignore="true"
-						on:input={(event) => {
-							facilitySearch = event.detail.value;
-						}}
-					/>
-					<SearchInput
-						id="area-search"
-						label="Filter expanded area lists"
-						value={areaSearch}
-						placeholder="Filter areas in expanded facilities..."
-						autocomplete="off"
-						data-lpignore="true"
-						on:input={(event) => {
-							areaSearch = event.detail.value;
-						}}
-					/>
-				</div>
-			</div>
-
-			<div class="p-4 space-y-4">
-				{#if facilities.length === 0}
-					<div class="section-card p-8 text-center">
-						<p class="text-neutral-950 font-sans mb-4">
-							{viewArchiveMode ? 'No archived facilities found.' : 'No facilities yet.'}
-						</p>
-						{#if !viewArchiveMode}
-							<button
-								class="button-primary inline-flex items-center gap-2 cursor-pointer"
-								type="button"
-								onclick={openCreateFacility}
-							>
-								<IconPlus class="w-5 h-5" />
-								Create your first facility
-							</button>
-						{/if}
-					</div>
-				{:else}
-					{#each facilities as facility (facility.id)}
-						{@const isExpanded = expandedFacilityIds.has(facility.id)}
-						{@const isEditing = editingFacilityId === facility.id}
-						{@const facilityAreas = getAreasForFacility(facility.id)}
-						{@const activeAreaCount = getActiveAreaCount(facility.id)}
-						{@const isArchived = facility.isActive === 0}
-						{@const isPartiallyArchived = !isArchived && viewArchiveMode}
-						<div
-							id={`facility-${facility.id}`}
-							class={`section-shell ${
-								data.facilityId === facility.id && !data.areaId ? 'ring-2 ring-primary-500' : ''
-							}`}
-						>
-							<!-- Facility Header -->
-							<div class="p-4 {isExpanded ? 'border-b border-neutral-950' : ''}">
-								{#if isEditing}
-									{@const editingAddressExpanded =
-										facilityDrafts[facility.id]?._addressExpanded ?? false}
-									<!-- Inline Facility Edit Form -->
-									<form
-										method="POST"
-										action="?/updateFacility"
-										use:enhance={() => {
-											return async ({ update, result }) => {
-												await update({ reset: false });
-												if (
-													result.type === 'success' ||
-													(result.type === 'failure' &&
-														(result.data as { noChange?: boolean })?.noChange)
-												) {
-													stopEditingFacility();
-												}
-											};
-										}}
-										class="space-y-4"
+	<div class="px-4 lg:px-6">
+		<div class="grid grid-cols-1 gap-6 2xl:grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)]">
+			<section class="min-w-0 space-y-2">
+				<section class="section-shell overflow-hidden p-0">
+					<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
+						<div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+							<div class="space-y-2">
+								<div class="flex flex-wrap items-center gap-2">
+									<h2 class="dashboard-section-title text-neutral-950">
+										{viewArchiveMode ? 'Archive Directory' : 'Facility Directory'}
+									</h2>
+									<span
+										class="badge-neutral-outlined h-[1.875rem] bg-transparent px-2.5 font-normal normal-case tracking-normal"
 									>
-										<input type="hidden" name="facilityId" value={facility.id} />
-										<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-											<div>
-												<label class="block text-sm font-sans text-neutral-950 mb-1"
-													>Name
-													<input
-														type="text"
-														name="name"
-														bind:value={facilityDrafts[facility.id].name}
-														class="w-full input-secondary bg-white mt-1"
-														autocomplete="off"
-													/>
-												</label>
-											</div>
-											<div>
-												<label class="block text-sm font-sans text-neutral-950 mb-1"
-													>Slug
-													<input
-														type="text"
-														name="slug"
-														value={facilityDrafts[facility.id].slug}
-														oninput={(e) => {
-															const el = e.currentTarget as HTMLInputElement;
-															facilityDrafts[facility.id].slug = applyLiveSlugInput(el);
-														}}
-														class="w-full input-secondary bg-white mt-1"
-														autocomplete="off"
-													/>
-												</label>
-											</div>
-										</div>
-										<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-											<div>
-												<label class="block text-sm font-sans text-neutral-950 mb-1"
-													>Capacity
-													<input
-														type="number"
-														name="capacity"
-														min="1"
-														step="1"
-														bind:value={facilityDrafts[facility.id].capacity}
-														class="w-full input-secondary bg-white mt-1"
-														autocomplete="off"
-													/>
-												</label>
-											</div>
-										</div>
-										<div>
-											<label class="block text-sm font-sans text-neutral-950 mb-1"
-												>Description (optional)
-												<textarea
-													name="description"
-													bind:value={facilityDrafts[facility.id].description}
-													rows="2"
-													class="w-full input-secondary bg-white mt-1 resize-none"
-													autocomplete="off"
-												></textarea>
-											</label>
-										</div>
-										<!-- Address Toggle Button -->
-										<div
-											class="flex items-center justify-between border border-neutral-950 p-3 bg-white"
-										>
-											<span class="text-sm font-sans text-neutral-950">Address</span>
-											<button
-												type="button"
-												class="button-secondary-outlined text-sm flex items-center gap-2 cursor-pointer"
-												onclick={() => {
-													facilityDrafts[facility.id] = {
-														...facilityDrafts[facility.id],
-														_addressExpanded: !editingAddressExpanded
-													};
-												}}
-											>
-												<IconMapPinPlus class="w-4 h-4" />
-												{editingAddressExpanded ? 'Hide address' : 'Edit address'}
-											</button>
-										</div>
-										{#if editingAddressExpanded}
-											<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-												<label class="block text-sm font-sans text-neutral-950 mb-1"
-													>Address line 1
-													<input
-														type="text"
-														name="addressLine1"
-														bind:value={facilityDrafts[facility.id].addressLine1}
-														placeholder="Street address"
-														class="w-full input-secondary bg-white mt-1"
-														autocomplete="off"
-													/>
-												</label>
-												<label class="block text-sm font-sans text-neutral-950 mb-1"
-													>Address line 2
-													<input
-														type="text"
-														name="addressLine2"
-														bind:value={facilityDrafts[facility.id].addressLine2}
-														class="w-full input-secondary bg-white mt-1"
-														autocomplete="off"
-													/>
-												</label>
-											</div>
-											<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-												<label class="block text-sm font-sans text-neutral-950 mb-1"
-													>City
-													<input
-														type="text"
-														name="city"
-														bind:value={facilityDrafts[facility.id].city}
-														class="w-full input-secondary bg-white mt-1"
-														autocomplete="off"
-													/>
-												</label>
-												<label class="block text-sm font-sans text-neutral-950 mb-1"
-													>State
-													<input
-														type="text"
-														name="state"
-														bind:value={facilityDrafts[facility.id].state}
-														class="w-full input-secondary bg-white mt-1"
-														autocomplete="off"
-													/>
-												</label>
-												<label class="block text-sm font-sans text-neutral-950 mb-1"
-													>ZIP
-													<input
-														type="text"
-														name="postalCode"
-														bind:value={facilityDrafts[facility.id].postalCode}
-														class="w-full input-secondary bg-white mt-1"
-														autocomplete="off"
-													/>
-												</label>
-												<label class="block text-sm font-sans text-neutral-950 mb-1"
-													>Country
-													<input
-														type="text"
-														name="country"
-														bind:value={facilityDrafts[facility.id].country}
-														class="w-full input-secondary bg-white mt-1"
-														autocomplete="off"
-													/>
-												</label>
-											</div>
-										{/if}
-										<div class="flex items-center gap-2">
-											<button
-												type="submit"
-												class="button-secondary flex items-center gap-2 cursor-pointer"
-											>
-												<IconCheck class="w-4 h-4" />
-												<span>Save</span>
-											</button>
-											<button
-												type="button"
-												class="button-secondary cursor-pointer"
-												onclick={stopEditingFacility}
-											>
-												Cancel
-											</button>
-										</div>
-									</form>
-								{:else}
-									<!-- Facility Display -->
-									<div class="flex items-center justify-between gap-4">
-										<button
-											type="button"
-											class="flex items-center gap-3 flex-1 text-left cursor-pointer"
-											onclick={() => toggleFacilityExpanded(facility.id)}
-											aria-expanded={isExpanded}
-										>
-											<div
-												class="transition-transform duration-300 ease-in-out {isExpanded
-													? 'rotate-90'
-													: 'rotate-0'}"
-											>
-												<IconChevronRight class="w-5 h-5 text-neutral-950 shrink-0" />
-											</div>
-											<div class="min-w-0">
-												<div class="flex items-center gap-2">
-													<p class="font-serif font-bold text-neutral-950 truncate text-lg">
-														{facility.name || '(Unnamed facility)'}
-													</p>
-													{#if isArchived}
-														<span class="badge-inactive text-xs shrink-0">ARCHIVED</span>
-													{:else if isPartiallyArchived}
-														<span class="badge-inactive text-xs shrink-0">HAS ARCHIVED AREAS</span>
-													{/if}
-												</div>
-												<div class="flex items-center gap-3 text-sm font-sans text-neutral-700">
-													{#if facility.addressLine1 || facility.city}
-														{@const mapsUrl = getGoogleMapsUrl(facility)}
-														{#if mapsUrl}
-															<span
-																role="link"
-																tabindex="0"
-																class="hover:underline cursor-pointer flex items-center gap-1"
-																onclick={(e) => {
-																	e.stopPropagation();
-																	window.open(mapsUrl, '_blank', 'noopener,noreferrer');
-																}}
-																onkeydown={(event) => {
-																	if (event.key === 'Enter' || event.key === ' ') {
-																		event.preventDefault();
-																		event.stopPropagation();
-																		window.open(mapsUrl, '_blank', 'noopener,noreferrer');
-																	}
-																}}
-															>
-																<IconMapPin class="w-3 h-3" />
-																{[facility.addressLine1, facility.city, facility.state]
-																	.filter(Boolean)
-																	.join(', ')}
-																<IconExternalLink class="w-3 h-3" />
-															</span>
-														{:else}
-															<span>
-																<IconMapPin class="w-3 h-3 inline mr-1" />
-																{[facility.addressLine1, facility.city, facility.state]
-																	.filter(Boolean)
-																	.join(', ')}
-															</span>
-														{/if}
-													{/if}
-													<div class="flex items-center gap-1 text-neutral-600">
-														<IconSquare class="w-3 h-3" />
-														<span>{activeAreaCount} area{activeAreaCount === 1 ? '' : 's'}</span>
-													</div>
-													{#if typeof facility.capacity === 'number' && facility.capacity > 0}
-														<div class="flex items-center gap-1 text-neutral-600">
-															<IconSquare class="w-3 h-3" />
-															<span>Capacity {facility.capacity}</span>
-														</div>
-													{/if}
-												</div>
-											</div>
-										</button>
-										{#if !isPartiallyArchived}
-											<div class="flex items-center gap-2 shrink-0">
-												{#if !isArchived}
-													<button
-														type="button"
-														class="button-secondary-outlined dashboard-icon-button cursor-pointer"
-														onclick={() => startEditingFacility(facility)}
-														aria-label="Edit facility"
-													>
-														<IconPencil class="w-4 h-4 text-secondary-700" />
-													</button>
-												{/if}
-												<form method="POST" action="?/setFacilityArchived" use:enhance>
-													<input type="hidden" name="facilityId" value={facility.id} />
-													<input
-														type="hidden"
-														name="isActive"
-														value={facility.isActive === 0 ? '1' : '0'}
-													/>
-													<button
-														type="button"
-														class="button-secondary-outlined dashboard-icon-button cursor-pointer"
-														aria-label={facility.isActive === 0
-															? 'Restore facility'
-															: 'Archive facility'}
-														onclick={() =>
-															openConfirm(
-																facility.isActive === 0
-																	? { kind: 'facility-restore', facilityId: facility.id }
-																	: { kind: 'facility-archive', facilityId: facility.id }
-															)}
-													>
-														{#if facility.isActive === 0}
-															<IconRestore class="w-4 h-4 text-secondary-700" />
-														{:else}
-															<IconArchive class="w-4 h-4 text-secondary-600" />
-														{/if}
-													</button>
-												</form>
-												{#if facility.isActive === 0}
-													<form
-														method="POST"
-														action="?/deleteFacility"
-														use:enhance={() => {
-															return async ({ result, update }) => {
-																await update();
-																if (result.type === 'success' || result.type === 'redirect')
-																	closeConfirm();
-															};
-														}}
-														bind:this={deleteFacilityForm}
-													>
-														<input type="hidden" name="facilityId" value={facility.id} />
-														<input type="hidden" name="confirmSlug" value={deleteConfirmSlug} />
-														<button
-															type="button"
-															class="button-secondary-outlined dashboard-icon-button cursor-pointer"
-															onclick={() =>
-																openConfirm({
-																	kind: 'facility-delete',
-																	facilityId: facility.id,
-																	slug: facility.slug || ''
-																})}
-															aria-label="Delete facility"
-														>
-															<IconTrash class="w-4 h-4 text-secondary-600" />
-														</button>
-													</form>
-												{/if}
-											</div>
-										{/if}
-									</div>
+										{facilities.length}
+										{facilities.length === 1 ? ' facility' : ' facilities'}
+									</span>
+								</div>
+								<p class="max-w-3xl text-sm leading-6 text-neutral-950">
+									Facilities stay available outside seasons, so this workspace is built for
+									permanent venues, reusable areas, and archive cleanup.
+								</p>
+							</div>
+							<span
+								class="badge-secondary-outlined h-[1.875rem] bg-white px-2.5 text-sm font-semibold normal-case tracking-normal"
+							>
+								{viewArchiveMode ? 'Archived workspace' : 'Active workspace'}
+							</span>
+						</div>
+					</div>
+
+					<div class="p-4 space-y-4">
+						{#if facilities.length === 0}
+							<div class="section-card p-8 text-center">
+								<p class="text-neutral-950 font-sans mb-4">
+									{viewArchiveMode ? 'No archived facilities found.' : 'No facilities yet.'}
+								</p>
+								{#if !viewArchiveMode}
+									<button
+										class="button-primary inline-flex items-center gap-2 cursor-pointer"
+										type="button"
+										onclick={openCreateFacility}
+									>
+										<IconPlus class="w-5 h-5" />
+										Create your first facility
+									</button>
 								{/if}
 							</div>
-
-							<!-- Areas Section (Expanded) -->
-							{#if isExpanded}
-								<div class="border-t border-neutral-950 bg-white">
-									<!-- Areas Header -->
-									<div
-										class="flex items-center justify-between gap-3 border-b border-neutral-200 bg-neutral p-3"
-									>
-										<span class="font-sans font-semibold text-neutral-950 text-sm">
-											Areas ({facilityAreas.length})
-										</span>
-										{#if !isArchived && !isPartiallyArchived}
-											<button
-												class="button-primary text-sm flex items-center gap-1 cursor-pointer"
-												type="button"
-												onclick={() => openCreateArea(facility.id)}
+						{:else}
+							{#each facilities as facility (facility.id)}
+								{@const isExpanded = expandedFacilityIds.has(facility.id)}
+								{@const isEditing = editingFacilityId === facility.id}
+								{@const facilityAreas = getAreasForFacility(facility.id)}
+								{@const activeAreaCount = getActiveAreaCount(facility.id)}
+								{@const isArchived = facility.isActive === 0}
+								{@const isPartiallyArchived = !isArchived && viewArchiveMode}
+								<div
+									id={`facility-${facility.id}`}
+									class={`section-shell ${
+										selectedFacilityId === facility.id ? 'ring-2 ring-primary-500' : ''
+									}`}
+								>
+									<!-- Facility Header -->
+									<div class="p-4 {isExpanded ? 'border-b border-neutral-950' : ''}">
+										{#if isEditing}
+											{@const editingAddressExpanded =
+												facilityDrafts[facility.id]?._addressExpanded ?? false}
+											<!-- Inline Facility Edit Form -->
+											<form
+												method="POST"
+												action="?/updateFacility"
+												use:enhance={() => {
+													return async ({ update, result }) => {
+														await update({ reset: false });
+														if (
+															result.type === 'success' ||
+															(result.type === 'failure' &&
+																(result.data as { noChange?: boolean })?.noChange)
+														) {
+															stopEditingFacility();
+														}
+													};
+												}}
+												class="space-y-4"
 											>
-												<IconPlus class="w-4 h-4" />
-												<span>Add Area</span>
-											</button>
-										{/if}
-									</div>
-
-									<!-- Areas List -->
-									{#if facilityAreas.length === 0}
-										<div class="p-4 text-center">
-											<p class="text-sm font-sans text-neutral-700">
-												{viewArchiveMode
-													? 'No archived areas for this facility.'
-													: 'No areas for this facility yet.'}
-												{#if !viewArchiveMode && !isArchived && !isPartiallyArchived}
+												<input type="hidden" name="facilityId" value={facility.id} />
+												<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+													<div>
+														<label class="block text-sm font-sans text-neutral-950 mb-1"
+															>Name
+															<input
+																type="text"
+																name="name"
+																bind:value={facilityDrafts[facility.id].name}
+																class="w-full input-secondary bg-white mt-1"
+																autocomplete="off"
+															/>
+														</label>
+													</div>
+													<div>
+														<label class="block text-sm font-sans text-neutral-950 mb-1"
+															>Slug
+															<input
+																type="text"
+																name="slug"
+																value={facilityDrafts[facility.id].slug}
+																oninput={(e) => {
+																	const el = e.currentTarget as HTMLInputElement;
+																	facilityDrafts[facility.id].slug = applyLiveSlugInput(el);
+																}}
+																class="w-full input-secondary bg-white mt-1"
+																autocomplete="off"
+															/>
+														</label>
+													</div>
+												</div>
+												<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+													<div>
+														<label class="block text-sm font-sans text-neutral-950 mb-1"
+															>Capacity
+															<input
+																type="number"
+																name="capacity"
+																min="1"
+																step="1"
+																bind:value={facilityDrafts[facility.id].capacity}
+																class="w-full input-secondary bg-white mt-1"
+																autocomplete="off"
+															/>
+														</label>
+													</div>
+												</div>
+												<div>
+													<label class="block text-sm font-sans text-neutral-950 mb-1"
+														>Description (optional)
+														<textarea
+															name="description"
+															bind:value={facilityDrafts[facility.id].description}
+															rows="2"
+															class="w-full input-secondary bg-white mt-1 resize-none"
+															autocomplete="off"
+														></textarea>
+													</label>
+												</div>
+												<!-- Address Toggle Button -->
+												<div
+													class="flex items-center justify-between border border-neutral-950 p-3 bg-white"
+												>
+													<span class="text-sm font-sans text-neutral-950">Address</span>
 													<button
 														type="button"
-														class="text-primary-600 hover:underline ml-1 cursor-pointer"
-														onclick={() => openCreateArea(facility.id)}
+														class="button-secondary-outlined text-sm flex items-center gap-2 cursor-pointer"
+														onclick={() => {
+															facilityDrafts[facility.id] = {
+																...facilityDrafts[facility.id],
+																_addressExpanded: !editingAddressExpanded
+															};
+														}}
 													>
-														Create one now
+														<IconMapPinPlus class="w-4 h-4" />
+														{editingAddressExpanded ? 'Hide address' : 'Edit address'}
 													</button>
+												</div>
+												{#if editingAddressExpanded}
+													<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+														<label class="block text-sm font-sans text-neutral-950 mb-1"
+															>Address line 1
+															<input
+																type="text"
+																name="addressLine1"
+																bind:value={facilityDrafts[facility.id].addressLine1}
+																placeholder="Street address"
+																class="w-full input-secondary bg-white mt-1"
+																autocomplete="off"
+															/>
+														</label>
+														<label class="block text-sm font-sans text-neutral-950 mb-1"
+															>Address line 2
+															<input
+																type="text"
+																name="addressLine2"
+																bind:value={facilityDrafts[facility.id].addressLine2}
+																class="w-full input-secondary bg-white mt-1"
+																autocomplete="off"
+															/>
+														</label>
+													</div>
+													<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+														<label class="block text-sm font-sans text-neutral-950 mb-1"
+															>City
+															<input
+																type="text"
+																name="city"
+																bind:value={facilityDrafts[facility.id].city}
+																class="w-full input-secondary bg-white mt-1"
+																autocomplete="off"
+															/>
+														</label>
+														<label class="block text-sm font-sans text-neutral-950 mb-1"
+															>State
+															<input
+																type="text"
+																name="state"
+																bind:value={facilityDrafts[facility.id].state}
+																class="w-full input-secondary bg-white mt-1"
+																autocomplete="off"
+															/>
+														</label>
+														<label class="block text-sm font-sans text-neutral-950 mb-1"
+															>ZIP
+															<input
+																type="text"
+																name="postalCode"
+																bind:value={facilityDrafts[facility.id].postalCode}
+																class="w-full input-secondary bg-white mt-1"
+																autocomplete="off"
+															/>
+														</label>
+														<label class="block text-sm font-sans text-neutral-950 mb-1"
+															>Country
+															<input
+																type="text"
+																name="country"
+																bind:value={facilityDrafts[facility.id].country}
+																class="w-full input-secondary bg-white mt-1"
+																autocomplete="off"
+															/>
+														</label>
+													</div>
 												{/if}
-											</p>
-										</div>
-									{:else}
-										<ul class="divide-y divide-neutral-200">
-											{#each facilityAreas as area (area.id)}
-												{@const isEditingArea = editingAreaId === area.id}
-												{@const isAreaArchived = area.isActive === 0}
-												{@const isMatchedArea = matchedAreaIds.has(area.id)}
-												<li
-													id={`facility-area-${area.id}`}
-													class={`p-3 ${
-														highlightedAreaId === area.id
-															? 'bg-primary-50 ring-1 ring-primary-500'
-															: isMatchedArea
-																? 'bg-secondary-50'
-																: ''
-													}`}
+												<div class="flex items-center gap-2">
+													<button
+														type="submit"
+														class="button-secondary flex items-center gap-2 cursor-pointer"
+													>
+														<IconCheck class="w-4 h-4" />
+														<span>Save</span>
+													</button>
+													<button
+														type="button"
+														class="button-secondary cursor-pointer"
+														onclick={stopEditingFacility}
+													>
+														Cancel
+													</button>
+												</div>
+											</form>
+										{:else}
+											<!-- Facility Display -->
+											<div class="flex items-center justify-between gap-4">
+												<div
+													role="button"
+													tabindex="0"
+													class="flex flex-1 items-center gap-3 text-left cursor-pointer"
+													onclick={() => toggleFacilityExpanded(facility.id)}
+													onkeydown={(event) => handleFacilityRowKeydown(event, facility.id)}
+													aria-expanded={isExpanded}
 												>
-													{#if isEditingArea}
-														<!-- Inline Area Edit Form -->
+													<div
+														class="transition-transform duration-300 ease-in-out {isExpanded
+															? 'rotate-90'
+															: 'rotate-0'}"
+													>
+														<IconChevronRight class="w-5 h-5 text-neutral-950 shrink-0" />
+													</div>
+													<div class="min-w-0">
+														<div class="flex items-center gap-2">
+															<p class="font-serif font-bold text-neutral-950 truncate text-lg">
+																{facility.name || '(Unnamed facility)'}
+															</p>
+															{#if isArchived}
+																<span class="badge-inactive text-xs shrink-0">ARCHIVED</span>
+															{:else if isPartiallyArchived}
+																<span class="badge-inactive text-xs shrink-0"
+																	>HAS ARCHIVED AREAS</span
+																>
+															{/if}
+														</div>
+														<div class="flex items-center gap-3 text-sm font-sans text-neutral-700">
+															{#if facility.addressLine1 || facility.city}
+																{@const mapsUrl = getGoogleMapsUrl(facility)}
+																{#if mapsUrl}
+																	<span
+																		role="link"
+																		tabindex="0"
+																		class="hover:underline cursor-pointer flex items-center gap-1"
+																		onclick={(e) => {
+																			e.stopPropagation();
+																			window.open(mapsUrl, '_blank', 'noopener,noreferrer');
+																		}}
+																		onkeydown={(event) => {
+																			if (event.key === 'Enter' || event.key === ' ') {
+																				event.preventDefault();
+																				event.stopPropagation();
+																				window.open(mapsUrl, '_blank', 'noopener,noreferrer');
+																			}
+																		}}
+																	>
+																		<IconMapPin class="w-3 h-3" />
+																		{[facility.addressLine1, facility.city, facility.state]
+																			.filter(Boolean)
+																			.join(', ')}
+																		<IconExternalLink class="w-3 h-3" />
+																	</span>
+																{:else}
+																	<span>
+																		<IconMapPin class="w-3 h-3 inline mr-1" />
+																		{[facility.addressLine1, facility.city, facility.state]
+																			.filter(Boolean)
+																			.join(', ')}
+																	</span>
+																{/if}
+															{/if}
+															<div class="flex items-center gap-1 text-neutral-600">
+																<IconSquare class="w-3 h-3" />
+																<span>{activeAreaCount} area{activeAreaCount === 1 ? '' : 's'}</span
+																>
+															</div>
+															{#if typeof facility.capacity === 'number' && facility.capacity > 0}
+																<div class="flex items-center gap-1 text-neutral-600">
+																	<IconSquare class="w-3 h-3" />
+																	<span>Capacity {facility.capacity}</span>
+																</div>
+															{/if}
+														</div>
+													</div>
+												</div>
+												{#if !isPartiallyArchived}
+													<div class="flex items-center gap-2 shrink-0">
+														{#if !isArchived}
+															<button
+																type="button"
+																class="button-secondary-outlined dashboard-icon-button cursor-pointer"
+																onclick={() => startEditingFacility(facility)}
+																aria-label="Edit facility"
+															>
+																<IconPencil class="w-4 h-4 text-secondary-700" />
+															</button>
+														{/if}
 														<form
 															method="POST"
-															action="?/updateFacilityArea"
-															use:enhance={() => {
-																return async ({ update, result }) => {
-																	await update({ reset: false });
-																	if (
-																		result.type === 'success' ||
-																		(result.type === 'failure' &&
-																			(result.data as { noChange?: boolean })?.noChange)
-																	) {
-																		stopEditingArea();
-																	}
-																};
-															}}
-															class="space-y-3"
+															action="?/setFacilityArchived"
+															use:enhance
+															id={`facility-archive-form-${facility.id}`}
 														>
-															<input type="hidden" name="facilityAreaId" value={area.id} />
-															<div class="flex-1 grid grid-cols-2 gap-3">
-																<input
-																	type="text"
-																	name="name"
-																	bind:value={areaDrafts[area.id].name}
-																	placeholder="Area name"
-																	class="w-full input-secondary text-sm"
-																	autocomplete="off"
-																/>
-																<input
-																	type="text"
-																	name="slug"
-																	value={areaDrafts[area.id].slug}
-																	oninput={(e) => {
-																		const el = e.currentTarget as HTMLInputElement;
-																		areaDrafts[area.id].slug = applyLiveSlugInput(el);
-																	}}
-																	placeholder="slug"
-																	class="w-full input-secondary text-sm"
-																	autocomplete="off"
-																/>
-															</div>
-															<div>
-																<label class="block text-xs font-sans text-neutral-950 mb-1"
-																	>Capacity
-																	<input
-																		type="number"
-																		name="capacity"
-																		min="1"
-																		step="1"
-																		bind:value={areaDrafts[area.id].capacity}
-																		class="w-full input-secondary text-sm mt-1"
-																		autocomplete="off"
-																	/>
-																</label>
-															</div>
-															<div>
-																<label class="block text-xs font-sans text-neutral-950 mb-1"
-																	>Notes (optional)
-																	<textarea
-																		name="description"
-																		bind:value={areaDrafts[area.id].description}
-																		rows="2"
-																		class="w-full input-secondary text-sm resize-none"
-																		autocomplete="off"
-																	></textarea>
-																</label>
-															</div>
-															<div class="flex items-center gap-2 shrink-0">
-																<button
-																	type="submit"
-																	class="button-secondary-outlined dashboard-icon-button cursor-pointer"
-																	aria-label="Save"
-																>
-																	<IconCheck class="w-4 h-4 text-secondary-700" />
-																</button>
+															<input type="hidden" name="facilityId" value={facility.id} />
+															<input
+																type="hidden"
+																name="isActive"
+																value={facility.isActive === 0 ? '1' : '0'}
+															/>
+															<button
+																type="button"
+																class="button-secondary-outlined dashboard-icon-button cursor-pointer"
+																aria-label={facility.isActive === 0
+																	? 'Restore facility'
+																	: 'Archive facility'}
+																onclick={() =>
+																	openConfirm(
+																		facility.isActive === 0
+																			? { kind: 'facility-restore', facilityId: facility.id }
+																			: { kind: 'facility-archive', facilityId: facility.id }
+																	)}
+															>
+																{#if facility.isActive === 0}
+																	<IconRestore class="w-4 h-4 text-secondary-700" />
+																{:else}
+																	<IconArchive class="w-4 h-4 text-secondary-600" />
+																{/if}
+															</button>
+														</form>
+														{#if facility.isActive === 0}
+															<form
+																method="POST"
+																action="?/deleteFacility"
+																use:enhance={() => {
+																	return async ({ result, update }) => {
+																		await update();
+																		if (result.type === 'success' || result.type === 'redirect')
+																			closeConfirm();
+																	};
+																}}
+																id={`facility-delete-form-${facility.id}`}
+															>
+																<input type="hidden" name="facilityId" value={facility.id} />
+																<input type="hidden" name="confirmSlug" value={deleteConfirmSlug} />
 																<button
 																	type="button"
 																	class="button-secondary-outlined dashboard-icon-button cursor-pointer"
-																	onclick={stopEditingArea}
-																	aria-label="Cancel"
+																	onclick={() =>
+																		openConfirm({
+																			kind: 'facility-delete',
+																			facilityId: facility.id,
+																			slug: facility.slug || ''
+																		})}
+																	aria-label="Delete facility"
 																>
 																	<IconTrash class="w-4 h-4 text-secondary-600" />
 																</button>
-															</div>
-														</form>
-													{:else}
-														<!-- Area Display -->
-														<div class="flex items-start justify-between gap-3">
-															<div class="min-w-0">
-																<span class="font-sans text-neutral-950 truncate block">
-																	{area.name || '(Unnamed area)'}
-																</span>
-																{#if area.description}
-																	<p class="text-xs text-neutral-900 mt-0.5 truncate">
-																		{area.description}
-																	</p>
-																{/if}
-																{#if typeof area.capacity === 'number' && area.capacity > 0}
-																	<p class="text-xs text-neutral-900 mt-0.5">
-																		Capacity: {area.capacity}
-																	</p>
-																{/if}
-																{#if isAreaArchived}
-																	<span class="badge-inactive text-xs shrink-0">ARCHIVED</span>
-																{/if}
-															</div>
-															<div class="flex items-center gap-2 shrink-0">
-																{#if !isAreaArchived && !isArchived && !isPartiallyArchived}
-																	<button
-																		type="button"
-																		class="button-secondary-outlined dashboard-icon-button cursor-pointer"
-																		onclick={() => startEditingArea(area)}
-																		aria-label="Edit area"
-																	>
-																		<IconPencil class="w-4 h-4 text-secondary-700" />
-																	</button>
-																{/if}
-																{#if !isArchived && !isPartiallyArchived}
-																	<form
-																		method="POST"
-																		action="?/setFacilityAreaArchived"
-																		use:enhance
-																		id={`area-archive-form-${area.id}`}
-																	>
-																		<input type="hidden" name="facilityAreaId" value={area.id} />
+															</form>
+														{/if}
+													</div>
+												{/if}
+											</div>
+										{/if}
+									</div>
+
+									<!-- Areas Section (Expanded) -->
+									{#if isExpanded}
+										<div class="border-t border-neutral-950 bg-white">
+											<!-- Areas Header -->
+											<div
+												class="flex items-center justify-between gap-3 border-b border-neutral-200 bg-neutral p-3"
+											>
+												<span class="font-sans font-semibold text-neutral-950 text-sm">
+													Areas ({facilityAreas.length})
+												</span>
+												{#if !isArchived && !isPartiallyArchived}
+													<button
+														class="button-primary text-sm flex items-center gap-1 cursor-pointer"
+														type="button"
+														onclick={() => openCreateArea(facility.id)}
+													>
+														<IconPlus class="w-4 h-4" />
+														<span>Add Area</span>
+													</button>
+												{/if}
+											</div>
+
+											<!-- Areas List -->
+											{#if facilityAreas.length === 0}
+												<div class="p-4 text-center">
+													<div class="text-sm font-sans text-neutral-700">
+														<p>
+															{viewArchiveMode
+																? 'No archived areas for this facility.'
+																: 'No areas for this facility yet.'}
+														</p>
+														{#if !viewArchiveMode && !isArchived && !isPartiallyArchived}
+															<button
+																type="button"
+																class="mt-2 text-primary-600 hover:underline cursor-pointer"
+																onclick={() => openCreateArea(facility.id)}
+															>
+																Create one now
+															</button>
+														{/if}
+													</div>
+												</div>
+											{:else}
+												<ul class="divide-y divide-neutral-200">
+													{#each facilityAreas as area (area.id)}
+														{@const isEditingArea = editingAreaId === area.id}
+														{@const isAreaArchived = area.isActive === 0}
+														{@const isMatchedArea = matchedAreaIds.has(area.id)}
+														<li
+															id={`facility-area-${area.id}`}
+															class={`p-3 ${
+																highlightedAreaId === area.id
+																	? 'bg-primary-50 ring-1 ring-primary-500'
+																	: isMatchedArea
+																		? 'bg-secondary-50'
+																		: ''
+															}`}
+														>
+															{#if isEditingArea}
+																<!-- Inline Area Edit Form -->
+																<form
+																	method="POST"
+																	action="?/updateFacilityArea"
+																	use:enhance={() => {
+																		return async ({ update, result }) => {
+																			await update({ reset: false });
+																			if (
+																				result.type === 'success' ||
+																				(result.type === 'failure' &&
+																					(result.data as { noChange?: boolean })?.noChange)
+																			) {
+																				stopEditingArea();
+																			}
+																		};
+																	}}
+																	class="space-y-3"
+																>
+																	<input type="hidden" name="facilityAreaId" value={area.id} />
+																	<div class="flex-1 grid grid-cols-2 gap-3">
 																		<input
-																			type="hidden"
-																			name="isActive"
-																			value={area.isActive === 0 ? '1' : '0'}
+																			type="text"
+																			name="name"
+																			bind:value={areaDrafts[area.id].name}
+																			placeholder="Area name"
+																			class="w-full input-secondary text-sm"
+																			autocomplete="off"
 																		/>
-																		<button
-																			type="button"
-																			class="button-secondary-outlined dashboard-icon-button cursor-pointer"
-																			aria-label={area.isActive === 0
-																				? 'Restore area'
-																				: 'Archive area'}
-																			onclick={() =>
-																				openConfirm(
-																					area.isActive === 0
-																						? { kind: 'area-restore', facilityAreaId: area.id }
-																						: { kind: 'area-archive', facilityAreaId: area.id }
-																				)}
-																		>
-																			{#if area.isActive === 0}
-																				<IconRestore class="w-4 h-4 text-secondary-700" />
-																			{:else}
-																				<IconArchive class="w-4 h-4 text-secondary-600" />
-																			{/if}
-																		</button>
-																	</form>
-																{/if}
-																{#if isAreaArchived}
-																	<!-- Archived areas show restore and delete on the right -->
-																	<form
-																		method="POST"
-																		action="?/setFacilityAreaArchived"
-																		use:enhance
-																		class="inline"
-																	>
-																		<input type="hidden" name="facilityAreaId" value={area.id} />
-																		<input type="hidden" name="isActive" value="1" />
-																		<button
-																			type="button"
-																			class="button-secondary-outlined dashboard-icon-button cursor-pointer"
-																			aria-label="Restore area"
-																			onclick={() =>
-																				openConfirm({
-																					kind: 'area-restore',
-																					facilityAreaId: area.id
-																				})}
-																		>
-																			<IconRestore class="w-4 h-4 text-secondary-700" />
-																		</button>
-																	</form>
-																	<form
-																		method="POST"
-																		action="?/deleteFacilityArea"
-																		use:enhance={() => {
-																			return async ({ result, update }) => {
-																				await update();
-																				if (result.type === 'success' || result.type === 'redirect')
-																					closeConfirm();
-																			};
-																		}}
-																		id={`area-delete-form-${area.id}`}
-																	>
-																		<input type="hidden" name="facilityAreaId" value={area.id} />
 																		<input
-																			type="hidden"
-																			name="confirmSlug"
-																			value={deleteConfirmAreaSlug}
+																			type="text"
+																			name="slug"
+																			value={areaDrafts[area.id].slug}
+																			oninput={(e) => {
+																				const el = e.currentTarget as HTMLInputElement;
+																				areaDrafts[area.id].slug = applyLiveSlugInput(el);
+																			}}
+																			placeholder="slug"
+																			class="w-full input-secondary text-sm"
+																			autocomplete="off"
 																		/>
+																	</div>
+																	<div>
+																		<label class="block text-xs font-sans text-neutral-950 mb-1"
+																			>Capacity
+																			<input
+																				type="number"
+																				name="capacity"
+																				min="1"
+																				step="1"
+																				bind:value={areaDrafts[area.id].capacity}
+																				class="w-full input-secondary text-sm mt-1"
+																				autocomplete="off"
+																			/>
+																		</label>
+																	</div>
+																	<div>
+																		<label class="block text-xs font-sans text-neutral-950 mb-1"
+																			>Notes (optional)
+																			<textarea
+																				name="description"
+																				bind:value={areaDrafts[area.id].description}
+																				rows="2"
+																				class="w-full input-secondary text-sm resize-none"
+																				autocomplete="off"
+																			></textarea>
+																		</label>
+																	</div>
+																	<div class="flex items-center gap-2 shrink-0">
+																		<button
+																			type="submit"
+																			class="button-secondary-outlined dashboard-icon-button cursor-pointer"
+																			aria-label="Save"
+																		>
+																			<IconCheck class="w-4 h-4 text-secondary-700" />
+																		</button>
 																		<button
 																			type="button"
 																			class="button-secondary-outlined dashboard-icon-button cursor-pointer"
-																			onclick={() =>
-																				openConfirm({
-																					kind: 'area-delete',
-																					facilityAreaId: area.id,
-																					slug: area.slug || ''
-																				})}
-																			aria-label="Delete area"
+																			onclick={stopEditingArea}
+																			aria-label="Cancel"
 																		>
 																			<IconTrash class="w-4 h-4 text-secondary-600" />
 																		</button>
-																	</form>
-																{/if}
-															</div>
-														</div>
-													{/if}
-												</li>
-											{/each}
-										</ul>
+																	</div>
+																</form>
+															{:else}
+																<!-- Area Display -->
+																<div class="flex items-start justify-between gap-3">
+																	<div class="min-w-0">
+																		<span class="font-sans text-neutral-950 truncate block">
+																			{area.name || '(Unnamed area)'}
+																		</span>
+																		{#if area.description}
+																			<p class="text-xs text-neutral-900 mt-0.5 truncate">
+																				{area.description}
+																			</p>
+																		{/if}
+																		{#if typeof area.capacity === 'number' && area.capacity > 0}
+																			<p class="text-xs text-neutral-900 mt-0.5">
+																				Capacity: {area.capacity}
+																			</p>
+																		{/if}
+																		{#if isAreaArchived}
+																			<span class="badge-inactive text-xs shrink-0">ARCHIVED</span>
+																		{/if}
+																	</div>
+																	<div class="flex items-center gap-2 shrink-0">
+																		{#if !isAreaArchived && !isArchived && !isPartiallyArchived}
+																			<button
+																				type="button"
+																				class="button-secondary-outlined dashboard-icon-button cursor-pointer"
+																				onclick={() => startEditingArea(area)}
+																				aria-label="Edit area"
+																			>
+																				<IconPencil class="w-4 h-4 text-secondary-700" />
+																			</button>
+																		{/if}
+																		{#if !isArchived && !isPartiallyArchived}
+																			<form
+																				method="POST"
+																				action="?/setFacilityAreaArchived"
+																				use:enhance
+																				id={`area-archive-form-${area.id}`}
+																			>
+																				<input
+																					type="hidden"
+																					name="facilityAreaId"
+																					value={area.id}
+																				/>
+																				<input
+																					type="hidden"
+																					name="isActive"
+																					value={area.isActive === 0 ? '1' : '0'}
+																				/>
+																				<button
+																					type="button"
+																					class="button-secondary-outlined dashboard-icon-button cursor-pointer"
+																					aria-label={area.isActive === 0
+																						? 'Restore area'
+																						: 'Archive area'}
+																					onclick={() =>
+																						openConfirm(
+																							area.isActive === 0
+																								? { kind: 'area-restore', facilityAreaId: area.id }
+																								: { kind: 'area-archive', facilityAreaId: area.id }
+																						)}
+																				>
+																					{#if area.isActive === 0}
+																						<IconRestore class="w-4 h-4 text-secondary-700" />
+																					{:else}
+																						<IconArchive class="w-4 h-4 text-secondary-600" />
+																					{/if}
+																				</button>
+																			</form>
+																		{/if}
+																		{#if isAreaArchived}
+																			<!-- Archived areas show restore and delete on the right -->
+																			<form
+																				method="POST"
+																				action="?/setFacilityAreaArchived"
+																				use:enhance
+																				class="inline"
+																			>
+																				<input
+																					type="hidden"
+																					name="facilityAreaId"
+																					value={area.id}
+																				/>
+																				<input type="hidden" name="isActive" value="1" />
+																				<button
+																					type="button"
+																					class="button-secondary-outlined dashboard-icon-button cursor-pointer"
+																					aria-label="Restore area"
+																					onclick={() =>
+																						openConfirm({
+																							kind: 'area-restore',
+																							facilityAreaId: area.id
+																						})}
+																				>
+																					<IconRestore class="w-4 h-4 text-secondary-700" />
+																				</button>
+																			</form>
+																			<form
+																				method="POST"
+																				action="?/deleteFacilityArea"
+																				use:enhance={() => {
+																					return async ({ result, update }) => {
+																						await update();
+																						if (
+																							result.type === 'success' ||
+																							result.type === 'redirect'
+																						)
+																							closeConfirm();
+																					};
+																				}}
+																				id={`area-delete-form-${area.id}`}
+																			>
+																				<input
+																					type="hidden"
+																					name="facilityAreaId"
+																					value={area.id}
+																				/>
+																				<input
+																					type="hidden"
+																					name="confirmSlug"
+																					value={deleteConfirmAreaSlug}
+																				/>
+																				<button
+																					type="button"
+																					class="button-secondary-outlined dashboard-icon-button cursor-pointer"
+																					onclick={() =>
+																						openConfirm({
+																							kind: 'area-delete',
+																							facilityAreaId: area.id,
+																							slug: area.slug || ''
+																						})}
+																					aria-label="Delete area"
+																				>
+																					<IconTrash class="w-4 h-4 text-secondary-600" />
+																				</button>
+																			</form>
+																		{/if}
+																	</div>
+																</div>
+															{/if}
+														</li>
+													{/each}
+												</ul>
+											{/if}
+										</div>
 									{/if}
 								</div>
-							{/if}
+							{/each}
+						{/if}
+					</div>
+				</section>
+			</section>
+
+			<aside class="w-full min-w-0 space-y-3 2xl:sticky 2xl:top-4">
+				<button
+					class="button-primary inline-flex w-full items-center justify-center gap-2 disabled:pointer-events-none disabled:opacity-60 cursor-pointer"
+					type="button"
+					onclick={openCreateFacility}
+					disabled={!currentClientId}
+				>
+					<IconPlus class="h-4 w-4" />
+					<span>New Facility</span>
+				</button>
+
+				<section class="border-2 border-neutral-950 bg-neutral">
+					<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
+						<h2 class="dashboard-section-title text-neutral-950">Workspace</h2>
+					</div>
+
+					<div class="space-y-4 p-4">
+						<div class="space-y-2">
+							<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">View</p>
+							<ListboxDropdown
+								options={FACILITY_VIEW_OPTIONS}
+								value={viewArchiveMode ? 'archive' : 'active'}
+								ariaLabel="Choose facility workspace view"
+								buttonClass={SIDEBAR_DROPDOWN_BUTTON_CLASS}
+								on:change={(event) => {
+									viewArchiveMode = event.detail.value === 'archive';
+								}}
+							/>
 						</div>
-					{/each}
-				{/if}
-			</div>
-		</section>
+
+						<div class="space-y-2">
+							<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+								Search Facilities
+							</p>
+							<SearchInput
+								id="facility-search"
+								label="Search facilities and areas"
+								value={facilitySearch}
+								type="search"
+								placeholder="Search by facility, slug, description, or area"
+								inputClass="input-neutral min-h-10 pl-10 pr-10 py-2 text-sm disabled:cursor-not-allowed"
+								clearButtonClass="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-700 hover:text-neutral-950 cursor-pointer"
+								autocomplete="off"
+								data-lpignore="true"
+								on:input={(event) => {
+									facilitySearch = event.detail.value;
+								}}
+							/>
+						</div>
+
+						<div class="space-y-2">
+							<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+								Filter Areas
+							</p>
+							<SearchInput
+								id="area-search"
+								label="Filter facility areas"
+								value={areaSearch}
+								type="search"
+								placeholder={viewArchiveMode
+									? 'Filter archived areas in expanded facilities'
+									: 'Filter areas in expanded facilities'}
+								inputClass="input-neutral min-h-10 pl-10 pr-10 py-2 text-sm disabled:cursor-not-allowed"
+								clearButtonClass="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-700 hover:text-neutral-950 cursor-pointer"
+								autocomplete="off"
+								data-lpignore="true"
+								on:input={(event) => {
+									areaSearch = event.detail.value;
+								}}
+							/>
+						</div>
+
+						<div class="grid grid-cols-2 gap-3">
+							<div class="border border-neutral-950 bg-white p-3">
+								<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+									Facilities
+								</p>
+								<p class="mt-2 text-2xl leading-none font-bold font-serif text-neutral-950">
+									{totalFacilityCount}
+								</p>
+							</div>
+							<div class="border border-neutral-950 bg-white p-3">
+								<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+									Active Facilities
+								</p>
+								<p class="mt-2 text-2xl leading-none font-bold font-serif text-neutral-950">
+									{activeFacilityCount}
+								</p>
+							</div>
+							<div class="border border-neutral-950 bg-white p-3">
+								<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+									Active Areas
+								</p>
+								<p class="mt-2 text-2xl leading-none font-bold font-serif text-neutral-950">
+									{activeFacilityAreaCount}
+								</p>
+							</div>
+							<div class="border border-neutral-950 bg-white p-3">
+								<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+									Archived Facilities
+								</p>
+								<p class="mt-2 text-2xl leading-none font-bold font-serif text-neutral-950">
+									{archivedFacilityCount}
+								</p>
+							</div>
+						</div>
+
+						<button
+							type="button"
+							class="button-neutral-outlined inline-flex w-full items-center justify-center gap-2 cursor-pointer"
+							onclick={() => {
+								viewArchiveMode = false;
+								facilitySearch = '';
+								areaSearch = '';
+							}}
+						>
+							Reset Workspace
+						</button>
+					</div>
+				</section>
+
+				<section class="border-2 border-neutral-950 bg-neutral">
+					<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
+						<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+							Selected Facility
+						</p>
+						<h2 class="mt-1 text-2xl leading-tight font-bold font-serif text-neutral-950">
+							{selectedFacility?.name || 'No facility selected'}
+						</h2>
+						<p class="mt-2 text-sm leading-6 text-neutral-950">
+							{selectedFacility
+								? 'Use the directory on the left for inline edits, while this panel keeps the key stats and next actions close by.'
+								: 'Choose a facility from the directory to keep its details and quick actions in view.'}
+						</p>
+					</div>
+
+					<div class="space-y-4 p-4">
+						{#if selectedFacility}
+							{@const selectedMapsUrl = getGoogleMapsUrl(selectedFacility)}
+							{@const selectedVisibleAreas = getAreasForFacility(selectedFacility.id)}
+							{@const selectedArchivedAreas = getAreaCount(selectedFacility.id, 'archived')}
+							{@const selectedActiveAreas = getAreaCount(selectedFacility.id, 'active')}
+							{@const selectedIsArchived = selectedFacility.isActive === 0}
+							{@const selectedIsPartiallyArchived =
+								!selectedIsArchived && viewArchiveMode && selectedArchivedAreas > 0}
+
+							<div class="flex flex-wrap gap-2">
+								<button
+									type="button"
+									class="button-neutral-outlined inline-flex items-center gap-2 cursor-pointer"
+									onclick={() => {
+										selectFacility(selectedFacility.id);
+										expandedFacilityIds.add(selectedFacility.id);
+										document
+											.getElementById(`facility-${selectedFacility.id}`)
+											?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+									}}
+								>
+									<IconChevronRight class="h-4 w-4" />
+									<span>Open Card</span>
+								</button>
+
+								{#if !selectedIsArchived && !selectedIsPartiallyArchived}
+									<button
+										type="button"
+										class="button-secondary-outlined inline-flex items-center gap-2 cursor-pointer"
+										onclick={() => startEditingFacility(selectedFacility)}
+									>
+										<IconPencil class="h-4 w-4" />
+										<span>Edit Facility</span>
+									</button>
+									<button
+										type="button"
+										class="button-primary inline-flex items-center gap-2 cursor-pointer"
+										onclick={() => openCreateArea(selectedFacility.id)}
+									>
+										<IconPlus class="h-4 w-4" />
+										<span>Add Area</span>
+									</button>
+								{/if}
+
+								{#if !selectedIsPartiallyArchived}
+									<button
+										type="button"
+										class="button-neutral-outlined inline-flex items-center gap-2 cursor-pointer"
+										onclick={() =>
+											openConfirm(
+												selectedFacility.isActive === 0
+													? { kind: 'facility-restore', facilityId: selectedFacility.id }
+													: { kind: 'facility-archive', facilityId: selectedFacility.id }
+											)}
+									>
+										{#if selectedFacility.isActive === 0}
+											<IconRestore class="h-4 w-4" />
+											<span>Restore</span>
+										{:else}
+											<IconArchive class="h-4 w-4" />
+											<span>Archive</span>
+										{/if}
+									</button>
+
+									{#if selectedFacility.isActive === 0}
+										<button
+											type="button"
+											class="button-neutral-outlined inline-flex items-center gap-2 border-error-700 text-error-700 hover:bg-error-50 cursor-pointer"
+											onclick={() =>
+												openConfirm({
+													kind: 'facility-delete',
+													facilityId: selectedFacility.id,
+													slug: selectedFacility.slug || ''
+												})}
+										>
+											<IconTrash class="h-4 w-4" />
+											<span>Delete</span>
+										</button>
+									{/if}
+								{/if}
+							</div>
+
+							<div class="border border-neutral-950 bg-white p-4 space-y-3">
+								<div class="flex flex-wrap items-center gap-2">
+									<span class="badge-neutral-outlined normal-case tracking-normal">
+										{selectedFacility.slug || 'no-slug'}
+									</span>
+									{#if selectedFacility.isActive === 0}
+										<span class="badge-inactive">Archived</span>
+									{:else}
+										<span class="badge-success">Active</span>
+									{/if}
+									{#if selectedIsPartiallyArchived}
+										<span class="badge-warning">Archived Areas</span>
+									{/if}
+								</div>
+
+								{#if selectedFacility.description}
+									<p class="text-sm leading-6 text-neutral-950">{selectedFacility.description}</p>
+								{/if}
+
+								{#if getFacilityAddressSummary(selectedFacility)}
+									<p class="text-sm leading-6 text-neutral-950">
+										<span class="font-semibold">Address:</span>
+										{getFacilityAddressSummary(selectedFacility)}
+									</p>
+								{/if}
+
+								{#if selectedFacility.timezone}
+									<p class="text-sm leading-6 text-neutral-950">
+										<span class="font-semibold">Timezone:</span>
+										{selectedFacility.timezone}
+									</p>
+								{/if}
+
+								{#if selectedMapsUrl}
+									<a
+										href={selectedMapsUrl}
+										target="_blank"
+										rel="noopener noreferrer"
+										class="button-secondary-outlined inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold"
+									>
+										<IconMapPin class="h-4 w-4" />
+										<span>Open in Google Maps</span>
+										<IconExternalLink class="h-4 w-4" />
+									</a>
+								{/if}
+							</div>
+
+							<div class="grid grid-cols-2 gap-3">
+								<div class="border border-neutral-950 bg-white p-3">
+									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+										Active Areas
+									</p>
+									<p class="mt-2 text-2xl leading-none font-bold font-serif text-neutral-950">
+										{selectedActiveAreas}
+									</p>
+								</div>
+								<div class="border border-neutral-950 bg-white p-3">
+									<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+										Archived Areas
+									</p>
+									<p class="mt-2 text-2xl leading-none font-bold font-serif text-neutral-950">
+										{selectedArchivedAreas}
+									</p>
+								</div>
+							</div>
+
+							<div class="border border-neutral-950 bg-white p-4 space-y-3">
+								<div class="flex flex-wrap items-center justify-between gap-3">
+									<div>
+										<h3 class="text-lg font-bold font-serif text-neutral-950">Area Snapshot</h3>
+										<p class="text-sm leading-6 text-neutral-950">
+											{viewArchiveMode
+												? 'Showing archived areas in the open workspace.'
+												: 'Showing areas currently visible in the open workspace.'}
+										</p>
+									</div>
+									<span class="badge-neutral-outlined normal-case tracking-normal">
+										{selectedVisibleAreas.length} visible
+									</span>
+								</div>
+
+								{#if selectedVisibleAreas.length === 0}
+									<p class="text-sm text-neutral-950">
+										No areas match the current workspace filters for this facility.
+									</p>
+								{:else}
+									<div class="space-y-2">
+										{#each selectedVisibleAreas.slice(0, 5) as area (area.id)}
+											<div
+												class={`border border-neutral-950 px-3 py-2 text-sm text-neutral-950 ${
+													highlightedAreaId === area.id ? 'bg-primary-50/60' : 'bg-neutral-50'
+												}`}
+											>
+												<div class="flex flex-wrap items-center justify-between gap-2">
+													<span class="font-semibold">{area.name || '(Unnamed area)'}</span>
+													{#if area.isActive === 0}
+														<span class="badge-inactive">Archived</span>
+													{/if}
+												</div>
+												{#if area.description}
+													<p class="mt-1 text-xs leading-5 text-neutral-950">
+														{area.description}
+													</p>
+												{/if}
+											</div>
+										{/each}
+									</div>
+								{/if}
+							</div>
+						{:else}
+							<div class="border border-neutral-950 bg-white p-4 space-y-2">
+								<p class="font-semibold text-neutral-950">Nothing is selected yet.</p>
+								<p class="text-sm text-neutral-950">
+									Pick a facility from the directory to keep its summary, area counts, and quick
+									actions pinned here.
+								</p>
+							</div>
+						{/if}
+					</div>
+				</section>
+			</aside>
+		</div>
 	</div>
 </div>
 
@@ -2086,7 +2458,7 @@
 							if (!confirmIntent) return;
 							if (confirmIntent.kind === 'facility-delete') {
 								deleteConfirmSlug = confirmSlugInput;
-								deleteFacilityForm?.requestSubmit();
+								submitFacilityDelete(confirmIntent.facilityId);
 								return;
 							}
 							if (confirmIntent.kind === 'area-delete') {
@@ -2138,7 +2510,7 @@
 								confirmIntent.kind === 'facility-archive' ||
 								confirmIntent.kind === 'facility-restore'
 							) {
-								archiveFacilityForm?.requestSubmit();
+								submitFacilityArchive(confirmIntent.facilityId);
 								closeConfirm();
 								return;
 							}
