@@ -191,12 +191,12 @@ export function buildMemberSearchHref(input: { membershipId: string; fullName: s
 }
 
 export function buildFacilityAreaSearchHref(input: {
-	facilityId: string;
-	facilityAreaId: string;
+	facilitySlug: string;
+	facilityAreaSlug: string;
 }): string {
 	const url = new URL('https://playims.test/dashboard/facilities');
-	url.searchParams.set('facilityId', input.facilityId);
-	url.searchParams.set('areaId', input.facilityAreaId);
+	url.searchParams.set('facility', input.facilitySlug);
+	url.searchParams.set('area', input.facilityAreaSlug);
 	return `${url.pathname}${url.search}`;
 }
 

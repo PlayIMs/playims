@@ -10,12 +10,12 @@ export function readMemberSearchSelection(url: URL): { memberId: string | null }
 }
 
 export function readFacilitySearchSelection(url: URL): {
-	facilityId: string | null;
-	areaId: string | null;
+	facilitySlug: string | null;
+	areaSlug: string | null;
 } {
 	return {
-		facilityId: readTrimmedParam(url, 'facilityId'),
-		areaId: readTrimmedParam(url, 'areaId')
+		facilitySlug: readTrimmedParam(url, 'facility'),
+		areaSlug: readTrimmedParam(url, 'area')
 	};
 }
 

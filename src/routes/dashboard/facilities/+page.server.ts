@@ -6,7 +6,19 @@ import {
 } from '$lib/server/client-context';
 import { PERMISSIONS, requirePermission } from '$lib/server/auth/permissions';
 import { getTenantDbOps } from '$lib/server/database/context';
+import { buildScheduleEvent, mapById } from '$lib/server/schedule-events.js';
+import type { Facility } from '$lib/database/schema/facilities';
+import type { FacilityArea } from '$lib/database/schema/facility-areas';
+import type { League } from '$lib/database/schema/leagues';
+import type { Division } from '$lib/database/schema/divisions';
+import type { Offering } from '$lib/database/schema/offerings';
+import type { Season } from '$lib/database/schema/seasons';
+import type { Team } from '$lib/database/schema/teams';
 import { readFacilitySearchSelection } from '$lib/search/page-state.js';
+import {
+	buildTodayFacilityUsageSummary,
+	resolveFacilitySelectionFromSlugs
+} from './facilities-page-state.js';
 
 function asTrimmedString(value: FormDataEntryValue | null): string | null {
 	if (typeof value !== 'string') return null;
@@ -70,7 +82,9 @@ interface FacilityAreaWizardInput {
 	isActive?: boolean;
 }
 
-function parseFacilityAreaWizardPayload(raw: FormDataEntryValue | null): FacilityAreaWizardInput[] | null {
+function parseFacilityAreaWizardPayload(
+	raw: FormDataEntryValue | null
+): FacilityAreaWizardInput[] | null {
 	if (typeof raw !== 'string') return [];
 	const trimmed = raw.trim();
 	if (!trimmed) return [];
@@ -87,9 +101,7 @@ function parseFacilityAreaWizardPayload(raw: FormDataEntryValue | null): Facilit
 			if (!entry || typeof entry !== 'object') return null;
 			const input = entry as Record<string, unknown>;
 			const name = typeof input.name === 'string' ? input.name.trim() : '';
-			const slug = normalizeSlugAllowTrailing(
-				typeof input.slug === 'string' ? input.slug : null
-			);
+			const slug = normalizeSlugAllowTrailing(typeof input.slug === 'string' ? input.slug : null);
 			const description =
 				typeof input.description === 'string' && input.description.trim().length > 0
 					? input.description.trim()
@@ -124,18 +136,91 @@ export const load: PageServerLoad = async ({ platform, url, locals }) => {
 	const clientId = requireAuthenticatedClientId(locals);
 	// Secured server-side query (no client-side DB access).
 	const dbOps = await getTenantDbOps({ locals, platform }, clientId);
-
-	const { facilityId, areaId } = readFacilitySearchSelection(url);
+	const generatedAt = new Date();
 
 	const facilities = clientId ? await dbOps.facilities.getAll(clientId) : [];
 	const facilityAreas = clientId ? await dbOps.facilityAreas.getAll(clientId) : [];
+	const { facilitySlug, areaSlug } = readFacilitySearchSelection(url);
+	const { facilityId, areaId } = resolveFacilitySelectionFromSlugs({
+		facilities,
+		areas: facilityAreas,
+		facilitySlug,
+		areaSlug
+	});
+	let todayFacilityUsage = buildTodayFacilityUsageSummary({
+		facilities,
+		areas: facilityAreas,
+		events: [],
+		now: generatedAt
+	});
+
+	try {
+		const [events, teams, offerings, leagues, seasons] = await Promise.all([
+			dbOps.events.getByClientId(clientId),
+			dbOps.teams.getByClientId(clientId),
+			dbOps.offerings.getByClientId(clientId),
+			dbOps.leagues.getByClientId(clientId),
+			dbOps.seasons.getByClientId(clientId)
+		]);
+		const leagueIds = leagues
+			.map((league) => league.id)
+			.filter((leagueId): leagueId is string => Boolean(leagueId));
+		const divisions = await dbOps.divisions.getByLeagueIds(leagueIds);
+
+		const teamsById = mapById(
+			teams.filter((team): team is Team & { id: string } => Boolean(team.id))
+		);
+		const offeringsById = mapById(
+			offerings.filter((offering): offering is Offering & { id: string } => Boolean(offering.id))
+		);
+		const seasonsById = mapById(
+			seasons.filter((season): season is Season & { id: string } => Boolean(season.id))
+		);
+		const leaguesById = mapById(
+			leagues.filter((league): league is League & { id: string } => Boolean(league.id))
+		);
+		const divisionsById = mapById(
+			divisions.filter((division): division is Division & { id: string } => Boolean(division.id))
+		);
+		const facilitiesById = mapById(
+			facilities.filter((facility): facility is Facility & { id: string } => Boolean(facility.id))
+		);
+		const facilityAreasById = mapById(
+			facilityAreas.filter((area): area is FacilityArea & { id: string } => Boolean(area.id))
+		);
+		const scheduleEvents = events
+			.filter((event) => event.isActive !== 0)
+			.map((event) =>
+				buildScheduleEvent(
+					event,
+					teamsById,
+					offeringsById,
+					seasonsById,
+					leaguesById,
+					divisionsById,
+					facilitiesById,
+					facilityAreasById
+				)
+			);
+
+		todayFacilityUsage = buildTodayFacilityUsageSummary({
+			facilities,
+			areas: facilityAreas,
+			events: scheduleEvents,
+			now: generatedAt
+		});
+	} catch (usageError) {
+		console.error('Failed to build facilities usage summary:', usageError);
+	}
 
 	return {
 		clientId,
+		generatedAt: generatedAt.toISOString(),
 		facilityId,
 		areaId,
 		facilities,
-		facilityAreas
+		facilityAreas,
+		todayFacilityUsage
 	};
 };
 
@@ -255,7 +340,10 @@ export const actions: Actions = {
 			}
 		}
 
-		throw redirect(303, `/dashboard/facilities?facilityId=${encodeURIComponent(createdFacility.id)}`);
+		throw redirect(
+			303,
+			`/dashboard/facilities?facility=${encodeURIComponent(createdFacility.slug ?? '')}`
+		);
 	},
 
 	createFacility: async ({ request, platform, locals }) => {
@@ -332,7 +420,7 @@ export const actions: Actions = {
 
 		if (!created?.id)
 			return fail(500, { message: 'Failed to create facility.', action: 'createFacility' });
-		throw redirect(303, `/dashboard/facilities?facilityId=${encodeURIComponent(created.id)}`);
+		throw redirect(303, `/dashboard/facilities?facility=${encodeURIComponent(created.slug ?? '')}`);
 	},
 
 	updateFacility: async ({ request, platform, locals }) => {
@@ -551,7 +639,10 @@ export const actions: Actions = {
 				action: 'createFacilityArea'
 			});
 		// Keep user on the same facility after creating an area
-		throw redirect(303, `/dashboard/facilities?facilityId=${encodeURIComponent(facilityId)}`);
+		throw redirect(
+			303,
+			`/dashboard/facilities?facility=${encodeURIComponent(facility.slug ?? '')}&area=${encodeURIComponent(created.slug ?? '')}`
+		);
 	},
 
 	updateFacilityArea: async ({ request, platform, locals }) => {
@@ -588,7 +679,9 @@ export const actions: Actions = {
 		const descriptionInput = form.get('description');
 		const descriptionUpdate =
 			typeof descriptionInput === 'string'
-				? (descriptionInput.trim().length > 0 ? descriptionInput.trim() : null)
+				? descriptionInput.trim().length > 0
+					? descriptionInput.trim()
+					: null
 				: (existing.description ?? null);
 
 		// Check for actual changes

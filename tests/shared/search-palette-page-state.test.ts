@@ -9,7 +9,7 @@ focus, or highlight the right record after navigation.
 
 Summary of tests:
 1. It verifies that member selection reads the member ID from the URL.
-2. It verifies that facility selection reads both facility and area IDs from the URL.
+2. It verifies that facility selection reads both facility and area slugs from the URL.
 3. It verifies that league selection reads the team ID from the URL.
 */
 
@@ -28,15 +28,15 @@ describe('search palette page-state helpers', () => {
 		expect(readMemberSearchSelection(url)).toEqual({ memberId: 'member-1' });
 	});
 
-	it('reads the facility and area IDs from the url', () => {
+	it('reads the facility and area slugs from the url', () => {
 		// facility search can land on either a facility or a specific nested area inside it.
 		const url = new URL(
-			'https://playims.test/dashboard/facilities?facilityId=facility-1&areaId=area-2'
+			'https://playims.test/dashboard/facilities?facility=turner-center&area=court-2'
 		);
 
 		expect(readFacilitySearchSelection(url)).toEqual({
-			facilityId: 'facility-1',
-			areaId: 'area-2'
+			facilitySlug: 'turner-center',
+			areaSlug: 'court-2'
 		});
 	});
 
