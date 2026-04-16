@@ -38,12 +38,14 @@
 		normalizeScheduleDateRange,
 		resolveNextScheduleShortcutDate,
 		resolveScheduleNavigatorFocusDateKey,
+		resolveScheduleKeyboardShortcutMove,
 		sanitizeScheduleFilters,
 		shiftScheduleAnchorDate,
 		shouldHandleScheduleKeyboardNavigation,
 		summarizeScheduleEvents,
 		type ScheduleEventRecord,
 		type ScheduleFilters,
+		type ScheduleKeyboardShortcutMove,
 		type ScheduleOptionCount
 	} from '$lib/utils/schedule-page.js';
 	import {
@@ -61,6 +63,14 @@
 	const NAVIGATION_SIDE_SECTION_CLASS = 'w-full xl:w-[9rem] xl:shrink-0';
 	const NAVIGATION_VIEW_BUTTON_CLASS =
 		'h-[3.375rem] w-full border-0 bg-white px-4 py-0 text-sm font-semibold leading-none text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-3';
+	const NAVIGATOR_TRANSITION_DURATION_MS = 140;
+	const NAVIGATOR_TRANSITION_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
+	const NAVIGATOR_FULL_VIEWPORT_TRANSITION_RATIO = 0.92;
+	const NAVIGATOR_TRANSITION_DISTANCE_MULTIPLIER = {
+		day: 1,
+		week: 1.35,
+		month: 1.75
+	} satisfies Record<ScheduleKeyboardShortcutMove['unit'], number>;
 	const DATE_KEY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 	type ScheduleDisplayMode = 'day' | 'week' | 'month' | 'date-range' | 'entire-season';
 	type CreateEventForm = ScheduleEventWizardSelection & {
@@ -99,6 +109,7 @@
 	let selectedRangeStartDate = $state(todayDateKey());
 	let selectedRangeEndDate = $state(todayDateKey());
 	let navigatorDayStrip = $state<HTMLDivElement | null>(null);
+	let navigatorTrack = $state<HTMLDivElement | null>(null);
 	let scheduleSearchInput = $state<HTMLInputElement | null>(null);
 	let stateHydrated = $state(false);
 	let lastPageError = $state('');
@@ -331,47 +342,106 @@
 	}
 
 	function moveAnchor(direction: -1 | 1): void {
-		setSelectedDate(
-			shiftScheduleAnchorDate(
-				anchorDate,
-				selectedView === 'week' ? 'week' : selectedView === 'month' ? 'month' : 'day',
-				direction
-			)
+		const unit = selectedView === 'week' ? 'week' : selectedView === 'month' ? 'month' : 'day';
+		const nextDateKey = shiftScheduleAnchorDate(anchorDate, unit, direction);
+		setSelectedDate(nextDateKey);
+		void animateNavigatorTransition({ direction, unit });
+	}
+
+	function resolveNavigatorTransitionDistance(unit: ScheduleKeyboardShortcutMove['unit']): number {
+		if (!navigatorTrack) return 0;
+
+		const trackWidth = navigatorTrack.getBoundingClientRect().width;
+		if (trackWidth <= 0) return 0;
+
+		if (selectedView === 'week' || selectedView === 'month') {
+			return Math.max(48, trackWidth * NAVIGATOR_FULL_VIEWPORT_TRANSITION_RATIO);
+		}
+
+		const childCount = navigatorTrack.childElementCount;
+		if (childCount <= 0) return 0;
+
+		const cellWidth = trackWidth / childCount;
+		const multiplier = NAVIGATOR_TRANSITION_DISTANCE_MULTIPLIER[unit];
+		return Math.max(24, Math.min(cellWidth * multiplier, cellWidth * 2));
+	}
+
+	async function animateNavigatorTransition(
+		transition: ScheduleKeyboardShortcutMove | null | undefined
+	): Promise<void> {
+		if (!browser || !transition) return;
+
+		await tick();
+
+		if (!browser || !navigatorTrack || typeof navigatorTrack.animate !== 'function') return;
+
+		const transitionDistance = resolveNavigatorTransitionDistance(transition.unit);
+		if (transitionDistance <= 0) return;
+
+		const startOffset = transition.direction > 0 ? transitionDistance : -transitionDistance;
+
+		for (const animation of navigatorTrack.getAnimations()) {
+			animation.cancel();
+		}
+
+		navigatorTrack.animate(
+			[
+				{
+					transform: `translateX(${startOffset}px)`
+				},
+				{
+					transform: 'translateX(0)'
+				}
+			],
+			{
+				duration: NAVIGATOR_TRANSITION_DURATION_MS,
+				easing: NAVIGATOR_TRANSITION_EASING
+			}
 		);
 	}
 
-	async function focusNavigatorAnchor(dateKey: string): Promise<void> {
-		await tick();
-		navigatorDayStrip
-			?.querySelector<HTMLButtonElement>(`[data-schedule-navigator-anchor="${dateKey}"]`)
-			?.focus();
+	async function focusNavigatorAnchor(
+		dateKey: string,
+		options?: { transition?: ScheduleKeyboardShortcutMove | null }
+	): Promise<void> {
+		await animateNavigatorTransition(options?.transition);
+
+		const target = navigatorDayStrip?.querySelector<HTMLButtonElement>(
+			`[data-schedule-navigator-anchor="${dateKey}"]`
+		);
+		if (!target) return;
+
+		target.focus({ preventScroll: true });
 	}
 
 	function handleNavigatorDayKeydown(event: KeyboardEvent, dateKey: string): void {
+		const shortcutMove = resolveScheduleKeyboardShortcutMove(event.key, event.shiftKey);
 		const nextDateKey = resolveNextScheduleShortcutDate(dateKey, event.key, event.shiftKey);
 		if (!nextDateKey) return;
 
 		event.preventDefault();
 		setSelectedDate(nextDateKey);
-		void focusNavigatorAnchor(nextDateKey);
+		void focusNavigatorAnchor(nextDateKey, { transition: shortcutMove });
 	}
 
 	function handleNavigatorWeekKeydown(event: KeyboardEvent, dateKey: string): void {
+		const shortcutMove = resolveScheduleKeyboardShortcutMove(event.key, true);
 		const nextDateKey = resolveNextScheduleShortcutDate(dateKey, event.key, true);
 		if (!nextDateKey) return;
 
 		event.preventDefault();
 		setSelectedDate(nextDateKey);
-		void focusNavigatorAnchor(nextDateKey);
+		void focusNavigatorAnchor(nextDateKey, { transition: shortcutMove });
 	}
 
 	function handleNavigatorMonthKeydown(event: KeyboardEvent, dateKey: string): void {
+		const shortcutMove = resolveScheduleKeyboardShortcutMove(event.key, event.shiftKey);
 		const nextDateKey = resolveNextScheduleShortcutDate(dateKey, event.key, event.shiftKey);
 		if (!nextDateKey) return;
 
 		event.preventDefault();
 		setSelectedDate(nextDateKey);
-		void focusNavigatorAnchor(nextDateKey);
+		void focusNavigatorAnchor(nextDateKey, { transition: shortcutMove });
 	}
 
 	function resetFilters(): void {
@@ -595,12 +665,13 @@
 			return;
 		}
 
+		const shortcutMove = resolveScheduleKeyboardShortcutMove(event.key, event.shiftKey);
 		const nextDateKey = resolveNextScheduleShortcutDate(anchorDate, event.key, event.shiftKey);
 		if (!nextDateKey) return;
 
 		event.preventDefault();
 		setSelectedDate(nextDateKey);
-		void focusNavigatorAnchor(nextDateKey);
+		void focusNavigatorAnchor(nextDateKey, { transition: shortcutMove });
 	}
 
 	async function focusActiveScheduleNavigator(): Promise<void> {
@@ -966,7 +1037,10 @@
 										</HoverTooltip>
 
 										{#if selectedView === 'week'}
-											<div class="grid h-[3.375rem] min-w-0 flex-1 grid-cols-6">
+											<div
+												class="grid h-[3.375rem] min-w-0 flex-1 grid-cols-6"
+												bind:this={navigatorTrack}
+											>
 												{#each navigatorWeeks as week, index (week.anchorDate)}
 													<button
 														type="button"
@@ -977,7 +1051,7 @@
 																: 'border-r border-neutral-300'
 														} ${
 															week.startDate === selectedWeekRange.startDate
-																? 'bg-neutral-50 text-neutral-950'
+																? 'bg-primary-50 text-neutral-950'
 																: 'bg-white text-neutral-700 hover:bg-neutral-50 hover:text-neutral-950'
 														}`}
 														aria-current={week.startDate === selectedWeekRange.startDate
@@ -1006,7 +1080,7 @@
 															{week.monthLabel}
 														</span>
 														<span
-															class={`mt-1 h-0.5 w-10 ${
+															class={`mt-0.5 h-0.5 w-10 ${
 																week.startDate === selectedWeekRange.startDate
 																	? 'bg-primary-700'
 																	: 'bg-transparent group-hover:bg-neutral-300'
@@ -1016,7 +1090,10 @@
 												{/each}
 											</div>
 										{:else if selectedView === 'month'}
-											<div class="grid h-[3.375rem] min-w-0 flex-1 grid-cols-7">
+											<div
+												class="grid h-[3.375rem] min-w-0 flex-1 grid-cols-7"
+												bind:this={navigatorTrack}
+											>
 												{#each navigatorMonths as month, index (month.anchorDate)}
 													<button
 														type="button"
@@ -1027,7 +1104,7 @@
 																: 'border-r border-neutral-300'
 														} ${
 															month.startDate === selectedMonthRange.startDate
-																? 'bg-neutral-50 text-neutral-950'
+																? 'bg-primary-50 text-neutral-950'
 																: 'bg-white text-neutral-700 hover:bg-neutral-50 hover:text-neutral-950'
 														}`}
 														aria-current={month.startDate === selectedMonthRange.startDate
@@ -1056,7 +1133,7 @@
 															{month.monthLabel}
 														</span>
 														<span
-															class={`mt-1 h-0.5 w-10 ${
+															class={`mt-0.5 h-0.5 w-10 ${
 																month.startDate === selectedMonthRange.startDate
 																	? 'bg-primary-700'
 																	: 'bg-transparent group-hover:bg-neutral-300'
@@ -1066,7 +1143,10 @@
 												{/each}
 											</div>
 										{:else}
-											<div class="grid h-[3.375rem] min-w-0 flex-1 grid-cols-7">
+											<div
+												class="grid h-[3.375rem] min-w-0 flex-1 grid-cols-7"
+												bind:this={navigatorTrack}
+											>
 												{#each navigatorDays as day, index (day.dateKey)}
 													<button
 														type="button"
@@ -1077,7 +1157,7 @@
 																: 'border-r border-neutral-300'
 														} ${
 															day.dateKey === anchorDate
-																? 'bg-neutral-50 text-neutral-950'
+																? 'bg-primary-50 text-neutral-950'
 																: 'bg-white text-neutral-700 hover:bg-neutral-50 hover:text-neutral-950'
 														}`}
 														aria-current={day.dateKey === anchorDate ? 'date' : undefined}
@@ -1104,7 +1184,7 @@
 															{day.monthLabel}
 														</span>
 														<span
-															class={`mt-1 h-0.5 w-8 ${
+															class={`mt-0.5 h-0.5 w-8 ${
 																day.dateKey === anchorDate
 																	? 'bg-primary-700'
 																	: 'bg-transparent group-hover:bg-neutral-300'
