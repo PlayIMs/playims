@@ -12,6 +12,7 @@ Summary of tests:
 2. It verifies that a new recent selection is inserted when no duplicate exists.
 3. It verifies that an existing recent is touched instead of duplicated.
 4. It verifies that old recent rows are trimmed once the list exceeds the maximum size.
+5. It verifies that broken separator text is repaired before a recent selection is stored.
 */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -148,5 +149,32 @@ describe('search palette recent POST route', () => {
 
 		expect(response.status).toBe(200);
 		expect(mocks.centralDbOps.searchRecents.deleteByIds).toHaveBeenCalledWith(['recent-11']);
+	});
+
+	it('repairs broken separator text before storing a recent selection', async () => {
+		// old mojibake can live in client state for a while, so the server should normalize it before saving.
+		const response = await POST(
+			createEvent({
+				userId: 'user-4',
+				body: {
+					resultKey: 'teams:team-1',
+					category: 'teams',
+					title: 'Ballers to Wallers',
+					subtitle:
+						"Basketball \u00e2\u20ac\u00a2 Men's Competitive \u00e2\u20ac\u00a2 Sunday 3:00 PM",
+					href: '/dashboard/offerings/fall-2026/basketball/co-rec/division-a/ballers-to-wallers',
+					badge: 'Recent',
+					meta: 'Jan 19, 2026 \u00e2\u20ac\u201c May 8, 2026'
+				}
+			})
+		);
+
+		expect(response.status).toBe(200);
+		expect(mocks.centralDbOps.searchRecents.create).toHaveBeenCalledWith(
+			expect.objectContaining({
+				subtitle: "Basketball • Men's Competitive • Sunday 3:00 PM",
+				meta: 'Jan 19, 2026 – May 8, 2026'
+			})
+		);
 	});
 });

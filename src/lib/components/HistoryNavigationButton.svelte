@@ -21,6 +21,7 @@
 	type HistoryNavigationButtonProps = {
 		ariaLabel: string;
 		tooltip: string;
+		shortcutKeys?: string[];
 		disabled: boolean;
 		entries: PwaHistoryEntry[];
 		align?: 'left' | 'right';
@@ -32,6 +33,7 @@
 	let {
 		ariaLabel,
 		tooltip,
+		shortcutKeys = [],
 		disabled,
 		entries,
 		align = 'left',
@@ -309,7 +311,7 @@
 	bind:this={rootElement}
 	oncontextmenu={handleRootContextMenu}
 >
-	<HoverTooltip text={tooltipText}>
+	<HoverTooltip text={tooltipText} {shortcutKeys}>
 		<button
 			id={buttonId}
 			type="button"

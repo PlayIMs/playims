@@ -2,6 +2,7 @@ export const STANDALONE_DISPLAY_MODE_QUERY = '(display-mode: standalone)';
 export const SVELTEKIT_HISTORY_INDEX_KEY = 'sveltekit:history';
 export const PWA_RELOAD_IN_FLIGHT_KEY = 'playims:pwa-reload-in-flight';
 const MAX_STORED_PWA_HISTORY_ENTRIES = 100;
+const EDITABLE_SHORTCUT_TAGS = new Set(['input', 'textarea', 'select']);
 
 export type StandaloneDisplayModeProbe = {
 	matchMedia?: ((query: string) => { matches: boolean } | null | undefined) | null;
@@ -240,6 +241,76 @@ export function resolvePwaAddressNavigationTarget(
 				? `${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`
 				: null
 	};
+}
+
+type HistoryShortcutTargetProbe = EventTarget | null | {
+	tagName?: string | null;
+	isContentEditable?: boolean;
+	closest?: ((selector: string) => unknown) | null;
+};
+
+export function isEditableHistoryShortcutTarget(target: HistoryShortcutTargetProbe): boolean {
+	if (!target || typeof target !== 'object') {
+		return false;
+	}
+
+	const maybeElement = target as {
+		tagName?: string | null;
+		isContentEditable?: boolean;
+		closest?: ((selector: string) => unknown) | null;
+	};
+	const tagName = maybeElement.tagName?.trim().toLowerCase() ?? '';
+	if (EDITABLE_SHORTCUT_TAGS.has(tagName)) {
+		return true;
+	}
+
+	if (maybeElement.isContentEditable === true) {
+		return true;
+	}
+
+	try {
+		return Boolean(
+			maybeElement.closest?.('[contenteditable=""], [contenteditable="true"], [contenteditable="plaintext-only"]')
+		);
+	} catch {
+		return false;
+	}
+}
+
+export type PwaHistoryShortcutDirection = 'back' | 'forward';
+
+export function resolvePwaHistoryShortcutDirection(options: {
+	key: string;
+	ctrlKey: boolean;
+	shiftKey: boolean;
+	altKey?: boolean;
+	metaKey?: boolean;
+	repeat?: boolean;
+	defaultPrevented?: boolean;
+	target?: HistoryShortcutTargetProbe;
+}): PwaHistoryShortcutDirection | null {
+	if (
+		options.defaultPrevented ||
+		options.repeat ||
+		!options.ctrlKey ||
+		!options.shiftKey ||
+		options.altKey ||
+		options.metaKey ||
+		isEditableHistoryShortcutTarget(options.target ?? null)
+	) {
+		return null;
+	}
+
+	const normalizedKey = options.key.trim().toLowerCase();
+	if (normalizedKey === 'arrowleft' || normalizedKey === 'left') {
+		return 'back';
+	}
+
+	if (normalizedKey === 'arrowright' || normalizedKey === 'right') {
+		return 'forward';
+	}
+
+	return null;
 }
 
 type PwaReloadStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;

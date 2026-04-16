@@ -1,4 +1,5 @@
 import type { DatabaseOperations } from '$lib/database';
+import { repairLikelyMojibake } from '$lib/search/text-repair.js';
 import type { SearchRecentPayload } from '$lib/search/types.js';
 
 const MAX_RECENT_COUNT = 10;
@@ -11,32 +12,40 @@ export async function storeSearchRecentSelection(
 		payload: SearchRecentPayload;
 	}
 ): Promise<void> {
+	const cleanedPayload = {
+		...input.payload,
+		title: repairLikelyMojibake(input.payload.title) ?? input.payload.title,
+		subtitle: repairLikelyMojibake(input.payload.subtitle),
+		badge: repairLikelyMojibake(input.payload.badge),
+		meta: repairLikelyMojibake(input.payload.meta)
+	};
+
 	const existing = await dbOps.searchRecents.getByUserClientAndResultKey(
 		input.userId,
 		input.clientId,
-		input.payload.resultKey
+		cleanedPayload.resultKey
 	);
 
 	if (existing?.id) {
 		await dbOps.searchRecents.touch(existing.id, {
-			category: input.payload.category,
-			title: input.payload.title,
-			subtitle: input.payload.subtitle ?? null,
-			href: input.payload.href,
-			badge: input.payload.badge ?? null,
-			meta: input.payload.meta ?? null
+			category: cleanedPayload.category,
+			title: cleanedPayload.title,
+			subtitle: cleanedPayload.subtitle ?? null,
+			href: cleanedPayload.href,
+			badge: cleanedPayload.badge ?? null,
+			meta: cleanedPayload.meta ?? null
 		});
 	} else {
 		await dbOps.searchRecents.create({
 			userId: input.userId,
 			clientId: input.clientId,
-			resultKey: input.payload.resultKey,
-			category: input.payload.category,
-			title: input.payload.title,
-			subtitle: input.payload.subtitle ?? null,
-			href: input.payload.href,
-			badge: input.payload.badge ?? null,
-			meta: input.payload.meta ?? null
+			resultKey: cleanedPayload.resultKey,
+			category: cleanedPayload.category,
+			title: cleanedPayload.title,
+			subtitle: cleanedPayload.subtitle ?? null,
+			href: cleanedPayload.href,
+			badge: cleanedPayload.badge ?? null,
+			meta: cleanedPayload.meta ?? null
 		});
 	}
 

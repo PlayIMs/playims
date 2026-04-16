@@ -167,6 +167,7 @@
 		<HistoryNavigationButton
 			ariaLabel="Go back"
 			tooltip="Go back"
+			shortcutKeys={['Ctrl', 'Shift', 'ArrowLeft']}
 			disabled={!canGoBack}
 			entries={backHistoryEntries}
 			align="left"
@@ -177,6 +178,7 @@
 		<HistoryNavigationButton
 			ariaLabel="Go forward"
 			tooltip="Go forward"
+			shortcutKeys={['Ctrl', 'Shift', 'ArrowRight']}
 			disabled={!canGoForward}
 			entries={forwardHistoryEntries}
 			align="left"

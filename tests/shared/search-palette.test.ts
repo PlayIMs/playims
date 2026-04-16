@@ -13,9 +13,11 @@ Summary of tests:
 3. It verifies that long multi-word queries reject results that match only one significant word.
 4. It verifies that grouped results enforce per-category and total caps.
 5. It verifies that member, facility-area, intramural-team, and club-team href builders create the expected page state.
+6. It verifies that likely mojibake separators are repaired before display.
 */
 
 import { describe, expect, it } from 'vitest';
+import { repairLikelyMojibake } from '../../src/lib/search/text-repair';
 import {
 	buildFacilityAreaSearchHref,
 	buildClubTeamSearchHref,
@@ -150,10 +152,10 @@ describe('search palette helpers', () => {
 		);
 		expect(
 			buildFacilityAreaSearchHref({
-				facilityId: 'facility-1',
-				facilityAreaId: 'area-1'
+				facilitySlug: 'turner-center',
+				facilityAreaSlug: 'court-1'
 			})
-		).toBe('/dashboard/facilities?facilityId=facility-1&areaId=area-1');
+		).toBe('/dashboard/facilities?facility=turner-center&area=court-1');
 		expect(
 			buildTeamSearchHref({
 				seasonSlug: 'fall-2026',
@@ -171,5 +173,15 @@ describe('search palette helpers', () => {
 				teamSlug: 'd1-team'
 			})
 		).toBe('/dashboard/clubs/2026-2027/ice-hockey/mens-league/d1-team');
+	});
+
+	it('repairs likely mojibake separators before display', () => {
+		// repairing these common sequences protects both fresh responses and older saved recents.
+		expect(repairLikelyMojibake("Basketball \u00e2\u20ac\u00a2 Men's Competitive")).toBe(
+			"Basketball • Men's Competitive"
+		);
+		expect(repairLikelyMojibake('Jan 19, 2026 \u00e2\u20ac\u201c May 8, 2026')).toBe(
+			'Jan 19, 2026 – May 8, 2026'
+		);
 	});
 });

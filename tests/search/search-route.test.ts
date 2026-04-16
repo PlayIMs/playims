@@ -17,6 +17,7 @@ Summary of tests:
 7. It verifies that team-name results deep-link to the nested team page.
 8. It verifies that team results outrank divisions for equivalent team-name matches.
 9. It verifies that empty queries return at most 8 recent items without shortcuts.
+10. It verifies that recent items with broken separator text are repaired before the response is returned.
 */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -685,5 +686,32 @@ describe('search palette GET route', () => {
 		expect(recentGroup?.items).toHaveLength(8);
 		expect(recentGroup?.items[0]?.title).toBe('Recent 1');
 		expect(recentGroup?.items[7]?.title).toBe('Recent 8');
+	});
+
+	it('repairs broken separator text in recent results before returning them', async () => {
+		// this lets older saved recents render cleanly even if they were stored before the separator fix.
+		mocks.centralDbOps.searchRecents.listByUserAndClient.mockResolvedValue([
+			{
+				id: 'recent-1',
+				resultKey: 'teams:team-1',
+				category: 'recent',
+				title: 'Ballers to Wallers',
+				subtitle:
+					"Basketball \u00e2\u20ac\u00a2 Men's Competitive \u00e2\u20ac\u00a2 Sunday 3:00 PM",
+				href: '/dashboard/offerings/fall-2026/basketball/co-rec/division-a/ballers-to-wallers',
+				badge: 'Recent',
+				meta: 'Jan 19, 2026 \u00e2\u20ac\u201c May 8, 2026'
+			}
+		]);
+
+		const response = await GET(createEvent({ userId: 'user-4', role: 'admin' }));
+		const payload = await response.json();
+		const recentGroup = payload.groups.find(
+			(group: { category: string }) => group.category === 'recent'
+		);
+
+		expect(response.status).toBe(200);
+		expect(recentGroup?.items[0]?.subtitle).toBe("Basketball • Men's Competitive • Sunday 3:00 PM");
+		expect(recentGroup?.items[0]?.meta).toBe('Jan 19, 2026 – May 8, 2026');
 	});
 });

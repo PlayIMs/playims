@@ -19,17 +19,21 @@ Summary of tests:
 8. It verifies that the URL bar displays a browser-like host and path string.
 9. It verifies that URL bar submissions resolve full URLs, app paths, and simple hostnames.
 10. It verifies that same-origin addresses produce SvelteKit goto targets while external ones stay full URLs.
-11. It verifies that the shared reload flag survives a refresh and clears cleanly afterward.
+11. It verifies that the history keyboard shortcut only triggers for the intended key combination.
+12. It verifies that editable fields are excluded so the shortcut does not hijack text selection.
+13. It verifies that the shared reload flag survives a refresh and clears cleanly afterward.
 */
 
 import { describe, expect, it } from 'vitest';
 import {
 	buildPwaAddressValue,
 	clearPwaReloadInFlight,
+	isEditableHistoryShortcutTarget,
 	markPwaReloadInFlight,
 	selectPwaHistoryMenuEntries,
 	readSvelteKitHistoryIndex,
 	readPwaReloadInFlight,
+	resolvePwaHistoryShortcutDirection,
 	resolvePwaAddressNavigationTarget,
 	resolvePwaAddressInput,
 	syncPwaHistoryEntries,
@@ -274,10 +278,83 @@ describe('pwa navigation helper', () => {
 			href: 'http://localhost:5180/dashboard/offerings',
 			route: '/dashboard/offerings'
 		});
-		expect(resolvePwaAddressNavigationTarget('https://example.com/docs', currentUrl)).toEqual({
+	expect(resolvePwaAddressNavigationTarget('https://example.com/docs', currentUrl)).toEqual({
 			href: 'https://example.com/docs',
 			route: null
 		});
+	});
+
+	it('resolves the ctrl-shift-arrow shortcut into back and forward directions', () => {
+		// this keeps the global listener tiny and lets us lock down the allowed key combination in one place.
+		expect(
+			resolvePwaHistoryShortcutDirection({
+				key: 'ArrowLeft',
+				ctrlKey: true,
+				shiftKey: true,
+				target: null
+			})
+		).toBe('back');
+		expect(
+			resolvePwaHistoryShortcutDirection({
+				key: 'ArrowRight',
+				ctrlKey: true,
+				shiftKey: true,
+				target: null
+			})
+		).toBe('forward');
+
+		// nearby combinations should stay untouched so we do not steal unrelated shortcuts or browser behavior.
+		expect(
+			resolvePwaHistoryShortcutDirection({
+				key: 'ArrowLeft',
+				ctrlKey: true,
+				shiftKey: false,
+				target: null
+			})
+		).toBeNull();
+		expect(
+			resolvePwaHistoryShortcutDirection({
+				key: 'ArrowLeft',
+				ctrlKey: true,
+				shiftKey: true,
+				altKey: true,
+				target: null
+			})
+		).toBeNull();
+		expect(
+			resolvePwaHistoryShortcutDirection({
+				key: 'ArrowLeft',
+				ctrlKey: true,
+				shiftKey: true,
+				repeat: true,
+				target: null
+			})
+		).toBeNull();
+	});
+
+	it('treats form controls and contenteditable regions as shortcut-safe no-go zones', () => {
+		// users still need ctrl-shift-arrow for text selection and editing, especially inside custom editors.
+		expect(isEditableHistoryShortcutTarget({ tagName: 'input' })).toBe(true);
+		expect(isEditableHistoryShortcutTarget({ tagName: 'textarea' })).toBe(true);
+		expect(isEditableHistoryShortcutTarget({ tagName: 'select' })).toBe(true);
+		expect(isEditableHistoryShortcutTarget({ isContentEditable: true })).toBe(true);
+		expect(
+			isEditableHistoryShortcutTarget({
+				tagName: 'span',
+				closest: (selector: string) =>
+					selector.includes('contenteditable') ? { tagName: 'div' } : null
+			})
+		).toBe(true);
+		expect(isEditableHistoryShortcutTarget({ tagName: 'button' })).toBe(false);
+
+		expect(
+			resolvePwaHistoryShortcutDirection({
+				key: 'ArrowLeft',
+				ctrlKey: true,
+				shiftKey: true,
+				target: { tagName: 'input' }
+			})
+		).toBeNull();
 	});
 
 	it('persists a reload-in-flight flag across refresh boundaries until the new page finishes loading', () => {

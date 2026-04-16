@@ -17,6 +17,7 @@
 		markPwaReloadInFlight,
 		parseStoredPwaHistoryEntries,
 		readPwaReloadInFlight,
+		resolvePwaHistoryShortcutDirection,
 		readSvelteKitHistoryIndex,
 		selectPwaHistoryMenuEntries,
 		serializePwaHistoryEntries,
@@ -330,6 +331,36 @@
 		await goto('/');
 	};
 
+	const handleHistoryKeyboardShortcut = (event: KeyboardEvent) => {
+		if (!browser) {
+			return;
+		}
+
+		const direction = resolvePwaHistoryShortcutDirection({
+			key: event.key,
+			ctrlKey: event.ctrlKey,
+			shiftKey: event.shiftKey,
+			altKey: event.altKey,
+			metaKey: event.metaKey,
+			repeat: event.repeat,
+			defaultPrevented: event.defaultPrevented,
+			target: event.target
+		});
+
+		if (!direction) {
+			return;
+		}
+
+		event.preventDefault();
+		event.stopPropagation();
+		if (direction === 'back') {
+			window.history.back();
+			return;
+		}
+
+		window.history.forward();
+	};
+
 	/** runs client-only setup after the component mounts. */
 	const handleMount = () => {
 		// critical: reveal is handled inside theme.init/markThemeReady only
@@ -377,6 +408,7 @@
 		}
 
 		window.addEventListener('pageshow', handleStandaloneModeChange);
+		window.addEventListener('keydown', handleHistoryKeyboardShortcut, true);
 
 		const clearReloadInFlight = () => {
 			try {
@@ -400,6 +432,7 @@
 				legacyStandaloneMediaQuery.removeListener(handleStandaloneModeChange);
 			}
 			window.removeEventListener('pageshow', handleStandaloneModeChange);
+			window.removeEventListener('keydown', handleHistoryKeyboardShortcut, true);
 			window.removeEventListener('load', clearReloadInFlight);
 			observer.disconnect();
 		};

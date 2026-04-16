@@ -16,6 +16,7 @@ import {
 	groupSearchResults,
 	scoreSearchCandidate
 } from '$lib/search/utils.js';
+import { repairLikelyMojibake } from '$lib/search/text-repair.js';
 import type { SearchCategory, SearchResponse, SearchResult } from '$lib/search/types.js';
 
 type SearchEvent = Pick<RequestEvent, 'locals' | 'platform' | 'url'>;
@@ -185,6 +186,16 @@ function matchesScopedSeasonRecord(
 
 function searchablePageResults(event: SearchEvent): SearchResult[] {
 	return isAuthenticatedSearch(event) ? buildDashboardPageResults(event) : [...PUBLIC_PAGE_RESULTS];
+}
+
+function sanitizeSearchResult(result: SearchResult): SearchResult {
+	return {
+		...result,
+		title: repairLikelyMojibake(result.title) ?? result.title,
+		subtitle: repairLikelyMojibake(result.subtitle),
+		badge: repairLikelyMojibake(result.badge ?? null),
+		meta: repairLikelyMojibake(result.meta)
+	};
 }
 
 export async function getSearchResponse(
@@ -584,7 +595,10 @@ export async function getSearchResponse(
 	return {
 		success: true,
 		query: trimmedQuery,
-		groups: grouped.groups,
+		groups: grouped.groups.map((group) => ({
+			...group,
+			items: group.items.map(sanitizeSearchResult)
+		})),
 		totalCount: grouped.totalCount
 	};
 }
@@ -603,16 +617,18 @@ export async function getSearchEmptyState(event: SearchEvent): Promise<SearchRes
 			groups.push({
 				category: 'recent',
 				label: 'Recent',
-				items: recents.slice(0, 8).map((entry) => ({
-					id: entry.id,
-					resultKey: entry.resultKey,
-					category: 'recent',
-					title: entry.title,
-					subtitle: entry.subtitle ?? null,
-					href: entry.href,
-					badge: entry.badge ?? 'Recent',
-					meta: entry.meta ?? null
-				}))
+				items: recents.slice(0, 8).map((entry) =>
+					sanitizeSearchResult({
+						id: entry.id,
+						resultKey: entry.resultKey,
+						category: 'recent',
+						title: entry.title,
+						subtitle: entry.subtitle ?? null,
+						href: entry.href,
+						badge: entry.badge ?? 'Recent',
+						meta: entry.meta ?? null
+					})
+				)
 			});
 		}
 	}
