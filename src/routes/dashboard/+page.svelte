@@ -35,6 +35,7 @@
 	let currentSeason = $derived(data.currentSeason ?? null);
 	let registrationDeadlines = $derived(data.registrationDeadlines ?? []);
 	let liveGames = $derived(todaysEvents.filter((g) => g.status === 'in_progress'));
+	const DASHBOARD_DATE_SEPARATOR = '\u2013';
 
 	let scheduleFilter = $state<'all' | 'in_progress' | 'scheduled' | 'completed'>('all');
 	let filteredEvents = $derived(
@@ -383,7 +384,7 @@
 								{#if currentSeason.startLabel}
 									<span>
 										{currentSeason.startLabel}{currentSeason.endLabel
-											? ` â€“ ${currentSeason.endLabel}`
+											? ` ${DASHBOARD_DATE_SEPARATOR} ${currentSeason.endLabel}`
 											: ''}
 									</span>
 								{/if}

@@ -573,7 +573,7 @@ describe('search palette GET route', () => {
 		expect(teamGroup?.items[0]?.href).toBe(
 			'/dashboard/offerings/fall-2026/soccer/co-rec/division-a/soccer-stars'
 		);
-		expect(teamGroup?.items[0]?.subtitle).toBe('Soccer â€¢ Co-Rec â€¢ Division A');
+		expect(teamGroup?.items[0]?.subtitle).toBe('Soccer • Co-Rec • Division A');
 	});
 
 	it('prioritizes team results over division results for exact team-name matches', async () => {

@@ -22,6 +22,7 @@ type SearchEvent = Pick<RequestEvent, 'locals' | 'platform' | 'url'>;
 type SearchSeasonRecord = Pick<Season, 'id' | 'name' | 'slug' | 'isCurrent' | 'isActive'>;
 
 const SEARCH_CATEGORY_LIMIT = 40;
+const SEARCH_RESULT_SEPARATOR = '\u2022';
 
 const PUBLIC_PAGE_RESULTS = [
 	{
@@ -284,12 +285,16 @@ export async function getSearchResponse(
 		);
 		const clubLeaguesById = new Map(
 			clubLeagues
-				.filter((clubLeague): clubLeague is (typeof clubLeagues)[number] & { id: string } => Boolean(clubLeague.id))
+				.filter((clubLeague): clubLeague is (typeof clubLeagues)[number] & { id: string } =>
+					Boolean(clubLeague.id)
+				)
 				.map((clubLeague) => [clubLeague.id, clubLeague])
 		);
 		const clubSeasonsById = new Map(
 			clubSeasons
-				.filter((clubSeason): clubSeason is (typeof clubSeasons)[number] & { id: string } => Boolean(clubSeason.id))
+				.filter((clubSeason): clubSeason is (typeof clubSeasons)[number] & { id: string } =>
+					Boolean(clubSeason.id)
+				)
 				.map((clubSeason) => [clubSeason.id, clubSeason])
 		);
 
@@ -423,7 +428,7 @@ export async function getSearchResponse(
 				subtitle:
 					[team.offeringName?.trim(), team.leagueName?.trim(), team.divisionName?.trim()]
 						.filter(Boolean)
-						.join(' â€¢ ') || null,
+						.join(` ${SEARCH_RESULT_SEPARATOR} `) || null,
 				meta:
 					[team.offeringName?.trim(), team.seasonName?.trim()].filter(Boolean).join(' ') || null,
 				href: buildTeamSearchHref({
@@ -443,7 +448,8 @@ export async function getSearchResponse(
 		for (const club of clubs.filter(
 			(club) =>
 				isActiveFlag(club.isActive) &&
-				(!scopedClubSeason || normalizeRawSearchKey(club.clubSeasonId) === normalizeRawSearchKey(scopedClubSeason.id))
+				(!scopedClubSeason ||
+					normalizeRawSearchKey(club.clubSeasonId) === normalizeRawSearchKey(scopedClubSeason.id))
 		)) {
 			const clubSeason = clubSeasonsById.get(club.clubSeasonId ?? '');
 			const seasonSlug = clubSeason?.slug?.trim();
@@ -462,7 +468,9 @@ export async function getSearchResponse(
 			if (score > 0) scored.push({ ...result, score });
 		}
 
-		for (const clubLeague of clubLeagues.filter((clubLeague) => isActiveFlag(clubLeague.isActive))) {
+		for (const clubLeague of clubLeagues.filter((clubLeague) =>
+			isActiveFlag(clubLeague.isActive)
+		)) {
 			const club = clubsById.get(clubLeague.clubId ?? '');
 			const clubSeason = clubSeasonsById.get(clubLeague.clubSeasonId ?? '');
 			const seasonSlug = clubSeason?.slug?.trim();
@@ -471,7 +479,8 @@ export async function getSearchResponse(
 			if (!clubLeague.id || !seasonSlug || !clubSlug || !leagueSlug) continue;
 			if (
 				scopedClubSeason &&
-				normalizeRawSearchKey(clubLeague.clubSeasonId) !== normalizeRawSearchKey(scopedClubSeason.id)
+				normalizeRawSearchKey(clubLeague.clubSeasonId) !==
+					normalizeRawSearchKey(scopedClubSeason.id)
 			) {
 				continue;
 			}
@@ -508,7 +517,8 @@ export async function getSearchResponse(
 				resultKey: `clubTeams:${clubTeam.id}`,
 				category: 'teams',
 				title: clubTeam.name?.trim() || 'Team',
-				subtitle: [club?.name?.trim(), clubLeague?.name?.trim()].filter(Boolean).join(' - ') || null,
+				subtitle:
+					[club?.name?.trim(), clubLeague?.name?.trim()].filter(Boolean).join(' - ') || null,
 				meta: clubSeason?.name?.trim() || null,
 				href: buildClubTeamSearchHref({
 					seasonSlug,
@@ -529,26 +539,37 @@ export async function getSearchResponse(
 				category: 'facilities',
 				title: facility.name?.trim() || 'Facility',
 				subtitle: facility.slug?.trim() || null,
-				href: `/dashboard/facilities?facilityId=${encodeURIComponent(facility.id)}`
+				href: facility.slug?.trim()
+					? `/dashboard/facilities?facility=${encodeURIComponent(facility.slug.trim())}`
+					: '/dashboard/facilities'
 			};
 			const score = scoreResult(trimmedQuery, result);
 			if (score > 0) scored.push({ ...result, score });
 		}
 
+		const facilitySlugById = new Map(
+			facilities.map((facility) => [facility.id, facility.slug?.trim() || ''])
+		);
+
 		for (const area of facilityAreas.filter((facilityArea) =>
 			isActiveFlag(facilityArea.isActive)
 		)) {
 			if (!area.id || !area.facilityId) continue;
+			const facilitySlug = facilitySlugById.get(area.facilityId) ?? '';
+			const areaSlug = area.slug?.trim() || '';
 			const result: SearchResult = {
 				id: area.id,
 				resultKey: `facilityAreas:${area.id}`,
 				category: 'facilityAreas',
 				title: area.name?.trim() || 'Facility Area',
 				subtitle: area.facilityName?.trim() || null,
-				href: buildFacilityAreaSearchHref({
-					facilityId: area.facilityId,
-					facilityAreaId: area.id
-				})
+				href:
+					facilitySlug && areaSlug
+						? buildFacilityAreaSearchHref({
+								facilitySlug,
+								facilityAreaSlug: areaSlug
+							})
+						: '/dashboard/facilities'
 			};
 			const score = scoreResult(trimmedQuery, result);
 			if (score > 0) scored.push({ ...result, score });
