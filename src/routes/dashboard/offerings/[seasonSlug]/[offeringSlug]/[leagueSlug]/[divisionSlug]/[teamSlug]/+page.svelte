@@ -216,6 +216,7 @@
 				href: currentTeam,
 				currentValue: currentTeam,
 				menuAriaLabel: 'Switch team',
+				searchEnabled: false,
 				options: (data.teamOptions ?? []).map((option: TeamOption) => ({
 					value: option.href,
 					label: option.label
