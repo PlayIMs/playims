@@ -109,22 +109,12 @@
 	let lastHydratedServerDataSignature = '';
 
 	const canViewHistory = $derived.by(() => permissions.VIEW_COMMUNICATION_HISTORY === true);
-	const canPreviewAudience = $derived.by(
-		() => permissions.PREVIEW_COMMUNICATION_AUDIENCE === true
-	);
-	const canCreateDraft = $derived.by(
-		() => permissions.CREATE_COMMUNICATION_DRAFT === true
-	);
+	const canPreviewAudience = $derived.by(() => permissions.PREVIEW_COMMUNICATION_AUDIENCE === true);
+	const canCreateDraft = $derived.by(() => permissions.CREATE_COMMUNICATION_DRAFT === true);
 	const canEditDraft = $derived.by(() => permissions.EDIT_COMMUNICATION_DRAFT === true);
-	const canSendCommunication = $derived.by(
-		() => permissions.SEND_COMMUNICATION === true
-	);
-	const canDuplicateCommunication = $derived.by(
-		() => permissions.DUPLICATE_COMMUNICATION === true
-	);
-	const canDeleteDraft = $derived.by(
-		() => permissions.DELETE_COMMUNICATION_DRAFT === true
-	);
+	const canSendCommunication = $derived.by(() => permissions.SEND_COMMUNICATION === true);
+	const canDuplicateCommunication = $derived.by(() => permissions.DUPLICATE_COMMUNICATION === true);
+	const canDeleteDraft = $derived.by(() => permissions.DELETE_COMMUNICATION_DRAFT === true);
 	const canEditCurrentDraft = $derived.by(() =>
 		selectedMessage ? selectedMessage.status === 'draft' && canEditDraft : canCreateDraft
 	);
@@ -469,9 +459,7 @@
 		};
 	}
 
-	async function resolveManualRecipientQueries(
-		queries: string[]
-	): Promise<{
+	async function resolveManualRecipientQueries(queries: string[]): Promise<{
 		status: 'resolved' | 'ambiguous';
 		query: string;
 		manualRecipients: CommunicationManualRecipientDraft[];
@@ -531,9 +519,7 @@
 			recipientFilterOptions = payload.data.filterOptions as CommunicationFilterOptions;
 			recipientFilterOptionsLoaded = true;
 		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : 'Unable to load recipient filters.'
-			);
+			toast.error(error instanceof Error ? error.message : 'Unable to load recipient filters.');
 		} finally {
 			recipientFilterOptionsLoading = false;
 		}
@@ -552,7 +538,9 @@
 		queries: string[],
 		fallbackInput = ''
 	): Promise<void> {
-		const normalizedQueries = queries.map((query) => query.trim()).filter((query) => query.length > 0);
+		const normalizedQueries = queries
+			.map((query) => query.trim())
+			.filter((query) => query.length > 0);
 		if (normalizedQueries.length === 0) {
 			return;
 		}
@@ -621,7 +609,9 @@
 	}
 
 	async function removeManualRecipient(index: number): Promise<void> {
-		const nextManualRecipients = manualRecipients.filter((_, currentIndex) => currentIndex !== index);
+		const nextManualRecipients = manualRecipients.filter(
+			(_, currentIndex) => currentIndex !== index
+		);
 		manualRecipientLoading = true;
 		try {
 			await syncManualRecipients(nextManualRecipients);
@@ -639,13 +629,13 @@
 	): Promise<void> {
 		manualRecipientLoading = true;
 		try {
-			const nextManualRecipients = mergeCommunicationManualRecipients(manualRecipients, [recipient]);
+			const nextManualRecipients = mergeCommunicationManualRecipients(manualRecipients, [
+				recipient
+			]);
 			await syncManualRecipients(nextManualRecipients);
 			manualRecipientInput = '';
 		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : 'Unable to add the selected recipient.'
-			);
+			toast.error(error instanceof Error ? error.message : 'Unable to add the selected recipient.');
 		} finally {
 			manualRecipientLoading = false;
 		}
@@ -755,7 +745,9 @@
 			if (!response.ok || payload.success === false) {
 				throw new Error(payload.error ?? 'Unable to duplicate this message.');
 			}
-			await navigateWithoutDraftGuard(`/dashboard/communications?messageId=${payload.data.messageId}`);
+			await navigateWithoutDraftGuard(
+				`/dashboard/communications?messageId=${payload.data.messageId}`
+			);
 			toast.success('Message duplicated into a new draft.');
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : 'Unable to duplicate this message.');
@@ -930,110 +922,106 @@
 									for="communication-manual-recipient-input">Manual Recipients</label
 								>
 								<div class="relative" bind:this={manualRecipientFieldElement}>
-									<div
-										class="min-h-10 w-full border-2 border-secondary-500 bg-white px-4 py-2"
-									>
+									<div class="min-h-10 w-full border-2 border-secondary-500 bg-white px-4 py-2">
 										<div class="flex flex-wrap items-center gap-2">
-										{#each manualRecipients as recipient, index (recipient.userId ?? recipient.email)}
-											<HoverTooltip
-												text={`${recipient.fullName} (${recipient.email})`}
-												case="preserve"
-											>
-												<span class="inline-flex items-center gap-2 border border-secondary-500 bg-secondary-50 px-2 py-1 text-xs font-semibold text-secondary-950">
-													<span class="max-w-[11rem] truncate">{recipient.fullName}</span>
-													{#if canEditCurrentDraft}
-														<button
-															type="button"
-															class="cursor-pointer text-secondary-900"
-															aria-label={`Remove ${recipient.fullName}`}
-															onclick={() => void removeManualRecipient(index)}
-															disabled={manualRecipientLoading}
-														>
-															×
-														</button>
-													{/if}
-												</span>
-											</HoverTooltip>
-										{/each}
-										<input
-											id="communication-manual-recipient-input"
-											class="min-w-[12rem] flex-1 border-0 bg-transparent p-0 text-sm text-neutral-950 outline-none placeholder:text-neutral-500"
-											type="text"
-											value={manualRecipientInput}
-											role="combobox"
-											aria-autocomplete="list"
-											aria-expanded={manualRecipientSuggestions.length > 0}
-											aria-controls="communication-manual-recipient-suggestions"
-											aria-activedescendant={
-												manualRecipientSuggestions.length > 0
+											{#each manualRecipients as recipient, index (recipient.userId ?? recipient.email)}
+												<HoverTooltip
+													text={`${recipient.fullName} (${recipient.email})`}
+													case="preserve"
+												>
+													<span
+														class="inline-flex items-center gap-2 border border-secondary-500 bg-secondary-50 px-2 py-1 text-xs font-semibold text-secondary-950"
+													>
+														<span class="max-w-[11rem] truncate">{recipient.fullName}</span>
+														{#if canEditCurrentDraft}
+															<button
+																type="button"
+																class="cursor-pointer text-secondary-900"
+																aria-label={`Remove ${recipient.fullName}`}
+																onclick={() => void removeManualRecipient(index)}
+																disabled={manualRecipientLoading}
+															>
+																×
+															</button>
+														{/if}
+													</span>
+												</HoverTooltip>
+											{/each}
+											<input
+												id="communication-manual-recipient-input"
+												class="min-w-[12rem] flex-1 border-0 bg-transparent p-0 text-sm text-neutral-950 outline-none placeholder:text-neutral-500"
+												type="text"
+												value={manualRecipientInput}
+												role="combobox"
+												aria-autocomplete="list"
+												aria-expanded={manualRecipientSuggestions.length > 0}
+												aria-controls="communication-manual-recipient-suggestions"
+												aria-activedescendant={manualRecipientSuggestions.length > 0
 													? `communication-manual-recipient-suggestion-${manualRecipientActiveSuggestionIndex}`
-													: undefined
-											}
-											placeholder="Type a member name or email"
-											disabled={!canPreviewAudience || !canEditCurrentDraft || manualRecipientLoading}
-											oninput={(event) =>
-												void handleManualRecipientInputChange(event.currentTarget.value)}
-											onkeydown={(event) => {
-												if (manualRecipientSuggestions.length > 0) {
-													if (event.key === 'ArrowDown') {
-														event.preventDefault();
-														moveManualRecipientSuggestion(1);
-														return;
-													}
-													if (event.key === 'ArrowUp') {
-														event.preventDefault();
-														moveManualRecipientSuggestion(-1);
-														return;
-													}
-													if (event.key === 'Enter') {
-														event.preventDefault();
-														const activeSuggestion =
-															manualRecipientSuggestions[
-																manualRecipientActiveSuggestionIndex
-															] ?? manualRecipientSuggestions[0];
-														if (activeSuggestion) {
-															void applyManualRecipientSuggestion(activeSuggestion);
+													: undefined}
+												placeholder="Type a member name or email"
+												disabled={!canPreviewAudience ||
+													!canEditCurrentDraft ||
+													manualRecipientLoading}
+												oninput={(event) =>
+													void handleManualRecipientInputChange(event.currentTarget.value)}
+												onkeydown={(event) => {
+													if (manualRecipientSuggestions.length > 0) {
+														if (event.key === 'ArrowDown') {
+															event.preventDefault();
+															moveManualRecipientSuggestion(1);
+															return;
 														}
-														return;
+														if (event.key === 'ArrowUp') {
+															event.preventDefault();
+															moveManualRecipientSuggestion(-1);
+															return;
+														}
+														if (event.key === 'Enter') {
+															event.preventDefault();
+															const activeSuggestion =
+																manualRecipientSuggestions[manualRecipientActiveSuggestionIndex] ??
+																manualRecipientSuggestions[0];
+															if (activeSuggestion) {
+																void applyManualRecipientSuggestion(activeSuggestion);
+															}
+															return;
+														}
+														if (event.key === 'Escape') {
+															event.preventDefault();
+															clearManualRecipientSuggestions();
+															return;
+														}
 													}
-													if (event.key === 'Escape') {
-														event.preventDefault();
-														clearManualRecipientSuggestions();
-														return;
-													}
-												}
 
-												if (
-													event.key === 'Enter' ||
-													(event.key === ',' && !event.shiftKey)
-												) {
-													event.preventDefault();
+													if (event.key === 'Enter' || (event.key === ',' && !event.shiftKey)) {
+														event.preventDefault();
+														const pendingValue = manualRecipientInput.trim();
+														manualRecipientInput = '';
+														void commitManualRecipientQueries([pendingValue], pendingValue);
+														return;
+													}
+
+													if (
+														event.key === 'Backspace' &&
+														manualRecipientInput.trim().length === 0 &&
+														manualRecipients.length > 0
+													) {
+														event.preventDefault();
+														void removeManualRecipient(manualRecipients.length - 1);
+													}
+												}}
+												onblur={() => {
+													if (manualRecipientSuggestions.length > 0) {
+														return;
+													}
+
 													const pendingValue = manualRecipientInput.trim();
+													if (!pendingValue) return;
 													manualRecipientInput = '';
 													void commitManualRecipientQueries([pendingValue], pendingValue);
-													return;
-												}
-
-												if (
-													event.key === 'Backspace' &&
-													manualRecipientInput.trim().length === 0 &&
-													manualRecipients.length > 0
-												) {
-													event.preventDefault();
-													void removeManualRecipient(manualRecipients.length - 1);
-												}
-											}}
-											onblur={() => {
-												if (manualRecipientSuggestions.length > 0) {
-													return;
-												}
-
-												const pendingValue = manualRecipientInput.trim();
-												if (!pendingValue) return;
-												manualRecipientInput = '';
-												void commitManualRecipientQueries([pendingValue], pendingValue);
-											}}
-										/>
+												}}
+											/>
 										</div>
 									</div>
 									{#if manualRecipientSuggestions.length > 0}
@@ -1043,7 +1031,9 @@
 											role="listbox"
 											aria-label="Manual recipient suggestions"
 										>
-											<div class="border-b border-neutral-400 bg-neutral-100 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-neutral-700">
+											<div
+												class="border-b border-neutral-400 bg-neutral-100 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-neutral-700"
+											>
 												Multiple matches for "{manualRecipientSuggestionQuery}"
 											</div>
 											{#each manualRecipientSuggestions as suggestion, index (suggestion.userId ?? suggestion.email)}
@@ -1104,7 +1094,9 @@
 							{/key}
 						{:else}
 							<div class="min-h-[22rem] border border-neutral-950 bg-white px-4 py-4">
-								<div class="flex h-full min-h-[22rem] items-center justify-center text-sm text-neutral-700">
+								<div
+									class="flex h-full min-h-[22rem] items-center justify-center text-sm text-neutral-700"
+								>
 									Loading editor...
 								</div>
 							</div>
@@ -1153,12 +1145,10 @@
 									ariaLabel="Open send options"
 									buttonClass={HEADER_SPLIT_SEND_BUTTON_CLASS}
 									menuButtonClass={HEADER_SPLIT_SEND_MENU_BUTTON_CLASS}
-									disabled={
-										sendLoading ||
+									disabled={sendLoading ||
 										!canSendCommunication ||
 										!selectedMessage?.id ||
-										selectedMessage?.status !== 'draft'
-									}
+										selectedMessage?.status !== 'draft'}
 									on:click={() => void sendMessageNow()}
 									on:action={() => {
 										toast.info('Send later is coming soon.');
@@ -1179,12 +1169,10 @@
 								<div
 									class="messages-tab-scroll min-w-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none]"
 								>
-									<div class="flex w-max min-w-full flex-nowrap items-stretch border-2 border-neutral-950 bg-white">
-										{#each [
-											{ value: 'drafts', label: 'Drafts', count: draftMessageCount },
-											{ value: 'scheduled', label: 'Scheduled', count: scheduledMessageCount },
-											{ value: 'history', label: 'Sent', count: historyMessageCount }
-										] as option}
+									<div
+										class="flex w-max min-w-full flex-nowrap items-stretch border-2 border-neutral-950 bg-white"
+									>
+										{#each [{ value: 'drafts', label: 'Drafts', count: draftMessageCount }, { value: 'scheduled', label: 'Scheduled', count: scheduledMessageCount }, { value: 'history', label: 'Sent', count: historyMessageCount }] as option}
 											<button
 												type="button"
 												class={`border-r-2 border-neutral-950 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.04em] cursor-pointer whitespace-nowrap last:border-r-0 ${
@@ -1236,7 +1224,9 @@
 												<div class="flex items-start justify-between gap-3">
 													<div class="min-w-0 flex-1 space-y-2">
 														{#if item.kind !== 'draft'}
-															<div class="flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-wide">
+															<div
+																class="flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-wide"
+															>
 																<span
 																	class={`inline-flex border px-2 py-1 ${getSidebarItemBadgeClass(item)}`}
 																>
@@ -1245,7 +1235,9 @@
 															</div>
 														{/if}
 														<HoverTooltip text={item.message.subject} case="preserve">
-															<h3 class="line-clamp-1 text-[1.6rem] leading-tight font-bold text-neutral-950">
+															<h3
+																class="line-clamp-1 text-[1.6rem] leading-tight font-bold text-neutral-950"
+															>
 																{item.message.subject}
 															</h3>
 														</HoverTooltip>
@@ -1305,44 +1297,42 @@
 													</div>
 
 													<div class="flex flex-wrap items-center justify-end gap-2">
-													{#if item.message.status !== 'draft'}
-														<HoverTooltip text="View message">
+														{#if item.message.status !== 'draft'}
+															<HoverTooltip text="View message">
+																<button
+																	type="button"
+																	class="button-neutral-outlined dashboard-icon-button cursor-pointer text-neutral-950 border-neutral-950 hover:bg-neutral-100"
+																	aria-label="View message"
+																	onclick={() => void openHistoryMessage(item.message.id)}
+																>
+																	<IconEye
+																		class="h-[1.05rem] w-[1.05rem] text-neutral-950 opacity-100"
+																		color="currentColor"
+																		stroke={2.2}
+																	/>
+																</button>
+															</HoverTooltip>
+														{/if}
+														<HoverTooltip text="Duplicate into a new draft">
 															<button
 																type="button"
 																class="button-neutral-outlined dashboard-icon-button cursor-pointer text-neutral-950 border-neutral-950 hover:bg-neutral-100"
-																aria-label="View message"
-																onclick={() => void openHistoryMessage(item.message.id)}
+																aria-label="Duplicate message"
+																onclick={(event) => {
+																	event.stopPropagation();
+																	void duplicateHistoryMessage(item.message.id);
+																}}
+																disabled={duplicationLoadingId === item.message.id ||
+																	!canDuplicateCommunication}
 															>
-																<IconEye
+																<IconCopy
 																	class="h-[1.05rem] w-[1.05rem] text-neutral-950 opacity-100"
 																	color="currentColor"
 																	stroke={2.2}
 																/>
 															</button>
 														</HoverTooltip>
-													{/if}
-													<HoverTooltip text="Duplicate into a new draft">
-														<button
-															type="button"
-															class="button-neutral-outlined dashboard-icon-button cursor-pointer text-neutral-950 border-neutral-950 hover:bg-neutral-100"
-															aria-label="Duplicate message"
-															onclick={(event) => {
-																event.stopPropagation();
-																void duplicateHistoryMessage(item.message.id);
-															}}
-															disabled={
-																duplicationLoadingId === item.message.id ||
-																!canDuplicateCommunication
-															}
-														>
-															<IconCopy
-																class="h-[1.05rem] w-[1.05rem] text-neutral-950 opacity-100"
-																color="currentColor"
-																stroke={2.2}
-															/>
-														</button>
-													</HoverTooltip>
-												</div>
+													</div>
 												</div>
 											</div>
 										</article>
@@ -1397,12 +1387,12 @@
 			on:confirm={() => void confirmSaveBeforeLeaving()}
 			on:cancel={keepEditingDraft}
 			on:secondary={() => void discardUnsavedDraftAndContinue()}
-	/>
-</div>
+		/>
+	</div>
 
-<style>
-	.messages-tab-scroll::-webkit-scrollbar {
-		display: none;
-	}
-</style>
+	<style>
+		.messages-tab-scroll::-webkit-scrollbar {
+			display: none;
+		}
+	</style>
 </div>
