@@ -37,7 +37,11 @@
 	import { buildCommunicationPageHydrationSignature } from '$lib/communications/page-hydration.js';
 	import {
 		filterCommunicationManualRecipientSuggestions,
+		getCommunicationManualRecipientKeyboardAction,
+		getCommunicationManualRecipientSelectionIndices,
 		mergeCommunicationManualRecipients,
+		moveCommunicationManualRecipientSelection,
+		selectCommunicationManualRecipientRange,
 		splitCommunicationManualRecipientInput
 	} from '$lib/communications/manual-recipients.js';
 	import {
@@ -91,6 +95,9 @@
 	let manualRecipientSuggestions = $state<CommunicationManualRecipientSuggestion[]>([]);
 	let manualRecipientSuggestionQuery = $state('');
 	let manualRecipientActiveSuggestionIndex = $state(0);
+	let manualRecipientAllSelected = $state(false);
+	let manualRecipientSelectionRange =
+		$state<{ anchorIndex: number; focusIndex: number } | null>(null);
 	let manualRecipientFieldElement = $state<HTMLDivElement | null>(null);
 	let manualRecipientInputElement = $state<HTMLInputElement | null>(null);
 	let manualRecipientSuggestionsElement = $state<HTMLDivElement | null>(null);
@@ -174,6 +181,7 @@
 				return historyFeedItems;
 		}
 	});
+	const manualRecipientSelectedIndices = $derived.by(() => getManualRecipientSelectedIndices());
 
 	function formatDateDisplay(value: string | null | undefined): string {
 		const normalized = value?.trim() ?? '';
@@ -195,6 +203,48 @@
 			hour12: true
 		}).format(date);
 		return `${datePart}, ${timePart}`;
+	}
+
+	function formatManualRecipientLastLogin(value: string | null | undefined): string {
+		const normalized = value?.trim() ?? '';
+		if (!normalized) {
+			return 'Never Active';
+		}
+
+		const date = new Date(normalized);
+		if (Number.isNaN(date.getTime())) {
+			return 'Never Active';
+		}
+
+		const now = new Date();
+		const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+		const yesterdayStart = new Date(todayStart);
+		yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+		const dateStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+		if (dateStart.getTime() === todayStart.getTime()) {
+			const timePart = new Intl.DateTimeFormat('en-US', {
+				hour: 'numeric',
+				minute: '2-digit',
+				hour12: true
+			}).format(date);
+			return `Today, ${timePart}`;
+		}
+
+		if (dateStart.getTime() === yesterdayStart.getTime()) {
+			const timePart = new Intl.DateTimeFormat('en-US', {
+				hour: 'numeric',
+				minute: '2-digit',
+				hour12: true
+			}).format(date);
+			return `Yesterday, ${timePart}`;
+		}
+
+		return new Intl.DateTimeFormat('en-GB', {
+			day: 'numeric',
+			month: 'short',
+			year: 'numeric'
+		}).format(date);
 	}
 
 	function getSidebarItemDateValue(item: CommunicationSidebarFeedItem): string | null {
@@ -295,6 +345,8 @@
 		recipientGroups = message?.recipientGroups ? [...message.recipientGroups] : [];
 		manualRecipients = message?.manualRecipients ? [...message.manualRecipients] : [];
 		manualRecipientInput = '';
+		manualRecipientAllSelected = false;
+		manualRecipientSelectionRange = null;
 		manualRecipientSuggestions = [];
 		manualRecipientSuggestionQuery = '';
 		manualRecipientActiveSuggestionIndex = 0;
@@ -502,6 +554,80 @@
 		manualRecipientActiveSuggestionIndex = 0;
 	}
 
+	function clearManualRecipientChipSelection(): void {
+		manualRecipientAllSelected = false;
+		manualRecipientSelectionRange = null;
+	}
+
+	function getManualRecipientSelectedIndices(): number[] {
+		if (manualRecipientAllSelected) {
+			return manualRecipients.map((_, index) => index);
+		}
+
+		return getCommunicationManualRecipientSelectionIndices(
+			manualRecipientSelectionRange,
+			manualRecipients.length
+		);
+	}
+
+	function isManualRecipientChipSelected(index: number): boolean {
+		return getManualRecipientSelectedIndices().includes(index);
+	}
+
+	function selectManualRecipientChip(index: number, extend: boolean): void {
+		manualRecipientAllSelected = false;
+		manualRecipientSelectionRange = selectCommunicationManualRecipientRange(
+			manualRecipientSelectionRange,
+			index,
+			extend
+		);
+	}
+
+	function moveManualRecipientChipSelection(direction: 1 | -1): void {
+		manualRecipientAllSelected = false;
+		manualRecipientSelectionRange = moveCommunicationManualRecipientSelection(
+			manualRecipientSelectionRange,
+			direction,
+			manualRecipients.length
+		);
+	}
+
+	async function removeManualRecipientSelection(nextInput = ''): Promise<void> {
+		const selectedIndices = getManualRecipientSelectedIndices();
+		if (selectedIndices.length === 0) {
+			return;
+		}
+
+		const selectedIndicesSet = new Set(selectedIndices);
+		const nextManualRecipients = manualRecipients.filter(
+			(_, index) => !selectedIndicesSet.has(index)
+		);
+		clearManualRecipientChipSelection();
+		manualRecipientInput = nextInput;
+		manualRecipientLoading = true;
+		try {
+			await syncManualRecipients(nextManualRecipients);
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : 'Unable to remove the selected recipients.'
+			);
+		} finally {
+			manualRecipientLoading = false;
+			void focusManualRecipientInputAtEnd();
+		}
+	}
+
+	async function clearManualRecipientSelectionAndRecipients(nextInput = ''): Promise<void> {
+		clearManualRecipientChipSelection();
+		manualRecipientInput = nextInput;
+		if (manualRecipients.length > 0) {
+			await syncManualRecipients([], { clearSuggestions: true });
+			return;
+		}
+
+		clearManualRecipientSuggestions();
+	}
+
 	async function focusManualRecipientInputAtEnd(): Promise<void> {
 		await tick();
 		if (!manualRecipientInputElement) {
@@ -624,6 +750,8 @@
 	}
 
 	async function handleManualRecipientInputChange(value: string): Promise<void> {
+		clearManualRecipientChipSelection();
+		manualRecipientAllSelected = false;
 		manualRecipientInput = value;
 		if (manualRecipientSuggestions.length > 0) {
 			clearManualRecipientSuggestions();
@@ -638,6 +766,8 @@
 	}
 
 	async function removeManualRecipient(index: number): Promise<void> {
+		clearManualRecipientChipSelection();
+		manualRecipientAllSelected = false;
 		const nextManualRecipients = manualRecipients.filter(
 			(_, currentIndex) => currentIndex !== index
 		);
@@ -662,6 +792,7 @@
 			const nextManualRecipients = mergeCommunicationManualRecipients(manualRecipients, [
 				recipient
 			]);
+			clearManualRecipientChipSelection();
 			await syncManualRecipients(nextManualRecipients);
 			manualRecipientInput = '';
 		} catch (error) {
@@ -969,7 +1100,17 @@
 													case="preserve"
 												>
 													<span
-														class="inline-flex shrink-0 items-center gap-1.5 border border-secondary-500 bg-secondary-50 px-1.5 py-0.5 text-[11px] leading-none font-semibold text-secondary-950"
+														class={`inline-flex shrink-0 items-center gap-1.5 border px-1.5 py-0.5 text-[11px] leading-none ${
+															manualRecipientAllSelected || isManualRecipientChipSelected(index)
+																? 'border-secondary-700 bg-secondary-100 text-secondary-950'
+																: 'border-secondary-500 bg-secondary-50 text-secondary-950'
+														}`}
+														onmousedown|preventDefault
+														onclick={(event) => {
+															selectManualRecipientChip(index, event.shiftKey);
+															clearManualRecipientSuggestions();
+															void focusManualRecipientInputAtEnd();
+														}}
 													>
 														<span class="max-w-[9rem] truncate">{recipient.fullName}</span>
 														{#if canEditCurrentDraft}
@@ -977,7 +1118,10 @@
 																type="button"
 																class="cursor-pointer text-[11px] leading-none text-secondary-900"
 																aria-label={`Remove ${recipient.fullName}`}
-																onclick={() => void removeManualRecipient(index)}
+																onclick={(event) => {
+																	event.stopPropagation();
+																	void removeManualRecipient(index);
+																}}
 																disabled={manualRecipientLoading}
 															>
 																×
@@ -1010,6 +1154,66 @@
 												oninput={(event) =>
 													void handleManualRecipientInputChange(event.currentTarget.value)}
 												onkeydown={(event) => {
+													if (event.ctrlKey && event.shiftKey) {
+														if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+															event.preventDefault();
+															manualRecipientSelectionRange = moveCommunicationManualRecipientSelection(
+																manualRecipientSelectionRange,
+																event.key === 'ArrowLeft' ? -1 : 1,
+																manualRecipients.length
+															);
+															return;
+														}
+													}
+
+													const keyboardAction = getCommunicationManualRecipientKeyboardAction({
+														key: event.key,
+														ctrlKey: event.ctrlKey,
+														metaKey: event.metaKey,
+														altKey: event.altKey,
+														allSelected: manualRecipientAllSelected
+													});
+
+													if (keyboardAction.type === 'select-all') {
+														event.preventDefault();
+														manualRecipientAllSelected = true;
+														clearManualRecipientSuggestions();
+														return;
+													}
+
+													if (keyboardAction.type === 'clear-all') {
+														event.preventDefault();
+														void clearManualRecipientSelectionAndRecipients('');
+														return;
+													}
+
+													if (keyboardAction.type === 'replace-all') {
+														event.preventDefault();
+														void clearManualRecipientSelectionAndRecipients(keyboardAction.value);
+														return;
+													}
+
+													if (manualRecipientSelectedIndices.length > 0) {
+														if (event.key === 'Backspace' || event.key === 'Delete') {
+															event.preventDefault();
+															void removeManualRecipientSelection(manualRecipientInput);
+															return;
+														}
+
+														if (
+															!event.ctrlKey &&
+															!event.metaKey &&
+															!event.altKey &&
+															event.key.length === 1
+														) {
+															event.preventDefault();
+															void removeManualRecipientSelection(
+																`${manualRecipientInput}${event.key}`
+															);
+															return;
+														}
+													}
+
 													if (manualRecipientSuggestions.length > 0) {
 														if (event.key === 'ArrowDown') {
 															event.preventDefault();
@@ -1056,6 +1260,7 @@
 													}
 												}}
 												onblur={() => {
+													clearManualRecipientChipSelection();
 													if (manualRecipientSuggestions.length > 0) {
 														return;
 													}
@@ -1148,13 +1353,13 @@
 													onclick={() => void applyManualRecipientSuggestion(suggestion)}
 												>
 													<span class="min-w-0 flex-1 truncate text-sm text-neutral-950">
-														<span class="font-semibold">{suggestion.fullName}</span>
+														<span>{suggestion.fullName}</span>
 														<span class="ml-2 text-xs text-neutral-700">
 															{suggestion.email}
 														</span>
 													</span>
-													<span class="shrink-0 text-xs font-semibold text-neutral-700">
-														{suggestion.lastActiveSeasonName ?? 'Never Active'}
+													<span class="shrink-0 text-xs text-neutral-700">
+														{formatManualRecipientLastLogin(suggestion.lastLoginAt)}
 													</span>
 												</button>
 											{/each}

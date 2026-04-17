@@ -13,7 +13,7 @@ Summary of tests:
 2. It verifies that exclude recipient groups remove overlapping recipients while preserving deduped includes.
 3. It verifies that users without email addresses are excluded from previews.
 4. It verifies that manual recipients can be resolved by email, phone number, or member name.
-5. It verifies that ambiguous manual recipient queries return a condensed suggestion list with last active season labels.
+5. It verifies that ambiguous manual recipient queries return a condensed suggestion list with last login timestamps.
 6. It verifies that saving a new draft persists the editor content, recipient groups, manual recipients, and resolved recipients.
 7. It verifies that updating an existing draft rewrites the draft body and recipient resolution in place.
 8. It verifies that deleting a draft only succeeds for draft messages.
@@ -49,6 +49,7 @@ const buildAudienceRow = (
 	membershipId: 'membership-1',
 	email: 'alex@playims.test',
 	cellPhone: '(555) 111-2222',
+	lastLoginAt: '2029-01-02T18:30:00.000Z',
 	firstName: 'Alex',
 	lastName: 'Captain',
 	studentId: '12345',
@@ -297,10 +298,9 @@ describe('communication service', () => {
 				userId: 'user-4',
 				membershipId: 'membership-4',
 				email: 'jake@playims.test',
+				lastLoginAt: '2029-01-03T20:15:00.000Z',
 				firstName: 'Jake',
 				lastName: 'Harvanchik',
-				seasonId: 'season-b',
-				seasonName: 'Fall 2029',
 				teamId: null,
 				teamName: null,
 				divisionId: null,
@@ -316,6 +316,7 @@ describe('communication service', () => {
 				userId: 'user-5',
 				membershipId: 'membership-5',
 				email: 'jamie.harvanchik@playims.test',
+				lastLoginAt: null,
 				firstName: 'Jamie',
 				lastName: 'Harvanchik',
 				teamId: null,
@@ -346,13 +347,13 @@ describe('communication service', () => {
 					userId: 'user-4',
 					email: 'jake@playims.test',
 					fullName: 'Jake Harvanchik',
-					lastActiveSeasonName: 'Fall 2029'
+					lastLoginAt: '2029-01-03T20:15:00.000Z'
 				},
 				{
 					userId: 'user-5',
 					email: 'jamie.harvanchik@playims.test',
 					fullName: 'Jamie Harvanchik',
-					lastActiveSeasonName: null
+					lastLoginAt: null
 				}
 			]
 		});

@@ -13,6 +13,7 @@ export interface CommunicationAudienceRow {
 	membershipId: string | null;
 	email: string | null;
 	cellPhone: string | null;
+	lastLoginAt: string | null;
 	firstName: string | null;
 	lastName: string | null;
 	studentId: string | null;

@@ -182,43 +182,27 @@ const toManualRecipient = (rows: CommunicationAudienceRow[]): CommunicationManua
 	};
 };
 
-const getSeasonRecencyValue = (row: CommunicationAudienceRow): number => {
-	const startTime = Date.parse(normalizeText(row.seasonStartDate));
-	if (Number.isFinite(startTime)) {
-		return startTime;
-	}
-
-	const endTime = Date.parse(normalizeText(row.seasonEndDate));
-	if (Number.isFinite(endTime)) {
-		return endTime;
-	}
-
-	return row.seasonIsCurrent ? Number.MAX_SAFE_INTEGER : Number.MIN_SAFE_INTEGER;
-};
-
-const getLastActiveSeasonName = (rows: CommunicationAudienceRow[]): string | null => {
-	const seasonRows = rows.filter((row) => normalizeText(row.seasonName));
-	if (seasonRows.length === 0) {
+const getLatestLoginAt = (rows: CommunicationAudienceRow[]): string | null => {
+	const loginRows = rows
+		.map((row) => normalizeText(row.lastLoginAt))
+		.filter((value) => value.length > 0);
+	if (loginRows.length === 0) {
 		return null;
 	}
 
-	const sortedRows = [...seasonRows].sort((left, right) => {
-		const recencyDifference = getSeasonRecencyValue(right) - getSeasonRecencyValue(left);
-		if (recencyDifference !== 0) {
-			return recencyDifference;
-		}
-
-		return normalizeText(right.seasonName).localeCompare(normalizeText(left.seasonName));
-	});
-
-	return normalizeText(sortedRows[0]?.seasonName) || null;
+	return (
+		loginRows
+			.slice()
+			.sort((left, right) => Date.parse(right) - Date.parse(left))
+			.at(0) ?? null
+	);
 };
 
 const toManualRecipientSuggestion = (
 	rows: CommunicationAudienceRow[]
 ): CommunicationManualRecipientSuggestion => ({
 	...toManualRecipient(rows),
-	lastActiveSeasonName: getLastActiveSeasonName(rows)
+	lastLoginAt: getLatestLoginAt(rows)
 });
 
 const buildAudienceMap = (rows: CommunicationAudienceRow[]): Map<string, CommunicationAudienceRow[]> => {

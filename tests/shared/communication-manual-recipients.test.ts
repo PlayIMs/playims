@@ -11,13 +11,19 @@ Summary of tests:
 1. It verifies that comma-separated input commits finished tokens while leaving the unfinished remainder in the input.
 2. It verifies that resolved manual recipients dedupe by user id or email while preserving the first occurrence.
 3. It verifies that ambiguous manual recipient suggestions omit members who are already selected as chips.
+4. It verifies that ctrl+a can drive a bulk-replace flow for the manual recipient field.
+5. It verifies that chip selections can extend by shift-click and ctrl+shift arrows.
 */
 
 import { describe, expect, it } from 'vitest';
 
 import {
 	filterCommunicationManualRecipientSuggestions,
+	getCommunicationManualRecipientKeyboardAction,
+	getCommunicationManualRecipientSelectionIndices,
 	mergeCommunicationManualRecipients,
+	moveCommunicationManualRecipientSelection,
+	selectCommunicationManualRecipientRange,
 	splitCommunicationManualRecipientInput
 } from '../../src/lib/communications/manual-recipients';
 
@@ -89,13 +95,13 @@ describe('communication manual recipient helpers', () => {
 						userId: 'user-1',
 						email: 'ALEX@playims.test',
 						fullName: 'Alex Captain',
-						lastActiveSeasonName: 'Spring 2029'
+						lastLoginAt: '2029-03-01T12:00:00.000Z'
 					},
 					{
 						userId: null,
 						email: 'jamie@playims.test',
 						fullName: 'Jamie Player',
-						lastActiveSeasonName: null
+						lastLoginAt: null
 					}
 				]
 			)
@@ -104,8 +110,87 @@ describe('communication manual recipient helpers', () => {
 				userId: null,
 				email: 'jamie@playims.test',
 				fullName: 'Jamie Player',
-				lastActiveSeasonName: null
+				lastLoginAt: null
 			}
 		]);
+	});
+
+	it('treats ctrl+a and follow-up keys as a bulk-replace flow', () => {
+		// the manual recipient field should feel like one editable token row, not a pile of independent pieces.
+		expect(
+			getCommunicationManualRecipientKeyboardAction({
+				key: 'a',
+				ctrlKey: true,
+				metaKey: false,
+				altKey: false,
+				allSelected: false
+			})
+		).toEqual({ type: 'select-all' });
+
+		expect(
+			getCommunicationManualRecipientKeyboardAction({
+				key: 'Backspace',
+				ctrlKey: false,
+				metaKey: false,
+				altKey: false,
+				allSelected: true
+			})
+		).toEqual({ type: 'clear-all' });
+
+		expect(
+			getCommunicationManualRecipientKeyboardAction({
+				key: 'J',
+				ctrlKey: false,
+				metaKey: false,
+				altKey: false,
+				allSelected: true
+			})
+		).toEqual({ type: 'replace-all', value: 'J' });
+	});
+
+	it('supports range selection across chips with clicks and arrow-key growth', () => {
+		// the range helper keeps mouse and keyboard selection rules in one predictable place.
+		expect(selectCommunicationManualRecipientRange(null, 2, false)).toEqual({
+			anchorIndex: 2,
+			focusIndex: 2
+		});
+
+		expect(
+			selectCommunicationManualRecipientRange(
+				{
+					anchorIndex: 1,
+					focusIndex: 1
+				},
+				4,
+				true
+			)
+		).toEqual({
+			anchorIndex: 1,
+			focusIndex: 4
+		});
+
+		expect(
+			moveCommunicationManualRecipientSelection(
+				{
+					anchorIndex: 1,
+					focusIndex: 4
+				},
+				-1,
+				6
+			)
+		).toEqual({
+			anchorIndex: 1,
+			focusIndex: 3
+		});
+
+		expect(
+			getCommunicationManualRecipientSelectionIndices(
+				{
+					anchorIndex: 1,
+					focusIndex: 3
+				},
+				6
+			)
+		).toEqual([1, 2, 3]);
 	});
 });

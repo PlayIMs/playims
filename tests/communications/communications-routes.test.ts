@@ -11,7 +11,7 @@ Summary of tests:
 1. It verifies that invalid preview payloads are rejected.
 2. It verifies that preview requests return stored recipient-group summaries and recipient previews.
 3. It verifies that manual recipient resolve requests return canonical org members.
-4. It verifies that ambiguous manual recipient resolve requests return suggestion rows with last active season labels instead of a hard error.
+4. It verifies that ambiguous manual recipient resolve requests return suggestion rows with last login timestamps instead of a hard error.
 5. It verifies that recipient filter options can be fetched lazily for the recipient builder.
 6. It verifies that creating a draft requires a subject and at least one recipient source.
 7. It verifies that creating and updating drafts call the communication service.
@@ -288,13 +288,13 @@ describe('communication routes', () => {
 					userId: 'user-4',
 					email: 'jake@playims.test',
 					fullName: 'Jake Harvanchik',
-					lastActiveSeasonName: 'Fall 2029'
+					lastLoginAt: '2029-01-03T20:15:00.000Z'
 				},
 				{
 					userId: 'user-5',
 					email: 'jamie.harvanchik@playims.test',
 					fullName: 'Jamie Harvanchik',
-					lastActiveSeasonName: null
+					lastLoginAt: null
 				}
 			]
 		});
@@ -311,8 +311,8 @@ describe('communication routes', () => {
 		expect(response.status).toBe(200);
 		expect(payload.data.status).toBe('ambiguous');
 		expect(payload.data.suggestions).toHaveLength(2);
-		expect(payload.data.suggestions[0].lastActiveSeasonName).toBe('Fall 2029');
-		expect(payload.data.suggestions[1].lastActiveSeasonName).toBeNull();
+		expect(payload.data.suggestions[0].lastLoginAt).toBe('2029-01-03T20:15:00.000Z');
+		expect(payload.data.suggestions[1].lastLoginAt).toBeNull();
 	});
 
 	it('returns recipient filter options for the lazy-loaded recipient builder', async () => {

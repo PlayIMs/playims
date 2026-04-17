@@ -552,6 +552,7 @@ export class CommunicationOperations implements CommunicationStoragePort {
 				membershipId: userClients.id,
 				email: users.email,
 				cellPhone: users.cellPhone,
+				lastLoginAt: users.lastLoginAt,
 				firstName: users.firstName,
 				lastName: users.lastName,
 				studentId: userClients.studentId,

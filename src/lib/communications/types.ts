@@ -53,7 +53,7 @@ export interface CommunicationManualRecipientDraft {
 }
 
 export interface CommunicationManualRecipientSuggestion extends CommunicationManualRecipientDraft {
-	lastActiveSeasonName: string | null;
+	lastLoginAt: string | null;
 }
 
 export interface CommunicationMessageSummary {
