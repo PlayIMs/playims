@@ -12,6 +12,7 @@ Summary of tests:
 1. It verifies that managers cannot change member roles.
 2. It verifies that the last administrator-like member cannot be deleted.
 3. It verifies that a user cannot remove their only active organization membership.
+4. It verifies that member profile edits can update a phone number alongside the other fields.
 */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -23,8 +24,13 @@ const mocks = vi.hoisted(() => {
 			members: {
 				getMembershipRecord: vi.fn(),
 				countAdminLikeMembers: vi.fn(),
+				findActiveByStudentId: vi.fn(),
+				updateProfile: vi.fn(),
 				updateRole: vi.fn(),
 				softRemove: vi.fn()
+			},
+			users: {
+				getAuthByEmail: vi.fn()
 			},
 			userClients: {
 				listActiveForUser: vi.fn(),
@@ -83,6 +89,27 @@ describe('member mutation endpoints', () => {
 			email: 'member@playims.test'
 		});
 		mocks.dbOps.members.countAdminLikeMembers.mockResolvedValue(1);
+		mocks.dbOps.members.findActiveByStudentId.mockResolvedValue(null);
+		mocks.dbOps.users.getAuthByEmail.mockResolvedValue(null);
+		mocks.dbOps.members.updateProfile.mockResolvedValue({
+			membershipId: 'membership-1',
+			clientId: 'client-1',
+			userId: 'member-1',
+			studentId: '12345',
+			firstName: 'Jamie',
+			lastName: 'Member',
+			fullName: 'Jamie Member',
+			email: 'member@playims.test',
+			cellPhone: '+15551234567',
+			lastLoginAt: null,
+			sex: 'F',
+			role: 'participant',
+			status: 'active',
+			createdAt: '2029-12-20T00:00:00.000Z',
+			updatedAt: '2029-12-20T00:00:00.000Z',
+			avatarUrl: null,
+			lastActiveAt: null
+		});
 		mocks.dbOps.userClients.listActiveForUser.mockResolvedValue([]);
 	});
 
@@ -175,5 +202,39 @@ describe('member mutation endpoints', () => {
 			'You cannot remove your only active organization membership.'
 		);
 		expect(mocks.dbOps.members.softRemove).not.toHaveBeenCalled();
+	});
+
+	it('updates a member profile phone number through the edit endpoint', async () => {
+		// the route should carry the phone value through to the member operation without dropping the rest of the profile edit.
+		const response = await PATCH(
+			buildEvent(
+				'admin',
+				'admin-actor',
+				new Request('https://playims.test/api/members/membership-1', {
+					method: 'PATCH',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({
+						action: 'edit-profile',
+						email: 'member@playims.test',
+						cellPhone: '+1 (555) 123-4567',
+						firstName: 'Jamie',
+						lastName: 'Member',
+						studentId: '12345',
+						sex: 'F'
+					})
+				})
+			)
+		);
+		const payload = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(payload.success).toBe(true);
+		expect(mocks.dbOps.members.updateProfile).toHaveBeenCalledWith(
+			expect.objectContaining({
+				cellPhone: '+1 (555) 123-4567',
+				sex: 'F',
+				email: 'member@playims.test'
+			})
+		);
 	});
 });

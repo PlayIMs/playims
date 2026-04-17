@@ -12,12 +12,14 @@ Summary of tests:
 2. It verifies that stored international-style numbers keep their non-default country code in the display text.
 3. It verifies that the national formatter produces the expected masked layout from raw digits.
 4. It verifies that search normalization strips punctuation and treats a leading +1 as optional.
+5. It verifies that storage normalization preserves the country code and strips punctuation.
 */
 
 import { describe, expect, it } from 'vitest';
 import {
 	formatPhoneForDisplay,
 	formatPhoneNationalFromDigits,
+	normalizePhoneForStorage,
 	normalizePhoneDigitsForSearch,
 	parseStoredPhoneNumber
 } from '../../src/lib/utils/phone-format';
@@ -45,5 +47,12 @@ describe('phone format helpers', () => {
 		expect(normalizePhoneDigitsForSearch('+1 (555) 123-4567')).toBe('5551234567');
 		expect(normalizePhoneDigitsForSearch('555.123.4567')).toBe('5551234567');
 		expect(normalizePhoneDigitsForSearch('(555) 123-4567')).toBe('5551234567');
+	});
+
+	it('normalizes stored phone values into a canonical country code plus digits format', () => {
+		// member editing should save one clean phone string even when the user typed punctuation.
+		expect(normalizePhoneForStorage('+1 (555) 123-4567')).toBe('+15551234567');
+		expect(normalizePhoneForStorage('555.123.4567')).toBe('+15551234567');
+		expect(normalizePhoneForStorage('')).toBeNull();
 	});
 });

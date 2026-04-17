@@ -89,6 +89,7 @@ export interface CreateMemberResponse {
 export interface UpdateMemberProfileRequest {
 	action: 'edit-profile';
 	email: string;
+	cellPhone?: string | null;
 	firstName?: string | null;
 	lastName?: string | null;
 	studentId?: string | null;

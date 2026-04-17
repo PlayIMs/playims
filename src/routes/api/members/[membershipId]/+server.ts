@@ -154,6 +154,7 @@ export const PATCH: RequestHandler = async (event) => {
 			membershipId: event.params.membershipId,
 			clientId,
 			email: parsed.data.email,
+			cellPhone: parsed.data.cellPhone ?? null,
 			firstName: parsed.data.firstName,
 			lastName: parsed.data.lastName,
 			studentId: parsed.data.studentId,

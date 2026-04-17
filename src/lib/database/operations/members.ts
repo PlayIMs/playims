@@ -11,7 +11,10 @@ import {
 	type MemberSortKey,
 	type SortDirection
 } from '../../members/types.js';
-import { normalizePhoneDigitsForSearch } from '../../utils/phone-format.js';
+import {
+	normalizePhoneDigitsForSearch,
+	normalizePhoneForStorage
+} from '../../utils/phone-format.js';
 
 const ADMIN_LIKE_ROLES = ['admin', 'dev'] as const;
 
@@ -477,6 +480,7 @@ export class MemberOperations {
 		membershipId: string;
 		clientId: string;
 		email: string;
+		cellPhone?: string | null;
 		firstName?: string | null;
 		lastName?: string | null;
 		studentId?: string | null;
@@ -493,6 +497,7 @@ export class MemberOperations {
 			.update(users)
 			.set({
 				email: normalizeEmail(input.email),
+				cellPhone: normalizePhoneForStorage(input.cellPhone),
 				firstName: normalizeText(input.firstName),
 				lastName: normalizeText(input.lastName),
 				updatedAt: now,

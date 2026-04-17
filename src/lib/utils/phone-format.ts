@@ -47,6 +47,14 @@ export function parseStoredPhoneNumber(value: string | null | undefined): {
 	};
 }
 
+export function normalizePhoneForStorage(value: string | null | undefined): string | null {
+	const parsed = parseStoredPhoneNumber(value);
+	if (!parsed.nationalDigits) {
+		return null;
+	}
+	return `${parsed.countryCode}${parsed.nationalDigits}`;
+}
+
 export function formatPhoneForDisplay(value: string | null | undefined): string {
 	const parsed = parseStoredPhoneNumber(value);
 	const nationalPhone = formatPhoneNationalFromDigits(parsed.nationalDigits);

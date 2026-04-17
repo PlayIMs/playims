@@ -113,6 +113,7 @@ export const createMemberSchema = z
 export const updateMemberProfileSchema = z.object({
 	action: z.literal('edit-profile'),
 	email: emailSchema,
+	cellPhone: optionalTrimmedString(32),
 	firstName: nameSchema,
 	lastName: nameSchema,
 	studentId: studentIdSchema,
