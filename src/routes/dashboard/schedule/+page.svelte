@@ -1054,7 +1054,7 @@
 														<button
 															type="button"
 															data-schedule-navigator-anchor={week.anchorDate}
-															class={`schedule-navigator-cell group flex h-full min-w-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center transition-colors cursor-pointer outline-none ring-0 focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 ${
+															class={`schedule-navigator-cell group flex h-full min-w-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center transition-colors cursor-pointer border-none outline-none ring-0 focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 ${
 																index === navigatorWeeks.length - 1
 																	? ''
 																	: 'border-r border-neutral-300'
@@ -1113,7 +1113,7 @@
 														<button
 															type="button"
 															data-schedule-navigator-anchor={month.anchorDate}
-															class={`schedule-navigator-cell group flex h-full min-w-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center transition-colors cursor-pointer outline-none ring-0 focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 ${
+															class={`schedule-navigator-cell group flex h-full min-w-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center transition-colors cursor-pointer border-none outline-none ring-0 focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 ${
 																index === navigatorMonths.length - 1
 																	? ''
 																	: 'border-r border-neutral-300'
@@ -1172,7 +1172,7 @@
 														<button
 															type="button"
 															data-schedule-navigator-anchor={day.dateKey}
-															class={`schedule-navigator-cell group flex h-full min-w-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center transition-colors cursor-pointer outline-none ring-0 focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 ${
+															class={`schedule-navigator-cell group flex h-full min-w-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center transition-colors cursor-pointer border-none outline-none ring-0 focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 ${
 																index === navigatorDays.length - 1
 																	? ''
 																	: 'border-r border-neutral-300'
