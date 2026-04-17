@@ -59,6 +59,7 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 			todaysEvents: [],
 			upcomingEvents: [],
 			recentActivity: [],
+			seasonHistory: [],
 			alerts: [],
 			currentSeason: null,
 			registrationDeadlines: [],
@@ -309,6 +310,36 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 		const seasonLeagues = currentSeasonId
 			? leagues.filter((l) => l.seasonId === currentSeasonId)
 			: [];
+		const seasonLeagueIds = new Set(
+			seasonLeagues
+				.map((league) => league.id?.trim() ?? '')
+				.filter((leagueId) => leagueId.length > 0)
+		);
+		const seasonDivisions = divisions.filter((division) => {
+			const leagueId = division.leagueId?.trim() ?? '';
+			return leagueId.length > 0 && seasonLeagueIds.has(leagueId);
+		});
+		const seasonDivisionIds = new Set(
+			seasonDivisions
+				.map((division) => division.id?.trim() ?? '')
+				.filter((divisionId) => divisionId.length > 0)
+		);
+		const seasonTeams = teams.filter((team) => {
+			const divisionId = team.divisionId?.trim() ?? '';
+			return divisionId.length > 0 && seasonDivisionIds.has(divisionId) && team.teamStatus === 'active';
+		});
+		const seasonTeamIds = new Set(
+			seasonTeams.map((team) => team.id?.trim() ?? '').filter((teamId) => teamId.length > 0)
+		);
+		const seasonPlayerCount = new Set(
+			rosters
+				.filter((roster) => {
+					const teamId = roster.teamId?.trim() ?? '';
+					return teamId.length > 0 && seasonTeamIds.has(teamId) && roster.rosterStatus === 'active';
+				})
+				.map((roster) => roster.userId?.trim() ?? '')
+				.filter((userId) => userId.length > 0)
+		).size;
 
 		const registrationDeadlines = seasonLeagues
 			.filter((l) => {
@@ -336,12 +367,16 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 
 		const currentSeasonData = currentSeason
 			? {
+					id: currentSeason.id ?? null,
 					name: currentSeason.name ?? 'Current Season',
 					slug: currentSeason.slug ?? '',
 					startDate: currentSeason.startDate ?? null,
 					endDate: currentSeason.endDate ?? null,
 					offeringCount: seasonOfferings.length,
+					teamCount: seasonTeams.length,
+					playerCount: seasonPlayerCount,
 					leagueCount: seasonLeagues.length,
+					divisionCount: seasonDivisions.length,
 					startLabel: currentSeason.startDate
 						? new Date(currentSeason.startDate).toLocaleDateString('en-US', {
 								month: 'short',
@@ -358,6 +393,17 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 						: null
 				}
 			: null;
+		const seasonHistory = seasons
+			.filter((season) => Boolean(season.id))
+			.map((season) => ({
+				id: season.id as string,
+				name: season.name?.trim() || 'Untitled Season',
+				slug: season.slug?.trim() || '',
+				startDate: season.startDate?.trim() || '',
+				endDate: season.endDate?.trim() || null,
+				isCurrent: season.isCurrent === 1,
+				isActive: season.isActive === 1
+			}));
 
 		return {
 			stats: {
@@ -374,6 +420,7 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 			todaysEvents: formattedTodaysEvents,
 			upcomingEvents: formattedUpcoming,
 			recentActivity,
+			seasonHistory,
 			alerts,
 			currentSeason: currentSeasonData,
 			registrationDeadlines
@@ -385,6 +432,7 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 			todaysEvents: [],
 			upcomingEvents: [],
 			recentActivity: [],
+			seasonHistory: [],
 			alerts: [],
 			currentSeason: null,
 			registrationDeadlines: [],

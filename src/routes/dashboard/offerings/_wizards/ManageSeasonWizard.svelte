@@ -54,9 +54,10 @@
 		open: boolean;
 		seasons: SeasonOption[];
 		selectedSeasonId: string;
+		canDuplicate?: boolean;
 	}
 
-	let { open, seasons, selectedSeasonId }: Props = $props();
+	let { open, seasons, selectedSeasonId, canDuplicate = true }: Props = $props();
 
 	const dispatch = createEventDispatcher<{
 		close: void;
@@ -519,17 +520,19 @@
 							</button>
 						</HoverTooltip>
 
-						<HoverTooltip text="Create new season by copying this season">
-							<button
-								type="button"
-								class="button-secondary-outlined w-11 h-11 p-0 inline-flex items-center justify-center cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-								aria-label="Duplicate this season into a new season"
-								disabled={isSubmitting}
-								onclick={duplicateSeason}
-							>
-								<IconCopy class="w-5 h-5" />
-							</button>
-						</HoverTooltip>
+						{#if canDuplicate}
+							<HoverTooltip text="Create new season by copying this season">
+								<button
+									type="button"
+									class="button-secondary-outlined w-11 h-11 p-0 inline-flex items-center justify-center cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+									aria-label="Duplicate this season into a new season"
+									disabled={isSubmitting}
+									onclick={duplicateSeason}
+								>
+									<IconCopy class="w-5 h-5" />
+								</button>
+							</HoverTooltip>
+						{/if}
 
 						<HoverTooltip text="Set as current season">
 							<button

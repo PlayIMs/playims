@@ -762,7 +762,11 @@
 	);
 	const navigatorDays = $derived.by(() => buildCenteredScheduleDays(anchorDate, 3));
 	const navigatorMonths = $derived.by(() => buildCenteredScheduleMonths(anchorDate));
-	const navigatorWeeks = $derived.by(() => buildCenteredScheduleWeeks(anchorDate));
+	const navigatorWeeks = $derived.by(() => buildCenteredScheduleWeeks(anchorDate, 2, 2));
+	const navigatorVisibleCellCount = $derived.by(() => (selectedView === 'week' ? 5 : 7));
+	const navigatorSelectionOverlayStyle = $derived.by(
+		() => `width: calc(100% / ${navigatorVisibleCellCount});`
+	);
 	const selectedMonthRange = $derived.by(() => getScheduleRangeForView(anchorDate, 'month'));
 	const selectedWeekRange = $derived.by(() => getScheduleRangeForView(anchorDate, 'week'));
 	const selectedDateRange = $derived.by(() =>
@@ -1037,161 +1041,179 @@
 										</HoverTooltip>
 
 										{#if selectedView === 'week'}
-											<div
-												class="grid h-[3.375rem] min-w-0 flex-1 grid-cols-6"
-												bind:this={navigatorTrack}
-											>
-												{#each navigatorWeeks as week, index (week.anchorDate)}
-													<button
-														type="button"
-														data-schedule-navigator-anchor={week.anchorDate}
-														class={`group flex h-full min-w-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center transition-colors cursor-pointer ${
-															index === navigatorWeeks.length - 1
-																? ''
-																: 'border-r border-neutral-300'
-														} ${
-															week.startDate === selectedWeekRange.startDate
-																? 'bg-primary-50 text-neutral-950'
-																: 'bg-white text-neutral-700 hover:bg-neutral-50 hover:text-neutral-950'
-														}`}
-														aria-current={week.startDate === selectedWeekRange.startDate
-															? 'date'
-															: undefined}
-														aria-label={`View schedule week of ${formatLongDate(week.startDate)} through ${formatLongDate(week.endDate)}`}
-														onclick={() => {
-															setSelectedDate(week.anchorDate);
-														}}
-														onkeydown={(event) => {
-															handleNavigatorWeekKeydown(event, week.anchorDate);
-														}}
-													>
-														<span
-															class={`text-lg font-semibold tabular-nums leading-none whitespace-nowrap ${
+											<div class="relative min-w-0 flex-1 overflow-hidden bg-white">
+												<div
+													class="pointer-events-none absolute inset-y-0 left-1/2 z-0 -translate-x-1/2 bg-primary-50"
+													style={navigatorSelectionOverlayStyle}
+												></div>
+												<div
+													class="relative z-10 grid h-[3.375rem] min-w-0 flex-1 grid-cols-5"
+													bind:this={navigatorTrack}
+												>
+													{#each navigatorWeeks as week, index (week.anchorDate)}
+														<button
+															type="button"
+															data-schedule-navigator-anchor={week.anchorDate}
+															class={`schedule-navigator-cell group flex h-full min-w-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center transition-colors cursor-pointer outline-none ring-0 focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 ${
+																index === navigatorWeeks.length - 1
+																	? ''
+																	: 'border-r border-neutral-300'
+															} ${
 																week.startDate === selectedWeekRange.startDate
-																	? 'text-primary-700'
-																	: week.isCurrentWeek
-																		? 'text-primary-600'
-																		: 'text-neutral-950'
+																	? 'bg-transparent text-neutral-950'
+																	: 'bg-transparent text-neutral-700 hover:bg-neutral-50 hover:text-neutral-950'
 															}`}
+															aria-current={week.startDate === selectedWeekRange.startDate
+																? 'date'
+																: undefined}
+															aria-label={`View schedule week of ${formatLongDate(week.startDate)} through ${formatLongDate(week.endDate)}`}
+															onclick={() => {
+																setSelectedDate(week.anchorDate);
+															}}
+															onkeydown={(event) => {
+																handleNavigatorWeekKeydown(event, week.anchorDate);
+															}}
 														>
-															{week.rangeLabel}
-														</span>
-														<span class="text-[11px] font-semibold uppercase tracking-wide">
-															{week.monthLabel}
-														</span>
-														<span
-															class={`mt-0.5 h-0.5 w-10 ${
-																week.startDate === selectedWeekRange.startDate
-																	? 'bg-primary-700'
-																	: 'bg-transparent group-hover:bg-neutral-300'
-															}`}
-														></span>
-													</button>
-												{/each}
+															<span
+																class={`text-lg font-semibold tabular-nums leading-none whitespace-nowrap ${
+																	week.startDate === selectedWeekRange.startDate
+																		? 'text-primary-700'
+																		: week.isCurrentWeek
+																			? 'text-primary-600'
+																			: 'text-neutral-950'
+																}`}
+															>
+																{week.rangeLabel}
+															</span>
+															<span class="text-[11px] font-semibold uppercase tracking-wide">
+																{week.monthLabel}
+															</span>
+															<span
+																class={`mt-0.5 h-0.5 w-10 ${
+																	week.startDate === selectedWeekRange.startDate
+																		? 'bg-primary-700'
+																		: 'bg-transparent group-hover:bg-neutral-300'
+																}`}
+															></span>
+														</button>
+													{/each}
+												</div>
 											</div>
 										{:else if selectedView === 'month'}
-											<div
-												class="grid h-[3.375rem] min-w-0 flex-1 grid-cols-7"
-												bind:this={navigatorTrack}
-											>
-												{#each navigatorMonths as month, index (month.anchorDate)}
-													<button
-														type="button"
-														data-schedule-navigator-anchor={month.anchorDate}
-														class={`group flex h-full min-w-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center transition-colors cursor-pointer ${
-															index === navigatorMonths.length - 1
-																? ''
-																: 'border-r border-neutral-300'
-														} ${
-															month.startDate === selectedMonthRange.startDate
-																? 'bg-primary-50 text-neutral-950'
-																: 'bg-white text-neutral-700 hover:bg-neutral-50 hover:text-neutral-950'
-														}`}
-														aria-current={month.startDate === selectedMonthRange.startDate
-															? 'date'
-															: undefined}
-														aria-label={`View schedule month of ${month.monthLabel} ${month.rangeLabel}`}
-														onclick={() => {
-															setSelectedDate(month.anchorDate);
-														}}
-														onkeydown={(event) => {
-															handleNavigatorMonthKeydown(event, month.anchorDate);
-														}}
-													>
-														<span
-															class={`text-lg font-semibold tabular-nums leading-none whitespace-nowrap ${
+											<div class="relative min-w-0 flex-1 overflow-hidden bg-white">
+												<div
+													class="pointer-events-none absolute inset-y-0 left-1/2 z-0 -translate-x-1/2 bg-primary-50"
+													style={navigatorSelectionOverlayStyle}
+												></div>
+												<div
+													class="relative z-10 grid h-[3.375rem] min-w-0 flex-1 grid-cols-7"
+													bind:this={navigatorTrack}
+												>
+													{#each navigatorMonths as month, index (month.anchorDate)}
+														<button
+															type="button"
+															data-schedule-navigator-anchor={month.anchorDate}
+															class={`schedule-navigator-cell group flex h-full min-w-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center transition-colors cursor-pointer outline-none ring-0 focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 ${
+																index === navigatorMonths.length - 1
+																	? ''
+																	: 'border-r border-neutral-300'
+															} ${
 																month.startDate === selectedMonthRange.startDate
-																	? 'text-primary-700'
-																	: month.isCurrentMonth
-																		? 'text-primary-600'
-																		: 'text-neutral-950'
+																	? 'bg-transparent text-neutral-950'
+																	: 'bg-transparent text-neutral-700 hover:bg-neutral-50 hover:text-neutral-950'
 															}`}
+															aria-current={month.startDate === selectedMonthRange.startDate
+																? 'date'
+																: undefined}
+															aria-label={`View schedule month of ${month.monthLabel} ${month.rangeLabel}`}
+															onclick={() => {
+																setSelectedDate(month.anchorDate);
+															}}
+															onkeydown={(event) => {
+																handleNavigatorMonthKeydown(event, month.anchorDate);
+															}}
 														>
-															{month.rangeLabel}
-														</span>
-														<span class="text-[11px] font-semibold uppercase tracking-wide">
-															{month.monthLabel}
-														</span>
-														<span
-															class={`mt-0.5 h-0.5 w-10 ${
-																month.startDate === selectedMonthRange.startDate
-																	? 'bg-primary-700'
-																	: 'bg-transparent group-hover:bg-neutral-300'
-															}`}
-														></span>
-													</button>
-												{/each}
+															<span
+																class={`text-lg font-semibold tabular-nums leading-none whitespace-nowrap ${
+																	month.startDate === selectedMonthRange.startDate
+																		? 'text-primary-700'
+																		: month.isCurrentMonth
+																			? 'text-primary-600'
+																			: 'text-neutral-950'
+																}`}
+															>
+																{month.rangeLabel}
+															</span>
+															<span class="text-[11px] font-semibold uppercase tracking-wide">
+																{month.monthLabel}
+															</span>
+															<span
+																class={`mt-0.5 h-0.5 w-10 ${
+																	month.startDate === selectedMonthRange.startDate
+																		? 'bg-primary-700'
+																		: 'bg-transparent group-hover:bg-neutral-300'
+																}`}
+															></span>
+														</button>
+													{/each}
+												</div>
 											</div>
 										{:else}
-											<div
-												class="grid h-[3.375rem] min-w-0 flex-1 grid-cols-7"
-												bind:this={navigatorTrack}
-											>
-												{#each navigatorDays as day, index (day.dateKey)}
-													<button
-														type="button"
-														data-schedule-navigator-anchor={day.dateKey}
-														class={`group flex h-full min-w-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center transition-colors cursor-pointer ${
-															index === navigatorDays.length - 1
-																? ''
-																: 'border-r border-neutral-300'
-														} ${
-															day.dateKey === anchorDate
-																? 'bg-primary-50 text-neutral-950'
-																: 'bg-white text-neutral-700 hover:bg-neutral-50 hover:text-neutral-950'
-														}`}
-														aria-current={day.dateKey === anchorDate ? 'date' : undefined}
-														aria-label={`View schedule for ${formatLongDate(day.dateKey)}`}
-														onclick={() => {
-															setSelectedDate(day.dateKey);
-														}}
-														onkeydown={(event) => {
-															handleNavigatorDayKeydown(event, day.dateKey);
-														}}
-													>
-														<span
-															class={`text-lg font-semibold tabular-nums leading-none ${
+											<div class="relative min-w-0 flex-1 overflow-hidden bg-white">
+												<div
+													class="pointer-events-none absolute inset-y-0 left-1/2 z-0 -translate-x-1/2 bg-primary-50"
+													style={navigatorSelectionOverlayStyle}
+												></div>
+												<div
+													class="relative z-10 grid h-[3.375rem] min-w-0 flex-1 grid-cols-7"
+													bind:this={navigatorTrack}
+												>
+													{#each navigatorDays as day, index (day.dateKey)}
+														<button
+															type="button"
+															data-schedule-navigator-anchor={day.dateKey}
+															class={`schedule-navigator-cell group flex h-full min-w-0 flex-col items-center justify-center gap-0.5 px-2 py-2 text-center transition-colors cursor-pointer outline-none ring-0 focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 ${
+																index === navigatorDays.length - 1
+																	? ''
+																	: 'border-r border-neutral-300'
+															} ${
 																day.dateKey === anchorDate
-																	? 'text-primary-700'
-																	: day.isToday
-																		? 'text-primary-600'
-																		: 'text-neutral-950'
+																	? 'bg-transparent text-neutral-950'
+																	: 'bg-transparent text-neutral-700 hover:bg-neutral-50 hover:text-neutral-950'
 															}`}
+															aria-current={day.dateKey === anchorDate ? 'date' : undefined}
+															aria-label={`View schedule for ${formatLongDate(day.dateKey)}`}
+															onclick={() => {
+																setSelectedDate(day.dateKey);
+															}}
+															onkeydown={(event) => {
+																handleNavigatorDayKeydown(event, day.dateKey);
+															}}
 														>
-															{day.dayNumber}
-														</span>
-														<span class="text-[11px] font-semibold uppercase tracking-wide">
-															{day.monthLabel}
-														</span>
-														<span
-															class={`mt-0.5 h-0.5 w-8 ${
-																day.dateKey === anchorDate
-																	? 'bg-primary-700'
-																	: 'bg-transparent group-hover:bg-neutral-300'
-															}`}
-														></span>
-													</button>
-												{/each}
+															<span
+																class={`text-lg font-semibold tabular-nums leading-none ${
+																	day.dateKey === anchorDate
+																		? 'text-primary-700'
+																		: day.isToday
+																			? 'text-primary-600'
+																			: 'text-neutral-950'
+																}`}
+															>
+																{day.dayNumber}
+															</span>
+															<span class="text-[11px] font-semibold uppercase tracking-wide">
+																{day.monthLabel}
+															</span>
+															<span
+																class={`mt-0.5 h-0.5 w-8 ${
+																	day.dateKey === anchorDate
+																		? 'bg-primary-700'
+																		: 'bg-transparent group-hover:bg-neutral-300'
+																}`}
+															></span>
+														</button>
+													{/each}
+												</div>
 											</div>
 										{/if}
 
@@ -1430,3 +1452,16 @@
 		createEventUnsavedConfirmOpen = false;
 	}}
 />
+
+<style>
+	:global(.schedule-navigator-cell:focus),
+	:global(.schedule-navigator-cell:focus-visible) {
+		outline: none !important;
+		outline-offset: 0 !important;
+		box-shadow: none !important;
+		-webkit-box-shadow: none !important;
+		border-color: transparent !important;
+		--tw-ring-color: transparent !important;
+		--tw-ring-shadow: 0 0 #0000 !important;
+	}
+</style>

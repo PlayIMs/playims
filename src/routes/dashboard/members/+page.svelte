@@ -31,7 +31,9 @@
 	} from '$lib/members/clipboard.js';
 	import { parseMemberPageInput, resolveClosestMemberPage } from '$lib/members/pagination.js';
 	import { clearMemberSelectionFromHref, syncMembersUrlIfReady } from '$lib/members/url-state.js';
+	import { defaultPhoneCountryIso2ByDialCode, phoneCountryByIso2 } from '$lib/utils/phone-country-codes.js';
 	import { formatPhoneForDisplay } from '$lib/utils/phone-format.js';
+	import { formatPhoneNationalFromDigits, parseStoredPhoneNumber } from '$lib/utils/phone-format.js';
 	import type {
 		CreateMemberResponse,
 		MemberAssignableRole,
@@ -179,6 +181,9 @@
 	let createdCredentials = $state<MemberCredentialsState | null>(null);
 	let editForm = $state<MemberEditFormState>({
 		email: '',
+		cellPhoneCountryIso2: 'us',
+		cellPhoneCountryCode: '+1',
+		cellPhone: '',
 		firstName: '',
 		lastName: '',
 		studentId: '',
@@ -293,6 +298,20 @@
 
 	function normalize(value: string | null | undefined): string {
 		return value?.trim() ?? '';
+	}
+
+	function splitStoredCellPhone(value: string | null | undefined): {
+		cellPhoneCountryIso2: string;
+		cellPhoneCountryCode: string;
+		cellPhone: string;
+	} {
+		const parsed = parseStoredPhoneNumber(value);
+		const countryIso2 = defaultPhoneCountryIso2ByDialCode.get(parsed.countryCode) ?? 'us';
+		return {
+			cellPhoneCountryIso2: countryIso2,
+			cellPhoneCountryCode: phoneCountryByIso2.get(countryIso2)?.dialCodePlus ?? '+1',
+			cellPhone: formatPhoneNationalFromDigits(parsed.nationalDigits)
+		};
 	}
 
 	function roleToneClass(role: MemberRole): string {
@@ -615,8 +634,10 @@
 			return;
 		}
 		if (kind === 'edit') {
+			const cellPhone = splitStoredCellPhone(detail.cellPhone);
 			editForm = {
 				email: normalize(detail.email),
+				...cellPhone,
 				firstName: normalize(detail.firstName),
 				lastName: normalize(detail.lastName),
 				studentId: normalize(detail.studentId),
@@ -702,6 +723,10 @@
 				body: JSON.stringify({
 					action: 'edit-profile',
 					email: editForm.email,
+					cellPhone:
+						editForm.cellPhone.replace(/\D/g, '').length > 0
+							? `${editForm.cellPhoneCountryCode}${editForm.cellPhone.replace(/\D/g, '')}`
+							: null,
 					firstName: editForm.firstName || null,
 					lastName: editForm.lastName || null,
 					studentId: editForm.studentId || null,

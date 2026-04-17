@@ -6,9 +6,11 @@ Deeper explanation:
 The dashboard home page now turns recent activity into linked team-registration updates. These tests
 protect the data contract that the Svelte page depends on, so each sentence fragment can stay
 clickable and continue pointing at the correct dashboard destination when the load logic evolves.
+They also protect the compact current-season summary data that powers the dashboard's top card.
 
 Summary of tests:
 1. It verifies that recent team registrations return structured creator, team, league, offering, and division links.
+2. It verifies that the dashboard returns season history data and season summary counts for the current-season dashboard card.
 */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -165,7 +167,20 @@ describe('dashboard home page load', () => {
 		]);
 		mocks.tenantDb.facilities.getAll.mockResolvedValue([]);
 		mocks.tenantDb.announcements.getAll.mockResolvedValue([]);
-		mocks.tenantDb.rosters.getByClientId.mockResolvedValue([]);
+		mocks.tenantDb.rosters.getByClientId.mockResolvedValue([
+			{
+				id: 'roster-1',
+				teamId: 'team-1',
+				userId: 'user-1',
+				rosterStatus: 'active'
+			},
+			{
+				id: 'roster-2',
+				teamId: 'team-1',
+				userId: 'user-2',
+				rosterStatus: 'pending'
+			}
+		]);
 		mocks.tenantDb.seasons.getCurrentByClientId.mockResolvedValue({
 			id: 'season-1',
 			name: 'Spring 2026',
@@ -226,5 +241,25 @@ describe('dashboard home page load', () => {
 			}
 		});
 		expect(result.recentActivity[0].time).toEqual(expect.any(String));
+		expect(result.currentSeason).toMatchObject({
+			id: 'season-1',
+			name: 'Spring 2026',
+			offeringCount: 1,
+			leagueCount: 1,
+			divisionCount: 1,
+			teamCount: 1,
+			playerCount: 1
+		});
+		expect(result.seasonHistory).toEqual([
+			{
+				id: 'season-1',
+				name: 'Spring 2026',
+				slug: 'spring-2026',
+				startDate: '2026-01-15',
+				endDate: '2026-05-01',
+				isCurrent: true,
+				isActive: true
+			}
+		]);
 	});
 });

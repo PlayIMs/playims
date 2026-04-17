@@ -1,11 +1,17 @@
 <script lang="ts">
+	import { IconChevronDown, IconChevronUp } from '@tabler/icons-svelte';
 	import ModalShell from '$lib/components/modals/ModalShell.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
+	import { phoneCountries, phoneCountryByIso2 } from '$lib/utils/phone-country-codes';
+	import { formatPhoneNationalFromDigits } from '$lib/utils/phone-format';
 	import type { MemberSex } from '$lib/members/types.js';
 	import { toast } from '$lib/toasts';
 
 	export interface MemberEditFormState {
 		email: string;
+		cellPhoneCountryIso2: string;
+		cellPhoneCountryCode: string;
+		cellPhone: string;
 		firstName: string;
 		lastName: string;
 		studentId: string;
@@ -32,10 +38,28 @@
 		onSubmit
 	}: Props = $props();
 	let formElement = $state<HTMLFormElement | null>(null);
+	let cellPhoneTouched = $state(false);
+	const cellPhoneCountryOptions = $derived.by(() =>
+		phoneCountries.map((country) => ({
+			value: country.iso2,
+			label: `${country.iso2.toUpperCase()} ${country.countryName} (${country.dialCodePlus})`,
+			leadingVisualClass: country.flagIconClass,
+			leadingVisualAriaLabel: `${country.countryName} flag`,
+			searchText: `${country.countryName} ${country.dialCodePlus} ${country.iso2.toUpperCase()}`
+		}))
+	);
+	const selectedCellPhoneCountry = $derived.by(
+		() => phoneCountryByIso2.get(form.cellPhoneCountryIso2) ?? null
+	);
+	const cellPhoneMaskRegex = /^\(\d{3}\)\s\d{3}-\d{4}$/;
+	const cellPhoneIsValid = $derived.by(
+		() => form.cellPhone.replace(/\D/g, '').length === 0 || cellPhoneMaskRegex.test(form.cellPhone)
+	);
+	const showCellPhoneError = $derived.by(() => cellPhoneTouched && !cellPhoneIsValid);
 
 	const sexOptions = [
-		{ value: 'M', label: 'M' },
-		{ value: 'F', label: 'F' }
+		{ value: 'M', label: 'Male' },
+		{ value: 'F', label: 'Female' }
 	];
 
 	let lastErrorToast = $state('');
@@ -58,6 +82,23 @@
 			title: 'Edit member'
 		});
 	});
+
+	function handleCellPhoneInput(event: Event): void {
+		const target = event.currentTarget as HTMLInputElement | null;
+		if (!target) {
+			return;
+		}
+
+		form.cellPhone = formatPhoneNationalFromDigits(target.value);
+	}
+
+	$effect(() => {
+		if (!open) {
+			return;
+		}
+
+		cellPhoneTouched = false;
+	});
 </script>
 
 <ModalShell
@@ -74,6 +115,10 @@
 		class="flex flex-1 flex-col overflow-hidden bg-neutral"
 		onsubmit={(event) => {
 			event.preventDefault();
+			cellPhoneTouched = true;
+			if (!cellPhoneIsValid) {
+				return;
+			}
 			onSubmit();
 		}}
 	>
@@ -107,7 +152,7 @@
 							{fieldErrors.lastName}
 						</p>{/if}
 				</div>
-				<div class="space-y-1 lg:col-span-2">
+				<div class="space-y-1">
 					<label class="block text-sm font-semibold text-neutral-950" for="member-edit-email"
 						>Email</label
 					>
@@ -118,6 +163,83 @@
 						bind:value={form.email}
 					/>
 					{#if fieldErrors.email}<p class="text-xs text-secondary-900">{fieldErrors.email}</p>{/if}
+				</div>
+				<div class="space-y-1">
+					<p class="block text-sm font-semibold text-neutral-950">Phone</p>
+					<div
+						class={`phone-input-group flex items-stretch ${showCellPhoneError || fieldErrors.cellPhone ? 'phone-input-group-error' : ''}`}
+					>
+						<ListboxDropdown
+							options={cellPhoneCountryOptions}
+							value={form.cellPhoneCountryIso2}
+							ariaLabel="Cell phone country code"
+							panelWidthMode="parent"
+							maxPanelHeight={320}
+							searchEnabled
+							searchPlaceholder="Search country"
+							searchAriaLabel="Search countries"
+							searchEmptyText="No countries match your search."
+							buttonClass="phone-country-trigger relative z-10 h-11 min-w-[5.5rem] border-2 border-secondary-300 border-r-0 bg-white px-1.5 py-2 text-sm text-neutral-950 cursor-pointer inline-flex items-center justify-center gap-1 focus-visible:outline-none"
+							on:change={(event) => {
+								const nextIso2 = event.detail.value;
+								const nextCountry = phoneCountryByIso2.get(nextIso2);
+								form.cellPhoneCountryIso2 = nextIso2;
+								form.cellPhoneCountryCode = nextCountry?.dialCodePlus ?? '+1';
+							}}
+						>
+							{#snippet trigger(open)}
+								<span class="pointer-events-none inline-flex items-center gap-1.5">
+									{#if selectedCellPhoneCountry?.flagIconClass}
+										<span
+											class={`${selectedCellPhoneCountry.flagIconClass} country-flag-icon shrink-0`}
+											aria-hidden="true"
+										></span>
+									{:else}
+										<span class="text-xs font-semibold leading-none text-neutral-950">
+											{selectedCellPhoneCountry?.iso2?.toUpperCase() ?? 'US'}
+										</span>
+									{/if}
+									<span class="text-xs font-semibold leading-none text-neutral-950">
+										{form.cellPhoneCountryCode}
+									</span>
+									{#if open}
+										<IconChevronUp class="h-3.5 w-3.5 shrink-0 text-neutral-900" />
+									{:else}
+										<IconChevronDown class="h-3.5 w-3.5 shrink-0 text-neutral-900" />
+									{/if}
+								</span>
+								<span class="sr-only">
+									{selectedCellPhoneCountry
+										? `${selectedCellPhoneCountry.countryName} ${selectedCellPhoneCountry.dialCodePlus}`
+										: 'Select country'}
+								</span>
+							{/snippet}
+						</ListboxDropdown>
+						<input
+							class={`phone-number-field relative z-0 input-secondary min-h-11 flex-1 ${
+								showCellPhoneError || fieldErrors.cellPhone
+									? 'border-l-0 border-red-600 focus:border-red-700'
+									: 'border-l-0'
+							}`}
+							type="tel"
+							placeholder="(555) 555-5555"
+							inputmode="numeric"
+							autocomplete="off"
+							aria-invalid={showCellPhoneError || fieldErrors.cellPhone ? 'true' : undefined}
+							bind:value={form.cellPhone}
+							oninput={handleCellPhoneInput}
+							onblur={() => {
+								cellPhoneTouched = true;
+							}}
+						/>
+					</div>
+					{#if fieldErrors.cellPhone}
+						<p class="text-xs text-secondary-900">{fieldErrors.cellPhone}</p>
+					{:else if showCellPhoneError}
+						<p class="text-xs text-red-700">Enter a valid phone number as (###) ###-####.</p>
+					{:else}
+						<p class="text-xs text-neutral-700">Phone numbers are optional.</p>
+					{/if}
 				</div>
 				<div class="space-y-1">
 					<label class="block text-sm font-semibold text-neutral-950" for="member-edit-student-id"
@@ -160,7 +282,7 @@
 			<button
 				type="submit"
 				class="button-primary w-full cursor-pointer sm:w-auto"
-				disabled={submitting}
+				disabled={submitting || showCellPhoneError}
 			>
 				{submitting ? 'Saving...' : 'Save Changes'}
 			</button>

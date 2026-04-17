@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { beforeNavigate, goto, invalidateAll } from '$app/navigation';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import {
 		IconBell,
 		IconCopy,
@@ -36,6 +36,7 @@
 	import { buildCommunicationDraftStateSignature } from '$lib/communications/editor-content.js';
 	import { buildCommunicationPageHydrationSignature } from '$lib/communications/page-hydration.js';
 	import {
+		filterCommunicationManualRecipientSuggestions,
 		mergeCommunicationManualRecipients,
 		splitCommunicationManualRecipientInput
 	} from '$lib/communications/manual-recipients.js';
@@ -43,6 +44,7 @@
 		createEmptyCommunicationFilterOptions,
 		type CommunicationFilterOptions,
 		type CommunicationManualRecipientDraft,
+		type CommunicationManualRecipientSuggestion,
 		type CommunicationMessageDetail,
 		type CommunicationMessageSummary,
 		type CommunicationRecipientGroupDraft,
@@ -86,10 +88,12 @@
 	let manualRecipients = $state<CommunicationManualRecipientDraft[]>([]);
 	let manualRecipientInput = $state('');
 	let manualRecipientLoading = $state(false);
-	let manualRecipientSuggestions = $state<CommunicationManualRecipientDraft[]>([]);
+	let manualRecipientSuggestions = $state<CommunicationManualRecipientSuggestion[]>([]);
 	let manualRecipientSuggestionQuery = $state('');
 	let manualRecipientActiveSuggestionIndex = $state(0);
 	let manualRecipientFieldElement = $state<HTMLDivElement | null>(null);
+	let manualRecipientInputElement = $state<HTMLInputElement | null>(null);
+	let manualRecipientSuggestionsElement = $state<HTMLDivElement | null>(null);
 	let preview = $state<CommunicationRecipientPreview>({ totalCount: 0, rows: [] });
 	let saveLoading = $state(false);
 	let sendLoading = $state(false);
@@ -426,6 +430,16 @@
 		};
 	});
 
+	$effect(() => {
+		if (manualRecipientSuggestions.length === 0) {
+			return;
+		}
+
+		void tick().then(() => {
+			manualRecipientSuggestionsElement?.focus();
+		});
+	});
+
 	async function requestPreview(
 		nextRecipientGroups: Array<{
 			id: string;
@@ -463,7 +477,7 @@
 		status: 'resolved' | 'ambiguous';
 		query: string;
 		manualRecipients: CommunicationManualRecipientDraft[];
-		suggestions: CommunicationManualRecipientDraft[];
+		suggestions: CommunicationManualRecipientSuggestion[];
 	}> {
 		const response = await fetch('/api/communications/recipients/resolve', {
 			method: 'POST',
@@ -478,7 +492,7 @@
 			status: payload.data.status as 'resolved' | 'ambiguous',
 			query: payload.data.query as string,
 			manualRecipients: payload.data.manualRecipients as CommunicationManualRecipientDraft[],
-			suggestions: payload.data.suggestions as CommunicationManualRecipientDraft[]
+			suggestions: payload.data.suggestions as CommunicationManualRecipientSuggestion[]
 		};
 	}
 
@@ -486,6 +500,17 @@
 		manualRecipientSuggestions = [];
 		manualRecipientSuggestionQuery = '';
 		manualRecipientActiveSuggestionIndex = 0;
+	}
+
+	async function focusManualRecipientInputAtEnd(): Promise<void> {
+		await tick();
+		if (!manualRecipientInputElement) {
+			return;
+		}
+
+		manualRecipientInputElement.focus();
+		const caretPosition = manualRecipientInputElement.value.length;
+		manualRecipientInputElement.setSelectionRange(caretPosition, caretPosition);
 	}
 
 	async function syncManualRecipients(
@@ -560,7 +585,10 @@
 					}
 					manualRecipientInput = resolution.query;
 					manualRecipientSuggestionQuery = resolution.query;
-					manualRecipientSuggestions = resolution.suggestions;
+					manualRecipientSuggestions = filterCommunicationManualRecipientSuggestions(
+						nextManualRecipients,
+						resolution.suggestions
+					);
 					manualRecipientActiveSuggestionIndex = 0;
 					return;
 				}
@@ -573,6 +601,7 @@
 
 			await syncManualRecipients(nextManualRecipients);
 			manualRecipientInput = '';
+			await focusManualRecipientInputAtEnd();
 		} catch (error) {
 			manualRecipientInput = fallbackInput.trimStart();
 			clearManualRecipientSuggestions();
@@ -621,6 +650,7 @@
 			);
 		} finally {
 			manualRecipientLoading = false;
+			void focusManualRecipientInputAtEnd();
 		}
 	}
 
@@ -638,6 +668,7 @@
 			toast.error(error instanceof Error ? error.message : 'Unable to add the selected recipient.');
 		} finally {
 			manualRecipientLoading = false;
+			void focusManualRecipientInputAtEnd();
 		}
 	}
 
@@ -831,12 +862,18 @@
 
 	async function discardUnsavedDraftAndContinue(): Promise<void> {
 		const confirmMode = unsavedDraftConfirmMode;
+		const pendingHref = pendingNavigationHref;
 		unsavedLeaveConfirmOpen = false;
 		pendingNavigationHref = null;
 		unsavedDraftConfirmMode = 'leave';
 
 		if (confirmMode === 'new-message') {
 			await openNewMessageComposer();
+			return;
+		}
+
+		if (pendingHref) {
+			await navigateWithoutDraftGuard(pendingHref);
 		}
 	}
 
@@ -922,21 +959,23 @@
 									for="communication-manual-recipient-input">Manual Recipients</label
 								>
 								<div class="relative" bind:this={manualRecipientFieldElement}>
-									<div class="min-h-10 w-full border-2 border-secondary-500 bg-white px-4 py-2">
-										<div class="flex flex-wrap items-center gap-2">
+									<div class="h-10 w-full border-2 border-secondary-500 bg-white px-3">
+										<div
+											class="flex h-full items-center gap-1.5 overflow-x-auto overflow-y-hidden whitespace-nowrap scrollbar-thin"
+										>
 											{#each manualRecipients as recipient, index (recipient.userId ?? recipient.email)}
 												<HoverTooltip
 													text={`${recipient.fullName} (${recipient.email})`}
 													case="preserve"
 												>
 													<span
-														class="inline-flex items-center gap-2 border border-secondary-500 bg-secondary-50 px-2 py-1 text-xs font-semibold text-secondary-950"
+														class="inline-flex shrink-0 items-center gap-1.5 border border-secondary-500 bg-secondary-50 px-1.5 py-0.5 text-[11px] leading-none font-semibold text-secondary-950"
 													>
-														<span class="max-w-[11rem] truncate">{recipient.fullName}</span>
+														<span class="max-w-[9rem] truncate">{recipient.fullName}</span>
 														{#if canEditCurrentDraft}
 															<button
 																type="button"
-																class="cursor-pointer text-secondary-900"
+																class="cursor-pointer text-[11px] leading-none text-secondary-900"
 																aria-label={`Remove ${recipient.fullName}`}
 																onclick={() => void removeManualRecipient(index)}
 																disabled={manualRecipientLoading}
@@ -949,9 +988,11 @@
 											{/each}
 											<input
 												id="communication-manual-recipient-input"
-												class="min-w-[12rem] flex-1 border-0 bg-transparent p-0 text-sm text-neutral-950 outline-none placeholder:text-neutral-500"
+												bind:this={manualRecipientInputElement}
+												class="no-date-input-focus-chrome h-full min-w-0 flex-1 appearance-none border-0 bg-transparent p-0 text-xs leading-none text-neutral-950 shadow-none outline-none ring-0 placeholder:text-neutral-500"
 												type="text"
 												value={manualRecipientInput}
+												name="communication-manual-recipients"
 												role="combobox"
 												aria-autocomplete="list"
 												aria-expanded={manualRecipientSuggestions.length > 0}
@@ -959,10 +1000,12 @@
 												aria-activedescendant={manualRecipientSuggestions.length > 0
 													? `communication-manual-recipient-suggestion-${manualRecipientActiveSuggestionIndex}`
 													: undefined}
-												placeholder="Type a member name or email"
-												disabled={!canPreviewAudience ||
-													!canEditCurrentDraft ||
-													manualRecipientLoading}
+												placeholder="Type a member name, email, or phone"
+												autocomplete="off"
+												autocorrect="off"
+												autocapitalize="none"
+												spellcheck="false"
+												disabled={!canPreviewAudience || !canEditCurrentDraft}
 												oninput={(event) =>
 													void handleManualRecipientInputChange(event.currentTarget.value)}
 												onkeydown={(event) => {
@@ -1027,9 +1070,57 @@
 									{#if manualRecipientSuggestions.length > 0}
 										<div
 											id="communication-manual-recipient-suggestions"
+											bind:this={manualRecipientSuggestionsElement}
 											class="absolute left-0 right-0 top-full z-30 mt-1 max-h-[13.5rem] overflow-y-auto border-2 border-neutral-950 bg-white scrollbar-thin"
 											role="listbox"
 											aria-label="Manual recipient suggestions"
+											tabindex="-1"
+											onkeydown={(event) => {
+												if (event.key === 'ArrowDown') {
+													event.preventDefault();
+													moveManualRecipientSuggestion(1);
+													return;
+												}
+												if (event.key === 'ArrowUp') {
+													event.preventDefault();
+													moveManualRecipientSuggestion(-1);
+													return;
+												}
+												if (event.key === 'Enter') {
+													event.preventDefault();
+													const activeSuggestion =
+														manualRecipientSuggestions[manualRecipientActiveSuggestionIndex] ??
+														manualRecipientSuggestions[0];
+													if (activeSuggestion) {
+														void applyManualRecipientSuggestion(activeSuggestion);
+													}
+													return;
+												}
+												if (event.key === 'Escape') {
+													event.preventDefault();
+													clearManualRecipientSuggestions();
+													void focusManualRecipientInputAtEnd();
+													return;
+												}
+												if (event.key === 'Backspace') {
+													event.preventDefault();
+													manualRecipientInput = manualRecipientInput.slice(0, -1);
+													clearManualRecipientSuggestions();
+													void focusManualRecipientInputAtEnd();
+													return;
+												}
+												if (
+													event.key.length === 1 &&
+													!event.altKey &&
+													!event.ctrlKey &&
+													!event.metaKey
+												) {
+													event.preventDefault();
+													manualRecipientInput = `${manualRecipientInput}${event.key}`;
+													clearManualRecipientSuggestions();
+													void focusManualRecipientInputAtEnd();
+												}
+											}}
 										>
 											<div
 												class="border-b border-neutral-400 bg-neutral-100 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-neutral-700"
@@ -1055,11 +1146,14 @@
 													}}
 													onclick={() => void applyManualRecipientSuggestion(suggestion)}
 												>
-													<span class="min-w-0 flex-1 truncate font-semibold">
-														{suggestion.fullName}
+													<span class="min-w-0 flex-1 truncate text-sm text-neutral-950">
+														<span class="font-semibold">{suggestion.fullName}</span>
+														<span class="ml-2 text-xs text-neutral-700">
+															{suggestion.email}
+														</span>
 													</span>
-													<span class="min-w-0 truncate text-xs text-neutral-700">
-														{suggestion.email}
+													<span class="shrink-0 text-xs font-semibold text-neutral-700">
+														{suggestion.lastActiveSeasonName ?? 'Never Active'}
 													</span>
 												</button>
 											{/each}
@@ -1079,6 +1173,11 @@
 								class="input-secondary min-h-10"
 								type="text"
 								bind:value={subject}
+								name="communication-subject"
+								autocomplete="off"
+								autocorrect="off"
+								autocapitalize="sentences"
+								spellcheck="false"
 								disabled={!canEditCurrentDraft}
 							/>
 						</div>
@@ -1378,11 +1477,11 @@
 				: 'Save Draft Before Leaving?'}
 			message={unsavedDraftConfirmMode === 'new-message'
 				? 'You have unsaved draft changes. Save or discard this draft before clearing the composer?'
-				: 'You have unsaved draft changes. Save this draft before leaving the page?'}
+				: 'You have unsaved draft changes. Save or discard this draft before leaving the page?'}
 			confirmLabel={saveLoading ? 'Saving...' : 'Save Draft'}
 			cancelLabel="Keep Editing"
 			confirmVariant="primary"
-			secondaryLabel={unsavedDraftConfirmMode === 'new-message' ? 'Discard Draft' : null}
+			secondaryLabel="Discard Draft"
 			secondaryVariant="error"
 			on:confirm={() => void confirmSaveBeforeLeaving()}
 			on:cancel={keepEditingDraft}
