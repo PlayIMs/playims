@@ -1,4 +1,7 @@
-import type { CommunicationManualRecipientDraft } from './types.js';
+import type {
+	CommunicationManualRecipientDraft,
+	CommunicationManualRecipientSuggestion
+} from './types.js';
 
 const normalizeText = (value: string | null | undefined): string => value?.trim() ?? '';
 const normalizeEmail = (value: string | null | undefined): string => normalizeText(value).toLowerCase();
@@ -41,4 +44,17 @@ export const mergeCommunicationManualRecipients = (
 	}
 
 	return Array.from(merged.values());
+};
+
+export const filterCommunicationManualRecipientSuggestions = (
+	current: CommunicationManualRecipientDraft[],
+	suggestions: CommunicationManualRecipientSuggestion[]
+): CommunicationManualRecipientSuggestion[] => {
+	const existingKeys = new Set(
+		current
+			.map((recipient) => getRecipientKey(recipient))
+			.filter((key) => key.length > 0)
+	);
+
+	return suggestions.filter((suggestion) => !existingKeys.has(getRecipientKey(suggestion)));
 };

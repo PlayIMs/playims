@@ -12,8 +12,8 @@ Summary of tests:
 1. It verifies that include-only recipient groups can resolve recipients from member and roster filters.
 2. It verifies that exclude recipient groups remove overlapping recipients while preserving deduped includes.
 3. It verifies that users without email addresses are excluded from previews.
-4. It verifies that manual recipients can be resolved by email or member name.
-5. It verifies that ambiguous manual recipient queries return a condensed suggestion list.
+4. It verifies that manual recipients can be resolved by email, phone number, or member name.
+5. It verifies that ambiguous manual recipient queries return a condensed suggestion list with last active season labels.
 6. It verifies that saving a new draft persists the editor content, recipient groups, manual recipients, and resolved recipients.
 7. It verifies that updating an existing draft rewrites the draft body and recipient resolution in place.
 8. It verifies that deleting a draft only succeeds for draft messages.
@@ -48,6 +48,7 @@ const buildAudienceRow = (
 	userId: 'user-1',
 	membershipId: 'membership-1',
 	email: 'alex@playims.test',
+	cellPhone: '(555) 111-2222',
 	firstName: 'Alex',
 	lastName: 'Captain',
 	studentId: '12345',
@@ -64,6 +65,9 @@ const buildAudienceRow = (
 	offeringName: 'Basketball',
 	seasonId: 'season-a',
 	seasonName: 'Spring 2029',
+	seasonStartDate: '2029-03-01',
+	seasonEndDate: '2029-05-31',
+	seasonIsCurrent: 0,
 	isCaptain: 1,
 	isCoCaptain: 0,
 	rosterStatus: 'active',
@@ -105,6 +109,7 @@ describe('communication service', () => {
 				userId: 'user-2',
 				membershipId: 'membership-2',
 				email: 'jamie@playims.test',
+				cellPhone: '(555) 333-4444',
 				firstName: 'Jamie',
 				lastName: 'Player',
 				memberSex: 'F',
@@ -117,6 +122,7 @@ describe('communication service', () => {
 				userId: 'user-3',
 				membershipId: 'membership-3',
 				email: ' ',
+				cellPhone: null,
 				firstName: 'No',
 				lastName: 'Email',
 				memberRole: 'manager',
@@ -250,8 +256,8 @@ describe('communication service', () => {
 		expect(preview.rows).toEqual([]);
 	});
 
-	it('resolves manual recipients by email or unique member name', async () => {
-		// manual recipient chips should normalize to the same canonical org member whether typed as email or name.
+	it('resolves manual recipients by email, phone number, or unique member name', async () => {
+		// manual recipient chips should normalize to the same canonical org member whether typed as email, phone, or name.
 		await expect(
 			service.resolveManualRecipients({
 				clientId: 'client-1',
@@ -261,8 +267,12 @@ describe('communication service', () => {
 						fullName: 'alex@playims.test'
 					},
 					{
-						email: 'Jamie Player',
-						fullName: 'Jamie Player'
+						email: '(555) 333-4444',
+						fullName: '(555) 333-4444'
+					},
+					{
+						email: 'Alex Captain',
+						fullName: 'Alex Captain'
 					}
 				]
 			})
@@ -289,6 +299,8 @@ describe('communication service', () => {
 				email: 'jake@playims.test',
 				firstName: 'Jake',
 				lastName: 'Harvanchik',
+				seasonId: 'season-b',
+				seasonName: 'Fall 2029',
 				teamId: null,
 				teamName: null,
 				divisionId: null,
@@ -297,8 +309,6 @@ describe('communication service', () => {
 				leagueName: null,
 				offeringId: null,
 				offeringName: null,
-				seasonId: null,
-				seasonName: null,
 				isCaptain: 0,
 				isCoCaptain: 0
 			}),
@@ -335,12 +345,14 @@ describe('communication service', () => {
 				{
 					userId: 'user-4',
 					email: 'jake@playims.test',
-					fullName: 'Jake Harvanchik'
+					fullName: 'Jake Harvanchik',
+					lastActiveSeasonName: 'Fall 2029'
 				},
 				{
 					userId: 'user-5',
 					email: 'jamie.harvanchik@playims.test',
-					fullName: 'Jamie Harvanchik'
+					fullName: 'Jamie Harvanchik',
+					lastActiveSeasonName: null
 				}
 			]
 		});

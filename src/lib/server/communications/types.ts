@@ -12,6 +12,7 @@ export interface CommunicationAudienceRow {
 	userId: string | null;
 	membershipId: string | null;
 	email: string | null;
+	cellPhone: string | null;
 	firstName: string | null;
 	lastName: string | null;
 	studentId: string | null;
@@ -28,6 +29,9 @@ export interface CommunicationAudienceRow {
 	offeringName: string | null;
 	seasonId: string | null;
 	seasonName: string | null;
+	seasonStartDate: string | null;
+	seasonEndDate: string | null;
+	seasonIsCurrent: number | null;
 	isCaptain: number | null;
 	isCoCaptain: number | null;
 	rosterStatus: string | null;

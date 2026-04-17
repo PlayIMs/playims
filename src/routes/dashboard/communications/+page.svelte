@@ -989,7 +989,8 @@
 											<input
 												id="communication-manual-recipient-input"
 												bind:this={manualRecipientInputElement}
-												class="no-date-input-focus-chrome h-full min-w-0 flex-1 appearance-none border-0 bg-transparent p-0 text-xs leading-none text-neutral-950 shadow-none outline-none ring-0 placeholder:text-neutral-500"
+												class="no-date-input-focus-chrome h-full min-w-0 flex-1 appearance-none border-0 bg-transparent p-0 text-xs leading-none text-neutral-950"
+												style="outline: 0px !important; box-shadow: none !important;"
 												type="text"
 												value={manualRecipientInput}
 												name="communication-manual-recipients"
@@ -1071,7 +1072,7 @@
 										<div
 											id="communication-manual-recipient-suggestions"
 											bind:this={manualRecipientSuggestionsElement}
-											class="absolute left-0 right-0 top-full z-30 mt-1 max-h-[13.5rem] overflow-y-auto border-2 border-neutral-950 bg-white scrollbar-thin"
+											class="absolute left-0 right-0 top-full z-30 mt-1 max-h-54 overflow-y-auto border-2 border-neutral-950 bg-white scrollbar-thin"
 											role="listbox"
 											aria-label="Manual recipient suggestions"
 											tabindex="-1"

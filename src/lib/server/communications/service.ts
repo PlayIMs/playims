@@ -1,6 +1,7 @@
 import {
 	EMPTY_COMMUNICATION_RECIPIENT_GROUP_FILTER,
 	type CommunicationManualRecipientDraft,
+	type CommunicationManualRecipientSuggestion,
 	type CommunicationRecipientGroupDraft,
 	type CommunicationRecipientGroupFilter,
 	type CommunicationFilterOptions,
@@ -10,6 +11,7 @@ import {
 	type CommunicationTeamStatus,
 	type RecipientPreviewRow
 } from '$lib/communications/types.js';
+import { normalizePhoneDigitsForSearch } from '$lib/utils/phone-format.js';
 import { communicationHtmlToPlainText, sanitizeCommunicationHtml } from './html.js';
 import type { CommunicationEmailProvider } from './provider.js';
 import type {
@@ -50,6 +52,8 @@ const normalizeText = (value: string | null | undefined): string => value?.trim(
 const normalizeLower = (value: string | null | undefined): string => normalizeText(value).toLowerCase();
 
 const normalizeEmail = (value: string | null | undefined): string => normalizeLower(value);
+const normalizePhoneDigits = (value: string | null | undefined): string =>
+	normalizePhoneDigitsForSearch(value);
 
 const buildFullName = (row: CommunicationAudienceRow): string => {
 	const joined = [normalizeText(row.firstName), normalizeText(row.lastName)]
@@ -178,6 +182,45 @@ const toManualRecipient = (rows: CommunicationAudienceRow[]): CommunicationManua
 	};
 };
 
+const getSeasonRecencyValue = (row: CommunicationAudienceRow): number => {
+	const startTime = Date.parse(normalizeText(row.seasonStartDate));
+	if (Number.isFinite(startTime)) {
+		return startTime;
+	}
+
+	const endTime = Date.parse(normalizeText(row.seasonEndDate));
+	if (Number.isFinite(endTime)) {
+		return endTime;
+	}
+
+	return row.seasonIsCurrent ? Number.MAX_SAFE_INTEGER : Number.MIN_SAFE_INTEGER;
+};
+
+const getLastActiveSeasonName = (rows: CommunicationAudienceRow[]): string | null => {
+	const seasonRows = rows.filter((row) => normalizeText(row.seasonName));
+	if (seasonRows.length === 0) {
+		return null;
+	}
+
+	const sortedRows = [...seasonRows].sort((left, right) => {
+		const recencyDifference = getSeasonRecencyValue(right) - getSeasonRecencyValue(left);
+		if (recencyDifference !== 0) {
+			return recencyDifference;
+		}
+
+		return normalizeText(right.seasonName).localeCompare(normalizeText(left.seasonName));
+	});
+
+	return normalizeText(sortedRows[0]?.seasonName) || null;
+};
+
+const toManualRecipientSuggestion = (
+	rows: CommunicationAudienceRow[]
+): CommunicationManualRecipientSuggestion => ({
+	...toManualRecipient(rows),
+	lastActiveSeasonName: getLastActiveSeasonName(rows)
+});
+
 const buildAudienceMap = (rows: CommunicationAudienceRow[]): Map<string, CommunicationAudienceRow[]> => {
 	const grouped = new Map<string, CommunicationAudienceRow[]>();
 	for (const row of rows) {
@@ -225,7 +268,7 @@ type ManualRecipientMatchResult =
 	| {
 			status: 'ambiguous';
 			query: string;
-			suggestions: CommunicationManualRecipientDraft[];
+			suggestions: CommunicationManualRecipientSuggestion[];
 	  }
 	| {
 			status: 'not_found';
@@ -362,6 +405,7 @@ export class CommunicationService {
 		const rows = await this.storage.listAudienceRows(input.clientId);
 		const audienceMap = buildAudienceMap(rows);
 		const loweredQuery = normalizeLower(input.query);
+		const phoneDigitsQuery = normalizePhoneDigits(input.query);
 
 		const exactEmailMatch = Array.from(audienceMap.values()).find(
 			(audienceRows) => normalizeEmail(audienceRows[0]?.email) === loweredQuery
@@ -372,6 +416,29 @@ export class CommunicationService {
 				query: input.query,
 				manualRecipient: toManualRecipient(exactEmailMatch)
 			};
+		}
+
+		if (phoneDigitsQuery.length > 0) {
+			const exactPhoneMatches = Array.from(audienceMap.values()).filter(
+				(audienceRows) => normalizePhoneDigits(audienceRows[0]?.cellPhone) === phoneDigitsQuery
+			);
+			if (exactPhoneMatches.length === 1) {
+				return {
+					status: 'resolved',
+					query: input.query,
+					manualRecipient: toManualRecipient(exactPhoneMatches[0]!)
+				};
+			}
+			if (exactPhoneMatches.length > 1) {
+				return {
+					status: 'ambiguous',
+					query: input.query,
+					suggestions: exactPhoneMatches
+						.map((rowsOut) => toManualRecipientSuggestion(rowsOut))
+						.sort((a, b) => a.fullName.localeCompare(b.fullName))
+						.slice(0, MAX_MANUAL_RECIPIENT_SUGGESTIONS)
+				};
+			}
 		}
 
 		const exactNameMatches = Array.from(audienceMap.values()).filter(
@@ -388,7 +455,8 @@ export class CommunicationService {
 			return {
 				status: 'ambiguous',
 				query: input.query,
-				suggestions: dedupeManualRecipients(exactNameMatches.map((rowsOut) => toManualRecipient(rowsOut)))
+				suggestions: exactNameMatches
+					.map((rowsOut) => toManualRecipientSuggestion(rowsOut))
 					.sort((a, b) => a.fullName.localeCompare(b.fullName))
 					.slice(0, MAX_MANUAL_RECIPIENT_SUGGESTIONS)
 			};
@@ -397,7 +465,12 @@ export class CommunicationService {
 		const partialMatches = Array.from(audienceMap.values()).filter((audienceRows) => {
 			const fullName = normalizeLower(buildFullName(audienceRows[0]!));
 			const email = normalizeEmail(audienceRows[0]?.email);
-			return fullName.includes(loweredQuery) || email.includes(loweredQuery);
+			const cellPhone = normalizePhoneDigits(audienceRows[0]?.cellPhone);
+			return (
+				fullName.includes(loweredQuery) ||
+				email.includes(loweredQuery) ||
+				(phoneDigitsQuery.length > 0 && cellPhone.includes(phoneDigitsQuery))
+			);
 		});
 		if (partialMatches.length === 1) {
 			return {
@@ -410,7 +483,8 @@ export class CommunicationService {
 			return {
 				status: 'ambiguous',
 				query: input.query,
-				suggestions: dedupeManualRecipients(partialMatches.map((rowsOut) => toManualRecipient(rowsOut)))
+				suggestions: partialMatches
+					.map((rowsOut) => toManualRecipientSuggestion(rowsOut))
 					.sort((a, b) => a.fullName.localeCompare(b.fullName))
 					.slice(0, MAX_MANUAL_RECIPIENT_SUGGESTIONS)
 			};

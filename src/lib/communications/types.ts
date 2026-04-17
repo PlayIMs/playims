@@ -52,6 +52,10 @@ export interface CommunicationManualRecipientDraft {
 	fullName: string;
 }
 
+export interface CommunicationManualRecipientSuggestion extends CommunicationManualRecipientDraft {
+	lastActiveSeasonName: string | null;
+}
+
 export interface CommunicationMessageSummary {
 	id: string;
 	channel: CommunicationChannel;

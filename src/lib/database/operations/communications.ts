@@ -551,6 +551,7 @@ export class CommunicationOperations implements CommunicationStoragePort {
 				userId: userClients.userId,
 				membershipId: userClients.id,
 				email: users.email,
+				cellPhone: users.cellPhone,
 				firstName: users.firstName,
 				lastName: users.lastName,
 				studentId: userClients.studentId,
@@ -567,6 +568,9 @@ export class CommunicationOperations implements CommunicationStoragePort {
 				offeringName: offerings.name,
 				seasonId: leagues.seasonId,
 				seasonName: seasons.name,
+				seasonStartDate: seasons.startDate,
+				seasonEndDate: seasons.endDate,
+				seasonIsCurrent: seasons.isCurrent,
 				isCaptain: rosters.isCaptain,
 				isCoCaptain: rosters.isCoCaptain,
 				rosterStatus: rosters.rosterStatus

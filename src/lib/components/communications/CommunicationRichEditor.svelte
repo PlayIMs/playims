@@ -46,6 +46,11 @@
 		buildCommunicationEditorContentSignature,
 		getCommunicationEditorInitialContent
 	} from '$lib/communications/editor-content.js';
+	import {
+		buildCommunicationEditorLinkAttributes,
+		buildCommunicationEditorLinkDialogState,
+		resolveCommunicationEditorLinkDisplayText
+	} from '$lib/communications/editor-links.js';
 	import { updateCommunicationEditorRuntimeState } from '$lib/communications/editor-runtime.js';
 	import { buildSpecialCharacterDialogOpenState } from '$lib/communications/editor-special-character-dialog.js';
 	import {
@@ -175,6 +180,8 @@
 	let toolbarRevision = $state(0);
 	let linkDialogOpen = $state(false);
 	let linkValue = $state('');
+	let linkTextValue = $state('');
+	let linkOpenInNewTab = $state(false);
 	let linkInput = $state<HTMLInputElement | null>(null);
 	let imageDialogOpen = $state(false);
 	let imageUrl = $state('');
@@ -635,15 +642,41 @@
 		});
 	}
 
+	function getCommunicationEditorSelectedText(nextEditor: Editor | null): string {
+		if (!nextEditor) {
+			return '';
+		}
+
+		const { from, to, empty } = nextEditor.state.selection;
+		if (empty) {
+			return '';
+		}
+
+		return nextEditor.state.doc.textBetween(from, to, '');
+	}
+
 	function openLinkDialog(value?: string): void {
 		if (!editable) {
 			return;
 		}
 
+		if (editor?.isActive('link') && editor.state.selection.empty) {
+			editor.chain().focus().extendMarkRange('link').run();
+			setEditorState(editor);
+		}
+
 		imageDialogOpen = false;
 		tableDialogOpen = false;
 		specialCharacterDialogOpen = false;
-		linkValue = value ?? editor?.getAttributes('link').href ?? '';
+		const linkAttributes = editor?.getAttributes('link') ?? {};
+		const dialogState = buildCommunicationEditorLinkDialogState({
+			selectedText: getCommunicationEditorSelectedText(editor),
+			currentHref: value ?? linkAttributes.href ?? '',
+			currentTarget: linkAttributes.target ?? null
+		});
+		linkValue = dialogState.url;
+		linkTextValue = dialogState.text;
+		linkOpenInNewTab = dialogState.openInNewTab;
 		linkDialogOpen = true;
 		void tick().then(() => {
 			linkInput?.focus();
@@ -654,6 +687,8 @@
 	function closeLinkDialog(): void {
 		linkDialogOpen = false;
 		linkValue = '';
+		linkTextValue = '';
+		linkOpenInNewTab = false;
 		editor?.commands.focus();
 	}
 
@@ -671,12 +706,45 @@
 				return false;
 			}
 
+			nextEditor.chain().focus().extendMarkRange('link').run();
+			const selection = nextEditor.state.selection;
+			const selectedText = getCommunicationEditorSelectedText(nextEditor);
+			const displayText = resolveCommunicationEditorLinkDisplayText({
+				text: linkTextValue,
+				selectedText,
+				url: normalized
+			});
+
+			if (selection.empty) {
+				nextEditor
+					.chain()
+					.focus()
+					.insertContent(displayText)
+					.setTextSelection({ from: selection.from, to: selection.from + displayText.length })
+					.run();
+			} else if (displayText !== selectedText) {
+				nextEditor
+					.chain()
+					.focus()
+					.insertContentAt({ from: selection.from, to: selection.to }, displayText)
+					.setTextSelection({
+						from: selection.from,
+						to: selection.from + displayText.length
+					})
+					.run();
+			}
+
 			nextEditor
 				.chain()
 				.focus()
 				.extendMarkRange('link')
 				.setColor(defaultLinkColor)
-				.setLink({ href: normalized })
+				.setLink(
+					buildCommunicationEditorLinkAttributes({
+						href: normalized,
+						openInNewTab: linkOpenInNewTab
+					})
+				)
 				.run();
 			closeLinkDialog();
 		});
@@ -1051,11 +1119,7 @@
 				Link.configure({
 					openOnClick: 'whenNotEditable',
 					enableClickSelection: true,
-					defaultProtocol: 'https',
-					HTMLAttributes: {
-						rel: 'noopener noreferrer',
-						target: '_blank'
-					}
+					defaultProtocol: 'https'
 				}),
 				Image.configure({
 					allowBase64: true,
@@ -1641,16 +1705,33 @@
 					class="w-full max-w-md border-2 border-neutral-950 bg-neutral shadow-lg"
 					role="dialog"
 					aria-modal="true"
-					aria-label="Edit hyperlink"
+					aria-label="Edit Hyperlink"
 					tabindex="-1"
 				>
 					<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
-						<h3 class="text-xl font-serif font-bold text-neutral-950">Edit hyperlink</h3>
-						<p class="mt-1 text-sm text-neutral-700">
-							Add, update, or remove the selected link without leaving the draft.
-						</p>
+						<h3 class="text-xl font-serif font-bold text-neutral-950">Edit Hyperlink</h3>
 					</div>
 					<div class="space-y-3 p-4">
+						<div class="space-y-2">
+							<label class="block text-sm font-sans text-neutral-950" for="communication-link-text">
+								Text To Display
+							</label>
+							<input
+								id="communication-link-text"
+								class="input-secondary min-h-10"
+								type="text"
+								bind:value={linkTextValue}
+								placeholder="Displayed text"
+								onkeydown={(event) => {
+									if (event.key !== 'Enter') {
+										return;
+									}
+
+									event.preventDefault();
+									applyLink();
+								}}
+							/>
+						</div>
 						<div class="space-y-2">
 							<label class="block text-sm font-sans text-neutral-950" for="communication-link-url">
 								Link URL
@@ -1672,6 +1753,19 @@
 								}}
 							/>
 						</div>
+						<label
+							for="communication-link-new-tab"
+							class="flex min-h-10 cursor-pointer items-center justify-between gap-3 border border-neutral-950 bg-white px-3 py-2"
+						>
+							<span class="text-sm font-semibold text-neutral-950">Open In New Tab</span>
+							<input
+								id="communication-link-new-tab"
+								type="checkbox"
+								role="switch"
+								class="toggle-secondary"
+								bind:checked={linkOpenInNewTab}
+							/>
+						</label>
 						<div class="flex flex-wrap items-center justify-end gap-2">
 							<button
 								type="button"
@@ -2053,6 +2147,19 @@
 	.communication-rich-editor :global(.editor-host .ProseMirror) {
 		min-height: calc(22rem - 2rem);
 		cursor: text;
+	}
+
+	.communication-rich-editor :global(.editor-host .ProseMirror:focus),
+	.communication-rich-editor :global(.editor-host .ProseMirror:focus-visible),
+	.communication-rich-editor :global(.editor-host .ProseMirror-focused) {
+		outline: none !important;
+		outline-offset: 0 !important;
+		border: 0 !important;
+		border-color: transparent !important;
+		box-shadow: none !important;
+		-webkit-box-shadow: none !important;
+		--tw-ring-color: transparent !important;
+		--tw-ring-shadow: 0 0 #0000 !important;
 	}
 
 	.communication-rich-editor :global(.editor-host:focus),

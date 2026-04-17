@@ -10,11 +10,13 @@ helper layer that splits raw input and merges resolved recipients before the pag
 Summary of tests:
 1. It verifies that comma-separated input commits finished tokens while leaving the unfinished remainder in the input.
 2. It verifies that resolved manual recipients dedupe by user id or email while preserving the first occurrence.
+3. It verifies that ambiguous manual recipient suggestions omit members who are already selected as chips.
 */
 
 import { describe, expect, it } from 'vitest';
 
 import {
+	filterCommunicationManualRecipientSuggestions,
 	mergeCommunicationManualRecipients,
 	splitCommunicationManualRecipientInput
 } from '../../src/lib/communications/manual-recipients';
@@ -67,6 +69,42 @@ describe('communication manual recipient helpers', () => {
 				userId: null,
 				email: 'jamie@playims.test',
 				fullName: 'Jamie Player'
+			}
+		]);
+	});
+
+	it('omits suggestions that are already selected as manual recipient chips', () => {
+		// the dropdown should only offer new people so managers do not reselect the same member again.
+		expect(
+			filterCommunicationManualRecipientSuggestions(
+				[
+					{
+						userId: 'user-1',
+						email: 'alex@playims.test',
+						fullName: 'Alex Captain'
+					}
+				],
+				[
+					{
+						userId: 'user-1',
+						email: 'ALEX@playims.test',
+						fullName: 'Alex Captain',
+						lastActiveSeasonName: 'Spring 2029'
+					},
+					{
+						userId: null,
+						email: 'jamie@playims.test',
+						fullName: 'Jamie Player',
+						lastActiveSeasonName: null
+					}
+				]
+			)
+		).toEqual([
+			{
+				userId: null,
+				email: 'jamie@playims.test',
+				fullName: 'Jamie Player',
+				lastActiveSeasonName: null
 			}
 		]);
 	});
