@@ -1,6 +1,56 @@
 import { requireAuthenticatedClientId } from '$lib/server/client-context';
 import { getCentralDbOps, getTenantDbOps } from '$lib/server/database/context';
+import { buildMemberSearchHref, buildTeamSearchHref } from '$lib/search/utils.js';
 import type { PageServerLoad } from './$types';
+
+type ActivityLink = {
+	label: string;
+	href: string;
+};
+
+const buildOfferingHref = (seasonSlug: string, offeringSlug: string): string =>
+	`/dashboard/offerings/${seasonSlug}/${offeringSlug}`;
+
+const buildLeagueHref = (seasonSlug: string, offeringSlug: string, leagueSlug: string): string =>
+	`/dashboard/offerings/${seasonSlug}/${offeringSlug}/${leagueSlug}`;
+
+const buildDivisionHref = (
+	seasonSlug: string,
+	offeringSlug: string,
+	leagueSlug: string,
+	divisionSlug: string
+): string => `/dashboard/offerings/${seasonSlug}/${offeringSlug}/${leagueSlug}/${divisionSlug}`;
+
+const normalizeRouteSegment = (value: string | null | undefined): string | null => {
+	const trimmed = value?.trim() ?? '';
+	return trimmed.length > 0 ? trimmed : null;
+};
+
+const buildUserDisplayName = (user: {
+	firstName?: string | null;
+	lastName?: string | null;
+	email?: string | null;
+}): string => {
+	const fullName = [user.firstName?.trim(), user.lastName?.trim()].filter(Boolean).join(' ').trim();
+	if (fullName) return fullName;
+	const email = user.email?.trim() ?? '';
+	return email || 'Unknown user';
+};
+
+const buildMemberDirectoryHref = (name: string): string => {
+	const url = new URL('https://playims.test/dashboard/members');
+	url.searchParams.set('q', name.trim());
+	return `${url.pathname}${url.search}`;
+};
+
+const buildActivityLink = (label: string | null | undefined, href: string | null): ActivityLink | null => {
+	const trimmedLabel = label?.trim() ?? '';
+	if (!trimmedLabel || !href) return null;
+	return {
+		label: trimmedLabel,
+		href
+	};
+};
 
 export const load: PageServerLoad = async ({ platform, locals }) => {
 	if (!platform?.env?.DB) {
@@ -35,7 +85,8 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 			facilities,
 			announcements,
 			rosters,
-			currentSeason
+			currentSeason,
+			seasons
 		] = await Promise.all([
 			centralDb.users.getByClientId(clientId),
 			tenantDb.events.getByClientId(clientId),
@@ -45,8 +96,14 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 			tenantDb.facilities.getAll(clientId),
 			tenantDb.announcements.getAll(clientId),
 			tenantDb.rosters.getByClientId(clientId),
-			tenantDb.seasons.getCurrentByClientId(clientId)
+			tenantDb.seasons.getCurrentByClientId(clientId),
+			tenantDb.seasons.getByClientId(clientId)
 		]);
+		const divisions = await tenantDb.divisions.getByLeagueIds(
+			leagues
+				.map((league) => league.id?.trim() ?? '')
+				.filter((leagueId) => leagueId.length > 0)
+		);
 
 		const teamsById = new Map(
 			teams.filter((team) => Boolean(team.id)).map((team) => [team.id as string, team])
@@ -60,6 +117,20 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 			offerings
 				.filter((offering) => Boolean(offering.id))
 				.map((offering) => [offering.id as string, offering])
+		);
+		const leaguesById = new Map(
+			leagues.filter((league) => Boolean(league.id)).map((league) => [league.id as string, league])
+		);
+		const divisionsById = new Map(
+			divisions
+				.filter((division) => Boolean(division.id))
+				.map((division) => [division.id as string, division])
+		);
+		const activeUsersById = new Map(
+			users.filter((user) => Boolean(user.id)).map((user) => [user.id as string, user])
+		);
+		const seasonsById = new Map(
+			seasons.filter((season) => Boolean(season.id)).map((season) => [season.id as string, season])
 		);
 
 		const todaysEvents = allEvents.filter((evt) => {
@@ -125,12 +196,97 @@ export const load: PageServerLoad = async ({ platform, locals }) => {
 			)
 			.slice(0, 5);
 
-		const recentActivity = recentTeams.map((t) => ({
-			type: 'team_registered',
-			message: `Team "${t.name}" registered`,
-			time: t.dateRegistered ? new Date(t.dateRegistered).toLocaleDateString() : 'Recently',
-			timeValue: t.dateRegistered ?? null
-		}));
+		const recentCreatorIds = Array.from(
+			new Set(
+				recentTeams
+					.map((team) => team.createdUser?.trim() ?? '')
+					.filter((creatorId) => creatorId.length > 0)
+			)
+		);
+		const [recentCreators, recentMemberships] = await Promise.all([
+			Promise.all(recentCreatorIds.map((creatorId) => centralDb.users.getAuthById(creatorId))),
+			Promise.all(
+				recentCreatorIds.map((creatorId) => centralDb.userClients.getMembership(creatorId, clientId))
+			)
+		]);
+		const creatorUsersById = new Map(
+			recentCreators
+				.filter((user): user is NonNullable<(typeof recentCreators)[number]> => Boolean(user?.id))
+				.map((user) => [user.id as string, user])
+		);
+		const membershipsByUserId = new Map(
+			recentMemberships
+				.filter(
+					(membership): membership is NonNullable<(typeof recentMemberships)[number]> =>
+						Boolean(membership?.userId)
+				)
+				.map((membership) => [membership.userId as string, membership])
+		);
+
+		const recentActivity = recentTeams.map((team) => {
+			const creatorUserId = team.createdUser?.trim() ?? '';
+			const creator =
+				creatorUsersById.get(creatorUserId) ?? activeUsersById.get(creatorUserId) ?? null;
+			const creatorName = creator ? buildUserDisplayName(creator) : 'Unknown user';
+			const creatorMembership = membershipsByUserId.get(creatorUserId) ?? null;
+			const creatorHref = creatorMembership?.id
+				? buildMemberSearchHref({
+						membershipId: creatorMembership.id,
+						fullName: creatorName
+					})
+				: buildMemberDirectoryHref(creatorName);
+
+			const division = team.divisionId ? divisionsById.get(team.divisionId) : null;
+			const league = division?.leagueId ? leaguesById.get(division.leagueId) : null;
+			const offering = league?.offeringId ? offeringsById.get(league.offeringId) : null;
+			const season = league?.seasonId ? seasonsById.get(league.seasonId) : null;
+
+			const seasonSlug = normalizeRouteSegment(season?.slug) ?? normalizeRouteSegment(season?.id);
+			const offeringSlug =
+				normalizeRouteSegment(offering?.slug) ?? normalizeRouteSegment(offering?.id);
+			const leagueSlug = normalizeRouteSegment(league?.slug) ?? normalizeRouteSegment(league?.id);
+			const divisionSlug =
+				normalizeRouteSegment(division?.slug) ?? normalizeRouteSegment(division?.id);
+			const teamSlug = normalizeRouteSegment(team.slug) ?? normalizeRouteSegment(team.id);
+
+			const offeringHref =
+				seasonSlug && offeringSlug ? buildOfferingHref(seasonSlug, offeringSlug) : null;
+			const leagueHref =
+				seasonSlug && offeringSlug && leagueSlug
+					? buildLeagueHref(seasonSlug, offeringSlug, leagueSlug)
+					: null;
+			const divisionHref =
+				seasonSlug && offeringSlug && leagueSlug && divisionSlug
+					? buildDivisionHref(seasonSlug, offeringSlug, leagueSlug, divisionSlug)
+					: null;
+			const teamHref =
+				seasonSlug && offeringSlug && leagueSlug && divisionSlug && teamSlug
+					? buildTeamSearchHref({
+							seasonSlug,
+							offeringSlug,
+							leagueSlug,
+							divisionSlug,
+							teamSlug
+						})
+					: null;
+
+			return {
+				type: 'team_registered',
+				time: team.dateRegistered
+					? new Date(team.dateRegistered).toLocaleDateString('en-US', {
+							month: 'short',
+							day: 'numeric',
+							year: 'numeric'
+						})
+					: 'Recently',
+				timeValue: team.dateRegistered ?? null,
+				creator: buildActivityLink(creatorName, creatorHref),
+				team: buildActivityLink(team.name, teamHref),
+				league: buildActivityLink(league?.name ?? 'League', leagueHref),
+				offering: buildActivityLink(offering?.name ?? 'Offering', offeringHref),
+				division: buildActivityLink(division?.name ?? 'Division', divisionHref)
+			};
+		});
 
 		const alerts = announcements
 			.filter((a) => a.isActive === 1)

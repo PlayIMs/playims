@@ -36,6 +36,8 @@
 	let registrationDeadlines = $derived(data.registrationDeadlines ?? []);
 	let liveGames = $derived(todaysEvents.filter((g) => g.status === 'in_progress'));
 	const DASHBOARD_DATE_SEPARATOR = '\u2013';
+	const activityLinkClass =
+		'font-semibold text-secondary-700 underline decoration-secondary-400 underline-offset-2 hover:text-secondary-900';
 
 	let scheduleFilter = $state<'all' | 'in_progress' | 'scheduled' | 'completed'>('all');
 	let filteredEvents = $derived(
@@ -545,13 +547,56 @@
 						{#if data.recentActivity && data.recentActivity.length > 0}
 							<div class="divide-y divide-neutral-300 max-h-[180px] overflow-y-auto">
 								{#each data.recentActivity as activity}
-									<div class="px-3 py-1.5 flex items-center gap-2 text-xs hover:bg-white/50">
+									<div class="px-3 py-2 flex items-start gap-2 text-xs hover:bg-white/50">
 										<div class="text-secondary-500 shrink-0" aria-hidden="true">
 											<IconPlayerPlay class="w-3.5 h-3.5" />
 										</div>
-										<span class="flex-1 min-w-0 truncate text-neutral-950 font-sans">
-											{activity.message}
-										</span>
+										<div class="flex-1 min-w-0 text-neutral-950 font-sans leading-5">
+											{#if activity.type === 'team_registered'}
+												<span>
+													{#if activity.creator}
+														<a href={activity.creator.href} class={activityLinkClass}>
+															{activity.creator.label}
+														</a>
+													{:else}
+														Someone
+													{/if}
+													{' '}registered team{' '}
+													{#if activity.team}
+														<a href={activity.team.href} class={activityLinkClass}>
+															{activity.team.label}
+														</a>
+													{:else}
+														a team
+													{/if}
+													{' '}for{' '}
+													{#if activity.league}
+														<a href={activity.league.href} class={activityLinkClass}>
+															{activity.league.label}
+														</a>
+													{:else}
+														a league
+													{/if}
+													{' '}
+													{#if activity.offering}
+														<a href={activity.offering.href} class={activityLinkClass}>
+															{activity.offering.label}
+														</a>
+													{:else}
+														an offering
+													{/if}
+													{' '}in{' '}
+													{#if activity.division}
+														<a href={activity.division.href} class={activityLinkClass}>
+															{activity.division.label}
+														</a>
+													{:else}
+														a division
+													{/if}
+													.
+												</span>
+											{/if}
+										</div>
 										<span class="text-[10px] text-neutral-500 font-sans shrink-0">
 											<DateHoverText
 												display={activity.time}
