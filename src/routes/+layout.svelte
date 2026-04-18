@@ -6,6 +6,7 @@
 	// import { injectSpeedInsights } from '@vercel/speed-insights/sveltekit';
 
 	import '../app.css';
+	import { installAuthSessionRedirect } from '$lib/client/auth-session-redirect';
 	import Toaster from '$lib/components/toast/Toaster.svelte';
 	import UrlBar from '$lib/components/UrlBar.svelte';
 	import * as theme from '$lib/theme';
@@ -28,6 +29,11 @@
 
 	let { children, data } = $props();
 	// injectSpeedInsights();
+
+	if (browser) {
+		// centralize auth-expired handling so any 401 from the app shell goes straight to login.
+		installAuthSessionRedirect();
+	}
 
 	// use the server-provided theme as the initial paint values
 	let initialTheme = $derived((data?.theme as theme.ThemeColors | null) ?? theme.DEFAULT_THEME);
