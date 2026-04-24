@@ -1,23 +1,34 @@
 /*
 Brief description:
-This file verifies the payload validation schema for creating intramural schedule events.
+This file verifies the payload validation schemas for creating and managing intramural schedule events.
 
 Deeper explanation:
-The create-event flow accepts several related ids plus date and location details, so the schema is
-where we stop malformed requests before they reach any database writes. These tests focus on the
-cross-field rules that are easiest to miss during UI refactors, such as preventing a team from
-playing itself, making sure the end time follows the start time, and keeping facility area inputs
-consistent with the selected facility.
+The schedule event flows accept several related ids plus date, score, and location details, so the
+schemas are where we stop malformed requests before they reach any database writes. These tests
+focus on the cross-field rules that are easiest to miss during UI refactors, such as preventing a
+team from playing itself, making sure the end time follows the start time, keeping facility area
+inputs consistent with the selected facility, and ensuring result updates carry valid ids and
+scores.
 
 Summary of tests:
-1. It verifies a valid payload is normalized successfully.
+1. It verifies a valid create payload is normalized successfully.
 2. It verifies home and away teams must be different.
 3. It verifies the scheduled end must be after the scheduled start.
 4. It verifies a facility area cannot be submitted without a facility.
+5. It verifies duplicate and restore payloads require an event id.
+6. It verifies edit and results payloads require valid ids and score values.
+7. It verifies delete payloads require an event id.
 */
 
 import { describe, expect, it } from 'vitest';
-import { createIntramuralEventSchema } from '../../src/lib/server/intramural-events-validation';
+import {
+	createIntramuralEventSchema,
+	duplicateIntramuralEventSchema,
+	deleteIntramuralEventSchema,
+	editIntramuralEventSchema,
+	enterIntramuralEventResultsSchema,
+	restoreDeletedIntramuralEventSchema
+} from '../../src/lib/server/intramural-events-validation';
 
 const createPayload = () => ({
 	event: {
@@ -38,6 +49,33 @@ const createPayload = () => ({
 	}
 });
 
+const editPayload = () => ({
+	action: 'edit' as const,
+	event: {
+		id: 'event-1',
+		...createPayload().event
+	}
+});
+
+const resultsPayload = () => ({
+	action: 'enter-results' as const,
+	event: {
+		id: 'event-1',
+		homeScore: 42,
+		awayScore: 39
+	}
+});
+
+const duplicatePayload = () => ({
+	action: 'duplicate' as const,
+	eventId: 'event-1'
+});
+
+const restorePayload = () => ({
+	action: 'restore-delete' as const,
+	eventId: 'event-1'
+});
+
 describe('intramural events validation', () => {
 	function messagesForPath(
 		parsed: ReturnType<typeof createIntramuralEventSchema.safeParse>,
@@ -49,7 +87,7 @@ describe('intramural events validation', () => {
 			.map((issue) => issue.message);
 	}
 
-	it('accepts a valid event payload and trims optional text', () => {
+	it('accepts a valid create payload and trims optional text', () => {
 		// this proves the schema returns clean data the api can trust for downstream integrity checks.
 		const parsed = createIntramuralEventSchema.safeParse(createPayload());
 
@@ -103,5 +141,54 @@ describe('intramural events validation', () => {
 		expect(messagesForPath(parsed, 'event.facilityAreaId')).toContain(
 			'Choose a facility before selecting a facility area.'
 		);
+	});
+
+	it('accepts a valid edit payload and keeps the same field shape as create', () => {
+		// edit requests should reuse the same structural rules as creation so the backend can validate one hierarchy.
+		const parsed = editIntramuralEventSchema.safeParse(editPayload());
+
+		expect(parsed.success).toBe(true);
+		if (!parsed.success) return;
+		expect(parsed.data.event.id).toBe('event-1');
+		expect(parsed.data.event.notes).toBe('Bring dark jerseys.');
+	});
+
+	it('accepts a valid results payload with numeric scores', () => {
+		// results updates only need a target event id plus score values, so the schema stays intentionally small.
+		const parsed = enterIntramuralEventResultsSchema.safeParse(resultsPayload());
+
+		expect(parsed.success).toBe(true);
+		if (!parsed.success) return;
+		expect(parsed.data.event.homeScore).toBe(42);
+		expect(parsed.data.event.awayScore).toBe(39);
+	});
+
+	it('accepts a valid duplicate payload with a target event id', () => {
+		// duplicate actions only need the source event id because the server copies the rest from the existing record.
+		const parsed = duplicateIntramuralEventSchema.safeParse(duplicatePayload());
+
+		expect(parsed.success).toBe(true);
+		if (!parsed.success) return;
+		expect(parsed.data.eventId).toBe('event-1');
+	});
+
+	it('accepts a valid restore payload with a target event id', () => {
+		// restore actions only need the deleted event id because the server flips the active flag back on.
+		const parsed = restoreDeletedIntramuralEventSchema.safeParse(restorePayload());
+
+		expect(parsed.success).toBe(true);
+		if (!parsed.success) return;
+		expect(parsed.data.eventId).toBe('event-1');
+	});
+
+	it('rejects a delete payload without an event id', () => {
+		// delete is destructive, so the api should never accept an empty target id.
+		const parsed = deleteIntramuralEventSchema.safeParse({
+			action: 'delete',
+			eventId: '   '
+		});
+
+		expect(parsed.success).toBe(false);
+		expect(parsed.error?.issues.map((issue) => issue.message)).toContain('Event is required.');
 	});
 });

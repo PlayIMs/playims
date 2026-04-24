@@ -57,6 +57,15 @@ export type ScheduleEventWizardCollections = {
 	facilityAreaOptions: ScheduleEventWizardOptions['facilityAreas'];
 };
 
+export type ScheduleEventWizardEmptyOptionLabels = {
+	offering: string;
+	league: string;
+	division: string;
+	homeTeam: string;
+	awayTeam: string;
+	facilityArea: string;
+};
+
 function optionExists<T extends { id: string }>(options: T[], id: string): boolean {
 	return Boolean(id) && options.some((option) => option.id === id);
 }
@@ -106,6 +115,52 @@ export function buildScheduleEventWizardCollections(
 		homeTeamOptions: teamOptions.filter((team) => team.id !== selection.awayTeamId),
 		awayTeamOptions: teamOptions.filter((team) => team.id !== selection.homeTeamId),
 		facilityAreaOptions
+	};
+}
+
+export function resolveScheduleEventWizardEmptyOptionLabels(
+	options: ScheduleEventWizardOptions,
+	selection: ScheduleEventWizardSelection,
+	collections: ScheduleEventWizardCollections = buildScheduleEventWizardCollections(
+		options,
+		selection
+	)
+): ScheduleEventWizardEmptyOptionLabels {
+	return {
+		offering: !selection.seasonId
+			? 'Select season first'
+			: collections.offeringOptions.length > 0
+				? 'Select offering'
+				: 'No offerings exist',
+		league: !selection.offeringId
+			? 'Select offering first'
+			: collections.leagueOptions.length > 0
+				? 'Select league'
+				: 'No leagues exist',
+		division: !selection.leagueId
+			? 'Select league first'
+			: collections.divisionOptions.length > 0
+				? 'Select division'
+				: 'No divisions exist',
+		homeTeam: !selection.divisionId
+			? 'Select division first'
+			: collections.homeTeamOptions.length > 0
+				? 'Select home team'
+				: collections.teamOptions.length > 0
+					? 'No other teams exist'
+					: 'No teams exist',
+		awayTeam: !selection.divisionId
+			? 'Select division first'
+			: collections.awayTeamOptions.length > 0
+				? 'Select away team'
+				: collections.teamOptions.length > 0
+					? 'No other teams exist'
+					: 'No teams exist',
+		facilityArea: !selection.facilityId
+			? 'Select facility first'
+			: collections.facilityAreaOptions.length > 0
+				? 'Select facility area'
+				: 'No facility areas exist'
 	};
 }
 

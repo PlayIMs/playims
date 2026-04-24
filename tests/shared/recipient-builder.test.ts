@@ -147,9 +147,7 @@ describe('recipient builder helper', () => {
 
 	it('keeps the placeholder additional filters visible but disabled', () => {
 		// this ensures the UI can expose the requested filter list now without implying unsupported behavior.
-		expect(
-			RECIPIENT_BUILDER_ADDITIONAL_FILTERS.map((filter) => filter.label)
-		).toEqual([
+		expect(RECIPIENT_BUILDER_ADDITIONAL_FILTERS.map((filter) => filter.label)).toEqual([
 			'User Status',
 			'Classification',
 			'Suspended Status',
@@ -170,7 +168,7 @@ describe('recipient builder helper', () => {
 				(filter) =>
 					filter.disabled &&
 					filter.options.length === 1 &&
-					filter.options[0]?.label === 'All'
+					filter.options[0]?.label === 'Not available yet'
 			)
 		).toBe(true);
 		expect(hasMeaningfulRecipientGroupFilters(buildFilters())).toBe(false);

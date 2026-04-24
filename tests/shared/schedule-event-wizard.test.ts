@@ -12,11 +12,13 @@ Summary of tests:
 1. It verifies invalid lower-level selections are cleared when a parent selection changes.
 2. It verifies the derived option collections stay scoped to the currently selected hierarchy.
 3. It verifies home and away team option sets never offer the same team on both sides.
+4. It verifies empty dependent dropdown labels explain why a user cannot choose an option.
 */
 
 import { describe, expect, it } from 'vitest';
 import {
 	buildScheduleEventWizardCollections,
+	resolveScheduleEventWizardEmptyOptionLabels,
 	sanitizeScheduleEventWizardSelection,
 	type ScheduleEventWizardOptions,
 	type ScheduleEventWizardSelection
@@ -147,5 +149,89 @@ describe('schedule event wizard helpers', () => {
 			homeTeamId: 'team-wildcats',
 			awayTeamId: ''
 		});
+	});
+
+	it('explains empty dependent dropdowns with unavailable-option labels', () => {
+		// empty labels should tell the user that no child records exist, not imply they missed a selectable option.
+		const options = createOptions();
+		const collectionsWithoutChildren = buildScheduleEventWizardCollections(
+			{
+				...options,
+				offerings: [],
+				leagues: [],
+				divisions: [],
+				teams: [],
+				facilityAreas: []
+			},
+			createSelection()
+		);
+
+		expect(
+			resolveScheduleEventWizardEmptyOptionLabels(
+				{
+					...options,
+					offerings: [],
+					leagues: [],
+					divisions: [],
+					teams: [],
+					facilityAreas: []
+				},
+				createSelection(),
+				collectionsWithoutChildren
+			)
+		).toMatchObject({
+			offering: 'No offerings exist',
+			league: 'No leagues exist',
+			division: 'No divisions exist',
+			homeTeam: 'No teams exist',
+			awayTeam: 'No teams exist',
+			facilityArea: 'No facility areas exist'
+		});
+
+		expect(resolveScheduleEventWizardEmptyOptionLabels(options, createSelection())).toMatchObject({
+			offering: 'Select offering',
+			league: 'Select league',
+			division: 'Select division',
+			homeTeam: 'Select home team',
+			awayTeam: 'Select away team',
+			facilityArea: 'Select facility area'
+		});
+
+		expect(
+			resolveScheduleEventWizardEmptyOptionLabels(
+				options,
+				createSelection({
+					seasonId: '',
+					offeringId: '',
+					leagueId: '',
+					divisionId: '',
+					homeTeamId: '',
+					awayTeamId: ''
+				})
+			)
+		).toMatchObject({
+			offering: 'Select season first',
+			league: 'Select offering first',
+			division: 'Select league first',
+			homeTeam: 'Select division first',
+			awayTeam: 'Select division first'
+		});
+
+		expect(
+			resolveScheduleEventWizardEmptyOptionLabels(
+				options,
+				createSelection({ homeTeamId: '', awayTeamId: 'team-falcons' })
+			).awayTeam
+		).toBe('Select away team');
+
+		expect(
+			resolveScheduleEventWizardEmptyOptionLabels(
+				{
+					...options,
+					teams: [{ id: 'team-wildcats', divisionId: 'division-monday', name: 'Wildcats' }]
+				},
+				createSelection({ homeTeamId: 'team-wildcats', awayTeamId: '' })
+			).awayTeam
+		).toBe('No other teams exist');
 	});
 });

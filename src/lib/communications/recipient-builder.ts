@@ -28,7 +28,9 @@ export interface RecipientBuilderAdditionalFilterDefinition {
 	options: RecipientBuilderAdditionalFilterOption[];
 }
 
-const DEFAULT_DISABLED_OPTIONS: RecipientBuilderAdditionalFilterOption[] = [{ value: '', label: 'All' }];
+const DEFAULT_DISABLED_OPTIONS: RecipientBuilderAdditionalFilterOption[] = [
+	{ value: '', label: 'Not available yet' }
+];
 
 export const RECIPIENT_BUILDER_ADDITIONAL_FILTERS: RecipientBuilderAdditionalFilterDefinition[] = [
 	{ key: 'userStatus', label: 'User Status', disabled: true, options: DEFAULT_DISABLED_OPTIONS },
@@ -44,7 +46,12 @@ export const RECIPIENT_BUILDER_ADDITIONAL_FILTERS: RecipientBuilderAdditionalFil
 		disabled: true,
 		options: DEFAULT_DISABLED_OPTIONS
 	},
-	{ key: 'teamApproval', label: 'Team Approval', disabled: true, options: DEFAULT_DISABLED_OPTIONS },
+	{
+		key: 'teamApproval',
+		label: 'Team Approval',
+		disabled: true,
+		options: DEFAULT_DISABLED_OPTIONS
+	},
 	{ key: 'teamPayment', label: 'Team Payment', disabled: true, options: DEFAULT_DISABLED_OPTIONS },
 	{
 		key: 'playerPayment',

@@ -7,6 +7,14 @@
 		ScheduleEventWizardOptions,
 		ScheduleEventWizardSelection
 	} from '$lib/utils/schedule-event-wizard';
+	import { resolveScheduleEventWizardEmptyOptionLabels } from '$lib/utils/schedule-event-wizard';
+	import {
+		buildScheduleEventWizardBlockingFieldErrors,
+		buildScheduleEventWizardStepErrors,
+		getScheduleEventWizardStepCount,
+		getScheduleEventWizardStepTitle,
+		type ScheduleEventWizardStep
+	} from '$lib/utils/schedule-event-wizard-steps';
 	import { toast } from '$lib/toasts';
 
 	type DropdownOption = {
@@ -26,6 +34,10 @@
 
 	interface Props {
 		open: boolean;
+		title?: string;
+		closeAriaLabel?: string;
+		submitLabel?: string;
+		submittingLabel?: string;
 		form: CreateEventWizardForm;
 		fieldErrors: Record<string, string>;
 		formError: string;
@@ -44,6 +56,10 @@
 
 	let {
 		open,
+		title = 'New Event',
+		closeAriaLabel = 'Close event wizard',
+		submitLabel = 'Create Event',
+		submittingLabel = 'Creating...',
 		form,
 		fieldErrors,
 		formError,
@@ -60,6 +76,7 @@
 		onUnsavedCancel
 	}: Props = $props();
 
+	const WIZARD_STEP_COUNT = getScheduleEventWizardStepCount();
 	const dropdownButtonClass =
 		'w-full border-2 border-secondary-400 bg-white px-4 py-2 text-sm leading-6 font-normal text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2 hover:bg-white focus:outline-none focus-visible:outline-none focus-visible:border-secondary-500 focus-visible:ring-0 focus-visible:shadow-[0_0_0_1px_var(--color-secondary-500)] disabled:cursor-not-allowed disabled:opacity-60';
 
@@ -77,30 +94,84 @@
 		];
 	}
 
-	const seasonOptions = $derived.by(() => toDropdownOptions(options.seasons, 'Select season'));
+	const emptyOptionLabels = $derived.by(() =>
+		resolveScheduleEventWizardEmptyOptionLabels(options, form, collections)
+	);
+	const seasonOptions = $derived.by(() =>
+		toDropdownOptions(
+			options.seasons,
+			options.seasons.length > 0 ? 'Select season' : 'No seasons exist'
+		)
+	);
 	const offeringOptions = $derived.by(() =>
-		toDropdownOptions(collections.offeringOptions, 'Select offering')
+		toDropdownOptions(collections.offeringOptions, emptyOptionLabels.offering)
 	);
 	const leagueOptions = $derived.by(() =>
-		toDropdownOptions(collections.leagueOptions, 'Select league')
+		toDropdownOptions(collections.leagueOptions, emptyOptionLabels.league)
 	);
 	const divisionOptions = $derived.by(() =>
-		toDropdownOptions(collections.divisionOptions, 'Select division')
+		toDropdownOptions(collections.divisionOptions, emptyOptionLabels.division)
 	);
 	const homeTeamOptions = $derived.by(() =>
-		toDropdownOptions(collections.homeTeamOptions, 'Select home team')
+		toDropdownOptions(collections.homeTeamOptions, emptyOptionLabels.homeTeam)
 	);
 	const awayTeamOptions = $derived.by(() =>
-		toDropdownOptions(collections.awayTeamOptions, 'Select away team')
+		toDropdownOptions(collections.awayTeamOptions, emptyOptionLabels.awayTeam)
 	);
 	const facilityOptions = $derived.by(() =>
-		toDropdownOptions(options.facilities, 'Select facility')
+		toDropdownOptions(
+			options.facilities,
+			options.facilities.length > 0 ? 'Select facility' : 'No facilities exist'
+		)
 	);
 	const facilityAreaOptions = $derived.by(() =>
-		toDropdownOptions(collections.facilityAreaOptions, 'Select facility area')
+		toDropdownOptions(collections.facilityAreaOptions, emptyOptionLabels.facilityArea)
 	);
+	let currentStep = $state<ScheduleEventWizardStep>(1);
+	let validationStep = $state(0);
+	let lastOpenState = $state(false);
 
 	let lastToastSignature = $state('');
+
+	const currentStepErrors = $derived.by(() =>
+		validationStep >= currentStep
+			? buildScheduleEventWizardStepErrors(options, form, currentStep)
+			: {}
+	);
+	const visibleFieldErrors = $derived.by(() => ({
+		...currentStepErrors,
+		...fieldErrors
+	}));
+	const currentStepCanAdvance = $derived.by(() => {
+		if (currentStep >= WIZARD_STEP_COUNT) {
+			return false;
+		}
+
+		if (validationStep < currentStep) {
+			return true;
+		}
+
+		return Object.keys(currentStepErrors).length === 0;
+	});
+	const finalCanSubmit = $derived.by(
+		() =>
+			canSubmit &&
+			Object.keys(buildScheduleEventWizardBlockingFieldErrors(options, form)).length === 0
+	);
+
+	$effect(() => {
+		if (open && !lastOpenState) {
+			currentStep = 1;
+			validationStep = 0;
+		}
+
+		if (!open && lastOpenState) {
+			currentStep = 1;
+			validationStep = 0;
+		}
+
+		lastOpenState = open;
+	});
 
 	$effect(() => {
 		const message = formError.trim();
@@ -117,23 +188,45 @@
 			title: 'Create event'
 		});
 	});
+
+	function goToNextStep(): void {
+		validationStep = Math.max(validationStep, currentStep);
+		const errors = buildScheduleEventWizardStepErrors(options, form, currentStep);
+		if (Object.keys(errors).length > 0) {
+			return;
+		}
+
+		if (currentStep < WIZARD_STEP_COUNT) {
+			currentStep = (currentStep + 1) as ScheduleEventWizardStep;
+			validationStep = currentStep;
+		}
+	}
+
+	function goToPreviousStep(): void {
+		if (currentStep <= 1) {
+			return;
+		}
+
+		currentStep = (currentStep - 1) as ScheduleEventWizardStep;
+		validationStep = Math.max(validationStep, currentStep);
+	}
 </script>
 
 <WizardModal
 	{open}
-	title="New Event"
-	step={1}
-	stepCount={1}
-	stepTitle="Game Details"
-	progressPercent={100}
-	closeAriaLabel="Close create event wizard"
+	{title}
+	step={currentStep}
+	stepCount={WIZARD_STEP_COUNT}
+	stepTitle={getScheduleEventWizardStepTitle(currentStep)}
+	progressPercent={(currentStep / WIZARD_STEP_COUNT) * 100}
+	{closeAriaLabel}
 	maxWidthClass="max-w-5xl"
 	on:requestClose={onRequestClose}
 	on:submit={onSubmit}
 	on:input={onInput}
 >
 	<div class="space-y-5">
-		<div class="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)]">
+		{#if currentStep === 1}
 			<section class="space-y-4 border border-neutral-950 bg-white p-4">
 				<div class="space-y-1">
 					<h3 class="text-lg font-bold font-serif text-neutral-950">Competition</h3>
@@ -152,15 +245,14 @@
 							value={form.seasonId}
 							ariaLabel="Select event season"
 							buttonClass={dropdownButtonClass}
-							searchEnabled={seasonOptions.length > 7}
-							searchPlaceholder="Search seasons"
+							disabled={options.seasons.length === 0}
 							on:change={(event) => {
 								onSelectionChange({ seasonId: event.detail.value });
 								onInput();
 							}}
 						/>
-						{#if fieldErrors['event.seasonId']}
-							<p class="text-xs text-error-700">{fieldErrors['event.seasonId']}</p>
+						{#if visibleFieldErrors['event.seasonId']}
+							<p class="text-xs text-error-700">{visibleFieldErrors['event.seasonId']}</p>
 						{/if}
 					</div>
 
@@ -173,16 +265,14 @@
 							value={form.offeringId}
 							ariaLabel="Select event offering"
 							buttonClass={dropdownButtonClass}
-							searchEnabled={offeringOptions.length > 7}
-							searchPlaceholder="Search offerings"
-							disabled={collections.offeringOptions.length === 0}
+							disabled={!form.seasonId || collections.offeringOptions.length === 0}
 							on:change={(event) => {
 								onSelectionChange({ offeringId: event.detail.value });
 								onInput();
 							}}
 						/>
-						{#if fieldErrors['event.offeringId']}
-							<p class="text-xs text-error-700">{fieldErrors['event.offeringId']}</p>
+						{#if visibleFieldErrors['event.offeringId']}
+							<p class="text-xs text-error-700">{visibleFieldErrors['event.offeringId']}</p>
 						{/if}
 					</div>
 
@@ -195,16 +285,14 @@
 							value={form.leagueId}
 							ariaLabel="Select event league"
 							buttonClass={dropdownButtonClass}
-							searchEnabled={leagueOptions.length > 7}
-							searchPlaceholder="Search leagues"
-							disabled={collections.leagueOptions.length === 0}
+							disabled={!form.offeringId || collections.leagueOptions.length === 0}
 							on:change={(event) => {
 								onSelectionChange({ leagueId: event.detail.value });
 								onInput();
 							}}
 						/>
-						{#if fieldErrors['event.leagueId']}
-							<p class="text-xs text-error-700">{fieldErrors['event.leagueId']}</p>
+						{#if visibleFieldErrors['event.leagueId']}
+							<p class="text-xs text-error-700">{visibleFieldErrors['event.leagueId']}</p>
 						{/if}
 					</div>
 
@@ -217,21 +305,19 @@
 							value={form.divisionId}
 							ariaLabel="Select event division"
 							buttonClass={dropdownButtonClass}
-							searchEnabled={divisionOptions.length > 7}
-							searchPlaceholder="Search divisions"
-							disabled={collections.divisionOptions.length === 0}
+							disabled={!form.leagueId || collections.divisionOptions.length === 0}
 							on:change={(event) => {
 								onSelectionChange({ divisionId: event.detail.value });
 								onInput();
 							}}
 						/>
-						{#if fieldErrors['event.divisionId']}
-							<p class="text-xs text-error-700">{fieldErrors['event.divisionId']}</p>
+						{#if visibleFieldErrors['event.divisionId']}
+							<p class="text-xs text-error-700">{visibleFieldErrors['event.divisionId']}</p>
 						{/if}
 					</div>
 				</div>
 			</section>
-
+		{:else if currentStep === 2}
 			<section class="space-y-4 border border-neutral-950 bg-white p-4">
 				<div class="space-y-1">
 					<h3 class="text-lg font-bold font-serif text-neutral-950">Schedule</h3>
@@ -255,8 +341,8 @@
 								onInput();
 							}}
 						/>
-						{#if fieldErrors['event.scheduledStartAt']}
-							<p class="text-xs text-error-700">{fieldErrors['event.scheduledStartAt']}</p>
+						{#if visibleFieldErrors['event.scheduledStartAt']}
+							<p class="text-xs text-error-700">{visibleFieldErrors['event.scheduledStartAt']}</p>
 						{/if}
 					</div>
 
@@ -274,8 +360,8 @@
 								onInput();
 							}}
 						/>
-						{#if fieldErrors['event.scheduledEndAt']}
-							<p class="text-xs text-error-700">{fieldErrors['event.scheduledEndAt']}</p>
+						{#if visibleFieldErrors['event.scheduledEndAt']}
+							<p class="text-xs text-error-700">{visibleFieldErrors['event.scheduledEndAt']}</p>
 						{/if}
 					</div>
 
@@ -286,15 +372,14 @@
 							value={form.facilityId}
 							ariaLabel="Select event facility"
 							buttonClass={dropdownButtonClass}
-							searchEnabled={facilityOptions.length > 7}
-							searchPlaceholder="Search facilities"
+							disabled={options.facilities.length === 0}
 							on:change={(event) => {
 								onSelectionChange({ facilityId: event.detail.value });
 								onInput();
 							}}
 						/>
-						{#if fieldErrors['event.facilityId']}
-							<p class="text-xs text-error-700">{fieldErrors['event.facilityId']}</p>
+						{#if visibleFieldErrors['event.facilityId']}
+							<p class="text-xs text-error-700">{visibleFieldErrors['event.facilityId']}</p>
 						{/if}
 					</div>
 
@@ -305,23 +390,19 @@
 							value={form.facilityAreaId}
 							ariaLabel="Select event facility area"
 							buttonClass={dropdownButtonClass}
-							searchEnabled={facilityAreaOptions.length > 7}
-							searchPlaceholder="Search facility areas"
 							disabled={!form.facilityId || collections.facilityAreaOptions.length === 0}
 							on:change={(event) => {
 								onSelectionChange({ facilityAreaId: event.detail.value });
 								onInput();
 							}}
 						/>
-						{#if fieldErrors['event.facilityAreaId']}
-							<p class="text-xs text-error-700">{fieldErrors['event.facilityAreaId']}</p>
+						{#if visibleFieldErrors['event.facilityAreaId']}
+							<p class="text-xs text-error-700">{visibleFieldErrors['event.facilityAreaId']}</p>
 						{/if}
 					</div>
 				</div>
 			</section>
-		</div>
-
-		<div class="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)]">
+		{:else if currentStep === 3}
 			<section class="space-y-4 border border-neutral-950 bg-white p-4">
 				<div class="space-y-1">
 					<h3 class="text-lg font-bold font-serif text-neutral-950">Matchup</h3>
@@ -340,16 +421,14 @@
 							value={form.homeTeamId}
 							ariaLabel="Select home team"
 							buttonClass={dropdownButtonClass}
-							searchEnabled={homeTeamOptions.length > 7}
-							searchPlaceholder="Search home teams"
-							disabled={collections.homeTeamOptions.length === 0}
+							disabled={!form.divisionId || collections.homeTeamOptions.length === 0}
 							on:change={(event) => {
 								onSelectionChange({ homeTeamId: event.detail.value });
 								onInput();
 							}}
 						/>
-						{#if fieldErrors['event.homeTeamId']}
-							<p class="text-xs text-error-700">{fieldErrors['event.homeTeamId']}</p>
+						{#if visibleFieldErrors['event.homeTeamId']}
+							<p class="text-xs text-error-700">{visibleFieldErrors['event.homeTeamId']}</p>
 						{/if}
 					</div>
 
@@ -362,21 +441,19 @@
 							value={form.awayTeamId}
 							ariaLabel="Select away team"
 							buttonClass={dropdownButtonClass}
-							searchEnabled={awayTeamOptions.length > 7}
-							searchPlaceholder="Search away teams"
-							disabled={collections.awayTeamOptions.length === 0}
+							disabled={!form.divisionId || collections.awayTeamOptions.length === 0}
 							on:change={(event) => {
 								onSelectionChange({ awayTeamId: event.detail.value });
 								onInput();
 							}}
 						/>
-						{#if fieldErrors['event.awayTeamId']}
-							<p class="text-xs text-error-700">{fieldErrors['event.awayTeamId']}</p>
+						{#if visibleFieldErrors['event.awayTeamId']}
+							<p class="text-xs text-error-700">{visibleFieldErrors['event.awayTeamId']}</p>
 						{/if}
 					</div>
 				</div>
 			</section>
-
+		{:else}
 			<section class="space-y-4 border border-neutral-950 bg-white p-4">
 				<div class="space-y-1">
 					<h3 class="text-lg font-bold font-serif text-neutral-950">Details</h3>
@@ -435,20 +512,22 @@
 					></textarea>
 				</div>
 			</section>
-		</div>
+		{/if}
 	</div>
 
 	{#snippet footer()}
 		<WizardStepFooter
-			step={1}
-			lastStep={1}
-			showBack={false}
-			canGoNext={false}
-			{canSubmit}
+			step={currentStep}
+			lastStep={WIZARD_STEP_COUNT}
+			showBack={currentStep > 1}
+			canGoNext={currentStepCanAdvance}
+			canSubmit={finalCanSubmit}
 			nextLabel="Next"
-			submitLabel="Create Event"
-			submittingLabel="Creating..."
+			{submitLabel}
+			{submittingLabel}
 			isSubmitting={submitting}
+			on:back={goToPreviousStep}
+			on:next={goToNextStep}
 		/>
 	{/snippet}
 </WizardModal>

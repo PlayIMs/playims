@@ -39,6 +39,7 @@
 		resolveNextScheduleShortcutDate,
 		resolveScheduleNavigatorFocusDateKey,
 		resolveScheduleKeyboardShortcutMove,
+		resolveScheduleQuickShortcutDate,
 		sanitizeScheduleFilters,
 		shiftScheduleAnchorDate,
 		shouldHandleScheduleKeyboardNavigation,
@@ -46,6 +47,7 @@
 		type ScheduleEventRecord,
 		type ScheduleFilters,
 		type ScheduleKeyboardShortcutMove,
+		type ScheduleManageAction,
 		type ScheduleOptionCount
 	} from '$lib/utils/schedule-page.js';
 	import {
@@ -54,9 +56,11 @@
 		type ScheduleEventWizardOptions,
 		type ScheduleEventWizardSelection
 	} from '$lib/utils/schedule-event-wizard.js';
+	import { buildScheduleEventWizardBlockingFieldErrors } from '$lib/utils/schedule-event-wizard-steps.js';
 	import type { PageData } from './$types';
 	import { toast } from '$lib/toasts';
 	import CreateEventWizard from './_wizards/CreateEventWizard.svelte';
+	import EnterResultsWizard from './_wizards/EnterResultsWizard.svelte';
 
 	const FILTER_DROPDOWN_BUTTON_CLASS =
 		'button-neutral-outlined min-h-10 w-full px-3 py-2 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2';
@@ -80,6 +84,10 @@
 		roundLabel: string;
 		notes: string;
 		isPostseason: boolean;
+	};
+	type EventResultsForm = {
+		homeScore: string;
+		awayScore: string;
 	};
 	const DEFAULT_VIEW: ScheduleDisplayMode = 'day';
 	const VIEW_DROPDOWN_OPTIONS = [
@@ -136,6 +144,43 @@
 		notes: '',
 		isPostseason: false
 	});
+	let editEventOpen = $state(false);
+	let editEventSubmitting = $state(false);
+	let editEventUnsavedConfirmOpen = $state(false);
+	let editEventFormError = $state('');
+	let editEventFieldErrors = $state<Record<string, string>>({});
+	let editEventInitialSignature = $state('');
+	let editEvent: ScheduleEventRecord | null = $state(null);
+	let editEventForm = $state<CreateEventForm>({
+		seasonId: '',
+		offeringId: '',
+		leagueId: '',
+		divisionId: '',
+		homeTeamId: '',
+		awayTeamId: '',
+		facilityId: '',
+		facilityAreaId: '',
+		scheduledStartAt: `${todayDateKey()}T18:00`,
+		scheduledEndAt: `${todayDateKey()}T19:00`,
+		weekNumber: '',
+		roundLabel: '',
+		notes: '',
+		isPostseason: false
+	});
+	let resultsEvent: ScheduleEventRecord | null = $state(null);
+	let resultsEventOpen = $state(false);
+	let resultsEventSubmitting = $state(false);
+	let resultsEventUnsavedConfirmOpen = $state(false);
+	let resultsEventFormError = $state('');
+	let resultsEventFieldErrors = $state<Record<string, string>>({});
+	let resultsEventForm = $state<EventResultsForm>({
+		homeScore: '',
+		awayScore: ''
+	});
+	let deleteEventSubmitting = $state(false);
+	let deleteEvent: ScheduleEventRecord | null = $state(null);
+	let duplicateEventSubmittingId = $state('');
+	let restoreEventSubmittingId = $state('');
 
 	const events = $derived(scheduleEvents);
 	const scheduleDateYearRange = $derived.by(() =>
@@ -254,6 +299,109 @@
 
 	function createEventFormSignature(form: CreateEventForm): string {
 		return JSON.stringify(form);
+	}
+
+	function eventFormSignature(form: CreateEventForm): string {
+		return createEventFormSignature(form);
+	}
+
+	function formatDateTimeLocalValue(value: string | null | undefined): string {
+		if (!value) return '';
+
+		const parsed = new Date(value);
+		if (Number.isNaN(parsed.getTime())) return '';
+
+		const year = parsed.getFullYear();
+		const month = String(parsed.getMonth() + 1).padStart(2, '0');
+		const day = String(parsed.getDate()).padStart(2, '0');
+		const hours = String(parsed.getHours()).padStart(2, '0');
+		const minutes = String(parsed.getMinutes()).padStart(2, '0');
+		return `${year}-${month}-${day}T${hours}:${minutes}`;
+	}
+
+	function buildEventFormFromRecord(event: ScheduleEventRecord): CreateEventForm {
+		const selection = sanitizeScheduleEventWizardSelection(createEventOptions, {
+			seasonId: event.seasonId ?? '',
+			offeringId: event.offeringId ?? '',
+			leagueId: event.leagueId ?? '',
+			divisionId: event.divisionId ?? '',
+			homeTeamId: event.homeTeamId ?? '',
+			awayTeamId: event.awayTeamId ?? '',
+			facilityId: event.facilityId ?? '',
+			facilityAreaId: event.facilityAreaId ?? ''
+		});
+
+		return {
+			...selection,
+			scheduledStartAt:
+				formatDateTimeLocalValue(event.scheduledStartAt) ||
+				buildDefaultEventDateTime(anchorDate, 18),
+			scheduledEndAt:
+				formatDateTimeLocalValue(event.scheduledEndAt) || buildDefaultEventDateTime(anchorDate, 19),
+			weekNumber: event.weekNumber !== null ? String(event.weekNumber) : '',
+			roundLabel: event.roundLabel ?? '',
+			notes: event.notes ?? '',
+			isPostseason: event.isPostseason
+		};
+	}
+
+	function parseScoreValue(value: string | null | undefined): string {
+		const normalized = value?.trim();
+		if (!normalized) return '';
+		return normalized;
+	}
+
+	function buildResultsFormFromRecord(event: ScheduleEventRecord | null): EventResultsForm {
+		if (!event) return { homeScore: '', awayScore: '' };
+
+		const score = parseScoreValue(event.score);
+		if (!score) return { homeScore: '', awayScore: '' };
+
+		const match = score.match(/^(\d+)\s*-\s*(\d+)$/);
+		if (!match) return { homeScore: '', awayScore: '' };
+
+		return {
+			homeScore: match[1] ?? '',
+			awayScore: match[2] ?? ''
+		};
+	}
+
+	function resultsEventFormSignature(form: EventResultsForm): string {
+		return JSON.stringify(form);
+	}
+
+	function updateScheduleEvent(nextEvent: ScheduleEventRecord): void {
+		scheduleEvents = scheduleEvents.map((event) => (event.id === nextEvent.id ? nextEvent : event));
+	}
+
+	function removeScheduleEvent(eventId: string): void {
+		scheduleEvents = scheduleEvents.filter((event) => event.id !== eventId);
+	}
+
+	function insertScheduleEventAfter(sourceEventId: string, nextEvent: ScheduleEventRecord): void {
+		const sourceIndex = scheduleEvents.findIndex((event) => event.id === sourceEventId);
+		const nextEvents = scheduleEvents.filter((event) => event.id !== nextEvent.id);
+
+		if (sourceIndex < 0) {
+			scheduleEvents = [...nextEvents, nextEvent];
+			return;
+		}
+
+		nextEvents.splice(sourceIndex + 1, 0, nextEvent);
+		scheduleEvents = nextEvents;
+	}
+
+	function sortScheduleEventsByDisplay(eventsToSort: ScheduleEventRecord[]): ScheduleEventRecord[] {
+		return [...eventsToSort].sort((a, b) => {
+			const aStart = Date.parse(a.scheduledStartAt ?? '');
+			const bStart = Date.parse(b.scheduledStartAt ?? '');
+			const aValue = Number.isFinite(aStart) ? aStart : Number.POSITIVE_INFINITY;
+			const bValue = Number.isFinite(bStart) ? bStart : Number.POSITIVE_INFINITY;
+			if (aValue !== bValue) return aValue - bValue;
+			const scoreDiff = b.scoreSortValue - a.scoreSortValue;
+			if (scoreDiff !== 0) return scoreDiff;
+			return a.matchup.localeCompare(b.matchup);
+		});
 	}
 
 	function buildDefaultEventDateTime(dateKey: string, hour: number): string {
@@ -461,6 +609,16 @@
 		createEventFieldErrors = {};
 	}
 
+	function clearEditEventApiErrors(): void {
+		editEventFormError = '';
+		editEventFieldErrors = {};
+	}
+
+	function clearResultsEventApiErrors(): void {
+		resultsEventFormError = '';
+		resultsEventFieldErrors = {};
+	}
+
 	function normalizeCreateEventFieldErrors(
 		fieldErrors: Record<string, string[] | undefined> | undefined
 	): Record<string, string> {
@@ -517,6 +675,43 @@
 		createEventUnsavedConfirmOpen = true;
 	}
 
+	function closeEditEventWizard(): void {
+		editEventOpen = false;
+		editEventSubmitting = false;
+		editEventUnsavedConfirmOpen = false;
+		clearEditEventApiErrors();
+		editEvent = null;
+	}
+
+	function requestCloseEditEventWizard(): void {
+		if (editEventSubmitting) return;
+		if (eventFormSignature(editEventForm) === editEventInitialSignature) {
+			closeEditEventWizard();
+			return;
+		}
+		editEventUnsavedConfirmOpen = true;
+	}
+
+	function closeResultsEventWizard(): void {
+		resultsEventOpen = false;
+		resultsEventSubmitting = false;
+		resultsEventUnsavedConfirmOpen = false;
+		clearResultsEventApiErrors();
+		resultsEvent = null;
+	}
+
+	function requestCloseResultsEventWizard(): void {
+		if (resultsEventSubmitting) return;
+		if (
+			resultsEventFormSignature(resultsEventForm) ===
+			resultsEventFormSignature(buildResultsFormFromRecord(resultsEvent))
+		) {
+			closeResultsEventWizard();
+			return;
+		}
+		resultsEventUnsavedConfirmOpen = true;
+	}
+
 	function applyCreateEventSelectionPatch(patch: Partial<ScheduleEventWizardSelection>): void {
 		clearCreateEventApiErrors();
 		const nextSelection = sanitizeScheduleEventWizardSelection(createEventOptions, {
@@ -534,6 +729,72 @@
 			...createEventForm,
 			...nextSelection
 		};
+	}
+
+	function applyEditEventSelectionPatch(patch: Partial<ScheduleEventWizardSelection>): void {
+		clearEditEventApiErrors();
+		const nextSelection = sanitizeScheduleEventWizardSelection(createEventOptions, {
+			seasonId: editEventForm.seasonId,
+			offeringId: editEventForm.offeringId,
+			leagueId: editEventForm.leagueId,
+			divisionId: editEventForm.divisionId,
+			homeTeamId: editEventForm.homeTeamId,
+			awayTeamId: editEventForm.awayTeamId,
+			facilityId: editEventForm.facilityId,
+			facilityAreaId: editEventForm.facilityAreaId,
+			...patch
+		});
+		editEventForm = {
+			...editEventForm,
+			...nextSelection
+		};
+	}
+
+	function openEditEventWizard(event: ScheduleEventRecord): void {
+		editEvent = event;
+		editEventForm = buildEventFormFromRecord(event);
+		editEventInitialSignature = eventFormSignature(editEventForm);
+		clearEditEventApiErrors();
+		editEventUnsavedConfirmOpen = false;
+		editEventOpen = true;
+	}
+
+	function openResultsEventWizard(event: ScheduleEventRecord): void {
+		resultsEvent = event;
+		resultsEventForm = buildResultsFormFromRecord(event);
+		clearResultsEventApiErrors();
+		resultsEventUnsavedConfirmOpen = false;
+		resultsEventOpen = true;
+	}
+
+	function openDeleteEventConfirmation(event: ScheduleEventRecord): void {
+		deleteEvent = event;
+	}
+
+	function handleScheduleManageAction(
+		action: ScheduleManageAction,
+		event: ScheduleEventRecord
+	): void {
+		if (!canManageEvents) return;
+
+		if (action === 'edit') {
+			openEditEventWizard(event);
+			return;
+		}
+
+		if (action === 'enter-results') {
+			openResultsEventWizard(event);
+			return;
+		}
+
+		if (action === 'duplicate') {
+			void submitDuplicateEvent(event);
+			return;
+		}
+
+		if (action === 'delete') {
+			openDeleteEventConfirmation(event);
+		}
 	}
 
 	function handleAddEvent(): void {
@@ -630,6 +891,298 @@
 		}
 	}
 
+	async function submitEditEvent(): Promise<void> {
+		if (editEventSubmitting) return;
+		if (!editEvent?.id) return;
+
+		editEventSubmitting = true;
+		clearEditEventApiErrors();
+
+		const payload = {
+			action: 'edit',
+			event: {
+				id: editEvent.id,
+				seasonId: editEventForm.seasonId,
+				offeringId: editEventForm.offeringId,
+				leagueId: editEventForm.leagueId,
+				divisionId: editEventForm.divisionId,
+				homeTeamId: editEventForm.homeTeamId,
+				awayTeamId: editEventForm.awayTeamId,
+				scheduledStartAt: editEventForm.scheduledStartAt,
+				scheduledEndAt: editEventForm.scheduledEndAt,
+				facilityId: editEventForm.facilityId || null,
+				facilityAreaId: editEventForm.facilityAreaId || null,
+				weekNumber:
+					editEventForm.weekNumber.trim().length > 0
+						? Number.parseInt(editEventForm.weekNumber, 10)
+						: null,
+				roundLabel: editEventForm.roundLabel.trim() || null,
+				notes: editEventForm.notes.trim() || null,
+				isPostseason: editEventForm.isPostseason
+			}
+		};
+
+		try {
+			const response = await fetch('/api/intramural-sports/events', {
+				method: 'PATCH',
+				headers: {
+					'content-type': 'application/json'
+				},
+				body: JSON.stringify(payload)
+			});
+			const result = (await response.json().catch(() => null)) as {
+				success?: boolean;
+				error?: string;
+				fieldErrors?: Record<string, string[] | undefined>;
+				data?: { event?: ScheduleEventRecord };
+			} | null;
+
+			if (!response.ok || !result?.success || !result.data?.event) {
+				editEventFormError = result?.error?.trim() || 'Unable to save event right now.';
+				editEventFieldErrors = normalizeCreateEventFieldErrors(result?.fieldErrors);
+				return;
+			}
+
+			const updatedEvent = result.data.event;
+			updateScheduleEvent(updatedEvent);
+			closeEditEventWizard();
+			toast.success('Event updated.', {
+				id: `schedule-edit-event:${updatedEvent.id}`,
+				title: pageLabel
+			});
+		} catch (error) {
+			console.error('Failed to update schedule event:', error);
+			editEventFormError = 'Unable to save event right now.';
+		} finally {
+			editEventSubmitting = false;
+		}
+	}
+
+	async function submitResultsEvent(): Promise<void> {
+		if (resultsEventSubmitting) return;
+		if (!resultsEvent?.id) return;
+
+		resultsEventSubmitting = true;
+		clearResultsEventApiErrors();
+
+		const payload = {
+			action: 'enter-results',
+			event: {
+				id: resultsEvent.id,
+				homeScore: Number.parseInt(resultsEventForm.homeScore, 10),
+				awayScore: Number.parseInt(resultsEventForm.awayScore, 10)
+			}
+		};
+
+		try {
+			const response = await fetch('/api/intramural-sports/events', {
+				method: 'PATCH',
+				headers: {
+					'content-type': 'application/json'
+				},
+				body: JSON.stringify(payload)
+			});
+			const result = (await response.json().catch(() => null)) as {
+				success?: boolean;
+				error?: string;
+				fieldErrors?: Record<string, string[] | undefined>;
+				data?: { event?: ScheduleEventRecord };
+			} | null;
+
+			if (!response.ok || !result?.success || !result.data?.event) {
+				resultsEventFormError = result?.error?.trim() || 'Unable to save results right now.';
+				resultsEventFieldErrors = normalizeCreateEventFieldErrors(result?.fieldErrors);
+				return;
+			}
+
+			const updatedEvent = result.data.event;
+			updateScheduleEvent(updatedEvent);
+			closeResultsEventWizard();
+			toast.success('Game results saved.', {
+				id: `schedule-event-results:${updatedEvent.id}`,
+				title: pageLabel
+			});
+		} catch (error) {
+			console.error('Failed to save schedule event results:', error);
+			resultsEventFormError = 'Unable to save results right now.';
+		} finally {
+			resultsEventSubmitting = false;
+		}
+	}
+
+	async function submitDeleteEvent(): Promise<void> {
+		if (deleteEventSubmitting) return;
+		if (!deleteEvent?.id) return;
+
+		deleteEventSubmitting = true;
+		const deletedEvent = deleteEvent;
+		const deletedEventId = deletedEvent.id;
+
+		const payload = {
+			action: 'delete',
+			eventId: deletedEventId
+		};
+
+		try {
+			const response = await fetch('/api/intramural-sports/events', {
+				method: 'DELETE',
+				headers: {
+					'content-type': 'application/json'
+				},
+				body: JSON.stringify(payload)
+			});
+			const result = (await response.json().catch(() => null)) as {
+				success?: boolean;
+				error?: string;
+				data?: { eventId?: string };
+			} | null;
+
+			if (!response.ok || !result?.success) {
+				toast.error(result?.error?.trim() || 'Unable to delete event right now.', {
+					id: `schedule-delete-event-error:${deletedEventId}`,
+					title: pageLabel
+				});
+				return;
+			}
+
+			removeScheduleEvent(deletedEventId);
+			deleteEvent = null;
+			toast.success('Game deleted.', {
+				id: `schedule-delete-event:${deletedEventId}`,
+				title: pageLabel,
+				duration: 8000,
+				important: true,
+				actions: [
+					{
+						label: 'Undo',
+						style: 'outline',
+						onClick: () => submitRestoreDeletedEvent(deletedEvent)
+					}
+				]
+			});
+		} catch (error) {
+			console.error('Failed to delete schedule event:', error);
+			toast.error('Unable to delete event right now.', {
+				id: `schedule-delete-event-error:${deletedEventId}`,
+				title: pageLabel
+			});
+		} finally {
+			deleteEventSubmitting = false;
+		}
+	}
+
+	async function submitRestoreDeletedEvent(event: ScheduleEventRecord): Promise<void> {
+		if (restoreEventSubmittingId === event.id) return;
+
+		restoreEventSubmittingId = event.id;
+
+		const payload = {
+			action: 'restore-delete',
+			eventId: event.id
+		};
+
+		try {
+			const response = await fetch('/api/intramural-sports/events', {
+				method: 'PATCH',
+				headers: {
+					'content-type': 'application/json'
+				},
+				body: JSON.stringify(payload)
+			});
+			const result = (await response.json().catch(() => null)) as {
+				success?: boolean;
+				error?: string;
+				data?: { event?: ScheduleEventRecord };
+			} | null;
+
+			if (!response.ok || !result?.success || !result.data?.event) {
+				toast.error(result?.error?.trim() || 'Unable to restore event right now.', {
+					id: `schedule-restore-event-error:${event.id}`,
+					title: pageLabel
+				});
+				return;
+			}
+
+			const restoredEvent = result.data.event;
+			scheduleEvents = sortScheduleEventsByDisplay([
+				...scheduleEvents.filter((existing) => existing.id !== restoredEvent.id),
+				restoredEvent
+			]);
+			toast.success('Game restored.', {
+				id: `schedule-restore-event:${restoredEvent.id}`,
+				title: pageLabel
+			});
+		} catch (error) {
+			console.error('Failed to restore schedule event:', error);
+			toast.error('Unable to restore event right now.', {
+				id: `schedule-restore-event-error:${event.id}`,
+				title: pageLabel
+			});
+		} finally {
+			restoreEventSubmittingId = '';
+		}
+	}
+
+	async function submitDuplicateEvent(sourceEvent: ScheduleEventRecord): Promise<void> {
+		if (duplicateEventSubmittingId === sourceEvent.id) return;
+
+		duplicateEventSubmittingId = sourceEvent.id;
+
+		const payload = {
+			action: 'duplicate',
+			eventId: sourceEvent.id
+		};
+
+		try {
+			const response = await fetch('/api/intramural-sports/events', {
+				method: 'POST',
+				headers: {
+					'content-type': 'application/json'
+				},
+				body: JSON.stringify(payload)
+			});
+			const result = (await response.json().catch(() => null)) as {
+				success?: boolean;
+				error?: string;
+				fieldErrors?: Record<string, string[] | undefined>;
+				data?: { event?: ScheduleEventRecord };
+			} | null;
+
+			if (!response.ok || !result?.success || !result.data?.event) {
+				toast.error(result?.error?.trim() || 'Unable to duplicate event right now.', {
+					id: `schedule-duplicate-event-error:${sourceEvent.id}`,
+					title: pageLabel
+				});
+				return;
+			}
+
+			const createdEvent = result.data.event;
+			insertScheduleEventAfter(sourceEvent.id, createdEvent);
+			const isVisibleInCurrentFilters =
+				filterScheduleEvents([createdEvent], normalizedFilters).filter(
+					(event) => getScheduleEventDateKey(event.scheduledStartAt) !== null
+				).length > 0;
+
+			toast.success(
+				isVisibleInCurrentFilters
+					? 'Event duplicated.'
+					: 'Event duplicated. It may be hidden by your current filters.',
+				{
+					id: `schedule-duplicate-event:${createdEvent.id}`,
+					title: pageLabel
+				}
+			);
+		} catch (error) {
+			console.error('Failed to duplicate schedule event:', error);
+			toast.error('Unable to duplicate event right now.', {
+				id: `schedule-duplicate-event-error:${sourceEvent.id}`,
+				title: pageLabel
+			});
+		} finally {
+			duplicateEventSubmittingId = '';
+		}
+	}
+
 	function hasOpenScheduleDropdown(): boolean {
 		if (typeof document === 'undefined') return false;
 		return Boolean(
@@ -653,13 +1206,23 @@
 	function handleGlobalScheduleNavigatorKeydown(event: KeyboardEvent): void {
 		if (!browser || event.defaultPrevented) return;
 		if (event.metaKey || event.ctrlKey || event.altKey) return;
+		if (isEditableKeyboardTarget(event.target)) return;
+
+		const quickDateKey = resolveScheduleQuickShortcutDate(event.key);
+		if (quickDateKey) {
+			event.preventDefault();
+			setSelectedDate(quickDateKey);
+			void focusNavigatorAnchor(quickDateKey);
+			return;
+		}
+
 		if (
 			!shouldHandleScheduleKeyboardNavigation({
 				key: event.key,
 				shiftKey: event.shiftKey,
 				hasOpenDatePicker: hasOpenDatePicker(),
 				hasOpenDropdown: hasOpenScheduleDropdown(),
-				isEditableTarget: isEditableKeyboardTarget(event.target)
+				isEditableTarget: false
 			})
 		) {
 			return;
@@ -751,14 +1314,35 @@
 	);
 	const createEventCanSubmit = $derived.by(
 		() =>
-			createEventForm.seasonId.trim().length > 0 &&
-			createEventForm.offeringId.trim().length > 0 &&
-			createEventForm.leagueId.trim().length > 0 &&
-			createEventForm.divisionId.trim().length > 0 &&
-			createEventForm.homeTeamId.trim().length > 0 &&
-			createEventForm.awayTeamId.trim().length > 0 &&
-			createEventForm.scheduledStartAt.trim().length > 0 &&
-			createEventForm.scheduledEndAt.trim().length > 0
+			Object.keys(buildScheduleEventWizardBlockingFieldErrors(createEventOptions, createEventForm))
+				.length === 0
+	);
+	const editEventCollections = $derived.by(() =>
+		buildScheduleEventWizardCollections(createEventOptions, {
+			seasonId: editEventForm.seasonId,
+			offeringId: editEventForm.offeringId,
+			leagueId: editEventForm.leagueId,
+			divisionId: editEventForm.divisionId,
+			homeTeamId: editEventForm.homeTeamId,
+			awayTeamId: editEventForm.awayTeamId,
+			facilityId: editEventForm.facilityId,
+			facilityAreaId: editEventForm.facilityAreaId
+		})
+	);
+	const editEventCanSubmit = $derived.by(
+		() =>
+			editEventForm.seasonId.trim().length > 0 &&
+			editEventForm.offeringId.trim().length > 0 &&
+			editEventForm.leagueId.trim().length > 0 &&
+			editEventForm.divisionId.trim().length > 0 &&
+			editEventForm.homeTeamId.trim().length > 0 &&
+			editEventForm.awayTeamId.trim().length > 0 &&
+			editEventForm.scheduledStartAt.trim().length > 0 &&
+			editEventForm.scheduledEndAt.trim().length > 0
+	);
+	const resultsEventCanSubmit = $derived.by(
+		() =>
+			resultsEventForm.homeScore.trim().length > 0 && resultsEventForm.awayScore.trim().length > 0
 	);
 	const navigatorDays = $derived.by(() => buildCenteredScheduleDays(anchorDate, 3));
 	const navigatorMonths = $derived.by(() => buildCenteredScheduleMonths(anchorDate));
@@ -826,15 +1410,6 @@
 			selectedLeagueId !== 'all' ||
 			selectedDivisionId !== 'all'
 	);
-
-	const workspaceHeading = $derived.by(() => {
-		if (selectedView === 'day') return 'Day Agenda';
-		if (selectedView === 'week') return 'Week Board';
-		if (selectedView === 'month') return 'Month Calendar';
-		if (selectedView === 'date-range') return 'Date Range Agenda';
-		if (selectedView === 'entire-season') return 'Entire Season Agenda';
-		return 'Week Board';
-	});
 
 	$effect(() => {
 		if (!stateHydrated) return;
@@ -914,7 +1489,6 @@
 						<div class="flex flex-col gap-4">
 							<div class="space-y-2">
 								<div class="flex flex-wrap items-center gap-2">
-									<h2 class="text-2xl font-bold font-serif text-neutral-950">{workspaceHeading}</h2>
 									{#if filteredSummary.live > 0}
 										<span class="badge-primary px-2 py-1 text-[11px] uppercase tracking-wide">
 											{filteredSummary.live} live
@@ -927,19 +1501,6 @@
 										</span>
 									{/if}
 								</div>
-							</div>
-						</div>
-
-						<div class="flex flex-wrap items-center justify-end gap-2">
-							<div class="flex flex-wrap items-center gap-2 text-xs text-neutral-950 font-sans">
-								<span
-									class="badge-secondary-outlined px-2 py-1 text-[11px] uppercase tracking-wide"
-								>
-									{filteredSummary.scheduled} scheduled
-								</span>
-								<span class="badge-secondary px-2 py-1 text-[11px] uppercase tracking-wide">
-									{filteredSummary.completed} completed
-								</span>
 							</div>
 						</div>
 
@@ -960,6 +1521,7 @@
 												ariaLabel="Choose schedule date range"
 												startLabel="Start"
 												endLabel="End"
+												panelAlign="left"
 												on:change={(event) => {
 													setSelectedDateRange(event.detail.startDate, event.detail.endDate);
 												}}
@@ -1289,20 +1851,66 @@
 								</div>
 							</div>
 						{:else if selectedView === 'day'}
-							<ScheduleDayView events={filteredEvents} dateKey={anchorDate} />
+							<ScheduleDayView
+								events={filteredEvents}
+								dateKey={anchorDate}
+								{canManageEvents}
+								deleteConfirmEventId={deleteEvent?.id ?? null}
+								deleteConfirmSubmitting={deleteEventSubmitting}
+								onManageAction={handleScheduleManageAction}
+								onDeleteCancel={() => {
+									deleteEvent = null;
+								}}
+								onDeleteConfirm={() => {
+									void submitDeleteEvent();
+								}}
+							/>
 						{:else if selectedView === 'week'}
-							<ScheduleWeekView events={filteredEvents} {anchorDate} />
+							<ScheduleWeekView
+								events={filteredEvents}
+								{anchorDate}
+								{canManageEvents}
+								deleteConfirmEventId={deleteEvent?.id ?? null}
+								deleteConfirmSubmitting={deleteEventSubmitting}
+								onManageAction={handleScheduleManageAction}
+								onDeleteCancel={() => {
+									deleteEvent = null;
+								}}
+								onDeleteConfirm={() => {
+									void submitDeleteEvent();
+								}}
+							/>
 						{:else if selectedView === 'date-range'}
 							<ScheduleAgendaView
 								events={filteredEvents}
 								startDate={selectedDateRange.startDate}
 								endDate={selectedDateRange.endDate}
 								emptyMessage="No scheduled events fall within the selected date range."
+								{canManageEvents}
+								deleteConfirmEventId={deleteEvent?.id ?? null}
+								deleteConfirmSubmitting={deleteEventSubmitting}
+								onManageAction={handleScheduleManageAction}
+								onDeleteCancel={() => {
+									deleteEvent = null;
+								}}
+								onDeleteConfirm={() => {
+									void submitDeleteEvent();
+								}}
 							/>
 						{:else if selectedView === 'entire-season'}
 							<ScheduleAgendaView
 								events={filteredEvents}
 								emptyMessage="No scheduled events are available for the filtered season."
+								{canManageEvents}
+								deleteConfirmEventId={deleteEvent?.id ?? null}
+								deleteConfirmSubmitting={deleteEventSubmitting}
+								onManageAction={handleScheduleManageAction}
+								onDeleteCancel={() => {
+									deleteEvent = null;
+								}}
+								onDeleteConfirm={() => {
+									void submitDeleteEvent();
+								}}
 							/>
 						{:else}
 							<ScheduleMonthView
@@ -1310,6 +1918,16 @@
 								{anchorDate}
 								selectedDate={selectedMonthDate}
 								onSelectDate={handleMonthDateSelect}
+								{canManageEvents}
+								deleteConfirmEventId={deleteEvent?.id ?? null}
+								deleteConfirmSubmitting={deleteEventSubmitting}
+								onManageAction={handleScheduleManageAction}
+								onDeleteCancel={() => {
+									deleteEvent = null;
+								}}
+								onDeleteConfirm={() => {
+									void submitDeleteEvent();
+								}}
 							/>
 						{/if}
 					</div>
@@ -1450,6 +2068,52 @@
 	onUnsavedConfirm={closeCreateEventWizard}
 	onUnsavedCancel={() => {
 		createEventUnsavedConfirmOpen = false;
+	}}
+/>
+
+<CreateEventWizard
+	open={editEventOpen}
+	title="Edit Event"
+	closeAriaLabel="Close edit event wizard"
+	submitLabel="Save Changes"
+	submittingLabel="Saving..."
+	form={editEventForm}
+	fieldErrors={editEventFieldErrors}
+	formError={editEventFormError}
+	submitting={editEventSubmitting}
+	canSubmit={editEventCanSubmit}
+	unsavedConfirmOpen={editEventUnsavedConfirmOpen}
+	options={createEventOptions}
+	collections={editEventCollections}
+	onSelectionChange={applyEditEventSelectionPatch}
+	onRequestClose={requestCloseEditEventWizard}
+	onSubmit={() => {
+		void submitEditEvent();
+	}}
+	onInput={clearEditEventApiErrors}
+	onUnsavedConfirm={closeEditEventWizard}
+	onUnsavedCancel={() => {
+		editEventUnsavedConfirmOpen = false;
+	}}
+/>
+
+<EnterResultsWizard
+	open={resultsEventOpen}
+	event={resultsEvent}
+	form={resultsEventForm}
+	fieldErrors={resultsEventFieldErrors}
+	formError={resultsEventFormError}
+	submitting={resultsEventSubmitting}
+	canSubmit={resultsEventCanSubmit}
+	unsavedConfirmOpen={resultsEventUnsavedConfirmOpen}
+	onRequestClose={requestCloseResultsEventWizard}
+	onSubmit={() => {
+		void submitResultsEvent();
+	}}
+	onInput={clearResultsEventApiErrors}
+	onUnsavedConfirm={closeResultsEventWizard}
+	onUnsavedCancel={() => {
+		resultsEventUnsavedConfirmOpen = false;
 	}}
 />
 
