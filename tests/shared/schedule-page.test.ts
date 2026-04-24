@@ -17,7 +17,7 @@ Summary of tests:
 5. It verifies the URL-sync helper removes default schedule params and no-ops once the URL matches.
 6. It verifies page-level keyboard shortcuts stay idle while dropdowns, pickers, or text entry are active.
 7. It verifies the navigator focus target stays on the anchored date except for the custom range view.
-8. It verifies the simple day navigator maps arrow-key combinations to the expected day, week, and month jumps.
+8. It verifies the simple day navigator maps arrow-key combinations and quick date letters to the expected jumps.
 9. It verifies unscheduled events stay out of dated agenda buckets and month cells.
 */
 
@@ -39,6 +39,7 @@ import {
 	resolveNextScheduleShortcutDate,
 	resolveScheduleNavigatorFocusDateKey,
 	resolveScheduleKeyboardShortcutMove,
+	resolveScheduleQuickShortcutDate,
 	resolveScheduleNavigatorDirection,
 	sanitizeScheduleFilters,
 	shouldHandleScheduleKeyboardNavigation,
@@ -370,6 +371,10 @@ describe('schedule page helpers', () => {
 
 	it('maps simple navigator arrow keys to the expected day, week, and month movement', () => {
 		// this keeps keyboard navigation predictable so plain arrows move one day, shifted left-right moves one week, and shifted up-down moves one month.
+		const now = new Date();
+		const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
+			now.getDate()
+		).padStart(2, '0')}`;
 		expect(resolveScheduleNavigatorDirection('ArrowLeft')).toBe(-1);
 		expect(resolveScheduleNavigatorDirection('ArrowRight')).toBe(1);
 		expect(resolveScheduleNavigatorDirection('ArrowLeft', true)).toBe(-7);
@@ -405,6 +410,13 @@ describe('schedule page helpers', () => {
 		expect(resolveNextScheduleShortcutDate('2026-04-13', 'ArrowRight', true)).toBe('2026-04-20');
 		expect(resolveNextScheduleShortcutDate('2026-04-13', 'ArrowDown', true)).toBe('2026-05-13');
 		expect(resolveNextScheduleShortcutDate('2026-03-31', 'ArrowUp', true)).toBe('2026-02-28');
+		expect(resolveScheduleQuickShortcutDate('t')).toBe(todayKey);
+		expect(resolveScheduleQuickShortcutDate('Y')).toBe(
+			resolveNextScheduleShortcutDate(todayKey, 'ArrowLeft')
+		);
+		expect(resolveScheduleQuickShortcutDate('o')).toBe(
+			resolveNextScheduleShortcutDate(todayKey, 'ArrowRight')
+		);
 		expect(resolveScheduleKeyboardShortcutMove('Enter')).toBeNull();
 	});
 

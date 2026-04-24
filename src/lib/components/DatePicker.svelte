@@ -4,6 +4,7 @@
 	import type { Snippet } from 'svelte';
 	import type { HTMLInputAttributes } from 'svelte/elements';
 
+	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import {
 		isTopDatePicker,
@@ -1066,33 +1067,39 @@
 			{/if}
 
 			<div class="date-picker-shortcuts">
-				<button
-					type="button"
-					class="date-picker-shortcut-button"
-					onclick={() => {
-						applyShortcut('yesterday');
-					}}
-				>
-					Yesterday
-				</button>
-				<button
-					type="button"
-					class="date-picker-shortcut-button date-picker-shortcut-button-primary"
-					onclick={() => {
-						applyShortcut('today');
-					}}
-				>
-					Today
-				</button>
-				<button
-					type="button"
-					class="date-picker-shortcut-button"
-					onclick={() => {
-						applyShortcut('tomorrow');
-					}}
-				>
-					Tomorrow
-				</button>
+				<HoverTooltip text="Yesterday" shortcutKeys={['Y']} wrapperClass="block w-full">
+					<button
+						type="button"
+						class="date-picker-shortcut-button w-full"
+						onclick={() => {
+							applyShortcut('yesterday');
+						}}
+					>
+						Yesterday
+					</button>
+				</HoverTooltip>
+				<HoverTooltip text="Today" shortcutKeys={['T']} wrapperClass="block w-full">
+					<button
+						type="button"
+						class="date-picker-shortcut-button date-picker-shortcut-button-primary w-full"
+						onclick={() => {
+							applyShortcut('today');
+						}}
+					>
+						Today
+					</button>
+				</HoverTooltip>
+				<HoverTooltip text="Tomorrow" shortcutKeys={['O']} wrapperClass="block w-full">
+					<button
+						type="button"
+						class="date-picker-shortcut-button w-full"
+						onclick={() => {
+							applyShortcut('tomorrow');
+						}}
+					>
+						Tomorrow
+					</button>
+				</HoverTooltip>
 			</div>
 		</div>
 	{/if}

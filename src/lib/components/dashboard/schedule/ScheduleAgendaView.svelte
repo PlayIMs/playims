@@ -3,7 +3,8 @@
 	import ScheduleEventCard from './ScheduleEventCard.svelte';
 	import {
 		buildScheduleAgendaBuckets,
-		type ScheduleEventRecord
+		type ScheduleEventRecord,
+		type ScheduleManageAction
 	} from '$lib/utils/schedule-page.js';
 
 	interface Props {
@@ -11,13 +12,25 @@
 		startDate?: string | null;
 		endDate?: string | null;
 		emptyMessage?: string;
+		canManageEvents?: boolean;
+		deleteConfirmEventId?: string | null;
+		deleteConfirmSubmitting?: boolean;
+		onManageAction?: (action: ScheduleManageAction, event: ScheduleEventRecord) => void;
+		onDeleteCancel?: () => void;
+		onDeleteConfirm?: () => void;
 	}
 
 	let {
 		events,
 		startDate = null,
 		endDate = null,
-		emptyMessage = 'No scheduled events fall within this range.'
+		emptyMessage = 'No scheduled events fall within this range.',
+		canManageEvents = false,
+		deleteConfirmEventId = null,
+		deleteConfirmSubmitting = false,
+		onManageAction,
+		onDeleteCancel,
+		onDeleteConfirm
 	}: Props = $props();
 
 	const agendaBuckets = $derived.by(() =>
@@ -47,7 +60,15 @@
 
 				<div class="space-y-3 p-4">
 					{#each bucket.events as event (event.id)}
-						<ScheduleEventCard {event} />
+						<ScheduleEventCard
+							{event}
+							{canManageEvents}
+							{deleteConfirmEventId}
+							{deleteConfirmSubmitting}
+							{onManageAction}
+							{onDeleteCancel}
+							{onDeleteConfirm}
+						/>
 					{/each}
 				</div>
 			</section>

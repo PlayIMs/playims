@@ -43,6 +43,23 @@
 		separatorBefore?: boolean;
 		tooltip?: string;
 		disabledTooltip?: string;
+		persistOpenOnClick?: boolean;
+		keepOpenOnAction?: boolean;
+		inlineSplitActions?: {
+			leftLabel: string;
+			leftValue: string;
+			leftAriaLabel?: string;
+			leftKeepOpen?: boolean;
+			leftClass?: string;
+			leftDisabled?: boolean;
+			rightLabel: string;
+			rightValue: string;
+			rightAriaLabel?: string;
+			rightKeepOpen?: boolean;
+			rightClass?: string;
+			rightDisabled?: boolean;
+			rowClass?: string;
+		};
 	}
 
 	type ListboxDropdownMode = 'select' | 'action';
@@ -69,11 +86,15 @@
 		footerActionClass?: string;
 		footerActionDisabled?: boolean;
 		footerAction?: Snippet<[]>;
+		footerActionKeepOpen?: boolean;
 		footerSecondaryActionLabel?: string;
 		footerSecondaryActionAriaLabel?: string;
 		footerSecondaryActionClass?: string;
 		footerSecondaryActionDisabled?: boolean;
 		footerSecondaryAction?: Snippet<[]>;
+		footerSecondaryActionKeepOpen?: boolean;
+		footerClass?: string;
+		footerActionsClass?: string;
 		autoFocus?: boolean;
 		align?: 'left' | 'right';
 		disabled?: boolean;
@@ -109,11 +130,15 @@
 		footerActionClass = 'w-full button-primary px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer justify-center',
 		footerActionDisabled = false,
 		footerAction,
+		footerActionKeepOpen = false,
 		footerSecondaryActionLabel,
 		footerSecondaryActionAriaLabel,
 		footerSecondaryActionClass = 'button-secondary-outlined px-2 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer justify-center',
 		footerSecondaryActionDisabled = false,
 		footerSecondaryAction,
+		footerSecondaryActionKeepOpen = false,
+		footerClass = 'listbox-dropdown-footer',
+		footerActionsClass = '',
 		autoFocus = false,
 		align = 'left',
 		disabled = false,
@@ -297,13 +322,17 @@
 	function triggerFooterAction(): void {
 		if (!hasPrimaryFooterAction || footerActionDisabled) return;
 		dispatch('footerAction');
-		closeMenu(true);
+		if (!footerActionKeepOpen) {
+			closeMenu(true);
+		}
 	}
 
 	function triggerFooterSecondaryAction(): void {
 		if (!hasSecondaryFooterAction || footerSecondaryActionDisabled) return;
 		dispatch('footerSecondaryAction');
-		closeMenu(true);
+		if (!footerSecondaryActionKeepOpen) {
+			closeMenu(true);
+		}
 	}
 
 	function clamp(value: number, min: number, max: number): number {
@@ -418,8 +447,15 @@
 		const option = options[index];
 		if (!option || option.disabled) return;
 		if (mode === 'action') {
-			closeMenu(true);
-			dispatch('action', { value: option.value });
+			if (option.inlineSplitActions) {
+				dispatchActionValue(
+					option.inlineSplitActions.rightValue,
+					option.inlineSplitActions.rightKeepOpen ?? false
+				);
+				return;
+			}
+			const keepOpenOnClick = option.persistOpenOnClick ?? option.keepOpenOnAction ?? false;
+			dispatchActionValue(option.value, keepOpenOnClick);
 			return;
 		}
 		const nextValue = option.value;
@@ -781,6 +817,26 @@
 		return trimmed.length > 0 ? trimmed : undefined;
 	}
 
+	function dispatchActionValue(value: string, keepOpen = false): void {
+		if (keepOpen) {
+			listElement?.focus({ preventScroll: true });
+		}
+
+		dispatch('action', { value });
+		if (keepOpen) {
+			void tick().then(() => {
+				listElement?.focus();
+				scrollActiveOptionIntoView();
+			});
+			return;
+		}
+		closeMenu(true);
+	}
+
+	function triggerInlineSplitAction(value: string, keepOpen = false): void {
+		dispatchActionValue(value, keepOpen);
+	}
+
 	$effect(() => {
 		if (typeof window === 'undefined' || !open) return;
 
@@ -1021,6 +1077,60 @@
 									</HoverTooltip>
 								</span>
 							</div>
+						{:else if option.inlineSplitActions}
+							{@const splitActions = option.inlineSplitActions}
+							<div
+								id={`${listboxId}-option-${index}`}
+								role="option"
+								aria-selected="false"
+								aria-disabled="false"
+								tabindex="-1"
+								class={joinClassNames(
+									optionClassFor(option, index, isLastVisibleOption, hasNextSeparator),
+									'cursor-default p-0 overflow-hidden',
+									splitActions.rowClass
+								)}
+								onmousemove={() => {
+									activeIndex = index;
+								}}
+							>
+								<div class="grid h-full grid-cols-2 gap-0">
+									<button
+										type="button"
+										class={joinClassNames(
+											'w-full h-full flex items-center justify-center border-0 px-0 py-0 text-xs font-bold uppercase leading-none tracking-wide cursor-pointer text-neutral-950 hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-0',
+											splitActions.leftClass
+										)}
+										aria-label={splitActions.leftAriaLabel ?? splitActions.leftLabel}
+										disabled={splitActions.leftDisabled}
+										onclick={() => {
+											triggerInlineSplitAction(
+												splitActions.leftValue,
+												splitActions.leftKeepOpen ?? false
+											);
+										}}
+									>
+										{splitActions.leftLabel}
+									</button>
+									<button
+										type="button"
+										class={joinClassNames(
+											'w-full h-full flex items-center justify-center border-0 px-0 py-0 text-xs font-bold uppercase leading-none tracking-wide cursor-pointer text-white hover:bg-error-800 focus-visible:outline-none focus-visible:ring-0',
+											splitActions.rightClass
+										)}
+										aria-label={splitActions.rightAriaLabel ?? splitActions.rightLabel}
+										disabled={splitActions.rightDisabled}
+										onclick={() => {
+											triggerInlineSplitAction(
+												splitActions.rightValue,
+												splitActions.rightKeepOpen ?? false
+											);
+										}}
+									>
+										{splitActions.rightLabel}
+									</button>
+								</div>
+							</div>
 						{:else}
 							<button
 								id={`${listboxId}-option-${index}`}
@@ -1031,6 +1141,11 @@
 								tabindex="-1"
 								disabled={option.disabled}
 								class={optionClassFor(option, index, isLastVisibleOption, hasNextSeparator)}
+								onmousedown={(event) => {
+									if (option.persistOpenOnClick ?? option.keepOpenOnAction ?? false) {
+										event.preventDefault();
+									}
+								}}
 								onclick={() => {
 									selectOptionAtIndex(index);
 								}}
@@ -1113,11 +1228,14 @@
 			{/if}
 
 			{#if hasFooterAction}
-				<div class="listbox-dropdown-footer">
+				<div class={footerClass}>
 					<div
-						class={hasPrimaryFooterAction && hasSecondaryFooterAction
-							? 'grid grid-cols-[minmax(0,1fr)_auto] gap-1.5'
-							: ''}
+						class={joinClassNames(
+							hasPrimaryFooterAction && hasSecondaryFooterAction
+								? 'grid grid-cols-[minmax(0,1fr)_1fr] gap-1.5'
+								: '',
+							footerActionsClass
+						)}
 					>
 						{#if hasPrimaryFooterAction}
 							<button

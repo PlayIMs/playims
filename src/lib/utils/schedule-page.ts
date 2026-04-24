@@ -6,6 +6,8 @@ export type ScheduleStatus =
 	| 'postponed'
 	| 'other';
 
+export type ScheduleManageAction = 'enter-results' | 'edit' | 'duplicate' | 'delete';
+
 export type ScheduleView = 'day' | 'week' | 'month';
 
 export interface ScheduleEventRecord {
@@ -18,16 +20,22 @@ export interface ScheduleEventRecord {
 	scheduledEndAt: string | null;
 	seasonId: string | null;
 	seasonName: string;
+	seasonSlug?: string | null;
 	offeringId: string | null;
 	offeringName: string;
+	offeringSlug?: string | null;
 	leagueId: string | null;
 	leagueName: string;
+	leagueSlug?: string | null;
 	divisionId: string | null;
 	divisionName: string;
+	divisionSlug?: string | null;
 	homeTeamId: string | null;
 	homeTeamName: string;
+	homeTeamSlug?: string | null;
 	awayTeamId: string | null;
 	awayTeamName: string;
+	awayTeamSlug?: string | null;
 	matchup: string;
 	facilityId: string | null;
 	facilityName: string;
@@ -649,6 +657,14 @@ export function resolveScheduleKeyboardShortcutMove(
 		unit: Math.abs(direction) === 30 ? 'month' : Math.abs(direction) === 7 ? 'week' : 'day',
 		direction: direction < 0 ? -1 : 1
 	};
+}
+
+export function resolveScheduleQuickShortcutDate(key: string): string | null {
+	const normalized = key.trim().toLowerCase();
+	if (normalized === 't') return todayDateKey();
+	if (normalized === 'y') return shiftScheduleAnchorDate(todayDateKey(), 'day', -1);
+	if (normalized === 'o') return shiftScheduleAnchorDate(todayDateKey(), 'day', 1);
+	return null;
 }
 
 export function resolveNextScheduleShortcutDate(

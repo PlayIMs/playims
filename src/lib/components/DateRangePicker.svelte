@@ -55,6 +55,7 @@
 		startSegmentClass?: string;
 		endSegmentClass?: string;
 		panelClass?: string;
+		panelAlign?: 'center' | 'left';
 	}
 
 	type DatePickerOption = { value: string; label: string; disabled?: boolean };
@@ -109,7 +110,8 @@
 		segmentClass = 'date-range-picker-trigger-segment',
 		startSegmentClass = '',
 		endSegmentClass = '',
-		panelClass = ''
+		panelClass = '',
+		panelAlign = 'center'
 	}: Props = $props();
 
 	const dispatch = createEventDispatcher<{
@@ -259,7 +261,8 @@
 	}
 
 	function clearMonthTransitionTimeout(side: RangeCalendarSide): void {
-		const timeoutId = side === 'start' ? startMonthTransitionTimeoutId : endMonthTransitionTimeoutId;
+		const timeoutId =
+			side === 'start' ? startMonthTransitionTimeoutId : endMonthTransitionTimeoutId;
 		if (timeoutId === null) return;
 		clearTimeout(timeoutId);
 		if (side === 'start') {
@@ -321,7 +324,13 @@
 		const animationState = animationStateFor(side);
 		if (animationState.isTransitioning || animationState.slideDirection !== 0) return;
 
-		const nextVisibleMonth = shiftMonthReference(currentVisibleMonth(side), direction, 'date', min, max);
+		const nextVisibleMonth = shiftMonthReference(
+			currentVisibleMonth(side),
+			direction,
+			'date',
+			min,
+			max
+		);
 		if (compareMonthReference(nextVisibleMonth, currentVisibleMonth(side)) === 0) {
 			wheelStateFor(side).remainderDeltaY = 0;
 			return;
@@ -359,13 +368,10 @@
 
 	function yearOptions(reference: MonthReference): DatePickerOption[] {
 		const range = currentRange();
-		const yearRange = inferPickerYearRange(
-			[reference.year, range.startDate, range.endDate],
-			{
-				minYear,
-				maxYear
-			}
-		);
+		const yearRange = inferPickerYearRange([reference.year, range.startDate, range.endDate], {
+			minYear,
+			maxYear
+		});
 
 		return Array.from({ length: yearRange.maxYear - yearRange.minYear + 1 }, (_, index) => {
 			const year = yearRange.minYear + index;
@@ -401,7 +407,7 @@
 		panelStyle = toFixedStyle(
 			{
 				...position,
-				left: centeredLeft
+				left: panelAlign === 'left' ? position.left : centeredLeft
 			},
 			panelRect.width > position.maxWidth ? `max-width: ${Math.round(position.maxWidth)}px;` : ''
 		);
@@ -435,7 +441,10 @@
 		});
 	}
 
-	async function openPanel(boundary: DateRangeBoundary, triggerButton: HTMLButtonElement | null): Promise<void> {
+	async function openPanel(
+		boundary: DateRangeBoundary,
+		triggerButton: HTMLButtonElement | null
+	): Promise<void> {
 		if (disabled) return;
 		activeBoundary = boundary;
 		activeDateKey = currentBoundaryDate(boundary);
@@ -506,7 +515,11 @@
 		applyBoundaryDateChange(dateKey, boundary);
 	}
 
-	function handleDayKeydown(event: KeyboardEvent, dateKey: string, boundary: DateRangeBoundary): void {
+	function handleDayKeydown(
+		event: KeyboardEvent,
+		dateKey: string,
+		boundary: DateRangeBoundary
+	): void {
 		const nextDateKey = resolveCalendarKeyboardDateKey(dateKey, event.key, event.shiftKey);
 		if (!nextDateKey) return;
 		event.preventDefault();
@@ -681,16 +694,32 @@
 		})
 	);
 	const canMoveBackward = $derived.by(
-		() => compareMonthReference(shiftMonthReference(visibleStartMonth, -1, 'date', min, max), visibleStartMonth) !== 0
+		() =>
+			compareMonthReference(
+				shiftMonthReference(visibleStartMonth, -1, 'date', min, max),
+				visibleStartMonth
+			) !== 0
 	);
 	const canMoveForward = $derived.by(
-		() => compareMonthReference(shiftMonthReference(visibleEndMonth, 1, 'date', min, max), visibleEndMonth) !== 0
+		() =>
+			compareMonthReference(
+				shiftMonthReference(visibleEndMonth, 1, 'date', min, max),
+				visibleEndMonth
+			) !== 0
 	);
 	const startCanMoveForward = $derived.by(
-		() => compareMonthReference(shiftMonthReference(visibleStartMonth, 1, 'date', min, max), visibleStartMonth) !== 0
+		() =>
+			compareMonthReference(
+				shiftMonthReference(visibleStartMonth, 1, 'date', min, max),
+				visibleStartMonth
+			) !== 0
 	);
 	const endCanMoveBackward = $derived.by(
-		() => compareMonthReference(shiftMonthReference(visibleEndMonth, -1, 'date', min, max), visibleEndMonth) !== 0
+		() =>
+			compareMonthReference(
+				shiftMonthReference(visibleEndMonth, -1, 'date', min, max),
+				visibleEndMonth
+			) !== 0
 	);
 	const startMonthStripClass = $derived.by(() =>
 		joinClassNames(
@@ -840,13 +869,13 @@
 
 	<div class={shellClass} bind:this={triggerShell}>
 		<button
-			id={id}
+			{id}
 			type="button"
 			class={joinClassNames(segmentClass, startSegmentClass)}
 			aria-label={`${ariaLabel} start date`}
 			aria-haspopup="dialog"
 			aria-expanded={open}
-			disabled={disabled}
+			{disabled}
 			bind:this={startTriggerButton}
 			onclick={() => {
 				void openPanel('start', startTriggerButton);
@@ -854,7 +883,8 @@
 		>
 			<span class="date-range-picker-trigger-copy">
 				<span class="date-range-picker-trigger-label">{startLabel}</span>
-				<span class="date-range-picker-trigger-value">{displayValue(currentRange().startDate)}</span>
+				<span class="date-range-picker-trigger-value">{displayValue(currentRange().startDate)}</span
+				>
 			</span>
 		</button>
 
@@ -864,7 +894,7 @@
 			aria-label={`${ariaLabel} end date`}
 			aria-haspopup="dialog"
 			aria-expanded={open}
-			disabled={disabled}
+			{disabled}
 			bind:this={endTriggerButton}
 			onclick={() => {
 				void openPanel('end', endTriggerButton);
@@ -893,19 +923,33 @@
 			bind:this={panel}
 			class={joinClassNames(
 				'date-picker-panel date-range-picker-panel',
-				isDesktop ? 'date-picker-panel-desktop date-range-picker-panel-desktop' : 'date-picker-panel-mobile date-range-picker-panel-mobile',
+				isDesktop
+					? 'date-picker-panel-desktop date-range-picker-panel-desktop'
+					: 'date-picker-panel-mobile date-range-picker-panel-mobile',
 				panelClass
 			)}
 			style={isDesktop ? panelStyle : undefined}
 		>
 			<div class="date-range-picker-boundary-row">
-				<button type="button" class={boundaryButtonClass('start')} onclick={() => updateActiveBoundary('start')}>
+				<button
+					type="button"
+					class={boundaryButtonClass('start')}
+					onclick={() => updateActiveBoundary('start')}
+				>
 					<span class="date-range-picker-boundary-label">{startLabel}</span>
-					<span class="date-range-picker-boundary-value">{displayValue(currentRange().startDate)}</span>
+					<span class="date-range-picker-boundary-value"
+						>{displayValue(currentRange().startDate)}</span
+					>
 				</button>
-				<button type="button" class={boundaryButtonClass('end')} onclick={() => updateActiveBoundary('end')}>
+				<button
+					type="button"
+					class={boundaryButtonClass('end')}
+					onclick={() => updateActiveBoundary('end')}
+				>
 					<span class="date-range-picker-boundary-label">{endLabel}</span>
-					<span class="date-range-picker-boundary-value">{displayValue(currentRange().endDate)}</span>
+					<span class="date-range-picker-boundary-value"
+						>{displayValue(currentRange().endDate)}</span
+					>
 				</button>
 			</div>
 
@@ -1009,7 +1053,9 @@
 												type="button"
 												role="gridcell"
 												data-date-range-day={cell.dateKey}
-												tabindex={monthPage.slot === 'current' && calendar.key === activeBoundary && cell.dateKey === activeDateKey
+												tabindex={monthPage.slot === 'current' &&
+												calendar.key === activeBoundary &&
+												cell.dateKey === activeDateKey
 													? 0
 													: -1}
 												aria-selected={cell.isRangeStart || cell.isRangeEnd}

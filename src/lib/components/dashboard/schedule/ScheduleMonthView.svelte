@@ -4,7 +4,8 @@
 	import {
 		buildMonthScheduleCells,
 		getEventsForDate,
-		type ScheduleEventRecord
+		type ScheduleEventRecord,
+		type ScheduleManageAction
 	} from '$lib/utils/schedule-page.js';
 
 	interface Props {
@@ -12,9 +13,26 @@
 		anchorDate: string;
 		selectedDate: string;
 		onSelectDate: (dateKey: string) => void;
+		canManageEvents?: boolean;
+		deleteConfirmEventId?: string | null;
+		deleteConfirmSubmitting?: boolean;
+		onManageAction?: (action: ScheduleManageAction, event: ScheduleEventRecord) => void;
+		onDeleteCancel?: () => void;
+		onDeleteConfirm?: () => void;
 	}
 
-	let { events, anchorDate, selectedDate, onSelectDate }: Props = $props();
+	let {
+		events,
+		anchorDate,
+		selectedDate,
+		onSelectDate,
+		canManageEvents = false,
+		deleteConfirmEventId = null,
+		deleteConfirmSubmitting = false,
+		onManageAction,
+		onDeleteCancel,
+		onDeleteConfirm
+	}: Props = $props();
 
 	const weekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 	const monthCells = $derived.by(() => buildMonthScheduleCells(events, anchorDate));
@@ -131,7 +149,15 @@
 				<p class="text-sm font-sans text-neutral-950">No scheduled events fall on this day.</p>
 			{:else}
 				{#each selectedDayEvents as event (event.id)}
-					<ScheduleEventCard {event} />
+					<ScheduleEventCard
+						{event}
+						{canManageEvents}
+						{deleteConfirmEventId}
+						{deleteConfirmSubmitting}
+						{onManageAction}
+						{onDeleteCancel}
+						{onDeleteConfirm}
+					/>
 				{/each}
 			{/if}
 		</div>

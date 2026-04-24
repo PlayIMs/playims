@@ -1,14 +1,33 @@
 <script lang="ts">
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import ScheduleEventCard from './ScheduleEventCard.svelte';
-	import { buildWeekScheduleDays, type ScheduleEventRecord } from '$lib/utils/schedule-page.js';
+	import {
+		buildWeekScheduleDays,
+		type ScheduleEventRecord,
+		type ScheduleManageAction
+	} from '$lib/utils/schedule-page.js';
 
 	interface Props {
 		events: ScheduleEventRecord[];
 		anchorDate: string;
+		canManageEvents?: boolean;
+		deleteConfirmEventId?: string | null;
+		deleteConfirmSubmitting?: boolean;
+		onManageAction?: (action: ScheduleManageAction, event: ScheduleEventRecord) => void;
+		onDeleteCancel?: () => void;
+		onDeleteConfirm?: () => void;
 	}
 
-	let { events, anchorDate }: Props = $props();
+	let {
+		events,
+		anchorDate,
+		canManageEvents = false,
+		deleteConfirmEventId = null,
+		deleteConfirmSubmitting = false,
+		onManageAction,
+		onDeleteCancel,
+		onDeleteConfirm
+	}: Props = $props();
 
 	const weekDays = $derived.by(() => buildWeekScheduleDays(events, anchorDate));
 </script>
@@ -37,7 +56,16 @@
 						</div>
 					{:else}
 						{#each day.events as event (event.id)}
-							<ScheduleEventCard {event} compact />
+							<ScheduleEventCard
+								{event}
+								compact
+								{canManageEvents}
+								{deleteConfirmEventId}
+								{deleteConfirmSubmitting}
+								{onManageAction}
+								{onDeleteCancel}
+								{onDeleteConfirm}
+							/>
 						{/each}
 					{/if}
 				</div>
