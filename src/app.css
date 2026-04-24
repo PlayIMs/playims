@@ -1827,15 +1827,15 @@
 		.bg-primary-950
 	):is(.text-white, .text-primary-05, .text-primary-25, .text-primary-50, .text-primary-100),
 	:where(
-		.bg-primary,
-		.bg-primary-400,
-		.bg-primary-500,
-		.bg-primary-600,
-		.bg-primary-700,
-		.bg-primary-800,
-		.bg-primary-900,
-		.bg-primary-950
-	)
+			.bg-primary,
+			.bg-primary-400,
+			.bg-primary-500,
+			.bg-primary-600,
+			.bg-primary-700,
+			.bg-primary-800,
+			.bg-primary-900,
+			.bg-primary-950
+		)
 		:is(.text-white, .text-primary-05, .text-primary-25, .text-primary-50, .text-primary-100) {
 		color: var(--color-primary-foreground) !important;
 	}
@@ -1849,18 +1849,30 @@
 		.bg-secondary-800,
 		.bg-secondary-900,
 		.bg-secondary-950
-	):is(.text-white, .text-secondary-05, .text-secondary-25, .text-secondary-50, .text-secondary-100),
+	):is(
+		.text-white,
+		.text-secondary-05,
+		.text-secondary-25,
+		.text-secondary-50,
+		.text-secondary-100
+	),
 	:where(
-		.bg-secondary,
-		.bg-secondary-400,
-		.bg-secondary-500,
-		.bg-secondary-600,
-		.bg-secondary-700,
-		.bg-secondary-800,
-		.bg-secondary-900,
-		.bg-secondary-950
-	)
-		:is(.text-white, .text-secondary-05, .text-secondary-25, .text-secondary-50, .text-secondary-100) {
+			.bg-secondary,
+			.bg-secondary-400,
+			.bg-secondary-500,
+			.bg-secondary-600,
+			.bg-secondary-700,
+			.bg-secondary-800,
+			.bg-secondary-900,
+			.bg-secondary-950
+		)
+		:is(
+			.text-white,
+			.text-secondary-05,
+			.text-secondary-25,
+			.text-secondary-50,
+			.text-secondary-100
+		) {
 		color: var(--color-secondary-foreground) !important;
 	}
 }
@@ -2019,6 +2031,16 @@
 		outline-offset: 1px !important;
 		box-shadow: none !important;
 		border-color: var(--playims-focus-color) !important;
+		--tw-ring-color: transparent !important;
+		--tw-ring-shadow: 0 0 #0000 !important;
+	}
+
+	button.schedule-navigator-cell:focus,
+	button.schedule-navigator-cell:focus-visible {
+		outline: none !important;
+		outline-offset: 0 !important;
+		box-shadow: none !important;
+		border-color: transparent !important;
 		--tw-ring-color: transparent !important;
 		--tw-ring-shadow: 0 0 #0000 !important;
 	}
