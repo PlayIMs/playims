@@ -1064,7 +1064,7 @@
 						</div>
 					</div>
 					<div class="p-4 space-y-4">
-						<div class="grid gap-3 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.25fr)]">
+						<div class="grid gap-3 xl:grid-cols-[minmax(0,3fr)_minmax(0,7fr)]">
 							<div class="space-y-2">
 								<label
 									class="mb-1 block text-sm font-sans text-neutral-950"
@@ -1105,7 +1105,7 @@
 																? 'border-secondary-700 bg-secondary-100 text-secondary-950'
 																: 'border-secondary-500 bg-secondary-50 text-secondary-950'
 														}`}
-														onmousedown|preventDefault
+														onmousedown={(event) => event.preventDefault()}
 														onclick={(event) => {
 															selectManualRecipientChip(index, event.shiftKey);
 															clearManualRecipientSuggestions();
