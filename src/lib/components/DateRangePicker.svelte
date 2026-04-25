@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { IconChevronLeft, IconChevronRight } from '@tabler/icons-svelte';
+	import { IconCalendar, IconChevronLeft, IconChevronRight } from '@tabler/icons-svelte';
 	import { createEventDispatcher, tick } from 'svelte';
 
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
@@ -127,6 +127,21 @@
 	const CALENDAR_WHEEL_THRESHOLD = 72;
 	const CALENDAR_WHEEL_GESTURE_GAP_MS = 80;
 	const MONTH_STRIP_TRANSITION_FALLBACK_MS = 120;
+	const WEEKDAY_ABBREVIATIONS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+	const MONTH_ABBREVIATIONS = [
+		'January',
+		'February',
+		'March',
+		'April',
+		'May',
+		'June',
+		'July',
+		'August',
+		'September',
+		'October',
+		'November',
+		'December'
+	];
 	const datePickerId = Symbol('date-range-picker');
 
 	let root = $state<HTMLDivElement | null>(null);
@@ -187,7 +202,21 @@
 	}
 
 	function displayValue(dateKey: string): string {
+		if (!format) {
+			return formatRangeDateForDisplay(dateKey);
+		}
+
 		return formatPickerValueForDisplay(dateKey, 'date', format);
+	}
+
+	function formatRangeDateForDisplay(dateKey: string): string {
+		const parsed = parsePickerValue(dateKey, 'date');
+		if (!parsed) return dateKey;
+
+		const date = new Date(parsed.year, parsed.month - 1, parsed.day);
+		const weekday = WEEKDAY_ABBREVIATIONS[date.getDay()] ?? '';
+		const month = MONTH_ABBREVIATIONS[parsed.month - 1] ?? String(parsed.month).padStart(2, '0');
+		return `${weekday}, ${month} ${parsed.day}, ${parsed.year}`;
 	}
 
 	function monthReferenceFromDateKey(dateKey: string): MonthReference {
@@ -883,8 +912,10 @@
 		>
 			<span class="date-range-picker-trigger-copy">
 				<span class="date-range-picker-trigger-label">{startLabel}</span>
-				<span class="date-range-picker-trigger-value">{displayValue(currentRange().startDate)}</span
-				>
+				<span class="date-range-picker-trigger-value">
+					<span>{displayValue(currentRange().startDate)}</span>
+					<IconCalendar class="date-range-picker-value-icon" aria-hidden="true" />
+				</span>
 			</span>
 		</button>
 
@@ -902,7 +933,10 @@
 		>
 			<span class="date-range-picker-trigger-copy">
 				<span class="date-range-picker-trigger-label">{endLabel}</span>
-				<span class="date-range-picker-trigger-value">{displayValue(currentRange().endDate)}</span>
+				<span class="date-range-picker-trigger-value">
+					<span>{displayValue(currentRange().endDate)}</span>
+					<IconCalendar class="date-range-picker-value-icon" aria-hidden="true" />
+				</span>
 			</span>
 		</button>
 	</div>
@@ -937,9 +971,6 @@
 					onclick={() => updateActiveBoundary('start')}
 				>
 					<span class="date-range-picker-boundary-label">{startLabel}</span>
-					<span class="date-range-picker-boundary-value"
-						>{displayValue(currentRange().startDate)}</span
-					>
 				</button>
 				<button
 					type="button"
@@ -947,9 +978,6 @@
 					onclick={() => updateActiveBoundary('end')}
 				>
 					<span class="date-range-picker-boundary-label">{endLabel}</span>
-					<span class="date-range-picker-boundary-value"
-						>{displayValue(currentRange().endDate)}</span
-					>
 				</button>
 			</div>
 

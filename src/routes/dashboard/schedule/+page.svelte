@@ -1508,7 +1508,7 @@
 							<div class="flex flex-col xl:flex-row xl:items-stretch">
 								<div
 									class={selectedView === 'date-range'
-										? 'w-full xl:w-[22rem] xl:shrink-0'
+										? 'w-full xl:w-[31rem] xl:shrink-0'
 										: NAVIGATION_SIDE_SECTION_CLASS}
 								>
 									{#if selectedView === 'date-range'}

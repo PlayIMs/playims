@@ -1398,11 +1398,12 @@
 		display: inline-flex;
 		min-height: 3.375rem;
 		flex: 1 1 0;
+		min-width: 0;
 		align-items: center;
-		justify-content: flex-start;
+		justify-content: center;
 		border: 0;
 		background-color: white;
-		padding: 0.75rem 1rem;
+		padding: 0.75rem 0.875rem;
 		text-align: left;
 		color: var(--color-neutral-950);
 		cursor: pointer;
@@ -1432,13 +1433,28 @@
 		font-weight: 700;
 		letter-spacing: 0.18em;
 		text-transform: uppercase;
-		color: var(--color-neutral-500);
+		color: var(--color-neutral-800);
 	}
 
 	.date-range-picker-trigger-value,
 	.date-range-picker-boundary-value {
+		display: inline-flex;
+		align-items: center;
+		justify-content: flex-start;
+		gap: 0.4375rem;
+		max-width: 100%;
+		min-width: 0;
 		font-size: 0.9375rem;
-		font-weight: 700;
+		font-weight: 600;
+		line-height: 1.1;
+		color: var(--color-neutral-950);
+		white-space: nowrap;
+	}
+
+	.date-range-picker-value-icon {
+		height: 1.5rem;
+		width: 1.5rem;
+		flex-shrink: 0;
 		color: var(--color-neutral-950);
 	}
 
@@ -1459,14 +1475,16 @@
 
 	.date-range-picker-boundary-button {
 		display: inline-flex;
+		min-height: 2.75rem;
 		min-width: 0;
 		flex-direction: column;
-		align-items: flex-start;
-		gap: 0.25rem;
+		align-items: center;
+		justify-content: center;
+		gap: 0;
 		border: 0;
 		background-color: transparent;
-		padding: 0.65rem 0.75rem;
-		text-align: left;
+		padding: 0.55rem 0.75rem;
+		text-align: center;
 		cursor: pointer;
 	}
 
