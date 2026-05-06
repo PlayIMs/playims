@@ -70,6 +70,10 @@ const isMissingClientRoutesTableError = (error: unknown): boolean => {
 	return messages.some((message) => /no such table:\s*client_database_routes/i.test(message));
 };
 
+const isProductionEnvironment = (event: DbContextEvent): boolean =>
+	typeof event.platform?.env?.ENVIRONMENT === 'string' &&
+	event.platform.env.ENVIRONMENT.trim().toLowerCase() === 'production';
+
 const getDbCache = (event: DbContextEvent) => {
 	if (!event.locals.__dbCache) {
 		event.locals.__dbCache = {
@@ -195,6 +199,14 @@ export const resolveTenantDatabaseRoute = async (
 		return mapped;
 	} catch (error) {
 		if (isMissingClientRoutesTableError(error)) {
+			if (isProductionEnvironment(event)) {
+				throw new DatabaseRouteResolutionError(
+					'TENANT_ROUTE_TABLE_MISSING',
+					'Tenant database route table is missing in production.',
+					500
+				);
+			}
+
 			const fallback = resolveFallbackCentralRoute(trimmedClientId);
 			cache.tenantRoutes?.set(trimmedClientId, fallback);
 			return fallback;

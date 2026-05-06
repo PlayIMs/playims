@@ -24,6 +24,14 @@ import {
 	type UpdateIntramuralEventResponse
 } from '$lib/server/intramural-events-validation';
 import { buildScheduleEvent, mapById } from '$lib/server/schedule-events';
+import type { Event } from '$lib/database/schema/events';
+import type { Facility } from '$lib/database/schema/facilities';
+import type { FacilityArea } from '$lib/database/schema/facility-areas';
+import type { League } from '$lib/database/schema/leagues';
+import type { Division } from '$lib/database/schema/divisions';
+import type { Offering } from '$lib/database/schema/offerings';
+import type { Season } from '$lib/database/schema/seasons';
+import type { Team } from '$lib/database/schema/teams';
 import type { RequestHandler } from './$types';
 
 type FieldIssue = { path: Array<PropertyKey>; message: string };
@@ -43,14 +51,14 @@ function toIsoDateTime(value: string): string {
 }
 
 type EventRelationContext = {
-	season: any;
-	offering: any;
-	league: any;
-	division: any;
-	facility: any;
-	facilityArea: any;
-	homeTeam: any;
-	awayTeam: any;
+	season: Season | null;
+	offering: Offering | null;
+	league: League | null;
+	division: Division | null;
+	facility: Facility | null;
+	facilityArea: FacilityArea | null;
+	homeTeam: Team | null;
+	awayTeam: Team | null;
 };
 
 async function requireEventContext(
@@ -234,7 +242,7 @@ function buildRelationMap<T extends { id: string }>(
 	return mapById(records.filter((record): record is T => Boolean(record)));
 }
 
-function buildScheduleResponse(record: any, context: EventRelationContext) {
+function buildScheduleResponse(record: Event, context: EventRelationContext) {
 	return buildScheduleEvent(
 		record,
 		buildRelationMap([context.homeTeam, context.awayTeam]),

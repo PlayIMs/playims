@@ -162,6 +162,13 @@ const API_ROUTE_POLICIES: ApiRoutePolicy[] = [
 		}
 	},
 	{
+		pattern: /^\/api\/communications\/filter-options$/,
+		policy: {
+			access: 'permission',
+			permissions: [PERMISSIONS.PREVIEW_COMMUNICATION_AUDIENCE]
+		}
+	},
+	{
 		pattern: /^\/api\/communications\/[^/]+$/,
 		policy: {
 			access: 'permission',

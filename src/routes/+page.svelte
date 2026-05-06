@@ -1,12 +1,5 @@
 <script lang="ts">
 	import PageTitle from '$lib/components/PageTitle.svelte';
-
-	export let data: {
-		isDevelopment: boolean;
-		environment: string;
-		dbName?: string;
-		error?: string;
-	};
 </script>
 
 <PageTitle pageTitle="Home" />
@@ -309,7 +302,6 @@
 			<p class="text-neutral-200 mb-2">
 				&copy; {new Date().getFullYear()} PlayIMs. All rights reserved.
 			</p>
-			<p class="text-sm text-neutral-300">Environment: {data.environment}</p>
 		</div>
 	</footer>
 </div>

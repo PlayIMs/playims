@@ -66,6 +66,7 @@ declare global {
 				AUTH_SESSION_SECRET?: string;
 				AUTH_PASSWORD_PBKDF2_ITERATIONS?: string;
 				AUTH_PASSWORD_PEPPER?: string;
+				ENVIRONMENT?: string;
 				RESEND_API_KEY?: string;
 				COMMUNICATION_FROM_EMAIL?: string;
 				COMMUNICATION_REPLY_TO_EMAIL?: string;

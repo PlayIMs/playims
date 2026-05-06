@@ -4,9 +4,9 @@ This file verifies how tenant database routes are resolved for client-specific d
 
 Deeper explanation:
 PlayIMs can route a client to the shared central database or to a dedicated D1 binding. The helper
-has to interpret route records, detect inactive or missing bindings, and recover safely when the
-routing table does not exist yet. These tests protect that decision tree directly because many server
-operations depend on it.
+has to interpret route records, detect inactive or missing bindings, and handle missing routing
+tables differently by environment. Development can recover with a shared fallback for first-run
+bootstrap, while production must fail closed so tenant isolation cannot silently degrade.
 
 Summary of tests:
 1. It verifies that missing route records default to the central shared database.
@@ -14,7 +14,8 @@ Summary of tests:
 3. It verifies that active D1 binding routes return the configured tenant binding.
 4. It verifies that missing D1 bindings raise the expected resolution error.
 5. It verifies that inactive routes are rejected.
-6. It verifies that missing routing tables fall back to the central shared database even through nested causes.
+6. It verifies that missing routing tables fall back to the central shared database in local development.
+7. It verifies that missing routing tables fail closed in production.
 */
 
 import { describe, expect, it, vi } from 'vitest';
@@ -34,7 +35,7 @@ const createEvent = (route: {
 	routeMode: string;
 	bindingName?: string | null;
 	status?: string | null;
-} | null) => {
+} | null, environment = 'development') => {
 	const centralDb = createFakeD1();
 	const tenantDb = createFakeD1();
 
@@ -42,6 +43,7 @@ const createEvent = (route: {
 		platform: {
 			env: {
 				DB: centralDb,
+				ENVIRONMENT: environment,
 				TENANT_A: tenantDb
 			}
 		},
@@ -145,8 +147,8 @@ describe('tenant database context', () => {
 		} satisfies Partial<DatabaseRouteResolutionError>);
 	});
 
-	it('falls back to central_shared when missing routes table is wrapped in nested causes', async () => {
-		// this protects first-run and partially migrated environments where the routing table may not exist yet.
+	it('falls back to central_shared in development when missing routes table is wrapped in nested causes', async () => {
+		// development keeps a bootstrap fallback so local databases can still start before all migrations exist.
 		const event = createEvent(null);
 		event.locals.__dbCache.centralOps.clientDatabaseRoutes.getByClientId = vi
 			.fn()
@@ -159,5 +161,19 @@ describe('tenant database context', () => {
 
 		expect(resolved.routeMode).toBe('central_shared');
 		expect(resolved.status).toBe('active');
+	});
+
+	it('fails closed in production when the routes table is missing', async () => {
+		// production should never silently guess tenant routing because that weakens the data boundary.
+		const event = createEvent(null, 'production');
+		event.locals.__dbCache.centralOps.clientDatabaseRoutes.getByClientId = vi
+			.fn()
+			.mockRejectedValue(createWrappedMissingTableError());
+
+		await expect(
+			resolveTenantDatabaseRoute(event, '77777777-7777-4777-8777-777777777777')
+		).rejects.toMatchObject({
+			code: 'TENANT_ROUTE_TABLE_MISSING'
+		} satisfies Partial<DatabaseRouteResolutionError>);
 	});
 });
