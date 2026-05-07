@@ -3,6 +3,7 @@
 	import type { ActionResult } from '@sveltejs/kit';
 	import { tick } from 'svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
+	import SearchInput from '$lib/components/SearchInput.svelte';
 	import {
 		IconAlertTriangle,
 		IconBallAmericanFootball,
@@ -35,6 +36,7 @@
 	} from '$lib/dashboard/navigation';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import { toast } from '$lib/toasts';
+	import { countDirtyNavigationLabels, getNavigationEditorRows } from './modules-page-state';
 	import type { PageProps } from './$types';
 
 	type SaveNavigationFailure = {
@@ -97,10 +99,30 @@
 	let orderRollbackSnapshot = $state<DashboardNavigationOrder | null>(null);
 	let lastFeedbackSignature = $state('');
 	let readOnlyToastShown = $state(false);
+	let moduleSearch = $state('');
 
 	const canEditNavigation = $derived.by(() => data.canEditNavigation === true);
 	const maxLabelLength = $derived.by(() => data.maxLabelLength ?? 25);
 	const orderedNavItems = $derived.by(() => orderDashboardNavigationItems(order));
+	const editorRows = $derived.by(() =>
+		getNavigationEditorRows({
+			order,
+			labels,
+			initialLabels,
+			query: moduleSearch
+		})
+	);
+	const dirtyLabelCount = $derived.by(() => countDirtyNavigationLabels(labels, initialLabels));
+	const orderChanged = $derived.by(() => JSON.stringify(order) !== JSON.stringify(initialOrder));
+	const defaultOrderChanged = $derived.by(
+		() => JSON.stringify(order) !== JSON.stringify(getDefaultDashboardNavigationOrder())
+	);
+	const hasDefaultDifferences = $derived.by(
+		() =>
+			Object.entries(labels).some(
+				([key, label]) => label !== getDefaultDashboardNavigationLabels()[key as DashboardNavKey]
+			) || defaultOrderChanged
+	);
 	const hasUnsavedChanges = $derived.by(
 		() =>
 			JSON.stringify(labels) !== JSON.stringify(initialLabels) ||
@@ -109,7 +131,7 @@
 	const labelsJson = $derived.by(() => JSON.stringify(labels));
 	const orderJson = $derived.by(() => JSON.stringify(order));
 	const orderOnlyJson = $derived.by(() => JSON.stringify(order));
-	const hasAnyFeedback = $derived.by(() => saveError.length > 0 || saveSuccess.length > 0);
+	const moduleSearchActive = $derived.by(() => moduleSearch.trim().length > 0);
 
 	$effect(() => {
 		if (!canEditNavigation) {
@@ -219,6 +241,26 @@
 		saveSuccess = '';
 	};
 
+	const resetUnsavedChanges = (): void => {
+		labels = cloneLabels(initialLabels);
+		order = cloneOrder(initialOrder);
+		fieldErrors = {};
+		saveError = '';
+		saveSuccess = '';
+		dispatchNavigationLabelsUpdated(initialLabels, initialOrder);
+	};
+
+	const resetAllToDefaults = (): void => {
+		const defaultLabels = getDefaultDashboardNavigationLabels();
+		const defaultOrder = getDefaultDashboardNavigationOrder();
+		labels = cloneLabels(defaultLabels);
+		order = cloneOrder(defaultOrder);
+		fieldErrors = {};
+		saveError = '';
+		saveSuccess = '';
+		dispatchNavigationLabelsUpdated(defaultLabels, defaultOrder);
+	};
+
 	const moveOrderItem = (fromIndex: number, toIndex: number): boolean => {
 		if (fromIndex === toIndex) {
 			return false;
@@ -279,6 +321,14 @@
 			return;
 		}
 		saveTabKeySubmitting = tabKey;
+		saveNavigationForm?.requestSubmit();
+	};
+
+	const requestSaveAll = (): void => {
+		if (!canEditNavigation || saveSubmitting || orderSaveSubmitting || !hasUnsavedChanges) {
+			return;
+		}
+		saveTabKeySubmitting = null;
 		saveNavigationForm?.requestSubmit();
 	};
 
@@ -384,163 +434,357 @@
 </svelte:head>
 
 <div class="dashboard-page-shell">
-	<section class="border-2 border-neutral-950 bg-neutral p-3 lg:p-4 space-y-3">
-		<div>
-			<div>
-				<h2 class="text-2xl font-bold font-serif text-neutral-950">Modules</h2>
-				<p class="text-xs text-neutral-950 mt-1">
-					Rename tabs and adjust order for this organization.
-				</p>
-			</div>
-		</div>
-		{#if orderSaveSubmitting}
-			<span class="block text-[10px] font-bold uppercase tracking-wide text-primary-800"
-				>Saving order...</span
+	<div class="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
+		<section class="min-w-0 border-2 border-neutral-950 bg-neutral">
+			<div
+				class="flex flex-col gap-3 border-b border-neutral-950 bg-neutral-600/66 p-4 lg:flex-row lg:items-start lg:justify-between"
 			>
-		{/if}
+				<div class="space-y-1">
+					<p class="text-[11px] font-bold uppercase tracking-wide text-secondary-700">
+						Sidebar editor
+					</p>
+					<h2 class="dashboard-section-title text-neutral-950">Modules</h2>
+					<p class="text-sm text-neutral-950">
+						Rename dashboard tabs and tune the order people see in the sidebar.
+					</p>
+				</div>
 
-		<div class="space-y-2.5">
-			{#each orderedNavItems as item, index (item.key)}
-				{@const RowIcon = navIconByKey[item.key]}
-				<div class="border-2 border-neutral-950 bg-white p-2">
-					<div class="flex flex-wrap items-start gap-2 lg:flex-nowrap">
-						<div class="min-w-0 flex-1">
-							<label
-								for={`label-${item.key}`}
-								class="mb-1 block text-[11px] font-bold uppercase tracking-wide text-neutral-950"
-								>{item.defaultLabel}</label
-							>
-
-							<div class="relative">
-								<span
-									class="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-neutral-950"
-									aria-hidden="true"
-								>
-									<RowIcon class="h-3.5 w-3.5" />
-								</span>
-								<input
-									id={`label-${item.key}`}
-									class={`input-secondary h-10 pl-8 pr-10 text-sm ${fieldErrors[item.key] ? 'border-error-700 focus:border-error-700' : ''}`}
-									type="text"
-									value={labels[item.key]}
-									maxlength={maxLabelLength}
-									disabled={!canEditNavigation || saveSubmitting || orderSaveSubmitting}
-									oninput={(event) =>
-										updateLabel(item.key, (event.currentTarget as HTMLInputElement).value)}
-								/>
-								{#if isLabelModifiedFromDefault(item.key)}
-									<HoverTooltip
-										text="Revert to default"
-										wrapperClass="absolute right-2 top-1/2 inline-flex shrink-0 z-10"
-									>
-										<button
-											type="button"
-											tabindex="-1"
-											class="-translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none disabled:cursor-not-allowed disabled:text-secondary-400"
-											aria-label={`Revert ${item.defaultLabel} label to default`}
-											onclick={() => resetLabel(item.key)}
-											disabled={!canEditNavigation || saveSubmitting || orderSaveSubmitting}
-										>
-											<IconRestore class="h-4 w-4" />
-										</button>
-									</HoverTooltip>
-								{/if}
-							</div>
-						</div>
-
-						<div class="inline-flex items-center gap-1 shrink-0">
-							<HoverTooltip text="Move up">
-								<button
-									type="button"
-									class="button-secondary-outlined h-10 w-10 p-0 inline-flex items-center justify-center cursor-pointer"
-									aria-label={`Move ${labels[item.key]} up`}
-									onclick={() => moveItemUp(index)}
-									disabled={!canEditNavigation ||
-										saveSubmitting ||
-										orderSaveSubmitting ||
-										index === 0}
-								>
-									<IconChevronUp class="h-4 w-4" />
-								</button>
-							</HoverTooltip>
-							<HoverTooltip text="Move down">
-								<button
-									type="button"
-									class="button-secondary-outlined h-10 w-10 p-0 inline-flex items-center justify-center cursor-pointer"
-									aria-label={`Move ${labels[item.key]} down`}
-									onclick={() => moveItemDown(index)}
-									disabled={!canEditNavigation ||
-										saveSubmitting ||
-										orderSaveSubmitting ||
-										index === orderedNavItems.length - 1}
-								>
-									<IconChevronDown class="h-4 w-4" />
-								</button>
-							</HoverTooltip>
-							<HoverTooltip
-								text={saveSubmitting && saveTabKeySubmitting === item.key ? 'Saving' : 'Save label'}
-							>
-								<button
-									type="button"
-									class={`h-10 w-10 p-0 inline-flex items-center justify-center cursor-pointer ${
-										isRowDirty(item.key) &&
-										canEditNavigation &&
-										!saveSubmitting &&
-										!orderSaveSubmitting
-											? 'button-primary'
-											: 'button-secondary-outlined'
-									}`}
-									aria-label={`Save ${item.defaultLabel} label`}
-									onclick={() => requestSaveRow(item.key)}
-									disabled={!canEditNavigation ||
-										saveSubmitting ||
-										orderSaveSubmitting ||
-										!isRowDirty(item.key)}
-								>
-									<IconDeviceFloppy
-										class={`h-4 w-4 ${saveSubmitting && saveTabKeySubmitting === item.key ? 'animate-pulse' : ''}`}
-									/>
-								</button>
-							</HoverTooltip>
-						</div>
-					</div>
-					{#if fieldErrors[item.key]}
-						<p class="mt-1 text-xs text-error-700">{fieldErrors[item.key]}</p>
+				<div class="flex flex-wrap items-center gap-2">
+					<span class="badge-neutral-outlined h-9 px-3 text-xs font-semibold">
+						{dirtyLabelCount} label{dirtyLabelCount === 1 ? '' : 's'} changed
+					</span>
+					{#if orderChanged || orderSaveSubmitting}
+						<span class="badge-neutral-outlined h-9 px-3 text-xs font-semibold">
+							{orderSaveSubmitting ? 'Saving order' : 'Order changed'}
+						</span>
 					{/if}
 				</div>
-			{/each}
-		</div>
+			</div>
 
-		<form
-			class="hidden"
-			method="POST"
-			action="?/saveNavigationLabels"
-			use:enhance={enhanceSaveNavigation}
-			bind:this={saveNavigationForm}
-			onsubmit={() => {
-				saveSubmitting = true;
-				saveError = '';
-				saveSuccess = '';
-				fieldErrors = {};
-			}}
-		>
-			<input type="hidden" name="labelsJson" value={labelsJson} />
-			<input type="hidden" name="orderJson" value={orderJson} />
-		</form>
+			<div class="space-y-4 p-4 lg:p-5">
+				{#if !canEditNavigation}
+					<div class="border-2 border-warning-300 bg-warning-50 p-3">
+						<div class="flex items-start gap-3">
+							<IconAlertTriangle
+								class="mt-0.5 h-5 w-5 shrink-0 text-warning-900"
+								aria-hidden="true"
+							/>
+							<div class="space-y-1">
+								<p class="text-sm font-semibold text-warning-950">Read-only module settings</p>
+								<p class="text-sm text-warning-900">
+									Switch to a manager or admin role before editing labels or order.
+								</p>
+							</div>
+						</div>
+					</div>
+				{/if}
 
-		<form
-			class="hidden"
-			method="POST"
-			action="?/saveNavigationOrder"
-			use:enhance={enhanceSaveNavigationOrder}
-			bind:this={saveNavigationOrderForm}
-			onsubmit={() => {
-				orderSaveSubmitting = true;
-				saveError = '';
-				saveSuccess = '';
-			}}
-		>
-			<input type="hidden" name="orderJson" value={orderOnlyJson} />
-		</form>
-	</section>
+				<div class="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+					<div>
+						<label for="module-search" class="mb-1 block text-sm font-sans text-neutral-950">
+							Find a module
+						</label>
+						<SearchInput
+							id="module-search"
+							label="Find a module"
+							placeholder="Search by current name, default name, or key"
+							bind:value={moduleSearch}
+						/>
+					</div>
+
+					<div class="flex flex-wrap items-center gap-2">
+						<HoverTooltip text="Discard unsaved edits">
+							<button
+								type="button"
+								class="button-secondary-outlined h-10 cursor-pointer"
+								disabled={!hasUnsavedChanges || saveSubmitting || orderSaveSubmitting}
+								onclick={resetUnsavedChanges}
+							>
+								Reset changes
+							</button>
+						</HoverTooltip>
+						<HoverTooltip text="Restore default labels and order">
+							<button
+								type="button"
+								class="button-secondary-outlined h-10 cursor-pointer"
+								disabled={!canEditNavigation ||
+									!hasDefaultDifferences ||
+									saveSubmitting ||
+									orderSaveSubmitting}
+								onclick={resetAllToDefaults}
+							>
+								Defaults
+							</button>
+						</HoverTooltip>
+						<HoverTooltip text="Save every changed label">
+							<button
+								type="button"
+								class="button-primary h-10 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+								disabled={!canEditNavigation ||
+									!hasUnsavedChanges ||
+									saveSubmitting ||
+									orderSaveSubmitting}
+								onclick={requestSaveAll}
+							>
+								<span class="inline-flex items-center gap-2">
+									<IconDeviceFloppy class={`h-4 w-4 ${saveSubmitting ? 'animate-pulse' : ''}`} />
+									<span
+										>{saveSubmitting && saveTabKeySubmitting === null ? 'Saving' : 'Save all'}</span
+									>
+								</span>
+							</button>
+						</HoverTooltip>
+					</div>
+				</div>
+
+				<div class="space-y-2.5">
+					{#if editorRows.length === 0}
+						<div class="border border-neutral-950 bg-white p-4">
+							<p class="text-sm font-semibold text-neutral-950">No modules match that search.</p>
+							<p class="mt-1 text-xs text-neutral-900">
+								Clear the search to see all {orderedNavItems.length} sidebar modules.
+							</p>
+						</div>
+					{:else}
+						{#each editorRows as row (row.key)}
+							{@const RowIcon = navIconByKey[row.key]}
+							<div
+								class={`border-2 bg-white p-3 ${
+									row.isDirty ? 'border-primary-600' : 'border-neutral-950'
+								}`}
+							>
+								<div class="flex flex-col gap-3 lg:flex-row lg:items-start">
+									<div
+										class="flex h-10 w-10 shrink-0 items-center justify-center border border-neutral-950 bg-neutral text-neutral-950"
+										aria-hidden="true"
+									>
+										<RowIcon class="h-5 w-5" />
+									</div>
+
+									<div class="min-w-0 flex-1">
+										<div class="mb-1 flex flex-wrap items-center gap-2">
+											<label
+												for={`label-${row.key}`}
+												class="text-sm font-semibold text-neutral-950"
+											>
+												{row.defaultLabel}
+											</label>
+											<span class="text-xs text-neutral-900">Position {row.orderIndex + 1}</span>
+											{#if row.isDirty}
+												<span
+													class="badge-neutral-outlined px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+												>
+													Unsaved
+												</span>
+											{/if}
+										</div>
+
+										<div class="relative">
+											<input
+												id={`label-${row.key}`}
+												class={`input-secondary h-10 pr-10 text-sm ${fieldErrors[row.key] ? 'border-error-700 focus:border-error-700' : ''}`}
+												type="text"
+												value={labels[row.key]}
+												maxlength={maxLabelLength}
+												disabled={!canEditNavigation || saveSubmitting || orderSaveSubmitting}
+												oninput={(event) =>
+													updateLabel(row.key, (event.currentTarget as HTMLInputElement).value)}
+											/>
+											{#if isLabelModifiedFromDefault(row.key)}
+												<HoverTooltip
+													text="Revert to default"
+													wrapperClass="absolute right-2 top-1/2 inline-flex shrink-0 z-10"
+												>
+													<button
+														type="button"
+														tabindex="-1"
+														class="-translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none disabled:cursor-not-allowed disabled:text-secondary-400"
+														aria-label={`Revert ${row.defaultLabel} label to default`}
+														onclick={() => resetLabel(row.key)}
+														disabled={!canEditNavigation || saveSubmitting || orderSaveSubmitting}
+													>
+														<IconRestore class="h-4 w-4" />
+													</button>
+												</HoverTooltip>
+											{/if}
+										</div>
+
+										<div class="mt-1 flex flex-wrap items-center justify-between gap-2">
+											<p class="text-xs text-neutral-900">Navigation key: {row.key}</p>
+											<p class="text-xs text-neutral-900">
+												{labels[row.key].length}/{maxLabelLength} characters
+											</p>
+										</div>
+
+										{#if fieldErrors[row.key]}
+											<p class="mt-1 text-xs text-error-700">{fieldErrors[row.key]}</p>
+										{/if}
+									</div>
+
+									<div class="flex shrink-0 items-center gap-1">
+										<HoverTooltip text="Move up">
+											<button
+												type="button"
+												class="button-secondary-outlined h-10 w-10 p-0 inline-flex items-center justify-center cursor-pointer"
+												aria-label={`Move ${labels[row.key]} up`}
+												onclick={() => moveItemUp(row.orderIndex)}
+												disabled={!canEditNavigation ||
+													saveSubmitting ||
+													orderSaveSubmitting ||
+													row.orderIndex === 0}
+											>
+												<IconChevronUp class="h-4 w-4" />
+											</button>
+										</HoverTooltip>
+										<HoverTooltip text="Move down">
+											<button
+												type="button"
+												class="button-secondary-outlined h-10 w-10 p-0 inline-flex items-center justify-center cursor-pointer"
+												aria-label={`Move ${labels[row.key]} down`}
+												onclick={() => moveItemDown(row.orderIndex)}
+												disabled={!canEditNavigation ||
+													saveSubmitting ||
+													orderSaveSubmitting ||
+													row.orderIndex === orderedNavItems.length - 1}
+											>
+												<IconChevronDown class="h-4 w-4" />
+											</button>
+										</HoverTooltip>
+										<HoverTooltip
+											text={saveSubmitting && saveTabKeySubmitting === row.key
+												? 'Saving'
+												: 'Save label'}
+										>
+											<button
+												type="button"
+												class={`h-10 w-10 p-0 inline-flex items-center justify-center cursor-pointer ${
+													isRowDirty(row.key) &&
+													canEditNavigation &&
+													!saveSubmitting &&
+													!orderSaveSubmitting
+														? 'button-primary'
+														: 'button-secondary-outlined'
+												}`}
+												aria-label={`Save ${row.defaultLabel} label`}
+												onclick={() => requestSaveRow(row.key)}
+												disabled={!canEditNavigation ||
+													saveSubmitting ||
+													orderSaveSubmitting ||
+													!isRowDirty(row.key)}
+											>
+												<IconDeviceFloppy
+													class={`h-4 w-4 ${saveSubmitting && saveTabKeySubmitting === row.key ? 'animate-pulse' : ''}`}
+												/>
+											</button>
+										</HoverTooltip>
+									</div>
+								</div>
+							</div>
+						{/each}
+					{/if}
+				</div>
+			</div>
+		</section>
+
+		<aside class="space-y-4">
+			<section class="border-2 border-neutral-950 bg-neutral">
+				<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
+					<h3 class="text-lg font-bold font-serif text-neutral-950">Live Sidebar Preview</h3>
+					<p class="mt-1 text-xs text-neutral-950">
+						This mirrors the labels and order currently staged in this editor.
+					</p>
+				</div>
+				<div class="space-y-2 p-3">
+					{#each orderedNavItems as item, index (item.key)}
+						{@const PreviewIcon = navIconByKey[item.key]}
+						<div
+							class={`flex items-center gap-2 border bg-white p-2 ${
+								isRowDirty(item.key) ? 'border-primary-600' : 'border-neutral-950'
+							}`}
+						>
+							<span
+								class="flex h-7 w-7 shrink-0 items-center justify-center border border-secondary-300 bg-neutral text-neutral-950"
+								aria-hidden="true"
+							>
+								<PreviewIcon class="h-4 w-4" />
+							</span>
+							<span class="min-w-0 flex-1 truncate text-sm font-semibold text-neutral-950">
+								{labels[item.key]}
+							</span>
+							<span class="text-[11px] font-bold text-secondary-700">#{index + 1}</span>
+						</div>
+					{/each}
+				</div>
+			</section>
+
+			<section class="border-2 border-neutral-950 bg-neutral p-4 space-y-3">
+				<div>
+					<h3 class="text-lg font-bold font-serif text-neutral-950">Editing Notes</h3>
+					<p class="mt-1 text-sm text-neutral-950">
+						Order changes save immediately. Label changes stay local until you save one row or use
+						Save all.
+					</p>
+				</div>
+
+				<div class="grid grid-cols-2 gap-2">
+					<div class="border border-neutral-950 bg-white p-3">
+						<p class="text-[11px] font-bold uppercase tracking-wide text-secondary-700">Visible</p>
+						<p class="font-serif text-2xl font-bold text-neutral-950">
+							{editorRows.length}
+						</p>
+					</div>
+					<div class="border border-neutral-950 bg-white p-3">
+						<p class="text-[11px] font-bold uppercase tracking-wide text-secondary-700">Total</p>
+						<p class="font-serif text-2xl font-bold text-neutral-950">
+							{orderedNavItems.length}
+						</p>
+					</div>
+				</div>
+
+				{#if moduleSearchActive}
+					<button
+						type="button"
+						class="button-secondary-outlined w-full cursor-pointer"
+						onclick={() => {
+							moduleSearch = '';
+						}}
+					>
+						Clear search
+					</button>
+				{/if}
+			</section>
+		</aside>
+	</div>
+
+	<form
+		class="hidden"
+		method="POST"
+		action="?/saveNavigationLabels"
+		use:enhance={enhanceSaveNavigation}
+		bind:this={saveNavigationForm}
+		onsubmit={() => {
+			saveSubmitting = true;
+			saveError = '';
+			saveSuccess = '';
+			fieldErrors = {};
+		}}
+	>
+		<input type="hidden" name="labelsJson" value={labelsJson} />
+		<input type="hidden" name="orderJson" value={orderJson} />
+	</form>
+
+	<form
+		class="hidden"
+		method="POST"
+		action="?/saveNavigationOrder"
+		use:enhance={enhanceSaveNavigationOrder}
+		bind:this={saveNavigationOrderForm}
+		onsubmit={() => {
+			orderSaveSubmitting = true;
+			saveError = '';
+			saveSuccess = '';
+		}}
+	>
+		<input type="hidden" name="orderJson" value={orderOnlyJson} />
+	</form>
 </div>

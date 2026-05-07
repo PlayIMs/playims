@@ -10,6 +10,7 @@
 	} from '@tabler/icons-svelte';
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
+	import { toast } from '$lib/toasts';
 	import {
 		themeColors,
 		updateColor,
@@ -483,7 +484,9 @@
 	async function handleSaveTheme() {
 		const name = themeNameInput.trim();
 		if (!name) {
-			alert('Please enter a theme name.');
+			toast.warning('Please enter a theme name before saving.', {
+				title: 'Theme name required'
+			});
 			return;
 		}
 
@@ -577,7 +580,9 @@
 		if (!renameThemeId) return;
 		const name = renameThemeNameInput.trim();
 		if (!name) {
-			alert('Please enter a theme name.');
+			toast.warning('Please enter a theme name before saving.', {
+				title: 'Theme name required'
+			});
 			return;
 		}
 
@@ -585,13 +590,17 @@
 			(theme) => theme.id !== renameThemeId && theme.name.toLowerCase() === name.toLowerCase()
 		);
 		if (hasDuplicate) {
-			alert('A saved theme with that name already exists.');
+			toast.warning('A saved theme with that name already exists.', {
+				title: 'Duplicate theme name'
+			});
 			return;
 		}
 
 		const renamed = await renameSavedTheme(renameThemeId, name);
 		if (!renamed) {
-			alert('Unable to rename theme right now. Please try again.');
+			toast.error('Unable to rename theme right now. Please try again.', {
+				title: 'Rename failed'
+			});
 			return;
 		}
 
