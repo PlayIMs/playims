@@ -4,6 +4,15 @@
 
 The PlayIMs plugin is the repo-local Codex plugin for this project.
 
+Version 0.2.0 keeps the existing product conventions while using selective source reads,
+task-specific reference loading, and the testing tiers in the workspace `AGENTS.md`.
+The style skill has a concise entrypoint; detailed parity recipes remain available in references.
+These are workflow improvements, not a measured model-specific performance claim.
+
+Edit this repository source rather than an installed cache. Reload/reinstall through the host's
+supported plugin workflow from the verified marketplace source to activate changes. The cached
+plugin shown in a session may still be the previous version until that refresh occurs.
+
 It bundles the project's PlayIMs-specific skills into one place so future UI and workflow work can follow the same patterns instead of re-deciding them each time.
 
 ## What This Plugin Includes

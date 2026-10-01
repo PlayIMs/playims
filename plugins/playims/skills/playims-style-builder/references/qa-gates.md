@@ -1,6 +1,6 @@
 # QA Gates
 
-All gates in this file are required for changes using `playims-style-builder`.
+Apply only the sections relevant to the change. `AGENTS.md` owns the testing tier and final command gates. Package edits need package validation; application edits need the affected UI checks.
 
 ## 1) Skill Package Integrity Gates
 
@@ -10,7 +10,7 @@ Run from repo root:
 python "C:\Users\Jake\.codex\skills\.system\skill-creator\scripts\quick_validate.py" "plugins/playims/skills/playims-style-builder"
 ```
 
-If `agents/openai.yaml` was changed manually, regenerate deterministically:
+If UI metadata needs generation, use the generator only after preserving any existing policy or dependency fields; otherwise edit the intended fields in place:
 
 ```powershell
 python "C:\Users\Jake\.codex\skills\.system\skill-creator\scripts\generate_openai_yaml.py" "plugins/playims/skills/playims-style-builder" --interface "display_name=PlayIMs Style Builder" --interface "short_description=Build PlayIMs UI that matches dashboard and wizard patterns" --interface "default_prompt=Use $playims-style-builder to build this dashboard UI so it matches PlayIMs style, wizard, and form conventions."

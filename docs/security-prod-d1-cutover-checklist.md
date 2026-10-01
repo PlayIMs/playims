@@ -5,7 +5,7 @@ Purpose: move PlayIMs production traffic off `playims-central-db-dev` and onto `
 ## Scope
 - Runtime: Cloudflare Pages/Workers (`wrangler.toml`)
 - Database: D1 central auth + tenant-routed domain data
-- Current state: `env.production` points to `playims-central-db-dev`
+- Local configuration reviewed October 1, 2026: `env.production` points to `playims-central-db-prod`. The checklist below is retained as an operational procedure; unchecked items do not establish whether a live cutover or data verification has occurred.
 
 ## 1. Pre-cutover preparation
 - [ ] Pick a maintenance window and announce it to stakeholders.

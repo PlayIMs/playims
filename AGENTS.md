@@ -29,7 +29,7 @@ src/
 ├── app.html              # HTML template with theme initialization script
 ├── app.css               # Global styles, Tailwind imports, component classes
 ├── app.d.ts              # TypeScript declarations (App.Locals, Platform)
-├── hooks.server.ts       # Server hooks (minimal - DevTools handling)
+├── hooks.server.ts       # Session, authorization, API policy, and security hooks
 ├── lib/
 │   ├── actions.ts        # Svelte actions (selectArrow)
 │   ├── theme.ts          # Dynamic theming system
@@ -308,16 +308,19 @@ Do not hardcode `text-primary-05`, `text-secondary-05`, or `text-white` on theme
 
 ## Authentication Context
 
-Currently uses a **default client** approach until full auth is implemented:
+Protected routes use authenticated session and organization membership context.
 
 ```typescript
-import { DEFAULT_CLIENT, resolveClientId } from '$lib/server/client-context.js';
+import { requireAuthenticatedClientId } from '$lib/server/client-context.js';
+import { getTenantDbOps } from '$lib/server/database/context';
 
-// In server load:
-const clientId = resolveClientId(locals);
+const clientId = requireAuthenticatedClientId(event.locals);
+const dbOps = await getTenantDbOps(event, clientId);
 ```
 
-Default Client ID: `6eb657af-4ab8-4a13-980a-add993f78d65`
+Use `getCentralDbOps(event)` for identity/session/membership work and `getTenantDbOps(event, clientId)` for organization domain data. Check the current exports and existing route before copying a pattern. Organization roles come from `user_clients`; active organization and view mode come from `sessions`.
+
+`DEFAULT_CLIENT` and `resolveClientId` retain fallback behavior for controlled bootstrap/dev flows. Do not use that fallback to authorize protected routes. See `docs/tenancy-architecture.md`.
 
 ## Environment & Deployment
 
@@ -461,7 +464,7 @@ Icons are explicitly included in `optimizeDeps` and marked `noExternal` for SSR 
 
 1. **Database**: Uses parameterized queries via Drizzle ORM (SQL injection safe)
 2. **Validation**: Zod schemas should be used for all user input
-3. **Auth**: Currently minimal - proper authentication to be implemented
+3. **Auth**: Session authentication, organization memberships, and route policies are implemented; preserve server-side authorization and tenant isolation
 4. **CORS**: Handled by Cloudflare Pages/Workers platform
 
 ## External Dependencies

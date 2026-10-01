@@ -5,13 +5,22 @@ description: Build or refactor PlayIMs toast notifications using the shared toas
 
 # PlayIMs Toast Builder
 
+
+## Scope and verification
+
+Read the workspace `AGENTS.md` and choose its testing tier before editing. Pure styling and trivial prop plumbing use the relaxed tier; changes to conditions, state, validation, filtering, permissions, or data shaping require full TDD. Follow the repository test-comment standard when changing tests.
+
+Start with the active route, the component being changed, and one relevant live consumer. The source lists below are lookup maps: read only files and references relevant to the task. Load companion skills only when their component or behavior is being changed. Preserve existing product contracts and user-requested exceptions.
+
+Use the repository testing tier as the verification authority. Apply QA cases that exercise the changed behavior; report checks actually run and any unverified browser behavior. Do not describe checklist items as passed without evidence.
+
 ## Goal
 
 Ship transient feedback through the shared PlayIMs toast system so success/error notices do not shift layout, linger in-page, or drift away from the app's existing dashboard styling.
 
 ## Start Here
 
-Read these files before editing toast behavior:
+Relevant source files (select those needed for this change):
 
 - `src/lib/toasts.ts`
 - `src/lib/components/toast/Toaster.svelte`

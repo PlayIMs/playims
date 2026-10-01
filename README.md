@@ -120,6 +120,8 @@ Oklahoma State University.
 
 ## Technical Docs
 
+- [Returning to PlayIMs](docs/RETURNING-TO-PLAYIMS.md)
+
 - [Development Guide](docs/DEVELOPMENT.md)
 - [Testing Guide](docs/TESTING.md)
 - [Database Guide](docs/DATABASE.md)
