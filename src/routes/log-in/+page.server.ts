@@ -36,6 +36,38 @@ const genericLoginUnavailableMessage = 'Sign-in is temporarily unavailable. Plea
 const genericLoginFailureCode = 'AUTH_LOGIN_FAILED';
 const genericLoginUnavailableCode = 'AUTH_LOGIN_UNAVAILABLE';
 
+const getLoginFailureReason = (error: unknown): string => {
+	if (error instanceof AuthServiceError) {
+		return error.code === 'AUTH_CONFIG_MISSING' ? 'AUTH_CONFIG_MISSING' : 'AUTH_SERVICE_FAILURE';
+	}
+
+	// Drizzle wraps D1 exceptions in `cause`. Inspect a bounded chain, but never log raw
+	// messages: query errors can contain user data, parameters or configuration secrets.
+	let current = error;
+	let databaseFailure = false;
+	for (let depth = 0; depth < 4 && current instanceof Error; depth += 1) {
+		const message = current.message;
+		if (/iteration counts above \d+.*not supported/i.test(message)) {
+			return 'PASSWORD_HASH_RUNTIME_LIMIT';
+		}
+		if (/no such (?:table|column)/i.test(message)) {
+			return 'DATABASE_SCHEMA_MISMATCH';
+		}
+		databaseFailure ||= /D1_ERROR|failed query/i.test(message);
+		current = current.cause;
+	}
+	return databaseFailure ? 'DATABASE_FAILURE' : 'UNEXPECTED_ERROR';
+};
+
+const logLoginBackendFailure = (requestId: string | undefined, error: unknown) => {
+	// Expected credential rejections stay quiet; only unavailable backend failures need diagnostics.
+	if (error instanceof AuthServiceError && error.status < 500) return;
+	console.error('[auth][login] Backend failure', {
+		requestId,
+		reason: getLoginFailureReason(error)
+	});
+};
+
 const mapLoginAuthError = (error: AuthServiceError) => {
 	if (error.status >= 500 || error.code === 'AUTH_CONFIG_MISSING') {
 		return {
@@ -74,6 +106,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 export const actions: Actions = {
 	default: async (event) => {
 		if (!event.platform?.env?.DB) {
+			console.error('[auth][login] Backend failure', {
+				requestId: event.locals.requestId,
+				reason: 'DATABASE_BINDING_MISSING'
+			});
 			return fail(500, { error: 'Authentication is unavailable.' });
 		}
 
@@ -91,6 +127,7 @@ export const actions: Actions = {
 				const dbOps = getCentralDbOps(event);
 				authResult = await loginWithLocalDevCredentials(event, dbOps);
 			} catch (error) {
+				logLoginBackendFailure(event.locals.requestId, error);
 				if (error instanceof AuthServiceError) {
 					const publicAuthError = mapLoginAuthError(error);
 					return fail(error.status, {
@@ -142,6 +179,7 @@ export const actions: Actions = {
 				password: parsed.data.password
 			});
 		} catch (error) {
+			logLoginBackendFailure(event.locals.requestId, error);
 			if (error instanceof AuthServiceError) {
 				const publicAuthError = mapLoginAuthError(error);
 				return fail(error.status, {
