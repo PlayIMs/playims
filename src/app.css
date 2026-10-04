@@ -946,6 +946,7 @@
 	}
 
 	.listbox-dropdown-option {
+		--listbox-option-muted: var(--color-neutral-700);
 		display: block;
 		width: 100%;
 		padding: 0.5rem 0.75rem;
@@ -964,17 +965,20 @@
 
 	button.listbox-dropdown-option:hover:not(:disabled),
 	button.listbox-dropdown-option:active:not(:disabled) {
+		--listbox-option-muted: var(--color-neutral-700);
 		background-color: var(--color-neutral-500);
 		color: var(--color-neutral-950);
 	}
 
 	.listbox-dropdown-option-selected {
+		--listbox-option-muted: var(--color-primary-foreground-muted);
 		background-color: var(--color-primary-500);
 		color: var(--color-primary-foreground);
 		font-weight: 700;
 	}
 
 	.listbox-dropdown-option-selected-active {
+		--listbox-option-muted: var(--color-primary-foreground-muted);
 		background-color: var(--color-primary-400);
 		color: var(--color-primary-foreground);
 		font-weight: 700;
@@ -983,6 +987,10 @@
 	.listbox-dropdown-option-active {
 		background-color: var(--color-neutral-200);
 		color: var(--color-neutral-950);
+	}
+
+	.listbox-dropdown-option-muted {
+		color: var(--listbox-option-muted, var(--color-neutral-700));
 	}
 
 	.listbox-dropdown-option-disabled {

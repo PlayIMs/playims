@@ -5,6 +5,7 @@
 	import DateHoverText from '$lib/components/DateHoverText.svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
+	import NavigationOptionMetadata from '$lib/components/navigation/NavigationOptionMetadata.svelte';
 	import Breadcrumb from '$lib/components/navigation/Breadcrumb.svelte';
 	import ModalShell from '$lib/components/modals/ModalShell.svelte';
 	import DataTable from '$lib/components/DataTable.svelte';
@@ -2638,6 +2639,7 @@
 							<div class="absolute left-0 top-[calc(100%+0.09rem)] z-10">
 								<Breadcrumb
 									segments={breadcrumbSegments}
+									metadata={data.breadcrumbMetadata ?? {}}
 									class="max-w-[min(100vw-7rem,100%)]"
 									seasonLabel={breadcrumbSeasonLabel}
 									seasonSlug={breadcrumbSeasonSlug}
@@ -2678,7 +2680,11 @@
 									on:change={(event) => {
 										void handleLeagueChange(event.detail.value);
 									}}
-								/>
+								>
+									{#snippet optionMetadata(option)}
+										<NavigationOptionMetadata summary={data.breadcrumbMetadata?.[option.value]} />
+									{/snippet}
+								</ListboxDropdown>
 							</div>
 							<div class="flex flex-wrap items-center gap-2 text-xs font-sans text-neutral-950">
 								<span class="border border-secondary-300 px-2 py-1">

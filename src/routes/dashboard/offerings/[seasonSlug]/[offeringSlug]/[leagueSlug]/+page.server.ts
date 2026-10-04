@@ -1,3 +1,4 @@
+import { loadBreadcrumbMetadata } from '$lib/server/breadcrumb-metadata';
 import { error, redirect } from '@sveltejs/kit';
 import type { League } from '$lib/database';
 import { requireAuthenticatedClientId } from '$lib/server/client-context';
@@ -185,6 +186,9 @@ export const load: PageServerLoad = async (event) => {
 				isLocked: candidateLeague.isLocked === 1
 			}))
 			.sort((a, b) => a.name.localeCompare(b.name));
+		const breadcrumbMetadata = await loadBreadcrumbMetadata(
+			dbOps, clientId, season, offerings, allLeagues
+		);
 		const offeringOptions = buildSeasonScopedOfferingOptions({
 			season,
 			offerings,
@@ -362,6 +366,7 @@ export const load: PageServerLoad = async (event) => {
 			},
 			leagues: offeringLeagues,
 			offeringOptions,
+			breadcrumbMetadata,
 			offering: offering
 				? {
 						id: offering.id ?? '',

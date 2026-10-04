@@ -106,9 +106,11 @@
 		searchAriaLabel?: string;
 		searchEmptyText?: string;
 		trigger?: Snippet<[boolean, ListboxDropdownOption | null]>;
+		optionMetadata?: Snippet<[ListboxDropdownOption, boolean]>;
 	}
 
 	let {
+		optionMetadata,
 		options,
 		value,
 		ariaLabel,
@@ -1032,6 +1034,9 @@
 													<span class="sr-only">{option.labelIconAriaLabel}</span>
 												{/if}
 											{/if}
+											{#if optionMetadata}
+												{@render optionMetadata(option, false)}
+											{/if}
 											{#if option.statusLabel}
 												<span class="text-[10px] uppercase tracking-wide shrink-0 text-neutral-600">
 													{option.statusLabel}
@@ -1176,6 +1181,9 @@
 												{#if option.labelIconAriaLabel}
 													<span class="sr-only">{option.labelIconAriaLabel}</span>
 												{/if}
+											{/if}
+											{#if optionMetadata}
+												{@render optionMetadata(option, isSelectedOption)}
 											{/if}
 											{#if option.statusLabel}
 												<span

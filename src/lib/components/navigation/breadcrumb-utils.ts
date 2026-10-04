@@ -1,3 +1,11 @@
+export function shouldOpenBreadcrumbMenuFromLabel(
+	index: number,
+	segmentCount: number,
+	menuAvailable: boolean
+): boolean {
+	return menuAvailable && index === segmentCount - 1;
+}
+
 export function appendSeasonQueryToBreadcrumbHref(
 	href: string,
 	input: {

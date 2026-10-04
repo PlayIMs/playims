@@ -2639,6 +2639,7 @@
 							<div class="absolute left-0 top-[calc(100%+0.09rem)] z-10">
 								<Breadcrumb
 									segments={breadcrumbSegments}
+									metadata={data.breadcrumbMetadata ?? {}}
 									class="max-w-[min(100vw-7rem,100%)]"
 									seasonLabel={breadcrumbSeasonLabel}
 									seasonSlug={breadcrumbSeasonSlug}
