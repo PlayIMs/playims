@@ -1,83 +1,32 @@
 ---
 name: playims-offerings-table-builder
-description: Build or refactor the PlayIMs offerings board and related season offering list UI so it matches the canonical offerings route, including grouped offering articles, offerings-style league tables, summary counts, and concluded/historical section behavior.
+description: Build grouped PlayIMs offerings boards and season lists with offering articles, league rows, summary counts, and historical sections. Use for board hierarchy rather than generic table chrome.
 ---
 
 # PlayIMs Offerings Table Builder
 
+Match grouped offerings-board structure to `src/routes/dashboard/offerings/+page.svelte`.
 
-## Scope and verification
+## Establish context
 
-Read the workspace `AGENTS.md` and choose its testing tier before editing. Pure styling and trivial prop plumbing use the relaxed tier; changes to conditions, state, validation, filtering, permissions, or data shaping require full TDD. Follow the repository test-comment standard when changing tests.
+Follow workspace AGENTS.md and choose its testing tier before editing. Identify the active route, requested behavior, and current props/events. Infer these from code when possible; ask only for missing product decisions. Read The live offerings route and the affected board/season list; inspect shared tables or controls only when changed.
 
-Start with the active route, the component being changed, and one relevant live consumer. The source lists below are lookup maps: read only files and references relevant to the task. Load companion skills only when their component or behavior is being changed. Preserve existing product contracts and user-requested exceptions.
+Current component APIs and app.css are authoritative. Preserve scope and existing contracts; load companion skills only for components/behavior being changed.
 
-Use the repository testing tier as the verification authority. Apply QA cases that exercise the changed behavior; report checks actually run and any unverified browser behavior. Do not describe checklist items as passed without evidence.
+## Preserve these contracts
 
-## Goal
+- Identify whether the task concerns the main board, one offering article, or concluded/history sections. Copy the matching live structure rather than flattening all rows into one table.
+- Keep per-offering summaries, counts, badges, and historical framing outside DataTable. Use article-level sections when each offering has its own actions and league rows.
+- Use DataTable for league rows, DataTableLinkedLabel for the identifying cell, and DataTableRowActions for management. The parent route owns filtering, grouping, counts, and handlers.
+- Preserve the active/current versus concluded/historical split and existing status semantics unless the user requests a change.
+- Reuse SearchInput, ListboxDropdown, and InfoPopover. Match spacing, borders, typography, badge tone, and action placement to the canonical route.
+- Use the data-table skill for shared table behavior and the style skill for surrounding layout changes; do not load either for unrelated work.
 
-Treat `src/routes/dashboard/offerings/+page.svelte` as the source of truth for any PlayIMs UI that needs to look or behave like the offerings board.
+## Read detail when needed
 
-Use `$playims-data-table-builder` when the main task is the shared table chrome itself. Use `$playims-style-builder` when the surrounding page shell, section framing, search row, or wizard entry points also need to match the offerings page.
+- [offerings table patterns](references/offerings-table-patterns.md): Board breakdown, section framing, and canonical recipes.
+- [integration contract](references/integration-contract.md): Detailed board migration and parity rules.
 
-## Start Here
+## Done when
 
-Relevant source files (select those needed for this change):
-
-- `src/routes/dashboard/offerings/+page.svelte`
-- `src/lib/components/DataTable.svelte`
-- `src/lib/components/data-table.ts`
-- `src/lib/components/data-table/DataTableLinkedLabel.svelte`
-- `src/lib/components/data-table/DataTableRowActions.svelte`
-- `src/lib/components/SearchInput.svelte`
-- `src/lib/components/ListboxDropdown.svelte`
-- `src/lib/components/InfoPopover.svelte`
-- `src/app.css`
-- `references/offerings-table-patterns.md`
-
-## Workflow
-
-1. Ground the work in the live offerings route first.
-
-- Confirm whether the task is copying the main offerings board, one offering article, a concluded-offerings section, or a related season list.
-- Reuse the existing structure and naming from the offerings route before inventing new layout patterns.
-
-2. Preserve the offerings page hierarchy.
-
-- Use article-level sections for each offering when the UI represents one offering with its own counts, actions, and league rows.
-- Keep summary copy, count badges, and historical/concluded framing outside the shared `DataTable` shell.
-
-3. Use the shared table system for league rows.
-
-- Keep league rows inside `DataTable` so headers, striping, and borders stay consistent.
-- Prefer `DataTableLinkedLabel.svelte` for the identifying league cell and `DataTableRowActions.svelte` for the right-edge manage trigger.
-
-4. Keep cross-cutting dashboard behaviors aligned.
-
-- Use `SearchInput` for search/filter rows.
-- Use `ListboxDropdown` for per-offering or page-level action menus.
-- Use `InfoPopover` for explanatory copy that should persist on click.
-
-5. Validate against the canonical offerings page.
-
-- Compare spacing, border weight, header typography, badge tone, and action placement directly against `src/routes/dashboard/offerings/+page.svelte`.
-- Preserve the split between active/current offerings and concluded or historical content unless the user explicitly requests a different information architecture.
-
-## Progressive Disclosure Map
-
-- `references/offerings-table-patterns.md`: canonical files, layout breakdown, and guardrails for offerings-specific board work
-
-## Guardrails
-
-- Do not replace offerings-style league tables with ad-hoc table markup when `DataTable` fits.
-- Do not move per-offering summaries, badges, or section headers into the shared table component.
-- Do not flatten grouped offering articles into one undifferentiated table unless the task explicitly calls for that change.
-- Do not introduce new row-action patterns when the existing hover-only settings trigger fits.
-- Do not swap offerings-style search, helper, or dropdown UI back to native controls.
-- Do not treat concluded or historical offerings as a generic footer list; preserve the section framing from the canonical route when the same concept is present.
-
-## Validation
-
-- Run `pnpm check`.
-- Manually compare the touched UI against `src/routes/dashboard/offerings/+page.svelte`.
-- Manually verify row-action alignment, search/filter behavior, and mobile horizontal overflow for any touched offerings-style table.
+Grouping, counts, section framing, and row interactions match the intended live offerings pattern; verify affected filtering and narrow viewport behavior. Follow AGENTS.md for automated gates and test comments. Record actual checks and unverified browser behavior; a unit/parser pass does not establish a browser pass.

@@ -2826,6 +2826,7 @@
 															class="group inline-flex w-fit max-w-full min-w-0 items-start gap-2"
 														>
 															<div
+																class:opacity-50={offeringDivision.isLocked}
 																class="flex h-9 w-9 shrink-0 items-center justify-center bg-primary text-white transition-colors group-hover:bg-primary-700 group-focus-visible:bg-primary-700"
 																aria-hidden="true"
 															>
@@ -2834,6 +2835,7 @@
 															<div class="min-w-0">
 																<div class="flex items-center gap-1.5">
 																	<span
+																		class:opacity-50={offeringDivision.isLocked}
 																		class="font-sans text-sm font-bold text-neutral-950 group-hover:underline group-focus-visible:underline"
 																	>
 																		{offeringDivision.name}
@@ -2876,13 +2878,13 @@
 																		}}
 																	>
 																		<divisionStatus.icon
-																			class={`h-4 w-4 ${divisionStatus.label === 'Unlocked' ? 'opacity-50' : ''}`}
+																			class="h-4 w-4 opacity-50"
 																		/>
 																	</button>
 																{:else}
 																	<span class="inline-flex text-neutral-950" aria-hidden="true">
 																		<divisionStatus.icon
-																			class={`h-4 w-4 ${divisionStatus.label === 'Unlocked' ? 'opacity-50' : ''}`}
+																			class="h-4 w-4 opacity-50"
 																		/>
 																	</span>
 																{/if}

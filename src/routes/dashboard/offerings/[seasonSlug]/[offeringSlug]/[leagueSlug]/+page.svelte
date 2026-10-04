@@ -11,6 +11,7 @@
 	import DataTable from '$lib/components/DataTable.svelte';
 	import DataTableRowActions from '$lib/components/data-table/DataTableRowActions.svelte';
 	import SmallStandingsTable from '$lib/components/SmallStandingsTable.svelte';
+	import DivisionLockControl from '$lib/components/DivisionLockControl.svelte';
 	import DashboardSidebarPanel from '$lib/components/dashboard/DashboardSidebarPanel.svelte';
 	import DashboardSearchLauncher from '$lib/components/dashboard/DashboardSearchLauncher.svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
@@ -22,10 +23,6 @@
 		type DataTableColumn
 	} from '$lib/components/data-table.js';
 	import { mergeDashboardNavigationLabels, type DashboardNavKey } from '$lib/dashboard/navigation';
-	import {
-		resolveAnchoredFloatingPosition,
-		toFixedStyle
-	} from '$lib/components/floating-position.js';
 	import type { ManageIntramuralLeagueResponse } from '$lib/server/intramural-offerings-validation';
 	import { toast } from '$lib/toasts';
 	import { parseDateTooltipValue } from '$lib/utils/date-tooltip.js';
@@ -66,11 +63,9 @@
 		IconDots,
 		IconLock,
 		IconLockOpen,
-		IconRestore,
 		IconShip,
 		IconTarget,
-		IconTrash,
-		IconX
+		IconTrash
 	} from '@tabler/icons-svelte';
 
 	type DivisionSection = NonNullable<PageData['divisions']>[number];
@@ -194,10 +189,6 @@
 	const SECTION_ACTION_DROPDOWN_BUTTON_CLASS =
 		'inline-flex h-9 w-9 items-center justify-center rounded-full border border-neutral-950 bg-white p-0 text-neutral-950 cursor-pointer hover:bg-neutral-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500';
 	const ACTION_DROPDOWN_LIST_CLASS = 'w-52';
-	const DIVISION_LOCK_PANEL_GAP_PX = 4;
-	const FLOATING_EDGE_PADDING_PX = 8;
-	const LOCK_TOOLTIP_OPEN_OFFSET_Y_PX = -30;
-
 	let { data } = $props<{ data: PageData }>();
 
 	const pageLabel = $derived.by(
@@ -480,13 +471,6 @@
 			label: 'Unlocked',
 			icon: IconLockOpen
 		};
-	}
-
-	function divisionLockTooltip(division: DivisionSection): string {
-		if (canManageLeague) {
-			return division.isLocked ? 'Click to unlock this division' : 'Click to lock this division';
-		}
-		return division.isLocked ? 'This division cannot be joined' : 'This division can be joined';
 	}
 
 	function joinTeamDeadline(): string | null {
@@ -1092,23 +1076,6 @@
 	let moveTeamOverrideDialog = $state<DivisionActivePlacementOverrideDialogState | null>(null);
 	let removeModalTeam = $state<{ id: string; name: string } | null>(null);
 	let removingTeamId = $state<string | null>(null);
-	let divisionLockPopover = $state<{
-		divisionId: string;
-		anchorElement: HTMLElement;
-	} | null>(null);
-	let divisionLockPopoverPanel = $state<HTMLDivElement | null>(null);
-	let divisionLockPopoverStyle = $state(
-		'position: fixed; left: 0px; top: 0px; visibility: hidden;'
-	);
-	let divisionLockCancelButton = $state<HTMLButtonElement | null>(null);
-	let divisionLockSubmittingId = $state<string | null>(null);
-	const activeDivisionLockTarget = $derived.by<DivisionSection | null>(() => {
-		const activeDivisionId = divisionLockPopover?.divisionId;
-		if (!activeDivisionId) return null;
-		return (
-			data.divisions.find((division: DivisionSection) => division.id === activeDivisionId) ?? null
-		);
-	});
 	let highlightedTeamId = $state<string | null>(null);
 	let handledDeepLinkedTeamId = $state<string | null>(null);
 	const createDivisionDirtyState = createWizardDirtyState<CreateDivisionWizardState>();
@@ -1452,70 +1419,6 @@
 	function closeMoveTeamWizard(): void {
 		moveTeamContext = null;
 		resetMoveTeamWizard(null);
-	}
-
-	function applyDivisionLockState(
-		divisionId: string,
-		nextState: { isLocked: boolean; doAutoLock: boolean }
-	): void {
-		data = {
-			...data,
-			divisions: data.divisions.map((division: DivisionSection) =>
-				division.id === divisionId ? { ...division, ...nextState } : division
-			)
-		};
-	}
-
-	function closeDivisionLockPopover(force = false): void {
-		if (!force && divisionLockSubmittingId) return;
-		divisionLockPopover = null;
-		divisionLockPopoverPanel = null;
-		divisionLockCancelButton = null;
-		divisionLockPopoverStyle = 'position: fixed; left: 0px; top: 0px; visibility: hidden;';
-	}
-
-	function updateDivisionLockPopoverPosition(): void {
-		if (
-			typeof window === 'undefined' ||
-			!divisionLockPopover?.anchorElement ||
-			!divisionLockPopoverPanel
-		) {
-			return;
-		}
-
-		const anchorRect = divisionLockPopover.anchorElement.getBoundingClientRect();
-		const panelRect = divisionLockPopoverPanel.getBoundingClientRect();
-		const position = resolveAnchoredFloatingPosition({
-			anchorRect,
-			panelWidth: panelRect.width,
-			panelHeight: panelRect.height,
-			align: 'left',
-			gapPx: DIVISION_LOCK_PANEL_GAP_PX,
-			paddingPx: FLOATING_EDGE_PADDING_PX,
-			preferVertical: 'bottom',
-			viewportWidth: window.innerWidth,
-			viewportHeight: window.innerHeight
-		});
-
-		const maxWidthStyle =
-			panelRect.width > position.maxWidth ? `max-width: ${Math.round(position.maxWidth)}px;` : '';
-		divisionLockPopoverStyle = toFixedStyle(position, maxWidthStyle);
-	}
-
-	function openDivisionLockPopover(divisionId: string, anchorElement: HTMLElement): void {
-		if (
-			divisionLockPopover?.divisionId === divisionId &&
-			divisionLockPopover.anchorElement === anchorElement
-		) {
-			closeDivisionLockPopover();
-			return;
-		}
-
-		divisionLockPopover = {
-			divisionId,
-			anchorElement
-		};
-		divisionLockPopoverStyle = 'position: fixed; left: 0px; top: 0px; visibility: hidden;';
 	}
 
 	function hasUnsavedCreateDivisionChanges(): boolean {
@@ -2368,99 +2271,6 @@
 		}
 	}
 
-	async function toggleDivisionLock(division: DivisionSection): Promise<void> {
-		await updateDivisionLockMode(division, {
-			isLocked: !division.isLocked,
-			doAutoLock: false,
-			successMessage: !division.isLocked ? 'Division locked.' : 'Division unlocked.',
-			errorAction: !division.isLocked ? 'lock division' : 'unlock division'
-		});
-	}
-
-	async function revertDivisionLockToDefault(division: DivisionSection): Promise<void> {
-		await updateDivisionLockMode(division, {
-			isLocked: division.isLocked,
-			doAutoLock: true,
-			successMessage: 'Division lock reset to default.',
-			errorAction: 'reset division lock'
-		});
-	}
-
-	async function updateDivisionLockMode(
-		division: DivisionSection,
-		options: {
-			isLocked: boolean;
-			doAutoLock: boolean;
-			successMessage: string;
-			errorAction: string;
-		}
-	): Promise<void> {
-		if (!data.league?.id) return;
-
-		const apiPath = managementApiPath();
-		if (!apiPath) {
-			toast.error('League route is missing season or league slug.', {
-				title: data.league?.name ?? pageLabel
-			});
-			return;
-		}
-
-		const divisionForm = divisionFormFromDivision(division);
-		divisionLockSubmittingId = division.id;
-
-		try {
-			const response = await fetch(apiPath, {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({
-					action: 'update-division',
-					leagueId: data.league.id,
-					divisionId: division.id,
-					division: {
-						name: divisionForm.name.trim(),
-						slug: divisionForm.slug.trim(),
-						description: divisionForm.description.trim() || null,
-						dayOfWeek: divisionForm.dayOfWeek.trim() || null,
-						gameTime: divisionForm.gameTime.trim() || null,
-						maxTeams: Number(divisionForm.maxTeams),
-						location: divisionForm.location.trim() || null,
-						isLocked: options.isLocked,
-						doAutoLock: options.doAutoLock,
-						startDate: divisionForm.startDate || null
-					}
-				})
-			});
-			const payload = await readResponse(response);
-			if (!response.ok || !payload.success) {
-				toast.error(
-					payload.error ??
-						firstFieldError(payload.fieldErrors) ??
-						`Unable to ${options.errorAction} right now.`,
-					{
-						title: data.league.name
-					}
-				);
-				return;
-			}
-
-			applyDivisionLockState(division.id, {
-				isLocked: options.isLocked,
-				doAutoLock: options.doAutoLock
-			});
-			closeDivisionLockPopover(true);
-			toast.success(options.successMessage, {
-				title: data.league.name
-			});
-			void invalidateAll();
-		} catch {
-			toast.error(`Unable to ${options.errorAction} right now.`, {
-				title: data.league?.name ?? pageLabel
-			});
-		} finally {
-			divisionLockSubmittingId = null;
-		}
-	}
-
 	function openRemoveTeam(team: { id: string; name: string }): void {
 		removeModalTeam = team;
 	}
@@ -2543,64 +2353,6 @@
 		window.addEventListener('beforeunload', handleBeforeUnload);
 		return () => {
 			window.removeEventListener('beforeunload', handleBeforeUnload);
-		};
-	});
-
-	$effect(() => {
-		if (typeof window === 'undefined' || !divisionLockPopover || !activeDivisionLockTarget) return;
-		let frameId: number | null = null;
-
-		const schedulePositionUpdate = () => {
-			if (frameId !== null) return;
-			frameId = window.requestAnimationFrame(() => {
-				frameId = null;
-				updateDivisionLockPopoverPosition();
-			});
-		};
-
-		void tick().then(() => {
-			updateDivisionLockPopoverPosition();
-			divisionLockCancelButton?.focus();
-		});
-
-		const handleWindowPointerDown = (event: PointerEvent) => {
-			if (!divisionLockPopover || divisionLockSubmittingId) return;
-			const target = event.target;
-			if (!(target instanceof Node)) return;
-			if (divisionLockPopover.anchorElement.contains(target)) return;
-			if (divisionLockPopoverPanel?.contains(target)) return;
-			closeDivisionLockPopover();
-		};
-
-		const handleWindowKeydown = (event: KeyboardEvent) => {
-			if (event.key !== 'Escape' || divisionLockSubmittingId) return;
-			closeDivisionLockPopover();
-			event.preventDefault();
-			event.stopPropagation();
-			event.stopImmediatePropagation();
-		};
-
-		const handleWindowResize = () => {
-			schedulePositionUpdate();
-		};
-
-		const handleWindowScroll = () => {
-			schedulePositionUpdate();
-		};
-
-		window.addEventListener('pointerdown', handleWindowPointerDown);
-		window.addEventListener('keydown', handleWindowKeydown, true);
-		window.addEventListener('resize', handleWindowResize);
-		window.addEventListener('scroll', handleWindowScroll, true);
-
-		return () => {
-			window.removeEventListener('pointerdown', handleWindowPointerDown);
-			window.removeEventListener('keydown', handleWindowKeydown, true);
-			window.removeEventListener('resize', handleWindowResize);
-			window.removeEventListener('scroll', handleWindowScroll, true);
-			if (frameId !== null) {
-				window.cancelAnimationFrame(frameId);
-			}
 		};
 	});
 
@@ -2763,44 +2515,13 @@
 													>
 														{division.name}
 													</a>
-													<HoverTooltip
-														text={divisionLockTooltip(division)}
-														cursorOffsetYPx={divisionLockPopover?.divisionId === division.id
-															? LOCK_TOOLTIP_OPEN_OFFSET_Y_PX
-															: 18}
-														wrapperClass="inline-flex shrink-0"
-													>
-														{#if canManageLeague}
-															<button
-																type="button"
-																class="inline-flex cursor-pointer items-center justify-center border-0 bg-transparent p-0 text-neutral-950 hover:text-secondary-900 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
-																aria-label={division.isLocked
-																	? `Unlock ${division.name}`
-																	: `Lock ${division.name}`}
-																aria-haspopup="dialog"
-																aria-expanded={divisionLockPopover?.divisionId === division.id}
-																disabled={divisionLockSubmittingId === division.id}
-																onclick={(event) => {
-																	if (!(event.currentTarget instanceof HTMLElement)) return;
-																	openDivisionLockPopover(division.id, event.currentTarget);
-																}}
-															>
-																{#if division.isLocked}
-																	<IconLock class="h-4 w-4" />
-																{:else}
-																	<IconLockOpen class="h-4 w-4 opacity-50" />
-																{/if}
-															</button>
-														{:else}
-															<span class="inline-flex text-neutral-950" aria-hidden="true">
-																{#if division.isLocked}
-																	<IconLock class="h-4 w-4" />
-																{:else}
-																	<IconLockOpen class="h-4 w-4 opacity-50" />
-																{/if}
-															</span>
-														{/if}
-													</HoverTooltip>
+													<DivisionLockControl
+														{division}
+														canManage={canManageLeague}
+														apiPath={managementApiPath() ?? ''}
+														leagueId={data.league.id}
+														leagueName={data.league.name}
+													/>
 													<span class="sr-only">{division.isLocked ? 'Locked' : 'Unlocked'}</span>
 													<span class="text-sm font-sans font-normal text-neutral-950">
 														{divisionCapacityLabel(division)}
@@ -3270,44 +2991,13 @@
 														>
 															{division.name}
 														</a>
-														<HoverTooltip
-															text={divisionLockTooltip(division)}
-															cursorOffsetYPx={divisionLockPopover?.divisionId === division.id
-																? LOCK_TOOLTIP_OPEN_OFFSET_Y_PX
-																: 18}
-															wrapperClass="inline-flex shrink-0"
-														>
-															{#if canManageLeague}
-																<button
-																	type="button"
-																	class="inline-flex cursor-pointer items-center justify-center border-0 bg-transparent p-0 text-neutral-950 hover:text-secondary-900 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
-																	aria-label={division.isLocked
-																		? `Unlock ${division.name}`
-																		: `Lock ${division.name}`}
-																	aria-haspopup="dialog"
-																	aria-expanded={divisionLockPopover?.divisionId === division.id}
-																	disabled={divisionLockSubmittingId === division.id}
-																	onclick={(event) => {
-																		if (!(event.currentTarget instanceof HTMLElement)) return;
-																		openDivisionLockPopover(division.id, event.currentTarget);
-																	}}
-																>
-																	{#if division.isLocked}
-																		<IconLock class="h-4 w-4" />
-																	{:else}
-																		<IconLockOpen class="h-4 w-4 opacity-50" />
-																	{/if}
-																</button>
-															{:else}
-																<span class="inline-flex text-neutral-950" aria-hidden="true">
-																	{#if division.isLocked}
-																		<IconLock class="h-4 w-4" />
-																	{:else}
-																		<IconLockOpen class="h-4 w-4 opacity-50" />
-																	{/if}
-																</span>
-															{/if}
-														</HoverTooltip>
+														<DivisionLockControl
+															{division}
+															canManage={canManageLeague}
+															apiPath={managementApiPath() ?? ''}
+															leagueId={data.league.id}
+															leagueName={data.league.name}
+														/>
 														<span class="sr-only">{division.isLocked ? 'Locked' : 'Unlocked'}</span>
 														<span
 															class="text-[11px] font-sans font-normal leading-tight text-neutral-950"
@@ -3348,68 +3038,6 @@
 		{/if}
 	</div>
 </div>
-{#if activeDivisionLockTarget}
-	<div
-		bind:this={divisionLockPopoverPanel}
-		class="z-[280] border-2 border-neutral-950 bg-white p-1 shadow-md"
-		style={divisionLockPopoverStyle}
-		role="dialog"
-		aria-modal="false"
-		aria-label={activeDivisionLockTarget.isLocked ? 'Unlock division' : 'Lock division'}
-	>
-		<div class="flex items-center gap-1">
-			<button
-				type="button"
-				class="button-secondary-outlined inline-flex h-7 items-center justify-center gap-1 px-2.5 text-[11px] leading-none cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-				bind:this={divisionLockCancelButton}
-				disabled={divisionLockSubmittingId === activeDivisionLockTarget.id}
-				onclick={() => {
-					closeDivisionLockPopover();
-				}}
-			>
-				<IconX class="h-3.5 w-3.5" />
-				<span>Cancel</span>
-			</button>
-			<HoverTooltip
-				text={activeDivisionLockTarget.isLocked ? 'Unlock division' : 'Lock division'}
-				wrapperClass="inline-flex shrink-0"
-			>
-				<button
-					type="button"
-					class="inline-flex h-7 items-center justify-center gap-1 border border-primary-600 bg-primary-500 px-2.5 text-[11px] font-semibold leading-none cursor-pointer hover:bg-primary-600 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
-					style:color="var(--color-primary-foreground)"
-					disabled={divisionLockSubmittingId === activeDivisionLockTarget.id}
-					onclick={() => {
-						void toggleDivisionLock(activeDivisionLockTarget);
-					}}
-				>
-					{#if activeDivisionLockTarget.isLocked}
-						<IconLockOpen class="h-3.5 w-3.5 opacity-90" />
-						<span>Unlock</span>
-					{:else}
-						<IconLock class="h-3.5 w-3.5" />
-						<span>Lock</span>
-					{/if}
-				</button>
-			</HoverTooltip>
-			{#if activeDivisionLockTarget.doAutoLock === false}
-				<HoverTooltip text="Use default locking" wrapperClass="ml-auto inline-flex shrink-0">
-					<button
-						type="button"
-						class="button-primary-outlined inline-flex h-7 items-center justify-center gap-1 px-2.5 text-[11px] leading-none cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-						disabled={divisionLockSubmittingId === activeDivisionLockTarget.id}
-						onclick={() => {
-							void revertDivisionLockToDefault(activeDivisionLockTarget);
-						}}
-					>
-						<IconRestore class="h-3.5 w-3.5" />
-						<span>Revert</span>
-					</button>
-				</HoverTooltip>
-			{/if}
-		</div>
-	</div>
-{/if}
 <CreateDivisionCollectionWizard
 	open={createDivisionOpen}
 	step={createDivisionStep}

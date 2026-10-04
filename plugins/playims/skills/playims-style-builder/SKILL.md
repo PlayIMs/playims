@@ -1,18 +1,17 @@
 ---
 name: playims-style-builder
-description: Build or refactor PlayIMs dashboard pages and wizard UI with codebase-aligned Tailwind recipes, theme token discipline, shared component conventions, and toast-first transient feedback. Use when adding or modifying src/routes/dashboard/** layouts, forms, action bars, feedback states, and destructive flows so new UI matches offerings, toasts, and shared wizard patterns.
+description: Build or restyle PlayIMs dashboard page shells, layout, theme-aware controls, and feedback. Use component-specific skills for their interaction behavior.
 ---
-
 
 # PlayIMs Style Builder
 
 Build dashboard UI consistent with the active app. The offerings route establishes the module layout; `src/app.css` owns shared primitives. Preserve the requested scope and existing behavior unless the user requests a change.
 
-## Start with the affected surface
+## Establish context
 
 Read workspace `AGENTS.md` and choose its testing tier before editing. Pure styling and trivial prop plumbing use relaxed verification; conditions, state, validation, filtering, permissions, and data shaping require full TDD. Follow the repository test-comment standard.
 
-Inspect the active route, the shared component being changed, and one matching live consumer. For a module page, inspect the offerings shell; for settings, inspect the shared settings layout. Avoid loading unrelated pages or every companion skill.
+Identify the active route and requested visual outcome from the task and code. Ask only for missing product decisions. Inspect the active route, the shared component being changed, and one matching live consumer. For a module page, inspect the offerings shell; for settings, inspect the shared settings layout. Avoid loading unrelated pages or every companion skill.
 
 ## Essential design constraints
 
@@ -37,4 +36,6 @@ Inspect the active route, the shared component being changed, and one matching l
 - [QA gates](references/qa-gates.md): select checks relevant to the change; repository testing tiers remain authoritative.
 - [Migration map](references/migration-map.md): only for legacy style migration.
 
-Load a companion skill only when modifying its component or behavior. Verify the affected surface at relevant viewport sizes and with keyboard/pointer interaction when browser access is available. Report actual checks and any unverified behavior; never infer a browser pass from a parser or unit test.
+## Done when
+
+The requested surface matches the live offerings pattern, uses shared primitives and contrast-aware tokens, and preserves existing interactions. Load a companion skill only when modifying its component or behavior. Verify the affected surface at relevant viewport sizes and with keyboard/pointer interaction when browser access is available. Report actual checks and any unverified behavior; never infer a browser pass from a parser or unit test.

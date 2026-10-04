@@ -1,105 +1,32 @@
 ---
 name: playims-data-table-builder
-description: Build or refactor PlayIMs dashboard tables using `src/lib/components/DataTable.svelte` so new tables match the offerings page table chrome, header typography, uppercase casing, badge colors, striping, borders, and row-action behavior. Use when adding a new table, converting an ad-hoc list into a table, or restyling inconsistent tables under `src/routes/dashboard/**`.
+description: Build or migrate row-based PlayIMs dashboard tables with DataTable, shared linked labels, and row actions. Use for table chrome rather than grouped offerings-board structure.
 ---
 
 # PlayIMs Data Table Builder
 
+Render row-based dashboard tables with the offerings table's shared chrome.
 
-## Scope and verification
+## Establish context
 
-Read the workspace `AGENTS.md` and choose its testing tier before editing. Pure styling and trivial prop plumbing use the relaxed tier; changes to conditions, state, validation, filtering, permissions, or data shaping require full TDD. Follow the repository test-comment standard when changing tests.
+Follow workspace AGENTS.md and choose its testing tier before editing. Identify the active route, requested behavior, and current props/events. Infer these from code when possible; ask only for missing product decisions. Read `src/lib/components/DataTable.svelte`, `data-table.ts`, and one matching live table. Inspect DataTableRowActions/DataTableLinkedLabel only when those features apply.
 
-Start with the active route, the component being changed, and one relevant live consumer. The source lists below are lookup maps: read only files and references relevant to the task. Load companion skills only when their component or behavior is being changed. Preserve existing product contracts and user-requested exceptions.
+Current component APIs and app.css are authoritative. Preserve scope and existing contracts; load companion skills only for components/behavior being changed.
 
-Use the repository testing tier as the verification authority. Apply QA cases that exercise the changed behavior; report checks actually run and any unverified browser behavior. Do not describe checklist items as passed without evidence.
+## Preserve these contracts
 
-## Goal
+- Define columns with explicit labels, alignment, and widths; mark the identifying column `rowHeader: true`. Render content through the `cell` snippet; custom `emptyBody` content must be table rows because it lives inside tbody.
+- Keep sorting, filters, data shaping, mutations, and action handlers in the parent route. The shared table owns presentation and row chrome.
+- Preserve uppercase header typography, neutral headers/dividers, stripe contrast, and existing badge classes. Use a neutral badge for compact offering types beside titles.
+- For management columns use `createDataTableRowActionColumn()` and `DataTableRowActions`. Preserve hover/focus visibility and the direct action for a single option. Keep intentional placeholder actions disabled.
+- Use confirmation modals for destructive actions and wizard flows for move/reassignment. Prefer DataTableLinkedLabel for icon/name links with hover scoped to the link, while settings triggers respond to row hover/focus.
+- Preserve DateHoverText and shared hints. Use the offerings-board skill only when grouped offering hierarchy also changes.
 
-Implement dashboard tables that look like the offerings page and route new table work through the shared `DataTable` component whenever it fits.
+## Read detail when needed
 
-Use `$playims-style-builder` alongside this skill when the surrounding page shell or action bars also need dashboard-aligned styling.
+- [table recipes](references/table-recipes.md): Current table API, widths, and shared row-action recipes.
+- [integration contract](references/integration-contract.md): Detailed table integration and parity rules.
 
-Use `$playims-listbox-dropdown-builder` for offerings-style row action menus and `$playims-wizard-builder` for multi-step row actions such as moving records between placements.
+## Done when
 
-## Start Here
-
-Relevant source files (select those needed for this change):
-
-- `src/lib/components/DataTable.svelte`
-- `src/lib/components/data-table.ts`
-- `src/lib/components/data-table/DataTableRowActions.svelte` when the table needs a settings column
-- `src/lib/components/data-table/DataTableLinkedLabel.svelte` when the identifying cell needs the shared icon/name hover behavior
-- `src/lib/components/ListboxDropdown.svelte` when the table needs row actions
-- `src/routes/dashboard/offerings/+page.svelte`
-- `src/app.css` when badge classes or theme tokens matter
-- `references/table-recipes.md`
-
-## Workflow
-
-1. Confirm the table should match the offerings page visual language.
-
-- Default to `DataTable` for dashboard tables with fixed headers and row-based content.
-- Keep route-specific sorting, filters, action menus, and data shaping in the parent route.
-
-2. Define columns explicitly.
-
-- Use `columns` to lock in header labels, widths, row-header semantics, and per-column alignment.
-- Mark the identifying column with `rowHeader: true`.
-
-3. Render row content with the `cell` snippet.
-
-- Put links, badges, `DateHoverText`, tooltips, and action controls inside the snippet.
-- Keep the shared component responsible only for the table shell and row chrome.
-
-4. Use `emptyBody` only when the default empty row is not enough.
-
-- Prefer `emptyBody` for offerings-style skeleton rows or custom placeholder rows.
-- Keep custom empty markup as `<tr>` rows because it renders inside `<tbody>`.
-
-5. Validate and compare against the offerings page.
-
-- Check header tone, stripe contrast, border weight, and badge usage against the canonical offerings table.
-
-6. Standardize row actions when the table needs per-row management.
-
-- Do not render bulky inline controls inside the row by default.
-- Prefer `createDataTableRowActionColumn()` for the narrow rightmost settings column.
-- Render the trigger with `DataTableRowActions.svelte` instead of hand-rolling a dropdown in each route.
-- Hide the trigger until row hover or keyboard focus by using row-level `group/row` or `group` styling and focus-visible fallbacks.
-- The shared row-action component must auto-run the action when there is only one option instead of opening a one-item dropdown.
-- Keep placeholder actions visible but disabled when the product wants to signal upcoming capability.
-- Use modal flows for destructive or multi-field actions:
-  - Use a confirm modal for delete/remove actions.
-  - Use a shared wizard modal for move/reassignment flows.
-- Keep row actions in the parent route so `DataTable` remains a presentation shell.
-
-7. Standardize first-column linked name/icon cells when the row needs a hoverable destination.
-
-- Prefer `DataTableLinkedLabel.svelte` for the shared icon tile plus name treatment.
-- Keep the underline and icon hover state scoped to the link itself, not the full row.
-- When row actions are also present, let the settings trigger respond to row hover while the label hover remains link-only.
-
-## Progressive Disclosure Map
-
-- `references/table-recipes.md`: component API, copyable width recipes, and guardrails
-
-## Guardrails
-
-- Do not rebuild offerings-style table wrappers inline if `DataTable` can handle the job.
-- Do not change header font treatment, uppercase casing, tracking, or neutral header background for matching tables.
-- Keep offerings-style row dividers on neutral borders, not secondary-tinted borders, unless the user explicitly requests a different accent treatment.
-- Do not push route-specific business logic into the shared component.
-- Do not invent new status pill styles when existing badge classes fit.
-- Do not replace `DateHoverText`, `HoverTooltip`, or shared action controls with ad-hoc alternatives when those behaviors are already needed.
-- Do not place permanent inline selects, buttons, or destructive controls in the middle of offerings-style rows unless the table is explicitly designed for always-visible editing.
-- Do not use vertical kebab, text links, or icon clusters for standard row actions when the hover-only horizontal 3-dot pattern fits.
-- Do not wire move/delete row actions without the corresponding modal or wizard flow.
-
-## Validation
-
-- Run `pnpm check`.
-- Run `pnpm build` when changing `DataTable.svelte` or multiple consumers.
-- Manually verify mobile overflow and desktop column balance for any touched table.
-- Manually verify row-action visibility on mouse hover and keyboard focus, plus dropdown alignment near the right viewport edge.
-- When a table needs a compact offering-type badge next to a title, default that badge to a neutral border and neutral text rather than a secondary-outlined badge.
+Columns, empty/loading rows, row actions, focus visibility, and viewport overflow are checked for the changed surface; repository test gates pass or limitations are reported. Follow AGENTS.md for automated gates and test comments. Record actual checks and unverified browser behavior; a unit/parser pass does not establish a browser pass.

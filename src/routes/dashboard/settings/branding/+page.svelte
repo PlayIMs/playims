@@ -12,6 +12,7 @@
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import { toast } from '$lib/toasts';
 	import {
+		DEFAULT_THEME,
 		themeColors,
 		updateColor,
 		resetTheme,
@@ -920,7 +921,7 @@
 						type="button"
 						class="flex-1 button-primary-outlined"
 						onclick={() => {
-							neutralInput = '';
+							neutralInput = DEFAULT_THEME.neutral;
 							handleNeutralChange();
 							closeNeutralPaletteModal();
 						}}

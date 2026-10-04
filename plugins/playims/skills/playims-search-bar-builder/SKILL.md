@@ -1,66 +1,31 @@
 ---
 name: playims-search-bar-builder
-description: Build or refactor PlayIMs search bars using `src/lib/components/SearchInput.svelte` so page searches, wizard list searches, compact panel searches, and embedded dropdown searches stay visually consistent with the offerings-page pattern. Use when adding a new free-text search field, replacing hand-rolled search markup, or extending search-bar behavior under `src/routes/dashboard/**` or shared components like `ListboxDropdown.svelte`.
+description: Build or migrate PlayIMs free-text filtering controls with SearchInput, including compact wizard and dropdown variants. Use for input UI rather than global search-palette logic.
 ---
 
 # PlayIMs Search Bar Builder
 
+Reuse SearchInput for dashboard text-filter fields and embedded searches.
 
-## Scope and verification
+## Establish context
 
-Read the workspace `AGENTS.md` and choose its testing tier before editing. Pure styling and trivial prop plumbing use the relaxed tier; changes to conditions, state, validation, filtering, permissions, or data shaping require full TDD. Follow the repository test-comment standard when changing tests.
+Follow workspace AGENTS.md and choose its testing tier before editing. Identify the active route, requested behavior, and current props/events. Infer these from code when possible; ask only for missing product decisions. Read `src/lib/components/SearchInput.svelte` and the active consumer; compare the offerings search row only for visual parity.
 
-Start with the active route, the component being changed, and one relevant live consumer. The source lists below are lookup maps: read only files and references relevant to the task. Load companion skills only when their component or behavior is being changed. Preserve existing product contracts and user-requested exceptions.
+Current component APIs and app.css are authoritative. Preserve scope and existing contracts; load companion skills only for components/behavior being changed.
 
-Use the repository testing tier as the verification authority. Apply QA cases that exercise the changed behavior; report checks actually run and any unverified browser behavior. Do not describe checklist items as passed without evidence.
+## Preserve these contracts
 
-## Goal
+- Preserve search scope, filtering, pagination/reset side effects, disabled/loading states, and existing input attributes such as data-lpignore.
+- Use the existing component's props/class hooks for width, icon, placeholder, and compact variants rather than rebuilding input/icon/clear markup.
+- Keep square shared control chrome, left search icon, and a trailing clear affordance only when text exists. Use context-specific accessible labels.
+- Searchable dropdown panels use SearchInput too. Extend the shared input for required focus/keyboard behavior instead of bypassing it.
+- Input UI and global search-palette orchestration are different responsibilities; confirm the active entry point before changing filtering or palette behavior.
 
-Use the shared `SearchInput` component as the source of truth for PlayIMs search UI. Keep the offerings page search bar as the default look: left magnifying-glass icon, placeholder text, square borders, and a trailing clear affordance that only appears when text exists. `SearchInput` should be treated as the shared search primitive, with `app.css` handling the shared control styling.
+## Read detail when needed
 
-## Start Here
+- [search bar recipes](references/search-bar-recipes.md): Default and compact prop recipes.
+- [integration contract](references/integration-contract.md): Migration behavior and styling details.
 
-Relevant source files (select those needed for this change):
+## Done when
 
-- `src/lib/components/SearchInput.svelte`
-- `src/routes/dashboard/offerings/+page.svelte`
-- `src/routes/dashboard/members/+page.svelte`
-- `src/routes/dashboard/facilities/+page.svelte`
-- `src/routes/dashboard/offerings/_wizards/ManageSeasonWizard.svelte`
-- `src/routes/dashboard/account/_wizards/ManageOrganizationWizard.svelte`
-- `src/lib/components/ListboxDropdown.svelte` when searchable dropdown panels are involved
-- `references/search-bar-recipes.md`
-
-## Workflow
-
-1. Audit the current search behavior before editing.
-2. Reuse `SearchInput` instead of rebuilding icon/input/clear markup inline.
-3. Match the offerings-page defaults unless the surrounding surface already uses a compact variant.
-4. Use props and class hooks on `SearchInput` to tune width, height, icon sizing, placeholder copy, clear button style, and extra input attributes.
-5. Prefer the component defaults first; only override classes when the surface truly needs a compact variant or a constrained width.
-6. For searchable dropdown panels, route the internal search field through `SearchInput` too.
-7. Preserve current behavior:
-   - search scope and filtering rules
-   - reset or pagination side effects
-   - disabled/loading states
-   - special attributes like `data-lpignore`
-8. Run validation after migration.
-
-## Required Rules
-
-- Do not hand-roll new search bars with raw `<input>` plus ad-hoc icon and clear button markup.
-- Do not introduce a second shared search component for ordinary text filtering.
-- Keep the default search chrome square and border-led.
-- Keep the clear affordance hidden until there is text to clear.
-- Prefer semantically specific labels and placeholders over generic `Search`.
-- Keep compact search bars visually related to the offerings pattern by shrinking the existing recipe instead of inventing a new one.
-- Do not hand-roll local search icon/clear-button wrappers in route files when `SearchInput` already fits the use case.
-- If a search field needs custom focus or keyboard behavior, extend `SearchInput` rather than bypassing it.
-
-## Validation
-
-- Run `node_modules/.bin/prettier.cmd --write` on touched search-bar files.
-- Run `node_modules/.bin/svelte-check.cmd --tsconfig ./tsconfig.json`.
-- If `svelte-check` reports unrelated existing failures, note them explicitly.
-
-Load `references/search-bar-recipes.md` when you need copyable prop recipes or compact-vs-default examples.
+Typing and clearing preserve search/reset behavior, labels and disabled states, and control alignment. Run the repository gates appropriate to styling versus filtering logic. Follow AGENTS.md for automated gates and test comments. Record actual checks and unverified browser behavior; a unit/parser pass does not establish a browser pass.

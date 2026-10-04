@@ -4,6 +4,7 @@
 	import Breadcrumb from '$lib/components/navigation/Breadcrumb.svelte';
 	import SmallStandingsTable from '$lib/components/SmallStandingsTable.svelte';
 	import TeamPlacementTable from '$lib/components/TeamPlacementTable.svelte';
+	import DivisionLockControl from '$lib/components/DivisionLockControl.svelte';
 	import DashboardSidebarPanel from '$lib/components/dashboard/DashboardSidebarPanel.svelte';
 	import DashboardSearchLauncher from '$lib/components/dashboard/DashboardSearchLauncher.svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
@@ -433,6 +434,16 @@
 								<h2 class="text-2xl font-bold font-serif text-neutral-950">
 									{data.division.name}
 								</h2>
+								{#if data.league && data.season}
+									<DivisionLockControl
+										division={data.division}
+										canManage={data.permissions?.MANAGE_OFFERINGS === true}
+										apiPath={`/api/intramural-sports/leagues/${data.season.slug}/${data.league.slug}/management`}
+										leagueId={data.league.id}
+										leagueName={data.league.name}
+										iconClass="h-5 w-5"
+									/>
+								{/if}
 							</div>
 							<div class="flex flex-wrap items-center gap-2 text-xs font-sans text-neutral-950">
 								<span class="border border-secondary-300 px-2 py-1">

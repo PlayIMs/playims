@@ -299,7 +299,8 @@ export const load: PageServerLoad = async (event) => {
 				location: division.location?.trim() || null,
 				startDate: division.startDate ?? null,
 				maxTeams: division.maxTeams ?? null,
-				isLocked: division.isLocked === 1
+				isLocked: division.isLocked === 1,
+				doAutoLock: division.doAutoLock !== 0
 			},
 			offeringOptions,
 			breadcrumbMetadata,

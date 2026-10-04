@@ -1,0 +1,134 @@
+# PlayIMs Hover Tooltip Builder: integration details
+
+Read this reference only for the relevant component variant or migration. The skill entrypoint and workspace AGENTS.md govern scope, testing, and completion; source inventories are selective lookup maps. Live APIs and shared CSS override outdated copied examples.
+
+## Goal
+
+Implement consistent hover tooltips across PlayIMs using `HoverTooltip` with cursor-relative placement, viewport clamping, and shared floating-panel logic.
+
+## Start Here
+
+Relevant source files (select those needed for this change):
+
+- `src/lib/components/HoverTooltip.svelte`
+- `src/lib/components/InfoPopover.svelte`
+- `src/lib/components/floating-position.ts`
+- Current consumers (search `HoverTooltip` in `src/routes/**` and `src/lib/components/**`)
+- `qa-matrix.md`
+
+## Component Contract
+
+Treat this API as the baseline:
+
+- Required prop: `text: string`
+- Optional props:
+- `shortcutKeys?: string[]` for keyboard hints rendered as shared keycaps after the tooltip title
+- `cursorOffsetXPx?: number` (default: `14`)
+- `cursorOffsetYPx?: number` (default: `18`)
+- `paddingPx?: number` (default: `8`)
+- `minWidthPx?: number` (default: `180`)
+- `panelClass?: string`
+- `maxWidthClass?: string` (default: `max-w-72`)
+- `wrapperClass?: string` (default: `relative inline-flex shrink-0`)
+- Content via children snippet:
+- `children?: Snippet`
+
+Behavioral guarantees from current implementation:
+
+- Opens while pointer hovers the trigger wrapper or trigger receives focus.
+- Follows cursor while hovering the trigger.
+- Prefers rendering to the lower-right of the cursor.
+- Flips left when right-side space is insufficient.
+- Flips up when bottom space is insufficient.
+- Clamps to visible viewport with edge padding.
+- Applies minimum width for readability (`minWidthPx`) and avoids viewport overflow.
+- Uses `position: fixed`, so tooltip panel does not affect ancestor layout/scroll.
+- Ports the tooltip panel to `document.body` to escape ancestor stacking contexts.
+- Forces a max-safe z-index so the tooltip stays above surrounding page chrome, sticky regions, and modals.
+- Uses `pointer-events-none` on panel to avoid stealing hover state from the trigger.
+
+## Required Integration Pattern
+
+1. Replace native HTML `title` hover hints with `HoverTooltip` for consistent behavior.
+2. Keep tooltip copy concise and action-specific.
+
+- Good: `Edit facility`, `Sign out this session`, `Duplicate league settings`.
+  2.5. When a button has a documented keyboard shortcut, pass it through `shortcutKeys` so the tooltip shows the shared keycap hint after the title.
+- Example: `shortcutKeys={['Ctrl', 'Shift', 'R']}`
+
+3. Wrap the actionable element directly.
+
+- Keep current button/link classes, aria labels, and handlers.
+
+4. Use `wrapperClass` when layout requires block/fill behavior.
+
+- Example: sidebar nav rows should use `wrapperClass="block w-full"`.
+
+5. Keep long helper text constrained with `maxWidthClass` and rely on viewport clamping for edge cases.
+6. For persistent click-to-dismiss help content, use `InfoPopover` instead of `HoverTooltip`.
+
+- `InfoPopover` uses the same shared floating-position engine but intentionally does not follow cursor.
+
+7. For any displayed date/datetime text, use `DateHoverText` instead of wiring `HoverTooltip` manually.
+
+- `DateHoverText` standardizes full-date tooltip formatting and timezone behavior for date displays.
+
+8. Preserve the shared portal behavior.
+
+- Tooltip panels must continue rendering from `document.body`; do not move them back inside trigger containers or reduce their enforced z-index.
+
+Default usage:
+
+```svelte
+<HoverTooltip text="Edit season">
+	<button
+		type="button"
+		class="button-secondary-outlined p-1.5 cursor-pointer"
+		aria-label="Edit season"
+	>
+		<IconPencil class="w-4 h-4" />
+	</button>
+</HoverTooltip>
+```
+
+Full-width wrapper example:
+
+```svelte
+<HoverTooltip text={isSidebarOpen ? '' : item.label} wrapperClass="block w-full">
+	<a href={item.href} class="w-full ...">...</a>
+</HoverTooltip>
+```
+
+## Workflow
+
+1. Find all hover tooltip candidates.
+
+- Search for `title=` and existing `HoverTooltip` usage.
+
+2. Migrate to shared tooltip component.
+
+- Preserve existing click/focus handlers and aria labels.
+
+3. Keep behavior parity and visual consistency.
+
+- Do not change action semantics while swapping tooltip affordance.
+
+4. Validate interaction.
+
+- Run checks from `qa-matrix.md`, including viewport edge cases and modal contexts.
+
+5. Validate build safety.
+
+- Run `pnpm check`.
+- Run `pnpm build` when editing shared tooltip internals or many consumers.
+
+## Guardrails
+
+- Do not create ad-hoc tooltip implementations or inline positioning scripts.
+- Do not use `InfoPopover` for short hover-only action hints.
+- Do not use `HoverTooltip` for long, paragraph-heavy instructional content.
+- Do not reintroduce native `title` attributes where `HoverTooltip` is expected.
+- Do not hand-roll date display tooltips with raw `HoverTooltip`; use `DateHoverText`.
+- Do not remove the body-portal behavior or replace the enforced top-layer z-index with local stacking classes.
+- Keep tooltip text supplemental; critical required instructions should stay visible inline.
+- Preserve route behavior and handlers when migrating tooltip wrappers.

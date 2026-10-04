@@ -397,6 +397,20 @@ After any theme/layout/bootstrap change, verify:
 5. In the installed PWA, confirm the window title bar keeps the org primary color across repeated
    refreshes and normal in-app navigation.
 
+## Scrollbar Compatibility
+
+`src/app.css` owns the global square scrollbar appearance. Keep the scrollbar plugin's
+`preferredStrategy` set to `pseudoelements` and preserve the unlayered WebKit compatibility
+guard. Tailwind 4.3 introduced native scrollbar utilities with the same names as the plugin;
+their `scrollbar-color` and `scrollbar-width` declarations can disable custom rendering in
+Chrome and Edge. The guard restores `auto` for those properties, preserves intentionally
+hidden scrollbars, and hides native arrow buttons. Firefox retains standard scrollbar styling.
+
+After Tailwind or scrollbar-plugin upgrades, run
+`pnpm exec vitest run tests/shared/scrollbar-styles.test.ts` and visually check page,
+modal, dropdown, and horizontal scrollbars. The regression test compiles the real stylesheet
+with the installed Tailwind compiler.
+
 ## Date Tooltip Contract
 
 All visible dates and datetimes in the web app must provide a hover tooltip with full normalized formatting.

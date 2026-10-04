@@ -1,6 +1,6 @@
 {
 	"name": "playims",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"description": "Project plugin that bundles the PlayIMs dashboard and workflow skills for Codex.",
 	"author": {
 		"name": "Jake Harvanchik",
@@ -12,7 +12,7 @@
 	"skills": "./skills/",
 	"interface": {
 		"displayName": "PlayIMs",
-		"shortDescription": "PlayIMs project skills for dashboard UI and workflow work",
+		"shortDescription": "PlayIMs UI and workflow skills",
 		"longDescription": "Bundles the PlayIMs project skills used to build and refine dashboard UI, tables, wizards, dropdowns, tooltips, popovers, search flows, and toast-driven feedback with repo-specific conventions.",
 		"developerName": "Jake Harvanchik",
 		"category": "Developer Tools",

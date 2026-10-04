@@ -101,16 +101,12 @@ an old backlog item is still unfinished.
 
 ## Plugin refresh
 
-The repo-local plugin source is now version 0.2.0. It retains all ten specialized skills and
+The repo-local plugin source is now version 0.3.0. It retains all ten specialized skills and
 their existing product rules. Source inventories are now selective lookup maps, testing follows
-`AGENTS.md`, and the broad style entrypoint routes to detailed recipes only when needed.
+`AGENTS.md`, and all skill entrypoints route to detailed recipes only when needed.
 
 In plain English: give the model the relevant house rules and examples for the current job,
 instead of making it reread the whole toolbox. These changes are model-independent; they have
 not been benchmarked as a measured GPT-6.1 performance improvement.
 
-The installed plugin uses a cached copy. Source changes in this repository do not establish
-that the installed copy has refreshed. Reload/reinstall from the verified marketplace source
-using the host's supported workflow; do not edit the cache directly. A separately installed
-standalone wizard skill also appears in this session, so check for duplication before removing
-anything. No other custom plugins were changed in this review.
+Version 0.3.0 was installed and enabled through the supported Codex plugin command from the repository marketplace. Future source changes still need a supported reload/reinstall; do not edit the cache directly. The duplicate standalone wizard skill was preserved outside discovery at `C:/Users/Jake/.codex/skill-backups/playims-wizard-builder-pre-0.3.0-2026-10-01`. No other custom plugins were changed.
