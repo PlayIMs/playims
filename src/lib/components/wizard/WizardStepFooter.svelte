@@ -28,12 +28,13 @@
 	const dispatch = createEventDispatcher<{ back: void; next: void }>();
 </script>
 
-<div class="pt-2 border-t border-neutral-950 flex justify-end">
+<div class="modal-actions">
 	<div class="flex items-center gap-2 justify-end">
 		{#if showBack}
 			<button
 				type="button"
 				class="button-secondary-outlined cursor-pointer"
+				disabled={isSubmitting}
 				onclick={() => dispatch('back')}
 			>
 				Back
@@ -42,9 +43,10 @@
 		{#if step < lastStep}
 			<button
 				type="button"
+				data-wizard-next
 				class="button-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
 				onclick={() => dispatch('next')}
-				disabled={!canGoNext}
+				disabled={!canGoNext || isSubmitting}
 			>
 				{nextLabel}
 			</button>
@@ -52,7 +54,7 @@
 			<button
 				type="submit"
 				class="button-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-				disabled={!canSubmit}
+				disabled={!canSubmit || isSubmitting}
 			>
 				{isSubmitting ? submittingLabel : submitLabel}
 			</button>

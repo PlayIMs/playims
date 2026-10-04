@@ -11,8 +11,11 @@
 	import { IconChevronDown, IconChevronUp, IconInfoCircle } from '@tabler/icons-svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
+	import { MODAL_UI_CONTEXT } from '$lib/components/modals/modal-context.js';
+	import { resolveListboxVariant, type ListboxVariant } from './listbox-appearance.js';
 	import {
 		createEventDispatcher,
+		getContext,
 		onDestroy,
 		tick,
 		type ComponentType,
@@ -74,6 +77,7 @@
 		noteText?: string;
 		noteClass?: string;
 		buttonClass?: string;
+		variant?: ListboxVariant;
 		listClass?: string;
 		optionClass?: string;
 		selectedOptionClass?: string;
@@ -119,7 +123,8 @@
 		emptyText = 'No options available.',
 		noteText,
 		noteClass = '',
-		buttonClass = 'button-secondary-outlined min-h-10 px-3 py-2 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2 disabled:cursor-not-allowed disabled:opacity-60',
+		buttonClass = '',
+		variant = 'auto',
 		listClass = '',
 		optionClass = '',
 		selectedOptionClass = '',
@@ -216,8 +221,17 @@
 	const activeOptionId = $derived.by(() =>
 		activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined
 	);
+	const inModal = getContext<boolean>(MODAL_UI_CONTEXT) ?? false;
+	const resolvedButtonClass = $derived(
+		resolveListboxVariant(variant, inModal, mode, buttonClass) === 'field'
+			? `select-secondary w-full inline-flex items-center justify-between gap-2 cursor-pointer ${buttonClass}`
+			: buttonClass ||
+					'button-secondary-outlined min-h-10 px-3 py-2 text-sm font-semibold text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2 disabled:cursor-not-allowed disabled:opacity-60'
+	);
+
 	const rootClass = $derived.by(() => {
-		const isFullWidthTrigger = /\bw-full\b/.test(buttonClass) || /\bmin-w-full\b/.test(buttonClass);
+		const isFullWidthTrigger =
+			/\bw-full\b/.test(resolvedButtonClass) || /\bmin-w-full\b/.test(resolvedButtonClass);
 		return `relative ${isFullWidthTrigger ? 'flex w-full' : 'inline-flex'} items-stretch`;
 	});
 
@@ -916,7 +930,7 @@
 	<button
 		id={buttonId}
 		type="button"
-		class={buttonClass}
+		class={resolvedButtonClass}
 		aria-label={ariaLabel}
 		aria-haspopup="listbox"
 		aria-expanded={open}

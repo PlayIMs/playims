@@ -2,8 +2,13 @@
 	import { createEventDispatcher } from 'svelte';
 	import { tick } from 'svelte';
 	import type { Snippet } from 'svelte';
-	import { IconX } from '@tabler/icons-svelte';
+	import ModalHeader from '$lib/components/modals/ModalHeader.svelte';
 	import ModalShell from '$lib/components/modals/ModalShell.svelte';
+	import {
+		findWizardFocusTarget,
+		shouldSubmitWizardForm,
+		shouldAdvanceWizardOnEnter
+	} from './wizard-form-behavior.js';
 
 	interface Props {
 		open: boolean;
@@ -31,7 +36,7 @@
 		progressPercent,
 		closeAriaLabel,
 		maxWidthClass = 'max-w-5xl',
-		formClass = 'p-4 space-y-5 flex-1 min-h-0 overflow-y-auto scrollbar-thin',
+		formClass = 'space-y-5',
 		autoFocusFirstField = true,
 		saveShortcutEnabled = false,
 		error,
@@ -45,26 +50,14 @@
 		input: Event;
 	}>();
 
-	const panelClass = $derived.by(
-		() =>
-			`wizard-modal-panel w-full ${maxWidthClass} max-h-[calc(100vh-2rem)] lg:max-h-[calc(100vh-3rem)] border-[3px] border-neutral-950 bg-neutral overflow-hidden flex flex-col`
-	);
+	const panelClass = $derived.by(() => `wizard-modal-panel ${maxWidthClass}`);
 	const showStepMeta = $derived.by(() => stepCount > 1);
 	let formElement = $state<HTMLFormElement | null>(null);
 
 	function focusFirstWizardField(): void {
 		if (!formElement) return;
 
-		const preferred = formElement.querySelector<HTMLElement>('[data-wizard-autofocus]');
-		if (preferred) {
-			preferred.focus();
-			return;
-		}
-
-		const firstField = formElement.querySelector<HTMLElement>(
-			'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled])'
-		);
-		firstField?.focus();
+		findWizardFocusTarget(formElement)?.focus({ preventScroll: true });
 	}
 
 	$effect(() => {
@@ -76,12 +69,28 @@
 			focusFirstWizardField();
 		});
 	});
+
+	$effect(() => {
+		if (!open || !formElement) return;
+		const form = formElement;
+		// Delegate text-input Enter without replacing nested controls' keyboard behavior.
+		const handleKeydown = (event: KeyboardEvent) => {
+			if (!(event.target instanceof HTMLInputElement)) return;
+			if (!shouldAdvanceWizardOnEnter(event, event.target.type)) return;
+			if (!form.querySelector('[data-wizard-next]')) return;
+			event.preventDefault();
+			shouldSubmitWizardForm(form);
+		};
+		form.addEventListener('keydown', handleKeydown);
+		return () => form.removeEventListener('keydown', handleKeydown);
+	});
 </script>
 
 <ModalShell
 	{open}
 	{closeAriaLabel}
 	{panelClass}
+	ariaLabel={title}
 	{saveShortcutEnabled}
 	showCloseButton={false}
 	draggable
@@ -89,43 +98,43 @@
 	on:requestClose={() => dispatch('requestClose')}
 	on:saveShortcut={() => formElement?.requestSubmit()}
 >
-	<div
-		class="cursor-move select-none border-b border-neutral-950 bg-neutral-600/66 p-4"
-		data-wizard-modal-drag-handle
-	>
-		<div class="flex items-center justify-between gap-3">
-			<h2 class="min-w-0 flex-1 text-3xl font-bold font-serif text-neutral-950">{title}</h2>
-			<button
-				type="button"
-				class="modal-close-button shrink-0"
-				aria-label={closeAriaLabel}
-				data-modal-drag-ignore
-				onclick={() => dispatch('requestClose')}
-			>
-				<IconX class="w-6 h-6" />
-			</button>
-		</div>
+	<ModalHeader {title} {closeAriaLabel} draggable onClose={() => dispatch('requestClose')}>
 		{#if showStepMeta}
 			<p class="text-sm font-sans text-neutral-800">Step {step} of {stepCount}: {stepTitle}</p>
 		{/if}
 		{#if showStepMeta}
-			<div class="mt-1 border border-neutral-950 bg-white h-3" aria-hidden="true">
-				<div class="h-full bg-primary" style={`width: ${progressPercent}%`}></div>
+			<div
+				class="mt-1 border border-neutral-950 bg-white h-3"
+				role="progressbar"
+				aria-label="Wizard progress"
+				aria-valuemin={0}
+				aria-valuemax={100}
+				aria-valuenow={Math.max(0, Math.min(100, progressPercent))}
+			>
+				<div
+					class="h-full bg-primary"
+					style={`width: ${Math.max(0, Math.min(100, progressPercent))}%`}
+				></div>
 			</div>
 		{/if}
-	</div>
+	</ModalHeader>
 
 	<form
 		bind:this={formElement}
-		class={formClass}
+		class="modal-form"
 		onsubmit={(event) => {
 			event.preventDefault();
+			if (!shouldSubmitWizardForm(event.currentTarget)) return;
 			dispatch('submit', event);
 		}}
 		oninput={(event) => dispatch('input', event)}
 	>
-		{@render error?.()}
-		{@render children?.()}
-		{@render footer?.()}
+		<div class={`modal-body ${formClass}`}>
+			{@render error?.()}
+			{@render children?.()}
+		</div>
+		{#if footer}
+			<div class="modal-footer">{@render footer()}</div>
+		{/if}
 	</form>
 </ModalShell>

@@ -94,6 +94,32 @@
 	}
 }
 
+/* Tailwind 4.3's native scrollbar utilities override WebKit styling unless these
+   properties stay auto. Keep this outside layers so utility order cannot undo it. */
+@supports selector(::-webkit-scrollbar) {
+	*:not(.scrollbar-none):not([class~='[scrollbar-width:none]']) {
+		scrollbar-color: auto !important;
+		scrollbar-width: auto !important;
+	}
+
+	*::-webkit-scrollbar-thumb,
+	*::-webkit-scrollbar-track,
+	*::-webkit-scrollbar-corner {
+		border-radius: 0;
+	}
+
+	*::-webkit-scrollbar-button {
+		display: none;
+		width: 0;
+		height: 0;
+	}
+
+	.modal-body::-webkit-scrollbar {
+		width: 8px;
+		height: 8px;
+	}
+}
+
 @layer components {
 	.app {
 		min-height: 100vh;
@@ -357,7 +383,8 @@
 		input[type='time']
 	):is(.input-primary, .input-secondary, .input-neutral, .input-error),
 	textarea:is(.textarea-primary, .textarea-secondary),
-	select:is(.select-primary, .select-secondary) {
+	select:is(.select-primary, .select-secondary),
+	button.select-secondary {
 		width: 100%;
 		padding: 0.375rem 1rem;
 		border: 2px solid var(--playims-control-border);
@@ -406,7 +433,8 @@
 		input[type='time']
 	).input-secondary,
 	textarea.textarea-secondary,
-	select.select-secondary {
+	select.select-secondary,
+	button.select-secondary {
 		--playims-control-border: var(--color-secondary-400);
 		--playims-control-text: var(--color-secondary-950);
 		--playims-control-focus: var(--color-secondary-500);
@@ -465,7 +493,8 @@
 			input[type='time']
 		):is(.input-primary, .input-secondary, .input-neutral, .input-error):focus,
 	textarea:is(.textarea-primary, .textarea-secondary):focus,
-	select:is(.select-primary, .select-secondary):focus {
+	select:is(.select-primary, .select-secondary):focus,
+	button.select-secondary:focus-visible {
 		outline: 1px solid var(--playims-control-focus) !important;
 		outline-offset: 1px !important;
 		border-color: var(--playims-control-focus);
@@ -489,7 +518,8 @@
 			input[type='time']
 		):is(.input-primary, .input-secondary, .input-neutral, .input-error):disabled,
 	textarea:is(.textarea-primary, .textarea-secondary):disabled,
-	select:is(.select-primary, .select-secondary):disabled {
+	select:is(.select-primary, .select-secondary):disabled,
+	button.select-secondary:disabled {
 		cursor: not-allowed;
 		opacity: 0.6;
 		background-color: var(--color-neutral-100);
@@ -895,6 +925,162 @@
 		align-items: center;
 		justify-content: center;
 		padding: 0;
+	}
+
+	/* Modal framing is owned here; consumers should override layout, not copy chrome. */
+	.modal-panel {
+		--modal-field-message-height: 1rem;
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		width: 100%;
+		max-height: calc(100dvh - 2rem);
+		border: var(--modal-border-width, 3px) solid var(--color-neutral-950);
+		background: var(--color-neutral-500);
+		overflow: hidden;
+	}
+
+	.modal-panel[data-modal-tone='danger'] {
+		border-color: var(--color-error-700);
+		background: var(--color-error-25);
+		--modal-header-background: var(--color-error-50);
+		--modal-title-color: var(--color-error-900);
+	}
+
+	@media (min-width: 1024px) {
+		.modal-panel {
+			max-height: calc(100dvh - 3rem);
+		}
+	}
+
+	.modal-header {
+		flex-shrink: 0;
+		padding: 1rem;
+		border-bottom: 1px solid var(--color-neutral-950);
+		background: var(
+			--modal-header-background,
+			color-mix(in srgb, var(--color-neutral-600) 66%, transparent)
+		);
+	}
+
+	.modal-title-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+	}
+
+	.modal-title {
+		flex: 1;
+		min-width: 0;
+		margin: 0;
+		font-family: var(--font-serif);
+		font-size: 1.875rem;
+		line-height: 2.25rem;
+		font-weight: 700;
+		color: var(--modal-title-color, var(--color-neutral-950));
+	}
+
+	.modal-form {
+		display: flex;
+		flex: 1;
+		min-height: 0;
+		flex-direction: column;
+		overflow: hidden;
+	}
+
+	.modal-footer {
+		flex-shrink: 0;
+		padding: 0.5rem 1rem 1rem;
+		border-top: 1px solid var(--color-neutral-950);
+	}
+
+	.modal-body {
+		@apply scrollbar-thin;
+		flex: 1;
+		min-height: 0;
+		padding: 1rem;
+		overflow-y: auto;
+		scrollbar-width: thin;
+	}
+
+	/* Defer field feedback while editing, without changing layout, across the app. */
+	.modal-field:has(:is(input, textarea, select):focus) .modal-field-error,
+	.modal-field:has(:is(input, textarea, select):focus) > p.text-error-700,
+	:where(div:not(.grid)):has(> label, > div.flex > label):has(:is(input, textarea, select):focus)
+		> :is(p.text-error-700, .modal-field-error) {
+		visibility: hidden;
+	}
+
+	/* Reserve validation space before an error exists, including older route-local fields. */
+	.modal-panel .modal-field,
+	.modal-panel
+		:where(div:not(.grid)):has(> label, > div.flex > label):has(
+			input:not([type='hidden']),
+			textarea,
+			select,
+			[data-listbox-dropdown-trigger]
+		) {
+		position: relative;
+		min-width: 0;
+		padding-bottom: calc(var(--modal-field-message-height) + 0.125rem);
+	}
+
+	.modal-panel .modal-field > :is(p.text-error-700, .modal-field-error),
+	.modal-panel
+		:where(div:not(.grid)):has(> label, > div.flex > label):has(
+			input:not([type='hidden']),
+			textarea,
+			select,
+			[data-listbox-dropdown-trigger]
+		)
+		> :is(p.text-error-700, .modal-field-error),
+	.modal-panel .date-picker-root > .modal-field-error {
+		position: absolute;
+		inset-inline: 0;
+		bottom: 0;
+		height: var(--modal-field-message-height);
+		margin: 0;
+		font-size: 0.75rem;
+		line-height: var(--modal-field-message-height);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.modal-panel .date-picker-root > .modal-field-error {
+		top: calc(100% + 0.125rem);
+		bottom: auto;
+	}
+
+	/* A calendar's own parsing error takes precedence over a copied route-level message. */
+	.modal-panel div:has(> .date-picker-root > .modal-field-error) > p.text-error-700 {
+		visibility: hidden;
+	}
+
+	.modal-actions {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: flex-end;
+		gap: 0.5rem;
+	}
+
+	.input-entry-shell {
+		position: relative;
+		min-width: 0;
+	}
+
+	.input-entry-hint {
+		position: absolute;
+		left: 1rem;
+		top: 50%;
+		transform: translateY(-50%);
+		pointer-events: none;
+		white-space: pre;
+		font: inherit;
+		font-size: 0.875rem;
+		color: var(--color-neutral-600);
 	}
 
 	.modal-close-button {

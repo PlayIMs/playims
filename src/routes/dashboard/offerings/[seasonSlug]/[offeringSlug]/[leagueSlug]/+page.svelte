@@ -3566,15 +3566,13 @@
 <ModalShell
 	open={Boolean(removeModalTeam)}
 	closeAriaLabel="Close delete team confirmation"
-	panelClass="w-full max-w-lg border-4 border-secondary bg-neutral-400 overflow-hidden"
+	title="Delete Team"
+	panelClass="max-w-lg"
 	on:requestClose={() => {
 		if (removingTeamId) return;
 		removeModalTeam = null;
 	}}
 >
-	<div class="border-b border-secondary px-5 py-4">
-		<h2 class="text-3xl font-serif font-bold text-neutral-950">Delete Team</h2>
-	</div>
 	<div class="space-y-4 p-5 text-sm text-neutral-950">
 		<p>
 			Delete <span class="font-bold">{removeModalTeam?.name ?? 'this team'}</span> from the league? This
@@ -3593,7 +3591,7 @@
 			</button>
 			<button
 				type="button"
-				class="inline-flex items-center justify-center border-2 border-primary-700 bg-primary px-4 py-2 text-white cursor-pointer hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
+				class="button-error cursor-pointer"
 				disabled={Boolean(removingTeamId)}
 				onclick={confirmRemoveTeam}
 			>

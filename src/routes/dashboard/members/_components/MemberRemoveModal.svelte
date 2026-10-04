@@ -35,11 +35,8 @@
 	});
 </script>
 
-<ModalShell {open} on:requestClose={onClose}>
-	<div class="border-b border-neutral-950 bg-neutral-600/66 px-4 py-3">
-		<h3 class="text-2xl font-bold font-serif text-neutral-950">Remove Member</h3>
-	</div>
-	<div class="space-y-4 overflow-y-auto bg-neutral p-4">
+<ModalShell {open} title="Remove Member" on:requestClose={onClose}>
+	<div class="modal-body space-y-4">
 		<div class="flex items-start gap-3 border-2 border-neutral-950 bg-white p-4">
 			<IconAlertTriangle class="h-6 w-6 text-secondary-900 shrink-0 mt-0.5" />
 			<div class="space-y-2 text-sm text-neutral-950">
@@ -50,9 +47,7 @@
 				</p>
 			</div>
 		</div>
-		<div
-			class="flex flex-col-reverse gap-2 border-t border-neutral-950 pt-3 sm:flex-row sm:justify-end"
-		>
+		<div class="modal-footer modal-actions">
 			<button
 				type="button"
 				class="button-secondary-outlined w-full cursor-pointer sm:w-auto"

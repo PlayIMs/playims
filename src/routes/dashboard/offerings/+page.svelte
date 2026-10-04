@@ -7585,7 +7585,7 @@
 	</div>
 
 	{#snippet footer()}
-		<div class="flex justify-end border-t border-neutral-950 pt-2">
+		<div class="modal-actions">
 			<div class="flex items-center gap-2 justify-end">
 				<button
 					type="button"

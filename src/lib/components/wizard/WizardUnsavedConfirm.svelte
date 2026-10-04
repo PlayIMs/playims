@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { createEventDispatcher, tick } from 'svelte';
+	import ModalShell from '$lib/components/modals/ModalShell.svelte';
 
 	interface Props {
 		open: boolean;
@@ -33,8 +34,6 @@
 			: message
 	);
 
-	let pointerDownStartedInside = $state(false);
-	let overlayElement = $state<HTMLDivElement | null>(null);
 	let panelElement = $state<HTMLDivElement | null>(null);
 	let panelCenterX = $state<number | null>(null);
 	let panelCenterY = $state<number | null>(null);
@@ -58,8 +57,8 @@
 	}
 
 	function positionPanel(): void {
-		if (!overlayElement) return;
-		const overlayRect = overlayElement.getBoundingClientRect();
+		if (typeof window === 'undefined') return;
+		const overlayRect = { width: window.innerWidth, height: window.innerHeight, left: 0, top: 0 };
 
 		let centerX = overlayRect.width / 2;
 		let centerY = overlayRect.height / 2;
@@ -71,7 +70,7 @@
 		}
 
 		if (panelElement) {
-			const rect = panelElement.getBoundingClientRect();
+			const rect = (panelElement.closest('.modal-panel') ?? panelElement).getBoundingClientRect();
 			const halfWidth = Math.max(1, rect.width / 2);
 			const halfHeight = Math.max(1, rect.height / 2);
 			const padding = 16;
@@ -82,36 +81,6 @@
 		panelCenterX = centerX;
 		panelCenterY = centerY;
 	}
-
-	function handleBackdropPointerDown(event: PointerEvent): void {
-		pointerDownStartedInside = event.target !== event.currentTarget;
-	}
-
-	function handleBackdropClick(event: MouseEvent): void {
-		if (event.target !== event.currentTarget) return;
-		if (pointerDownStartedInside) {
-			pointerDownStartedInside = false;
-			return;
-		}
-		dispatch('cancel');
-	}
-
-	$effect(() => {
-		if (!open || typeof window === 'undefined') return;
-
-		const handleWindowKeydown = (event: KeyboardEvent) => {
-			if (event.key !== 'Escape') return;
-			event.preventDefault();
-			event.stopPropagation();
-			event.stopImmediatePropagation();
-			dispatch('cancel');
-		};
-
-		window.addEventListener('keydown', handleWindowKeydown, true);
-		return () => {
-			window.removeEventListener('keydown', handleWindowKeydown, true);
-		};
-	});
 
 	$effect(() => {
 		if (!open || typeof window === 'undefined') return;
@@ -142,60 +111,44 @@
 	});
 </script>
 
-{#if open}
-	<div
-		bind:this={overlayElement}
-		class="fixed top-0 left-0 w-screen h-screen z-[60] bg-black/55 overflow-hidden"
-		onpointerdown={handleBackdropPointerDown}
-		onclick={handleBackdropClick}
-		role="button"
-		tabindex="0"
-		aria-label="Close unsaved changes confirmation"
-		onkeydown={(event) => {
-			if (event.key !== 'Enter' && event.key !== ' ') return;
-			event.preventDefault();
-			dispatch('cancel');
-		}}
-	>
-		<div
-			bind:this={panelElement}
-			class="w-full max-w-xl border-[3px] border-neutral-950 bg-neutral overflow-hidden"
-			style={panelStyle}
-			role="dialog"
-			aria-modal="true"
-			tabindex="-1"
-		>
-			<div class="border-b border-neutral-950 bg-neutral-600/66 p-5">
-				<h3 class="text-2xl font-bold font-serif text-neutral-950">{resolvedTitle}</h3>
-			</div>
-			<div class="p-5 space-y-4">
-				<p class="font-sans text-neutral-950">{resolvedMessage}</p>
-				<div class="flex items-center justify-end gap-3 pt-2">
+<ModalShell
+	{open}
+	title={resolvedTitle}
+	ariaLabel={resolvedTitle}
+	closeAriaLabel="Keep editing"
+	backdropClass="bg-black/55 z-[60]"
+	panelClass="max-w-xl"
+	{panelStyle}
+	on:requestClose={() => dispatch('cancel')}
+>
+	<div bind:this={panelElement}>
+		<div class="p-5 space-y-4">
+			<p class="font-sans text-neutral-950">{resolvedMessage}</p>
+			<div class="flex items-center justify-end gap-3 pt-2">
+				<button
+					type="button"
+					class="button-secondary-outlined cursor-pointer"
+					onclick={() => dispatch('cancel')}
+				>
+					{cancelLabel}
+				</button>
+				{#if secondaryLabel}
 					<button
 						type="button"
-						class="button-secondary-outlined cursor-pointer"
-						onclick={() => dispatch('cancel')}
+						class={`${secondaryButtonClass} cursor-pointer`}
+						onclick={() => dispatch('secondary')}
 					>
-						{cancelLabel}
+						{secondaryLabel}
 					</button>
-					{#if secondaryLabel}
-						<button
-							type="button"
-							class={`${secondaryButtonClass} cursor-pointer`}
-							onclick={() => dispatch('secondary')}
-						>
-							{secondaryLabel}
-						</button>
-					{/if}
-					<button
-						type="button"
-						class={`${confirmVariant === 'primary' ? 'button-primary' : 'button-error'} cursor-pointer`}
-						onclick={() => dispatch('confirm')}
-					>
-						{confirmLabel}
-					</button>
-				</div>
+				{/if}
+				<button
+					type="button"
+					class={`${confirmVariant === 'primary' ? 'button-primary' : 'button-error'} cursor-pointer`}
+					onclick={() => dispatch('confirm')}
+				>
+					{confirmLabel}
+				</button>
 			</div>
 		</div>
 	</div>
-{/if}
+</ModalShell>

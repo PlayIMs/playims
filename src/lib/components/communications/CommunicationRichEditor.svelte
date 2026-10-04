@@ -31,7 +31,6 @@
 		IconPhoto,
 		IconRowInsertBottom,
 		IconSquare,
-		IconX,
 		IconTable,
 		IconTableMinus,
 		IconTextColor,
@@ -41,6 +40,7 @@
 	} from '@tabler/icons-svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
+	import ModalHeader from '$lib/components/modals/ModalHeader.svelte';
 	import {
 		buildCommunicationEditorPayloadSignature,
 		buildCommunicationEditorContentSignature,
@@ -53,12 +53,8 @@
 	} from '$lib/communications/editor-links.js';
 	import { updateCommunicationEditorRuntimeState } from '$lib/communications/editor-runtime.js';
 	import { buildSpecialCharacterDialogOpenState } from '$lib/communications/editor-special-character-dialog.js';
-	import {
-		communicationEditorSpecialCharacters
-	} from '$lib/communications/editor-special-characters.js';
-	import {
-		isCommunicationEditorSpecialCharacterShortcut
-	} from '$lib/communications/editor-shortcuts.js';
+	import { communicationEditorSpecialCharacters } from '$lib/communications/editor-special-characters.js';
+	import { isCommunicationEditorSpecialCharacterShortcut } from '$lib/communications/editor-shortcuts.js';
 	import {
 		getCommunicationEditorToolbarState,
 		type CommunicationEditorBulletListStyle as BulletListStyle,
@@ -127,7 +123,9 @@
 				listStyleType: {
 					default: 'decimal',
 					parseHTML: (element) =>
-						element.style.listStyleType || element.getAttribute('data-list-style-type') || 'decimal',
+						element.style.listStyleType ||
+						element.getAttribute('data-list-style-type') ||
+						'decimal',
 					renderHTML: (attributes) => ({
 						'data-list-style-type': attributes.listStyleType,
 						style: `list-style-type: ${attributes.listStyleType}`
@@ -140,7 +138,9 @@
 		}
 	});
 
-	function buildCommunicationEditorTextStyleInlineStyle(attributes: Record<string, unknown>): string {
+	function buildCommunicationEditorTextStyleInlineStyle(
+		attributes: Record<string, unknown>
+	): string {
 		const styles: string[] = [];
 		if (typeof attributes.fontFamily === 'string' && attributes.fontFamily.trim().length > 0) {
 			styles.push(`font-family: ${attributes.fontFamily}`);
@@ -203,22 +203,26 @@
 		{
 			value: 'paragraph',
 			label: 'Paragraph',
-			labelClass: 'communication-editor-text-style-preview communication-editor-text-style-preview-paragraph'
+			labelClass:
+				'communication-editor-text-style-preview communication-editor-text-style-preview-paragraph'
 		},
 		{
 			value: 'heading-1',
 			label: 'Heading 1',
-			labelClass: 'communication-editor-text-style-preview communication-editor-text-style-preview-h1'
+			labelClass:
+				'communication-editor-text-style-preview communication-editor-text-style-preview-h1'
 		},
 		{
 			value: 'heading-2',
 			label: 'Heading 2',
-			labelClass: 'communication-editor-text-style-preview communication-editor-text-style-preview-h2'
+			labelClass:
+				'communication-editor-text-style-preview communication-editor-text-style-preview-h2'
 		},
 		{
 			value: 'heading-3',
 			label: 'Heading 3',
-			labelClass: 'communication-editor-text-style-preview communication-editor-text-style-preview-h3'
+			labelClass:
+				'communication-editor-text-style-preview communication-editor-text-style-preview-h3'
 		}
 	];
 	const fontFamilyOptions: Array<{ value: FontFamilyOptionValue; label: string }> = [
@@ -239,10 +243,14 @@
 	const imageIsSelected = $derived.by(() => toolbarState.image);
 	const tableIsSelected = $derived.by(() => toolbarState.table);
 	const activeFontFamilyOption = $derived.by(
-		() => fontFamilyOptions.find((option) => option.value === toolbarState.fontFamily) ?? fontFamilyOptions[0]
+		() =>
+			fontFamilyOptions.find((option) => option.value === toolbarState.fontFamily) ??
+			fontFamilyOptions[0]
 	);
 	const activeTextBlockOption = $derived.by(
-		() => textBlockOptions.find((option) => option.value === activeTextBlockStyle) ?? textBlockOptions[0]
+		() =>
+			textBlockOptions.find((option) => option.value === activeTextBlockStyle) ??
+			textBlockOptions[0]
 	);
 	const tableActionOptions = $derived.by(() => [
 		{
@@ -376,14 +384,18 @@
 
 	function toolbarButtonClass(active = false): string {
 		return [
-			active ? 'button-secondary-outlined bg-secondary-100 border-secondary-700 text-secondary-950 hover:bg-secondary-100 active:bg-secondary-100' : 'button-neutral-outlined',
+			active
+				? 'button-secondary-outlined bg-secondary-100 border-secondary-700 text-secondary-950 hover:bg-secondary-100 active:bg-secondary-100'
+				: 'button-neutral-outlined',
 			'min-h-9 min-w-9 px-2 py-2 text-xs font-semibold cursor-pointer justify-center disabled:cursor-not-allowed disabled:opacity-45'
 		].join(' ');
 	}
 
 	function toolbarTextButtonClass(active = false): string {
 		return [
-			active ? 'button-secondary-outlined bg-secondary-100 border-secondary-700 text-secondary-950 hover:bg-secondary-100 active:bg-secondary-100' : 'button-neutral-outlined',
+			active
+				? 'button-secondary-outlined bg-secondary-100 border-secondary-700 text-secondary-950 hover:bg-secondary-100 active:bg-secondary-100'
+				: 'button-neutral-outlined',
 			'min-h-9 px-3 py-2 text-xs font-semibold cursor-pointer justify-center disabled:cursor-not-allowed disabled:opacity-45'
 		].join(' ');
 	}
@@ -445,7 +457,9 @@
 			return;
 		}
 
-		if (target.closest('[data-toolbar-allows-default-mousedown], [data-listbox-dropdown-trigger]')) {
+		if (
+			target.closest('[data-toolbar-allows-default-mousedown], [data-listbox-dropdown-trigger]')
+		) {
 			return;
 		}
 
@@ -534,11 +548,7 @@
 	function applyFontFamily(value: string): void {
 		const fontFamily = getCommunicationEditorFontFamilyCssValue(value as FontFamilyOptionValue);
 		runCommand((nextEditor) =>
-			nextEditor
-				.chain()
-				.focus()
-				.setMark('textStyle', { fontFamily })
-				.run()
+			nextEditor.chain().focus().setMark('textStyle', { fontFamily }).run()
 		);
 	}
 
@@ -580,7 +590,11 @@
 		const style = value as BulletListStyle;
 		runCommand((nextEditor) => {
 			if (nextEditor.isActive('bulletList')) {
-				return nextEditor.chain().focus().updateAttributes('bulletList', { listStyleType: style }).run();
+				return nextEditor
+					.chain()
+					.focus()
+					.updateAttributes('bulletList', { listStyleType: style })
+					.run();
 			}
 
 			return nextEditor
@@ -1336,206 +1350,208 @@
 			onmousedown={handleToolbarMouseDown}
 		>
 			<div class="flex flex-wrap items-center gap-2">
-					<HoverTooltip text="Bold" shortcutKeys={['Mod', 'B']}>
+				<HoverTooltip text="Bold" shortcutKeys={['Mod', 'B']}>
+					<button
+						type="button"
+						class={toolbarButtonClass(toolbarState.bold)}
+						aria-label="Bold"
+						disabled={!canRun((nextEditor) => nextEditor.can().chain().focus().toggleBold().run())}
+						onclick={() =>
+							runCommand((nextEditor) => nextEditor.chain().focus().toggleBold().run())}
+					>
+						<IconBold class="h-4 w-4" />
+					</button>
+				</HoverTooltip>
+				<HoverTooltip text="Italic" shortcutKeys={['Mod', 'I']}>
+					<button
+						type="button"
+						class={toolbarButtonClass(toolbarState.italic)}
+						aria-label="Italic"
+						disabled={!canRun((nextEditor) =>
+							nextEditor.can().chain().focus().toggleItalic().run()
+						)}
+						onclick={() =>
+							runCommand((nextEditor) => nextEditor.chain().focus().toggleItalic().run())}
+					>
+						<IconItalic class="h-4 w-4" />
+					</button>
+				</HoverTooltip>
+				<HoverTooltip text="Underline" shortcutKeys={['Mod', 'U']}>
+					<button
+						type="button"
+						class={toolbarButtonClass(toolbarState.underline)}
+						aria-label="Underline"
+						disabled={!canRun((nextEditor) =>
+							nextEditor.can().chain().focus().toggleUnderline().run()
+						)}
+						onclick={() =>
+							runCommand((nextEditor) => nextEditor.chain().focus().toggleUnderline().run())}
+					>
+						<IconUnderline class="h-4 w-4" />
+					</button>
+				</HoverTooltip>
+				<HoverTooltip text="Strikethrough" shortcutKeys={['Mod', 'Shift', 'S']}>
+					<button
+						type="button"
+						class={toolbarButtonClass(toolbarState.strike)}
+						aria-label="Strikethrough"
+						disabled={!canRun((nextEditor) =>
+							nextEditor.can().chain().focus().toggleStrike().run()
+						)}
+						onclick={() =>
+							runCommand((nextEditor) => nextEditor.chain().focus().toggleStrike().run())}
+					>
+						<IconStrikethrough class="h-4 w-4" />
+					</button>
+				</HoverTooltip>
+				<HoverTooltip text="Hyperlink" shortcutKeys={['Mod', 'K']}>
+					<button
+						type="button"
+						class={toolbarButtonClass(toolbarState.link)}
+						aria-label="Hyperlink"
+						disabled={!editor}
+						data-toolbar-allows-default-mousedown="true"
+						onclick={() => openLinkDialog()}
+					>
+						<IconLink class="h-4 w-4" />
+					</button>
+				</HoverTooltip>
+				<HoverTooltip text="Clear formatting">
+					<button
+						type="button"
+						class={toolbarButtonClass()}
+						aria-label="Clear formatting"
+						disabled={!canRun((nextEditor) =>
+							nextEditor.can().chain().focus().unsetAllMarks().clearNodes().run()
+						)}
+						onclick={() =>
+							runCommand((nextEditor) =>
+								nextEditor.chain().focus().unsetAllMarks().clearNodes().run()
+							)}
+					>
+						<IconClearFormatting class="h-4 w-4" />
+					</button>
+				</HoverTooltip>
+				<div class={toolbarSplitButtonShellClass(toolbarState.bulletList)}>
+					<HoverTooltip text={toolbarState.bulletList ? 'Turn off bulleted list' : 'Bulleted list'}>
 						<button
 							type="button"
-							class={toolbarButtonClass(toolbarState.bold)}
-							aria-label="Bold"
-							disabled={!canRun((nextEditor) => nextEditor.can().chain().focus().toggleBold().run())}
-							onclick={() => runCommand((nextEditor) => nextEditor.chain().focus().toggleBold().run())}
+							class={toolbarSplitMainButtonClass(toolbarState.bulletList)}
+							aria-label="Bulleted list"
+							disabled={!canUseListControls()}
+							onclick={toggleDefaultBulletList}
 						>
-							<IconBold class="h-4 w-4" />
+							<IconList class="h-4 w-4" />
 						</button>
 					</HoverTooltip>
-					<HoverTooltip text="Italic" shortcutKeys={['Mod', 'I']}>
+					<ListboxDropdown
+						options={bulletListStyleOptions}
+						value={activeBulletListStyle}
+						ariaLabel="Bulleted list style"
+						buttonClass={toolbarSplitMenuButtonClass(toolbarState.bulletList)}
+						listClass="mt-1 w-44 border-2 border-neutral-950 bg-white z-20 max-h-72 overflow-y-auto scrollbar-thin"
+						optionClass="w-full text-left px-3 py-2 text-sm text-neutral-900 cursor-pointer"
+						activeOptionClass="bg-neutral-100 text-neutral-900"
+						on:change={(event) => {
+							applyBulletListStyle(event.detail.value);
+						}}
+					>
+						{#snippet trigger(open)}
+							{#if open}
+								<IconChevronUp class="h-4 w-4 shrink-0" />
+							{:else}
+								<IconChevronDown class="h-4 w-4 shrink-0" />
+							{/if}
+						{/snippet}
+					</ListboxDropdown>
+				</div>
+				<div class={toolbarSplitButtonShellClass(toolbarState.orderedList)}>
+					<HoverTooltip
+						text={toolbarState.orderedList ? 'Turn off numbered list' : 'Numbered list'}
+					>
 						<button
 							type="button"
-							class={toolbarButtonClass(toolbarState.italic)}
-							aria-label="Italic"
-							disabled={!canRun((nextEditor) => nextEditor.can().chain().focus().toggleItalic().run())}
-							onclick={() =>
-								runCommand((nextEditor) => nextEditor.chain().focus().toggleItalic().run())}
+							class={toolbarSplitMainButtonClass(toolbarState.orderedList)}
+							aria-label="Numbered list"
+							disabled={!canUseListControls()}
+							onclick={toggleDefaultOrderedList}
 						>
-							<IconItalic class="h-4 w-4" />
+							<IconListNumbers class="h-4 w-4" />
 						</button>
 					</HoverTooltip>
-					<HoverTooltip text="Underline" shortcutKeys={['Mod', 'U']}>
-						<button
-							type="button"
-							class={toolbarButtonClass(toolbarState.underline)}
-							aria-label="Underline"
-							disabled={
-								!canRun((nextEditor) => nextEditor.can().chain().focus().toggleUnderline().run())
-							}
-							onclick={() =>
-								runCommand((nextEditor) => nextEditor.chain().focus().toggleUnderline().run())}
-						>
-							<IconUnderline class="h-4 w-4" />
-						</button>
-					</HoverTooltip>
-					<HoverTooltip text="Strikethrough" shortcutKeys={['Mod', 'Shift', 'S']}>
-						<button
-							type="button"
-							class={toolbarButtonClass(toolbarState.strike)}
-							aria-label="Strikethrough"
-							disabled={!canRun((nextEditor) => nextEditor.can().chain().focus().toggleStrike().run())}
-							onclick={() => runCommand((nextEditor) => nextEditor.chain().focus().toggleStrike().run())}
-						>
-							<IconStrikethrough class="h-4 w-4" />
-						</button>
-					</HoverTooltip>
-					<HoverTooltip text="Hyperlink" shortcutKeys={['Mod', 'K']}>
-						<button
-							type="button"
-							class={toolbarButtonClass(toolbarState.link)}
-							aria-label="Hyperlink"
-							disabled={!editor}
-							data-toolbar-allows-default-mousedown="true"
-							onclick={() => openLinkDialog()}
-						>
-							<IconLink class="h-4 w-4" />
-						</button>
-					</HoverTooltip>
-					<HoverTooltip text="Clear formatting">
-						<button
-							type="button"
-							class={toolbarButtonClass()}
-							aria-label="Clear formatting"
-							disabled={
-								!canRun((nextEditor) =>
-									nextEditor.can().chain().focus().unsetAllMarks().clearNodes().run()
-								)
-							}
-							onclick={() =>
-								runCommand((nextEditor) =>
-									nextEditor.chain().focus().unsetAllMarks().clearNodes().run()
-								)}
-						>
-							<IconClearFormatting class="h-4 w-4" />
-						</button>
-					</HoverTooltip>
-					<div class={toolbarSplitButtonShellClass(toolbarState.bulletList)}>
-						<HoverTooltip
-							text={toolbarState.bulletList ? 'Turn off bulleted list' : 'Bulleted list'}
-						>
-							<button
-								type="button"
-								class={toolbarSplitMainButtonClass(toolbarState.bulletList)}
-								aria-label="Bulleted list"
-								disabled={!canUseListControls()}
-								onclick={toggleDefaultBulletList}
-							>
-								<IconList class="h-4 w-4" />
-							</button>
-						</HoverTooltip>
-						<ListboxDropdown
-							options={bulletListStyleOptions}
-							value={activeBulletListStyle}
-							ariaLabel="Bulleted list style"
-							buttonClass={toolbarSplitMenuButtonClass(toolbarState.bulletList)}
-							listClass="mt-1 w-44 border-2 border-neutral-950 bg-white z-20 max-h-72 overflow-y-auto scrollbar-thin"
-							optionClass="w-full text-left px-3 py-2 text-sm text-neutral-900 cursor-pointer"
-							activeOptionClass="bg-neutral-100 text-neutral-900"
-							on:change={(event) => {
-								applyBulletListStyle(event.detail.value);
-							}}
-						>
-							{#snippet trigger(open)}
-								{#if open}
-									<IconChevronUp class="h-4 w-4 shrink-0" />
-								{:else}
-									<IconChevronDown class="h-4 w-4 shrink-0" />
-								{/if}
-							{/snippet}
-						</ListboxDropdown>
-					</div>
-					<div class={toolbarSplitButtonShellClass(toolbarState.orderedList)}>
-						<HoverTooltip
-							text={toolbarState.orderedList ? 'Turn off numbered list' : 'Numbered list'}
-						>
-							<button
-								type="button"
-								class={toolbarSplitMainButtonClass(toolbarState.orderedList)}
-								aria-label="Numbered list"
-								disabled={!canUseListControls()}
-								onclick={toggleDefaultOrderedList}
-							>
-								<IconListNumbers class="h-4 w-4" />
-							</button>
-						</HoverTooltip>
-						<ListboxDropdown
-							options={orderedListStyleOptions}
-							value={activeOrderedListStyle}
-							ariaLabel="Numbered list style"
-							buttonClass={toolbarSplitMenuButtonClass(toolbarState.orderedList)}
-							listClass="mt-1 w-48 border-2 border-neutral-950 bg-white z-20 max-h-72 overflow-y-auto scrollbar-thin"
-							optionClass="w-full text-left px-3 py-2 text-sm text-neutral-900 cursor-pointer"
-							activeOptionClass="bg-neutral-100 text-neutral-900"
-							on:change={(event) => {
-								applyOrderedListStyle(event.detail.value);
-							}}
-						>
-							{#snippet trigger(open)}
-								{#if open}
-									<IconChevronUp class="h-4 w-4 shrink-0" />
-								{:else}
-									<IconChevronDown class="h-4 w-4 shrink-0" />
-								{/if}
-							{/snippet}
-						</ListboxDropdown>
-					</div>
-					<HoverTooltip text="Blockquote">
-						<button
-							type="button"
-							class={toolbarButtonClass(toolbarState.blockquote)}
-							aria-label="Blockquote"
-							disabled={
-								!canRun((nextEditor) => nextEditor.can().chain().focus().toggleBlockquote().run())
-							}
-							onclick={() =>
-								runCommand((nextEditor) => nextEditor.chain().focus().toggleBlockquote().run())}
-						>
-							<IconBlockquote class="h-4 w-4" />
-						</button>
-					</HoverTooltip>
+					<ListboxDropdown
+						options={orderedListStyleOptions}
+						value={activeOrderedListStyle}
+						ariaLabel="Numbered list style"
+						buttonClass={toolbarSplitMenuButtonClass(toolbarState.orderedList)}
+						listClass="mt-1 w-48 border-2 border-neutral-950 bg-white z-20 max-h-72 overflow-y-auto scrollbar-thin"
+						optionClass="w-full text-left px-3 py-2 text-sm text-neutral-900 cursor-pointer"
+						activeOptionClass="bg-neutral-100 text-neutral-900"
+						on:change={(event) => {
+							applyOrderedListStyle(event.detail.value);
+						}}
+					>
+						{#snippet trigger(open)}
+							{#if open}
+								<IconChevronUp class="h-4 w-4 shrink-0" />
+							{:else}
+								<IconChevronDown class="h-4 w-4 shrink-0" />
+							{/if}
+						{/snippet}
+					</ListboxDropdown>
+				</div>
+				<HoverTooltip text="Blockquote">
+					<button
+						type="button"
+						class={toolbarButtonClass(toolbarState.blockquote)}
+						aria-label="Blockquote"
+						disabled={!canRun((nextEditor) =>
+							nextEditor.can().chain().focus().toggleBlockquote().run()
+						)}
+						onclick={() =>
+							runCommand((nextEditor) => nextEditor.chain().focus().toggleBlockquote().run())}
+					>
+						<IconBlockquote class="h-4 w-4" />
+					</button>
+				</HoverTooltip>
 				<HoverTooltip text="Text color">
 					<label class={toolbarColorButtonClass()}>
-							<span class="communication-editor-color-tool-icon">
-								<IconTextColor class="h-4 w-4" />
-								<span
-									class="communication-editor-color-tool-preview"
-									style={`background-color: ${textColor};`}
-									aria-hidden="true"
-								></span>
-							</span>
-							<span class="sr-only">Text color</span>
-							<input
-								class="communication-editor-color-tool-input"
-								type="color"
-								value={textColor}
-								oninput={applyTextColor}
-							/>
-						</label>
-					</HoverTooltip>
+						<span class="communication-editor-color-tool-icon">
+							<IconTextColor class="h-4 w-4" />
+							<span
+								class="communication-editor-color-tool-preview"
+								style={`background-color: ${textColor};`}
+								aria-hidden="true"
+							></span>
+						</span>
+						<span class="sr-only">Text color</span>
+						<input
+							class="communication-editor-color-tool-input"
+							type="color"
+							value={textColor}
+							oninput={applyTextColor}
+						/>
+					</label>
+				</HoverTooltip>
 				<HoverTooltip text="Highlight color">
 					<label class={toolbarColorButtonClass()}>
-							<span class="communication-editor-color-tool-icon">
-								<IconHighlight class="h-4 w-4" />
-								<span
-									class="communication-editor-color-tool-preview"
-									style={`background-color: ${highlightColor};`}
-									aria-hidden="true"
-								></span>
-							</span>
-							<span class="sr-only">Highlight color</span>
-							<input
-								class="communication-editor-color-tool-input"
-								type="color"
-								value={highlightColor}
-								oninput={applyHighlightColor}
-							/>
-						</label>
-					</HoverTooltip>
+						<span class="communication-editor-color-tool-icon">
+							<IconHighlight class="h-4 w-4" />
+							<span
+								class="communication-editor-color-tool-preview"
+								style={`background-color: ${highlightColor};`}
+								aria-hidden="true"
+							></span>
+						</span>
+						<span class="sr-only">Highlight color</span>
+						<input
+							class="communication-editor-color-tool-input"
+							type="color"
+							value={highlightColor}
+							oninput={applyHighlightColor}
+						/>
+					</label>
+				</HoverTooltip>
 				<HoverTooltip
 					text={imageIsSelected ? 'Edit selected image' : 'Insert image'}
 					shortcutKeys={['Mod', 'Shift', 'I']}
@@ -1693,7 +1709,10 @@
 	{/if}
 
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class="relative border border-neutral-950 bg-white cursor-text" onmousedown={focusEditorFromShell}>
+	<div
+		class="relative border border-neutral-950 bg-white cursor-text"
+		onmousedown={focusEditorFromShell}
+	>
 		<div
 			bind:this={editorElement}
 			class="tiptap editor-host min-h-[22rem] max-w-none px-4 py-4 prose prose-neutral focus:outline-none"
@@ -1702,15 +1721,17 @@
 		{#if linkDialogOpen}
 			<div class="absolute inset-0 z-10 flex items-center justify-center bg-black/20 p-4">
 				<div
-					class="w-full max-w-md border-2 border-neutral-950 bg-neutral shadow-lg"
+					class="modal-panel max-w-md max-h-full shadow-lg"
 					role="dialog"
 					aria-modal="true"
 					aria-label="Edit Hyperlink"
 					tabindex="-1"
 				>
-					<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
-						<h3 class="text-xl font-serif font-bold text-neutral-950">Edit Hyperlink</h3>
-					</div>
+					<ModalHeader
+						title="Edit Hyperlink"
+						closeAriaLabel="Close hyperlink dialog"
+						onClose={closeLinkDialog}
+					/>
 					<div class="space-y-3 p-4">
 						<div class="space-y-2">
 							<label class="block text-sm font-sans text-neutral-950" for="communication-link-text">
@@ -1793,21 +1814,22 @@
 		{#if imageDialogOpen}
 			<div class="absolute inset-0 z-10 flex items-center justify-center bg-black/20 p-4">
 				<div
-					class="w-full max-w-lg border-2 border-neutral-950 bg-neutral shadow-lg"
+					class="modal-panel max-w-lg max-h-full shadow-lg"
 					role="dialog"
 					aria-modal="true"
 					aria-label={imageIsSelected ? 'Edit image' : 'Insert image'}
 					tabindex="-1"
 				>
-					<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
-						<h3 class="text-xl font-serif font-bold text-neutral-950">
-							{imageIsSelected ? 'Edit image' : 'Insert image'}
-						</h3>
+					<ModalHeader
+						title={imageIsSelected ? 'Edit image' : 'Insert image'}
+						closeAriaLabel="Close image dialog"
+						onClose={closeImageDialog}
+					>
 						<p class="mt-1 text-sm text-neutral-700">
 							Use a remote image URL for newsletter content. Alt text helps accessibility and
 							improves message clarity when images fail to load.
 						</p>
-					</div>
+					</ModalHeader>
 					<div class="space-y-3 p-4">
 						<div class="space-y-2">
 							<label class="block text-sm font-sans text-neutral-950" for="communication-image-url">
@@ -1832,7 +1854,10 @@
 						</div>
 						<div class="grid gap-3 md:grid-cols-2">
 							<div class="space-y-2">
-								<label class="block text-sm font-sans text-neutral-950" for="communication-image-alt">
+								<label
+									class="block text-sm font-sans text-neutral-950"
+									for="communication-image-alt"
+								>
 									Alt text
 								</label>
 								<input
@@ -1844,7 +1869,10 @@
 								/>
 							</div>
 							<div class="space-y-2">
-								<label class="block text-sm font-sans text-neutral-950" for="communication-image-title">
+								<label
+									class="block text-sm font-sans text-neutral-950"
+									for="communication-image-title"
+								>
 									Title
 								</label>
 								<input
@@ -1892,23 +1920,29 @@
 		{#if tableDialogOpen}
 			<div class="absolute inset-0 z-10 flex items-center justify-center bg-black/20 p-4">
 				<div
-					class="w-full max-w-md border-2 border-neutral-950 bg-neutral shadow-lg"
+					class="modal-panel max-w-md max-h-full shadow-lg"
 					role="dialog"
 					aria-modal="true"
 					aria-label="Insert table"
 					tabindex="-1"
 				>
-					<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
-						<h3 class="text-xl font-serif font-bold text-neutral-950">Insert table</h3>
+					<ModalHeader
+						title="Insert table"
+						closeAriaLabel="Close table dialog"
+						onClose={closeTableDialog}
+					>
 						<p class="mt-1 text-sm text-neutral-700">
 							Create a simple content table for schedules, highlights, or structured newsletter
 							sections.
 						</p>
-					</div>
+					</ModalHeader>
 					<div class="space-y-3 p-4">
 						<div class="grid gap-3 sm:grid-cols-2">
 							<div class="space-y-2">
-								<label class="block text-sm font-sans text-neutral-950" for="communication-table-rows">
+								<label
+									class="block text-sm font-sans text-neutral-950"
+									for="communication-table-rows"
+								>
 									Rows
 								</label>
 								<input
@@ -1921,7 +1955,10 @@
 								/>
 							</div>
 							<div class="space-y-2">
-								<label class="block text-sm font-sans text-neutral-950" for="communication-table-cols">
+								<label
+									class="block text-sm font-sans text-neutral-950"
+									for="communication-table-cols"
+								>
 									Columns
 								</label>
 								<input
@@ -1935,11 +1972,7 @@
 							</div>
 						</div>
 						<label class="inline-flex items-center gap-2 text-sm text-neutral-950">
-							<input
-								class="checkbox-secondary"
-								type="checkbox"
-								bind:checked={tableWithHeaderRow}
-							/>
+							<input class="checkbox-secondary" type="checkbox" bind:checked={tableWithHeaderRow} />
 							<span>Start with a header row</span>
 						</label>
 						<div class="flex flex-wrap items-center justify-end gap-2">
@@ -1962,27 +1995,17 @@
 		{#if specialCharacterDialogOpen}
 			<div class="absolute inset-0 z-10 flex items-center justify-center bg-black/20 p-4">
 				<div
-					class="w-full max-w-3xl max-h-full border-2 border-neutral-950 bg-neutral shadow-lg overflow-hidden flex flex-col"
+					class="modal-panel max-w-3xl max-h-full shadow-lg"
 					role="dialog"
 					aria-modal="true"
 					aria-label="Special characters"
 					tabindex="-1"
 				>
-					<div class="border-b border-neutral-950 bg-neutral-600/66 p-4">
-						<div class="flex items-center justify-between gap-3">
-							<h3 class="min-w-0 text-2xl font-serif font-bold text-neutral-950">
-								Special Characters
-							</h3>
-							<button
-								type="button"
-								class="modal-close-button shrink-0"
-								aria-label="Close special characters"
-								onclick={closeSpecialCharacterDialog}
-							>
-								<IconX class="h-6 w-6" />
-							</button>
-						</div>
-					</div>
+					<ModalHeader
+						title="Special Characters"
+						closeAriaLabel="Close special characters"
+						onClose={closeSpecialCharacterDialog}
+					/>
 
 					<div class="flex flex-1 flex-col overflow-hidden bg-neutral">
 						<div class="space-y-4 overflow-y-auto p-4">
@@ -2077,8 +2100,10 @@
 		cursor: pointer;
 	}
 
-	.communication-rich-editor :global(.communication-editor-font-size-input::-webkit-outer-spin-button),
-	.communication-rich-editor :global(.communication-editor-font-size-input::-webkit-inner-spin-button) {
+	.communication-rich-editor
+		:global(.communication-editor-font-size-input::-webkit-outer-spin-button),
+	.communication-rich-editor
+		:global(.communication-editor-font-size-input::-webkit-inner-spin-button) {
 		-webkit-appearance: none;
 		margin: 0;
 	}

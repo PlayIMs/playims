@@ -30,9 +30,9 @@
 
 <ModalShell
 	{open}
+	title={`${actionLabel} Team Override`}
 	closeAriaLabel={`Close ${actionLabel.toLowerCase()} override confirmation`}
-	panelClass="w-full max-w-md border-4 border-secondary bg-neutral-400 overflow-hidden"
-	paddingClass="p-0"
+	panelClass="max-w-md"
 	on:requestClose={() => {
 		if (submitting) return;
 		onRequestClose();
@@ -46,8 +46,8 @@
 						<span class="font-semibold">{dialogState.divisionName}</span> is full.
 						{actionLabel} this team anyway as a manual override?
 					{:else}
-						<span class="font-semibold">{dialogState.divisionName}</span> is locked.
-						Do you want to {actionLabel.toLowerCase()} this team anyway?
+						<span class="font-semibold">{dialogState.divisionName}</span> is locked. Do you want to {actionLabel.toLowerCase()}
+						this team anyway?
 					{/if}
 				</p>
 			</div>
@@ -72,7 +72,7 @@
 					<button
 						type="button"
 						class="inline-flex h-8 items-center justify-center gap-1 border border-primary-600 bg-primary-500 px-2.5 text-[11px] font-semibold leading-none cursor-pointer hover:bg-primary-600 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
-										style:color="var(--color-primary-foreground)"
+						style:color="var(--color-primary-foreground)"
 						disabled={submitting}
 						onclick={() => {
 							onConfirmAndUnlock?.();
@@ -85,7 +85,7 @@
 					<button
 						type="button"
 						class="inline-flex h-8 items-center justify-center border border-primary-600 bg-primary-500 px-2.5 text-[11px] font-semibold leading-none cursor-pointer hover:bg-primary-600 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
-										style:color="var(--color-primary-foreground)"
+						style:color="var(--color-primary-foreground)"
 						disabled={submitting}
 						onclick={onConfirm}
 					>

@@ -1,11 +1,5 @@
 <script lang="ts">
-	import {
-		IconDeviceFloppy,
-		IconLogout,
-		IconRestore,
-		IconTarget,
-		IconX
-	} from '@tabler/icons-svelte';
+	import { IconDeviceFloppy, IconLogout, IconRestore, IconTarget } from '@tabler/icons-svelte';
 	import { createEventDispatcher, tick } from 'svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import InfoPopover from '$lib/components/InfoPopover.svelte';
@@ -603,31 +597,17 @@
 			</section>
 		{/if}
 	</div>
-
 </WizardModal>
 
 <ModalShell
 	open={open && isLeaveModalOpen}
 	closeAriaLabel="Close leave organization dialog"
-	showCloseButton={false}
-	panelClass="w-full max-w-2xl max-h-[calc(100vh-3rem)] border-4 border-error-700 bg-error-25 overflow-hidden flex flex-col"
+	title="Leave Organization"
+	tone="danger"
+	panelClass="max-w-2xl"
 	on:requestClose={closeLeaveModal}
 >
-	<div class="p-4 border-b border-error-300 bg-error-50 flex items-start justify-between gap-3">
-		<div class="space-y-1">
-			<h3 class="text-2xl font-bold font-serif text-error-900">Leave Organization</h3>
-		</div>
-		<button
-			type="button"
-			class="modal-close-button text-error-700 hover:text-error-900 focus-visible:text-error-900"
-			aria-label="Close leave organization dialog"
-			onclick={closeLeaveModal}
-		>
-			<IconX class="w-5 h-5" />
-		</button>
-	</div>
-
-	<div class="p-4 space-y-3 overflow-y-auto">
+	<div class="modal-body space-y-3">
 		<div class="border-2 border-error-300 bg-error-50 p-3 space-y-2">
 			<p class="text-sm text-error-900 font-semibold">
 				Leaving this organization removes your membership and access to the organization.
@@ -657,7 +637,7 @@
 		</div>
 	</div>
 
-	<div class="p-4 border-t border-neutral-950 flex justify-end gap-2">
+	<div class="modal-footer modal-actions">
 		<button
 			type="button"
 			class="button-secondary-outlined cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"

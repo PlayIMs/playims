@@ -382,6 +382,14 @@ When a UI bug reproduces but parser or unit tests pass:
 2. Search sibling routes for duplicated wizard or inference logic before assuming a shared utility is the live source of truth.
 3. Add or use one integration-path check that proves the rendered UI is wired to the same logic the tests cover.
 
+## Shared Modal Ownership
+
+- Change shared modal/wizard appearance and behavior in `ModalShell`, `ModalHeader`, `WizardModal`, `WizardStepFooter`, and `src/app.css` first, then migrate consumers that bypass them.
+- Use `ModalShell`'s `title` prop rather than route-local headers or X buttons. Keep `panelClass` for width/layout only; use `tone="danger"` for destructive-dialog framing.
+- Put wizard actions in the `footer` snippet so the base keeps them visible outside the scrolling body. Use `modal-body`, `modal-footer`, and `modal-actions` for direct modal layout.
+- Use shared inputs, `ListboxDropdown variant="field"`, SearchInput, InfoPopover, and HoverTooltip inside forms. Do not copy control CSS into a route when a shared variant can provide it.
+- Preserve deliberate exceptions such as composer-anchored editor dialogs and the command palette; still reuse shared framing where appropriate. Document exceptions rather than silently overriding defaults.
+
 ## Dashboard Pattern Parity
 
 - When a dashboard route is meant to mirror the offerings page or its descendant routes, copy the existing offerings interaction pattern instead of inventing a route-local alternative.

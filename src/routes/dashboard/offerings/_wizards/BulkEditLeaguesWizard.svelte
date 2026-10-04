@@ -90,19 +90,21 @@
 		{@render children?.()}
 	</div>
 
-	<WizardStepFooter
-		{step}
-		lastStep={3}
-		showBack={step > 1}
-		{canGoNext}
-		{canSubmit}
-		{isSubmitting}
-		{nextLabel}
-		{submitLabel}
-		{submittingLabel}
-		on:back={onBack}
-		on:next={onNext}
-	/>
+	{#snippet footer()}
+		<WizardStepFooter
+			{step}
+			lastStep={3}
+			showBack={step > 1}
+			{canGoNext}
+			{canSubmit}
+			{isSubmitting}
+			{nextLabel}
+			{submitLabel}
+			{submittingLabel}
+			on:back={onBack}
+			on:next={onNext}
+		/>
+	{/snippet}
 </WizardModal>
 
 <WizardUnsavedConfirm
