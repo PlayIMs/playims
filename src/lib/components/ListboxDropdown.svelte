@@ -1254,7 +1254,7 @@
 					<div
 						class={joinClassNames(
 							hasPrimaryFooterAction && hasSecondaryFooterAction
-								? 'grid grid-cols-[minmax(0,1fr)_1fr] gap-1.5'
+								? 'grid grid-cols-[minmax(0,1fr)_auto] items-stretch gap-1.5'
 								: '',
 							footerActionsClass
 						)}

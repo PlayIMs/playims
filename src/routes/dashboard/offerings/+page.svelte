@@ -376,7 +376,7 @@
 		'button-neutral-outlined h-[1.875rem] w-[1.875rem] px-0 cursor-pointer inline-flex items-center justify-center text-neutral-950';
 	const HISTORY_DROPDOWN_LIST_CLASS = 'w-64';
 	const HISTORY_DROPDOWN_FOOTER_ACTION_CLASS =
-		'w-full button-neutral-outlined px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer justify-center';
+		'w-full button-neutral-outlined whitespace-nowrap px-3 py-2 text-xs font-bold uppercase tracking-wide cursor-pointer justify-center';
 	const HISTORY_DROPDOWN_FOOTER_ICON_ACTION_CLASS =
 		'button-neutral-outlined dashboard-icon-button cursor-pointer text-neutral-950';
 	const HEADER_ICON_CLASS = 'h-4 w-4 shrink-0 text-neutral-950';
