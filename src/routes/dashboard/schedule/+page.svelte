@@ -94,9 +94,9 @@
 		{ value: 'day', label: 'Day' },
 		{ value: 'week', label: 'Week' },
 		{ value: 'month', label: 'Month' },
-		{ value: 'date-range', label: 'Date Range' },
-		{ value: 'entire-season', label: 'Entire Season' }
-	] satisfies Array<{ value: ScheduleDisplayMode; label: string }>;
+		{ value: 'date-range', label: 'Date Range', disabled: true },
+		{ value: 'entire-season', label: 'Entire Season', disabled: true }
+	] satisfies Array<{ value: ScheduleDisplayMode; label: string; disabled?: boolean }>;
 
 	let { data } = $props<{ data: PageData }>();
 	const pageLabel = $derived.by(
@@ -563,8 +563,17 @@
 	}
 
 	function handleNavigatorDayKeydown(event: KeyboardEvent, dateKey: string): void {
-		const shortcutMove = resolveScheduleKeyboardShortcutMove(event.key, event.shiftKey);
-		const nextDateKey = resolveNextScheduleShortcutDate(dateKey, event.key, event.shiftKey);
+		const shortcutMove = resolveScheduleKeyboardShortcutMove(
+			event.key,
+			event.shiftKey,
+			selectedView
+		);
+		const nextDateKey = resolveNextScheduleShortcutDate(
+			dateKey,
+			event.key,
+			event.shiftKey,
+			selectedView
+		);
 		if (!nextDateKey) return;
 
 		event.preventDefault();
@@ -573,8 +582,17 @@
 	}
 
 	function handleNavigatorWeekKeydown(event: KeyboardEvent, dateKey: string): void {
-		const shortcutMove = resolveScheduleKeyboardShortcutMove(event.key, true);
-		const nextDateKey = resolveNextScheduleShortcutDate(dateKey, event.key, true);
+		const shortcutMove = resolveScheduleKeyboardShortcutMove(
+			event.key,
+			event.shiftKey,
+			selectedView
+		);
+		const nextDateKey = resolveNextScheduleShortcutDate(
+			dateKey,
+			event.key,
+			event.shiftKey,
+			selectedView
+		);
 		if (!nextDateKey) return;
 
 		event.preventDefault();
@@ -583,8 +601,17 @@
 	}
 
 	function handleNavigatorMonthKeydown(event: KeyboardEvent, dateKey: string): void {
-		const shortcutMove = resolveScheduleKeyboardShortcutMove(event.key, event.shiftKey);
-		const nextDateKey = resolveNextScheduleShortcutDate(dateKey, event.key, event.shiftKey);
+		const shortcutMove = resolveScheduleKeyboardShortcutMove(
+			event.key,
+			event.shiftKey,
+			selectedView
+		);
+		const nextDateKey = resolveNextScheduleShortcutDate(
+			dateKey,
+			event.key,
+			event.shiftKey,
+			selectedView
+		);
 		if (!nextDateKey) return;
 
 		event.preventDefault();
@@ -1228,8 +1255,17 @@
 			return;
 		}
 
-		const shortcutMove = resolveScheduleKeyboardShortcutMove(event.key, event.shiftKey);
-		const nextDateKey = resolveNextScheduleShortcutDate(anchorDate, event.key, event.shiftKey);
+		const shortcutMove = resolveScheduleKeyboardShortcutMove(
+			event.key,
+			event.shiftKey,
+			selectedView
+		);
+		const nextDateKey = resolveNextScheduleShortcutDate(
+			anchorDate,
+			event.key,
+			event.shiftKey,
+			selectedView
+		);
 		if (!nextDateKey) return;
 
 		event.preventDefault();
@@ -1573,17 +1609,23 @@
 											case="preserve"
 											rows={[
 												{
-													text: 'Previous Day',
+													text:
+														selectedView === 'week'
+															? 'Previous Week'
+															: selectedView === 'month'
+																? 'Previous Month'
+																: 'Previous Day',
 													shortcutKeys: ['ArrowLeft']
 												},
-												{
-													text: 'Previous Week',
-													shortcutKeys: ['Shift', 'ArrowLeft']
-												},
-												{
-													text: 'Previous Month',
-													shortcutKeys: ['Shift', 'ArrowUp']
-												}
+												...(selectedView === 'day'
+													? [
+															{ text: 'Previous Week', shortcutKeys: ['Shift', 'ArrowLeft'] },
+															{ text: 'Previous Month', shortcutKeys: ['Shift', 'ArrowUp'] }
+														]
+													: []),
+												...(selectedView === 'week'
+													? [{ text: 'Previous Month', shortcutKeys: ['Shift', 'ArrowUp'] }]
+													: [])
 											]}
 										>
 											<button
@@ -1783,17 +1825,23 @@
 											case="preserve"
 											rows={[
 												{
-													text: 'Next Day',
+													text:
+														selectedView === 'week'
+															? 'Next Week'
+															: selectedView === 'month'
+																? 'Next Month'
+																: 'Next Day',
 													shortcutKeys: ['ArrowRight']
 												},
-												{
-													text: 'Next Week',
-													shortcutKeys: ['Shift', 'ArrowRight']
-												},
-												{
-													text: 'Next Month',
-													shortcutKeys: ['Shift', 'ArrowDown']
-												}
+												...(selectedView === 'day'
+													? [
+															{ text: 'Next Week', shortcutKeys: ['Shift', 'ArrowRight'] },
+															{ text: 'Next Month', shortcutKeys: ['Shift', 'ArrowDown'] }
+														]
+													: []),
+												...(selectedView === 'week'
+													? [{ text: 'Next Month', shortcutKeys: ['Shift', 'ArrowDown'] }]
+													: [])
 											]}
 										>
 											<button

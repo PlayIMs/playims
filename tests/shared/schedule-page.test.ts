@@ -17,7 +17,7 @@ Summary of tests:
 5. It verifies the URL-sync helper removes default schedule params and no-ops once the URL matches.
 6. It verifies page-level keyboard shortcuts stay idle while dropdowns, pickers, or text entry are active.
 7. It verifies the navigator focus target stays on the anchored date except for the custom range view.
-8. It verifies the simple day navigator maps arrow-key combinations and quick date letters to the expected jumps.
+8. It verifies view-aware arrow-key combinations and quick date letters map to the expected jumps.
 9. It verifies unscheduled events stay out of dated agenda buckets and month cells.
 */
 
@@ -99,6 +99,23 @@ function createEvent(overrides?: Partial<ScheduleEventRecord>): ScheduleEventRec
 }
 
 describe('schedule page helpers', () => {
+	it('moves plain arrows by the active view while preserving modified shortcuts', () => {
+		// arrow hints must match the movement regardless of which navigator cell has focus.
+		expect(resolveScheduleKeyboardShortcutMove('ArrowRight', false, 'week')).toEqual({
+			unit: 'week',
+			direction: 1
+		});
+		expect(resolveScheduleKeyboardShortcutMove('ArrowLeft', false, 'month')).toEqual({
+			unit: 'month',
+			direction: -1
+		});
+		expect(resolveNextScheduleShortcutDate('2026-10-04', 'ArrowRight', false, 'month')).toBe(
+			'2026-11-04'
+		);
+		expect(resolveNextScheduleShortcutDate('2026-10-04', 'ArrowRight', true, 'month')).toBe(
+			'2026-10-11'
+		);
+	});
 	const events = [
 		createEvent(),
 		createEvent({

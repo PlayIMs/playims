@@ -1,10 +1,5 @@
 export type ScheduleStatus =
-	| 'scheduled'
-	| 'in_progress'
-	| 'completed'
-	| 'cancelled'
-	| 'postponed'
-	| 'other';
+	'scheduled' | 'in_progress' | 'completed' | 'cancelled' | 'postponed' | 'other';
 
 export type ScheduleManageAction = 'enter-results' | 'edit' | 'duplicate' | 'delete';
 
@@ -648,13 +643,21 @@ export function shouldHandleScheduleKeyboardNavigation(
 
 export function resolveScheduleKeyboardShortcutMove(
 	key: string,
-	shiftKey = false
+	shiftKey = false,
+	view = 'day'
 ): ScheduleKeyboardShortcutMove | null {
 	const direction = resolveScheduleNavigatorDirection(key, shiftKey);
 	if (direction === null) return null;
 
 	return {
-		unit: Math.abs(direction) === 30 ? 'month' : Math.abs(direction) === 7 ? 'week' : 'day',
+		unit:
+			!shiftKey && (view === 'week' || view === 'month')
+				? view
+				: Math.abs(direction) === 30
+					? 'month'
+					: Math.abs(direction) === 7
+						? 'week'
+						: 'day',
 		direction: direction < 0 ? -1 : 1
 	};
 }
@@ -670,9 +673,10 @@ export function resolveScheduleQuickShortcutDate(key: string): string | null {
 export function resolveNextScheduleShortcutDate(
 	anchorDate: string,
 	key: string,
-	shiftKey = false
+	shiftKey = false,
+	view = 'day'
 ): string | null {
-	const shortcutMove = resolveScheduleKeyboardShortcutMove(key, shiftKey);
+	const shortcutMove = resolveScheduleKeyboardShortcutMove(key, shiftKey, view);
 	if (!shortcutMove) return null;
 
 	return shiftScheduleAnchorDate(anchorDate, shortcutMove.unit, shortcutMove.direction);
