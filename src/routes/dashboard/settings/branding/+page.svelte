@@ -1,5 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import {
+		hexToHsl,
+		hslToHex,
+		colorFromPosition,
+		parsePickerHex,
+		parsePickerHsl
+	} from '$lib/color-picker';
 	import PageTitle from '$lib/components/PageTitle.svelte';
 	import {
 		IconDeviceFloppy,
@@ -13,6 +20,7 @@
 	import {
 		themeColors,
 		updateColor,
+		previewColor,
 		resetTheme,
 		formatHex,
 		savedThemes,
@@ -42,6 +50,11 @@
 
 	let openPicker: 'primary' | 'secondary' | 'neutral' | null = $state(null);
 	let pickerColor = $state({ h: 0, s: 100, l: 50, saturation: 100 });
+	let pickerOriginalColor = '';
+	let pickerCoordinates = $state<{ x: number; y: number } | null>(null);
+	let pickerHexInput = $state('');
+	let pickerHslInput = $state('');
+	let pickerInputError = $state('');
 	let isDragging = $state(false);
 	let colorAreaElement: HTMLCanvasElement | null = $state(null);
 	let showNeutralPalettePicker = $state(false);
@@ -75,6 +88,7 @@
 	}
 
 	function getPickerPosition() {
+		if (pickerCoordinates) return pickerCoordinates;
 		const s = pickerColor.s / 100;
 		const l = pickerColor.l / 100;
 		const v = l + s * Math.min(l, 1 - l);
@@ -105,6 +119,7 @@
 		syncInputsFromStore();
 
 		return () => {
+			closeColorPicker();
 			unsubscribe();
 			window.removeEventListener('mousemove', handleGlobalMouseMove);
 			window.removeEventListener('mouseup', handleGlobalMouseUp);
@@ -230,91 +245,6 @@
 		];
 	}
 
-	function hexToHsl(hex: string): { h: number; s: number; l: number } {
-		const cleanHex = hex.replace('#', '');
-		const r = parseInt(cleanHex.substring(0, 2), 16) / 255;
-		const g = parseInt(cleanHex.substring(2, 4), 16) / 255;
-		const b = parseInt(cleanHex.substring(4, 6), 16) / 255;
-
-		const max = Math.max(r, g, b);
-		const min = Math.min(r, g, b);
-		let h = 0;
-		let s = 0;
-		const l = (max + min) / 2;
-
-		if (max !== min) {
-			const d = max - min;
-			s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-			switch (max) {
-				case r:
-					h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
-					break;
-				case g:
-					h = ((b - r) / d + 2) / 6;
-					break;
-				case b:
-					h = ((r - g) / d + 4) / 6;
-					break;
-			}
-		}
-
-		return {
-			h: Math.round(h * 360),
-			s: Math.round(s * 100),
-			l: Math.round(l * 100)
-		};
-	}
-
-	function hslToHex(h: number, s: number, l: number): string {
-		s /= 100;
-		l /= 100;
-
-		const c = (1 - Math.abs(2 * l - 1)) * s;
-		const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
-		const m = l - c / 2;
-		let r = 0;
-		let g = 0;
-		let b = 0;
-
-		if (0 <= h && h < 60) {
-			r = c;
-			g = x;
-			b = 0;
-		} else if (60 <= h && h < 120) {
-			r = x;
-			g = c;
-			b = 0;
-		} else if (120 <= h && h < 180) {
-			r = 0;
-			g = c;
-			b = x;
-		} else if (180 <= h && h < 240) {
-			r = 0;
-			g = x;
-			b = c;
-		} else if (240 <= h && h < 300) {
-			r = x;
-			g = 0;
-			b = c;
-		} else if (300 <= h && h < 360) {
-			r = c;
-			g = 0;
-			b = x;
-		}
-
-		r = Math.round((r + m) * 255);
-		g = Math.round((g + m) * 255);
-		b = Math.round((b + m) * 255);
-
-		return [r, g, b]
-			.map((value) => {
-				const hex = value.toString(16);
-				return hex.length === 1 ? `0${hex}` : hex;
-			})
-			.join('')
-			.toUpperCase();
-	}
-
 	function applySaturationToHex(hex: string, saturation: number): string {
 		const cleanHex = hex.replace('#', '');
 		const factor = Math.max(0, Math.min(100, saturation)) / 100;
@@ -352,6 +282,9 @@
 	}
 
 	function openColorPicker(colorName: 'primary' | 'secondary' | 'neutral') {
+		pickerOriginalColor = $themeColors[colorName];
+		pickerCoordinates = null;
+		pickerInputError = '';
 		let currentHex = $themeColors[colorName];
 		if (colorName === 'neutral' && (!currentHex || currentHex.trim() === '')) {
 			currentHex = ZINC_PALETTE['500'];
@@ -359,6 +292,7 @@
 		const hsl = hexToHsl(currentHex);
 		pickerColor = { ...hsl, saturation: 100 };
 		openPicker = colorName;
+		syncPickerFields();
 
 		setTimeout(() => {
 			drawColorArea();
@@ -366,23 +300,58 @@
 	}
 
 	function closeColorPicker() {
+		if (openPicker) previewColor(openPicker, pickerOriginalColor);
 		openPicker = null;
+		isDragging = false;
+	}
+
+	function applyColorPicker() {
+		if (!openPicker || pickerInputError) return;
+		updateColor(openPicker, getPickerHex());
+		openPicker = null;
+		isDragging = false;
+	}
+
+	function syncPickerFields() {
+		pickerHexInput = '#' + getPickerHex();
+		const hsl = hexToHsl(getPickerHex());
+		pickerHslInput = `${Math.round(hsl.h)}\u00b0, ${Math.round(hsl.s)}%, ${Math.round(hsl.l)}%`;
+		pickerInputError = '';
+	}
+
+	function handlePickerHexInput(event: Event) {
+		pickerHexInput = (event.target as HTMLInputElement).value;
+		const hex = parsePickerHex(pickerHexInput);
+		if (!hex) {
+			pickerInputError = 'Enter a 3- or 6-digit hex color.';
+			return;
+		}
+		pickerColor = { ...hexToHsl(hex), saturation: 100 };
+		pickerCoordinates = null;
+		pickerHslInput = `${Math.round(pickerColor.h)}\u00b0, ${Math.round(pickerColor.s)}%, ${Math.round(pickerColor.l)}%`;
+		pickerInputError = '';
+		if (openPicker) previewColor(openPicker, hex);
+	}
+
+	function handlePickerHslInput(event: Event) {
+		pickerHslInput = (event.target as HTMLInputElement).value;
+		const hsl = parsePickerHsl(pickerHslInput);
+		if (!hsl) {
+			pickerInputError = 'Enter hue 0-360, saturation 0-100%, and lightness 0-100%.';
+			return;
+		}
+		pickerColor = { ...hsl, saturation: 100 };
+		pickerCoordinates = null;
+		pickerHexInput = '#' + getPickerHex();
+		pickerInputError = '';
+		if (openPicker) previewColor(openPicker, getPickerHex());
 	}
 
 	function updatePickerColor() {
 		if (!openPicker) return;
 		const hex = getPickerHex();
-		updateColor(openPicker, hex);
-
-		if (openPicker === 'primary') {
-			primaryInput = hex;
-			validatePrimaryColor();
-		} else if (openPicker === 'secondary') {
-			secondaryInput = hex;
-			validateSecondaryColor();
-		} else if (openPicker === 'neutral') {
-			neutralInput = hex;
-		}
+		previewColor(openPicker, hex);
+		syncPickerFields();
 	}
 
 	function drawColorArea() {
@@ -394,7 +363,7 @@
 		const width = canvas.width;
 		const height = canvas.height;
 
-		ctx.fillStyle = `hsl(${pickerColor.h}, 100%, 50%)`;
+		ctx.fillStyle = `hsl(${Math.round(pickerColor.h)}, 100%, 50%)`;
 		ctx.fillRect(0, 0, width, height);
 
 		const gradWhite = ctx.createLinearGradient(0, 0, width, 0);
@@ -414,16 +383,15 @@
 		const rect = element.getBoundingClientRect();
 		const relX = Math.max(0, Math.min(rect.width, x - rect.left));
 		const relY = Math.max(0, Math.min(rect.height, y - rect.top));
-		const s_hsv = relX / rect.width;
-		const v = 1 - relY / rect.height;
-		const l = v * (1 - s_hsv / 2);
-		let s_hsl = 0;
-		if (l > 0 && l < 1) {
-			s_hsl = (v - l) / Math.min(l, 1 - l);
-		}
-
-		pickerColor.s = Math.round(s_hsl * 100);
-		pickerColor.l = Math.round(l * 100);
+		const color = colorFromPosition(
+			pickerColor.h,
+			(relX / rect.width) * 100,
+			(relY / rect.height) * 100
+		);
+		// Keep coordinates separately: every point on the bottom row is black.
+		pickerCoordinates = { x: color.x, y: color.y };
+		pickerColor.s = color.s;
+		pickerColor.l = color.l;
 		updatePickerColor();
 	}
 
@@ -459,8 +427,9 @@
 	}
 
 	function getActivePickerWarnings(): string[] {
-		if (openPicker === 'primary') return primaryWarnings;
-		if (openPicker === 'secondary') return secondaryWarnings;
+		if (openPicker === 'primary' || openPicker === 'secondary') {
+			return validateColorNotGrayscale(getPickerHex(), openPicker).warnings;
+		}
 		return [];
 	}
 
@@ -478,6 +447,17 @@
 		themeNameInput = '';
 		replaceThemeIndex = null;
 		existingThemeIndex = null;
+	}
+
+	function selectSavedTheme(index: number) {
+		const theme = $savedThemes[index];
+		if (!theme) return;
+		// Selection only prepares the overwrite; confirmation performs the save.
+		themeNameInput = theme.name;
+		existingThemeIndex = index;
+		replaceThemeIndex = null;
+		showSaveModal = false;
+		showOverwriteModal = true;
 	}
 
 	async function handleSaveTheme() {
@@ -1014,7 +994,7 @@
 									style="left: {(pickerColor.h / 360) * 100}%"
 								></div>
 							</div>
-							<div class="text-xs text-secondary-600 mt-1">{pickerColor.h}&deg;</div>
+							<div class="text-xs text-secondary-600 mt-1">{Math.round(pickerColor.h)}&deg;</div>
 						</div>
 
 						<div class="mb-4">
@@ -1050,14 +1030,26 @@
 						<div class="mb-4 p-4 border-2 border-primary-200">
 							<div class="grid grid-cols-2 gap-4 text-sm">
 								<div>
-									<div class="font-bold text-primary-900">HSL</div>
-									<div class="text-secondary-700 font-mono">
-										{pickerColor.h}&deg;, {pickerColor.s}%, {pickerColor.l}%
-									</div>
+									<label for="picker-hsl" class="font-bold text-primary-900">HSL</label>
+									<input
+										id="picker-hsl"
+										class="input-secondary w-full font-mono"
+										value={pickerHslInput}
+										oninput={handlePickerHslInput}
+										aria-invalid={!!pickerInputError}
+										aria-describedby={pickerInputError ? 'picker-input-error' : undefined}
+									/>
 								</div>
 								<div>
-									<div class="font-bold text-primary-900">Hex</div>
-									<div class="text-secondary-700 font-mono">#{getPickerHex()}</div>
+									<label for="picker-hex" class="font-bold text-primary-900">Hex</label>
+									<input
+										id="picker-hex"
+										class="input-secondary w-full font-mono"
+										value={pickerHexInput}
+										oninput={handlePickerHexInput}
+										aria-invalid={!!pickerInputError}
+										aria-describedby={pickerInputError ? 'picker-input-error' : undefined}
+									/>
 								</div>
 							</div>
 						</div>
@@ -1072,6 +1064,13 @@
 					</div>
 				</div>
 
+				{#if pickerInputError}<p
+						id="picker-input-error"
+						class="text-sm text-error-700 mb-4"
+						role="status"
+					>
+						{pickerInputError}
+					</p>{/if}
 				{#if activePickerWarnings.length > 0}
 					<div class="mb-4 p-2 bg-yellow-50 border-2 border-yellow-300">
 						<p class="text-xs font-bold text-yellow-900 mb-1">Validation Warnings:</p>
@@ -1085,20 +1084,8 @@
 
 				<div class="flex flex-col sm:flex-row gap-2">
 					<button
-						onclick={() => {
-							const hex = getPickerHex();
-							updateColor(openPicker!, hex);
-							if (openPicker === 'primary') {
-								primaryInput = hex;
-								validatePrimaryColor();
-							} else if (openPicker === 'secondary') {
-								secondaryInput = hex;
-								validateSecondaryColor();
-							} else if (openPicker === 'neutral') {
-								neutralInput = hex;
-							}
-							closeColorPicker();
-						}}
+						onclick={applyColorPicker}
+						disabled={!!pickerInputError}
 						class="flex-1 button-primary"
 					>
 						Apply
@@ -1157,6 +1144,27 @@
 						use:autofocus
 					/>
 				</div>
+				{#if $savedThemes.length > 0}
+					<div class="mb-4">
+						<p class="text-sm font-bold text-primary-900 mb-2">Saved themes</p>
+						<p class="text-xs text-secondary-700 mb-2">
+							Choose a theme to overwrite with your current colors.
+						</p>
+						<ul class="space-y-2 max-h-48 overflow-y-auto" aria-label="Saved themes to overwrite">
+							{#each $savedThemes as theme, index (theme.id)}
+								<li>
+									<button
+										type="button"
+										class="button-secondary-outlined w-full text-left"
+										onclick={() => selectSavedTheme(index)}
+									>
+										{theme.name}
+									</button>
+								</li>
+							{/each}
+						</ul>
+					</div>
+				{/if}
 				<div class="flex gap-2">
 					<button onclick={handleSaveTheme} class="flex-1 button-primary">Save</button>
 					<button onclick={closeThemeModals} class="flex-1 button-secondary-outlined">Cancel</button

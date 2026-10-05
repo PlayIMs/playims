@@ -836,6 +836,14 @@ async function updateThemeInDatabase(themeId: string, name: string, colors: Them
 	});
 }
 
+/** previews a color without changing the committed store or browser cache. */
+export function previewColor(colorName: keyof ThemeColors, hexValue: string) {
+	const colors = { ...get(themeColors), [colorName]: normalizeHex(hexValue) };
+	for (const [name, value] of Object.entries(buildThemeCssVariables(colors))) {
+		document.documentElement.style.setProperty(name, value);
+	}
+}
+
 /** updates a single color in the current theme locally. */
 export function updateColor(colorName: keyof ThemeColors, hexValue: string) {
 	// normalize incoming values before writing them
