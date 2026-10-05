@@ -33,6 +33,7 @@ export type ThemeColors = {
 };
 
 type SavedTheme = {
+	updatedAt?: string;
 	id: string;
 	name: string;
 	colors: ThemeColors;
@@ -700,7 +701,8 @@ function mapRecordToSavedTheme(record: ThemeRecord): SavedTheme {
 		id: record.id,
 		name: record.name,
 		colors: mapRecordToColors(record),
-		createdAt: record.createdAt
+		createdAt: record.createdAt,
+		updatedAt: record.updatedAt
 	};
 }
 

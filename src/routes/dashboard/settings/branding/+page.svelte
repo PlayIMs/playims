@@ -757,7 +757,7 @@
 				<div class="space-y-3">
 					{#each $savedThemes as theme (theme.id)}
 						<div
-							class="border border-neutral-950 bg-white p-3 cursor-pointer hover:bg-neutral-05 hover:border-secondary-500 transition-colors"
+							class="border-2 border-secondary-300 bg-white p-3 cursor-pointer hover:bg-secondary-50 hover:border-secondary-500 transition-colors"
 							role="button"
 							tabindex="0"
 							onclick={() => handleLoadTheme(theme.id)}
@@ -769,22 +769,10 @@
 							}}
 							aria-label={`Load ${theme.name}`}
 						>
-							<div class="flex flex-wrap items-start justify-between gap-2">
+							<div class="flex flex-wrap items-center justify-between gap-2">
 								<div class="flex items-center gap-3 min-w-0">
-									<div class="min-w-0">
-										<h4 class="text-sm font-semibold text-neutral-950">{theme.name}</h4>
-										<p class="text-xs text-neutral-950 mt-1">
-											Saved
-											<DateHoverText
-												display={new Date(theme.createdAt).toLocaleDateString()}
-												value={theme.createdAt}
-												includeTime={false}
-												textClass="ml-1"
-											/>
-										</p>
-									</div>
 									<div
-										class="grid grid-cols-3 gap-2 shrink-0"
+										class="grid grid-cols-3 gap-1 shrink-0"
 										aria-label={`Theme color preview for ${theme.name}`}
 									>
 										<span
@@ -805,6 +793,18 @@
 											title="Neutral color"
 											aria-hidden="true"
 										></span>
+									</div>
+									<div class="min-w-0">
+										<span class="block text-base font-bold text-secondary-900">{theme.name}</span>
+										<p class="text-xs font-normal text-secondary-900 mt-1">
+											Last saved
+											<DateHoverText
+												display={new Date(theme.updatedAt ?? theme.createdAt).toLocaleDateString()}
+												value={theme.updatedAt ?? theme.createdAt}
+												includeTime={false}
+												textClass="ml-1"
+											/>
+										</p>
 									</div>
 								</div>
 								<div class="flex gap-2">
@@ -1156,7 +1156,7 @@
 				</div>
 				{#if $savedThemes.length > 0}
 					<div class="mb-4">
-						<p class="text-sm font-bold text-primary-900 mb-2">Saved themes</p>
+						<p class="text-sm font-bold text-primary-900 mb-2">Saved Themes</p>
 						<p class="text-xs text-secondary-700 mb-2">
 							Choose a theme to overwrite with your current colors.
 						</p>
@@ -1168,7 +1168,24 @@
 										class="button-secondary-outlined w-full text-left"
 										onclick={() => selectSavedTheme(index)}
 									>
-										{theme.name}
+										<span class="flex w-full items-center gap-3 text-left">
+											<span class="grid grid-cols-3 gap-1 shrink-0" aria-hidden="true">
+												{#each ['primary', 'secondary', 'neutral'] as colorName}
+													<span
+														class="h-6 w-6 border border-secondary-400"
+														style={`background-color: ${getSavedThemeColorHex(theme.colors, colorName as 'primary' | 'secondary' | 'neutral')}`}
+													></span>
+												{/each}
+											</span>
+											<span class="min-w-0">
+												<span class="block break-words">{theme.name}</span>
+												<span class="block text-xs font-normal mt-1"
+													>Last saved {new Date(
+														theme.updatedAt ?? theme.createdAt
+													).toLocaleDateString()}</span
+												>
+											</span>
+										</span>
 									</button>
 								</li>
 							{/each}
