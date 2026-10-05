@@ -77,8 +77,6 @@
 	}: Props = $props();
 
 	const WIZARD_STEP_COUNT = getScheduleEventWizardStepCount();
-	const dropdownButtonClass =
-		'w-full border-2 border-secondary-400 bg-white px-4 py-2 text-sm leading-6 font-normal text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2 hover:bg-white focus:outline-none focus-visible:outline-none focus-visible:border-secondary-500 focus-visible:ring-0 focus-visible:shadow-[0_0_0_1px_var(--color-secondary-500)] disabled:cursor-not-allowed disabled:opacity-60';
 
 	function toDropdownOptions(
 		items: Array<{ id: string; name: string }>,
@@ -244,7 +242,7 @@
 							options={seasonOptions}
 							value={form.seasonId}
 							ariaLabel="Select event season"
-							buttonClass={dropdownButtonClass}
+							variant="field"
 							disabled={options.seasons.length === 0}
 							on:change={(event) => {
 								onSelectionChange({ seasonId: event.detail.value });
@@ -264,7 +262,7 @@
 							options={offeringOptions}
 							value={form.offeringId}
 							ariaLabel="Select event offering"
-							buttonClass={dropdownButtonClass}
+							variant="field"
 							disabled={!form.seasonId || collections.offeringOptions.length === 0}
 							on:change={(event) => {
 								onSelectionChange({ offeringId: event.detail.value });
@@ -284,7 +282,7 @@
 							options={leagueOptions}
 							value={form.leagueId}
 							ariaLabel="Select event league"
-							buttonClass={dropdownButtonClass}
+							variant="field"
 							disabled={!form.offeringId || collections.leagueOptions.length === 0}
 							on:change={(event) => {
 								onSelectionChange({ leagueId: event.detail.value });
@@ -304,7 +302,7 @@
 							options={divisionOptions}
 							value={form.divisionId}
 							ariaLabel="Select event division"
-							buttonClass={dropdownButtonClass}
+							variant="field"
 							disabled={!form.leagueId || collections.divisionOptions.length === 0}
 							on:change={(event) => {
 								onSelectionChange({ divisionId: event.detail.value });
@@ -371,7 +369,7 @@
 							options={facilityOptions}
 							value={form.facilityId}
 							ariaLabel="Select event facility"
-							buttonClass={dropdownButtonClass}
+							variant="field"
 							disabled={options.facilities.length === 0}
 							on:change={(event) => {
 								onSelectionChange({ facilityId: event.detail.value });
@@ -389,7 +387,7 @@
 							options={facilityAreaOptions}
 							value={form.facilityAreaId}
 							ariaLabel="Select event facility area"
-							buttonClass={dropdownButtonClass}
+							variant="field"
 							disabled={!form.facilityId || collections.facilityAreaOptions.length === 0}
 							on:change={(event) => {
 								onSelectionChange({ facilityAreaId: event.detail.value });
@@ -420,7 +418,7 @@
 							options={homeTeamOptions}
 							value={form.homeTeamId}
 							ariaLabel="Select home team"
-							buttonClass={dropdownButtonClass}
+							variant="field"
 							disabled={!form.divisionId || collections.homeTeamOptions.length === 0}
 							on:change={(event) => {
 								onSelectionChange({ homeTeamId: event.detail.value });
@@ -440,7 +438,7 @@
 							options={awayTeamOptions}
 							value={form.awayTeamId}
 							ariaLabel="Select away team"
-							buttonClass={dropdownButtonClass}
+							variant="field"
 							disabled={!form.divisionId || collections.awayTeamOptions.length === 0}
 							on:change={(event) => {
 								onSelectionChange({ awayTeamId: event.detail.value });

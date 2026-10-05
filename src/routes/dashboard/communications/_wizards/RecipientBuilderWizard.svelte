@@ -1,11 +1,6 @@
 <script lang="ts">
 	import { beforeNavigate } from '$app/navigation';
-	import {
-		IconEdit,
-		IconMinus,
-		IconPlus,
-		IconTrash
-	} from '@tabler/icons-svelte';
+	import { IconEdit, IconMinus, IconPlus, IconTrash } from '@tabler/icons-svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
@@ -51,11 +46,13 @@
 		filterOptionsLoading?: boolean;
 		initialRecipientGroups: CommunicationRecipientGroupDraft[];
 		initialPreview: CommunicationRecipientPreview;
-		onPreviewRequest: (nextRecipientGroups: Array<{
-			id: string;
-			mode: CommunicationRecipientGroupMode;
-			filters: CommunicationRecipientGroupFilter;
-		}>) => Promise<{
+		onPreviewRequest: (
+			nextRecipientGroups: Array<{
+				id: string;
+				mode: CommunicationRecipientGroupMode;
+				filters: CommunicationRecipientGroupFilter;
+			}>
+		) => Promise<{
 			recipientGroups: CommunicationRecipientGroupDraft[];
 			preview: CommunicationRecipientPreview;
 		}>;
@@ -289,10 +286,9 @@
 				previewSyncSignature = nextSignature;
 			} catch (error) {
 				if (previewRequestNonce !== requestNonce) return;
-				toast.error(
-					error instanceof Error ? error.message : 'Unable to refresh the preview.',
-					{ id: 'recipient-builder-preview-error' }
-				);
+				toast.error(error instanceof Error ? error.message : 'Unable to refresh the preview.', {
+					id: 'recipient-builder-preview-error'
+				});
 			} finally {
 				if (previewRequestNonce === requestNonce) {
 					previewLoading = false;
@@ -377,11 +373,11 @@
 			const normalized = await requestPreview([
 				...draftRecipientGroups
 					.filter((recipientGroup) => recipientGroup.id !== recipientGroupForm.id)
-				.map((recipientGroup) => ({
-					id: recipientGroup.id,
-					mode: recipientGroup.mode,
-					filters: recipientGroup.filters
-				})),
+					.map((recipientGroup) => ({
+						id: recipientGroup.id,
+						mode: recipientGroup.mode,
+						filters: recipientGroup.filters
+					})),
 				{
 					id: targetId,
 					mode: nextMode,
@@ -454,7 +450,9 @@
 				);
 			}
 		} catch (error) {
-			toast.error(error instanceof Error ? error.message : 'Unable to remove this recipient group.');
+			toast.error(
+				error instanceof Error ? error.message : 'Unable to remove this recipient group.'
+			);
 		}
 	}
 
@@ -487,7 +485,9 @@
 	on:requestClose={requestClose}
 	on:submit={submitBuilder}
 >
-	<div class="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+	<div
+		class="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]"
+	>
 		<div class="min-h-0">
 			<div class="flex h-full min-h-0 flex-col border border-neutral-950 bg-white p-4">
 				<div class="min-h-0 space-y-4 overflow-y-auto pr-1 scrollbar-thin">
@@ -499,44 +499,102 @@
 
 					<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
 						<div class="space-y-2">
-							<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Member Role</p>
-							<ListboxDropdown options={memberRoleOptions} value={recipientGroupForm.filters.memberRole} ariaLabel="Filter by member role" buttonClass={DROPDOWN_BUTTON_CLASS} on:change={(event) => updateFilter('memberRole', event.detail.value)} />
+							<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+								Member Role
+							</p>
+							<ListboxDropdown
+								options={memberRoleOptions}
+								value={recipientGroupForm.filters.memberRole}
+								ariaLabel="Filter by member role"
+								buttonClass={DROPDOWN_BUTTON_CLASS}
+								on:change={(event) => updateFilter('memberRole', event.detail.value)}
+							/>
 						</div>
 						<div class="space-y-2">
 							<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Gender</p>
-							<ListboxDropdown options={memberSexOptions.map((option) => option.value === '' ? { ...option, label: 'All Genders' } : option)} value={recipientGroupForm.filters.memberSex} ariaLabel="Filter by gender" buttonClass={DROPDOWN_BUTTON_CLASS} on:change={(event) => updateFilter('memberSex', event.detail.value)} />
+							<ListboxDropdown
+								options={memberSexOptions.map((option) =>
+									option.value === '' ? { ...option, label: 'All Genders' } : option
+								)}
+								value={recipientGroupForm.filters.memberSex}
+								ariaLabel="Filter by gender"
+								buttonClass={DROPDOWN_BUTTON_CLASS}
+								on:change={(event) => updateFilter('memberSex', event.detail.value)}
+							/>
 						</div>
 						<div class="space-y-2">
 							<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Season</p>
-							<ListboxDropdown options={seasonOptions} value={recipientGroupForm.filters.seasonId} ariaLabel="Filter by season" buttonClass={DROPDOWN_BUTTON_CLASS} on:change={(event) => updateFilter('seasonId', event.detail.value)} />
+							<ListboxDropdown
+								options={seasonOptions}
+								value={recipientGroupForm.filters.seasonId}
+								ariaLabel="Filter by season"
+								buttonClass={DROPDOWN_BUTTON_CLASS}
+								on:change={(event) => updateFilter('seasonId', event.detail.value)}
+							/>
 						</div>
 						<div class="space-y-2">
 							<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Offering</p>
-							<ListboxDropdown options={offeringOptions} value={recipientGroupForm.filters.offeringId} ariaLabel="Filter by offering" buttonClass={DROPDOWN_BUTTON_CLASS} on:change={(event) => updateFilter('offeringId', event.detail.value)} />
+							<ListboxDropdown
+								options={offeringOptions}
+								value={recipientGroupForm.filters.offeringId}
+								ariaLabel="Filter by offering"
+								buttonClass={DROPDOWN_BUTTON_CLASS}
+								on:change={(event) => updateFilter('offeringId', event.detail.value)}
+							/>
 						</div>
 						<div class="space-y-2">
 							<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">League</p>
-							<ListboxDropdown options={leagueOptions} value={recipientGroupForm.filters.leagueId} ariaLabel="Filter by league" buttonClass={DROPDOWN_BUTTON_CLASS} on:change={(event) => updateFilter('leagueId', event.detail.value)} />
+							<ListboxDropdown
+								options={leagueOptions}
+								value={recipientGroupForm.filters.leagueId}
+								ariaLabel="Filter by league"
+								buttonClass={DROPDOWN_BUTTON_CLASS}
+								on:change={(event) => updateFilter('leagueId', event.detail.value)}
+							/>
 						</div>
 						<div class="space-y-2">
 							<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Division</p>
-							<ListboxDropdown options={divisionOptions} value={recipientGroupForm.filters.divisionId} ariaLabel="Filter by division" buttonClass={DROPDOWN_BUTTON_CLASS} on:change={(event) => updateFilter('divisionId', event.detail.value)} />
+							<ListboxDropdown
+								options={divisionOptions}
+								value={recipientGroupForm.filters.divisionId}
+								ariaLabel="Filter by division"
+								buttonClass={DROPDOWN_BUTTON_CLASS}
+								on:change={(event) => updateFilter('divisionId', event.detail.value)}
+							/>
 						</div>
 						<div class="space-y-2">
 							<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">Team</p>
-							<ListboxDropdown options={teamOptions} value={recipientGroupForm.filters.teamId} ariaLabel="Filter by team" buttonClass={DROPDOWN_BUTTON_CLASS} on:change={(event) => updateFilter('teamId', event.detail.value)} />
+							<ListboxDropdown
+								options={teamOptions}
+								value={recipientGroupForm.filters.teamId}
+								ariaLabel="Filter by team"
+								buttonClass={DROPDOWN_BUTTON_CLASS}
+								on:change={(event) => updateFilter('teamId', event.detail.value)}
+							/>
 						</div>
 						<div class="space-y-2">
 							<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
 								Roster Role
 							</p>
-							<ListboxDropdown options={rosterRoleOptions} value={recipientGroupForm.filters.rosterRole} ariaLabel="Filter by roster role" buttonClass={DROPDOWN_BUTTON_CLASS} on:change={(event) => updateFilter('rosterRole', event.detail.value)} />
+							<ListboxDropdown
+								options={rosterRoleOptions}
+								value={recipientGroupForm.filters.rosterRole}
+								ariaLabel="Filter by roster role"
+								buttonClass={DROPDOWN_BUTTON_CLASS}
+								on:change={(event) => updateFilter('rosterRole', event.detail.value)}
+							/>
 						</div>
 						<div class="space-y-2">
 							<p class="text-[11px] font-bold uppercase tracking-wide text-neutral-950">
 								Team Status
 							</p>
-							<ListboxDropdown options={teamStatusOptions} value={recipientGroupForm.filters.teamStatus} ariaLabel="Filter by team status" buttonClass={DROPDOWN_BUTTON_CLASS} on:change={(event) => updateFilter('teamStatus', event.detail.value)} />
+							<ListboxDropdown
+								options={teamStatusOptions}
+								value={recipientGroupForm.filters.teamStatus}
+								ariaLabel="Filter by team status"
+								buttonClass={DROPDOWN_BUTTON_CLASS}
+								on:change={(event) => updateFilter('teamStatus', event.detail.value)}
+							/>
 						</div>
 					</div>
 
@@ -681,7 +739,9 @@
 															{/if}
 															<span>{recipientGroup.mode}</span>
 														</span>
-														<span class="border border-secondary-300 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+														<span
+															class="border border-secondary-300 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-neutral-950"
+														>
 															{recipientGroup.resolvedRecipientCount} recipients
 														</span>
 													</div>
@@ -722,13 +782,19 @@
 							<table class="min-w-full border-collapse">
 								<thead class="bg-neutral-100">
 									<tr>
-										<th class="border-b border-neutral-950 px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+										<th
+											class="border-b border-neutral-950 px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950"
+										>
 											Recipient
 										</th>
-										<th class="border-b border-neutral-950 px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+										<th
+											class="border-b border-neutral-950 px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950"
+										>
 											Email
 										</th>
-										<th class="border-b border-neutral-950 px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950">
+										<th
+											class="border-b border-neutral-950 px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-neutral-950"
+										>
 											Context
 										</th>
 									</tr>
@@ -771,7 +837,7 @@
 	</div>
 
 	{#snippet footer()}
-		<div class="pt-2 border-t border-neutral-950 flex justify-end">
+		<div class="modal-actions">
 			<div class="flex flex-wrap items-center justify-end gap-2">
 				<button
 					type="submit"

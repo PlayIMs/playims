@@ -78,7 +78,7 @@
 			<div class="flex flex-col gap-4 py-2 lg:flex-row lg:items-center lg:justify-between">
 				<div class="flex items-center gap-3">
 					<div
-						class="bg-primary text-white border-2 border-primary-700 w-[2.75rem] h-[2.75rem] lg:w-[3.4rem] lg:h-[3.4rem] flex items-center justify-center"
+						class="bg-primary text-primary-foreground border-2 border-primary-700 w-[2.75rem] h-[2.75rem] lg:w-[3.4rem] lg:h-[3.4rem] flex items-center justify-center"
 						aria-hidden="true"
 					>
 						<IconSettings class="w-7 h-7 lg:w-8 lg:h-8" />
@@ -93,17 +93,32 @@
 	</header>
 
 	<div class="px-4 lg:px-6">
+		<div class="py-4">
+			<div>
+				<p class="text-xs font-bold uppercase tracking-wide text-secondary-700">
+					Organization controls
+				</p>
+				<p class="mt-1 text-sm text-neutral-950">
+					Use these sections to configure navigation, identity, branding, and operational rules.
+				</p>
+			</div>
+		</div>
+
 		<div class="grid grid-cols-1 items-start gap-4 lg:grid-cols-[17rem_1fr]">
-			<aside class="self-start border-2 border-neutral-950 bg-neutral p-3 lg:sticky lg:top-4">
+			<aside class="self-start border-2 border-neutral-950 bg-neutral lg:sticky lg:top-4">
+				<div class="border-b border-neutral-950 bg-neutral-600/66 p-3">
+					<p class="text-sm font-bold font-serif text-neutral-950">Settings Sections</p>
+					<p class="mt-1 text-xs text-neutral-950">{tabs.length} configuration areas</p>
+				</div>
 				<nav aria-label="Settings sections">
-					<ul class="space-y-2">
+					<ul class="space-y-2 p-3">
 						{#each tabs as tab}
 							<li>
 								<a
 									href={tab.href}
 									class={`flex w-full items-start gap-2 border-2 px-3 py-2.5 transition-colors ${
 										isActive(tab.href)
-											? 'border-primary-600 bg-primary text-white'
+											? 'border-primary-600 bg-primary text-primary-foreground'
 											: 'border-secondary-300 bg-white text-neutral-950 hover:bg-neutral-200'
 									}`}
 									aria-current={isActive(tab.href) ? 'page' : undefined}
@@ -113,7 +128,7 @@
 										<span class="block text-sm font-semibold">{tab.label}</span>
 										<span
 											class={`block text-[11px] leading-tight ${
-												isActive(tab.href) ? 'text-white/90' : 'text-neutral-950'
+												isActive(tab.href) ? 'text-primary-foreground-muted' : 'text-neutral-950'
 											}`}
 										>
 											{tab.description}

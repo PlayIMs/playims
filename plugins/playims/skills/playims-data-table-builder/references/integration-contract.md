@@ -1,0 +1,89 @@
+# PlayIMs Data Table Builder: integration details
+
+Read this reference only for the relevant component variant or migration. The skill entrypoint and workspace AGENTS.md govern scope, testing, and completion; source inventories are selective lookup maps. Live APIs and shared CSS override outdated copied examples.
+
+## Goal
+
+Implement dashboard tables that look like the offerings page and route new table work through the shared `DataTable` component whenever it fits.
+
+Use `$playims-style-builder` alongside this skill when the surrounding page shell or action bars also need dashboard-aligned styling.
+
+Use `$playims-listbox-dropdown-builder` for offerings-style row action menus and `$playims-wizard-builder` for multi-step row actions such as moving records between placements.
+
+## Start Here
+
+Relevant source files (select those needed for this change):
+
+- `src/lib/components/DataTable.svelte`
+- `src/lib/components/data-table.ts`
+- `src/lib/components/data-table/DataTableRowActions.svelte` when the table needs a settings column
+- `src/lib/components/data-table/DataTableLinkedLabel.svelte` when the identifying cell needs the shared icon/name hover behavior
+- `src/lib/components/ListboxDropdown.svelte` when the table needs row actions
+- `src/routes/dashboard/offerings/+page.svelte`
+- `src/app.css` when badge classes or theme tokens matter
+- `table-recipes.md`
+
+## Workflow
+
+1. Confirm the table should match the offerings page visual language.
+
+- Default to `DataTable` for dashboard tables with fixed headers and row-based content.
+- Keep route-specific sorting, filters, action menus, and data shaping in the parent route.
+
+2. Define columns explicitly.
+
+- Use `columns` to lock in header labels, widths, row-header semantics, and per-column alignment.
+- Mark the identifying column with `rowHeader: true`.
+
+3. Render row content with the `cell` snippet.
+
+- Put links, badges, `DateHoverText`, tooltips, and action controls inside the snippet.
+- Keep the shared component responsible only for the table shell and row chrome.
+
+4. Use `emptyBody` only when the default empty row is not enough.
+
+- Prefer `emptyBody` for offerings-style skeleton rows or custom placeholder rows.
+- Keep custom empty markup as `<tr>` rows because it renders inside `<tbody>`.
+
+5. Validate and compare against the offerings page.
+
+- Check header tone, stripe contrast, border weight, and badge usage against the canonical offerings table.
+
+6. Standardize row actions when the table needs per-row management.
+
+- Do not render bulky inline controls inside the row by default.
+- Prefer `createDataTableRowActionColumn()` for the narrow rightmost settings column.
+- Render the trigger with `DataTableRowActions.svelte` instead of hand-rolling a dropdown in each route.
+- Hide the trigger until row hover or keyboard focus by using row-level `group/row` or `group` styling and focus-visible fallbacks.
+- The shared row-action component must auto-run the action when there is only one option instead of opening a one-item dropdown.
+- Keep placeholder actions visible but disabled when the product wants to signal upcoming capability.
+- Use modal flows for destructive or multi-field actions:
+  - Use a confirm modal for delete/remove actions.
+  - Use a shared wizard modal for move/reassignment flows.
+- Keep row actions in the parent route so `DataTable` remains a presentation shell.
+
+7. Standardize first-column linked name/icon cells when the row needs a hoverable destination.
+
+- Prefer `DataTableLinkedLabel.svelte` for the shared icon tile plus name treatment.
+- Keep the underline and icon hover state scoped to the link itself, not the full row.
+- When row actions are also present, let the settings trigger respond to row hover while the label hover remains link-only.
+
+## Progressive Disclosure Map
+
+- `table-recipes.md`: component API, copyable width recipes, and guardrails
+
+## Guardrails
+
+- Do not rebuild offerings-style table wrappers inline if `DataTable` can handle the job.
+- Do not change header font treatment, uppercase casing, tracking, or neutral header background for matching tables.
+- Keep offerings-style row dividers on neutral borders, not secondary-tinted borders, unless the user explicitly requests a different accent treatment.
+- Do not push route-specific business logic into the shared component.
+- Do not invent new status pill styles when existing badge classes fit.
+- Do not replace `DateHoverText`, `HoverTooltip`, or shared action controls with ad-hoc alternatives when those behaviors are already needed.
+- Do not place permanent inline selects, buttons, or destructive controls in the middle of offerings-style rows unless the table is explicitly designed for always-visible editing.
+- Do not use vertical kebab, text links, or icon clusters for standard row actions when the hover-only horizontal 3-dot pattern fits.
+- Do not wire move/delete row actions without the corresponding modal or wizard flow.
+
+## Validation
+
+Use the workspace AGENTS.md testing tier and the entrypoint completion criteria. Package validation applies when editing skills; app checks apply when editing the app.

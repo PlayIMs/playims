@@ -9,9 +9,10 @@ header strip, shared footer actions, and no broader redesign of the dashboard sh
 ## Shared Components
 
 - `ModalShell`: generic modal backdrop/panel wrapper.
+- `ModalHeader`: shared title row and title-aligned close X for both modals and wizards.
 - `WizardModal`: standard wizard frame (header, progress, form shell).
 - `WizardStepFooter`: shared Back/Next/Submit footer.
-- `WizardUnsavedConfirm`: custom unsaved changes confirm modal.
+- `WizardUnsavedConfirm`: unsaved changes confirmation built on `ModalShell`.
 - `WizardDraftCollection`: shared list UI for draft entities.
 - `InfoPopover`: reusable info/help popover trigger for paragraph-heavy helper text.
 - `ToggleField`: reusable bordered toggle row for wizard checkbox/switch fields with label content.
@@ -23,9 +24,13 @@ header strip, shared footer actions, and no broader redesign of the dashboard sh
 
 - `Escape` closes the topmost open modal via shared `ModalShell` behavior, even before any field is focused.
 - Wizard close behavior still routes through each wizard's existing `requestClose` handler, so unsaved-change confirmation remains intact.
+- Nested controls get first chance to handle keyboard events. Escape closes an open dropdown or date picker before closing its modal.
+- `ModalShell` exposes a labeled dialog, keeps Tab/Shift+Tab inside the topmost dialog, and restores focus to the opening control on close. Pass `ariaLabel` when the close label does not describe the dialog.
+- Discard confirmations use the same shell, including scroll locking, keyboard handling, and the top-right close button. Closing a confirmation returns to editing rather than discarding.
+- `WizardStepFooter` disables Back, Next, and Submit while `isSubmitting` is true to prevent repeated actions during a pending request.
 - `ModalShell` renders the top-right `X` by default for direct modal consumers; use that shared close affordance instead of hand-rolling a second header close button.
 - `WizardModal` keeps its own header-integrated `X` and disables the `ModalShell` default internally, so wizard callers do not need to manage close-button duplication.
-- `WizardModal` auto-focuses the first enabled `input`, `select`, or `textarea` when opened and when step content changes.
+- `WizardModal` auto-focuses the first visible, enabled input, select, textarea, dropdown trigger, or editable field when opened and when step content changes. Unavailable preferred fields are skipped.
 - To override initial focus for a specific field, add `data-wizard-autofocus` to that element.
 - `InfoPopover` helper panels close on `Escape`, outside click, and trigger re-click (toggle behavior).
 - `WizardModal` and `ModalShell` should stay neutral and offerings-style rather than page-specific
@@ -41,6 +46,18 @@ header strip, shared footer actions, and no broader redesign of the dashboard sh
 - Save-only wizards and modal forms should enable the shared `Ctrl/Cmd+S` shortcut through `saveShortcutEnabled` on `WizardModal` or `ModalShell`.
 - Only enable that shortcut for save/edit flows; do not enable it for create, delete, archive, or other non-save actions.
 - If the only footer action would be a pure dismiss control such as `Close` or `Done`, omit that footer action and rely on the top-right `X` as the single close affordance.
+
+## Ownership And Overrides
+
+- Supply `title` to `ModalShell` for the inherited header and close button. `WizardModal` uses the same `ModalHeader` with step metadata below the title row.
+- Panel borders, backgrounds, viewport limits, title typography, padding, and action spacing belong to the `modal-*` classes in `app.css`. `panelClass` should contain only width/layout exceptions. Use `tone="danger"` for destructive dialogs, not copied border/background classes.
+- `WizardModal` owns a non-scrolling form with a scrolling `modal-body` and a fixed `modal-footer`. `formClass` customizes the body, not the outer form. Always use the `footer` snippet for actions.
+- Direct modals use `modal-form`, `modal-body`, `modal-footer`, and `modal-actions` instead of locally copying padding/border/scroll styles.
+- Enter follows the shared Next button on intermediate steps. Disabled Next/Submit actions also block keyboard form submission; route handlers still own validation and server-side authorization.
+- Form selectors with no custom trigger classes automatically inherit `ListboxDropdown` field styling inside `ModalShell`. `variant="field"` explicitly selects it elsewhere; `variant="button"` preserves button appearance. Fields inherit the same `select-secondary` CSS as ordinary selects, including focus and disabled states. Custom/action triggers remain supported.
+- Use existing shared SearchInput, date picker, weekday selector, ToggleField, InfoPopover, and HoverTooltip for inner elements. Add reusable variants at their source instead of recreating them inside a wizard.
+- Composer dialogs deliberately remain anchored inside the editor to preserve text selection. They reuse shared panel/header styling, while the command palette keeps its search-specific layout and keyboard model.
+- When a global UX change is requested, update the shared owner first and check consumers for overrides. A one-time migration removes existing copies; subsequent changes should propagate without route edits.
 
 ## Shared Utilities
 
@@ -89,3 +106,9 @@ header strip, shared footer actions, and no broader redesign of the dashboard sh
 - Extract duplicated slug/error helpers to shared utilities.
 - Reuse draft controller helpers for list-state updates where practical.
 - Validate with `pnpm check` and manual step-flow QA.
+
+## Stable Field Validation
+
+Hide a field's error while its input is focused, and validate its completed value on blur. Shared DatePicker and TimeInput own this editing state; app.css also suppresses legacy labeled field messages while editing without collapsing their reserved space. Keep validation on Next/Save and on the server as a safety net. Date/time keyboard entry must preserve segment selections: completing two digits advances to the next segment, invalid date pairs restart only that segment, and a selected meridiem completes from A or P.
+
+Modal fields reserve a 16px validation line plus a 2px gap through `src/app.css`, independently of whether an error exists. Standard labeled inputs and selectors inherit this behavior; use `class="modal-field"` for custom field wrappers. Render errors with `FieldError.svelte`, which keeps the full message available to assistive technology and in its title when a long line is visually truncated. DatePicker and TimeInput own their parsing messages, so consumers must not duplicate them below a combined date/time row. Error messages must never change input geometry or move adjacent fields.

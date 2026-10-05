@@ -3,6 +3,7 @@
 	import { onDestroy, tick } from 'svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
 	import DatePicker from '$lib/components/DatePicker.svelte';
+	import LeagueScheduleFields from '$lib/components/wizard/LeagueScheduleFields.svelte';
 	import { inferPickerYearRange } from '$lib/components/date-picker.js';
 	import {
 		adjustEditingIndexOnRemove,
@@ -181,11 +182,7 @@
 	type BulkBooleanChoice = 'unchanged' | 'true' | 'false';
 	type BulkLeagueGenderChoice = 'unchanged' | 'male' | 'female' | 'mixed';
 	type BulkLeagueSkillLevelChoice =
-		| 'unchanged'
-		| 'competitive'
-		| 'intermediate'
-		| 'recreational'
-		| 'all';
+		'unchanged' | 'competitive' | 'intermediate' | 'recreational' | 'all';
 	interface DropdownOption {
 		value: string;
 		label: string;
@@ -2081,42 +2078,36 @@
 
 		const regStartMs = toDateMs(values.regStartDate);
 		const regEndMs = toDateMs(values.regEndDate);
-		const regEndDateOnlyMs = toDateOnlyMs(values.regEndDate);
 		const seasonStartMs = toDateMs(values.seasonStartDate);
 		const seasonEndMs = toDateMs(values.seasonEndDate);
 
 		if (!values.regStartDate.trim()) {
 			errors[`${prefix}.regStartDate`] = 'Registration start date is required.';
 		} else if (regStartMs === null) {
-			errors[`${prefix}.regStartDate`] = 'Use YYYY-MM-DDTHH:mm format.';
+			errors[`${prefix}.regStartDate`] = 'Enter a valid date and time.';
 		}
 
 		if (!values.regEndDate.trim()) {
 			errors[`${prefix}.regEndDate`] = 'Registration end date is required.';
 		} else if (regEndMs === null) {
-			errors[`${prefix}.regEndDate`] = 'Use YYYY-MM-DDTHH:mm format.';
+			errors[`${prefix}.regEndDate`] = 'Enter a valid date and time.';
 		}
 
 		if (!values.seasonStartDate.trim()) {
 			errors[`${prefix}.seasonStartDate`] = 'Season start date is required.';
 		} else if (seasonStartMs === null) {
-			errors[`${prefix}.seasonStartDate`] = 'Use YYYY-MM-DD format.';
+			errors[`${prefix}.seasonStartDate`] = 'Enter a valid date and time.';
 		}
 
 		if (!values.seasonEndDate.trim()) {
 			errors[`${prefix}.seasonEndDate`] = 'Season end date is required.';
 		} else if (seasonEndMs === null) {
-			errors[`${prefix}.seasonEndDate`] = 'Use YYYY-MM-DD format.';
+			errors[`${prefix}.seasonEndDate`] = 'Enter a valid date and time.';
 		}
 
 		if (regStartMs !== null && regEndMs !== null && regStartMs > regEndMs) {
 			errors[`${prefix}.scheduleRange`] =
 				'Registration deadline must be on or after registration start.';
-		}
-
-		if (regEndDateOnlyMs !== null && seasonStartMs !== null && regEndDateOnlyMs > seasonStartMs) {
-			errors[`${prefix}.scheduleRange`] =
-				'Season start date must be on or after registration deadline.';
 		}
 
 		if (seasonStartMs !== null && seasonEndMs !== null && seasonStartMs > seasonEndMs) {
@@ -3146,10 +3137,9 @@
 		for (const template of selectedTemplates) {
 			const mergedLeague = applyBulkEditFormToLeague(template, bulkEditLeaguesForm);
 			const mergedErrors = getLeagueFieldErrors(mergedLeague);
-			const candidateEntries = Object.entries(mergedErrors).map(([key, value]) => [
-				key.replace(/^league\./, ''),
-				value
-			] as const);
+			const candidateEntries = Object.entries(mergedErrors).map(
+				([key, value]) => [key.replace(/^league\./, ''), value] as const
+			);
 
 			for (const [key, value] of candidateEntries) {
 				const fieldKey =
@@ -3178,11 +3168,9 @@
 								: fieldKey === 'seasonEndDate'
 									? bulkEditLeaguesForm.seasonEndDate.trim().length > 0
 									: fieldKey === 'preseasonStartDate' || fieldKey === 'preseasonEndDate'
-										? bulkEditLeaguesForm.hasPreseason !== 'unchanged' ||
-											preseasonDatesTouched
+										? bulkEditLeaguesForm.hasPreseason !== 'unchanged' || preseasonDatesTouched
 										: fieldKey === 'postseasonStartDate' || fieldKey === 'postseasonEndDate'
-											? bulkEditLeaguesForm.hasPostseason !== 'unchanged' ||
-												postseasonDatesTouched
+											? bulkEditLeaguesForm.hasPostseason !== 'unchanged' || postseasonDatesTouched
 											: fieldKey === 'imageUrl'
 												? bulkEditLeaguesForm.imageUrl.trim().length > 0
 												: bulkEditLeaguesForm.regStartDate.trim().length > 0 ||
@@ -3195,8 +3183,7 @@
 													postseasonDatesTouched;
 				if (!isTouched) continue;
 
-				errors[fieldKey] =
-					selectedTemplates.length > 1 ? `${template.name}: ${value}` : value;
+				errors[fieldKey] = selectedTemplates.length > 1 ? `${template.name}: ${value}` : value;
 			}
 		}
 
@@ -3238,10 +3225,13 @@
 		return leagueTemplates.filter((league) => league.offeringId === offeringId);
 	}
 
-	function buildBulkEditLeagueChangesPayload(form: BulkLeagueEditFormState): Record<string, unknown> {
+	function buildBulkEditLeagueChangesPayload(
+		form: BulkLeagueEditFormState
+	): Record<string, unknown> {
 		const changes: Record<string, unknown> = {};
 
-		if (form.description.trim()) changes.description = normalizeOptionalTextForRequest(form.description);
+		if (form.description.trim())
+			changes.description = normalizeOptionalTextForRequest(form.description);
 		if (form.gender !== 'unchanged') changes.gender = form.gender;
 		if (form.skillLevel !== 'unchanged') changes.skillLevel = form.skillLevel;
 		if (form.regStartDate.trim()) changes.regStartDate = normalizeDateForRequest(form.regStartDate);
@@ -3249,7 +3239,8 @@
 		if (form.seasonStartDate.trim()) {
 			changes.seasonStartDate = normalizeDateForRequest(form.seasonStartDate);
 		}
-		if (form.seasonEndDate.trim()) changes.seasonEndDate = normalizeDateForRequest(form.seasonEndDate);
+		if (form.seasonEndDate.trim())
+			changes.seasonEndDate = normalizeDateForRequest(form.seasonEndDate);
 
 		const hasPostseason = parseBulkBooleanChoice(form.hasPostseason);
 		if (hasPostseason !== undefined) changes.hasPostseason = hasPostseason;
@@ -3304,8 +3295,7 @@
 		const errors = getBulkEditLeaguesFieldErrors();
 		if (
 			(bulkEditLeaguesStep === 1 && errors.selectedLeagueIds) ||
-			(bulkEditLeaguesStep === 2 &&
-				Object.keys(errors).some((key) => key !== 'selectedLeagueIds'))
+			(bulkEditLeaguesStep === 2 && Object.keys(errors).some((key) => key !== 'selectedLeagueIds'))
 		) {
 			return;
 		}
@@ -4720,10 +4710,9 @@
 				categoryLabel,
 				divisionCount: activity.divisionCount ?? 0,
 				status,
-				statusLabel:
-					seasonConcluded
-						? 'Concluded'
-						: registrationWindow.windowState === 'upcoming'
+				statusLabel: seasonConcluded
+					? 'Concluded'
+					: registrationWindow.windowState === 'upcoming'
 						? 'Upcoming'
 						: status === 'open'
 							? 'Open'
@@ -7585,7 +7574,7 @@
 	</div>
 
 	{#snippet footer()}
-		<div class="flex justify-end border-t border-neutral-950 pt-2">
+		<div class="modal-actions">
 			<div class="flex items-center gap-2 justify-end">
 				<button
 					type="button"
@@ -7641,7 +7630,9 @@
 				</p>
 			</div>
 
-			<div class="flex flex-wrap items-center justify-between gap-2 border border-neutral-950 bg-neutral-25 p-3">
+			<div
+				class="flex flex-wrap items-center justify-between gap-2 border border-neutral-950 bg-neutral-25 p-3"
+			>
 				<p class="text-xs font-bold uppercase tracking-wide text-neutral-950">
 					{bulkEditLeagueSelectedIds.length} of {bulkEditableLeagues.length} selected
 				</p>
@@ -7713,7 +7704,10 @@
 					</div>
 
 					<div>
-						<label class="mb-1 block text-sm font-sans text-neutral-950" for="bulk-league-description">
+						<label
+							class="mb-1 block text-sm font-sans text-neutral-950"
+							for="bulk-league-description"
+						>
 							Description
 						</label>
 						<textarea
@@ -7726,7 +7720,10 @@
 					</div>
 
 					<div>
-						<label class="mb-1 block text-sm font-sans text-neutral-950" for="bulk-league-image-url">
+						<label
+							class="mb-1 block text-sm font-sans text-neutral-950"
+							for="bulk-league-image-url"
+						>
 							Image URL
 						</label>
 						<input
@@ -7884,7 +7881,9 @@
 								on:input={clearBulkEditLeaguesApiErrors}
 							/>
 							{#if bulkEditLeaguesFieldErrors.seasonEndDate}
-								<p class="mt-1 text-xs text-error-700">{bulkEditLeaguesFieldErrors.seasonEndDate}</p>
+								<p class="mt-1 text-xs text-error-700">
+									{bulkEditLeaguesFieldErrors.seasonEndDate}
+								</p>
 							{/if}
 						</div>
 					</div>
@@ -7909,11 +7908,16 @@
 									}}
 								/>
 								{#if bulkEditLeaguesFieldErrors.hasPreseason}
-									<p class="mt-1 text-xs text-error-700">{bulkEditLeaguesFieldErrors.hasPreseason}</p>
+									<p class="mt-1 text-xs text-error-700">
+										{bulkEditLeaguesFieldErrors.hasPreseason}
+									</p>
 								{/if}
 							</div>
 							<div>
-								<label class="mb-1 block text-sm font-sans text-neutral-950" for="bulk-preseason-start">
+								<label
+									class="mb-1 block text-sm font-sans text-neutral-950"
+									for="bulk-preseason-start"
+								>
 									Start Date
 								</label>
 								<DatePicker
@@ -7932,7 +7936,10 @@
 								{/if}
 							</div>
 							<div>
-								<label class="mb-1 block text-sm font-sans text-neutral-950" for="bulk-preseason-end">
+								<label
+									class="mb-1 block text-sm font-sans text-neutral-950"
+									for="bulk-preseason-end"
+								>
 									End Date
 								</label>
 								<DatePicker
@@ -7967,11 +7974,16 @@
 									}}
 								/>
 								{#if bulkEditLeaguesFieldErrors.hasPostseason}
-									<p class="mt-1 text-xs text-error-700">{bulkEditLeaguesFieldErrors.hasPostseason}</p>
+									<p class="mt-1 text-xs text-error-700">
+										{bulkEditLeaguesFieldErrors.hasPostseason}
+									</p>
 								{/if}
 							</div>
 							<div>
-								<label class="mb-1 block text-sm font-sans text-neutral-950" for="bulk-postseason-start">
+								<label
+									class="mb-1 block text-sm font-sans text-neutral-950"
+									for="bulk-postseason-start"
+								>
 									Start Date
 								</label>
 								<DatePicker
@@ -7990,7 +8002,10 @@
 								{/if}
 							</div>
 							<div>
-								<label class="mb-1 block text-sm font-sans text-neutral-950" for="bulk-postseason-end">
+								<label
+									class="mb-1 block text-sm font-sans text-neutral-950"
+									for="bulk-postseason-end"
+								>
 									End Date
 								</label>
 								<DatePicker
@@ -8017,9 +8032,12 @@
 		<div class="space-y-4">
 			<div class="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)]">
 				<section class="space-y-3 border border-neutral-950 bg-white p-4">
-					<h3 class="font-serif text-lg font-bold text-neutral-950">Selected {bulkEditingEntryLabelPlural}</h3>
+					<h3 class="font-serif text-lg font-bold text-neutral-950">
+						Selected {bulkEditingEntryLabelPlural}
+					</h3>
 					<p class="text-xs text-neutral-700">
-						{bulkEditSelectedLeagueTemplates.length} {bulkEditingEntryLabelPlural.toLowerCase()} will be updated.
+						{bulkEditSelectedLeagueTemplates.length}
+						{bulkEditingEntryLabelPlural.toLowerCase()} will be updated.
 					</p>
 					<div class="divide-y divide-neutral-950 border border-neutral-950 bg-neutral-25">
 						{#each bulkEditSelectedLeagueTemplates as league}
@@ -8041,7 +8059,9 @@
 					{:else}
 						<ul class="space-y-2">
 							{#each bulkEditChangeSummary() as line}
-								<li class="border border-neutral-950 bg-neutral-25 px-3 py-2 text-sm text-neutral-950">
+								<li
+									class="border border-neutral-950 bg-neutral-25 px-3 py-2 text-sm text-neutral-950"
+								>
 									{line}
 								</li>
 							{/each}
@@ -8439,102 +8459,21 @@
 					</p>
 				</div>
 			{:else}
-				<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-					<div>
-						<label
-							for="league-wizard-reg-start"
-							class="block text-sm font-sans text-neutral-950 mb-1"
-							>{wizardEntryType() === 'tournament'
-								? 'Tournament Registration Opens'
-								: 'Team Registration Opens'}
-							<span class="text-error-700">*</span></label
-						>
-						<DatePicker
-							id="league-wizard-reg-start"
-							type="datetime-local"
-							minYear={createLeagueDateYearRange.minYear}
-							maxYear={createLeagueDateYearRange.maxYear}
-							inputClass="input-secondary py-2 text-sm"
-							bind:value={createLeagueForm.league.regStartDate}
-							on:focus={() => {
-								if (!createLeagueForm.league.regStartDate.trim()) {
-									createLeagueForm.league.regStartDate = defaultDateTimeValue('start');
-								}
-							}}
-						/>
-						{#if createLeagueFieldErrors['league.regStartDate']}
-							<p class="text-xs text-error-700 mt-1">
-								{createLeagueFieldErrors['league.regStartDate']}
-							</p>
-						{/if}
-					</div>
-					<div>
-						<label for="league-wizard-reg-end" class="block text-sm font-sans text-neutral-950 mb-1"
-							>{wizardEntryType() === 'tournament'
-								? 'Tournament Registration Deadline'
-								: 'Team Registration Deadline'}
-							<span class="text-error-700">*</span></label
-						>
-						<DatePicker
-							id="league-wizard-reg-end"
-							type="datetime-local"
-							minYear={createLeagueDateYearRange.minYear}
-							maxYear={createLeagueDateYearRange.maxYear}
-							inputClass="input-secondary py-2 text-sm"
-							bind:value={createLeagueForm.league.regEndDate}
-							on:focus={() => {
-								if (!createLeagueForm.league.regEndDate.trim()) {
-									createLeagueForm.league.regEndDate = defaultDateTimeValue('end');
-								}
-							}}
-						/>
-						{#if createLeagueFieldErrors['league.regEndDate']}
-							<p class="text-xs text-error-700 mt-1">
-								{createLeagueFieldErrors['league.regEndDate']}
-							</p>
-						{/if}
-					</div>
-					<div>
-						<label
-							for="league-wizard-season-start"
-							class="block text-sm font-sans text-neutral-950 mb-1"
-							>Season Start Date <span class="text-error-700">*</span></label
-						>
-						<DatePicker
-							id="league-wizard-season-start"
-							type="date"
-							minYear={createLeagueDateYearRange.minYear}
-							maxYear={createLeagueDateYearRange.maxYear}
-							inputClass="input-secondary py-2 text-sm"
-							bind:value={createLeagueForm.league.seasonStartDate}
-						/>
-						{#if createLeagueFieldErrors['league.seasonStartDate']}
-							<p class="text-xs text-error-700 mt-1">
-								{createLeagueFieldErrors['league.seasonStartDate']}
-							</p>
-						{/if}
-					</div>
-					<div>
-						<label
-							for="league-wizard-season-end"
-							class="block text-sm font-sans text-neutral-950 mb-1"
-							>Season End Date <span class="text-error-700">*</span></label
-						>
-						<DatePicker
-							id="league-wizard-season-end"
-							type="date"
-							minYear={createLeagueDateYearRange.minYear}
-							maxYear={createLeagueDateYearRange.maxYear}
-							inputClass="input-secondary py-2 text-sm"
-							bind:value={createLeagueForm.league.seasonEndDate}
-						/>
-						{#if createLeagueFieldErrors['league.seasonEndDate']}
-							<p class="text-xs text-error-700 mt-1">
-								{createLeagueFieldErrors['league.seasonEndDate']}
-							</p>
-						{/if}
-					</div>
-				</div>
+				<LeagueScheduleFields
+					idPrefix="league-wizard"
+					registrationPrefix={wizardEntryType() === 'tournament' ? 'Tournament' : 'Team'}
+					bind:schedule={createLeagueForm.league}
+					minYear={createLeagueDateYearRange.minYear}
+					maxYear={createLeagueDateYearRange.maxYear}
+					errors={createLeagueFieldErrors}
+					onRegistrationFocus={(field) => {
+						if (!createLeagueForm.league[field].trim()) {
+							createLeagueForm.league[field] = defaultDateTimeValue(
+								field === 'regStartDate' ? 'start' : 'end'
+							);
+						}
+					}}
+				/>
 
 				{#if createLeagueFieldErrors['league.scheduleRange']}
 					<p class="text-xs text-error-700">
@@ -9478,94 +9417,21 @@
 					</p>
 				</div>
 			{:else}
-				<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-					<div>
-						<label for="league-reg-start" class="block text-sm font-sans text-neutral-950 mb-1"
-							>{isTournamentWizard() ? 'Tournament Registration Opens' : 'Team Registration Opens'}
-							<span class="text-error-700">*</span></label
-						>
-						<DatePicker
-							id="league-reg-start"
-							type="datetime-local"
-							minYear={createOfferingLeagueDateYearRange.minYear}
-							maxYear={createOfferingLeagueDateYearRange.maxYear}
-							inputClass="input-secondary py-2 text-sm"
-							bind:value={createForm.league.regStartDate}
-							on:focus={() => {
-								if (!createForm.league.regStartDate.trim()) {
-									createForm.league.regStartDate = defaultDateTimeValue('start');
-								}
-							}}
-						/>
-						{#if createFieldErrors['league.regStartDate']}
-							<p class="text-xs text-error-700 mt-1">
-								{createFieldErrors['league.regStartDate']}
-							</p>
-						{/if}
-					</div>
-					<div>
-						<label for="league-reg-end" class="block text-sm font-sans text-neutral-950 mb-1"
-							>{isTournamentWizard()
-								? 'Tournament Registration Deadline'
-								: 'Team Registration Deadline'}
-							<span class="text-error-700">*</span></label
-						>
-						<DatePicker
-							id="league-reg-end"
-							type="datetime-local"
-							minYear={createOfferingLeagueDateYearRange.minYear}
-							maxYear={createOfferingLeagueDateYearRange.maxYear}
-							inputClass="input-secondary py-2 text-sm"
-							bind:value={createForm.league.regEndDate}
-							on:focus={() => {
-								if (!createForm.league.regEndDate.trim()) {
-									createForm.league.regEndDate = defaultDateTimeValue('end');
-								}
-							}}
-						/>
-						{#if createFieldErrors['league.regEndDate']}
-							<p class="text-xs text-error-700 mt-1">
-								{createFieldErrors['league.regEndDate']}
-							</p>
-						{/if}
-					</div>
-					<div>
-						<label for="league-season-start" class="block text-sm font-sans text-neutral-950 mb-1"
-							>Season Start Date <span class="text-error-700">*</span></label
-						>
-						<DatePicker
-							id="league-season-start"
-							type="date"
-							minYear={createOfferingLeagueDateYearRange.minYear}
-							maxYear={createOfferingLeagueDateYearRange.maxYear}
-							inputClass="input-secondary py-2 text-sm"
-							bind:value={createForm.league.seasonStartDate}
-						/>
-						{#if createFieldErrors['league.seasonStartDate']}
-							<p class="text-xs text-error-700 mt-1">
-								{createFieldErrors['league.seasonStartDate']}
-							</p>
-						{/if}
-					</div>
-					<div>
-						<label for="league-season-end" class="block text-sm font-sans text-neutral-950 mb-1"
-							>Season End Date <span class="text-error-700">*</span></label
-						>
-						<DatePicker
-							id="league-season-end"
-							type="date"
-							minYear={createOfferingLeagueDateYearRange.minYear}
-							maxYear={createOfferingLeagueDateYearRange.maxYear}
-							inputClass="input-secondary py-2 text-sm"
-							bind:value={createForm.league.seasonEndDate}
-						/>
-						{#if createFieldErrors['league.seasonEndDate']}
-							<p class="text-xs text-error-700 mt-1">
-								{createFieldErrors['league.seasonEndDate']}
-							</p>
-						{/if}
-					</div>
-				</div>
+				<LeagueScheduleFields
+					idPrefix="league"
+					registrationPrefix={isTournamentWizard() ? 'Tournament' : 'Team'}
+					bind:schedule={createForm.league}
+					minYear={createOfferingLeagueDateYearRange.minYear}
+					maxYear={createOfferingLeagueDateYearRange.maxYear}
+					errors={createFieldErrors}
+					onRegistrationFocus={(field) => {
+						if (!createForm.league[field].trim()) {
+							createForm.league[field] = defaultDateTimeValue(
+								field === 'regStartDate' ? 'start' : 'end'
+							);
+						}
+					}}
+				/>
 
 				{#if createFieldErrors['league.scheduleRange']}
 					<p class="text-xs text-error-700">{createFieldErrors['league.scheduleRange']}</p>

@@ -42,11 +42,13 @@
 	}
 </script>
 
-<ModalShell {open} closeAriaLabel="Close member details modal" on:requestClose={onClose}>
-	<div class="border-b border-neutral-950 bg-neutral-600/66 px-4 py-3">
-		<h3 class="text-2xl font-bold font-serif text-neutral-950">Member Details</h3>
-	</div>
-	<div class="space-y-4 overflow-y-auto bg-neutral p-4">
+<ModalShell
+	{open}
+	title="Member Details"
+	closeAriaLabel="Close member details modal"
+	on:requestClose={onClose}
+>
+	<div class="modal-body space-y-4">
 		{#if loading}
 			<p class="text-sm text-neutral-950">Loading member details...</p>
 		{:else if member}

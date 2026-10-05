@@ -753,7 +753,7 @@
 			const defaultTheme = {
 				primary: 'CE1126',
 				secondary: '14213D',
-				neutral: 'EEDBCE'
+				neutral: 'FCF9F4'
 			};
 			const defaultZinc = {
 				'05': 'FEFEFE',

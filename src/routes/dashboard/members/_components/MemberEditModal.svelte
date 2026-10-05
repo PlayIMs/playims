@@ -103,16 +103,14 @@
 
 <ModalShell
 	{open}
+	title="Edit Member"
 	saveShortcutEnabled
 	on:requestClose={onClose}
 	on:saveShortcut={() => formElement?.requestSubmit()}
 >
-	<div class="border-b border-neutral-950 bg-neutral-600/66 px-4 py-3">
-		<h3 class="text-2xl font-bold font-serif text-neutral-950">Edit Member</h3>
-	</div>
 	<form
 		bind:this={formElement}
-		class="flex flex-1 flex-col overflow-hidden bg-neutral"
+		class="modal-form"
 		onsubmit={(event) => {
 			event.preventDefault();
 			cellPhoneTouched = true;
@@ -122,7 +120,7 @@
 			onSubmit();
 		}}
 	>
-		<div class="flex-1 space-y-4 overflow-y-auto p-4">
+		<div class="modal-body space-y-4">
 			<div class="grid gap-4 lg:grid-cols-2">
 				<div class="space-y-1">
 					<label class="block text-sm font-semibold text-neutral-950" for="member-edit-first-name"
@@ -271,9 +269,7 @@
 				</div>
 			</div>
 		</div>
-		<div
-			class="flex flex-col-reverse gap-2 border-t border-neutral-950 p-4 sm:flex-row sm:justify-end"
-		>
+		<div class="modal-footer modal-actions">
 			<button
 				type="button"
 				class="button-secondary-outlined w-full cursor-pointer sm:w-auto"

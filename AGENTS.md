@@ -29,7 +29,7 @@ src/
 ├── app.html              # HTML template with theme initialization script
 ├── app.css               # Global styles, Tailwind imports, component classes
 ├── app.d.ts              # TypeScript declarations (App.Locals, Platform)
-├── hooks.server.ts       # Server hooks (minimal - DevTools handling)
+├── hooks.server.ts       # Session, authorization, API policy, and security hooks
 ├── lib/
 │   ├── actions.ts        # Svelte actions (selectArrow)
 │   ├── theme.ts          # Dynamic theming system
@@ -308,16 +308,19 @@ Do not hardcode `text-primary-05`, `text-secondary-05`, or `text-white` on theme
 
 ## Authentication Context
 
-Currently uses a **default client** approach until full auth is implemented:
+Protected routes use authenticated session and organization membership context.
 
 ```typescript
-import { DEFAULT_CLIENT, resolveClientId } from '$lib/server/client-context.js';
+import { requireAuthenticatedClientId } from '$lib/server/client-context.js';
+import { getTenantDbOps } from '$lib/server/database/context';
 
-// In server load:
-const clientId = resolveClientId(locals);
+const clientId = requireAuthenticatedClientId(event.locals);
+const dbOps = await getTenantDbOps(event, clientId);
 ```
 
-Default Client ID: `6eb657af-4ab8-4a13-980a-add993f78d65`
+Use `getCentralDbOps(event)` for identity/session/membership work and `getTenantDbOps(event, clientId)` for organization domain data. Check the current exports and existing route before copying a pattern. Organization roles come from `user_clients`; active organization and view mode come from `sessions`.
+
+`DEFAULT_CLIENT` and `resolveClientId` retain fallback behavior for controlled bootstrap/dev flows. Do not use that fallback to authorize protected routes. See `docs/tenancy-architecture.md`.
 
 ## Environment & Deployment
 
@@ -378,6 +381,14 @@ When a UI bug reproduces but parser or unit tests pass:
 1. Confirm the exact active route and entry point from the screenshot, modal title, or surrounding page context before changing code.
 2. Search sibling routes for duplicated wizard or inference logic before assuming a shared utility is the live source of truth.
 3. Add or use one integration-path check that proves the rendered UI is wired to the same logic the tests cover.
+
+## Shared Modal Ownership
+
+- Change shared modal/wizard appearance and behavior in `ModalShell`, `ModalHeader`, `WizardModal`, `WizardStepFooter`, and `src/app.css` first, then migrate consumers that bypass them.
+- Use `ModalShell`'s `title` prop rather than route-local headers or X buttons. Keep `panelClass` for width/layout only; use `tone="danger"` for destructive-dialog framing.
+- Put wizard actions in the `footer` snippet so the base keeps them visible outside the scrolling body. Use `modal-body`, `modal-footer`, and `modal-actions` for direct modal layout.
+- Use shared inputs, `ListboxDropdown variant="field"`, SearchInput, InfoPopover, and HoverTooltip inside forms. Do not copy control CSS into a route when a shared variant can provide it.
+- Preserve deliberate exceptions such as composer-anchored editor dialogs and the command palette; still reuse shared framing where appropriate. Document exceptions rather than silently overriding defaults.
 
 ## Dashboard Pattern Parity
 
@@ -461,7 +472,7 @@ Icons are explicitly included in `optimizeDeps` and marked `noExternal` for SSR 
 
 1. **Database**: Uses parameterized queries via Drizzle ORM (SQL injection safe)
 2. **Validation**: Zod schemas should be used for all user input
-3. **Auth**: Currently minimal - proper authentication to be implemented
+3. **Auth**: Session authentication, organization memberships, and route policies are implemented; preserve server-side authorization and tenant isolation
 4. **CORS**: Handled by Cloudflare Pages/Workers platform
 
 ## External Dependencies

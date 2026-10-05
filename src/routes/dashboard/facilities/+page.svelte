@@ -2080,15 +2080,14 @@
 	<ModalShell
 		open={confirmOpen && Boolean(confirmIntent)}
 		closeAriaLabel="Close confirmation modal"
-		backdropClass="bg-black/50"
-		alignmentClass="items-start"
-		paddingClass="p-6"
+		title={confirmIntent.kind === 'facility-delete' || confirmIntent.kind === 'area-delete'
+			? 'Delete permanently?'
+			: confirmIntent.kind === 'facility-archive' || confirmIntent.kind === 'area-archive'
+				? 'Archive?'
+				: 'Restore?'}
 		on:requestClose={closeConfirm}
 	>
 		{#if confirmIntent.kind === 'facility-delete' || confirmIntent.kind === 'area-delete'}
-			<div class="border-b border-neutral-950 bg-neutral-600/66 p-5">
-				<h3 class="text-2xl font-bold font-serif text-neutral-950">Delete permanently?</h3>
-			</div>
 			<div class="p-5 space-y-4">
 				{#if confirmIntent.kind === 'facility-delete'}
 					<p class="font-sans text-neutral-950">
@@ -2151,15 +2150,6 @@
 				</div>
 			</div>
 		{:else}
-			<div class="border-b border-neutral-950 bg-neutral-600/66 p-5">
-				<h3 class="text-2xl font-bold font-serif text-neutral-950">
-					{#if confirmIntent.kind === 'facility-archive' || confirmIntent.kind === 'area-archive'}
-						Archive?
-					{:else}
-						Restore?
-					{/if}
-				</h3>
-			</div>
 			<div class="p-5 space-y-4">
 				{#if confirmIntent.kind === 'facility-archive' || confirmIntent.kind === 'area-archive'}
 					<p class="font-sans text-neutral-950">

@@ -5,6 +5,17 @@
 	import type { HTMLInputAttributes } from 'svelte/elements';
 
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
+	import FieldError from './FieldError.svelte';
+	import InputEntryHint from './InputEntryHint.svelte';
+	import {
+		formatDateEntry,
+		maskedCaret,
+		guardEntryKey,
+		dateSeparatorEdit,
+		dateDigitEdit,
+		completeDateEntry,
+		repairDateSegment
+	} from './date-time-entry.js';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import {
 		isTopDatePicker,
@@ -59,6 +70,8 @@
 		triggerClass?: string;
 		panelClass?: string;
 		panelAlign?: 'center' | 'left';
+		calendarButtonTabIndex?: 0 | -1;
+		error?: string;
 		inputElement?: HTMLInputElement | null;
 		trigger?: Snippet<[boolean, string]>;
 	}
@@ -86,6 +99,8 @@
 		triggerClass = 'date-picker-trigger-shell',
 		panelClass = '',
 		panelAlign = 'center',
+		calendarButtonTabIndex = 0,
+		error,
 		inputElement = $bindable<HTMLInputElement | null>(null),
 		trigger,
 		...inputProps
@@ -113,6 +128,12 @@
 	let triggerButton = $state<HTMLButtonElement | null>(null);
 	let panel = $state<HTMLDivElement | null>(null);
 	let open = $state(false);
+	let typedError = $state(false);
+	let editing = $state(false);
+	const visibleError = $derived(
+		!editing &&
+			(typedError ? `Enter a valid ${type === 'date' ? 'date' : 'date and time'}.` : error)
+	);
 	let isDesktop = $state(false);
 	let calendarWheelRemainder = $state(0);
 	let isCalendarWheelGestureLocked = $state(false);
@@ -466,10 +487,40 @@
 	}
 
 	function handleTextInput(event: Event): void {
-		const nextValue = (event.currentTarget as HTMLInputElement).value;
+		const input = event.currentTarget as HTMLInputElement;
+		let raw = input.value;
+		let inputCaret = input.selectionStart ?? raw.length;
+		if (
+			type === 'date' &&
+			(!format || format === 'MM/DD/YYYY') &&
+			event instanceof InputEvent &&
+			event.inputType === 'insertText' &&
+			/^\d$/.test(event.data ?? '')
+		) {
+			const repaired = repairDateSegment(raw, inputCaret);
+			raw = repaired.value;
+			inputCaret = repaired.caret;
+		}
+		const nextValue =
+			type === 'date' && (!format || format === 'MM/DD/YYYY') ? formatDateEntry(raw) : raw;
+		const caret = maskedCaret(raw, inputCaret, nextValue);
 		draftValue = nextValue;
-		const parsedDisplayValue = parseDisplayPickerValue(nextValue, type, format);
+		typedError = false;
+		if (nextValue !== input.value) {
+			input.value = nextValue;
+			input.setSelectionRange(caret, caret);
+		}
+		// A valid one-digit month/day is still an unfinished edit until the user leaves the field.
+		const incompleteDate =
+			type === 'date' &&
+			(!format || format === 'MM/DD/YYYY') &&
+			!/^\d{2}\/\d{2}\/\d{4}$/.test(nextValue);
+		const parsedDisplayValue = incompleteDate
+			? null
+			: parseDisplayPickerValue(nextValue, type, format);
 		if (!parsedDisplayValue) {
+			// Keep invalid drafts in the binding so a stale valid date cannot be submitted.
+			value = nextValue;
 			dispatch('input', { value: nextValue });
 			return;
 		}
@@ -481,7 +532,12 @@
 	}
 
 	function handleTextBlur(): void {
-		const normalizedInputValue = parseDisplayPickerValue(draftValue, type, format);
+		editing = false;
+		const completedDraft =
+			type === 'date' && (!format || format === 'MM/DD/YYYY')
+				? completeDateEntry(draftValue)
+				: draftValue;
+		const normalizedInputValue = parseDisplayPickerValue(completedDraft, type, format);
 		if (normalizedInputValue) {
 			const normalized = clampPickerValue(normalizedInputValue, type, min, max);
 			value = normalized;
@@ -492,11 +548,13 @@
 			return;
 		}
 
-		draftValue = currentDisplayValue(String(value ?? ''));
+		typedError = Boolean(draftValue.trim());
 		dispatch('blur', { value: draftValue });
 	}
 
 	function handleTextFocus(): void {
+		editing = true;
+		typedError = false;
 		dispatch('focus', { value: draftValue });
 		queueInputSegmentSelection(0);
 	}
@@ -507,6 +565,51 @@
 
 	function handleInputKeydown(event: KeyboardEvent): void {
 		if (disabled) return;
+		if (
+			type === 'date' &&
+			(!format || format === 'MM/DD/YYYY') &&
+			/^\d$/.test(event.key) &&
+			!event.ctrlKey &&
+			!event.metaKey &&
+			!event.altKey &&
+			inputElement
+		) {
+			const edit = dateDigitEdit(
+				draftValue,
+				inputElement.selectionStart ?? 0,
+				inputElement.selectionEnd ?? 0,
+				event.key
+			);
+			event.preventDefault();
+			inputElement.value = edit.value;
+			inputElement.setSelectionRange(edit.start, edit.end);
+			handleTextInput({ currentTarget: inputElement } as unknown as Event);
+			inputElement.setSelectionRange(edit.start, edit.end);
+			return;
+		}
+		if (
+			type === 'date' &&
+			(!format || format === 'MM/DD/YYYY') &&
+			event.key === '/' &&
+			!event.ctrlKey &&
+			!event.metaKey &&
+			!event.altKey &&
+			inputElement
+		) {
+			const edit = dateSeparatorEdit(
+				draftValue,
+				inputElement.selectionStart ?? 0,
+				inputElement.selectionEnd ?? 0
+			);
+			if (edit) {
+				event.preventDefault();
+				inputElement.value = edit.value;
+				inputElement.setSelectionRange(edit.caret, edit.caret);
+				handleTextInput({ currentTarget: inputElement } as unknown as Event);
+				return;
+			}
+		}
+		if (type === 'date' && (!format || format === 'MM/DD/YYYY')) guardEntryKey(event, 'date');
 		if (event.key === 'ArrowDown' && (event.altKey || event.metaKey)) {
 			event.preventDefault();
 			void openPanel();
@@ -542,6 +645,7 @@
 	}
 
 	function selectDate(dateKey: string): void {
+		typedError = false;
 		if (type === 'date') {
 			commitValue(dateKey);
 		} else {
@@ -765,9 +869,9 @@
 	$effect(() => {
 		const normalizedValue = String(value ?? '');
 		const displayValue = currentDisplayValue(normalizedValue);
-		if (displayValue === draftValue) return;
+		if (displayValue === untrack(() => draftValue)) return;
 		draftValue = displayValue;
-		if (!open) {
+		if (!untrack(() => open)) {
 			visibleMonth = resolveVisibleMonth(normalizedValue, type);
 			activeDateKey = resolveActiveDateKey(normalizedValue, type);
 		}
@@ -881,10 +985,19 @@
 				{...inputProps}
 				{id}
 				type="text"
+				aria-placeholder={resolvedPlaceholder}
+				aria-invalid={editing ? undefined : visibleError ? 'true' : inputProps['aria-invalid']}
+				aria-describedby={visibleError
+					? id
+						? `${id}-error`
+						: undefined
+					: inputProps['aria-describedby']}
 				aria-label={ariaLabel}
 				aria-haspopup="dialog"
 				aria-required={required ? 'true' : undefined}
-				placeholder={resolvedPlaceholder}
+				placeholder={type === 'date' && (!format || format === 'MM/DD/YYYY')
+					? undefined
+					: resolvedPlaceholder}
 				{autocomplete}
 				{disabled}
 				bind:this={inputElement}
@@ -896,9 +1009,13 @@
 				onkeydown={handleInputKeydown}
 				onmouseup={handleTextMouseup}
 			/>
+			{#if type === 'date' && (!format || format === 'MM/DD/YYYY')}
+				<InputEntryHint value={draftValue} kind="date" />
+			{/if}
 			<button
 				type="button"
 				class="date-picker-open-button"
+				tabindex={calendarButtonTabIndex}
 				aria-label={ariaLabel ?? 'Open date picker'}
 				{disabled}
 				bind:this={triggerButton}
@@ -907,6 +1024,7 @@
 				<IconCalendar class="h-4 w-4" />
 			</button>
 		</div>
+		<FieldError id={id ? `${id}-error` : undefined} message={visibleError || undefined} />
 	{/if}
 
 	{#if open}

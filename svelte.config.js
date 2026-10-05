@@ -22,7 +22,9 @@ const config = {
 				'form-action': ['self'],
 				'img-src': ['self', 'data:', 'blob:', 'https:'],
 				'font-src': ['self', 'https://fonts.gstatic.com', 'data:'],
-				'style-src': ['self', 'https://fonts.googleapis.com'],
+				// Theme initialization, Svelte transitions and toast positioning use inline styles.
+				// Keep this aligned with the hook's HTML fallback; scripts remain nonce-protected.
+				'style-src': ['self', 'unsafe-inline', 'https://fonts.googleapis.com'],
 				'script-src': ['self'],
 				'connect-src': ['self'],
 				'worker-src': ['self'],

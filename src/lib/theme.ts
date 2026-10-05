@@ -21,7 +21,7 @@ export const ZINC_PALETTE: Record<string, string> = {
 export const DEFAULT_THEME = {
 	primary: 'CE1126',
 	secondary: '14213D',
-	neutral: 'F5ECE5'
+	neutral: 'FCF9F4'
 } as const;
 
 export const STANDALONE_PWA_FALLBACK_PRIMARY = DEFAULT_THEME.primary;

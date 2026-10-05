@@ -1,58 +1,28 @@
-# QA Gates
+# Editor QA
 
-All gates in this file are required for `playims-tiptap-rich-editor-builder`.
+AGENTS.md owns testing tiers and final gates. Use full TDD for editor behavior or persistence changes; choose only runtime cases affected by the request.
 
-## 1) Skill Package Integrity
+## Application changes
 
-Run from repo root:
+- Mount, type, select, and format content in the actual editor route. Check toolbar state after transactions and selection changes.
+- Verify the affected keyboard shortcuts, undo/redo, and focus restoration.
+- Check empty content, representative existing content, and read-only display when touched.
+- For persistence changes, save/reload representative JSON and required HTML/text derivations without losing supported marks/nodes.
+- For lifecycle changes, navigate away and remount without leaked listeners, duplicate editors, or SSR/hydration errors.
+- Test requested image/table/paste behavior only when those modules change.
+- Run the repository test/type gates; run a production build when shared editor dependencies or SSR integration change. Report browser results separately.
 
-```powershell
-python "C:\Users\Jake\.codex\skills\.system\skill-creator\scripts\quick_validate.py" "plugins/playims/skills/playims-tiptap-rich-editor-builder"
-```
+## Skill-package changes
 
-If `agents/openai.yaml` was edited manually, regenerate it deterministically:
+Validate frontmatter, discriminating descriptions, relative links, source paths, and preserved contracts. If the local skill-creator validator is available, use it. Preserve policy and dependency fields when editing agents/openai.yaml; do not regenerate the file merely because one string changed.
 
-```powershell
-python "C:\Users\Jake\.codex\skills\.system\skill-creator\scripts\generate_openai_yaml.py" "plugins/playims/skills/playims-tiptap-rich-editor-builder" --interface "display_name=PlayIMs TipTap Rich Editor Builder" --interface "short_description=Build TipTap editors in Svelte 5 with PlayIMs styling" --interface 'default_prompt=Use $playims-tiptap-rich-editor-builder and $playims-style-builder to build or refactor a Svelte 5 TipTap editor that follows official TipTap patterns and PlayIMs styling.'
-```
+Representative review prompts:
 
-Verify reference files exist:
+- Add a bold button to the current communications editor: preserve lifecycle and storage, use commands, and verify selection/toolbar state.
+- Add table support to an editor: inspect installed APIs, load the advanced module reference, preserve existing content, and verify editing/round-trip behavior.
 
-```powershell
-Get-ChildItem "plugins/playims/skills/playims-tiptap-rich-editor-builder/references/*.md" | Select-Object -ExpandProperty Name
-```
+These are review scenarios, not automatic authorization to alter an app or spawn agents.
 
-Verify `SKILL.md` links all required references:
+## Activate a package update
 
-```powershell
-Select-String -Path "plugins/playims/skills/playims-tiptap-rich-editor-builder/SKILL.md" -Pattern "core-svelte-and-styling.md|architecture-schema-and-persistence.md|api-events-and-rules.md|advanced-modules.md|qa-gates.md"
-```
-
-## 2) Forward-Test Prompts
-
-Use fresh subagents with prompts like:
-
-```text
-Use $playims-tiptap-rich-editor-builder and $playims-style-builder to build a PlayIMs Svelte 5 rich-text editor with JSON persistence, a headless toolbar, and PlayIMs styling.
-```
-
-```text
-Use $playims-tiptap-rich-editor-builder and $playims-style-builder to refactor an existing PlayIMs editor to use direct TipTap lifecycle, extension-first logic, and optional advanced modules only when requested.
-```
-
-Success criteria:
-
-- direct TipTap integration is chosen instead of a wrapper-first approach
-- JSON-first persistence is chosen by default
-- styling is routed through PlayIMs styling guidance instead of a new design system
-- advanced modules stay opt-in instead of being bundled by default
-
-## 3) Cache Mirror
-
-After validation succeeds, mirror the repo skill folder into the currently-loaded PlayIMs plugin cache so the skill is immediately available in the live Codex session.
-
-Current cache target:
-
-```text
-C:\Users\Jake\.codex\plugins\cache\playims-local\playims\local\skills\playims-tiptap-rich-editor-builder
-```
+Edit the marketplace's owning source and use the host's supported plugin install/reload command. Verify the loaded version and skill discovery. Never copy directly into the installed plugin cache. A changed package cannot retroactively replace instructions already read in an active turn.

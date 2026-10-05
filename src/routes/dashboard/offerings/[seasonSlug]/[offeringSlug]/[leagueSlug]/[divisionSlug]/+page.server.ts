@@ -1,3 +1,4 @@
+import { loadBreadcrumbMetadata } from '$lib/server/breadcrumb-metadata';
 import { error, redirect } from '@sveltejs/kit';
 import type { League } from '$lib/database';
 import { requireAuthenticatedClientId } from '$lib/server/client-context';
@@ -223,6 +224,9 @@ export const load: PageServerLoad = async (event) => {
 				description: team.description?.trim() || null
 			}))
 			.sort((a, b) => a.name.localeCompare(b.name));
+		const breadcrumbMetadata = await loadBreadcrumbMetadata(
+			dbOps, clientId, season, allOfferings, allLeagues
+		);
 		const offeringOptions = buildSeasonScopedOfferingOptions({
 			season,
 			offerings: allOfferings,
@@ -295,9 +299,11 @@ export const load: PageServerLoad = async (event) => {
 				location: division.location?.trim() || null,
 				startDate: division.startDate ?? null,
 				maxTeams: division.maxTeams ?? null,
-				isLocked: division.isLocked === 1
+				isLocked: division.isLocked === 1,
+				doAutoLock: division.doAutoLock !== 0
 			},
 			offeringOptions,
+			breadcrumbMetadata,
 			leagueOptions,
 			divisionOptions,
 			teams: teamRows,

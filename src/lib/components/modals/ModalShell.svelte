@@ -42,20 +42,27 @@
 </script>
 
 <script lang="ts">
-	import { createEventDispatcher } from 'svelte';
+	import { createEventDispatcher, onDestroy, setContext, tick } from 'svelte';
 	import type { Snippet } from 'svelte';
 	import { IconX } from '@tabler/icons-svelte';
+	import ModalHeader from './ModalHeader.svelte';
+	import { MODAL_UI_CONTEXT } from './modal-context.js';
 	import { hasOpenDatePicker } from '$lib/components/date-picker-stack.js';
 	import { clampModalTranslate } from './modal-drag.js';
 	import { isSaveShortcutEvent } from './save-shortcut.js';
+	import { getModalTabTarget, shouldCloseModalOnEscape } from './modal-keyboard.js';
 
 	interface Props {
 		open?: boolean;
+		title?: string;
+		tone?: 'neutral' | 'danger';
 		closeAriaLabel?: string;
 		showCloseButton?: boolean;
 		closeButtonClass?: string;
 		backdropClass?: string;
 		panelClass?: string;
+		panelStyle?: string;
+		ariaLabel?: string;
 		alignmentClass?: string;
 		paddingClass?: string;
 		lockBodyScroll?: boolean;
@@ -67,11 +74,15 @@
 
 	let {
 		open = false,
+		title,
+		tone = 'neutral',
 		closeAriaLabel = 'Close modal',
 		showCloseButton = true,
 		closeButtonClass = 'modal-close-button absolute right-4 top-3 z-10',
 		backdropClass = 'bg-black/55',
-		panelClass = 'w-full max-w-5xl max-h-[calc(100vh-2rem)] lg:max-h-[calc(100vh-3rem)] border-[3px] border-neutral-950 bg-neutral overflow-hidden flex flex-col',
+		panelClass = 'max-w-5xl',
+		panelStyle: customPanelStyle = '',
+		ariaLabel,
 		alignmentClass = 'items-center',
 		paddingClass = 'p-4 lg:p-6',
 		lockBodyScroll = true,
@@ -82,7 +93,8 @@
 	}: Props = $props();
 
 	const dispatch = createEventDispatcher<{ requestClose: void; saveShortcut: void }>();
-	const resolvedPanelClass = $derived.by(() => `${panelClass} relative`);
+	setContext(MODAL_UI_CONTEXT, true);
+	const resolvedPanelClass = $derived.by(() => `modal-panel ${panelClass}`);
 	const modalId = Symbol('modal-shell');
 	let pointerDownStartedInside = $state(false);
 	let hasBodyScrollLock = $state(false);
@@ -101,8 +113,46 @@
 	const panelStyle = $derived.by(() =>
 		draggable
 			? `position: relative; left: ${panelTranslateX}px; top: ${panelTranslateY}px;`
-			: undefined
+			: customPanelStyle || undefined
 	);
+
+	function focusableControls(): HTMLElement[] {
+		if (!panelElement) return [];
+		return Array.from(
+			panelElement.querySelectorAll<HTMLElement>(
+				'button, a[href], input, select, textarea, [tabindex], [contenteditable="true"]'
+			)
+		).filter(
+			(element) =>
+				element.tabIndex >= 0 &&
+				!element.matches(':disabled, [aria-disabled="true"]') &&
+				!element.closest('[inert]') &&
+				element.getClientRects().length > 0
+		);
+	}
+
+	$effect(() => {
+		if (!open || !panelElement) return;
+		const panel = panelElement;
+		const previousFocus =
+			document.activeElement instanceof HTMLElement ? document.activeElement : null;
+		let cancelled = false;
+		void tick().then(() => {
+			if (cancelled || !isTopModal(modalId) || panel.contains(document.activeElement)) return;
+			(focusableControls()[0] ?? panel).focus({ preventScroll: true });
+		});
+		return () => {
+			cancelled = true;
+			// restore only if focus still belongs to this dialog, not a newer overlay.
+			if (
+				previousFocus?.isConnected &&
+				(panel.contains(document.activeElement) || document.activeElement === document.body)
+			)
+				previousFocus.focus({ preventScroll: true });
+		};
+	});
+
+	onDestroy(stopDragging);
 
 	$effect(() => {
 		if (typeof document === 'undefined' || !open || !lockBodyScroll) return;
@@ -297,20 +347,35 @@
 		if (typeof window === 'undefined' || !open) return;
 
 		const handleWindowKeydown = (event: KeyboardEvent) => {
+			if (!isTopModal(modalId) || event.defaultPrevented) return;
+			if (event.key === 'Tab' && !hasOpenDatePicker()) {
+				const controls = focusableControls();
+				const targetIndex = getModalTabTarget(
+					controls.length,
+					controls.indexOf(document.activeElement as HTMLElement),
+					event.shiftKey
+				);
+				if (targetIndex !== null) {
+					event.preventDefault();
+					(targetIndex < 0 ? panelElement : controls[targetIndex])?.focus();
+				}
+				return;
+			}
 			if (saveShortcutEnabled && isTopModal(modalId) && isSaveShortcutEvent(event)) {
 				event.preventDefault();
 				dispatch('saveShortcut');
 				return;
 			}
-			if (event.key !== 'Escape') return;
-			if (!isTopModal(modalId)) return;
-			if (hasOpenDatePicker()) return;
+			if (!shouldCloseModalOnEscape(event.key, event.defaultPrevented, hasOpenDatePicker())) return;
+			event.preventDefault();
+			event.stopImmediatePropagation();
 			dispatch('requestClose');
 		};
 
-		window.addEventListener('keydown', handleWindowKeydown, true);
+		// bubble phase lets dropdowns and other nested controls consume keys first.
+		window.addEventListener('keydown', handleWindowKeydown);
 		return () => {
-			window.removeEventListener('keydown', handleWindowKeydown, true);
+			window.removeEventListener('keydown', handleWindowKeydown);
 		};
 	});
 </script>
@@ -335,12 +400,22 @@
 		<div
 			bind:this={panelElement}
 			class={resolvedPanelClass}
+			data-modal-tone={tone}
 			style={panelStyle}
 			onpointerdown={handlePanelPointerDown}
-			onclick={(event) => event.stopPropagation()}
-			role="presentation"
+			role="dialog"
+			aria-modal="true"
+			aria-label={ariaLabel ?? title ?? closeAriaLabel.replace(/^Close\s+/i, '')}
+			tabindex="-1"
 		>
-			{#if showCloseButton}
+			{#if title}
+				<ModalHeader
+					{title}
+					{closeAriaLabel}
+					{showCloseButton}
+					onClose={() => dispatch('requestClose')}
+				/>
+			{:else if showCloseButton}
 				<button
 					type="button"
 					class={closeButtonClass}

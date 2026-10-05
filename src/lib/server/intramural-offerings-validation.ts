@@ -94,6 +94,17 @@ const requiredDateTime = (label: string) =>
 		z.string().regex(DATE_TIME_REGEX, `${label} must be in YYYY-MM-DDTHH:mm format.`)
 	);
 
+const requiredScheduleDate = (label: string) =>
+	z.preprocess(
+		normalizeText,
+		z
+			.string()
+			.refine(
+				(value) => DATE_REGEX.test(value) || DATE_TIME_REGEX.test(value),
+				`${label} must be a valid date or date and time.`
+			)
+	);
+
 const optionalDate = z.preprocess(
 	(value) => {
 		if (typeof value !== 'string') return value;
@@ -351,8 +362,8 @@ const leagueInputSchema = z.object({
 	skillLevel: z.union([z.enum(['competitive', 'intermediate', 'recreational', 'all']), z.null()]),
 	regStartDate: requiredDateTime('Registration start date'),
 	regEndDate: requiredDateTime('Registration end date'),
-	seasonStartDate: requiredDate('Season start date'),
-	seasonEndDate: requiredDate('Season end date'),
+	seasonStartDate: requiredScheduleDate('Season start date'),
+	seasonEndDate: requiredScheduleDate('Season end date'),
 	hasPostseason: z.boolean(),
 	postseasonStartDate: optionalDate,
 	postseasonEndDate: optionalDate,
@@ -371,7 +382,6 @@ const addLeagueDateValidationIssues = (
 ): void => {
 	const regStartMs = toDateMs(league.regStartDate);
 	const regEndMs = toDateMs(league.regEndDate);
-	const regEndDateOnlyMs = toDateOnlyMs(league.regEndDate);
 	const seasonStartMs = toDateMs(league.seasonStartDate);
 	const seasonEndMs = toDateMs(league.seasonEndDate);
 
@@ -412,14 +422,6 @@ const addLeagueDateValidationIssues = (
 			code: z.ZodIssueCode.custom,
 			path: [...pathPrefix, 'regEndDate'],
 			message: 'Registration end date must be on or after registration start date.'
-		});
-	}
-
-	if (regEndDateOnlyMs !== null && seasonStartMs !== null && regEndDateOnlyMs > seasonStartMs) {
-		ctx.addIssue({
-			code: z.ZodIssueCode.custom,
-			path: [...pathPrefix, 'seasonStartDate'],
-			message: 'Season start date must be on or after registration end date.'
 		});
 	}
 

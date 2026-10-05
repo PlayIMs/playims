@@ -149,7 +149,9 @@
 						</button>
 					</HoverTooltip>
 				</div>
-				<p class="mt-1 text-xs font-sans text-neutral-950">Auto-formats to lowercase with dashes.</p>
+				<p class="mt-1 text-xs font-sans text-neutral-950">
+					Auto-formats to lowercase with dashes.
+				</p>
 				{#if fieldErrors.slug}
 					<p class="mt-1 text-xs text-error-700">{fieldErrors.slug}</p>
 				{/if}
@@ -287,9 +289,13 @@
 	</div>
 
 	{#snippet footer()}
-		<div class="pt-2 border-t border-neutral-950 flex justify-end">
+		<div class="modal-actions">
 			<div class="flex items-center gap-2 justify-end">
-				<button type="button" class="button-secondary-outlined cursor-pointer" onclick={onRequestClose}>
+				<button
+					type="button"
+					class="button-secondary-outlined cursor-pointer"
+					onclick={onRequestClose}
+				>
 					Cancel
 				</button>
 				<button

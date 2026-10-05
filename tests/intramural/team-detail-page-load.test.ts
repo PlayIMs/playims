@@ -8,7 +8,7 @@ multiple operations. These tests keep the route contract stable so the team page
 navigate and continues returning predictable data even as surrounding offering logic evolves.
 
 Summary of tests:
-1. It verifies that a matching team returns roster, standings, and schedule data for rendering.
+1. It verifies that a matching team returns roster, standings, schedule, and breadcrumb counts.
 2. It verifies that a missing team slug redirects back to the offerings index.
 */
 
@@ -32,6 +32,7 @@ const mocks = vi.hoisted(() => {
 				getByClientId: vi.fn()
 			},
 			divisions: {
+				getByLeagueIds: vi.fn(),
 				getByLeagueId: vi.fn()
 			},
 			teams: {
@@ -67,7 +68,8 @@ vi.mock('$lib/server/database/context', () => ({
 	getTenantDbOps: mocks.getTenantDbOps
 }));
 
-vi.mock('$lib/server/intramural-offering-scope', () => ({
+vi.mock('$lib/server/intramural-offering-scope', async (importOriginal) => ({
+	...(await importOriginal<typeof import('../../src/lib/server/intramural-offering-scope')>()),
 	offeringMatchesSeason: vi.fn(() => true),
 	buildSeasonScopedOfferingOptions: vi.fn(({ season, offerings }) =>
 		offerings
@@ -122,6 +124,10 @@ describe('team detail page load', () => {
 
 		mocks.requireAuthenticatedClientId.mockReturnValue('client-1');
 		mocks.getTenantDbOps.mockResolvedValue(mocks.dbOps);
+		// both route context and breadcrumb counts use the same division fixture.
+		mocks.dbOps.divisions.getByLeagueIds.mockImplementation(() =>
+			mocks.dbOps.divisions.getByLeagueId()
+		);
 		mocks.resolveOfferingForSeason.mockResolvedValue({
 			id: 'off-1',
 			name: 'Basketball',
@@ -274,6 +280,10 @@ describe('team detail page load', () => {
 		const result = (await load(createEvent())) as any;
 
 		expect(result.team?.name).toBe('Wildcats');
+		// this proves the page load supplies the summaries consumed by the breadcrumb component.
+		expect(
+			result.breadcrumbMetadata['/dashboard/offerings/spring-2026/basketball/mens-competitive']
+		).toEqual({ unlockedCount: 1, lockedCount: 0, teamCount: 2 });
 		expect(result.team?.dateJoinedDivision).toBe('2026-02-02T10:00:00.000Z');
 		expect(result.roster).toHaveLength(1);
 		expect(result.roster[0]).toMatchObject({
