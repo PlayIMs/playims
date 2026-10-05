@@ -24,14 +24,16 @@
 		maxWidthClass
 	}: Props = $props();
 
-	const tooltipText = $derived.by(() => buildDateTooltipText({ value, endValue, includeTime }));
+	const tooltipText = $derived.by(() =>
+		buildDateTooltipText({ value, endValue, includeTime, display })
+	);
 	const hasTooltip = $derived.by(() => tooltipText.trim().length > 0);
 </script>
 
 {#if hasTooltip}
 	<HoverTooltip
 		text={tooltipText}
-		wrapperClass={wrapperClass}
+		{wrapperClass}
 		wrapperElement="span"
 		{panelClass}
 		{maxWidthClass}

@@ -58,7 +58,7 @@ function formatFullDate(date: Date): string {
 	return new Intl.DateTimeFormat('en-US', {
 		weekday: 'long',
 		month: 'long',
-		day: '2-digit',
+		day: 'numeric',
 		year: 'numeric'
 	}).format(date);
 }
@@ -70,7 +70,7 @@ function formatTime(date: Date): string {
 		hour12: true
 	})
 		.format(date)
-		.replace(/\s([AP]M)$/i, '$1');
+		.replace(/\s+([AP]M)$/i, ' $1');
 }
 
 function formatTooltipDate(date: Date, includeTime: boolean): string {
@@ -86,16 +86,30 @@ export function buildDateTooltipText(input: {
 	value: DateTooltipValue;
 	endValue?: DateTooltipValue;
 	includeTime?: boolean;
+	display?: string;
 }): string {
-	const startDate = parseDateTooltipValue(input.value);
-	const endDate = parseDateTooltipValue(input.endValue);
+	// Visible precision takes precedence over stored timestamps or legacy caller flags.
+	const visibleHasTime =
+		input.display === undefined
+			? undefined
+			: /\b\d{1,2}:\d{2}\b|\b\d{1,2}\s*[AP]M\b/i.test(input.display);
+	const parseValue = (value: DateTooltipValue) => {
+		// Match legacy datetime labels that format date-only strings through new Date (UTC).
+		if (visibleHasTime && typeof value === 'string' && DATE_ONLY_PATTERN.test(value.trim())) {
+			return new Date(value.trim());
+		}
+		return parseDateTooltipValue(value);
+	};
+	const startDate = parseValue(input.value);
+	const endDate = parseValue(input.endValue);
 	if (!startDate && !endDate) return '';
 
 	const hasTimeValue =
 		valueIncludesTime(input.value) ||
 		(input.endValue !== undefined && valueIncludesTime(input.endValue));
 
-	const resolvedIncludeTime = (input.includeTime ?? hasTimeValue) && hasTimeValue;
+	const resolvedIncludeTime =
+		visibleHasTime ?? ((input.includeTime ?? hasTimeValue) && hasTimeValue);
 
 	if (startDate && endDate) {
 		return `${formatTooltipDate(startDate, resolvedIncludeTime)} - ${formatTooltipDate(endDate, resolvedIncludeTime)}`;

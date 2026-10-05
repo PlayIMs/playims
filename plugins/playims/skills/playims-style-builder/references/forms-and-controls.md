@@ -137,9 +137,9 @@ Use companion skills:
 - Any visible date or datetime text in the UI must render with `DateHoverText` (`src/lib/components/DateHoverText.svelte`).
 - Keep visible copy compact for the layout, but pass raw source values so the tooltip can render the full canonical format.
 - Tooltip format contract:
-  - Date only: `Monday, January 01, 2026`
-  - Date + time: `Monday, January 01, 2026, 11:59PM EST`
-- Set `includeTime` when the visible date string includes time.
+  - Date only: `Monday, January 1, 2026`
+  - Date + time: `Monday, January 1, 2026, 11:59 PM EST`
+- `DateHoverText` derives tooltip precision from `display`. Visible times receive full datetime tooltips; date-only labels remain date-only even when their stored values contain timestamps.
 - For ranges, pass both `value` and `endValue` so the tooltip resolves the full start/end date context.
 - If sentence copy includes extra words (for example, `Expires ...`), wrap only the date portion with `DateHoverText` and keep surrounding text outside.
 - Do not use native `title` attributes or ad-hoc tooltip code for date display behavior.

@@ -419,11 +419,11 @@ Implementation rule:
 
 - Use `src/lib/components/DateHoverText.svelte` for displayed dates instead of raw text.
 - Pass compact visible text as `display`, and pass raw source values via `value` (and `endValue` for ranges).
-- Set `includeTime` when the displayed value includes time.
+- The shared component derives tooltip precision from `display`: visible times get full datetime tooltips; date-only labels get date-only tooltips, even when the stored value contains time.
 
 Tooltip format:
 
-- Date-only: `Monday, January 01, 2026`
-- Date-time: `Monday, January 01, 2026, 11:59PM EST`
+- Date-only: `Monday, January 1, 2026`
+- Date-time: `Monday, January 1, 2026, 11:59 PM EST`
 
 Do not use native `title` attributes or ad-hoc tooltip implementations for date displays.
