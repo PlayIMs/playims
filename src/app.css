@@ -384,7 +384,8 @@
 	):is(.input-primary, .input-secondary, .input-neutral, .input-error),
 	textarea:is(.textarea-primary, .textarea-secondary),
 	select:is(.select-primary, .select-secondary),
-	button.select-secondary {
+	button.select-secondary,
+	.toggle-field-secondary {
 		width: 100%;
 		padding: 0.375rem 1rem;
 		border: 2px solid var(--playims-control-border);
@@ -395,6 +396,26 @@
 		outline: none;
 		box-shadow: none;
 		accent-color: var(--playims-control-focus);
+	}
+
+	input:not([type='hidden']):is(.input-primary, .input-secondary, .input-neutral, .input-error),
+	select:is(.select-primary, .select-secondary),
+	button.select-secondary,
+	.toggle-field-secondary {
+		min-height: 2.5rem;
+	}
+
+	.toggle-field-secondary {
+		padding-inline: 0.5rem;
+		cursor: pointer;
+	}
+
+	.slug-revert-button:not(:disabled) {
+		cursor: pointer;
+	}
+
+	.slug-revert-button:disabled {
+		cursor: not-allowed;
 	}
 
 	:where(
@@ -434,7 +455,8 @@
 	).input-secondary,
 	textarea.textarea-secondary,
 	select.select-secondary,
-	button.select-secondary {
+	button.select-secondary,
+	.toggle-field-secondary {
 		--playims-control-border: var(--color-secondary-400);
 		--playims-control-text: var(--color-secondary-950);
 		--playims-control-focus: var(--color-secondary-500);
@@ -494,7 +516,8 @@
 		):is(.input-primary, .input-secondary, .input-neutral, .input-error):focus,
 	textarea:is(.textarea-primary, .textarea-secondary):focus,
 	select:is(.select-primary, .select-secondary):focus,
-	button.select-secondary:focus-visible {
+	button.select-secondary:focus-visible,
+	.toggle-field-secondary:focus-within {
 		outline: 1px solid var(--playims-control-focus) !important;
 		outline-offset: 1px !important;
 		border-color: var(--playims-control-focus);
@@ -519,7 +542,8 @@
 		):is(.input-primary, .input-secondary, .input-neutral, .input-error):disabled,
 	textarea:is(.textarea-primary, .textarea-secondary):disabled,
 	select:is(.select-primary, .select-secondary):disabled,
-	button.select-secondary:disabled {
+	button.select-secondary:disabled,
+	.toggle-field-secondary:has(input:disabled) {
 		cursor: not-allowed;
 		opacity: 0.6;
 		background-color: var(--color-neutral-100);

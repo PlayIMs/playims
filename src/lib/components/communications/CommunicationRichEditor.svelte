@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ToggleField from '$lib/components/ToggleField.svelte';
 	import { onDestroy, onMount, tick } from 'svelte';
 	import { Editor, Extension, mergeAttributes } from '@tiptap/core';
 	import Color from '@tiptap/extension-color';
@@ -1774,19 +1775,11 @@
 								}}
 							/>
 						</div>
-						<label
-							for="communication-link-new-tab"
-							class="flex min-h-10 cursor-pointer items-center justify-between gap-3 border border-neutral-950 bg-white px-3 py-2"
-						>
-							<span class="text-sm font-semibold text-neutral-950">Open In New Tab</span>
-							<input
-								id="communication-link-new-tab"
-								type="checkbox"
-								role="switch"
-								class="toggle-secondary"
-								bind:checked={linkOpenInNewTab}
-							/>
-						</label>
+						<ToggleField
+							id="communication-link-new-tab"
+							label="Open In New Tab"
+							bind:checked={linkOpenInNewTab}
+						/>
 						<div class="flex flex-wrap items-center justify-end gap-2">
 							<button
 								type="button"

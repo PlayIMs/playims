@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ToggleField from '$lib/components/ToggleField.svelte';
 	import DatePicker from '$lib/components/DatePicker.svelte';
 	import ListboxDropdown from '$lib/components/ListboxDropdown.svelte';
 	import { WizardModal, WizardStepFooter, WizardUnsavedConfirm } from '$lib/components/wizard';
@@ -495,10 +496,13 @@
 					</div>
 				</div>
 
-				<label class="inline-flex items-center gap-2 text-sm text-neutral-950">
-					<input type="checkbox" class="toggle-secondary" bind:checked={form.isPostseason} />
-					Postseason game
-				</label>
+				<ToggleField
+					id="toggle-form-ispostseason"
+					label="Postseason game"
+					onLabel="Postseason"
+					offLabel="Regular Season"
+					bind:checked={form.isPostseason}
+				/>
 
 				<div class="space-y-1.5">
 					<label for="create-event-notes" class="text-sm text-neutral-950">Notes</label>

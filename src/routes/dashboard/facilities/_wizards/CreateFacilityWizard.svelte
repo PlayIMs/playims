@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ToggleField from '$lib/components/ToggleField.svelte';
 	import { IconAlertCircle, IconPencil, IconRestore, IconTrash } from '@tabler/icons-svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import { toast } from '$lib/toasts';
@@ -268,7 +269,7 @@
 							<button
 								type="button"
 								tabindex="-1"
-								class="-translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
+								class="slug-revert-button -translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
 								aria-label="Revert facility slug to default"
 								onclick={() => {
 									onFacilitySlugTouchedChange(false);
@@ -423,11 +424,14 @@
 						<p class="text-xs text-error-700 mt-1">{fieldErrors['facility.capacity']}</p>
 					{/if}
 				</div>
-				<div class="section-card p-3 flex items-center">
-					<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-						<input type="checkbox" class="toggle-secondary" bind:checked={form.facility.isActive} />
-						Active
-					</label>
+				<div>
+					<ToggleField
+						id="toggle-form-facility-isactive"
+						label="Active"
+						onLabel="Active"
+						offLabel="Inactive"
+						bind:checked={form.facility.isActive}
+					/>
 				</div>
 			</div>
 		</div>
@@ -539,7 +543,7 @@
 									<button
 										type="button"
 										tabindex="-1"
-										class="-translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
+										class="slug-revert-button -translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
 										aria-label="Revert area slug to default"
 										onclick={() => {
 											onWizardAreaSlugTouchedChange(false);
@@ -570,15 +574,14 @@
 					</div>
 
 					<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-						<div class="section-card p-3">
-							<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-								<input
-									type="checkbox"
-									class="toggle-secondary"
-									bind:checked={form.areaDraft.isActive}
-								/>
-								Active
-							</label>
+						<div>
+							<ToggleField
+								id="toggle-form-areadraft-isactive"
+								label="Active"
+								onLabel="Active"
+								offLabel="Inactive"
+								bind:checked={form.areaDraft.isActive}
+							/>
 						</div>
 						<div>
 							<label

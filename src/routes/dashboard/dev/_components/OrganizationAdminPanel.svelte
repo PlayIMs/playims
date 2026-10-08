@@ -1,13 +1,9 @@
 <script lang="ts">
+	import ToggleField from '$lib/components/ToggleField.svelte';
 	import { applyAction, enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import type { ActionResult } from '@sveltejs/kit';
-	import {
-		IconBuildingCommunity,
-		IconPencil,
-		IconPlus,
-		IconRestore
-	} from '@tabler/icons-svelte';
+	import { IconBuildingCommunity, IconPencil, IconPlus, IconRestore } from '@tabler/icons-svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
 	import InfoPopover from '$lib/components/InfoPopover.svelte';
 	import {
@@ -317,8 +313,8 @@
 				</p>
 				<h2 class="font-serif text-3xl leading-none text-secondary-900">Organization Admin</h2>
 				<p class="max-w-3xl text-sm leading-6 text-secondary-800">
-					Create a new organization or manage organizations you already belong to from the
-					developer tools area.
+					Create a new organization or manage organizations you already belong to from the developer
+					tools area.
 				</p>
 			</div>
 		</div>
@@ -327,8 +323,8 @@
 	<div class="space-y-4 p-4">
 		<div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 			<p class="max-w-3xl text-sm text-neutral-950">
-				Use these controls to create a new organization or manage organizations you already
-				belong to.
+				Use these controls to create a new organization or manage organizations you already belong
+				to.
 			</p>
 			<div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
 				<button
@@ -353,8 +349,8 @@
 
 		{#if organizations.length === 0}
 			<div class="border border-neutral-950 bg-white p-3 text-sm text-neutral-950">
-				No active organization memberships were found yet. You can still create a new
-				organization from this page.
+				No active organization memberships were found yet. You can still create a new organization
+				from this page.
 			</div>
 		{/if}
 	</div>
@@ -483,7 +479,7 @@
 							<button
 								type="button"
 								tabindex="-1"
-								class="-translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
+								class="slug-revert-button -translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
 								aria-label="Revert organization slug to default"
 								onclick={() => {
 									createOrganizationSlugTouched = false;
@@ -549,22 +545,17 @@
 					</button>
 				</div>
 			</div>
-			<div class="border border-neutral-950 bg-white p-3">
-				<label class="inline-flex items-center gap-2 text-sm text-neutral-950">
-					<input
-						type="checkbox"
-						class="toggle-secondary"
-						checked={createOrganizationForm.selfJoinEnabled}
-						onchange={(event) => {
-							createOrganizationForm.selfJoinEnabled = (
-								event.currentTarget as HTMLInputElement
-							).checked;
-						}}
-					/>
-					Allow open self-join for `/<span class="font-semibold"
-						>{slugifyFinal(createOrganizationForm.organizationSlug) || 'organization-slug'}</span
-					>`
-				</label>
+			<div>
+				<ToggleField
+					id="toggle-createorganizationform-selfjoinenabled"
+					label={`Allow open self-join for \`/${slugifyFinal(createOrganizationForm.organizationSlug) || 'organization-slug'}\``}
+					checked={createOrganizationForm.selfJoinEnabled}
+					onchange={(event) => {
+						createOrganizationForm.selfJoinEnabled = (
+							event.currentTarget as HTMLInputElement
+						).checked;
+					}}
+				/>
 			</div>
 		</div>
 	{/if}
@@ -578,35 +569,29 @@
 				</p>
 			</div>
 			<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-				<div class="border border-neutral-950 bg-white p-3">
-					<label class="inline-flex items-center gap-2 text-sm text-neutral-950">
-						<input
-							type="checkbox"
-							class="toggle-secondary"
-							checked={createOrganizationForm.switchToOrganization}
-							onchange={(event) => {
-								createOrganizationForm.switchToOrganization = (
-									event.currentTarget as HTMLInputElement
-								).checked;
-							}}
-						/>
-						Switch to this organization after create
-					</label>
+				<div>
+					<ToggleField
+						id="toggle-createorganizationform-switchtoorganization"
+						label="Switch to this organization after create"
+						checked={createOrganizationForm.switchToOrganization}
+						onchange={(event) => {
+							createOrganizationForm.switchToOrganization = (
+								event.currentTarget as HTMLInputElement
+							).checked;
+						}}
+					/>
 				</div>
-				<div class="border border-neutral-950 bg-white p-3">
-					<label class="inline-flex items-center gap-2 text-sm text-neutral-950">
-						<input
-							type="checkbox"
-							class="toggle-secondary"
-							checked={createOrganizationForm.setDefaultOrganization}
-							onchange={(event) => {
-								createOrganizationForm.setDefaultOrganization = (
-									event.currentTarget as HTMLInputElement
-								).checked;
-							}}
-						/>
-						Set as my default organization
-					</label>
+				<div>
+					<ToggleField
+						id="toggle-createorganizationform-setdefaultorganization"
+						label="Set as my default organization"
+						checked={createOrganizationForm.setDefaultOrganization}
+						onchange={(event) => {
+							createOrganizationForm.setDefaultOrganization = (
+								event.currentTarget as HTMLInputElement
+							).checked;
+						}}
+					/>
 				</div>
 			</div>
 			<div>

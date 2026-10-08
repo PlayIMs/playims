@@ -138,7 +138,7 @@
 						<button
 							type="button"
 							tabindex="-1"
-							class="-translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
+							class="slug-revert-button -translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
 							aria-label="Revert facility slug to default"
 							onclick={() => {
 								onSlugTouchedChange(false);

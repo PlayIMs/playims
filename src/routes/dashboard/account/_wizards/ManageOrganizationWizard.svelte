@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ToggleField from '$lib/components/ToggleField.svelte';
 	import { IconDeviceFloppy, IconLogout, IconRestore, IconTarget } from '@tabler/icons-svelte';
 	import { createEventDispatcher, tick } from 'svelte';
 	import HoverTooltip from '$lib/components/HoverTooltip.svelte';
@@ -561,7 +562,7 @@
 								<button
 									type="button"
 									tabindex="-1"
-									class="-translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none disabled:cursor-not-allowed disabled:text-secondary-400"
+									class="slug-revert-button -translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none disabled:cursor-not-allowed disabled:text-secondary-400"
 									aria-label="Revert organization slug to default"
 									onclick={() => {
 										organizationSlug = normalizeSlug(organizationName);
@@ -576,19 +577,16 @@
 							<p class="text-xs text-error-700 mt-1">{fieldErrors['organizationSlug']}</p>
 						{/if}
 					</div>
-					<div class="md:col-span-2 border border-neutral-950 bg-neutral p-3">
-						<label class="inline-flex items-center gap-2 text-sm text-neutral-950">
-							<input
-								type="checkbox"
-								class="toggle-secondary"
-								checked={selfJoinEnabled}
-								onchange={(event) => {
-									selfJoinEnabled = (event.currentTarget as HTMLInputElement).checked;
-								}}
-								disabled={!canEditDetails || isSubmitting}
-							/>
-							Allow open self-join for `/{organizationSlug || 'organization-slug'}`
-						</label>
+					<div class="md:col-span-2">
+						<ToggleField
+							id="toggle-selfjoinenabled"
+							label={`Allow open self-join for \`/${organizationSlug || 'organization-slug'}\``}
+							checked={selfJoinEnabled}
+							onchange={(event) => {
+								selfJoinEnabled = (event.currentTarget as HTMLInputElement).checked;
+							}}
+							disabled={!canEditDetails || isSubmitting}
+						/>
 						{#if fieldErrors['selfJoinEnabled']}
 							<p class="text-xs text-error-700 mt-1">{fieldErrors['selfJoinEnabled']}</p>
 						{/if}

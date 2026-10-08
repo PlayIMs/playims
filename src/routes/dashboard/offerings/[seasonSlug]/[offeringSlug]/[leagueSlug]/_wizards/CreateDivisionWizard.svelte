@@ -5,10 +5,7 @@
 	import InfoPopover from '$lib/components/InfoPopover.svelte';
 	import ToggleField from '$lib/components/ToggleField.svelte';
 	import { inferPickerYearRange } from '$lib/components/date-picker.js';
-	import {
-		formatDivisionDays,
-		parseDivisionDays
-	} from '$lib/utils/division-schedule-inference.js';
+	import { formatDivisionDays, parseDivisionDays } from '$lib/utils/division-schedule-inference.js';
 	import {
 		WizardModal,
 		WizardStepFooter,
@@ -193,7 +190,7 @@
 						<button
 							type="button"
 							tabindex="-1"
-							class="-translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
+							class="slug-revert-button -translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
 							aria-label="Revert division slug to default"
 							onclick={() => {
 								onSlugTouchedChange(false);
@@ -274,13 +271,18 @@
 					}}
 				/>
 			{/key}
-			<p class="mt-2 text-xs font-semibold uppercase tracking-[0.08em] text-neutral-700" aria-live="polite">
+			<p
+				class="mt-2 text-xs font-semibold uppercase tracking-[0.08em] text-neutral-700"
+				aria-live="polite"
+			>
 				{selectedDaysSummary || 'No days selected yet'}
 			</p>
 		</div>
 
 		{#if showLocation || showStartDate}
-			<div class={`grid grid-cols-1 gap-4 ${showLocation && showStartDate ? 'lg:grid-cols-2' : ''}`}>
+			<div
+				class={`grid grid-cols-1 gap-4 ${showLocation && showStartDate ? 'lg:grid-cols-2' : ''}`}
+			>
 				{#if showStartDate}
 					<div>
 						<label for="create-division-start-date" class="mb-1 block text-sm text-neutral-950">
@@ -327,8 +329,9 @@
 		<ToggleField
 			id="create-division-locked"
 			label="Start this division locked"
+			onLabel="Locked"
+			offLabel="Unlocked"
 			checked={form.isLocked}
-			labelClass="text-base leading-6 font-normal text-neutral-950"
 			on:change={(event) => {
 				form.isLocked = event.detail.checked;
 			}}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ToggleField from '$lib/components/ToggleField.svelte';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { tick } from 'svelte';
 	import type { PageData } from './$types';
@@ -2877,15 +2878,11 @@
 																			);
 																		}}
 																	>
-																		<divisionStatus.icon
-																			class="h-4 w-4 opacity-50"
-																		/>
+																		<divisionStatus.icon class="h-4 w-4 opacity-50" />
 																	</button>
 																{:else}
 																	<span class="inline-flex text-neutral-950" aria-hidden="true">
-																		<divisionStatus.icon
-																			class="h-4 w-4 opacity-50"
-																		/>
+																		<divisionStatus.icon class="h-4 w-4 opacity-50" />
 																	</span>
 																{/if}
 															</HoverTooltip>
@@ -3251,7 +3248,7 @@
 								<button
 									type="button"
 									tabindex="-1"
-									class="-translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
+									class="slug-revert-button -translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
 									aria-label="Revert league slug to default"
 									onclick={() => {
 										createLeagueSlugTouched = false;
@@ -3358,21 +3355,18 @@
 				{/if}
 
 				<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-					<div class="space-y-3 border border-neutral-950 bg-white p-3">
-						<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-							<input
-								type="checkbox"
-								class="toggle-secondary"
-								bind:checked={createLeagueForm.league.hasPreseason}
-								onchange={() => {
-									if (!createLeagueForm.league.hasPreseason) {
-										createLeagueForm.league.preseasonStartDate = '';
-										createLeagueForm.league.preseasonEndDate = '';
-									}
-								}}
-							/>
-							Has Preseason
-						</label>
+					<div class="space-y-3">
+						<ToggleField
+							id="toggle-createleagueform-league-haspreseason"
+							label="Has Preseason"
+							bind:checked={createLeagueForm.league.hasPreseason}
+							onchange={() => {
+								if (!createLeagueForm.league.hasPreseason) {
+									createLeagueForm.league.preseasonStartDate = '';
+									createLeagueForm.league.preseasonEndDate = '';
+								}
+							}}
+						/>
 						{#if createLeagueForm.league.hasPreseason}
 							<div class="space-y-3">
 								<div>
@@ -3417,21 +3411,18 @@
 						{/if}
 					</div>
 
-					<div class="space-y-3 border border-neutral-950 bg-white p-3">
-						<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-							<input
-								type="checkbox"
-								class="toggle-secondary"
-								bind:checked={createLeagueForm.league.hasPostseason}
-								onchange={() => {
-									if (!createLeagueForm.league.hasPostseason) {
-										createLeagueForm.league.postseasonStartDate = '';
-										createLeagueForm.league.postseasonEndDate = '';
-									}
-								}}
-							/>
-							Has Postseason
-						</label>
+					<div class="space-y-3">
+						<ToggleField
+							id="toggle-createleagueform-league-haspostseason"
+							label="Has Postseason"
+							bind:checked={createLeagueForm.league.hasPostseason}
+							onchange={() => {
+								if (!createLeagueForm.league.hasPostseason) {
+									createLeagueForm.league.postseasonStartDate = '';
+									createLeagueForm.league.postseasonEndDate = '';
+								}
+							}}
+						/>
 						{#if createLeagueForm.league.hasPostseason}
 							<div class="space-y-3">
 								<div>
@@ -3478,25 +3469,23 @@
 				</div>
 
 				<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-					<div class="border border-neutral-950 bg-white p-3">
-						<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-							<input
-								type="checkbox"
-								class="toggle-secondary"
-								bind:checked={createLeagueForm.league.isActive}
-							/>
-							Active
-						</label>
+					<div>
+						<ToggleField
+							id="toggle-createleagueform-league-isactive"
+							label="Active"
+							onLabel="Active"
+							offLabel="Inactive"
+							bind:checked={createLeagueForm.league.isActive}
+						/>
 					</div>
-					<div class="border border-neutral-950 bg-white p-3">
-						<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-							<input
-								type="checkbox"
-								class="toggle-secondary"
-								bind:checked={createLeagueForm.league.isLocked}
-							/>
-							Locked
-						</label>
+					<div>
+						<ToggleField
+							id="toggle-createleagueform-league-islocked"
+							label="Locked"
+							onLabel="Locked"
+							offLabel="Unlocked"
+							bind:checked={createLeagueForm.league.isLocked}
+						/>
 					</div>
 				</div>
 

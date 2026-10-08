@@ -1,4 +1,6 @@
 <script lang="ts">
+	import ToggleField from '$lib/components/ToggleField.svelte';
+	import { getSeasonToggleStatus } from '$lib/utils/toggle-status.js';
 	import { invalidateAll } from '$app/navigation';
 	import { IconCalendar, IconHistory, IconRestore, IconTarget } from '@tabler/icons-svelte';
 	import DataTable from '$lib/components/DataTable.svelte';
@@ -1462,7 +1464,7 @@
 							<button
 								type="button"
 								tabindex="-1"
-								class="-translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
+								class="slug-revert-button -translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
 								aria-label="Revert league slug to default"
 								onclick={() => {
 									leagueSlugTouched = false;
@@ -1629,7 +1631,7 @@
 							<button
 								type="button"
 								tabindex="-1"
-								class="-translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
+								class="slug-revert-button -translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
 								aria-label="Revert season slug to default"
 								onclick={() => {
 									seasonSlugTouched = false;
@@ -1700,15 +1702,13 @@
 				</div>
 			</div>
 
-			<div class="border border-neutral-950 bg-white p-3">
-				<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-					<input
-						type="checkbox"
-						class="toggle-secondary"
-						bind:checked={createSeasonForm.isCurrent}
-					/>
-					Set as current club season
-				</label>
+			<div>
+				<ToggleField
+					id="toggle-createseasonform-iscurrent"
+					label="Set as current club season"
+					statusText={getSeasonToggleStatus(createSeasonForm.isCurrent, createSeasonForm.startDate)}
+					bind:checked={createSeasonForm.isCurrent}
+				/>
 			</div>
 		</div>
 	{/if}
@@ -1810,80 +1810,50 @@
 						</div>
 
 						<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-							<label
-								class="flex items-center gap-2 border border-neutral-950 bg-white p-3 text-sm text-neutral-950"
-							>
-								<input
-									type="checkbox"
-									class="toggle-secondary"
-									bind:checked={createSeasonCopy.includeClubs}
-									onchange={(event) => {
-										handleCopyClubsToggle((event.currentTarget as HTMLInputElement).checked);
-									}}
-								/>
-								Copy clubs
-							</label>
-							<label
-								class={`flex items-center gap-2 border border-neutral-950 bg-white p-3 text-sm text-neutral-950 ${!createSeasonCopy.includeClubs ? 'opacity-60' : ''}`}
-							>
-								<input
-									type="checkbox"
-									class="toggle-secondary"
-									checked={createSeasonCopy.includeLeagues}
-									disabled={!createSeasonCopy.includeClubs}
-									onchange={(event) => {
-										handleCopyLeaguesToggle((event.currentTarget as HTMLInputElement).checked);
-									}}
-								/>
-								Copy leagues
-							</label>
-							<label
-								class={`flex items-center gap-2 border border-neutral-950 bg-white p-3 text-sm text-neutral-950 ${!createSeasonCopy.includeLeagues ? 'opacity-60' : ''}`}
-							>
-								<input
-									type="checkbox"
-									class="toggle-secondary"
-									checked={createSeasonCopy.includeTeams}
-									disabled={!createSeasonCopy.includeLeagues}
-									onchange={(event) => {
-										handleCopyTeamsToggle((event.currentTarget as HTMLInputElement).checked);
-									}}
-								/>
-								Copy teams
-							</label>
-							<label
-								class={`flex items-center gap-2 border border-neutral-950 bg-white p-3 text-sm text-neutral-950 ${!createSeasonCopy.includeClubs ? 'opacity-60' : ''}`}
-							>
-								<input
-									type="checkbox"
-									class="toggle-secondary"
-									bind:checked={createSeasonCopy.includeOfficers}
-									disabled={!createSeasonCopy.includeClubs}
-								/>
-								Copy officers
-							</label>
-							<label
-								class={`flex items-center gap-2 border border-neutral-950 bg-white p-3 text-sm text-neutral-950 ${!createSeasonCopy.includeTeams ? 'opacity-60' : ''}`}
-							>
-								<input
-									type="checkbox"
-									class="toggle-secondary"
-									bind:checked={createSeasonCopy.includeRosters}
-									disabled={!createSeasonCopy.includeTeams}
-								/>
-								Copy rosters
-							</label>
-							<label
-								class={`flex items-center gap-2 border border-neutral-950 bg-white p-3 text-sm text-neutral-950 ${!createSeasonCopy.includeLeagues ? 'opacity-60' : ''}`}
-							>
-								<input
-									type="checkbox"
-									class="toggle-secondary"
-									bind:checked={createSeasonCopy.includeSchedules}
-									disabled={!createSeasonCopy.includeLeagues}
-								/>
-								Copy schedules
-							</label>
+							<ToggleField
+								id="toggle-createseasoncopy-includeclubs"
+								label="Copy clubs"
+								bind:checked={createSeasonCopy.includeClubs}
+								onchange={(event) => {
+									handleCopyClubsToggle((event.currentTarget as HTMLInputElement).checked);
+								}}
+							/>
+							<ToggleField
+								id="toggle-createseasoncopy-includeleagues"
+								label="Copy leagues"
+								checked={createSeasonCopy.includeLeagues}
+								disabled={!createSeasonCopy.includeClubs}
+								onchange={(event) => {
+									handleCopyLeaguesToggle((event.currentTarget as HTMLInputElement).checked);
+								}}
+							/>
+							<ToggleField
+								id="toggle-createseasoncopy-includeteams"
+								label="Copy teams"
+								checked={createSeasonCopy.includeTeams}
+								disabled={!createSeasonCopy.includeLeagues}
+								onchange={(event) => {
+									handleCopyTeamsToggle((event.currentTarget as HTMLInputElement).checked);
+								}}
+							/>
+							<ToggleField
+								id="toggle-createseasoncopy-includeofficers"
+								label="Copy officers"
+								bind:checked={createSeasonCopy.includeOfficers}
+								disabled={!createSeasonCopy.includeClubs}
+							/>
+							<ToggleField
+								id="toggle-createseasoncopy-includerosters"
+								label="Copy rosters"
+								bind:checked={createSeasonCopy.includeRosters}
+								disabled={!createSeasonCopy.includeTeams}
+							/>
+							<ToggleField
+								id="toggle-createseasoncopy-includeschedules"
+								label="Copy schedules"
+								bind:checked={createSeasonCopy.includeSchedules}
+								disabled={!createSeasonCopy.includeLeagues}
+							/>
 						</div>
 
 						{#if createSeasonFieldErrors['copy.includeClubs']}
@@ -2096,7 +2066,7 @@
 							<button
 								type="button"
 								tabindex="-1"
-								class="-translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
+								class="slug-revert-button -translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
 								aria-label="Revert club slug to default"
 								onclick={() => {
 									clubSlugTouched = false;

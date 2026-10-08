@@ -15,7 +15,7 @@ header strip, shared footer actions, and no broader redesign of the dashboard sh
 - `WizardUnsavedConfirm`: unsaved changes confirmation built on `ModalShell`.
 - `WizardDraftCollection`: shared list UI for draft entities.
 - `InfoPopover`: reusable info/help popover trigger for paragraph-heavy helper text.
-- `ToggleField`: reusable bordered toggle row for wizard checkbox/switch fields with label content.
+- `ToggleField`: shared toggle field with its label above a standard-height bordered control and live state text beside the switch. Use `onLabel`/`offLabel` for states such as Active/Inactive, or `statusText` for a computed state. Supports `bind:checked`, native `onchange`, and existing `on:change` callbacks. Keep descriptions below the control, not inside its height.
 - `DayOfWeekButtonGroup`: reusable bordered weekday selector for one-or-more day scheduling fields.
 - Compact icon-only wizard actions should reuse shared helpers such as `dashboard-icon-button`
   where they already fit the UI pattern.

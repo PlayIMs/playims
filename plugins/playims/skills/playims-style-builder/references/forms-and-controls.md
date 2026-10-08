@@ -74,6 +74,7 @@ Use this exact pattern for slug fields in wizards:
 2. Input class: `input-secondary pr-10`.
 3. Revert icon in `HoverTooltip` with text `Revert to default`.
 4. Revert button style:
+   - Include `slug-revert-button` to inherit shared enabled/disabled cursor styling from `app.css`.
    - `-translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none`
 5. Revert button `tabindex="-1"` to keep main field flow.
 6. Revert action resets slug touched/manual flags and regenerates default slug.
@@ -82,11 +83,11 @@ Use this exact pattern for slug fields in wizards:
 
 - Toggles use `toggle-secondary`.
 - Radios use `radio-secondary`.
-- Use `src/lib/components/ToggleField.svelte` for bordered toggle rows where the switch sits inside the same field shell as its label content.
+- Use `src/lib/components/ToggleField.svelte` for toggle fields. The setting label belongs above the shell; the live state text belongs beside the switch inside it.
 - Use `src/lib/components/DayOfWeekButtonGroup.svelte` for fast weekday selection when a schedule field may include one day, multiple days, or a weekday range.
 - `ToggleField` is the default pattern for wizard/admin controls such as `Start this division locked` or `Add this team to the waitlist`.
 - Default posture: make the bordered toggle shell visually match `input-secondary` sizing and border treatment.
-- `ToggleField` supports label placement on either side of the toggle; prefer label text on the right unless the layout has a clear reason to invert it.
+- Use `onLabel`/`offLabel` for explicit state pairs (Active/Inactive, Locked/Unlocked), or `statusText` for computed values. Do not add route-local borders or padding around a toggle-only field. Put explanatory descriptions below the control so its height stays uniform.
 - Selection cards should remain squared (`border`, `bg-white`/`bg-secondary-50`), while radio circles stay circular per `app.css`.
 - Button-based weekday selectors should keep a bordered field shell, use a 7-option toggle grid, reflect multiple selected days when needed, and allow clearing back to no selection when the field is not required.
 

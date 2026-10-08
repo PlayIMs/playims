@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ToggleField from '$lib/components/ToggleField.svelte';
 	import { applyAction, enhance } from '$app/forms';
 	import type { ActionResult } from '@sveltejs/kit';
 	import {
@@ -379,23 +380,20 @@
 							</p>
 						</div>
 
-						<div class="border border-neutral-950 bg-white p-4 space-y-2">
-							<label class="inline-flex items-center gap-2 text-sm text-neutral-950">
-								<input
-									type="checkbox"
-									name="selfJoinEnabled"
-									value="1"
-									class="toggle-secondary"
-									checked={organizationForm.selfJoinEnabled}
-									onchange={(event) => {
-										organizationForm.selfJoinEnabled = (
-											event.currentTarget as HTMLInputElement
-										).checked;
-									}}
-									disabled={!data.canEditOrganization || saveSubmitting}
-								/>
-								Allow open self-join for `{joinPath}`
-							</label>
+						<div class="space-y-2">
+							<ToggleField
+								id="toggle-organizationform-selfjoinenabled"
+								label={`Allow open self-join for \`${joinPath}\``}
+								name="selfJoinEnabled"
+								value="1"
+								checked={organizationForm.selfJoinEnabled}
+								onchange={(event) => {
+									organizationForm.selfJoinEnabled = (
+										event.currentTarget as HTMLInputElement
+									).checked;
+								}}
+								disabled={!data.canEditOrganization || saveSubmitting}
+							/>
 							<p class="text-xs text-neutral-950">
 								When enabled, new members can use the public organization slug to join without an
 								invite.

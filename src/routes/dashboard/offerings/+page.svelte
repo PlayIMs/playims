@@ -3,6 +3,8 @@
 	import { onDestroy, tick } from 'svelte';
 	import PageTitle from '$lib/components/PageTitle.svelte';
 	import DatePicker from '$lib/components/DatePicker.svelte';
+	import ToggleField from '$lib/components/ToggleField.svelte';
+	import { getSeasonToggleStatus } from '$lib/utils/toggle-status.js';
 	import LeagueScheduleFields from '$lib/components/wizard/LeagueScheduleFields.svelte';
 	import { inferPickerYearRange } from '$lib/components/date-picker.js';
 	import {
@@ -64,10 +66,10 @@
 	} from '$lib/components/data-table.js';
 	import { buildPreviousOfferingLinkChoices } from '$lib/utils/offering-linking.js';
 	import {
-		getCurrentAcademicSeasonLabel,
 		inferAcademicSeasonRangeFromName,
 		resolveAcademicSeasonEndDate
 	} from '$lib/utils/academic-season.js';
+	import { getUpcomingSeasonName } from '$lib/utils/season-defaults.js';
 	import {
 		buildOfferingTimelineGroups,
 		formatTimelineRelativeDayLabel,
@@ -386,7 +388,7 @@
 		'button-primary-outlined h-[1.875rem] px-2 text-xs font-bold uppercase tracking-wide cursor-pointer';
 	const HEADER_SPLIT_ADD_MENU_BUTTON_CLASS =
 		'button-primary-outlined -ml-[2px] h-[1.875rem] px-1 cursor-pointer';
-	const DEFAULT_ACADEMIC_SEASON_PLACEHOLDER = getCurrentAcademicSeasonLabel();
+	let seasonNamePlaceholder = $state(getUpcomingSeasonName());
 	const FORM_DROPDOWN_BUTTON_CLASS =
 		'w-full border-2 border-secondary-400 bg-white px-4 py-2 text-base leading-6 font-normal text-neutral-950 cursor-pointer inline-flex items-center justify-between gap-2 hover:bg-white focus:outline-none focus-visible:outline-none focus-visible:border-secondary-500 focus-visible:ring-0 focus-visible:shadow-[0_0_0_1px_var(--color-secondary-500)] disabled:cursor-not-allowed disabled:opacity-60';
 	let { data } = $props<{ data: PageData }>();
@@ -1203,6 +1205,7 @@
 	}
 
 	function resetCreateSeasonWizard(): void {
+		seasonNamePlaceholder = getUpcomingSeasonName();
 		const baseForm = createEmptySeasonForm(seasons.length === 0);
 		const defaultCopySourceSeasonId =
 			selectedSeasonId && seasons.some((season) => season.id === selectedSeasonId)
@@ -6675,7 +6678,7 @@
 						data-wizard-autofocus
 						class="input-secondary"
 						value={createSeasonForm.name}
-						placeholder={DEFAULT_ACADEMIC_SEASON_PLACEHOLDER}
+						placeholder={seasonNamePlaceholder}
 						oninput={(event) => {
 							const value = (event.currentTarget as HTMLInputElement).value;
 							createSeasonForm.name = value;
@@ -6713,7 +6716,7 @@
 							type="text"
 							class="input-secondary pr-10"
 							value={createSeasonForm.slug}
-							placeholder={DEFAULT_ACADEMIC_SEASON_PLACEHOLDER}
+							placeholder={slugifyFinal(seasonNamePlaceholder)}
 							oninput={(event) => {
 								seasonSlugTouched = true;
 								createSeasonForm.slug = applyLiveSlugInput(event.currentTarget as HTMLInputElement);
@@ -6727,7 +6730,7 @@
 							<button
 								type="button"
 								tabindex="-1"
-								class="-translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
+								class="slug-revert-button -translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
 								aria-label="Revert season slug to default"
 								onclick={() => {
 									seasonSlugTouched = false;
@@ -6742,87 +6745,91 @@
 						<p class="text-xs text-error-700 mt-1">{createSeasonFieldErrors['season.slug']}</p>
 					{/if}
 				</div>
-				<div>
-					<label for="season-start-date" class="block text-sm font-sans text-neutral-950 mb-1">
-						Start Date <span class="text-error-700">*</span>
-					</label>
-					<DatePicker
-						id="season-start-date"
-						type="date"
-						minYear={createSeasonDateYearRange.minYear}
-						maxYear={createSeasonDateYearRange.maxYear}
-						inputClass="input-secondary py-2 text-sm"
-						on:input={(event) => {
-							const nextStartDate = event.detail.value;
-							createSeasonStartDateTouched = true;
-							createSeasonForm.startDate = nextStartDate;
-							syncCreateSeasonEndDateFromStart(nextStartDate);
-						}}
-						on:change={(event) => {
-							const nextStartDate = event.detail.value;
-							createSeasonStartDateTouched = true;
-							createSeasonForm.startDate = nextStartDate;
-							syncCreateSeasonEndDateFromStart(nextStartDate);
-						}}
-						bind:value={createSeasonForm.startDate}
-					/>
-					{#if createSeasonFieldErrors['season.startDate']}
-						<p class="text-xs text-error-700 mt-1">{createSeasonFieldErrors['season.startDate']}</p>
-					{/if}
-				</div>
-				<div>
-					<label for="season-end-date" class="block text-sm font-sans text-neutral-950 mb-1">
-						End Date
-					</label>
-					<DatePicker
-						id="season-end-date"
-						type="date"
-						minYear={createSeasonDateYearRange.minYear}
-						maxYear={createSeasonDateYearRange.maxYear}
-						inputClass="input-secondary py-2 text-sm"
-						bind:inputElement={createSeasonEndDateInput}
-						on:input={(event) => {
-							createSeasonEndDateTouched = true;
-							createSeasonForm.endDate = event.detail.value;
-						}}
-						on:change={(event) => {
-							createSeasonEndDateTouched = true;
-							createSeasonForm.endDate = event.detail.value;
-						}}
-						bind:value={createSeasonForm.endDate}
-					/>
-					{#if createSeasonFieldErrors['season.endDate']}
-						<p class="text-xs text-error-700 mt-1">{createSeasonFieldErrors['season.endDate']}</p>
-					{/if}
-				</div>
 			</div>
-			<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-				<div class="border border-neutral-950 bg-white p-3">
-					<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-						<input
-							type="checkbox"
-							class="toggle-secondary"
-							bind:checked={createSeasonForm.isCurrent}
-							onkeydown={focusCreateSeasonEndDateOnReverseTab}
-							onchange={() => {
-								if (!createSeasonForm.isCurrent) {
-									createSeasonReplaceExistingCurrent = true;
-									createSeasonDeactivateExistingCurrent = false;
-								}
+			<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+				<div data-season-date-fields class="grid grid-cols-2 gap-3">
+					<div>
+						<label for="season-start-date" class="block text-sm font-sans text-neutral-950 mb-1">
+							Start Date <span class="text-error-700">*</span>
+						</label>
+						<DatePicker
+							id="season-start-date"
+							type="date"
+							minYear={createSeasonDateYearRange.minYear}
+							maxYear={createSeasonDateYearRange.maxYear}
+							inputClass="input-secondary py-2 text-sm"
+							on:input={(event) => {
+								const nextStartDate = event.detail.value;
+								createSeasonStartDateTouched = true;
+								createSeasonForm.startDate = nextStartDate;
+								syncCreateSeasonEndDateFromStart(nextStartDate);
 							}}
+							on:change={(event) => {
+								const nextStartDate = event.detail.value;
+								createSeasonStartDateTouched = true;
+								createSeasonForm.startDate = nextStartDate;
+								syncCreateSeasonEndDateFromStart(nextStartDate);
+							}}
+							bind:value={createSeasonForm.startDate}
 						/>
-						Set as current season
-					</label>
+						{#if createSeasonFieldErrors['season.startDate']}
+							<p class="text-xs text-error-700 mt-1">
+								{createSeasonFieldErrors['season.startDate']}
+							</p>
+						{/if}
+					</div>
+					<div>
+						<label for="season-end-date" class="block text-sm font-sans text-neutral-950 mb-1">
+							End Date
+						</label>
+						<DatePicker
+							id="season-end-date"
+							type="date"
+							minYear={createSeasonDateYearRange.minYear}
+							maxYear={createSeasonDateYearRange.maxYear}
+							inputClass="input-secondary py-2 text-sm"
+							bind:inputElement={createSeasonEndDateInput}
+							on:input={(event) => {
+								createSeasonEndDateTouched = true;
+								createSeasonForm.endDate = event.detail.value;
+							}}
+							on:change={(event) => {
+								createSeasonEndDateTouched = true;
+								createSeasonForm.endDate = event.detail.value;
+							}}
+							bind:value={createSeasonForm.endDate}
+						/>
+						{#if createSeasonFieldErrors['season.endDate']}
+							<p class="text-xs text-error-700 mt-1">{createSeasonFieldErrors['season.endDate']}</p>
+						{/if}
+					</div>
 				</div>
-				<div class="border border-neutral-950 bg-white p-3">
-					<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-						<input
-							type="checkbox"
-							class="toggle-secondary"
-							bind:checked={createSeasonForm.isActive}
-						/>
-						Active
-					</label>
+				<div data-season-status-fields class="grid grid-cols-2 items-start gap-3">
+					<ToggleField
+						id="season-is-current"
+						label="Make Current Season"
+						statusText={getSeasonToggleStatus(
+							createSeasonForm.isCurrent,
+							createSeasonForm.startDate
+						)}
+						checked={createSeasonForm.isCurrent}
+						onkeydown={focusCreateSeasonEndDateOnReverseTab}
+						on:change={(event) => {
+							createSeasonForm.isCurrent = event.detail.checked;
+							if (!createSeasonForm.isCurrent) {
+								createSeasonReplaceExistingCurrent = true;
+								createSeasonDeactivateExistingCurrent = false;
+							}
+						}}
+					/>
+					<ToggleField
+						id="season-is-active"
+						label="Active"
+						onLabel="Active"
+						offLabel="Inactive"
+						checked={createSeasonForm.isActive}
+						on:change={(event) => (createSeasonForm.isActive = event.detail.checked)}
+					/>
 				</div>
 			</div>
 		</div>
@@ -7003,16 +7010,13 @@
 							</div>
 						</fieldset>
 
-						<div class="border border-neutral-950 bg-white p-2.5">
-							<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-								<input
-									type="checkbox"
-									class="toggle-secondary"
-									bind:checked={createSeasonCopy.includeDivisions}
-									disabled={createSeasonCopy.scope === 'offerings-only'}
-								/>
-								{createSeasonCopyDivisionsToggleLabel}
-							</label>
+						<div>
+							<ToggleField
+								id="toggle-createseasoncopy-includedivisions"
+								label={`${createSeasonCopyDivisionsToggleLabel}`}
+								bind:checked={createSeasonCopy.includeDivisions}
+								disabled={createSeasonCopy.scope === 'offerings-only'}
+							/>
 							{#if createSeasonFieldErrors['copyOptions.includeDivisions']}
 								<p class="text-xs text-error-700 mt-1">
 									{createSeasonFieldErrors['copyOptions.includeDivisions']}
@@ -7183,15 +7187,12 @@
 
 					{#if createSeasonReplaceExistingCurrent}
 						{#if existingCurrentSeason.isActive}
-							<div class="border border-neutral-950 bg-neutral p-3">
-								<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-									<input
-										type="checkbox"
-										class="toggle-secondary"
-										bind:checked={createSeasonDeactivateExistingCurrent}
-									/>
-									Also mark "{existingCurrentSeason.name}" as inactive
-								</label>
+							<div>
+								<ToggleField
+									id="toggle-createseasondeactivateexistingcurrent"
+									label={`Also mark "${existingCurrentSeason.name}" as inactive`}
+									bind:checked={createSeasonDeactivateExistingCurrent}
+								/>
 							</div>
 						{:else}
 							<p class="text-xs text-neutral-900">
@@ -7405,7 +7406,7 @@
 						<button
 							type="button"
 							tabindex="-1"
-							class="-translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
+							class="slug-revert-button -translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
 							aria-label="Revert offering slug to default"
 							onclick={() => {
 								offeringSlugTouched = false;
@@ -7560,16 +7561,15 @@
 			{/if}
 		</div>
 
-		<div class="border border-neutral-950 bg-white p-3">
-			<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-				<input
-					type="checkbox"
-					class="toggle-secondary"
-					bind:checked={editOfferingForm.isActive}
-					onchange={clearEditOfferingApiErrors}
-				/>
-				Active
-			</label>
+		<div>
+			<ToggleField
+				id="toggle-editofferingform-isactive"
+				label="Active"
+				onLabel="Active"
+				offLabel="Inactive"
+				bind:checked={editOfferingForm.isActive}
+				onchange={clearEditOfferingApiErrors}
+			/>
 		</div>
 	</div>
 
@@ -8362,7 +8362,7 @@
 								<button
 									type="button"
 									tabindex="-1"
-									class="-translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
+									class="slug-revert-button -translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
 									aria-label="Revert league slug to default"
 									onclick={() => {
 										const offeringName = selectedLeagueWizardOffering?.name ?? '';
@@ -8482,21 +8482,18 @@
 				{/if}
 
 				<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-					<div class="border border-neutral-950 bg-white p-3 space-y-3">
-						<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-							<input
-								type="checkbox"
-								class="toggle-secondary"
-								bind:checked={createLeagueForm.league.hasPreseason}
-								onchange={() => {
-									if (!createLeagueForm.league.hasPreseason) {
-										createLeagueForm.league.preseasonStartDate = '';
-										createLeagueForm.league.preseasonEndDate = '';
-									}
-								}}
-							/>
-							Has Preseason
-						</label>
+					<div class="space-y-3">
+						<ToggleField
+							id="toggle-createleagueform-league-haspreseason"
+							label="Has Preseason"
+							bind:checked={createLeagueForm.league.hasPreseason}
+							onchange={() => {
+								if (!createLeagueForm.league.hasPreseason) {
+									createLeagueForm.league.preseasonStartDate = '';
+									createLeagueForm.league.preseasonEndDate = '';
+								}
+							}}
+						/>
 						{#if createLeagueForm.league.hasPreseason}
 							<div class="space-y-3">
 								<div>
@@ -8541,21 +8538,18 @@
 						{/if}
 					</div>
 
-					<div class="border border-neutral-950 bg-white p-3 space-y-3">
-						<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-							<input
-								type="checkbox"
-								class="toggle-secondary"
-								bind:checked={createLeagueForm.league.hasPostseason}
-								onchange={() => {
-									if (!createLeagueForm.league.hasPostseason) {
-										createLeagueForm.league.postseasonStartDate = '';
-										createLeagueForm.league.postseasonEndDate = '';
-									}
-								}}
-							/>
-							Has Postseason
-						</label>
+					<div class="space-y-3">
+						<ToggleField
+							id="toggle-createleagueform-league-haspostseason"
+							label="Has Postseason"
+							bind:checked={createLeagueForm.league.hasPostseason}
+							onchange={() => {
+								if (!createLeagueForm.league.hasPostseason) {
+									createLeagueForm.league.postseasonStartDate = '';
+									createLeagueForm.league.postseasonEndDate = '';
+								}
+							}}
+						/>
 						{#if createLeagueForm.league.hasPostseason}
 							<div class="space-y-3">
 								<div>
@@ -8602,25 +8596,23 @@
 				</div>
 
 				<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-					<div class="border border-neutral-950 bg-white p-3">
-						<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-							<input
-								type="checkbox"
-								class="toggle-secondary"
-								bind:checked={createLeagueForm.league.isActive}
-							/>
-							Active
-						</label>
+					<div>
+						<ToggleField
+							id="toggle-createleagueform-league-isactive"
+							label="Active"
+							onLabel="Active"
+							offLabel="Inactive"
+							bind:checked={createLeagueForm.league.isActive}
+						/>
 					</div>
-					<div class="border border-neutral-950 bg-white p-3">
-						<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-							<input
-								type="checkbox"
-								class="toggle-secondary"
-								bind:checked={createLeagueForm.league.isLocked}
-							/>
-							Locked
-						</label>
+					<div>
+						<ToggleField
+							id="toggle-createleagueform-league-islocked"
+							label="Locked"
+							onLabel="Locked"
+							offLabel="Unlocked"
+							bind:checked={createLeagueForm.league.isLocked}
+						/>
 					</div>
 				</div>
 
@@ -8905,7 +8897,7 @@
 								<button
 									type="button"
 									tabindex="-1"
-									class="-translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
+									class="slug-revert-button -translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
 									aria-label="Revert offering slug to default"
 									onclick={() => {
 										offeringSlugTouched = false;
@@ -9150,15 +9142,14 @@
 				</div>
 			</div>
 
-			<div class="border border-neutral-950 bg-white p-3">
-				<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-					<input
-						type="checkbox"
-						class="toggle-secondary"
-						bind:checked={createForm.offering.isActive}
-					/>
-					Active
-				</label>
+			<div>
+				<ToggleField
+					id="toggle-createform-offering-isactive"
+					label="Active"
+					onLabel="Active"
+					offLabel="Inactive"
+					bind:checked={createForm.offering.isActive}
+				/>
 			</div>
 		</div>
 	{/if}
@@ -9323,7 +9314,7 @@
 								<button
 									type="button"
 									tabindex="-1"
-									class="-translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
+									class="slug-revert-button -translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
 									aria-label="Revert league slug to default"
 									onclick={() => {
 										leagueSlugTouched = false;
@@ -9438,21 +9429,18 @@
 				{/if}
 
 				<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-					<div class="border border-neutral-950 bg-white p-3 space-y-3">
-						<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-							<input
-								type="checkbox"
-								class="toggle-secondary"
-								bind:checked={createForm.league.hasPreseason}
-								onchange={() => {
-									if (!createForm.league.hasPreseason) {
-										createForm.league.preseasonStartDate = '';
-										createForm.league.preseasonEndDate = '';
-									}
-								}}
-							/>
-							Has Preseason
-						</label>
+					<div class="space-y-3">
+						<ToggleField
+							id="toggle-createform-league-haspreseason"
+							label="Has Preseason"
+							bind:checked={createForm.league.hasPreseason}
+							onchange={() => {
+								if (!createForm.league.hasPreseason) {
+									createForm.league.preseasonStartDate = '';
+									createForm.league.preseasonEndDate = '';
+								}
+							}}
+						/>
 						{#if createForm.league.hasPreseason}
 							<div class="space-y-3">
 								<div>
@@ -9497,21 +9485,18 @@
 						{/if}
 					</div>
 
-					<div class="border border-neutral-950 bg-white p-3 space-y-3">
-						<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-							<input
-								type="checkbox"
-								class="toggle-secondary"
-								bind:checked={createForm.league.hasPostseason}
-								onchange={() => {
-									if (!createForm.league.hasPostseason) {
-										createForm.league.postseasonStartDate = '';
-										createForm.league.postseasonEndDate = '';
-									}
-								}}
-							/>
-							Has Postseason
-						</label>
+					<div class="space-y-3">
+						<ToggleField
+							id="toggle-createform-league-haspostseason"
+							label="Has Postseason"
+							bind:checked={createForm.league.hasPostseason}
+							onchange={() => {
+								if (!createForm.league.hasPostseason) {
+									createForm.league.postseasonStartDate = '';
+									createForm.league.postseasonEndDate = '';
+								}
+							}}
+						/>
 						{#if createForm.league.hasPostseason}
 							<div class="space-y-3">
 								<div>
@@ -9558,25 +9543,23 @@
 				</div>
 
 				<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-					<div class="border border-neutral-950 bg-white p-3">
-						<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-							<input
-								type="checkbox"
-								class="toggle-secondary"
-								bind:checked={createForm.league.isActive}
-							/>
-							Active
-						</label>
+					<div>
+						<ToggleField
+							id="toggle-createform-league-isactive"
+							label="Active"
+							onLabel="Active"
+							offLabel="Inactive"
+							bind:checked={createForm.league.isActive}
+						/>
 					</div>
-					<div class="border border-neutral-950 bg-white p-3">
-						<label class="inline-flex items-center gap-2 text-sm font-sans text-neutral-950">
-							<input
-								type="checkbox"
-								class="toggle-secondary"
-								bind:checked={createForm.league.isLocked}
-							/>
-							Locked
-						</label>
+					<div>
+						<ToggleField
+							id="toggle-createform-league-islocked"
+							label="Locked"
+							onLabel="Locked"
+							offLabel="Unlocked"
+							bind:checked={createForm.league.isLocked}
+						/>
 					</div>
 				</div>
 

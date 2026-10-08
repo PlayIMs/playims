@@ -5,10 +5,7 @@
 	import InfoPopover from '$lib/components/InfoPopover.svelte';
 	import ToggleField from '$lib/components/ToggleField.svelte';
 	import { inferPickerYearRange } from '$lib/components/date-picker.js';
-	import {
-		formatDivisionDays,
-		parseDivisionDays
-	} from '$lib/utils/division-schedule-inference.js';
+	import { formatDivisionDays, parseDivisionDays } from '$lib/utils/division-schedule-inference.js';
 	import {
 		getCreateDivisionWizardNextLabel,
 		getCreateDivisionWizardStepTitle,
@@ -143,7 +140,9 @@
 		inferPickerYearRange([form.startDate], { pastYears: 1, futureYears: 4 })
 	);
 	const formClass = $derived.by(() =>
-		step === 2 ? 'p-4 space-y-5 flex-1 min-h-0 overflow-hidden' : 'p-4 space-y-5 flex-1 min-h-0 overflow-y-auto'
+		step === 2
+			? 'p-4 space-y-5 flex-1 min-h-0 overflow-hidden'
+			: 'p-4 space-y-5 flex-1 min-h-0 overflow-y-auto'
 	);
 
 	function divisionStatusLabel(division: DivisionWizardDraft): string {
@@ -256,7 +255,7 @@
 								<button
 									type="button"
 									tabindex="-1"
-									class="-translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
+									class="slug-revert-button -translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
 									aria-label="Revert division slug to default"
 									onclick={() => {
 										onSlugTouchedChange(false);
@@ -348,13 +347,12 @@
 				</div>
 
 				{#if showLocation || showStartDate}
-					<div class={`grid grid-cols-1 gap-4 ${showLocation && showStartDate ? 'lg:grid-cols-2' : ''}`}>
+					<div
+						class={`grid grid-cols-1 gap-4 ${showLocation && showStartDate ? 'lg:grid-cols-2' : ''}`}
+					>
 						{#if showStartDate}
 							<div>
-								<label
-									for="create-division-start-date"
-									class="mb-1 block text-sm text-neutral-950"
-								>
+								<label for="create-division-start-date" class="mb-1 block text-sm text-neutral-950">
 									Start Date
 								</label>
 								<DatePicker
@@ -369,10 +367,7 @@
 						{/if}
 						{#if showLocation}
 							<div>
-								<label
-									for="create-division-location"
-									class="mb-1 block text-sm text-neutral-950"
-								>
+								<label for="create-division-location" class="mb-1 block text-sm text-neutral-950">
 									Location
 								</label>
 								<input
@@ -388,10 +383,7 @@
 				{/if}
 
 				<div>
-					<label
-						for="create-division-description"
-						class="mb-1 block text-sm text-neutral-950"
-					>
+					<label for="create-division-description" class="mb-1 block text-sm text-neutral-950">
 						Description
 					</label>
 					<textarea
@@ -404,8 +396,9 @@
 				<ToggleField
 					id="create-division-locked"
 					label="Start this division locked"
+					onLabel="Locked"
+					offLabel="Unlocked"
 					checked={form.isLocked}
-					labelClass="text-base leading-6 font-normal text-neutral-950"
 					on:change={(event) => {
 						form.isLocked = event.detail.checked;
 					}}
@@ -429,7 +422,7 @@
 					itemSingular="division"
 					itemPlural="divisions"
 					items={drafts}
-					draftActive={draftActive}
+					{draftActive}
 					emptyMessage="No divisions added yet. Use the plus button to add one."
 					onAdd={onAddDraft}
 					onEdit={onEditDraft}
@@ -516,7 +509,9 @@
 									</p>
 									<p class="text-xs text-neutral-900">Slug: {division.slug || 'TBD'}</p>
 								</div>
-								<div class="grid grid-cols-1 gap-x-3 gap-y-1 text-xs text-neutral-950 sm:grid-cols-2">
+								<div
+									class="grid grid-cols-1 gap-x-3 gap-y-1 text-xs text-neutral-950 sm:grid-cols-2"
+								>
 									<p><span class="font-semibold">Day(s):</span> {division.dayOfWeek || 'TBD'}</p>
 									<p>
 										<span class="font-semibold">Game Time(s):</span>
@@ -528,7 +523,10 @@
 										{divisionStatusLabel(division)}
 									</p>
 									{#if showStartDate && division.startDate.trim()}
-										<p><span class="font-semibold">Start Date:</span> {division.startDate.trim()}</p>
+										<p>
+											<span class="font-semibold">Start Date:</span>
+											{division.startDate.trim()}
+										</p>
 									{/if}
 									{#if showLocation && division.location.trim()}
 										<p><span class="font-semibold">Location:</span> {division.location.trim()}</p>
@@ -550,7 +548,7 @@
 
 	{#snippet footer()}
 		<WizardStepFooter
-			step={step}
+			{step}
 			lastStep={3}
 			showBack={step > 1}
 			{canGoNext}

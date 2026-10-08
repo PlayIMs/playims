@@ -176,7 +176,7 @@
 						<button
 							type="button"
 							tabindex="-1"
-							class="-translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
+							class="slug-revert-button -translate-y-1/2 inline-flex h-5 w-5 items-center justify-center border-0 bg-transparent text-secondary-700 hover:text-secondary-900 focus:outline-none"
 							aria-label="Revert team slug to default"
 							onclick={() => {
 								onSlugTouchedChange(false);
@@ -221,12 +221,12 @@
 
 			<div>
 				<div class="mb-1 flex min-h-6 items-center gap-1.5">
-					<p class="text-sm leading-6 text-neutral-950">
-						Waitlist
-					</p>
+					<p class="text-sm leading-6 text-neutral-950">Waitlist</p>
 					<InfoPopover buttonVariant="label-inline" buttonAriaLabel="Waitlist help">
 						<div class="space-y-2">
-							<p>Turn this on to keep the team tied to the division without using an active slot.</p>
+							<p>
+								Turn this on to keep the team tied to the division without using an active slot.
+							</p>
 							<p>Full or locked divisions default new teams to the waitlist.</p>
 						</div>
 					</InfoPopover>
@@ -234,8 +234,9 @@
 				<ToggleField
 					id="create-team-waitlist"
 					label="Add this team to the waitlist"
+					onLabel="Waitlist"
+					offLabel="Active Roster"
 					checked={form.placement === 'waitlist'}
-					labelClass="text-base leading-6 font-normal text-neutral-950"
 					on:change={(event) => {
 						onWaitlistChange(event.detail.checked);
 					}}
@@ -243,14 +244,12 @@
 					{#if selectedDivisionStatus?.defaultsToWaitlist}
 						{#snippet description()}
 							{#if selectedDivisionStatus.isLocked && selectedDivisionStatus.isFull}
-								{selectedDivisionStatus.name} is locked and already full, so new teams should
-								start on the waitlist.
-							{:else if selectedDivisionStatus.isLocked}
-								{selectedDivisionStatus.name} is locked, so new teams should start on the
-								waitlist.
-							{:else}
-								{selectedDivisionStatus.name} is already full, so new teams should start on
+								{selectedDivisionStatus.name} is locked and already full, so new teams should start on
 								the waitlist.
+							{:else if selectedDivisionStatus.isLocked}
+								{selectedDivisionStatus.name} is locked, so new teams should start on the waitlist.
+							{:else}
+								{selectedDivisionStatus.name} is already full, so new teams should start on the waitlist.
 							{/if}
 						{/snippet}
 					{/if}
